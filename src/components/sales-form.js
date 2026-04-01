@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { IoTrash } from "react-icons/io5";
 import API_BASE_URL from '../utils/api-controller';
 import getHeaders from '../utils/get-headers';
+import DatePickerComponent from './DatePickerComponent';
 
 const appSettings = {
     company_name: 'Professional Accounting Services',
@@ -110,7 +111,7 @@ const SaleForm = ({
                 headers: getHeaders()
             });
             const data = await response.json();
-            console.log('Bank API Response:', data); // Debug log to see actual response structure
+            console.log('Bank API Response:', data);
             
             if (data.success && data.data) {
                 const formattedBanks = data.data.map(bank => ({
@@ -124,7 +125,7 @@ const SaleForm = ({
                     balance: bank.balance || bank.current_balance || 0
                 }));
                 setBankOptions(formattedBanks);
-                console.log('Formatted Banks:', formattedBanks); // Debug log
+                console.log('Formatted Banks:', formattedBanks);
             } else {
                 console.error('Invalid bank data structure:', data);
                 setBankOptions([]);
@@ -260,18 +261,37 @@ const SaleForm = ({
 
     const handleInputChange = (e) => {
         const { name, value } = e.target;
+        let parsedValue = value;
+        if (name === 'additional_charge' || name === 'discount') {
+            parsedValue = value === '' ? 0 : parseFloat(value) || 0;
+        }
         setFormData(prev => ({
             ...prev,
-            [name]: name === 'additional_charge' || name === 'discount' ? parseFloat(value) || 0 : value
+            [name]: parsedValue
         }));
     };
 
     const handleItemChange = (index, field, value) => {
         const updatedItems = formData.items.map((item, i) => {
             if (i === index) {
+                let parsedValue = value;
+                if (field === 'price') {
+                    // Allow only up to 2 decimal places
+                    if (value === '') {
+                        parsedValue = 0;
+                    } else {
+                        let numValue = parseFloat(value);
+                        if (!isNaN(numValue)) {
+                            // Round to 2 decimal places
+                            parsedValue = Math.round(numValue * 100) / 100;
+                        } else {
+                            parsedValue = 0;
+                        }
+                    }
+                }
                 const updatedItem = {
                     ...item,
-                    [field]: field === 'price' ? parseFloat(value) || 0 : value
+                    [field]: parsedValue
                 };
                 updatedItem.amount = updatedItem.price || 0;
                 return updatedItem;
@@ -309,12 +329,14 @@ const SaleForm = ({
         setUserSearchTerm('');
     };
 
-    // Calculate totals
+    // Calculate totals with proper decimal handling
     useEffect(() => {
         let subtotal = 0;
         formData.items.forEach(item => {
             subtotal += Number(item.amount) || 0;
         });
+        // Keep subtotal with 2 decimal places
+        subtotal = Math.round(subtotal * 100) / 100;
 
         let discountAmount = 0;
         if (formData.discount > 0) {
@@ -323,18 +345,24 @@ const SaleForm = ({
             } else {
                 discountAmount = Number(formData.discount) || 0;
             }
+            // Round discount to 2 decimal places
+            discountAmount = Math.round(discountAmount * 100) / 100;
         }
 
         const amountAfterDiscount = Math.max(0, subtotal - discountAmount);
         
-        const sgst_amount = amountAfterDiscount * (Number(formData.sgst_rate) / 100);
-        const cgst_amount = amountAfterDiscount * (Number(formData.cgst_rate) / 100);
+        const sgst_amount = Math.round((amountAfterDiscount * (Number(formData.sgst_rate) / 100)) * 100) / 100;
+        const cgst_amount = Math.round((amountAfterDiscount * (Number(formData.cgst_rate) / 100)) * 100) / 100;
         
         let grand_total = amountAfterDiscount + sgst_amount + cgst_amount + (Number(formData.additional_charge) || 0);
+        // Keep grand total with 2 decimal places before round off
+        grand_total = Math.round(grand_total * 100) / 100;
         
         let round_off = 0;
+        // Only apply round off if the toggle is checked
         if (formData.apply_round_off) {
             round_off = Math.round(grand_total) - grand_total;
+            round_off = Math.round(round_off * 100) / 100;
             grand_total = Math.round(grand_total);
         }
 
@@ -449,8 +477,8 @@ const SaleForm = ({
         return new Intl.NumberFormat('en-IN', {
             style: 'currency',
             currency: 'INR',
-            minimumFractionDigits: 0,
-            maximumFractionDigits: 0
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2
         }).format(amount);
     };
 
@@ -691,18 +719,11 @@ const SaleForm = ({
                                 <span className="text-xs text-gray-500 px-1.5 py-0.5 bg-gray-100 rounded">Required</span>
                             </div>
                             <div className="relative">
-                                <div className="absolute inset-y-0 left-0 pl-2.5 flex items-center pointer-events-none">
-                                    <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                                    </svg>
-                                </div>
-                                <input
-                                    type="date"
-                                    className="w-full pl-9 pr-3 py-2.5 border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 hover:border-indigo-400 transition-all duration-200 shadow-sm bg-white text-sm"
-                                    name="payment_date"
-                                    value={formData.payment_date}
-                                    onChange={handleInputChange}
-                                    required
+                                <DatePickerComponent
+                                    selectedDate={formData.payment_date}
+                                    onDateChange={(date) => setFormData(prev => ({ ...prev, payment_date: date }))}
+                                    placeholder="Select date"
+                                    className="w-full"
                                 />
                             </div>
                         </div>
@@ -754,7 +775,7 @@ const SaleForm = ({
                                                     </option>
                                                     {serviceOptions.map(service => (
                                                         <option key={service.service_id} value={service.service_id} className="py-1 text-sm">
-                                                            {service.name} - ₹{service.fees}
+                                                            {service.name} - ₹{service.fees.toFixed(2)}
                                                         </option>
                                                     ))}
                                                 </select>
@@ -773,9 +794,10 @@ const SaleForm = ({
                                                     <span className="absolute left-2 top-1/2 transform -translate-y-1/2 text-gray-500 text-sm">₹</span>
                                                     <input
                                                         type="number"
+                                                        step="0.01"
                                                         className="w-full pl-7 pr-2.5 py-1.5 border border-gray-300 rounded text-sm focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-150 text-right"
-                                                        placeholder="0"
-                                                        value={item.price}
+                                                        placeholder="0.00"
+                                                        value={item.price === 0 ? '' : item.price}
                                                         onChange={(e) => handleItemChange(index, 'price', e.target.value)}
                                                         required
                                                     />
@@ -816,26 +838,32 @@ const SaleForm = ({
                                         <span className="absolute left-2.5 top-1/2 transform -translate-y-1/2 text-gray-500 text-sm">₹</span>
                                         <input
                                             type="number"
+                                            step="0.01"
                                             className="w-full pl-8 pr-3 py-1.5 border border-gray-300 rounded text-sm focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500"
                                             name="additional_charge"
-                                            value={formData.additional_charge}
+                                            value={formData.additional_charge === 0 ? '' : formData.additional_charge}
                                             onChange={handleInputChange}
                                             min="0"
-                                            step="1"
+                                            placeholder="0.00"
                                         />
                                     </div>
                                     <p className="text-xs text-gray-500 mt-1">Additional charge will be added after GST calculation</p>
                                 </div>
-                                <div className="flex items-center">
-                                    <input
-                                        type="checkbox"
-                                        id="apply_round_off"
-                                        className="w-4 h-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
-                                        checked={formData.apply_round_off}
-                                        onChange={(e) => setFormData(prev => ({ ...prev, apply_round_off: e.target.checked }))}
-                                    />
-                                    <label htmlFor="apply_round_off" className="ml-2 text-xs font-medium text-gray-700">
-                                        Apply Round Off
+                                <div className="flex items-center justify-between">
+                                    <div className="flex items-center">
+                                        <svg className="w-4 h-4 text-gray-500 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                                        </svg>
+                                        <span className="text-xs font-medium text-gray-700">Apply Round Off</span>
+                                    </div>
+                                    <label className="relative inline-flex items-center cursor-pointer">
+                                        <input
+                                            type="checkbox"
+                                            className="sr-only peer"
+                                            checked={formData.apply_round_off}
+                                            onChange={(e) => setFormData(prev => ({ ...prev, apply_round_off: e.target.checked }))}
+                                        />
+                                        <div className="w-9 h-5 bg-gray-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-indigo-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-indigo-600"></div>
                                     </label>
                                 </div>
                             </div>
@@ -898,12 +926,13 @@ const SaleForm = ({
                                         )}
                                         <input
                                             type="number"
+                                            step={formData.discount_type === 'percentage' ? '0.1' : '0.01'}
                                             className="w-full pl-8 pr-3 py-1.5 border border-gray-300 rounded text-sm focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-150"
                                             name="discount"
-                                            value={formData.discount}
+                                            value={formData.discount === 0 ? '' : formData.discount}
                                             onChange={handleInputChange}
                                             min="0"
-                                            step={formData.discount_type === 'percentage' ? '0.1' : '1'}
+                                            placeholder="0"
                                         />
                                     </div>
                                 </div>

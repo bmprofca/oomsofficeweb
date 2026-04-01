@@ -1,100 +1,118 @@
-import React, { useState, useEffect, useMemo } from 'react';
-import { FiX, FiCalendar, FiDollarSign, FiFileText, FiArrowRight, FiCreditCard, FiHash, FiPlus, FiUser, FiTrash2, FiChevronDown } from 'react-icons/fi';
-
-// Enhanced professional data
-const vendorOptions = [
-    { id: 'vendor_1', type: 'vendor', name: 'Office Supplies Ltd', email: 'orders@officesupplies.com', contact: 'Supplier', outstanding: '45,000' },
-    { id: 'vendor_2', type: 'vendor', name: 'Tech Solutions Inc', email: 'accounts@techsolutions.com', contact: 'IT Supplier', outstanding: '1,20,000' },
-    { id: 'vendor_3', type: 'vendor', name: 'Marketing Pro Agency', email: 'billing@marketingpro.com', contact: 'Marketing', outstanding: '85,000' },
-    { id: 'service_1', type: 'service', name: 'Utilities Provider', email: 'billing@utilities.com', contact: 'Utilities', outstanding: '25,000' },
-    { id: 'service_2', type: 'service', name: 'Internet Services Co', email: 'accounts@internetco.com', contact: 'Internet', outstanding: '15,000' }
-];
-
-const expenseItemOptions = [
-    { item_id: '1', name: 'Office Supplies', type: 'direct expense', default_amount: '5000' },
-    { item_id: '2', name: 'Employee Salaries', type: 'direct expense', default_amount: '75000' },
-    { item_id: '3', name: 'Marketing Campaign', type: 'indirect expense', default_amount: '25000' },
-    { item_id: '4', name: 'Business Travel', type: 'reimbursable expense', default_amount: '18000' },
-    { item_id: '5', name: 'Software Subscriptions', type: 'indirect expense', default_amount: '12000' },
-    { item_id: '6', name: 'Rent & Utilities', type: 'direct expense', default_amount: '45000' },
-    { item_id: '7', name: 'Professional Fees', type: 'indirect expense', default_amount: '30000' },
-    { item_id: '8', name: 'Office Maintenance', type: 'direct expense', default_amount: '8000' }
-];
-
-const bankOptions = [
-    { id: 'bank_1', type: 'bank', name: 'HDFC Bank', account: '1234567890', holder: 'John Doe', balance: '15,00,000' },
-    { id: 'bank_2', type: 'bank', name: 'ICICI Bank', account: '0987654321', holder: 'Jane Smith', balance: '25,00,000' },
-    { id: 'bank_3', type: 'bank', name: 'SBI', account: '1122334455', holder: 'Bob Wilson', balance: '18,00,000' }
-];
-
-const appSettings = {
-    company_name: 'Professional Accounting Services',
-    currency: 'INR',
-};
+import React, { useState, useEffect, useCallback } from 'react';
+import { FiX, FiCalendar, FiDollarSign, FiFileText, FiArrowRight, FiCreditCard, FiHash, FiPlus, FiTrash2, FiChevronDown, FiSearch } from 'react-icons/fi';
+import API_BASE_URL from '../utils/api-controller';
+import getHeaders from '../utils/get-headers';
+import { debounce } from 'lodash';
+import DatePickerComponent from '../components/DatePickerComponent'; // Adjust path as needed
 
 const CreateExpense = ({
     isOpen = false,
     onClose = () => { },
     onSuccess = () => { },
-    initialVendorId = '',
     mode = 'modal'
 }) => {
     const [formData, setFormData] = useState({
-        vendor_id: initialVendorId || '',
-        payment_date: new Date().toISOString().split('T')[0],
+        transaction_date: new Date().toISOString().split('T')[0],
         expense_number: `EXP-${Date.now().toString().slice(-6)}`,
-        items: [{ item_id: '', description: '', amount: '' }],
+        items: [{ item_id: '', amount: '' }],
         bank_id: '',
         total_amount: 0,
-        notes: ''
+        remark: ''
     });
 
     const [isSubmitting, setIsSubmitting] = useState(false);
-    const [searchTerm, setSearchTerm] = useState('');
-    const [showVendorDropdown, setShowVendorDropdown] = useState(false);
+    const [showBankDropdown, setShowBankDropdown] = useState(false);
+    const [bankSearchTerm, setBankSearchTerm] = useState('');
+    
+    // API States
+    const [expenseItems, setExpenseItems] = useState([]);
+    const [expenseItemsLoading, setExpenseItemsLoading] = useState(false);
+    const [banks, setBanks] = useState([]);
+    const [banksLoading, setBanksLoading] = useState(false);
 
-    // Filter vendors based on search
-    const filteredVendors = useMemo(() => {
-        if (!searchTerm) return vendorOptions;
-        return vendorOptions.filter(vendor =>
-            vendor.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            (vendor.email && vendor.email.toLowerCase().includes(searchTerm.toLowerCase()))
-        );
-    }, [searchTerm]);
+    // Fetch expense items from API
+    const fetchExpenseItems = async (search = '') => {
+        setExpenseItemsLoading(true);
+        try {
+            const headers = getHeaders();
+            const url = `${API_BASE_URL}/expense/item/list?page_no=1&limit=50&search=${search}`;
+            const response = await fetch(url, { headers });
+            const result = await response.json();
+            
+            if (result.success && result.data) {
+                setExpenseItems(result.data);
+            }
+        } catch (error) {
+            console.error('Error fetching expense items:', error);
+        } finally {
+            setExpenseItemsLoading(false);
+        }
+    };
 
-    // Reset form when modal opens
+    // Fetch banks from API
+    const fetchBanks = async (search = '') => {
+        setBanksLoading(true);
+        try {
+            const headers = getHeaders();
+            const url = `${API_BASE_URL}/transaction/bank/list?page_no=1&limit=50&search=${search}`;
+            const response = await fetch(url, { headers });
+            const result = await response.json();
+            
+            if (result.success && result.data) {
+                setBanks(result.data);
+            }
+        } catch (error) {
+            console.error('Error fetching banks:', error);
+        } finally {
+            setBanksLoading(false);
+        }
+    };
+
+    // Debounced search for banks
+    const debouncedBankSearch = useCallback(
+        debounce((searchValue) => {
+            fetchBanks(searchValue);
+        }, 300),
+        []
+    );
+
+    // Debounced search for expense items
+    const debouncedItemSearch = useCallback(
+        debounce((searchValue) => {
+            fetchExpenseItems(searchValue);
+        }, 300),
+        []
+    );
+
+    useEffect(() => {
+        if (bankSearchTerm !== undefined) {
+            debouncedBankSearch(bankSearchTerm);
+        }
+        return () => {
+            debouncedBankSearch.cancel();
+        };
+    }, [bankSearchTerm]);
+
+    // Fetch initial data when modal opens
     useEffect(() => {
         if (isOpen) {
+            fetchExpenseItems();
+            fetchBanks();
             setFormData({
-                vendor_id: initialVendorId || '',
-                payment_date: new Date().toISOString().split('T')[0],
+                transaction_date: new Date().toISOString().split('T')[0],
                 expense_number: `EXP-${Date.now().toString().slice(-6)}`,
-                items: [{ item_id: '', description: '', amount: '' }],
+                items: [{ item_id: '', amount: '' }],
                 bank_id: '',
                 total_amount: 0,
-                notes: ''
+                remark: ''
             });
-            setSearchTerm('');
-            setShowVendorDropdown(false);
+            setBankSearchTerm('');
+            setShowBankDropdown(false);
         }
-    }, [isOpen, initialVendorId]);
+    }, [isOpen]);
 
-    const getSelectedVendor = () => {
-        return vendorOptions.find(vendor => vendor.id === formData.vendor_id);
-    };
-
-    const getVendorDisplayText = (vendor) => {
-        if (!vendor) return 'Select Vendor/Service Provider';
-        return `${vendor.name} • ${vendor.email}`;
-    };
-
-    const getVendorTypeBadge = (type) => {
-        const typeConfig = {
-            vendor: { color: 'bg-orange-100 text-orange-800', label: 'VENDOR' },
-            service: { color: 'bg-purple-100 text-purple-800', label: 'SERVICE' }
-        };
-        const config = typeConfig[type] || { color: 'bg-gray-100 text-gray-800', label: type.toUpperCase() };
-        return `text-xs font-bold px-2 py-1 rounded ${config.color}`;
+    const getSelectedBank = () => {
+        return banks.find(bank => bank.bank_id === formData.bank_id);
     };
 
     const addItem = () => {
@@ -102,7 +120,7 @@ const CreateExpense = ({
             ...prev,
             items: [
                 ...prev.items,
-                { item_id: '', description: '', amount: '' }
+                { item_id: '', amount: '' }
             ]
         }));
     };
@@ -139,27 +157,30 @@ const CreateExpense = ({
     };
 
     const handleExpenseItemChange = (index, itemId) => {
-        const expenseItem = expenseItemOptions.find(item => item.item_id === itemId);
-        if (expenseItem) {
-            const updatedItems = formData.items.map((item, i) =>
-                i === index ? {
-                    ...item,
-                    item_id: itemId,
-                    amount: expenseItem.default_amount
-                } : item
-            );
-
-            setFormData(prev => ({
-                ...prev,
-                items: updatedItems
-            }));
-        }
+        const updatedItems = formData.items.map((item, i) =>
+            i === index ? {
+                ...item,
+                item_id: itemId,
+                amount: ''
+            } : item
+        );
+        setFormData(prev => ({
+            ...prev,
+            items: updatedItems
+        }));
     };
 
-    const handleVendorSelect = (vendorId) => {
-        setFormData(prev => ({ ...prev, vendor_id: vendorId }));
-        setShowVendorDropdown(false);
-        setSearchTerm('');
+    const handleBankSelect = (bankId) => {
+        setFormData(prev => ({ ...prev, bank_id: bankId }));
+        setShowBankDropdown(false);
+        setBankSearchTerm('');
+    };
+
+    const handleDateChange = (date) => {
+        setFormData(prev => ({
+            ...prev,
+            transaction_date: date
+        }));
     };
 
     // Calculate totals
@@ -177,22 +198,49 @@ const CreateExpense = ({
 
     const handleSubmit = async (e) => {
         e.preventDefault();
-        if (!formData.vendor_id || !formData.bank_id || isSubmitting) return;
+        if (!formData.bank_id || isSubmitting) return;
 
         setIsSubmitting(true);
         try {
-            await new Promise(resolve => setTimeout(resolve, 1000));
-            const submissionData = {
-                ...formData,
-                selected_vendor: getSelectedVendor(),
-                timestamp: new Date().toISOString(),
-                company: appSettings.company_name
-            };
-            console.log('Expense submitted:', submissionData);
-            onSuccess(submissionData);
-            if (mode === 'modal') onClose();
+            const headers = getHeaders();
+            
+            // Create expense entries for each item
+            const expensePromises = formData.items.map(async (item) => {
+                const payload = {
+                    item_id: item.item_id,
+                    remark: formData.remark,
+                    amount: item.amount,
+                    transaction_date: formData.transaction_date,
+                    party_id: formData.bank_id,
+                    party_type: "bank"
+                };
+                
+                const response = await fetch(`${API_BASE_URL}/expense/entry/create`, {
+                    method: 'POST',
+                    headers: {
+                        ...headers,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(payload)
+                });
+                
+                return response.json();
+            });
+            
+            const results = await Promise.all(expensePromises);
+            const allSuccess = results.every(result => result.success);
+            
+            if (allSuccess) {
+                console.log('All expenses created successfully:', results);
+                onSuccess(results);
+                if (mode === 'modal') onClose();
+            } else {
+                console.error('Some expenses failed:', results);
+                alert('Some expenses could not be created. Please check and try again.');
+            }
         } catch (error) {
             console.error('Error submitting expense:', error);
+            alert('Failed to create expense. Please try again.');
         } finally {
             setIsSubmitting(false);
         }
@@ -210,7 +258,6 @@ const CreateExpense = ({
     const formatDate = (dateString) => {
         const date = new Date(dateString);
         return date.toLocaleDateString('en-IN', {
-            weekday: 'short',
             day: 'numeric',
             month: 'short',
             year: 'numeric'
@@ -218,16 +265,25 @@ const CreateExpense = ({
     };
 
     const getExpenseItemDetails = (itemId) => {
-        return expenseItemOptions.find(item => item.item_id === itemId);
+        return expenseItems.find(item => item.item_id === itemId);
     };
 
     const getExpenseTypeBadge = (type) => {
         const typeConfig = {
-            'direct expense': 'bg-red-100 text-red-800',
-            'indirect expense': 'bg-blue-100 text-blue-800',
-            'reimbursable expense': 'bg-green-100 text-green-800'
+            'direct': 'bg-red-100 text-red-800',
+            'indirect': 'bg-blue-100 text-blue-800',
+            'reimbursable': 'bg-green-100 text-green-800'
         };
         return typeConfig[type] || 'bg-gray-100 text-gray-800';
+    };
+
+    const formatExpenseType = (type) => {
+        const typeMap = {
+            'direct': 'Direct Expense',
+            'indirect': 'Indirect Expense',
+            'reimbursable': 'Reimbursable Expense'
+        };
+        return typeMap[type] || type;
     };
 
     const formContent = (
@@ -241,7 +297,7 @@ const CreateExpense = ({
                     <div className="flex items-center space-x-4">
                         <h2 className="text-lg font-bold">Create Expense</h2>
                         <span className="text-blue-200 text-sm hidden sm:inline">|</span>
-                        <p className="text-blue-100 text-xs sm:text-sm hidden sm:block">{appSettings.company_name}</p>
+                        <p className="text-blue-100 text-xs sm:text-sm hidden sm:block">New Expense Entry</p>
                     </div>
                 </div>
                 {mode === 'modal' && (
@@ -257,51 +313,46 @@ const CreateExpense = ({
             {/* Scrollable Content Area */}
             <div className="flex-1 overflow-y-auto p-4 sm:p-5 bg-gray-50">
                 <form onSubmit={handleSubmit}>
-                    {/* Vendor Selection and Date Section - Compact */}
+                    {/* Bank Account Selection and Date Section */}
                     <div className="mb-6">
                         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                            {/* Vendor Selection */}
+                            {/* Bank Account Selection */}
                             <div>
                                 <div className="flex items-center justify-between mb-1.5">
                                     <label className="block text-sm font-semibold text-gray-700">
-                                        Vendor/Service Provider <span className="text-red-500">*</span>
+                                        Bank Account <span className="text-red-500">*</span>
                                     </label>
                                     <span className="text-xs text-gray-500 px-1.5 py-0.5 bg-gray-100 rounded">Required</span>
                                 </div>
                                 <div className="relative">
                                     <div
                                         className="w-full px-3 py-2.5 border-2 border-gray-300 rounded-lg bg-white cursor-pointer hover:border-blue-400 transition-all duration-200 shadow-sm group"
-                                        onClick={() => setShowVendorDropdown(!showVendorDropdown)}
+                                        onClick={() => setShowBankDropdown(!showBankDropdown)}
                                     >
-                                        {formData.vendor_id ? (
+                                        {formData.bank_id ? (
                                             <div className="flex items-center justify-between">
                                                 <div className="flex items-center space-x-2">
                                                     <div className="p-1 bg-blue-100 text-blue-600 rounded group-hover:bg-blue-200 transition-colors">
-                                                        <FiUser className="w-3.5 h-3.5" />
+                                                        <FiCreditCard className="w-3.5 h-3.5" />
                                                     </div>
                                                     <div>
                                                         <div className="text-sm font-medium text-gray-900 truncate max-w-[200px]">
-                                                            {getSelectedVendor()?.name}
+                                                            {getSelectedBank()?.bank || getSelectedBank()?.name}
                                                         </div>
                                                         <div className="text-xs text-gray-600 truncate max-w-[200px]">
-                                                            {getVendorDisplayText(getSelectedVendor())}
+                                                            {getSelectedBank()?.account_no}
                                                         </div>
                                                     </div>
                                                 </div>
-                                                <div className="flex items-center space-x-2">
-                                                    <span className={getVendorTypeBadge(getSelectedVendor()?.type)}>
-                                                        {getSelectedVendor()?.type?.toUpperCase()}
-                                                    </span>
-                                                    <svg className="w-4 h-4 text-gray-400 group-hover:text-gray-600 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                                                    </svg>
-                                                </div>
+                                                <svg className="w-4 h-4 text-gray-400 group-hover:text-gray-600 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                                                </svg>
                                             </div>
                                         ) : (
                                             <div className="flex items-center justify-between text-gray-500 group-hover:text-gray-600 transition-colors">
                                                 <div className="flex items-center space-x-2">
-                                                    <FiUser className="w-4 h-4 text-gray-400 group-hover:text-gray-500 transition-colors" />
-                                                    <span className="text-sm">Select vendor or service provider...</span>
+                                                    <FiCreditCard className="w-4 h-4 text-gray-400 group-hover:text-gray-500 transition-colors" />
+                                                    <span className="text-sm">Select bank account...</span>
                                                 </div>
                                                 <svg className="w-4 h-4 text-gray-400 group-hover:text-gray-500 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
@@ -310,91 +361,86 @@ const CreateExpense = ({
                                         )}
                                     </div>
 
-                                    {showVendorDropdown && (
+                                    {showBankDropdown && (
                                         <div className="absolute z-40 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-xl max-h-60 overflow-y-auto animate-fadeIn">
-                                            <div className="p-2 border-b border-gray-200 bg-gray-50">
-                                                <input
-                                                    type="text"
-                                                    placeholder="Search vendors..."
-                                                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200"
-                                                    value={searchTerm}
-                                                    onChange={(e) => setSearchTerm(e.target.value)}
-                                                    autoFocus
-                                                />
+                                            <div className="p-2 border-b border-gray-200 bg-gray-50 sticky top-0">
+                                                <div className="relative">
+                                                    <FiSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                                                    <input
+                                                        type="text"
+                                                        placeholder="Search banks..."
+                                                        className="w-full pl-9 pr-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200"
+                                                        value={bankSearchTerm}
+                                                        onChange={(e) => setBankSearchTerm(e.target.value)}
+                                                        autoFocus
+                                                    />
+                                                </div>
                                             </div>
                                             <div className="py-1">
-                                                {filteredVendors.map(vendor => (
-                                                    <div
-                                                        key={vendor.id}
-                                                        className={`px-3 py-2 cursor-pointer hover:bg-gray-50 border-l-2 transition-all duration-200 ${formData.vendor_id === vendor.id
-                                                            ? 'bg-blue-50 border-blue-500 text-blue-700'
-                                                            : 'border-transparent hover:border-blue-300'
-                                                            }`}
-                                                        onClick={() => handleVendorSelect(vendor.id)}
-                                                    >
-                                                        <div className="flex items-center justify-between">
-                                                            <div className="flex items-center space-x-2">
-                                                                <div className="p-1 bg-blue-100 text-blue-600 rounded">
-                                                                    <FiUser className="w-3 h-3" />
-                                                                </div>
-                                                                <div>
-                                                                    <div className="text-sm font-medium text-gray-900">{vendor.name}</div>
-                                                                    <div className="text-xs text-gray-600">
-                                                                        {vendor.email} • {vendor.contact}
+                                                {banksLoading ? (
+                                                    <div className="px-3 py-2 text-center text-gray-500 text-sm">
+                                                        <div className="animate-pulse">Loading banks...</div>
+                                                    </div>
+                                                ) : banks.length === 0 ? (
+                                                    <div className="px-3 py-2 text-center text-gray-500 text-sm">
+                                                        No banks found
+                                                    </div>
+                                                ) : (
+                                                    banks.map(bank => (
+                                                        <div
+                                                            key={bank.bank_id}
+                                                            className={`px-3 py-2 cursor-pointer hover:bg-gray-50 border-l-2 transition-all duration-200 ${formData.bank_id === bank.bank_id
+                                                                ? 'bg-blue-50 border-blue-500 text-blue-700'
+                                                                : 'border-transparent hover:border-blue-300'
+                                                                }`}
+                                                            onClick={() => handleBankSelect(bank.bank_id)}
+                                                        >
+                                                            <div className="flex items-center justify-between">
+                                                                <div className="flex items-center space-x-2">
+                                                                    <div className="p-1 bg-blue-100 text-blue-600 rounded">
+                                                                        <FiCreditCard className="w-3 h-3" />
+                                                                    </div>
+                                                                    <div>
+                                                                        <div className="text-sm font-medium text-gray-900">{bank.bank || bank.name}</div>
+                                                                        <div className="text-xs text-gray-600">
+                                                                            {bank.account_no} • {bank.holder}
+                                                                        </div>
                                                                     </div>
                                                                 </div>
-                                                            </div>
-                                                            <div className="flex items-center space-x-2">
-                                                                <span className="text-xs text-gray-500">₹{vendor.outstanding}</span>
-                                                                <span className={getVendorTypeBadge(vendor.type)}>
-                                                                    {vendor.type?.toUpperCase()}
+                                                                <span className="text-xs text-gray-500">
+                                                                    {bank.branch}
                                                                 </span>
                                                             </div>
                                                         </div>
-                                                    </div>
-                                                ))}
+                                                    ))
+                                                )}
                                             </div>
                                         </div>
                                     )}
                                 </div>
-                                {formData.vendor_id && (
-                                    <div className="mt-1.5 text-xs text-gray-600 flex items-center space-x-2 animate-fadeIn">
-                                        <span className="font-medium">Outstanding: ₹{getSelectedVendor()?.outstanding}</span>
-                                        <span className="text-gray-400">•</span>
-                                        <span className="text-gray-500">{getSelectedVendor()?.contact}</span>
-                                    </div>
-                                )}
                             </div>
 
-                            {/* Date Input */}
+                            {/* Date Input using DatePickerComponent */}
                             <div>
                                 <div className="flex items-center justify-between mb-1.5">
                                     <label className="block text-sm font-semibold text-gray-700">
-                                        Payment Date <span className="text-red-500">*</span>
+                                        Transaction Date <span className="text-red-500">*</span>
                                     </label>
                                     <span className="text-xs text-gray-500 px-1.5 py-0.5 bg-gray-100 rounded">Required</span>
                                 </div>
-                                <div className="relative">
-                                    <div className="absolute inset-y-0 left-0 pl-2.5 flex items-center pointer-events-none">
-                                        <FiCalendar className="w-4 h-4 text-gray-400" />
-                                    </div>
-                                    <input
-                                        type="date"
-                                        className="pl-9 w-full pr-3 py-2.5 border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 hover:border-blue-400 transition-all duration-200 shadow-sm bg-white text-sm"
-                                        name="payment_date"
-                                        value={formData.payment_date}
-                                        onChange={handleInputChange}
-                                        required
-                                    />
-                                </div>
+                                <DatePickerComponent
+                                    selectedDate={formData.transaction_date}
+                                    onDateChange={handleDateChange}
+                                    placeholder="Select transaction date"
+                                />
                                 <div className="mt-1.5 text-xs text-gray-500">
-                                    Selected: {formatDate(formData.payment_date)}
+                                    Selected: {formatDate(formData.transaction_date)}
                                 </div>
                             </div>
                         </div>
                     </div>
 
-                    {/* Expense Items Section - Compact */}
+                    {/* Expense Items Section */}
                     <div className="mb-6">
                         <div className="flex justify-between items-center mb-4">
                             <div className="flex items-center space-x-2">
@@ -419,16 +465,16 @@ const CreateExpense = ({
                                 return (
                                     <div 
                                         key={index} 
-                                        className="bg-white border border-gray-200 rounded-lg p-4 shadow-sm hover:shadow-md transition-all duration-300 transform hover:-translate-y-0.5"
+                                        className="bg-white border border-gray-200 rounded-lg p-4 shadow-sm hover:shadow-md transition-all duration-300"
                                     >
                                         <div className="grid grid-cols-1 md:grid-cols-12 gap-3">
-                                            {/* Expense Item - 5 columns */}
-                                            <div className="md:col-span-5">
+                                            {/* Expense Item - 8 columns */}
+                                            <div className="md:col-span-8">
                                                 <div className="flex items-center justify-between mb-1">
                                                     <label className="text-xs font-medium text-gray-700">Expense Item</label>
                                                     {expenseItem && (
                                                         <span className={`text-xs px-2 py-1 rounded-full transition-colors duration-200 ${getExpenseTypeBadge(expenseItem.type)}`}>
-                                                            {expenseItem.type}
+                                                            {formatExpenseType(expenseItem.type)}
                                                         </span>
                                                     )}
                                                 </div>
@@ -443,7 +489,7 @@ const CreateExpense = ({
                                                         required
                                                     >
                                                         <option value="" disabled>Select Expense Item</option>
-                                                        {expenseItemOptions.map(expenseItem => (
+                                                        {expenseItems.map(expenseItem => (
                                                             <option key={expenseItem.item_id} value={expenseItem.item_id}>
                                                                 {expenseItem.name}
                                                             </option>
@@ -453,32 +499,16 @@ const CreateExpense = ({
                                                         <FiChevronDown className="w-4 h-4 text-gray-400" />
                                                     </div>
                                                 </div>
+                                                {expenseItemsLoading && (
+                                                    <div className="text-xs text-gray-400 mt-1">Loading items...</div>
+                                                )}
                                             </div>
 
-                                            {/* Description - 5 columns */}
-                                            <div className="md:col-span-5">
-                                                <label className="text-xs font-medium text-gray-700 mb-1 block">Description</label>
-                                                <div className="relative">
-                                                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                                                        <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z" />
-                                                        </svg>
-                                                    </div>
-                                                    <input
-                                                        type="text"
-                                                        className="pl-10 w-full px-3 py-2 text-sm border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 hover:border-blue-400 transition-all duration-200"
-                                                        placeholder="Expense description..."
-                                                        value={item.description}
-                                                        onChange={(e) => handleItemChange(index, 'description', e.target.value)}
-                                                    />
-                                                </div>
-                                            </div>
-
-                                            {/* Amount and Delete - 2 columns */}
-                                            <div className="md:col-span-2">
+                                            {/* Amount and Delete - 4 columns */}
+                                            <div className="md:col-span-4">
                                                 <div className="flex items-end space-x-2 h-full">
                                                     <div className="flex-1">
-                                                        <label className="text-xs font-medium text-gray-700 mb-1 block">Amount</label>
+                                                        <label className="text-xs font-medium text-gray-700 mb-1 block">Amount (₹)</label>
                                                         <div className="relative">
                                                             <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                                                                 <FiDollarSign className="w-4 h-4 text-gray-400" />
@@ -497,7 +527,7 @@ const CreateExpense = ({
                                                         type="button"
                                                         onClick={() => removeItem(index)}
                                                         disabled={formData.items.length <= 1}
-                                                        className="p-2 text-red-600 hover:bg-red-50 hover:text-red-700 rounded-lg transition-all duration-200 transform hover:scale-110 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:transform-none"
+                                                        className="p-2 text-red-600 hover:bg-red-50 hover:text-red-700 rounded-lg transition-all duration-200 transform hover:scale-110 disabled:opacity-50 disabled:cursor-not-allowed"
                                                     >
                                                         <FiTrash2 className="w-4 h-4" />
                                                     </button>
@@ -510,101 +540,34 @@ const CreateExpense = ({
                         </div>
                     </div>
 
-                    {/* Payment Details and Notes Section - Compact */}
-                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
-                        {/* Notes */}
-                        <div className="lg:col-span-2">
-                            <div className="bg-gradient-to-br from-blue-50 to-white p-4 rounded-lg border border-blue-100 shadow-sm transition-all duration-300 hover:shadow-md">
-                                <div className="flex items-center mb-3">
-                                    <div className="p-1.5 bg-blue-600 text-white rounded-lg mr-2 transition-transform duration-200 hover:rotate-3">
-                                        <FiFileText className="w-4 h-4" />
-                                    </div>
-                                    <h4 className="text-sm font-bold text-gray-900">Notes & References</h4>
+                    {/* Remark Section */}
+                    <div className="mb-6">
+                        <div className="bg-gradient-to-br from-blue-50 to-white p-4 rounded-lg border border-blue-100 shadow-sm transition-all duration-300 hover:shadow-md">
+                            <div className="flex items-center mb-3">
+                                <div className="p-1.5 bg-blue-600 text-white rounded-lg mr-2 transition-transform duration-200 hover:rotate-3">
+                                    <FiFileText className="w-4 h-4" />
                                 </div>
-                                <div className="relative">
-                                    <div className="absolute left-3 top-3 pointer-events-none">
-                                        <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z" />
-                                        </svg>
-                                    </div>
-                                    <textarea
-                                        className="pl-10 w-full px-3 py-2.5 text-sm border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 hover:border-blue-400 transition-all duration-200"
-                                        placeholder="Additional notes, reference numbers, or special instructions..."
-                                        name="notes"
-                                        rows={4}
-                                        value={formData.notes}
-                                        onChange={handleInputChange}
-                                    />
-                                </div>
-                                <p className="text-xs text-gray-500 mt-2 transition-opacity duration-200 hover:opacity-100">
-                                    Reference numbers, payment terms, or any special instructions
-                                </p>
+                                <h4 className="text-sm font-bold text-gray-900">Remark</h4>
                             </div>
-                        </div>
-
-                        {/* Payment Details */}
-                        <div>
-                            <div className="bg-gradient-to-br from-gray-50 to-white p-4 rounded-lg border border-gray-200 shadow-sm transition-all duration-300 hover:shadow-md">
-                                <div className="flex items-center mb-3">
-                                    <div className="p-1.5 bg-blue-600 text-white rounded-lg mr-2 transition-transform duration-200 hover:rotate-3">
-                                        <FiCreditCard className="w-4 h-4" />
-                                    </div>
-                                    <h4 className="text-sm font-bold text-gray-900">Payment Details</h4>
+                            <div className="relative">
+                                <div className="absolute left-3 top-3 pointer-events-none">
+                                    <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z" />
+                                    </svg>
                                 </div>
-                                
-                                <div className="space-y-3">
-                                    <div>
-                                        <label className="block text-xs font-medium text-gray-700 mb-1.5">
-                                            Bank Account <span className="text-red-500">*</span>
-                                        </label>
-                                        <div className="relative">
-                                            <div className="absolute inset-y-0 left-0 pl-2.5 flex items-center pointer-events-none">
-                                                <FiCreditCard className="w-3.5 h-3.5 text-gray-400" />
-                                            </div>
-                                            <select
-                                                className="pl-9 w-full pr-3 py-2 text-sm border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 hover:border-blue-400 transition-all duration-200 appearance-none bg-white"
-                                                name="bank_id"
-                                                value={formData.bank_id}
-                                                onChange={handleInputChange}
-                                                required
-                                            >
-                                                <option value="" disabled>Select Bank Account</option>
-                                                {bankOptions.map(bank => (
-                                                    <option key={bank.id} value={bank.id}>
-                                                        {bank.name} - {bank.account}
-                                                    </option>
-                                                ))}
-                                            </select>
-                                            <div className="absolute inset-y-0 right-0 pr-2.5 flex items-center pointer-events-none">
-                                                <FiChevronDown className="w-3.5 h-3.5 text-gray-400" />
-                                            </div>
-                                        </div>
-                                    </div>
-                                    
-                                    <div>
-                                        <label className="block text-xs font-medium text-gray-700 mb-1.5">
-                                            Expense Number
-                                        </label>
-                                        <div className="relative">
-                                            <div className="absolute inset-y-0 left-0 pl-2.5 flex items-center pointer-events-none">
-                                                <FiHash className="w-3.5 h-3.5 text-gray-400" />
-                                            </div>
-                                            <input
-                                                type="text"
-                                                className="pl-9 w-full pr-3 py-2 text-sm border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 hover:border-blue-400 transition-all duration-200 bg-gray-50"
-                                                name="expense_number"
-                                                value={formData.expense_number}
-                                                onChange={handleInputChange}
-                                                readOnly
-                                            />
-                                        </div>
-                                    </div>
-                                </div>
+                                <textarea
+                                    className="pl-10 w-full px-3 py-2.5 text-sm border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 hover:border-blue-400 transition-all duration-200"
+                                    placeholder="Enter remark..."
+                                    name="remark"
+                                    rows={3}
+                                    value={formData.remark}
+                                    onChange={handleInputChange}
+                                />
                             </div>
                         </div>
                     </div>
 
-                    {/* Expense Summary - Compact */}
+                    {/* Expense Summary */}
                     <div className="bg-gradient-to-br from-blue-50 to-white p-4 rounded-lg border border-blue-100 shadow-sm transition-all duration-300 hover:shadow-md">
                         <div className="flex items-center mb-3">
                             <div className="p-1.5 bg-blue-600 text-white rounded-lg mr-2 transition-transform duration-200 hover:rotate-3">
@@ -612,7 +575,7 @@ const CreateExpense = ({
                             </div>
                             <h4 className="text-sm font-bold text-gray-900">Expense Summary</h4>
                         </div>
-                        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                        <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
                             <div className="text-center p-3 bg-white rounded-lg border border-gray-200 transition-all duration-200 hover:border-blue-300 hover:shadow-sm">
                                 <div className="text-xs text-gray-600 mb-1">Items Count</div>
                                 <div className="font-semibold text-blue-600 text-lg">
@@ -620,15 +583,9 @@ const CreateExpense = ({
                                 </div>
                             </div>
                             <div className="text-center p-3 bg-white rounded-lg border border-gray-200 transition-all duration-200 hover:border-green-300 hover:shadow-sm">
-                                <div className="text-xs text-gray-600 mb-1">Vendor</div>
+                                <div className="text-xs text-gray-600 mb-1">Bank Account</div>
                                 <div className="font-semibold text-green-600 text-sm truncate">
-                                    {getSelectedVendor()?.name || 'Not selected'}
-                                </div>
-                            </div>
-                            <div className="text-center p-3 bg-white rounded-lg border border-gray-200 transition-all duration-200 hover:border-purple-300 hover:shadow-sm">
-                                <div className="text-xs text-gray-600 mb-1">Payment Date</div>
-                                <div className="font-semibold text-purple-600 text-sm">
-                                    {new Date(formData.payment_date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
+                                    {getSelectedBank()?.bank || getSelectedBank()?.name || 'Not selected'}
                                 </div>
                             </div>
                             <div className="text-center p-3 bg-white rounded-lg border border-gray-200 transition-all duration-200 hover:border-red-300 hover:shadow-sm">
@@ -646,7 +603,7 @@ const CreateExpense = ({
             <div className="flex-shrink-0 border-t border-gray-200 bg-white p-4 rounded-b-xl shadow-lg">
                 <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
                     {/* Warning Message */}
-                    {!formData.vendor_id || !formData.bank_id || formData.items.some(item => !item.item_id || !item.amount) ? (
+                    {(!formData.bank_id || formData.items.some(item => !item.item_id || !item.amount)) && (
                         <div className="w-full lg:w-auto animate-pulse">
                             <div className="flex items-center text-amber-600 text-xs font-medium px-3 py-1.5 bg-amber-50 border border-amber-200 rounded transition-all duration-200 hover:bg-amber-100">
                                 <svg className="w-3.5 h-3.5 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -655,17 +612,11 @@ const CreateExpense = ({
                                 Please fill all required fields (*) to create expense
                             </div>
                         </div>
-                    ) : null}
+                    )}
 
                     {/* Action Buttons */}
                     <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 w-full lg:w-auto">
-                        {/* Amount Display */}
                         <div className="hidden lg:flex items-center space-x-4">
-                            <div className="px-3 py-1.5 bg-gradient-to-r from-blue-50 to-blue-100 rounded-lg border border-blue-200 transition-all duration-200 hover:border-blue-300 hover:shadow-sm">
-                                <div className="text-xs text-blue-700 font-semibold">
-                                    Date: <span className="text-sm">{formatDate(formData.payment_date)}</span>
-                                </div>
-                            </div>
                             <div className="px-3 py-1.5 bg-gradient-to-r from-green-50 to-green-100 rounded-lg border border-green-200 transition-all duration-200 hover:border-green-300 hover:shadow-sm">
                                 <div className="text-xs text-green-700 font-semibold">
                                     Total: <span className="text-sm">{formatCurrency(formData.total_amount)}</span>
@@ -687,7 +638,7 @@ const CreateExpense = ({
                             <button
                                 type="submit"
                                 onClick={handleSubmit}
-                                disabled={isSubmitting || !formData.vendor_id || !formData.bank_id || formData.items.some(item => !item.item_id || !item.amount)}
+                                disabled={isSubmitting || !formData.bank_id || formData.items.some(item => !item.item_id || !item.amount)}
                                 className="px-5 py-2 text-xs font-medium text-white bg-gradient-to-r from-blue-600 to-blue-700 border border-transparent rounded-lg hover:from-blue-700 hover:to-blue-800 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:ring-offset-1 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 shadow hover:shadow-md transform hover:-translate-y-0.5 min-w-[140px] flex items-center justify-center"
                             >
                                 {isSubmitting ? (
@@ -712,6 +663,32 @@ const CreateExpense = ({
         </div>
     );
 
+    // Add CSS for animations
+    const styles = `
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(-10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        .animate-fadeIn {
+            animation: fadeIn 0.3s ease-out;
+        }
+    `;
+
+    // Add styles to document head if not already added
+    if (typeof document !== 'undefined' && !document.getElementById('expense-modal-styles')) {
+        const styleSheet = document.createElement("style");
+        styleSheet.id = 'expense-modal-styles';
+        styleSheet.innerText = styles;
+        document.head.appendChild(styleSheet);
+    }
+
     // Render as modal or standalone component
     if (mode === 'modal') {
         return isOpen ? (
@@ -721,12 +698,12 @@ const CreateExpense = ({
                     <div
                         className="fixed inset-0 bg-gray-900 bg-opacity-50 backdrop-blur-sm transition-opacity duration-300"
                         onClick={() => {
-                            setShowVendorDropdown(false);
+                            setShowBankDropdown(false);
                             onClose();
                         }}
                     />
                     {/* Compact Modal panel */}
-                    <div className="relative w-full max-w-4xl bg-white rounded-xl shadow-2xl h-[85vh] flex flex-col transform transition-all duration-300 scale-100 animate-fadeIn">
+                    <div className="relative w-full max-w-3xl bg-white rounded-xl shadow-2xl h-[85vh] flex flex-col transform transition-all duration-300 scale-100 animate-fadeIn">
                         {formContent}
                     </div>
                 </div>
@@ -737,30 +714,5 @@ const CreateExpense = ({
     // Render as standalone page component
     return formContent;
 };
-
-// Add CSS for animations
-const styles = `
-    @keyframes fadeIn {
-        from {
-            opacity: 0;
-            transform: translateY(-10px);
-        }
-        to {
-            opacity: 1;
-            transform: translateY(0);
-        }
-    }
-    
-    .animate-fadeIn {
-        animation: fadeIn 0.3s ease-out;
-    }
-`;
-
-// Add styles to document head
-if (typeof document !== 'undefined') {
-    const styleSheet = document.createElement("style");
-    styleSheet.innerText = styles;
-    document.head.appendChild(styleSheet);
-}
 
 export default CreateExpense;
