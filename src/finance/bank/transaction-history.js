@@ -21,7 +21,8 @@ import {
     FiCreditCard,
     FiMoreVertical,
     FiEdit2,
-    FiFile
+    FiFile,
+    FiEye
 } from 'react-icons/fi';
 import { motion } from 'framer-motion';
 import toast from 'react-hot-toast';
@@ -74,8 +75,8 @@ const DateRangePicker = ({
     maxDate
 }) => {
     const [isOpen, setIsOpen] = useState(false);
-    const [localStartDate, setLocalStartDate] = useState(startDate ? new Date(startDate) : null);
-    const [localEndDate, setLocalEndDate] = useState(endDate ? new Date(endDate) : null);
+    const [localStartDate, setLocalStartDate] = useState(startDate ? new Date(startDate + 'T12:00:00') : null);
+    const [localEndDate, setLocalEndDate] = useState(endDate ? new Date(endDate + 'T12:00:00') : null);
     const [showCustomPicker, setShowCustomPicker] = useState(false);
     const dropdownRef = useRef(null);
     const startDatePickerRef = useRef(null);
@@ -107,24 +108,24 @@ const DateRangePicker = ({
 
     // Update local state when props change
     useEffect(() => {
-        setLocalStartDate(startDate ? new Date(startDate) : null);
-        setLocalEndDate(endDate ? new Date(endDate) : null);
+        setLocalStartDate(startDate ? new Date(startDate + 'T12:00:00') : null);
+        setLocalEndDate(endDate ? new Date(endDate + 'T12:00:00') : null);
     }, [startDate, endDate]);
 
     const formatRangeDisplay = () => {
-        if (!startDate && !endDate) return 'Select Range';
+        if (!startDate && !endDate) return 'Select date range';
         
         const format = (dateStr) => {
             if (!dateStr) return '';
-            const d = new Date(dateStr);
+            const d = new Date(dateStr + 'T12:00:00');
             const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-            return `${monthNames[d.getMonth()]} ${d.getDate()}`;
+            return `${monthNames[d.getMonth()]} ${d.getDate()}, ${d.getFullYear()}`;
         };
         
         if (startDate && endDate) {
-            return `${format(startDate)} - ${format(endDate)}`;
+            return `${format(startDate)} – ${format(endDate)}`;
         }
-        return 'Select Range';
+        return 'Select date range';
     };
 
     const formatDateString = (date) => {
@@ -137,8 +138,9 @@ const DateRangePicker = ({
     
     const handleQuickDateFilter = (filter) => {
         const today = new Date();
-        let startDate = new Date();
-        let endDate = new Date();
+        today.setHours(12, 0, 0, 0);
+        let startDate = new Date(today);
+        let endDate = new Date(today);
 
         if (filter.type === 'currentMonth') {
             startDate = new Date(today.getFullYear(), today.getMonth(), 1);
@@ -172,8 +174,9 @@ const DateRangePicker = ({
     
     const handleApplyDate = () => {
         if (localStartDate && localEndDate) {
-            onStartDateChange(localStartDate.toISOString().split('T')[0]);
-            onEndDateChange(localEndDate.toISOString().split('T')[0]);
+            const [s, e] = [localStartDate, localEndDate].sort((a, b) => a - b);
+            onStartDateChange(s.toISOString().split('T')[0]);
+            onEndDateChange(e.toISOString().split('T')[0]);
             setIsOpen(false);
             setShowCustomPicker(false);
         }
@@ -296,158 +299,148 @@ const DateRangePicker = ({
             {/* Compact Dropdown Button */}
             <button
                 onClick={() => setIsOpen(!isOpen)}
-                className="flex items-center justify-between w-full px-3 py-2 text-sm bg-white border border-gray-300 rounded-lg hover:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all"
+                className="flex items-center justify-between w-full px-4 py-3 bg-white border border-slate-200 rounded-xl shadow-sm hover:border-indigo-300 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-200"
             >
-                <div className="flex items-center gap-2">
-                    <Calendar className="h-4 w-4 text-indigo-500" />
-                    <span className="text-gray-700">
-                        {formatRangeDisplay()}
-                    </span>
+                <div className="flex items-center gap-3">
+                    <div className="p-2 bg-gradient-to-br from-indigo-500 to-indigo-600 rounded-lg shadow-sm">
+                        <Calendar className="h-5 w-5 text-white" />
+                    </div>
+                    <div className="text-left">
+                        <p className="text-xs font-medium text-slate-500 uppercase tracking-wider">Date range</p>
+                        <p className="text-sm font-semibold text-slate-800">{formatRangeDisplay()}</p>
+                    </div>
                 </div>
-                <div className="flex items-center">
+                <div className="flex items-center gap-1">
                     {(startDate || endDate) && (
                         <button
                             onClick={(e) => {
                                 e.stopPropagation();
                                 clearDates();
                             }}
-                            className="mr-1 text-gray-400 hover:text-red-500"
+                            className="p-1.5 rounded-lg text-slate-400 hover:text-red-500 hover:bg-red-50 transition-colors"
+                            title="Clear"
                         >
-                            <X className="h-3 w-3" />
+                            <X className="h-4 w-4" />
                         </button>
                     )}
-                    <ChevronDown className={`h-4 w-4 text-gray-400 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+                    <ChevronDown className={`h-5 w-5 text-slate-400 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`} />
                 </div>
             </button>
 
             {/* Dropdown Menu */}
             {isOpen && (
-                <div className="absolute left-0 mt-1 w-72 bg-white rounded-lg shadow-xl border border-gray-200 z-[9999] overflow-visible">
-                    <div className="p-3">
-                        {/* Month Selection Dropdown */}
-                        <div className="mb-3">
-                            <select
-                                onChange={(e) => {
-                                    const filter = quickDateFilters.find(f => f.label === e.target.value);
-                                    if (filter) handleQuickDateFilter(filter);
-                                }}
-                                className="w-full px-3 py-2 text-sm bg-gray-50 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                                defaultValue=""
-                            >
-                                <option value="" disabled>Select Month Range</option>
-                                {quickDateFilters.map((filter, index) => (
-                                    <option key={index} value={filter.label}>
-                                        {filter.label}
-                                    </option>
-                                ))}
-                            </select>
-                        </div>
-
-                        {/* Custom Range Toggle */}
-                        <div className="flex items-center justify-between mb-3">
-                            <span className="text-xs font-medium text-gray-500">Custom Range</span>
-                            <button
-                                onClick={() => setShowCustomPicker(!showCustomPicker)}
-                                className="text-xs text-indigo-600 hover:text-indigo-800 font-medium"
-                            >
-                                {showCustomPicker ? 'Hide' : 'Show'}
-                            </button>
-                        </div>
-
-                        {/* Custom Date Range Selection */}
-                        {showCustomPicker && (
-                            <div className="space-y-3 mb-3">
-                                {/* From Date */}
-                                <div className="relative" ref={startDatePickerRef}>
-                                    <label className="block text-xs font-medium text-gray-600 mb-1">
-                                        From Date
-                                    </label>
-                                    <DatePicker
-                                        selected={localStartDate}
-                                        onChange={(date) => setLocalStartDate(date)}
-                                        customInput={
-                                            <div className="relative cursor-pointer">
-                                                <div className="absolute inset-y-0 left-0 pl-2 flex items-center pointer-events-none">
-                                                    <Calendar className="h-3 w-3 text-indigo-500" />
-                                                </div>
-                                                <input
-                                                    type="text"
-                                                    value={localStartDate ? formatDateString(localStartDate) : ''}
-                                                    readOnly
-                                                    className="w-full pl-8 pr-2 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 bg-white text-gray-900 cursor-pointer"
-                                                    placeholder="DD/MM/YYYY"
-                                                />
-                                            </div>
-                                        }
-                                        dateFormat="dd/MM/yyyy"
-                                        minDate={minDate ? new Date(minDate) : null}
-                                        maxDate={localEndDate || (maxDate ? new Date(maxDate) : new Date())}
-                                        popperClassName="!z-[99999]"
-                                        popperPlacement="bottom-start"
-                                        shouldCloseOnSelect={true}
-                                        withPortal={false}
-                                    />
-                                </div>
-                                
-                                {/* To Date */}
-                                <div className="relative" ref={endDatePickerRef}>
-                                    <label className="block text-xs font-medium text-gray-600 mb-1">
-                                        To Date
-                                    </label>
-                                    <DatePicker
-                                        selected={localEndDate}
-                                        onChange={(date) => setLocalEndDate(date)}
-                                        customInput={
-                                            <div className="relative cursor-pointer">
-                                                <div className="absolute inset-y-0 left-0 pl-2 flex items-center pointer-events-none">
-                                                    <Calendar className="h-3 w-3 text-indigo-500" />
-                                                </div>
-                                                <input
-                                                    type="text"
-                                                    value={localEndDate ? formatDateString(localEndDate) : ''}
-                                                    readOnly
-                                                    className="w-full pl-8 pr-2 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 bg-white text-gray-900 cursor-pointer"
-                                                    placeholder="DD/MM/YYYY"
-                                                />
-                                            </div>
-                                        }
-                                        dateFormat="dd/MM/yyyy"
-                                        minDate={localStartDate || (minDate ? new Date(minDate) : null)}
-                                        maxDate={maxDate ? new Date(maxDate) : new Date()}
-                                        popperClassName="!z-[99999]"
-                                        popperPlacement="bottom-start"
-                                        shouldCloseOnSelect={true}
-                                        withPortal={false}
-                                    />
-                                </div>
-                            </div>
-                        )}
-
-                        {/* Action Buttons */}
-                        {showCustomPicker && (
-                            <div className="flex justify-end gap-2 pt-2 border-t border-gray-200">
+                <div className="absolute left-0 mt-2 w-[min(420px,95vw)] bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden z-[9999]">
+                    {/* Quick filters */}
+                    <div className="p-4 bg-gradient-to-r from-slate-50 to-indigo-50/30 border-b border-slate-100">
+                        <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3">Quick select</p>
+                        <div className="flex flex-wrap gap-2">
+                            {quickDateFilters.map((filter, index) => (
                                 <button
-                                    onClick={() => {
-                                        setIsOpen(false);
-                                        setShowCustomPicker(false);
-                                    }}
-                                    className="px-3 py-1 text-xs text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded transition-colors"
+                                    key={index}
+                                    onClick={() => handleQuickDateFilter(filter)}
+                                    className="px-3 py-1.5 text-xs font-medium text-slate-600 bg-white border border-slate-200 rounded-lg hover:bg-indigo-500 hover:text-white hover:border-indigo-500 transition-all duration-150 shadow-sm"
                                 >
-                                    Cancel
+                                    {filter.label}
                                 </button>
-                                <button
-                                    onClick={handleApplyDate}
-                                    disabled={!localStartDate || !localEndDate}
-                                    className={`px-3 py-1 text-xs font-medium rounded transition-all ${
-                                        localStartDate && localEndDate
-                                            ? 'bg-indigo-600 text-white hover:bg-indigo-700'
-                                            : 'bg-gray-200 text-gray-500 cursor-not-allowed'
-                                    }`}
-                                >
-                                    Apply
-                                </button>
+                            ))}
+                        </div>
+                    </div>
+
+                    {/* Custom Range Toggle */}
+                    <div className="flex items-center justify-between px-4 pt-3">
+                        <span className="text-xs font-medium text-slate-500">Custom Range</span>
+                        <button
+                            onClick={() => setShowCustomPicker(!showCustomPicker)}
+                            className="text-xs text-indigo-600 hover:text-indigo-800 font-medium"
+                        >
+                            {showCustomPicker ? 'Hide' : 'Show'}
+                        </button>
+                    </div>
+
+                    {/* Custom Date Range Selection */}
+                    {showCustomPicker && (
+                        <div className="space-y-3 p-4">
+                            {/* From Date */}
+                            <div className="relative" ref={startDatePickerRef}>
+                                <label className="block text-xs font-medium text-gray-600 mb-1">
+                                    From Date
+                                </label>
+                                <DatePicker
+                                    selected={localStartDate}
+                                    onChange={(date) => setLocalStartDate(date)}
+                                    customInput={
+                                        <div className="relative cursor-pointer">
+                                            <div className="absolute inset-y-0 left-0 pl-2 flex items-center pointer-events-none">
+                                                <Calendar className="h-3 w-3 text-indigo-500" />
+                                            </div>
+                                            <input
+                                                type="text"
+                                                value={localStartDate ? formatDateString(localStartDate) : ''}
+                                                readOnly
+                                                className="w-full pl-8 pr-2 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 bg-white text-gray-900 cursor-pointer"
+                                                placeholder="DD/MM/YYYY"
+                                            />
+                                        </div>
+                                    }
+                                    dateFormat="dd/MM/yyyy"
+                                    minDate={minDate ? new Date(minDate) : null}
+                                    maxDate={localEndDate || (maxDate ? new Date(maxDate) : new Date())}
+                                    popperClassName="!z-[99999]"
+                                    popperPlacement="bottom-start"
+                                    shouldCloseOnSelect={true}
+                                    withPortal={false}
+                                />
                             </div>
-                        )}
+                            
+                            {/* To Date */}
+                            <div className="relative" ref={endDatePickerRef}>
+                                <label className="block text-xs font-medium text-gray-600 mb-1">
+                                    To Date
+                                </label>
+                                <DatePicker
+                                    selected={localEndDate}
+                                    onChange={(date) => setLocalEndDate(date)}
+                                    customInput={
+                                        <div className="relative cursor-pointer">
+                                            <div className="absolute inset-y-0 left-0 pl-2 flex items-center pointer-events-none">
+                                                <Calendar className="h-3 w-3 text-indigo-500" />
+                                            </div>
+                                            <input
+                                                type="text"
+                                                value={localEndDate ? formatDateString(localEndDate) : ''}
+                                                readOnly
+                                                className="w-full pl-8 pr-2 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 bg-white text-gray-900 cursor-pointer"
+                                                placeholder="DD/MM/YYYY"
+                                            />
+                                        </div>
+                                    }
+                                    dateFormat="dd/MM/yyyy"
+                                    minDate={localStartDate || (minDate ? new Date(minDate) : null)}
+                                    maxDate={maxDate ? new Date(maxDate) : new Date()}
+                                    popperClassName="!z-[99999]"
+                                    popperPlacement="bottom-start"
+                                    shouldCloseOnSelect={true}
+                                    withPortal={false}
+                                />
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Footer */}
+                    <div className="flex items-center justify-between px-4 py-3 bg-slate-50 border-t border-slate-200">
+                        <span className="text-xs text-slate-500">
+                            {localStartDate && localEndDate
+                                ? `${localStartDate.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })} – ${localEndDate.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}`
+                                : 'Select start and end dates'}
+                        </span>
+                        <button
+                            type="button"
+                            onClick={handleApplyDate}
+                            disabled={!localStartDate || !localEndDate}
+                            className="px-4 py-2 text-sm font-semibold text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                        >
+                            Apply
+                        </button>
                     </div>
                 </div>
             )}
@@ -481,7 +474,9 @@ const TransactionHistory = () => {
     const [currentPage, setCurrentPage] = useState(1);
     const [totalPages, setTotalPages] = useState(1);
     const [totalItems, setTotalItems] = useState(0);
-    const [itemsPerPage] = useState(20);
+    const [itemsPerPage, setItemsPerPage] = useState(20);
+    const LIMIT_OPTIONS = [5, 10, 20, 50, 100];
+    const [pageJumpInput, setPageJumpInput] = useState('');
     const [openingBalance, setOpeningBalance] = useState(0);
     const [summary, setSummary] = useState({
         totalCredit: 0,
@@ -491,6 +486,7 @@ const TransactionHistory = () => {
     const [showTransactionModal, setShowTransactionModal] = useState(false);
     const [transactionType, setTransactionType] = useState('');
     const [showActionMenu, setShowActionMenu] = useState(null);
+    const [detailsTransaction, setDetailsTransaction] = useState(null);
 
     // Fetch bank details and initial transactions
     useEffect(() => {
@@ -503,12 +499,17 @@ const TransactionHistory = () => {
         }
     }, [bankId]);
 
-    // Fetch transactions when page, fromDate, or toDate changes
+    // Reset to page 1 when date filters or limit change
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [fromDate, toDate, itemsPerPage]);
+
+    // Fetch transactions when page, limit, fromDate, or toDate changes
     useEffect(() => {
         if (bankId) {
             fetchTransactions();
         }
-    }, [currentPage, fromDate, toDate]);
+    }, [currentPage, itemsPerPage, fromDate, toDate]);
 
     // Persist sidebar minimized state
     useEffect(() => {
@@ -592,8 +593,11 @@ const TransactionHistory = () => {
                     }));
                 }
                 
-                setTotalItems(response.data.meta?.total || 0);
-                setTotalPages(Math.ceil((response.data.meta?.total || 0) / itemsPerPage));
+                const meta = response.data.meta || {};
+                const total = meta.total ?? 0;
+                const limit = meta.limit ?? itemsPerPage;
+                setTotalItems(total);
+                setTotalPages(Math.max(1, Math.ceil(total / limit)));
                 
                 // Calculate summary from mapped transactions
                 calculateSummary(mappedTransactions, response.data.opening_balance?.balance || 0);
@@ -703,6 +707,12 @@ const TransactionHistory = () => {
         setShowActionMenu(null);
     };
 
+    // Handle view details
+    const handleViewDetails = (transaction) => {
+        setDetailsTransaction(transaction);
+        setShowActionMenu(null);
+    };
+
     // Format currency
     const formatCurrency = (amount) => {
         return new Intl.NumberFormat('en-IN', {
@@ -730,24 +740,55 @@ const TransactionHistory = () => {
         });
     };
 
-    // Get transaction type color based on payment object
+    // Get transaction amounts
+    const getTransactionAmounts = (transaction) => {
+        return {
+            debit: transaction.payment?.debit ?? 0,
+            credit: transaction.payment?.credit ?? 0,
+            balance: transaction.payment?.balance ?? 0
+        };
+    };
+
+    // Get transaction type color based on transaction_type
     const getTransactionTypeColor = (transaction) => {
-        if (transaction.payment?.debit > 0) {
-            return 'text-green-600 bg-green-50 border-green-200'; // Money In
-        } else if (transaction.payment?.credit > 0) {
-            return 'text-red-600 bg-red-50 border-red-200'; // Money Out
+        const type = transaction.transaction_type?.toUpperCase() || '';
+        switch(type) {
+            case 'RECEIVE':
+                return 'text-green-600 bg-green-50 border-green-200';
+            case 'PAYMENT':
+                return 'text-red-600 bg-red-50 border-red-200';
+            case 'CONTRA':
+                return 'text-purple-600 bg-purple-50 border-purple-200';
+            case 'SALE':
+                return 'text-blue-600 bg-blue-50 border-blue-200';
+            case 'PURCHASE':
+                return 'text-orange-600 bg-orange-50 border-orange-200';
+            case 'EXPENSE':
+                return 'text-amber-600 bg-amber-50 border-amber-200';
+            default:
+                return 'text-slate-600 bg-slate-50 border-slate-200';
         }
-        return 'text-slate-600 bg-slate-50 border-slate-200';
     };
 
     // Get transaction type display name
     const getTransactionTypeDisplay = (transaction) => {
-        if (transaction.payment?.debit > 0) {
-            return 'Money In';
-        } else if (transaction.payment?.credit > 0) {
-            return 'Money Out';
+        const type = transaction.transaction_type?.toUpperCase() || '';
+        switch(type) {
+            case 'RECEIVE':
+                return 'Receive';
+            case 'PAYMENT':
+                return 'Payment';
+            case 'CONTRA':
+                return 'Contra';
+            case 'SALE':
+                return 'Sale';
+            case 'PURCHASE':
+                return 'Purchase';
+            case 'EXPENSE':
+                return 'Expense';
+            default:
+                return type.charAt(0) + type.slice(1).toLowerCase() || 'N/A';
         }
-        return transaction.transaction_type?.toUpperCase() || 'N/A';
     };
 
     // Get payment mode icon
@@ -770,8 +811,19 @@ const TransactionHistory = () => {
 
     // Handle page change
     const handlePageChange = (newPage) => {
-        if (newPage >= 1 && newPage <= totalPages) {
-            setCurrentPage(newPage);
+        const page = Math.max(1, Math.min(totalPages, Math.floor(newPage)));
+        if (page >= 1 && page <= totalPages) {
+            setCurrentPage(page);
+            setPageJumpInput('');
+        }
+    };
+
+    // Handle page jump
+    const handlePageJump = (e) => {
+        e.preventDefault();
+        const page = parseInt(pageJumpInput, 10);
+        if (!isNaN(page)) {
+            handlePageChange(page);
         }
     };
 
@@ -789,84 +841,83 @@ const TransactionHistory = () => {
     };
 
     // Get particulars display with proper details from API response
-   // Get particulars display with proper details from API response
-const getParticularsDisplay = (transaction) => {
-    // Check if particular exists
-    if (transaction.particular) {
-        // Handle bank/contra transactions with bank details
-        if (transaction.particular.type === 'bank' && transaction.particular.details) {
-            const details = transaction.particular.details;
-            return (
-                <div className="flex flex-col">
-                    <div className="font-medium text-slate-800">
-                        {details.bank || 'N/A'}
-                    </div>
-                    <div className="text-xs text-slate-500">
-                        A/C: {details.account_no || 'N/A'} | {details.holder || 'N/A'}
-                    </div>
-                    <div className="text-xs text-slate-500">
-                        {details.branch || 'N/A'} ({details.ifsc || 'N/A'})
-                    </div>
-                    {transaction.particular.remark && (
-                        <div className="text-xs text-slate-400 mt-1 italic">
-                            Note: {transaction.particular.remark}
+    const getParticularsDisplay = (transaction) => {
+        // Check if particular exists
+        if (transaction.particular) {
+            // Handle bank/contra transactions with bank details
+            if (transaction.particular.type === 'bank' && transaction.particular.details) {
+                const details = transaction.particular.details;
+                return (
+                    <div className="flex flex-col min-w-0">
+                        <div className="font-medium text-slate-800">
+                            {details.bank || 'N/A'}
                         </div>
-                    )}
-                </div>
-            );
-        }
-        
-        // Handle customer/supplier transactions with person details
-        if (transaction.particular.details && (transaction.particular.details.name || transaction.particular.details.email)) {
-            const details = transaction.particular.details;
-            return (
-                <div className="flex flex-col">
-                    <div className="font-medium text-slate-800">{details.name || 'N/A'}</div>
-                    <div className="text-xs text-slate-500">{details.email || ''}</div>
-                    {details.mobile && (
                         <div className="text-xs text-slate-500">
-                            +{details.country_code || ''} {details.mobile}
+                            A/C: {details.account_no || 'N/A'} | {details.holder || 'N/A'}
                         </div>
-                    )}
-                    {transaction.particular.remark && (
-                        <div className="text-xs text-slate-400 mt-1 italic">
+                        <div className="text-xs text-slate-500">
+                            {details.branch || 'N/A'} ({details.ifsc || 'N/A'})
+                        </div>
+                        {transaction.particular.remark && (
+                            <div className="text-xs text-slate-400 mt-1 italic truncate max-w-[200px]" title={transaction.particular.remark}>
+                                Note: {transaction.particular.remark}
+                            </div>
+                        )}
+                    </div>
+                );
+            }
+            
+            // Handle customer/supplier transactions with person details
+            if (transaction.particular.details && (transaction.particular.details.name || transaction.particular.details.email)) {
+                const details = transaction.particular.details;
+                return (
+                    <div className="flex flex-col min-w-0">
+                        <div className="font-medium text-slate-800">{details.name || 'N/A'}</div>
+                        <div className="text-xs text-slate-500">{details.email || ''}</div>
+                        {details.mobile && (
+                            <div className="text-xs text-slate-500">
+                                +{details.country_code || ''} {details.mobile}
+                            </div>
+                        )}
+                        {transaction.particular.remark && (
+                            <div className="text-xs text-slate-400 mt-1 italic truncate max-w-[200px]" title={transaction.particular.remark}>
+                                Note: {transaction.particular.remark}
+                            </div>
+                        )}
+                    </div>
+                );
+            }
+            
+            // Fallback to remark only if no details
+            if (transaction.particular.remark) {
+                return (
+                    <div className="flex flex-col min-w-0">
+                        <div className="font-medium text-slate-800">Contra Transfer</div>
+                        <div className="text-xs text-slate-400 italic truncate max-w-[200px]" title={transaction.particular.remark}>
                             Note: {transaction.particular.remark}
+                        </div>
+                    </div>
+                );
+            }
+        }
+        
+        // Fallback to create_by if particular not available
+        if (transaction.create_by) {
+            return (
+                <div className="flex flex-col min-w-0">
+                    <div className="font-medium text-slate-800">{transaction.create_by.name || 'N/A'}</div>
+                    <div className="text-xs text-slate-500">{transaction.create_by.email || ''}</div>
+                    {transaction.create_by.mobile && (
+                        <div className="text-xs text-slate-500">
+                            +{transaction.create_by.country_code || ''} {transaction.create_by.mobile}
                         </div>
                     )}
                 </div>
             );
         }
         
-        // Fallback to remark only if no details
-        if (transaction.particular.remark) {
-            return (
-                <div className="flex flex-col">
-                    <div className="font-medium text-slate-800">Contra Transfer</div>
-                    <div className="text-xs text-slate-400 italic">
-                        Note: {transaction.particular.remark}
-                    </div>
-                </div>
-            );
-        }
-    }
-    
-    // Fallback to create_by if particular not available
-    if (transaction.create_by) {
-        return (
-            <div className="flex flex-col">
-                <div className="font-medium text-slate-800">{transaction.create_by.name || 'N/A'}</div>
-                <div className="text-xs text-slate-500">{transaction.create_by.email || ''}</div>
-                {transaction.create_by.mobile && (
-                    <div className="text-xs text-slate-500">
-                        +{transaction.create_by.country_code || ''} {transaction.create_by.mobile}
-                    </div>
-                )}
-            </div>
-        );
-    }
-    
-    return <span className="text-sm text-slate-500">N/A</span>;
-};
+        return <span className="text-sm text-slate-500">N/A</span>;
+    };
 
     // Loading skeleton
     const SkeletonRow = () => (
@@ -909,6 +960,184 @@ const getParticularsDisplay = (transaction) => {
                 formatCurrency={formatCurrency}
                 summary={summary}  
             />
+
+            {/* Transaction Details Modal */}
+            {detailsTransaction && (
+                <div
+                    className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
+                    onClick={() => setDetailsTransaction(null)}
+                >
+                    <motion.div
+                        initial={{ opacity: 0, scale: 0.95 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        exit={{ opacity: 0, scale: 0.95 }}
+                        className="relative w-full max-w-2xl max-h-[90vh] overflow-hidden bg-white rounded-2xl shadow-2xl"
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        {/* Modal Header */}
+                        <div className="sticky top-0 z-10 bg-gradient-to-r from-indigo-600 via-indigo-700 to-indigo-800 px-6 py-5">
+                            <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-3">
+                                    <div className="p-2 bg-white/20 rounded-xl">
+                                        <FiFileText className="w-6 h-6 text-white" />
+                                    </div>
+                                    <div>
+                                        <h2 className="text-xl font-bold text-white">
+                                            Transaction Details
+                                        </h2>
+                                        <p className="text-indigo-200 text-sm mt-0.5">
+                                            {getTransactionTypeDisplay(detailsTransaction)} • {detailsTransaction.invoice_no || 'N/A'}
+                                        </p>
+                                    </div>
+                                </div>
+                                <button
+                                    onClick={() => setDetailsTransaction(null)}
+                                    className="p-2 hover:bg-white/20 rounded-xl transition-colors"
+                                >
+                                    <FiX className="w-6 h-6 text-white" />
+                                </button>
+                            </div>
+                        </div>
+
+                        {/* Modal Body */}
+                        <div className="overflow-y-auto p-6 space-y-6 max-h-[calc(90vh-180px)]">
+                            {/* Basic Info */}
+                            <div className="bg-slate-50 rounded-xl p-4 border border-slate-100">
+                                <h3 className="text-sm font-semibold text-slate-500 uppercase tracking-wider mb-3">Transaction Info</h3>
+                                <div className="grid grid-cols-2 gap-3 text-sm">
+                                    <div><span className="text-slate-500">Date</span><p className="font-medium text-slate-800">{formatDate(detailsTransaction.transaction_date)} {formatTime(detailsTransaction.transaction_date)}</p></div>
+                                    <div><span className="text-slate-500">Voucher No</span><p className="font-mono font-medium text-slate-800">{detailsTransaction.invoice_no || 'N/A'}</p></div>
+                                    <div><span className="text-slate-500">Type</span><p className="font-medium text-slate-800">{getTransactionTypeDisplay(detailsTransaction)}</p></div>
+                                    <div className="col-span-2"><span className="text-slate-500">Transaction ID</span><p className="font-mono text-xs text-slate-600 break-all">{detailsTransaction.transaction_id || 'N/A'}</p></div>
+                                </div>
+                            </div>
+
+                            {/* Amounts */}
+                            {(() => {
+                                const amt = getTransactionAmounts(detailsTransaction);
+                                return (
+                                    <div className="bg-slate-50 rounded-xl p-4 border border-slate-100">
+                                        <h3 className="text-sm font-semibold text-slate-500 uppercase tracking-wider mb-3">Amounts</h3>
+                                        <div className="grid grid-cols-3 gap-4">
+                                            <div className="bg-white rounded-lg p-3 border border-green-100">
+                                                <p className="text-xs text-slate-500 mb-1">Debit (Money In)</p>
+                                                <p className="text-lg font-bold text-green-600">₹{formatCurrency(amt.debit)}</p>
+                                            </div>
+                                            <div className="bg-white rounded-lg p-3 border border-red-100">
+                                                <p className="text-xs text-slate-500 mb-1">Credit (Money Out)</p>
+                                                <p className="text-lg font-bold text-red-600">₹{formatCurrency(amt.credit)}</p>
+                                            </div>
+                                            <div className="bg-white rounded-lg p-3 border border-indigo-100">
+                                                <p className="text-xs text-slate-500 mb-1">Balance</p>
+                                                <p className={`text-lg font-bold ${amt.balance >= 0 ? 'text-green-600' : 'text-red-600'}`}>₹{formatCurrency(amt.balance)}</p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                );
+                            })()}
+
+                            {/* Particulars - Dynamic based on type */}
+                            {detailsTransaction.particular && (
+                                <div className="bg-slate-50 rounded-xl p-4 border border-slate-100">
+                                    <h3 className="text-sm font-semibold text-slate-500 uppercase tracking-wider mb-3">
+                                        Particulars {detailsTransaction.particular.type && `(${detailsTransaction.particular.type})`}
+                                    </h3>
+                                    {detailsTransaction.particular.type === 'bank' && detailsTransaction.particular.details ? (
+                                        <div className="bg-white rounded-lg p-4 border border-indigo-100 space-y-2">
+                                            <div className="flex items-center gap-2 mb-3">
+                                                <FiHome className="w-5 h-5 text-indigo-600" />
+                                                <span className="font-semibold text-slate-800">{detailsTransaction.particular.details.bank || 'Bank'}</span>
+                                            </div>
+                                            <div className="grid grid-cols-2 gap-2 text-sm">
+                                                <div><span className="text-slate-500">Account No</span><p className="font-medium">{detailsTransaction.particular.details.account_no || '-'}</p></div>
+                                                <div><span className="text-slate-500">Account Holder</span><p className="font-medium">{detailsTransaction.particular.details.holder || '-'}</p></div>
+                                                <div><span className="text-slate-500">IFSC</span><p className="font-mono font-medium">{detailsTransaction.particular.details.ifsc || '-'}</p></div>
+                                                <div><span className="text-slate-500">Branch</span><p className="font-medium">{detailsTransaction.particular.details.branch || '-'}</p></div>
+                                                <div><span className="text-slate-500">Type</span><p className="font-medium capitalize">{detailsTransaction.particular.details.type || '-'}</p></div>
+                                            </div>
+                                            {detailsTransaction.particular.remark && (
+                                                <div className="pt-2 mt-2 border-t border-slate-100">
+                                                    <span className="text-slate-500 text-xs">Remark</span>
+                                                    <p className="text-sm text-slate-700 mt-0.5">{detailsTransaction.particular.remark}</p>
+                                                </div>
+                                            )}
+                                        </div>
+                                    ) : detailsTransaction.particular.details && typeof detailsTransaction.particular.details === 'object' ? (
+                                        <div className="bg-white rounded-lg p-4 border border-slate-200">
+                                            <div className="space-y-2">
+                                                {Object.entries(detailsTransaction.particular.details)
+                                                    .filter(([, val]) => val != null && val !== '')
+                                                    .map(([key, val]) => (
+                                                        <div key={key} className="flex justify-between text-sm">
+                                                            <span className="text-slate-500 capitalize">{key.replace(/_/g, ' ')}</span>
+                                                            <span className="font-medium text-slate-800">{typeof val === 'object' ? JSON.stringify(val) : String(val)}</span>
+                                                        </div>
+                                                    ))}
+                                            </div>
+                                            {detailsTransaction.particular.remark && (
+                                                <div className="pt-2 mt-2 border-t border-slate-100">
+                                                    <span className="text-slate-500 text-xs">Remark</span>
+                                                    <p className="text-sm text-slate-700 mt-0.5">{detailsTransaction.particular.remark}</p>
+                                                </div>
+                                            )}
+                                        </div>
+                                    ) : (
+                                        <p className="text-slate-600 text-sm">{JSON.stringify(detailsTransaction.particular)}</p>
+                                    )}
+                                </div>
+                            )}
+
+                            {/* Created By */}
+                            {detailsTransaction.create_by && (
+                                <div className="bg-slate-50 rounded-xl p-4 border border-slate-100">
+                                    <h3 className="text-sm font-semibold text-slate-500 uppercase tracking-wider mb-3">Created By</h3>
+                                    <div className="flex items-center gap-3 bg-white rounded-lg p-4 border border-slate-200">
+                                        <div className="p-2 bg-indigo-100 rounded-full">
+                                            <FiUser className="w-5 h-5 text-indigo-600" />
+                                        </div>
+                                        <div>
+                                            <p className="font-medium text-slate-800">{detailsTransaction.create_by.name || '-'}</p>
+                                            <p className="text-sm text-slate-500">{detailsTransaction.create_by.email || detailsTransaction.create_by.username || ''}</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Modified By - if different from create_by */}
+                            {detailsTransaction.modify_by && JSON.stringify(detailsTransaction.modify_by) !== JSON.stringify(detailsTransaction.create_by) && (
+                                <div className="bg-slate-50 rounded-xl p-4 border border-slate-100">
+                                    <h3 className="text-sm font-semibold text-slate-500 uppercase tracking-wider mb-3">Modified By</h3>
+                                    <div className="flex items-center gap-3 bg-white rounded-lg p-4 border border-slate-200">
+                                        <div className="p-2 bg-amber-100 rounded-full">
+                                            <FiEdit2 className="w-5 h-5 text-amber-600" />
+                                        </div>
+                                        <div>
+                                            <p className="font-medium text-slate-800">{detailsTransaction.modify_by.name || '-'}</p>
+                                            <p className="text-sm text-slate-500">{detailsTransaction.modify_by.email || detailsTransaction.modify_by.username || ''}</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Timestamps */}
+                            <div className="flex gap-4 text-xs text-slate-500">
+                                {detailsTransaction.create_date && <span>Created: {formatDate(detailsTransaction.create_date)} {formatTime(detailsTransaction.create_date)}</span>}
+                                {detailsTransaction.modify_date && <span>Modified: {formatDate(detailsTransaction.modify_date)} {formatTime(detailsTransaction.modify_date)}</span>}
+                            </div>
+                        </div>
+
+                        {/* Modal Footer */}
+                        <div className="sticky bottom-0 border-t border-slate-200 bg-slate-50 px-6 py-4">
+                            <button
+                                onClick={() => setDetailsTransaction(null)}
+                                className="w-full py-2.5 px-4 bg-indigo-600 hover:bg-indigo-700 text-white font-medium rounded-xl transition-colors"
+                            >
+                                Close
+                            </button>
+                        </div>
+                    </motion.div>
+                </div>
+            )}
 
             {/* Main Content Area */}
             <div className={`pt-16 transition-all duration-300 ease-in-out ${isMinimized ? 'md:pl-20' : 'md:pl-72'}`}>
@@ -1058,7 +1287,7 @@ const getParticularsDisplay = (transaction) => {
                             </div>
                             <div className="flex flex-wrap items-center gap-2">
                                 {/* DateRangePicker Component */}
-                                <div className="w-48">
+                                <div className="min-w-[280px] flex-1 max-w-md">
                                     <DateRangePicker
                                         startDate={fromDate}
                                         endDate={toDate}
@@ -1121,7 +1350,7 @@ const getParticularsDisplay = (transaction) => {
                                         <th className="text-right p-4 font-semibold text-slate-600">Credit</th>
                                         <th className="text-right p-4 font-semibold text-slate-600">Balance</th>
                                         <th className="text-center p-4 font-semibold text-slate-600 w-20">Action</th>
-                                     </tr>
+                                    </tr>
                                 </thead>
                                 <tbody className="divide-y divide-slate-100">
                                     {/* Opening Balance Row - Always Show */}
@@ -1130,8 +1359,18 @@ const getParticularsDisplay = (transaction) => {
                                         <td className="p-4 text-slate-800" colSpan="2">Opening Balance</td>
                                         <td className="p-4"> </td>
                                         <td className="p-4"> </td>
-                                        <td className="p-4 text-right text-slate-400">-</td>
-                                        <td className="p-4 text-right text-slate-400">-</td>
+                                        <td className="p-4 text-right">
+                                            {openingBalance > 0 ? (
+                                                <span className="text-sm font-semibold text-green-600">₹{formatCurrency(openingBalance)}</span>
+                                            ) : openingBalance < 0 ? (
+                                                <span className="text-sm font-semibold text-red-600">₹{formatCurrency(openingBalance)}</span>
+                                            ) : (
+                                                <span className="text-sm text-slate-600">₹{formatCurrency(0)}</span>
+                                            )}
+                                        </td>
+                                        <td className="p-4 text-right">
+                                            <span className="text-sm text-slate-600">₹{formatCurrency(0)}</span>
+                                        </td>
                                         <td className={`p-4 text-right font-bold ${openingBalance >= 0 ? 'text-green-600' : 'text-red-600'}`}>
                                             ₹{formatCurrency(openingBalance)}
                                         </td>
@@ -1154,9 +1393,7 @@ const getParticularsDisplay = (transaction) => {
                                         </tr>
                                     ) : (
                                         transactions.map((transaction, index) => {
-                                            const isDebit = transaction.payment?.debit > 0;
-                                            const isCredit = transaction.payment?.credit > 0;
-                                            const amount = isDebit ? transaction.payment.debit : (isCredit ? transaction.payment.credit : 0);
+                                            const amounts = getTransactionAmounts(transaction);
                                             
                                             return (
                                                 <motion.tr
@@ -1174,14 +1411,9 @@ const getParticularsDisplay = (transaction) => {
                                                         {getParticularsDisplay(transaction)}
                                                     </td>
                                                     <td className="p-4">
-                                                        <div className="flex flex-col">
-                                                            <span className={`px-3 py-1 rounded-lg text-xs font-medium border w-fit ${getTransactionTypeColor(transaction)}`}>
-                                                                {getTransactionTypeDisplay(transaction)}
-                                                            </span>
-                                                            <span className="text-xs text-slate-500 mt-1 capitalize">
-                                                                {transaction.transaction_type}
-                                                            </span>
-                                                        </div>
+                                                        <span className={`px-3 py-1 rounded-lg text-xs font-medium border w-fit ${getTransactionTypeColor(transaction)}`}>
+                                                            {getTransactionTypeDisplay(transaction)}
+                                                        </span>
                                                     </td>
                                                     <td className="p-4">
                                                         <span className="text-sm font-mono text-slate-600">
@@ -1189,31 +1421,28 @@ const getParticularsDisplay = (transaction) => {
                                                         </span>
                                                     </td>
                                                     <td className="p-4 text-right">
-                                                        {isDebit ? (
+                                                        {amounts.debit > 0 ? (
                                                             <span className="text-sm font-semibold text-green-600">
-                                                                ₹{formatCurrency(amount)}
+                                                                ₹{formatCurrency(amounts.debit)}
                                                             </span>
                                                         ) : (
-                                                            <span className="text-sm text-slate-400">-</span>
+                                                            <span className="text-sm text-slate-600">₹{formatCurrency(0)}</span>
                                                         )}
                                                     </td>
                                                     <td className="p-4 text-right">
-                                                        {isCredit ? (
+                                                        {amounts.credit > 0 ? (
                                                             <span className="text-sm font-semibold text-red-600">
-                                                                ₹{formatCurrency(amount)}
+                                                                ₹{formatCurrency(amounts.credit)}
                                                             </span>
                                                         ) : (
-                                                            <span className="text-sm text-slate-400">-</span>
+                                                            <span className="text-sm text-slate-600">₹{formatCurrency(0)}</span>
                                                         )}
                                                     </td>
                                                     <td className="p-4 text-right">
-                                                        <span className={`text-sm font-bold ${transaction.payment?.balance >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                                                            ₹{formatCurrency(transaction.payment?.balance || 0)}
-                                                            {transaction.payment?.balance < 0 && <span className="text-xs ml-1">(OD)</span>}
+                                                        <span className={`text-sm font-bold ${amounts.balance >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                                                            ₹{formatCurrency(amounts.balance)}
+                                                            {amounts.balance < 0 && <span className="text-xs ml-1">(OD)</span>}
                                                         </span>
-                                                        <div className="text-xs text-slate-400">
-                                                            Prev: ₹{formatCurrency(transaction.payment?.balance - (isDebit ? amount : -amount) || 0)}
-                                                        </div>
                                                     </td>
                                                     <td className="p-4 text-center relative">
                                                         <button
@@ -1226,6 +1455,13 @@ const getParticularsDisplay = (transaction) => {
                                                         {/* Action Menu */}
                                                         {showActionMenu === transaction.transaction_id && (
                                                             <div className="absolute right-0 mt-2 w-40 bg-white rounded-lg shadow-xl border border-slate-200 py-1 z-50">
+                                                                <button
+                                                                    onClick={() => handleViewDetails(transaction)}
+                                                                    className="w-full px-4 py-2 text-left text-sm text-slate-700 hover:bg-indigo-50 flex items-center gap-2 transition-colors"
+                                                                >
+                                                                    <FiEye className="w-4 h-4 text-indigo-600" />
+                                                                    Details
+                                                                </button>
                                                                 <button
                                                                     onClick={() => handleEdit(transaction)}
                                                                     className="w-full px-4 py-2 text-left text-sm text-slate-700 hover:bg-blue-50 flex items-center gap-2 transition-colors"
@@ -1265,34 +1501,72 @@ const getParticularsDisplay = (transaction) => {
                         </div>
 
                         {/* Pagination */}
-                        {!loading && !fetchingTransactions && transactions.length > 0 && (
+                        {!loading && !fetchingTransactions && (transactions.length > 0 || totalItems > 0) && totalPages > 0 && (
                             <div className="border-t border-slate-200 px-6 py-4 bg-white">
-                                <div className="flex items-center justify-between">
-                                    <div className="text-sm text-slate-600">
-                                        Showing {(currentPage - 1) * itemsPerPage + 1} to {Math.min(currentPage * itemsPerPage, totalItems)} of {totalItems} entries
+                                <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+                                    <div className="flex flex-wrap items-center gap-4">
+                                        <div className="text-sm text-slate-600">
+                                            Showing {totalItems === 0 ? 0 : (currentPage - 1) * itemsPerPage + 1} to {Math.min(currentPage * itemsPerPage, totalItems)} of {totalItems} entries
+                                        </div>
+                                        <div className="flex items-center gap-2">
+                                            <label htmlFor="limit-select" className="text-sm text-slate-500">Show</label>
+                                            <select
+                                                id="limit-select"
+                                                value={itemsPerPage}
+                                                onChange={(e) => setItemsPerPage(Number(e.target.value))}
+                                                className="px-2 py-1.5 text-sm border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-white text-slate-700"
+                                            >
+                                                {LIMIT_OPTIONS.map((n) => (
+                                                    <option key={n} value={n}>{n}</option>
+                                                ))}
+                                            </select>
+                                            <span className="text-sm text-slate-500">per page</span>
+                                        </div>
                                     </div>
-                                    <div className="flex gap-2">
-                                        <motion.button
-                                            onClick={() => handlePageChange(currentPage - 1)}
-                                            disabled={currentPage === 1}
-                                            className="px-4 py-2 text-sm font-medium text-slate-700 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
-                                            whileHover={{ scale: 1.02 }}
-                                            whileTap={{ scale: 0.98 }}
-                                        >
-                                            Previous
-                                        </motion.button>
-                                        <span className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg">
-                                            {currentPage}
-                                        </span>
-                                        <motion.button
-                                            onClick={() => handlePageChange(currentPage + 1)}
-                                            disabled={currentPage === totalPages}
-                                            className="px-4 py-2 text-sm font-medium text-slate-700 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
-                                            whileHover={{ scale: 1.02 }}
-                                            whileTap={{ scale: 0.98 }}
-                                        >
-                                            Next
-                                        </motion.button>
+                                    <div className="flex flex-wrap items-center gap-3">
+                                        <div className="flex items-center gap-1">
+                                            <button
+                                                type="button"
+                                                onClick={(e) => { e.stopPropagation(); handlePageChange(currentPage - 1); }}
+                                                disabled={currentPage <= 1}
+                                                className="px-3 py-2 text-sm font-medium text-slate-700 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 hover:border-slate-300 transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-white"
+                                            >
+                                                Previous
+                                            </button>
+                                            <span className="px-3 py-2 text-sm font-medium text-white bg-indigo-600 rounded-lg min-w-[2.5rem] text-center">
+                                                {currentPage}
+                                            </span>
+                                            <span className="text-slate-400 text-sm px-1">/</span>
+                                            <span className="px-2 py-2 text-sm font-medium text-slate-600">
+                                                {totalPages}
+                                            </span>
+                                            <button
+                                                type="button"
+                                                onClick={(e) => { e.stopPropagation(); handlePageChange(currentPage + 1); }}
+                                                disabled={currentPage >= totalPages}
+                                                className="px-3 py-2 text-sm font-medium text-slate-700 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 hover:border-slate-300 transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-white"
+                                            >
+                                                Next
+                                            </button>
+                                        </div>
+                                        <form onSubmit={handlePageJump} className="flex items-center gap-2">
+                                            <span className="text-sm text-slate-500">Go to</span>
+                                            <input
+                                                type="number"
+                                                min={1}
+                                                max={totalPages}
+                                                value={pageJumpInput}
+                                                onChange={(e) => setPageJumpInput(e.target.value)}
+                                                placeholder={String(currentPage)}
+                                                className="w-14 px-2 py-1.5 text-sm text-center border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                                            />
+                                            <button
+                                                type="submit"
+                                                className="px-2 py-1.5 text-sm font-medium text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50 rounded-lg transition-colors"
+                                            >
+                                                Go
+                                            </button>
+                                        </form>
                                     </div>
                                 </div>
                             </div>

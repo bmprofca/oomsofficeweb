@@ -2,12 +2,13 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback} from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { IoTrash, IoAdd } from "react-icons/io5";
-import { FiX, FiUser, FiDollarSign, FiShoppingBag, FiTruck, FiFileText, FiRepeat, FiPlus, FiTrash2, FiSearch, FiMail, FiPhone, FiCreditCard, FiCalendar, FiHash, FiHome } from 'react-icons/fi';
+import { FiX, FiArrowRight , FiUser, FiDollarSign,FiChevronDown, FiShoppingBag, FiTruck, FiFileText, FiRepeat, FiPlus, FiTrash2, FiSearch, FiMail, FiPhone, FiCreditCard, FiCalendar, FiHash, FiHome } from 'react-icons/fi';
 import toast from 'react-hot-toast';
 import API_BASE_URL from '../../utils/api-controller';
 import getHeaders from '../../utils/get-headers';
 import axios from 'axios';
-
+import DatePickerComponent from '../../components/DatePickerComponent';
+import { debounce } from 'lodash';
 const appSettings = {
     company_name: 'Professional Accounting Services',
     gst_applicable: true,
@@ -1798,158 +1799,576 @@ export const PurchaseModal = ({ isOpen, onClose, bankDetails, bankId, onSubmit, 
     );
 };
 
-// Expense Modal
-export const ExpenseModal = ({ isOpen, onClose, bankDetails, bankId, onSubmit, formatCurrency }) => {
-    const handleSubmit = (e) => {
-        e.preventDefault();
-        const formData = new FormData(e.target);
-        onSubmit('EXPENSE', Object.fromEntries(formData));
+export const ExpenseModal = ({ 
+    isOpen, 
+    onClose, 
+    bankDetails, 
+    bankId, 
+    onSubmit, 
+    formatCurrency: externalFormatCurrency,
+    onSuccess 
+}) => {
+    const [formData, setFormData] = useState({
+        transaction_date: new Date().toISOString().split('T')[0],
+        items: [{ item_id: '', amount: '' }],
+        bank_id: bankId || '',
+        total_amount: 0,
+        remark: ''
+    });
+
+    const [isSubmitting, setIsSubmitting] = useState(false);
+    
+    // API States
+    const [expenseItems, setExpenseItems] = useState([]);
+    const [expenseItemsLoading, setExpenseItemsLoading] = useState(false);
+    const [itemSearchTerm, setItemSearchTerm] = useState('');
+
+    // Format currency function
+    const formatCurrency = (amount) => {
+        if (externalFormatCurrency) {
+            return externalFormatCurrency(amount);
+        }
+        return new Intl.NumberFormat('en-IN', {
+            style: 'currency',
+            currency: 'INR',
+            minimumFractionDigits: 0,
+            maximumFractionDigits: 0
+        }).format(amount);
     };
 
+    // Fetch expense items from API
+    const fetchExpenseItems = async (search = '') => {
+        setExpenseItemsLoading(true);
+        try {
+            const headers = getHeaders();
+            const url = `${API_BASE_URL}/expense/item/list?page_no=1&limit=50&search=${search}`;
+            const response = await fetch(url, { headers });
+            const result = await response.json();
+            
+            if (result.success && result.data) {
+                setExpenseItems(result.data);
+            }
+        } catch (error) {
+            console.error('Error fetching expense items:', error);
+        } finally {
+            setExpenseItemsLoading(false);
+        }
+    };
+
+    // Debounced search for expense items
+    const debouncedItemSearch = useCallback(
+        debounce((searchValue) => {
+            fetchExpenseItems(searchValue);
+        }, 300),
+        []
+    );
+
+    useEffect(() => {
+        if (itemSearchTerm !== undefined) {
+            debouncedItemSearch(itemSearchTerm);
+        }
+        return () => {
+            debouncedItemSearch.cancel();
+        };
+    }, [itemSearchTerm]);
+
+    // Fetch initial data when modal opens
+    useEffect(() => {
+        if (isOpen) {
+            fetchExpenseItems();
+            setFormData({
+                transaction_date: new Date().toISOString().split('T')[0],
+                items: [{ item_id: '', amount: '' }],
+                bank_id: bankId || '',
+                total_amount: 0,
+                remark: ''
+            });
+        }
+    }, [isOpen, bankId]);
+
+    const addItem = () => {
+        setFormData(prev => ({
+            ...prev,
+            items: [
+                ...prev.items,
+                { item_id: '', amount: '' }
+            ]
+        }));
+    };
+
+    const removeItem = (index) => {
+        if (formData.items.length > 1) {
+            setFormData(prev => ({
+                ...prev,
+                items: prev.items.filter((_, i) => i !== index)
+            }));
+        }
+    };
+
+    const handleInputChange = (e) => {
+        const { name, value } = e.target;
+        setFormData(prev => ({
+            ...prev,
+            [name]: value
+        }));
+    };
+
+    const handleItemChange = (index, field, value) => {
+        const updatedItems = formData.items.map((item, i) => {
+            if (i === index) {
+                return {
+                    ...item,
+                    [field]: field === 'amount' ? Number(value) || 0 : value
+                };
+            }
+            return item;
+        });
+
+        setFormData(prev => ({ ...prev, items: updatedItems }));
+    };
+
+    const handleExpenseItemChange = (index, itemId) => {
+        const updatedItems = formData.items.map((item, i) =>
+            i === index ? {
+                ...item,
+                item_id: itemId,
+                amount: ''
+            } : item
+        );
+        setFormData(prev => ({
+            ...prev,
+            items: updatedItems
+        }));
+    };
+
+    const handleDateChange = (date) => {
+        setFormData(prev => ({
+            ...prev,
+            transaction_date: date
+        }));
+    };
+
+    // Calculate totals
+    useEffect(() => {
+        let total_amount = 0;
+        formData.items.forEach(item => {
+            total_amount += Number(item.amount) || 0;
+        });
+
+        setFormData(prev => ({
+            ...prev,
+            total_amount
+        }));
+    }, [formData.items]);
+
+    const handleSubmit = async (e) => {
+        e.preventDefault();
+        if (!formData.bank_id || isSubmitting) return;
+
+        setIsSubmitting(true);
+        try {
+            const headers = getHeaders();
+            
+            // Create expense entries for each item
+            const expensePromises = formData.items.map(async (item) => {
+                const payload = {
+                    item_id: item.item_id,
+                    remark: formData.remark,
+                    amount: item.amount,
+                    transaction_date: formData.transaction_date,
+                    party_id: formData.bank_id,
+                    party_type: "bank"
+                };
+                
+                const response = await fetch(`${API_BASE_URL}/expense/entry/create`, {
+                    method: 'POST',
+                    headers: {
+                        ...headers,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(payload)
+                });
+                
+                return response.json();
+            });
+            
+            const results = await Promise.all(expensePromises);
+            const allSuccess = results.every(result => result.success);
+            
+            if (allSuccess) {
+                if (onSuccess) onSuccess(results);
+                if (onSubmit) onSubmit('EXPENSE', results);
+                onClose();
+            } else {
+                console.error('Some expenses failed:', results);
+                alert('Some expenses could not be created. Please check and try again.');
+            }
+        } catch (error) {
+            console.error('Error submitting expense:', error);
+            alert('Failed to create expense. Please try again.');
+        } finally {
+            setIsSubmitting(false);
+        }
+    };
+
+    const formatDate = (dateString) => {
+        const date = new Date(dateString);
+        return date.toLocaleDateString('en-IN', {
+            day: 'numeric',
+            month: 'short',
+            year: 'numeric'
+        });
+    };
+
+    const getExpenseItemDetails = (itemId) => {
+        return expenseItems.find(item => item.item_id === itemId);
+    };
+
+    const getExpenseTypeBadge = (type) => {
+        const typeConfig = {
+            'direct': 'bg-red-100 text-red-800',
+            'indirect': 'bg-blue-100 text-blue-800',
+            'reimbursable': 'bg-green-100 text-green-800'
+        };
+        return typeConfig[type] || 'bg-gray-100 text-gray-800';
+    };
+
+    const formatExpenseType = (type) => {
+        const typeMap = {
+            'direct': 'Direct Expense',
+            'indirect': 'Indirect Expense',
+            'reimbursable': 'Reimbursable Expense'
+        };
+        return typeMap[type] || type;
+    };
+
+    if (!isOpen) return null;
+
     return (
-        <BaseModal isOpen={isOpen} onClose={onClose} title="Create Expense from Bank">
-            <form onSubmit={handleSubmit} className="space-y-5">
-                <div className="bg-orange-50 p-4 rounded-lg border border-orange-200 mb-4">
-                    <div className="grid grid-cols-3 gap-4 text-center">
-                        <div>
-                            <p className="text-xs text-orange-600 font-medium">Bank Name</p>
-                            <p className="text-sm font-bold text-slate-700">{bankDetails?.bank || 'Current Bank'}</p>
+        <div className="fixed inset-0 z-50 overflow-y-auto">
+            <div className="flex items-center justify-center min-h-screen p-2 sm:p-4">
+                {/* Overlay */}
+                <div
+                    className="fixed inset-0 bg-gray-900 bg-opacity-50 backdrop-blur-sm transition-opacity duration-300"
+                    onClick={onClose}
+                />
+                
+                {/* Modal Panel */}
+                <div className="relative w-full max-w-3xl bg-white rounded-xl shadow-2xl h-[85vh] flex flex-col transform transition-all duration-300 scale-100 animate-fadeIn">
+                    {/* Header */}
+                    <div className="flex-shrink-0 flex items-center justify-between p-3 border-b border-gray-200 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-t-xl">
+                        <div className="flex items-center space-x-3">
+                            <div className="p-1.5 bg-white/10 rounded-lg">
+                                <FiDollarSign className="w-5 h-5" />
+                            </div>
+                            <div className="flex items-center space-x-4">
+                                <h2 className="text-lg font-bold">Create Expense from Bank</h2>
+                                <span className="text-blue-200 text-sm hidden sm:inline">|</span>
+                                <p className="text-blue-100 text-xs sm:text-sm hidden sm:block">Auto-selected Bank</p>
+                            </div>
                         </div>
-                        <div>
-                            <p className="text-xs text-orange-600 font-medium">Credit</p>
-                            <p className="text-sm font-bold text-green-600">₹{formatCurrency(bankDetails?.balance || 0)}</p>
-                        </div>
-                        <div>
-                            <p className="text-xs text-orange-600 font-medium">Debit</p>
-                            <p className="text-sm font-bold text-red-600">₹0.00</p>
+                        <button
+                            onClick={onClose}
+                            className="p-1.5 text-blue-200 hover:text-white hover:bg-blue-500 rounded-lg transition-colors"
+                        >
+                            <FiX className="w-5 h-5" />
+                        </button>
+                    </div>
+
+                    {/* Content */}
+                    <div className="flex-1 overflow-y-auto p-4 sm:p-5 bg-gray-50">
+                        <form onSubmit={handleSubmit}>
+                            {/* Auto-selected Bank Card */}
+                            <div className="mb-6">
+                                <div className="bg-gradient-to-r from-green-50 to-emerald-50 p-4 rounded-lg border border-green-200">
+                                    <div className="flex items-center justify-between mb-3">
+                                        <div className="flex items-center space-x-2">
+                                            <FiCreditCard className="w-5 h-5 text-green-600" />
+                                            <span className="text-sm font-semibold text-gray-700">Selected Bank Account</span>
+                                        </div>
+                                        <span className="text-xs bg-green-200 text-green-800 px-2 py-1 rounded-full">Auto-selected</span>
+                                    </div>
+                                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                                        <div>
+                                            <p className="text-xs text-green-600 font-medium">Bank Name</p>
+                                            <p className="text-sm font-bold text-gray-900">{bankDetails?.bank || bankDetails?.name || 'Current Bank'}</p>
+                                        </div>
+                                        <div>
+                                            <p className="text-xs text-green-600 font-medium">Account No</p>
+                                            <p className="text-sm font-medium text-gray-700">{bankDetails?.account_no || 'N/A'}</p>
+                                        </div>
+                                        <div>
+                                            <p className="text-xs text-green-600 font-medium">Balance</p>
+                                            <p className="text-sm font-bold text-green-600">{formatCurrency(bankDetails?.balance || 0)}</p>
+                                        </div>
+                                        <div>
+                                            <p className="text-xs text-green-600 font-medium">Holder Name</p>
+                                            <p className="text-sm font-medium text-gray-700">{bankDetails?.holder || 'N/A'}</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Date Section */}
+                            <div className="mb-6">
+                                <div className="grid grid-cols-1 gap-4">
+                                    <div>
+                                        <div className="flex items-center justify-between mb-1.5">
+                                            <label className="block text-sm font-semibold text-gray-700">
+                                                Transaction Date <span className="text-red-500">*</span>
+                                            </label>
+                                            <span className="text-xs text-gray-500 px-1.5 py-0.5 bg-gray-100 rounded">Required</span>
+                                        </div>
+                                        <DatePickerComponent
+                                            selectedDate={formData.transaction_date}
+                                            onDateChange={handleDateChange}
+                                            placeholder="Select transaction date"
+                                        />
+                                        <div className="mt-1.5 text-xs text-gray-500">
+                                            Selected: {formatDate(formData.transaction_date)}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Expense Items Section */}
+                            <div className="mb-6">
+                                <div className="flex justify-between items-center mb-4">
+                                    <div className="flex items-center space-x-2">
+                                        <h3 className="text-sm font-bold text-gray-900">Expense Items</h3>
+                                        <span className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded transition-all duration-200 hover:bg-gray-200">
+                                            {formData.items.length} item{formData.items.length !== 1 ? 's' : ''}
+                                        </span>
+                                    </div>
+                                    <button
+                                        type="button"
+                                        onClick={addItem}
+                                        className="inline-flex items-center px-3 py-1.5 text-xs font-medium bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 focus:outline-none focus:ring-1 focus:ring-green-500 transition-all duration-200 shadow-sm hover:shadow transform hover:-translate-y-0.5"
+                                    >
+                                        <FiPlus className="w-3.5 h-3.5 mr-1.5 transition-transform duration-200 group-hover:rotate-90" />
+                                        Add Item
+                                    </button>
+                                </div>
+
+                                <div className="space-y-3">
+                                    {formData.items.map((item, index) => {
+                                        const expenseItem = getExpenseItemDetails(item.item_id);
+                                        return (
+                                            <div 
+                                                key={index} 
+                                                className="bg-white border border-gray-200 rounded-lg p-4 shadow-sm hover:shadow-md transition-all duration-300"
+                                            >
+                                                <div className="grid grid-cols-1 md:grid-cols-12 gap-3">
+                                                    {/* Expense Item */}
+                                                    <div className="md:col-span-8">
+                                                        <div className="flex items-center justify-between mb-1">
+                                                            <label className="text-xs font-medium text-gray-700">Expense Item</label>
+                                                            {expenseItem && (
+                                                                <span className={`text-xs px-2 py-1 rounded-full transition-colors duration-200 ${getExpenseTypeBadge(expenseItem.type)}`}>
+                                                                    {formatExpenseType(expenseItem.type)}
+                                                                </span>
+                                                            )}
+                                                        </div>
+                                                        <div className="relative">
+                                                            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                                                <FiFileText className="w-4 h-4 text-gray-400" />
+                                                            </div>
+                                                            <select
+                                                                className="pl-10 w-full px-3 py-2 text-sm border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 hover:border-blue-400 transition-all duration-200 appearance-none bg-white"
+                                                                value={item.item_id}
+                                                                onChange={(e) => handleExpenseItemChange(index, e.target.value)}
+                                                                required
+                                                            >
+                                                                <option value="" disabled>Select Expense Item</option>
+                                                                {expenseItems.map(expenseItem => (
+                                                                    <option key={expenseItem.item_id} value={expenseItem.item_id}>
+                                                                        {expenseItem.name}
+                                                                    </option>
+                                                                ))}
+                                                            </select>
+                                                            <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
+                                                                <FiChevronDown className="w-4 h-4 text-gray-400" />
+                                                            </div>
+                                                        </div>
+                                                        {expenseItemsLoading && (
+                                                            <div className="text-xs text-gray-400 mt-1">Loading items...</div>
+                                                        )}
+                                                    </div>
+
+                                                    {/* Amount and Delete */}
+                                                    <div className="md:col-span-4">
+                                                        <div className="flex items-end space-x-2 h-full">
+                                                            <div className="flex-1">
+                                                                <label className="text-xs font-medium text-gray-700 mb-1 block">Amount (₹)</label>
+                                                                <div className="relative">
+                                                                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                                                        <FiDollarSign className="w-4 h-4 text-gray-400" />
+                                                                    </div>
+                                                                    <input
+                                                                        type="number"
+                                                                        className="pl-10 w-full pr-3 py-2 text-sm border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 hover:border-blue-400 transition-all duration-200 text-right"
+                                                                        placeholder="0.00"
+                                                                        value={item.amount}
+                                                                        onChange={(e) => handleItemChange(index, 'amount', e.target.value)}
+                                                                        required
+                                                                    />
+                                                                </div>
+                                                            </div>
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => removeItem(index)}
+                                                                disabled={formData.items.length <= 1}
+                                                                className="p-2 text-red-600 hover:bg-red-50 hover:text-red-700 rounded-lg transition-all duration-200 transform hover:scale-110 disabled:opacity-50 disabled:cursor-not-allowed"
+                                                            >
+                                                                <FiTrash2 className="w-4 h-4" />
+                                                            </button>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+
+                            {/* Remark Section */}
+                            <div className="mb-6">
+                                <div className="bg-gradient-to-br from-blue-50 to-white p-4 rounded-lg border border-blue-100 shadow-sm transition-all duration-300 hover:shadow-md">
+                                    <div className="flex items-center mb-3">
+                                        <div className="p-1.5 bg-blue-600 text-white rounded-lg mr-2 transition-transform duration-200 hover:rotate-3">
+                                            <FiFileText className="w-4 h-4" />
+                                        </div>
+                                        <h4 className="text-sm font-bold text-gray-900">Remark</h4>
+                                    </div>
+                                    <div className="relative">
+                                        <div className="absolute left-3 top-3 pointer-events-none">
+                                            <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z" />
+                                            </svg>
+                                        </div>
+                                        <textarea
+                                            className="pl-10 w-full px-3 py-2.5 text-sm border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 hover:border-blue-400 transition-all duration-200"
+                                            placeholder="Enter remark..."
+                                            name="remark"
+                                            rows={3}
+                                            value={formData.remark}
+                                            onChange={handleInputChange}
+                                        />
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Expense Summary */}
+                            <div className="bg-gradient-to-br from-blue-50 to-white p-4 rounded-lg border border-blue-100 shadow-sm transition-all duration-300 hover:shadow-md">
+                                <div className="flex items-center mb-3">
+                                    <div className="p-1.5 bg-blue-600 text-white rounded-lg mr-2 transition-transform duration-200 hover:rotate-3">
+                                        <FiDollarSign className="w-4 h-4" />
+                                    </div>
+                                    <h4 className="text-sm font-bold text-gray-900">Expense Summary</h4>
+                                </div>
+                                <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                                    <div className="text-center p-3 bg-white rounded-lg border border-gray-200 transition-all duration-200 hover:border-blue-300 hover:shadow-sm">
+                                        <div className="text-xs text-gray-600 mb-1">Items Count</div>
+                                        <div className="font-semibold text-blue-600 text-lg">
+                                            {formData.items.length}
+                                        </div>
+                                    </div>
+                                    <div className="text-center p-3 bg-white rounded-lg border border-gray-200 transition-all duration-200 hover:border-green-300 hover:shadow-sm">
+                                        <div className="text-xs text-gray-600 mb-1">Bank Account</div>
+                                        <div className="font-semibold text-green-600 text-sm truncate">
+                                            {bankDetails?.bank || bankDetails?.name || 'Auto-selected'}
+                                        </div>
+                                    </div>
+                                    <div className="text-center p-3 bg-white rounded-lg border border-gray-200 transition-all duration-200 hover:border-red-300 hover:shadow-sm">
+                                        <div className="text-xs text-gray-600 mb-1">Total Amount</div>
+                                        <div className="font-semibold text-red-600 text-lg">
+                                            {formatCurrency(formData.total_amount)}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </form>
+                    </div>
+
+                    {/* Footer */}
+                    <div className="flex-shrink-0 border-t border-gray-200 bg-white p-4 rounded-b-xl shadow-lg">
+                        <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
+                            {/* Warning Message */}
+                            {(!formData.bank_id || formData.items.some(item => !item.item_id || !item.amount)) && (
+                                <div className="w-full lg:w-auto animate-pulse">
+                                    <div className="flex items-center text-amber-600 text-xs font-medium px-3 py-1.5 bg-amber-50 border border-amber-200 rounded transition-all duration-200 hover:bg-amber-100">
+                                        <svg className="w-3.5 h-3.5 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.998-.833-2.732 0L4.342 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                                        </svg>
+                                        Please fill all required fields (*) to create expense
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Action Buttons */}
+                            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 w-full lg:w-auto">
+                                <div className="hidden lg:flex items-center space-x-4">
+                                    <div className="px-3 py-1.5 bg-gradient-to-r from-green-50 to-green-100 rounded-lg border border-green-200 transition-all duration-200 hover:border-green-300 hover:shadow-sm">
+                                        <div className="text-xs text-green-700 font-semibold">
+                                            Total: <span className="text-sm">{formatCurrency(formData.total_amount)}</span>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div className="flex items-center gap-2">
+                                    <button
+                                        type="button"
+                                        onClick={onClose}
+                                        disabled={isSubmitting}
+                                        className="px-4 py-2 text-xs font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 hover:border-gray-400 focus:outline-none focus:ring-1 focus:ring-gray-500 focus:border-gray-500 transition-all duration-200 transform hover:-translate-y-0.5 disabled:opacity-50 shadow-sm hover:shadow"
+                                    >
+                                        Cancel
+                                    </button>
+                                    <button
+                                        type="submit"
+                                        onClick={handleSubmit}
+                                        disabled={isSubmitting || !formData.bank_id || formData.items.some(item => !item.item_id || !item.amount)}
+                                        className="px-5 py-2 text-xs font-medium text-white bg-gradient-to-r from-blue-600 to-blue-700 border border-transparent rounded-lg hover:from-blue-700 hover:to-blue-800 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:ring-offset-1 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 shadow hover:shadow-md transform hover:-translate-y-0.5 min-w-[140px] flex items-center justify-center"
+                                    >
+                                        {isSubmitting ? (
+                                            <>
+                                                <svg className="animate-spin -ml-1 mr-2 h-3 w-3 text-white" fill="none" viewBox="0 0 24 24">
+                                                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                                </svg>
+                                                Creating...
+                                            </>
+                                        ) : (
+                                            <>
+                                                <FiArrowRight className="w-3.5 h-3.5 mr-1.5 transition-transform duration-200 group-hover:translate-x-1" />
+                                                Create Expense
+                                            </>
+                                        )}
+                                    </button>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
+            </div>
 
-                <div className="space-y-4">
-                    <div>
-                        <label className="block text-sm font-medium text-slate-700 mb-1">
-                            Expense To <span className="text-red-500">*</span>
-                        </label>
-                        <input
-                            type="text"
-                            name="expense_to"
-                            placeholder="Enter payee name"
-                            required
-                            className="w-full px-4 py-3 border-2 border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                        />
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-4">
-                        <div>
-                            <label className="block text-sm font-medium text-slate-700 mb-1">
-                                Date <span className="text-red-500">*</span>
-                            </label>
-                            <input
-                                type="date"
-                                name="date"
-                                defaultValue={new Date().toISOString().split('T')[0]}
-                                required
-                                className="w-full px-4 py-3 border-2 border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                            />
-                        </div>
-
-                        <div>
-                            <label className="block text-sm font-medium text-slate-700 mb-1">
-                                Amount <span className="text-red-500">*</span>
-                            </label>
-                            <input
-                                type="number"
-                                name="amount"
-                                placeholder="Enter amount"
-                                required
-                                min="0.01"
-                                step="0.01"
-                                className="w-full px-4 py-3 border-2 border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                            />
-                        </div>
-                    </div>
-
-                    <div>
-                        <label className="block text-sm font-medium text-slate-700 mb-1">
-                            Description
-                        </label>
-                        <textarea
-                            name="description"
-                            placeholder="Enter description"
-                            rows="3"
-                            className="w-full px-4 py-3 border-2 border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                        />
-                    </div>
-
-                    <div>
-                        <label className="block text-sm font-medium text-slate-700 mb-1">
-                            Expense Category <span className="text-red-500">*</span>
-                        </label>
-                        <select
-                            name="category"
-                            required
-                            className="w-full px-4 py-3 border-2 border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                        >
-                            <option value="">Select Category</option>
-                            <option value="rent">Rent</option>
-                            <option value="salary">Salary</option>
-                            <option value="electricity">Electricity</option>
-                            <option value="travel">Travel</option>
-                            <option value="office">Office Expenses</option>
-                            <option value="other">Other</option>
-                        </select>
-                    </div>
-
-                    <div>
-                        <label className="block text-sm font-medium text-slate-700 mb-1">
-                            From Account (Bank) <span className="text-red-500">*</span>
-                        </label>
-                        <select
-                            name="bank"
-                            required
-                            className="w-full px-4 py-3 border-2 border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                        >
-                            <option value={bankId}>
-                                {bankDetails?.bank || 'Current Bank'} - Balance: ₹{formatCurrency(bankDetails?.balance || 0)}
-                            </option>
-                        </select>
-                    </div>
-
-                    <div>
-                        <label className="block text-sm font-medium text-slate-700 mb-1">
-                            Payment Mode <span className="text-red-500">*</span>
-                        </label>
-                        <select
-                            name="payment_mode"
-                            required
-                            className="w-full px-4 py-3 border-2 border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                        >
-                            <option value="cash">Cash</option>
-                            <option value="cheque">Cheque</option>
-                            <option value="online">Online Transfer</option>
-                            <option value="card">Card</option>
-                        </select>
-                    </div>
-                </div>
-
-                <div className="flex gap-3 pt-4 border-t border-slate-200">
-                    <button
-                        type="submit"
-                        className="flex-1 px-6 py-3 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-lg text-base font-medium hover:from-blue-700 hover:to-blue-800 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-all duration-200"
-                    >
-                        Submit
-                    </button>
-                    <button
-                        type="button"
-                        onClick={onClose}
-                        className="flex-1 px-6 py-3 bg-white border-2 border-slate-200 text-slate-700 rounded-lg text-base font-medium hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-slate-500 focus:ring-offset-2 transition-all duration-200"
-                    >
-                        Cancel
-                    </button>
-                </div>
-            </form>
-        </BaseModal>
+            <style>{`
+                @keyframes fadeIn {
+                    from {
+                        opacity: 0;
+                        transform: translateY(-10px);
+                    }
+                    to {
+                        opacity: 1;
+                        transform: translateY(0);
+                    }
+                }
+                
+                .animate-fadeIn {
+                    animation: fadeIn 0.3s ease-out;
+                }
+            `}</style>
+        </div>
     );
 };
 
