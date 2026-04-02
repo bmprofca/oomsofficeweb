@@ -87,6 +87,173 @@ import API_BASE_URL from '../utils/api-controller';
 // Import Edit Task Modal
 import EditTaskModal from '../TaskComponent/EdittaskModal';
 
+// Bulk Status Change Modal Component
+const BulkStatusChangeModal = ({ isOpen, onClose, selectedCount, onConfirm, loading }) => {
+    const [selectedStatus, setSelectedStatus] = useState('');
+    const [localLoading, setLocalLoading] = useState(false);
+    
+    const statusOptions = [
+        { value: 'unassign', name: 'Unassign', color: 'blue' },
+        { value: 'in process', name: 'In Process', color: 'orange' },
+        { value: 'pending from client', name: 'Pending from Client', color: 'purple' },
+        { value: 'pending from department', name: 'Pending from Department', color: 'yellow' },
+        { value: 'complete', name: 'Complete', color: 'green' },
+        { value: 'cancel', name: 'Cancel', color: 'red' }
+    ];
+    
+    const getStatusColor = (status) => {
+        switch (status) {
+            case 'unassign': return 'bg-blue-100 text-blue-700 border-blue-300';
+            case 'in process': return 'bg-orange-100 text-orange-700 border-orange-300';
+            case 'pending from client': return 'bg-purple-100 text-purple-700 border-purple-300';
+            case 'pending from department': return 'bg-yellow-100 text-yellow-700 border-yellow-300';
+            case 'complete': return 'bg-green-100 text-green-700 border-green-300';
+            case 'cancel': return 'bg-red-100 text-red-700 border-red-300';
+            default: return 'bg-gray-100 text-gray-700 border-gray-300';
+        }
+    };
+    
+    const getStatusIcon = (status) => {
+        switch (status) {
+            case 'unassign': return <FiClock className="w-4 h-4" />;
+            case 'in process': return <FiLoader className="w-4 h-4" />;
+            case 'pending from client': return <FiEye className="w-4 h-4" />;
+            case 'pending from department': return <FiXCircle className="w-4 h-4" />;
+            case 'complete': return <FiCheckCircle className="w-4 h-4" />;
+            case 'cancel': return <FiXCircle className="w-4 h-4" />;
+            default: return <FiClock className="w-4 h-4" />;
+        }
+    };
+    
+    const handleConfirm = async () => {
+        if (!selectedStatus) return;
+        setLocalLoading(true);
+        await onConfirm(selectedStatus);
+        setLocalLoading(false);
+        onClose();
+    };
+    
+    if (!isOpen) return null;
+    
+    return (
+        <AnimatePresence>
+            {isOpen && (
+                <motion.div
+                    className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[100] p-4"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    onClick={onClose}
+                >
+                    <motion.div
+                        className="bg-white rounded-xl shadow-2xl w-full max-w-md mx-auto overflow-hidden"
+                        initial={{ scale: 0.95, opacity: 0, y: 20 }}
+                        animate={{ scale: 1, opacity: 1, y: 0 }}
+                        exit={{ scale: 0.95, opacity: 0, y: 20 }}
+                        transition={{ duration: 0.2 }}
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        {/* Header */}
+                        <div className="bg-gradient-to-r from-indigo-600 to-indigo-700 text-white px-6 py-4">
+                            <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-3">
+                                    <div className="w-10 h-10 bg-white/20 rounded-lg flex items-center justify-center">
+                                        <FiCheckCircle className="w-5 h-5" />
+                                    </div>
+                                    <div>
+                                        <h3 className="text-lg font-bold">Bulk Status Change</h3>
+                                        <p className="text-indigo-100 text-sm">
+                                            Update status for {selectedCount} selected task{selectedCount !== 1 ? 's' : ''}
+                                        </p>
+                                    </div>
+                                </div>
+                                <motion.button
+                                    onClick={onClose}
+                                    className="text-white hover:text-indigo-200 transition-colors p-2 rounded-lg hover:bg-white/10"
+                                    whileHover={{ scale: 1.1 }}
+                                    whileTap={{ scale: 0.9 }}
+                                >
+                                    <FiX className="w-5 h-5" />
+                                </motion.button>
+                            </div>
+                        </div>
+                        
+                        {/* Content */}
+                        <div className="p-6">
+                            <div className="mb-4">
+                                <label className="block text-sm font-semibold text-gray-700 mb-3">
+                                    Select New Status
+                                </label>
+                                <div className="space-y-2">
+                                    {statusOptions.map((status) => (
+                                        <motion.button
+                                            key={status.value}
+                                            onClick={() => setSelectedStatus(status.value)}
+                                            className={`w-full flex items-center justify-between p-3 rounded-lg border transition-all ${selectedStatus === status.value ? 'ring-2 ring-indigo-500 ring-offset-1' : ''} ${getStatusColor(status.value)}`}
+                                            whileHover={{ scale: 1.01 }}
+                                            whileTap={{ scale: 0.99 }}
+                                        >
+                                            <div className="flex items-center gap-3">
+                                                {getStatusIcon(status.value)}
+                                                <span className="font-medium">{status.name}</span>
+                                            </div>
+                                            {selectedStatus === status.value && (
+                                                <FiCheckCircle className="w-5 h-5" />
+                                            )}
+                                        </motion.button>
+                                    ))}
+                                </div>
+                            </div>
+                            
+                            {/* Warning Message */}
+                            <div className="mt-4 p-3 bg-yellow-50 rounded-lg border border-yellow-200">
+                                <div className="flex items-start gap-2">
+                                    <FiInfo className="w-4 h-4 text-yellow-600 mt-0.5 flex-shrink-0" />
+                                    <p className="text-xs text-yellow-700">
+                                        This will update the status of all {selectedCount} selected task{selectedCount !== 1 ? 's' : ''} to the selected status.
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        {/* Footer */}
+                        <div className="px-6 py-4 bg-gray-50 border-t border-gray-200 flex justify-end gap-3">
+                            <motion.button
+                                onClick={onClose}
+                                className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-100 font-medium text-sm"
+                                whileHover={{ scale: 1.05 }}
+                                whileTap={{ scale: 0.95 }}
+                                disabled={localLoading || loading}
+                            >
+                                Cancel
+                            </motion.button>
+                            <motion.button
+                                onClick={handleConfirm}
+                                disabled={!selectedStatus || localLoading || loading}
+                                className={`px-4 py-2 rounded-lg font-medium text-sm flex items-center gap-2 ${!selectedStatus ? 'bg-gray-300 cursor-not-allowed' : 'bg-gradient-to-r from-indigo-600 to-indigo-700 text-white hover:from-indigo-700 hover:to-indigo-800'}`}
+                                whileHover={selectedStatus ? { scale: 1.05 } : {}}
+                                whileTap={selectedStatus ? { scale: 0.95 } : {}}
+                            >
+                                {(localLoading || loading) ? (
+                                    <>
+                                        <FiLoader className="w-4 h-4 animate-spin" />
+                                        Updating...
+                                    </>
+                                ) : (
+                                    <>
+                                        <FiCheckCircle className="w-4 h-4" />
+                                        Update {selectedCount} Task{selectedCount !== 1 ? 's' : ''}
+                                    </>
+                                )}
+                            </motion.button>
+                        </div>
+                    </motion.div>
+                </motion.div>
+            )}
+        </AnimatePresence>
+    );
+};
+
 // Client Details Modal Component
 const ClientDetailsModal = ({ isOpen, onClose, clientData, loading }) => {
     if (!isOpen) return null;
@@ -857,7 +1024,7 @@ const TaskTable = ({
                                     <button
                                         onClick={() => {
                                             setActiveRowDropdown(null);
-                                            handleEditTask(task); // Pass the full task object
+                                            handleEditTask(task);
                                         }}
                                         className="flex items-center w-full px-4 py-3 text-sm text-gray-700 hover:bg-gray-100"
                                     >
@@ -1272,7 +1439,7 @@ const TaskCards = ({
                                                             <button
                                                                 onClick={() => {
                                                                     setActiveRowDropdown(null);
-                                                                    handleEditTask(task); // Pass the full task object
+                                                                    handleEditTask(task);
                                                                 }}
                                                                 className="flex items-center w-full px-4 py-3 text-sm text-gray-700 hover:bg-gray-100"
                                                             >
@@ -1390,7 +1557,10 @@ const TaskDisplay = () => {
     const [showFilterRow, setShowFilterRow] = useState(false);
     const [clientModal, setClientModal] = useState({ open: false, clientData: null, loading: false });
     
-    // Edit Modal State - Updated to store taskData instead of just taskId
+    // Bulk Status Change Modal State
+    const [bulkStatusModal, setBulkStatusModal] = useState({ open: false, loading: false });
+    
+    // Edit Modal State
     const [editModal, setEditModal] = useState({ open: false, taskData: null });
     
     // API States
@@ -1642,6 +1812,65 @@ const TaskDisplay = () => {
         }
     };
 
+    // Bulk Status Change API Call
+    const handleBulkStatusChange = async (newStatus) => {
+        const taskIds = Array.from(selectedTasks);
+        if (taskIds.length === 0) return;
+        
+        setBulkStatusModal(prev => ({ ...prev, loading: true }));
+        
+        try {
+            const headers = await getHeaders();
+            const response = await fetch(`${API_BASE_URL}/task/change-status`, {
+                method: 'PUT',
+                headers: {
+                    ...headers,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    task_ids: taskIds,
+                    status: newStatus
+                })
+            });
+            
+            if (!response.ok) {
+                throw new Error('Failed to update statuses');
+            }
+            
+            const responseData = await response.json();
+            console.log('Bulk status update response:', responseData);
+            
+            if (responseData.success) {
+                // Update local state for all updated tasks
+                setTasks(prev => prev.map(task => 
+                    selectedTasks.has(task.task_id) 
+                        ? { ...task, status: newStatus }
+                        : task
+                ));
+                
+                // Clear selection after successful update
+                setSelectedTasks(new Set());
+                setSelectAll(false);
+                
+                // Show success message (optional)
+                alert(`Successfully updated ${taskIds.length} task${taskIds.length !== 1 ? 's' : ''} to ${statusOptions.find(s => s.value === newStatus)?.name || newStatus}`);
+            } else {
+                throw new Error(responseData.message || 'Failed to update statuses');
+            }
+        } catch (error) {
+            console.error('Error in bulk status update:', error);
+            alert(`Failed to update statuses: ${error.message}`);
+        } finally {
+            setBulkStatusModal(prev => ({ ...prev, loading: false, open: false }));
+        }
+    };
+
+    // Open bulk status change modal
+    const openBulkStatusModal = () => {
+        if (selectedTasks.size === 0) return;
+        setBulkStatusModal({ open: true, loading: false });
+    };
+
     // Fetch client details
     const fetchClientDetails = async (username) => {
         if (!username) return;
@@ -1705,40 +1934,53 @@ const TaskDisplay = () => {
         setTimeout(() => fetchTasks(), 100);
     };
 
-    // Handle status change
-    const handleStatusChange = async (taskId, newStatus) => {
-        try {
-            const headers = await getHeaders();
-            const response = await fetch(`${API_BASE_URL}/task/update-status/${taskId}`, {
-                method: 'PUT',
-                headers: {
-                    ...headers,
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({ status: newStatus })
-            });
-            
-            if (!response.ok) {
-                throw new Error('Failed to update status');
-            }
-            
+    // Handle status change (single task)
+const handleStatusChange = async (taskId, newStatus) => {
+    try {
+        const headers = await getHeaders();
+        const response = await fetch(`${API_BASE_URL}/task/change-status`, {
+            method: 'PUT',
+            headers: {
+                ...headers,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                task_ids: [taskId],
+                status: newStatus
+            })
+        });
+        
+        if (!response.ok) {
+            throw new Error('Failed to update status');
+        }
+        
+        const responseData = await response.json();
+        
+        if (responseData.success) {
             // Update local state
             setTasks(prev => prev.map(task =>
                 task.task_id === taskId ? { ...task, status: newStatus } : task
             ));
-        } catch (error) {
-            console.error('Error updating status:', error);
+            // Show success message (optional)
+            const statusName = statusOptions.find(s => s.value === newStatus)?.name || newStatus;
+            console.log(`Task ${taskId} status updated to ${statusName}`);
+        } else {
+            throw new Error(responseData.message || 'Failed to update status');
         }
-    };
+    } catch (error) {
+        console.error('Error updating status:', error);
+        alert(`Failed to update status: ${error.message}`);
+    }
+};
 
-    // Handle edit task - Updated to accept task object
+    // Handle edit task
     const handleEditTask = (task) => {
         setEditModal({ open: true, taskData: task });
     };
 
     // Handle task updated
     const handleTaskUpdated = () => {
-        fetchTasks(); // Refresh the task list
+        fetchTasks();
     };
 
     // Handle get in/out - Placeholder for now
@@ -1784,6 +2026,7 @@ const TaskDisplay = () => {
             newSelected.add(taskId);
         }
         setSelectedTasks(newSelected);
+        setSelectAll(false);
     };
 
     // Handle select all
@@ -1896,16 +2139,16 @@ const TaskDisplay = () => {
                         {task.client?.profile?.mobile || task.client?.mobile || '-'}
                     </div>
                 );
-           case 'client_email':
-    const clientEmail = task.client?.profile?.email || task.client?.email || '-';
-    const truncatedEmail = clientEmail.length > 15 ? clientEmail.substring(0, 15) + '...' : clientEmail;
-    
-    return (
-        <div className="flex items-center gap-2 text-gray-700 font-medium text-sm">
-            <FiMail className="w-3 h-3 text-gray-400" />
-            <span title={clientEmail}>{truncatedEmail}</span>
-        </div>
-    );
+            case 'client_email':
+                const clientEmail = task.client?.profile?.email || task.client?.email || '-';
+                const truncatedEmail = clientEmail.length > 15 ? clientEmail.substring(0, 15) + '...' : clientEmail;
+                
+                return (
+                    <div className="flex items-center gap-2 text-gray-700 font-medium text-sm">
+                        <FiMail className="w-3 h-3 text-gray-400" />
+                        <span title={clientEmail}>{truncatedEmail}</span>
+                    </div>
+                );
             case 'firm_name':
                 return (
                     <div className="text-gray-700 font-medium text-sm">
@@ -2120,7 +2363,7 @@ const TaskDisplay = () => {
                                         <button
                                             onClick={() => {
                                                 setActiveRowDropdown(null);
-                                                handleEditTask(task); // Pass the full task object
+                                                handleEditTask(task);
                                             }}
                                             className="flex items-center w-full px-3 py-2.5 text-sm
                                                    text-gray-700 hover:bg-green-50 transition-colors"
@@ -2815,6 +3058,19 @@ const TaskDisplay = () => {
                                                 <FiPlus className="w-4 h-4" />
                                             </motion.button>
                                             
+                                            {/* Bulk Status Change Button - Only show when tasks are selected */}
+                                            {selectedTasks.size > 0 && (
+                                                <motion.button
+                                                    onClick={openBulkStatusModal}
+                                                    className="px-3 py-2 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white rounded-lg text-sm font-medium transition-all duration-200 flex items-center gap-2 shadow-sm whitespace-nowrap"
+                                                    whileHover={{ scale: 1.05 }}
+                                                    whileTap={{ scale: 0.95 }}
+                                                >
+                                                    <FiCheckCircle className="w-4 h-4" />
+                                                    <span className="hidden sm:inline">Change Status ({selectedTasks.size})</span>
+                                                </motion.button>
+                                            )}
+                                            
                                             {/* 3 Dot Menu */}
                                             <div className="relative dropdown-container">
                                                 <motion.button
@@ -2823,7 +3079,7 @@ const TaskDisplay = () => {
                                                     whileHover={{ scale: 1.08 }}
                                                     whileTap={{ scale: 0.95 }}
                                                 >
-                                                    <FiMenu  className="w-4 h-4 text-gray-700" />
+                                                    <FiMenu className="w-4 h-4 text-gray-700" />
                                                 </motion.button>
 
                                                 <AnimatePresence>
@@ -3016,6 +3272,17 @@ const TaskDisplay = () => {
                     >
                         <div className="flex flex-col md:flex-row items-center gap-2 md:gap-3">
                             <motion.button
+                                className="px-3 py-2.5 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-lg text-sm font-semibold hover:from-blue-700 hover:to-blue-800 flex items-center gap-2 shadow-xl"
+                                whileHover={{ scale: 1.05 }}
+                                whileTap={{ scale: 0.95 }}
+                                onClick={openBulkStatusModal}
+                            >
+                                <FiCheckCircle className="w-4 h-4" />
+                                <span className="hidden sm:inline">Change Status</span>
+                                <span className="sm:hidden">({selectedTasks.size})</span>
+                            </motion.button>
+                            
+                            <motion.button
                                 className="px-3 py-2.5 bg-gradient-to-r from-indigo-600 to-indigo-700 text-white rounded-lg text-sm font-semibold hover:from-indigo-700 hover:to-indigo-800 flex items-center gap-2 shadow-xl"
                                 whileHover={{ scale: 1.05 }}
                                 whileTap={{ scale: 0.95 }}
@@ -3054,6 +3321,15 @@ const TaskDisplay = () => {
                 currentStatus={statusModal.currentStatus}
                 onStatusChange={handleStatusChange}
                 statusOptions={statusOptions}
+            />
+
+            {/* Bulk Status Change Modal */}
+            <BulkStatusChangeModal
+                isOpen={bulkStatusModal.open}
+                onClose={() => setBulkStatusModal(prev => ({ ...prev, open: false }))}
+                selectedCount={selectedTasks.size}
+                onConfirm={handleBulkStatusChange}
+                loading={bulkStatusModal.loading}
             />
 
             {/* Users List Modal */}
@@ -3118,7 +3394,7 @@ const TaskDisplay = () => {
                 />
             )}
 
-            {/* Edit Task Modal - Updated to pass taskData */}
+            {/* Edit Task Modal */}
             <EditTaskModal
                 isOpen={editModal.open}
                 onClose={() => setEditModal({ open: false, taskData: null })}
