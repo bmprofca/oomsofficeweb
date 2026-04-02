@@ -24,7 +24,8 @@ import {
     FiCalendar,
     FiCreditCard,
     FiShield,
-    FiMail
+    FiMail,
+    FiPlus
 } from 'react-icons/fi';
 
 // Sidebar Component
@@ -48,7 +49,7 @@ export const Sidebar = ({ sidebarOpen, setSidebarOpen, sidebarCollapsed, setSide
             id: 'task',
             label: 'Tasks',
             icon: <FiUsers className="text-base" />,
-            path: '/task',
+            path: '/task/view',
             submenu: [
                 {
                     id: 'task-create',
@@ -68,7 +69,7 @@ export const Sidebar = ({ sidebarOpen, setSidebarOpen, sidebarCollapsed, setSide
             id: 'client',
             label: 'Clients',
             icon: <FiUsers className="text-base" />,
-            path: '/clients',
+            path: '/client/view',
             submenu: [
                 {
                     id: 'client-create',
@@ -155,6 +156,15 @@ export const Sidebar = ({ sidebarOpen, setSidebarOpen, sidebarCollapsed, setSide
     ];
 
     const handleMenuItemClick = (item, event) => {
+        // Special case: Tasks/Clients should navigate to list page on click
+        // and show "+ (create)" on the submenu arrow position.
+        if (item.id === 'task' || item.id === 'client') {
+            navigate(item.path);
+            setSidebarOpen(false);
+            setActiveSubmenu(null);
+            return;
+        }
+
         if (item.submenu) {
             if (sidebarCollapsed) {
                 // For collapsed sidebar - show right side submenu
@@ -344,18 +354,52 @@ export const Sidebar = ({ sidebarOpen, setSidebarOpen, sidebarCollapsed, setSide
 
                                             {/* Submenu Arrow */}
                                             {item.submenu && (
-                                                <button
-                                                    type="button"
-                                                    onClick={(e) => handleArrowClick(item.id, e)}
-                                                    className={`
-                                                        absolute right-2 submenu-arrow transition-transform duration-150 flex-shrink-0
-                                                        ${activeSubmenu === item.id ? 'rotate-180' : ''}
-                                                        ${isActiveMenuItem(item) ? 'text-white' : 'text-slate-400'}
-                                                    `}
-                                                    aria-label="Toggle submenu"
-                                                >
-                                                    <FiChevronDown className="w-4 h-4" />
-                                                </button>
+                                                (() => {
+                                                    const createSubItem =
+                                                        item.submenu.find((s) => String(s.id).includes('create')) ||
+                                                        item.submenu[0];
+
+                                                    // For tasks/clients: arrow area becomes "+" (create link)
+                                                    if (item.id === 'task' || item.id === 'client') {
+                                                        return (
+                                                            <button
+                                                                type="button"
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    if (createSubItem?.path) {
+                                                                        navigate(createSubItem.path);
+                                                                        setSidebarOpen(false);
+                                                                        setActiveSubmenu(null);
+                                                                    }
+                                                                }}
+                                                                className={`
+                                                                    absolute right-2 submenu-arrow transition-transform duration-150 flex-shrink-0
+                                                                    ${isActiveMenuItem(item) ? 'text-white' : 'text-slate-400'}
+                                                                `}
+                                                                aria-label={`Create ${item.label}`}
+                                                                title={`Create ${item.label}`}
+                                                            >
+                                                                <FiPlus className="w-4 h-4" />
+                                                            </button>
+                                                        );
+                                                    }
+
+                                                    // Default behavior: chevron toggles submenu
+                                                    return (
+                                                        <button
+                                                            type="button"
+                                                            onClick={(e) => handleArrowClick(item.id, e)}
+                                                            className={`
+                                                                absolute right-2 submenu-arrow transition-transform duration-150 flex-shrink-0
+                                                                ${activeSubmenu === item.id ? 'rotate-180' : ''}
+                                                                ${isActiveMenuItem(item) ? 'text-white' : 'text-slate-400'}
+                                                            `}
+                                                            aria-label="Toggle submenu"
+                                                        >
+                                                            <FiChevronDown className="w-4 h-4" />
+                                                        </button>
+                                                    );
+                                                })()
                                             )}
                                         </>
                                     )}

@@ -216,6 +216,7 @@ const isSubmenuItemActive = (submenuPath, currentPath) => {
 // 5. NavItem Component (Updated for Billing Badge)
 // ==========================================
 const NavItem = ({ item, isMobile, isMinimized, isHovered, currentPath, openSubmenus, toggleSubmenu, setHoveredMenu, hoveredMenu, setMobileMenuOpen, hasProjects, unreadCount, pendingBillingCount }) => {
+  const navigate = useNavigate();
   const isActive = isItemActive(item, currentPath);
   const isDisabled = requiresProject(item) && !hasProjects;
   const hasSubmenu = item.submenus && item.submenus.length > 0;
@@ -223,13 +224,24 @@ const NavItem = ({ item, isMobile, isMinimized, isHovered, currentPath, openSubm
   const isMini = !isMobile && isMinimized && !isHovered;
   const showUnreadBadge = item.key === 'live-chat' && unreadCount > 0;
   const showBillingBadge = item.key === 'billing' && pendingBillingCount > 0;
+  const isTaskOrClientMenu = item.key === 'tasks' || item.key === 'clients';
+  const createSubItem = item.submenus?.find((s) => String(s.path || '').includes('/create')) || item.submenus?.[0];
 
   // Render Submenu Item (Parent)
   if (hasSubmenu) {
     return (
       <div className="mb-1">
         <button
-          onClick={() => !isMini && toggleSubmenu(isMobile ? `mobile-${item.key}` : item.key)}
+          onClick={() => {
+            if (isTaskOrClientMenu) {
+              if (item.path) {
+                navigate(item.path);
+                if (isMobile) setMobileMenuOpen(false);
+              }
+              return;
+            }
+            if (!isMini) toggleSubmenu(isMobile ? `mobile-${item.key}` : item.key);
+          }}
           className={`w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 group border
             ${isActive ? THEME.active : THEME.inactive}
             ${isMini ? 'justify-center px-2' : ''}`}
@@ -248,9 +260,38 @@ const NavItem = ({ item, isMobile, isMinimized, isHovered, currentPath, openSubm
             {!isMini && <span>{item.title}</span>}
           </div>
           {!isMini && (
-            <motion.span animate={{ rotate: isOpen ? 90 : 0 }} transition={{ duration: 0.2 }}>
-              <FiChevronRight size={16} className={isActive ? "text-indigo-400" : "text-slate-400"} />
-            </motion.span>
+            isTaskOrClientMenu ? (
+              <span
+                role="button"
+                tabIndex={0}
+                aria-label={`Create ${item.title}`}
+                title={`Create ${item.title}`}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  if (createSubItem?.path) {
+                    navigate(createSubItem.path);
+                    if (isMobile) setMobileMenuOpen(false);
+                  }
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    if (createSubItem?.path) {
+                      navigate(createSubItem.path);
+                      if (isMobile) setMobileMenuOpen(false);
+                    }
+                  }
+                }}
+                className="inline-flex items-center justify-center p-1.5 rounded-lg hover:bg-indigo-50/50 transition-colors cursor-pointer"
+              >
+                <FiPlus size={16} className={isActive ? 'text-indigo-600' : 'text-slate-400'} />
+              </span>
+            ) : (
+              <motion.span animate={{ rotate: isOpen ? 90 : 0 }} transition={{ duration: 0.2 }}>
+                <FiChevronRight size={16} className={isActive ? "text-indigo-400" : "text-slate-400"} />
+              </motion.span>
+            )
           )}
 
           {/* Tooltip for Mini Mode */}
@@ -263,7 +304,7 @@ const NavItem = ({ item, isMobile, isMinimized, isHovered, currentPath, openSubm
         </button>
 
         <AnimatePresence>
-          {(!isMini && isOpen) && (
+          {(!isMini && isOpen && !isTaskOrClientMenu) && (
             <motion.div
               initial={{ height: 0, opacity: 0 }}
               animate={{ height: "auto", opacity: 1 }}
@@ -580,6 +621,7 @@ export const Sidebar = ({ mobileMenuOpen, setMobileMenuOpen, isMinimized, setIsM
     { key: 'dashboard', title: 'Dashboard', icon: <FiHome size={18} />, path: '/' },
     {
       key: 'tasks', title: 'Tasks', icon: <FiUsers size={18} />,
+      path: '/task/view',
       submenus: [
         { title: 'New Task', path: '/task/create' },
         { title: 'View Task', path: '/task/view' }
@@ -587,6 +629,7 @@ export const Sidebar = ({ mobileMenuOpen, setMobileMenuOpen, isMinimized, setIsM
     },
     {
       key: 'clients', title: 'Clients', icon: <FiUsers size={18} />,
+      path: '/client/view',
       submenus: [
         { title: 'New Client', path: '/client/create' },
         { title: 'View Client', path: '/client/view' }

@@ -4,6 +4,7 @@ import { Sidebar, Header } from '../components/header';
 import SearchableSelectStatic from '../components/SearchableSelectStatic';
 import getHeaders from '../utils/get-headers';
 import API_BASE_URL from '../utils/api-controller';
+import { useNavigate } from 'react-router-dom';
 import {
     FiUsers,
     FiBriefcase,
@@ -38,6 +39,7 @@ import { Toaster, toast } from 'react-hot-toast';
 import 'rsuite/dist/rsuite.min.css';
 
 const TaskCreate = () => {
+    const navigate = useNavigate();
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
     const [isMinimized, setIsMinimized] = useState(() => {
         const saved = localStorage.getItem('sidebarMinimized');
@@ -47,6 +49,9 @@ const TaskCreate = () => {
     const [transitionDirection, setTransitionDirection] = useState('next');
     const [loading, setLoading] = useState(false);
     const [submitting, setSubmitting] = useState(false);
+
+    const [taskCreateResultModalOpen, setTaskCreateResultModalOpen] = useState(false);
+    const [taskCreateResult, setTaskCreateResult] = useState(null);
 
     const [formData, setFormData] = useState({
         firm_ids: [],
@@ -841,6 +846,15 @@ const TaskCreate = () => {
         return date.toLocaleDateString('en-GB');
     };
 
+    const formatCurrency = (amount) => {
+        const num = Number(amount);
+        if (!Number.isFinite(num)) return '0.00';
+        return new Intl.NumberFormat('en-IN', {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2
+        }).format(num);
+    };
+
     const handleMainDueDateChange = (date) => {
         setFormData(prev => ({ ...prev, due_date: formatDueDate(date) }));
     };
@@ -1074,15 +1088,42 @@ const TaskCreate = () => {
                 return;
             }
 
-            console.log(payload);
-            return;
-
-
             const res = await axios.post(`${API_BASE_URL}/task/create`, payload, { headers });
             if (!res.data?.success) {
                 toast.error(res.data?.message || 'Failed to create task');
                 return;
             }
+
+            const createdTasks = Array.isArray(res.data?.data) ? res.data.data : [];
+            const count = typeof res.data?.count === 'number' ? res.data.count : createdTasks.length;
+
+            const totals = createdTasks.reduce((acc, t) => {
+                acc.fees += Number(t?.fees ?? 0) || 0;
+                acc.taxValue += Number(t?.tax_value ?? 0) || 0;
+                acc.total += Number(t?.total ?? 0) || 0;
+                return acc;
+            }, { fees: 0, taxValue: 0, total: 0 });
+
+            const serviceNameById = new Map((services || []).map((s) => [s.service_id, s.name || '']));
+            const firmNameById = new Map(
+                (selectedFirmOptions || [])
+                    .filter((opt) => opt?.value)
+                    .map((opt) => [opt.value, opt?.__firm?.firm_name || opt?.label || ''])
+            );
+            const displayTasks = createdTasks.map((t) => ({
+                ...t,
+                task_name: serviceNameById.get(t?.service_id) || 'N/A',
+                firm_name: firmNameById.get(t?.firm_id) || 'N/A'
+            }));
+
+            setTaskCreateResult({
+                message: res.data?.message || 'Tasks created successfully',
+                count,
+                tasks: displayTasks,
+                stats: { totals }
+            });
+            setTaskCreateResultModalOpen(true);
+
             toast.success(res.data?.message || 'Task created successfully!');
             setFormData({
                 firm_ids: [],
@@ -1125,6 +1166,15 @@ const TaskCreate = () => {
             setSubmitting(false);
         }
     };
+
+    // Estimate tasks to be created based on selected firms + selected groups' firm_count
+    const selectedFirmCount = selectedFirmOptions.length;
+    const selectedGroupCount = selectedGroupOptions.length;
+    const selectedGroupFirmCount = selectedGroupOptions.reduce((sum, g) => {
+        const n = Number(g?.firm_count ?? 0);
+        return sum + (Number.isFinite(n) ? n : 0);
+    }, 0);
+    const estimatedTaskCreateCount = selectedFirmCount + selectedGroupFirmCount;
 
     // Prepare options for react-select (groups from API; firm_count=0 options are disabled)
     const groupOptions = groups.map(group => ({
@@ -1389,6 +1439,34 @@ const TaskCreate = () => {
                                             </div>
                                         </div>
                                     </div>
+
+                                    {/* Estimate (Firms & Groups) */}
+                                    {currentStep === 1 && (
+                                        <div className="rounded-2xl border border-indigo-100 bg-indigo-50/40 p-4 shadow-sm mt-4">
+                                        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                                            <div className="flex items-start gap-3">
+                                                <div className="w-10 h-10 rounded-xl bg-indigo-100 flex items-center justify-center">
+                                                    <FiUsers className="w-5 h-5 text-indigo-700" />
+                                                </div>
+                                                <div>
+                                                    <p className="text-sm font-semibold text-indigo-900">Estimated tasks to create</p>
+                                                    <p className="text-xs text-indigo-700 mt-0.5">Based on your selected firms and groups</p>
+                                                </div>
+                                            </div>
+                                            <div className="text-right">
+                                                <div className="text-3xl font-extrabold text-indigo-700 leading-none">
+                                                    {estimatedTaskCreateCount}
+                                                </div>
+                                                <div className="text-xs text-indigo-600 mt-1 font-medium">tasks</div>
+                                            </div>
+                                        </div>
+                                        <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-xs text-indigo-800">
+                                            <span>Firms selected: <span className="font-semibold">{selectedFirmCount}</span></span>
+                                            <span>Groups selected: <span className="font-semibold">{selectedGroupCount}</span></span>
+                                            <span>Firms in groups: <span className="font-semibold">{selectedGroupFirmCount}</span></span>
+                                        </div>
+                                    </div>
+                                    )}
 
                                     {/* Step 2: Services, fees & due date */}
                                     <div className={`transition-all duration-500 ease-in-out ${currentStep === 2
@@ -2218,6 +2296,89 @@ const TaskCreate = () => {
                     </motion.div>
                 </div>
             </div>
+
+            {/* Task Create Result Modal */}
+            <AnimatePresence>
+                {taskCreateResultModalOpen && taskCreateResult && (
+                    <div
+                        className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
+                        onClick={() => setTaskCreateResultModalOpen(false)}
+                    >
+                        <motion.div
+                            initial={{ opacity: 0, scale: 0.97 }}
+                            animate={{ opacity: 1, scale: 1 }}
+                            exit={{ opacity: 0, scale: 0.97 }}
+                            className="relative w-full max-w-4xl max-h-[78vh] overflow-hidden bg-white rounded-2xl shadow-2xl border border-slate-200 flex flex-col"
+                            onClick={(e) => e.stopPropagation()}
+                        >
+                            <div className="bg-gradient-to-r from-indigo-600 via-indigo-700 to-indigo-800 px-6 py-5">
+                                <div className="flex items-center justify-between gap-4">
+                                    <div className="flex items-center gap-3">
+                                        <div className="p-2 bg-white/20 rounded-xl">
+                                            <FaCheckCircle className="w-6 h-6 text-white" />
+                                        </div>
+                                        <div>
+                                            <h2 className="text-xl font-bold text-white">Tasks created successfully</h2>
+                                            <p className="text-indigo-100 text-sm mt-0.5">
+                                                {taskCreateResult?.message || ''}
+                                            </p>
+                                        </div>
+                                    </div>
+                                    <button
+                                        type="button"
+                                        onClick={() => setTaskCreateResultModalOpen(false)}
+                                        className="p-2 hover:bg-white/20 rounded-xl transition-colors"
+                                        aria-label="Close"
+                                    >
+                                        <FiX className="w-6 h-6 text-white" />
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div className="p-6 space-y-5 overflow-y-auto flex-1">
+                                <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
+                                    <div className="rounded-xl border border-violet-200 bg-violet-50 p-4">
+                                        <p className="text-xs font-semibold text-violet-700">Total Tasks</p>
+                                        <p className="text-2xl font-extrabold text-violet-800 mt-1">{taskCreateResult.count}</p>
+                                    </div>
+                                    <div className="rounded-xl border border-blue-200 bg-blue-50 p-4">
+                                        <p className="text-xs font-semibold text-blue-700">Total Fees</p>
+                                        <p className="text-2xl font-extrabold text-blue-800 mt-1">₹{formatCurrency(taskCreateResult.stats?.totals?.fees ?? 0)}</p>
+                                    </div>
+                                    <div className="rounded-xl border border-amber-200 bg-amber-50 p-4">
+                                        <p className="text-xs font-semibold text-amber-700">Total Tax</p>
+                                        <p className="text-2xl font-extrabold text-amber-800 mt-1">₹{formatCurrency(taskCreateResult.stats?.totals?.taxValue ?? 0)}</p>
+                                    </div>
+                                    <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4">
+                                        <p className="text-xs font-semibold text-emerald-700">Total Amount</p>
+                                        <p className="text-2xl font-extrabold text-emerald-800 mt-1">₹{formatCurrency(taskCreateResult.stats?.totals?.total ?? 0)}</p>
+                                    </div>
+                                </div>
+
+                                <div className="flex flex-col sm:flex-row gap-3 justify-end">
+                                    <button
+                                        type="button"
+                                        onClick={() => setTaskCreateResultModalOpen(false)}
+                                        className="px-5 py-2.5 border border-slate-200 rounded-xl text-slate-700 font-medium hover:bg-slate-50 transition-colors"
+                                    >
+                                        Close
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            setTaskCreateResultModalOpen(false);
+                                            navigate('/task/view');
+                                        }}
+                                        className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-medium transition-colors"
+                                    >
+                                        Go to Task List
+                                    </button>
+                                </div>
+                            </div>
+                        </motion.div>
+                    </div>
+                )}
+            </AnimatePresence>
         </div>
     );
 };
