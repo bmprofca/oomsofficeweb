@@ -141,7 +141,7 @@ const StaffTab = ({ taskId, staff = [], onAddStaff, onRemoveStaff }) => {
         }
     };
 
-    // Handle assign staff
+    // Handle assign staff using PUT API
     const handleAssignStaff = async () => {
         if (selectedStaff.length === 0) {
             toast.error('Please select at least one staff member');
@@ -152,8 +152,8 @@ const StaffTab = ({ taskId, staff = [], onAddStaff, onRemoveStaff }) => {
         const toastId = toast.loading('Assigning staff...');
         
         try {
-            const response = await fetch(`${API_BASE_URL}/task/details/staff/create`, {
-                method: 'POST',
+            const response = await fetch(`${API_BASE_URL}/task/details/staff/update`, {
+                method: 'PUT',
                 headers: getHeaders(),
                 body: JSON.stringify({
                     task_id: taskId,
@@ -164,7 +164,7 @@ const StaffTab = ({ taskId, staff = [], onAddStaff, onRemoveStaff }) => {
             const data = await response.json();
 
             if (data.success) {
-                toast.success(`${data.count} staff member(s) assigned successfully`, { id: toastId });
+                toast.success(`${selectedStaff.length} staff member(s) assigned successfully`, { id: toastId });
                 // Refresh staff list
                 await fetchStaffList();
                 setShowAddModal(false);
