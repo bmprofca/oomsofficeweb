@@ -49,275 +49,125 @@ const datePickerStyles = `
 const EditTaskModal = ({ isOpen, onClose, taskData, onTaskUpdated }) => {
     const [loading, setLoading] = useState(false);
     const [submitting, setSubmitting] = useState(false);
-    const [activeTab, setActiveTab] = useState('firms-groups');
+    const [activeTab, setActiveTab] = useState('services');
 
-    // Form Data State - Initialize with taskData
+    // Form Data State - Only editable fields
     const [formData, setFormData] = useState({
         task_id: '',
-        firms: [],
-        groups: [],
-        service: {
-            service_id: '',
-            service_category: '',
-            fees: '',
-            due_date: '',
-            has_financial_year: false,
-            financial_years: [],
-            has_assisment_year: false,
-            assisment_years: []
-        },
-        subtasks: [],
-        assignment: {
-            staff: [],
-            ca: '',
-            agent: ''
-        },
-        notes: {
-            text: [],
-            attachments: [],
-            voice: []
-        }
+        firm_id: '',
+        service_id: '',
+        fees: '',
+        tax_rate: '18',
+        has_ca: false,
+        has_agent: false,
+        due_date: '',
+        target_date: ''
     });
 
     // UI States
     const [serviceCategories, setServiceCategories] = useState([]);
     const [services, setServices] = useState([]);
     const [filteredServices, setFilteredServices] = useState([]);
-    const [groups, setGroups] = useState([]);
-    const [groupsLoading, setGroupsLoading] = useState(false);
-    const [assessmentYearsList, setAssessmentYearsList] = useState([]);
-    const [financialYearsList, setFinancialYearsList] = useState([]);
-    const [fullStaffList, setFullStaffList] = useState([]);
-    const [staffLoading, setStaffLoading] = useState(false);
-
-    // Selection States
-    const [selectedFirmOptions, setSelectedFirmOptions] = useState([]);
-    const [selectedGroupOptions, setSelectedGroupOptions] = useState([]);
-    const [selectedEmployees, setSelectedEmployees] = useState([]);
-    const [allEmployees, setAllEmployees] = useState([]);
-
-    // Search States
+    const [firms, setFirms] = useState([]);
     const [firmSearchQuery, setFirmSearchQuery] = useState('');
     const [firmSearchResults, setFirmSearchResults] = useState([]);
     const [firmSearchLoading, setFirmSearchLoading] = useState(false);
-    const [caSearchQuery, setCaSearchQuery] = useState('');
-    const [caSearchResults, setCaSearchResults] = useState([]);
-    const [caSearchLoading, setCaSearchLoading] = useState(false);
-    const [agentSearchQuery, setAgentSearchQuery] = useState('');
-    const [agentSearchResults, setAgentSearchResults] = useState([]);
-    const [agentSearchLoading, setAgentSearchLoading] = useState(false);
-    const [employeeSearchQuery, setEmployeeSearchQuery] = useState('');
-
-    // Display States for selected items
-    const [selectedCaDisplay, setSelectedCaDisplay] = useState(null);
-    const [selectedAgentDisplay, setSelectedAgentDisplay] = useState(null);
-
-    // Notes States
-    const [voiceNotesList, setVoiceNotesList] = useState([]);
-    const [isRecording, setIsRecording] = useState(false);
-    const [recordingTime, setRecordingTime] = useState(0);
-    const mediaRecorderRef = useRef(null);
-    const audioChunksRef = useRef([]);
-    const recordingIntervalRef = useRef(null);
-    const recordingTimeRef = useRef(0);
-    const fileInputRef = useRef(null);
-    const [attachedFiles, setAttachedFiles] = useState([]);
-
-    // Abort controllers for search
     const firmSearchAbortRef = useRef(null);
-    const caSearchAbortRef = useRef(null);
-    const agentSearchAbortRef = useRef(null);
+    
+    // Selection States
+    const [selectedFirm, setSelectedFirm] = useState(null);
 
     // Tabs configuration
     const tabs = [
-        { id: 'firms-groups', label: 'Firms & Groups', icon: FiUsers },
         { id: 'services', label: 'Services', icon: FiBriefcase },
-        { id: 'subtasks', label: 'Sub Tasks', icon: FiFileText },
-        { id: 'team', label: 'Team', icon: FiUserCheck },
-        { id: 'notes', label: 'Notes', icon: FiPaperclip }
+        { id: 'firm', label: 'Firm', icon: FiUsers }
     ];
 
     // Initialize form with taskData when modal opens
     useEffect(() => {
         if (isOpen && taskData) {
-            console.log('Task data received in modal:', taskData); // Debug log
+            console.log('Task data received in modal:', taskData);
             initializeFormWithTaskData(taskData);
             
             // Fetch supporting data
             fetchServiceCategories();
             fetchServices();
-            fetchAllGroups();
-            fetchYears();
-            fetchAllStaff();
+            fetchFirmDetails(taskData.firm?.firm_id || taskData.firm_id);
         }
     }, [isOpen, taskData]);
 
     // Filter services when category changes
     useEffect(() => {
-        if (formData.service?.service_category) {
+        if (formData.service_category) {
             const filtered = services.filter(service => 
-                service.category_id === formData.service.service_category
+                service.category_id === formData.service_category
             );
             setFilteredServices(filtered);
         } else {
             setFilteredServices(services);
         }
-    }, [formData.service?.service_category, services]);
+    }, [formData.service_category, services]);
 
-    // Filter available employees based on search
-    const filteredAvailableEmployees = React.useMemo(() => {
-        const q = (employeeSearchQuery || '').trim().toLowerCase();
-        if (!q) return allEmployees;
-        return allEmployees.filter((emp) => {
-            const name = (emp.name || '').toLowerCase();
-            const mobile = (emp.mobile || '').toLowerCase();
-            const email = (emp.email || '').toLowerCase();
-            const dept = (emp.department || '').toLowerCase();
-            return name.includes(q) || mobile.includes(q) || email.includes(q) || dept.includes(q);
-        });
-    }, [allEmployees, employeeSearchQuery]);
+    // Firm search
+    useEffect(() => {
+        const term = (firmSearchQuery || '').trim();
+        if (term.length < 3) {
+            setFirmSearchResults([]);
+            setFirmSearchLoading(false);
+            return;
+        }
+        const t = setTimeout(async () => {
+            setFirmSearchLoading(true);
+            firmSearchAbortRef.current?.abort();
+            const controller = new AbortController();
+            firmSearchAbortRef.current = controller;
+            try {
+                const url = `${API_BASE_URL.replace(/\/$/, '')}/firm/search?search=${encodeURIComponent(term)}`;
+                const res = await fetch(url, { headers: await getHeaders(), signal: controller.signal });
+                const data = await res.json();
+                const list = Array.isArray(data?.data) ? data.data : (Array.isArray(data) ? data : []);
+                const options = list.map(f => ({
+                    value: f.firm_id,
+                    label: f.client ? `${f.firm_name} – ${f.client.name}` : (f.firm_name || ''),
+                    firm: f
+                }));
+                setFirmSearchResults(options);
+            } catch (err) {
+                if (err?.name !== 'AbortError') setFirmSearchResults([]);
+            } finally {
+                setFirmSearchLoading(false);
+            }
+        }, 400);
+        return () => {
+            clearTimeout(t);
+            firmSearchAbortRef.current?.abort();
+        };
+    }, [firmSearchQuery]);
 
     // Initialize form with task data from props
     const initializeFormWithTaskData = (task) => {
         console.log('Initializing with task data:', task);
         
-        // Extract firms data properly
-        const firmsList = [];
-        if (task.firms && Array.isArray(task.firms)) {
-            firmsList.push(...task.firms);
-        } else if (task.firm) {
-            // If single firm object
-            firmsList.push(task.firm);
-        }
-
-        // Extract groups data properly
-        const groupsList = [];
-        if (task.groups && Array.isArray(task.groups)) {
-            groupsList.push(...task.groups);
-        }
-
-        // Map the task data to formData structure
-        const mappedFormData = {
+        setFormData({
             task_id: task.task_id || '',
-            firms: firmsList,
-            groups: groupsList,
-            service: {
-                service_id: task.service?.service_id || task.service_id || '',
-                service_category: task.service?.category_id || task.service_category || '',
-                fees: task.service?.fees || task.charges?.fees || task.fees || '',
-                due_date: task.service?.due_date || task.dates?.due_date || '',
-                has_financial_year: task.service?.has_financial_year || task.has_financial_year || false,
-                financial_years: task.service?.financial_years || task.financial_years || [],
-                has_assisment_year: task.service?.has_assisment_year || task.has_assisment_year || false,
-                assisment_years: task.service?.assisment_years || task.assisment_years || []
-            },
-            assignment: {
-                staff: task.assignment?.staff || task.staffs?.map(s => s.username) || [],
-                ca: task.assignment?.ca || '',
-                agent: task.assignment?.agent || ''
-            },
-            notes: {
-                text: task.notes?.text || [],
-                attachments: task.notes?.attachments || [],
-                voice: task.notes?.voice || []
-            }
-        };
+            firm_id: task.firm?.firm_id || task.firm_id || '',
+            service_id: task.service?.service_id || task.service_id || '',
+            service_category: task.service?.category_id || task.service_category || '',
+            fees: task.service?.fees || task.charges?.fees || task.fees || '',
+            tax_rate: task.charges?.tax_rate || task.tax_rate || '18',
+            has_ca: task.has_ca || false,
+            has_agent: task.has_agent || false,
+            due_date: task.dates?.due_date || task.due_date || '',
+            target_date: task.dates?.target_date || task.target_date || ''
+        });
 
-        setFormData(mappedFormData);
-        console.log('Mapped form data:', mappedFormData); // Debug log
-
-        // Initialize firm options
-        if (firmsList.length > 0) {
-            const firmOptions = firmsList.map(firm => {
-                // Handle both object and primitive firm data
-                if (typeof firm === 'object') {
-                    return {
-                        value: firm.firm_id || firm.id,
-                        label: firm.firm_name || firm.name || 'Unknown Firm',
-                        __firm: firm
-                    };
-                } else {
-                    // If firm is just an ID
-                    return {
-                        value: firm,
-                        label: `Firm ${firm}`,
-                        __firm: { firm_id: firm, firm_name: `Firm ${firm}` }
-                    };
-                }
+        // Set selected firm
+        if (task.firm) {
+            setSelectedFirm({
+                value: task.firm.firm_id,
+                label: task.firm.firm_name,
+                firm: task.firm
             });
-            setSelectedFirmOptions(firmOptions);
-            console.log('Set firm options:', firmOptions); // Debug log
-        }
-
-        // Initialize group options
-        if (groupsList.length > 0) {
-            const groupOptions = groupsList.map(group => {
-                if (typeof group === 'object') {
-                    return {
-                        value: group.group_id || group.id,
-                        label: group.name || group.group_name || 'Unknown Group',
-                        firm_count: group.firm_count || 0
-                    };
-                } else {
-                    return {
-                        value: group,
-                        label: `Group ${group}`,
-                        firm_count: 0
-                    };
-                }
-            });
-            setSelectedGroupOptions(groupOptions);
-            console.log('Set group options:', groupOptions); // Debug log
-        }
-
-        // Initialize staff assignment
-        const staffList = task.assignment?.staff || task.staffs?.map(s => s.username) || [];
-        if (staffList.length > 0) {
-            const selectedEmpList = staffList.map(username => ({
-                username,
-                name: username // Will be updated when full staff list loads
-            }));
-            setSelectedEmployees(selectedEmpList);
-        }
-
-        // Initialize CA display
-        if (task.assignment?.ca) {
-            setSelectedCaDisplay({ 
-                username: task.assignment.ca, 
-                name: task.assignment.ca 
-            });
-        }
-
-        // Initialize Agent display
-        if (task.assignment?.agent) {
-            setSelectedAgentDisplay({ 
-                username: task.assignment.agent, 
-                name: task.assignment.agent 
-            });
-        }
-
-        // Initialize attachments
-        if (task.notes?.attachments && Array.isArray(task.notes.attachments)) {
-            const mappedAttachments = task.notes.attachments.map(att => ({
-                id: Math.random().toString(36).substr(2, 9),
-                name: att.name || att.file_name || '',
-                remark: att.remark || '',
-                url: att.url || att.path,
-                uploading: false,
-                previewUrl: att.url || att.path
-            }));
-            setAttachedFiles(mappedAttachments);
-        }
-
-        // Initialize voice notes
-        if (task.notes?.voice && Array.isArray(task.notes.voice)) {
-            const mappedVoice = task.notes.voice.map(url => ({
-                id: Math.random().toString(36).substr(2, 9),
-                url,
-                uploading: false,
-                duration: 0
-            }));
-            setVoiceNotesList(mappedVoice);
         }
     };
 
@@ -349,219 +199,32 @@ const EditTaskModal = ({ isOpen, onClose, taskData, onTaskUpdated }) => {
         }
     };
 
-    // Fetch all groups
-    const fetchAllGroups = async () => {
-        setGroupsLoading(true);
-        const all = [];
-        let page = 1;
-        const limit = 100;
-        const base = API_BASE_URL.replace(/\/$/, '');
-        try {
-            for (; ;) {
-                const url = `${base}/group/list?search=&page=${page}&limit=${limit}`;
-                const res = await fetch(url, { headers: await getHeaders() });
-                const data = await res.json();
-                const list = data?.data && Array.isArray(data.data) ? data.data : [];
-                all.push(...list);
-                const pagination = data?.pagination;
-                if (pagination?.is_last_page) break;
-                page += 1;
-            }
-            setGroups(all);
-        } catch (err) {
-            console.error('Failed to fetch groups:', err);
-        } finally {
-            setGroupsLoading(false);
-        }
-    };
-
-    // Fetch years
-    const fetchYears = async () => {
+    // Fetch firm details
+    const fetchFirmDetails = async (firmId) => {
+        if (!firmId) return;
         const headers = await getHeaders();
         if (!headers) return;
-        const base = API_BASE_URL.replace(/\/$/, '');
         try {
-            const [ayRes, fyRes] = await Promise.all([
-                fetch(`${base}/utils/assisment-years`, { headers }).then(r => r.json()),
-                fetch(`${base}/utils/financial-years`, { headers }).then(r => r.json())
-            ]);
-            if (ayRes?.success && Array.isArray(ayRes.data)) setAssessmentYearsList(ayRes.data);
-            if (fyRes?.success && Array.isArray(fyRes.data)) setFinancialYearsList(fyRes.data);
+            const res = await axios.get(`${API_BASE_URL}/firm/details/${firmId}`, { headers });
+            if (res.data?.success && res.data.data) {
+                setSelectedFirm({
+                    value: res.data.data.firm_id,
+                    label: res.data.data.firm_name,
+                    firm: res.data.data
+                });
+            }
         } catch (err) {
-            console.error('Failed to fetch years:', err);
+            console.error('Failed to fetch firm details:', err);
         }
     };
 
-    // Fetch all staff
-    const fetchAllStaff = async () => {
-        setStaffLoading(true);
-        const all = [];
-        let page = 1;
-        const limit = 100;
-        const base = API_BASE_URL.replace(/\/$/, '');
-        const headers = await getHeaders();
-        if (!headers) {
-            setStaffLoading(false);
-            return;
-        }
-        try {
-            for (; ;) {
-                const url = `${base}/settings/staff/list?search=&page=${page}&limit=${limit}`;
-                const res = await fetch(url, { headers });
-                const json = await res.json();
-                const list = json?.data && Array.isArray(json.data) ? json.data : [];
-                all.push(...list);
-                const meta = json?.meta;
-                if (meta?.is_last_page) break;
-                page += 1;
-            }
-            const mapped = all.map((item) => ({
-                username: item.username,
-                name: item.profile?.name ?? item.username,
-                mobile: item.profile?.mobile ?? '',
-                email: item.profile?.email ?? '',
-                department: item.designation ?? ''
-            }));
-            setFullStaffList(mapped);
-            
-            // Update selected employees with names from full staff list
-            setSelectedEmployees(prev => prev.map(emp => {
-                const fullStaff = mapped.find(s => s.username === emp.username);
-                return fullStaff || emp;
-            }));
-            
-            // Update all employees list excluding selected ones
-            const selectedUsernames = new Set(formData.assignment?.staff || []);
-            setAllEmployees(mapped.filter(emp => !selectedUsernames.has(emp.username)));
-            
-            // Update CA and Agent display names
-            if (formData.assignment?.ca) {
-                const caStaff = mapped.find(s => s.username === formData.assignment.ca);
-                setSelectedCaDisplay(caStaff || { username: formData.assignment.ca, name: formData.assignment.ca });
-            }
-            
-            if (formData.assignment?.agent) {
-                const agentStaff = mapped.find(s => s.username === formData.assignment.agent);
-                setSelectedAgentDisplay(agentStaff || { username: formData.assignment.agent, name: formData.assignment.agent });
-            }
-        } catch (err) {
-            console.error('Failed to fetch staff list:', err);
-        } finally {
-            setStaffLoading(false);
-        }
-    };
-
-    // Firm search
-    useEffect(() => {
-        const term = (firmSearchQuery || '').trim();
-        if (term.length < 3) {
-            setFirmSearchResults([]);
-            setFirmSearchLoading(false);
-            return;
-        }
-        const t = setTimeout(async () => {
-            setFirmSearchLoading(true);
-            firmSearchAbortRef.current?.abort();
-            const controller = new AbortController();
-            firmSearchAbortRef.current = controller;
-            try {
-                const url = `${API_BASE_URL.replace(/\/$/, '')}/firm/search?search=${encodeURIComponent(term)}`;
-                const res = await fetch(url, { headers: await getHeaders(), signal: controller.signal });
-                const data = await res.json();
-                const list = Array.isArray(data?.data) ? data.data : (Array.isArray(data) ? data : []);
-                const options = list.map(f => ({
-                    value: f.firm_id,
-                    label: f.client ? `${f.firm_name} – ${f.client.name}` : (f.firm_name || ''),
-                    __firm: f
-                }));
-                setFirmSearchResults(options);
-            } catch (err) {
-                if (err?.name !== 'AbortError') setFirmSearchResults([]);
-            } finally {
-                setFirmSearchLoading(false);
-            }
-        }, 400);
-        return () => {
-            clearTimeout(t);
-            firmSearchAbortRef.current?.abort();
-        };
-    }, [firmSearchQuery]);
-
-    // CA search
-    useEffect(() => {
-        const term = (caSearchQuery || '').trim();
-        if (term.length < 3) {
-            setCaSearchResults([]);
-            setCaSearchLoading(false);
-            return;
-        }
-        const t = setTimeout(async () => {
-            setCaSearchLoading(true);
-            caSearchAbortRef.current?.abort();
-            const controller = new AbortController();
-            caSearchAbortRef.current = controller;
-            try {
-                const url = `${API_BASE_URL.replace(/\/$/, '')}/ca/search?search=${encodeURIComponent(term)}`;
-                const res = await fetch(url, { headers: await getHeaders(), signal: controller.signal });
-                const data = await res.json();
-                const list = Array.isArray(data?.data) ? data.data : [];
-                setCaSearchResults(list);
-            } catch (err) {
-                if (err?.name !== 'AbortError') setCaSearchResults([]);
-            } finally {
-                setCaSearchLoading(false);
-            }
-        }, 400);
-        return () => {
-            clearTimeout(t);
-            caSearchAbortRef.current?.abort();
-        };
-    }, [caSearchQuery]);
-
-    // Agent search
-    useEffect(() => {
-        const term = (agentSearchQuery || '').trim();
-        if (term.length < 3) {
-            setAgentSearchResults([]);
-            setAgentSearchLoading(false);
-            return;
-        }
-        const t = setTimeout(async () => {
-            setAgentSearchLoading(true);
-            agentSearchAbortRef.current?.abort();
-            const controller = new AbortController();
-            agentSearchAbortRef.current = controller;
-            try {
-                const url = `${API_BASE_URL.replace(/\/$/, '')}/agent/search?search=${encodeURIComponent(term)}`;
-                const res = await fetch(url, { headers: await getHeaders(), signal: controller.signal });
-                const data = await res.json();
-                const list = Array.isArray(data?.data) ? data.data : [];
-                setAgentSearchResults(list);
-            } catch (err) {
-                if (err?.name !== 'AbortError') setAgentSearchResults([]);
-            } finally {
-                setAgentSearchLoading(false);
-            }
-        }, 400);
-        return () => {
-            clearTimeout(t);
-            agentSearchAbortRef.current?.abort();
-        };
-    }, [agentSearchQuery]);
-
-    // Group options
-    const groupOptions = groups.map(group => ({
-        value: group.group_id,
-        label: group.remark ? `${group.name} – ${group.remark}` : group.name,
-        firm_count: group.firm_count ?? 0
-    }));
-
-    // Service options
+    // Service category options
     const serviceCategoryOptions = [
         { category_id: '', name: 'All Categories' },
         ...(serviceCategories.map(c => ({ category_id: c.category_id, name: c.name })))
     ];
 
+    // Service options
     const mainServiceOptions = [
         { service_id: '', name: 'Select service...' },
         ...(filteredServices.map(s => ({ 
@@ -573,208 +236,60 @@ const EditTaskModal = ({ isOpen, onClose, taskData, onTaskUpdated }) => {
     // Handlers
     const handleInputChange = (e) => {
         const { name, value } = e.target;
-        if (name.startsWith('service.')) {
-            const field = name.split('.')[1];
+        setFormData(prev => ({
+            ...prev,
+            [name]: value
+        }));
+    };
+
+    const handleServiceCategorySelect = (value) => {
+        setFormData(prev => ({
+            ...prev,
+            service_category: value,
+            service_id: ''
+        }));
+    };
+
+    const handleServiceSelect = (value) => {
+        const selectedService = services.find(s => String(s.service_id) === String(value));
+        if (selectedService) {
             setFormData(prev => ({
                 ...prev,
-                service: {
-                    ...prev.service,
-                    [field]: value
-                }
+                service_id: value,
+                fees: selectedService.fees || prev.fees,
+                service_category: selectedService.category_id || prev.service_category
+            }));
+        } else {
+            setFormData(prev => ({
+                ...prev,
+                service_id: value
             }));
         }
     };
 
-    const handleServiceSelect = (name, value) => {
-        if (name === 'service_category') {
+    const handleFirmSelect = (firm) => {
+        if (firm && firm.value) {
+            setSelectedFirm(firm);
             setFormData(prev => ({
                 ...prev,
-                service: {
-                    ...prev.service,
-                    service_category: value,
-                    service_id: ''
-                }
+                firm_id: firm.value
             }));
-        } else if (name === 'service_id') {
-            const selectedService = services.find(s => String(s.service_id) === String(value));
-            setFormData(prev => ({
-                ...prev,
-                service: {
-                    ...prev.service,
-                    service_id: value,
-                    fees: selectedService?.fees || prev.service.fees,
-                    service_category: selectedService?.category_id || prev.service.service_category
-                }
-            }));
+            setFirmSearchQuery('');
+            setFirmSearchResults([]);
         }
     };
 
-    const handleToggleAY = () => {
+    const removeFirm = () => {
+        setSelectedFirm(null);
         setFormData(prev => ({
             ...prev,
-            service: {
-                ...prev.service,
-                has_assisment_year: !prev.service.has_assisment_year,
-                assisment_years: !prev.service.has_assisment_year ? [] : prev.service.assisment_years
-            }
+            firm_id: ''
         }));
     };
 
-    const handleToggleFY = () => {
-        setFormData(prev => ({
-            ...prev,
-            service: {
-                ...prev.service,
-                has_financial_year: !prev.service.has_financial_year,
-                financial_years: !prev.service.has_financial_year ? [] : prev.service.financial_years
-            }
-        }));
-    };
-
-    const toggleAssessmentYear = (year) => {
-        setFormData(prev => {
-            const current = [...(prev.service.assisment_years || [])];
-            const idx = current.indexOf(year);
-            if (idx >= 0) current.splice(idx, 1);
-            else current.push(year);
-            return {
-                ...prev,
-                service: {
-                    ...prev.service,
-                    assisment_years: current
-                }
-            };
-        });
-    };
-
-    const toggleFinancialYear = (year) => {
-        setFormData(prev => {
-            const current = [...(prev.service.financial_years || [])];
-            const idx = current.indexOf(year);
-            if (idx >= 0) current.splice(idx, 1);
-            else current.push(year);
-            return {
-                ...prev,
-                service: {
-                    ...prev.service,
-                    financial_years: current
-                }
-            };
-        });
-    };
-
-    // Firm handlers
-    const addFirm = (option) => {
-        if (selectedFirmOptions.some(o => o.value === option.value)) return;
-        const next = [...selectedFirmOptions, option];
-        setSelectedFirmOptions(next);
-        setFormData(prev => ({ 
-            ...prev, 
-            firms: next.map(o => o.__firm || { firm_id: o.value, firm_name: o.label })
-        }));
-    };
-
-    const removeFirm = (option) => {
-        const next = selectedFirmOptions.filter(o => o.value !== option.value);
-        setSelectedFirmOptions(next);
-        setFormData(prev => ({ 
-            ...prev, 
-            firms: next.map(o => o.__firm || { firm_id: o.value, firm_name: o.label })
-        }));
-    };
-
-    const addAllFirmsFromResults = () => {
-        const ids = new Set(selectedFirmOptions.map(o => o.value));
-        const toAdd = firmSearchResults.filter(o => !ids.has(o.value));
-        if (toAdd.length === 0) return;
-        const next = [...selectedFirmOptions, ...toAdd];
-        setSelectedFirmOptions(next);
-        setFormData(prev => ({ 
-            ...prev, 
-            firms: next.map(o => o.__firm || { firm_id: o.value, firm_name: o.label })
-        }));
-    };
-
-    const removeAllFirms = () => {
-        setSelectedFirmOptions([]);
-        setFormData(prev => ({ ...prev, firms: [] }));
-    };
-
-    // Group handlers
-    const addGroup = (option) => {
-        if (option.firm_count === 0) return;
-        if (selectedGroupOptions.some(o => o.value === option.value)) return;
-        const next = [...selectedGroupOptions, option];
-        setSelectedGroupOptions(next);
-        setFormData(prev => ({ 
-            ...prev, 
-            groups: next.map(o => ({ group_id: o.value, name: o.label }))
-        }));
-    };
-
-    const removeGroup = (option) => {
-        const next = selectedGroupOptions.filter(o => o.value !== option.value);
-        setSelectedGroupOptions(next);
-        setFormData(prev => ({ 
-            ...prev, 
-            groups: next.map(o => ({ group_id: o.value, name: o.label }))
-        }));
-    };
-
-    // Employee handlers
-    const addEmployee = (employee) => {
-        setSelectedEmployees(prev => [...prev, employee]);
-        setAllEmployees(prev => prev.filter(emp => emp.username !== employee.username));
-        setFormData(prev => ({
-            ...prev,
-            assignment: {
-                ...prev.assignment,
-                staff: [...(prev.assignment.staff || []), employee.username]
-            }
-        }));
-    };
-
-    const removeEmployee = (employee) => {
-        setAllEmployees(prev => [...prev, employee]);
-        setSelectedEmployees(prev => prev.filter(emp => emp.username !== employee.username));
-        setFormData(prev => ({
-            ...prev,
-            assignment: {
-                ...prev.assignment,
-                staff: (prev.assignment.staff || []).filter(username => username !== employee.username)
-            }
-        }));
-    };
-
-    const addAllEmployees = () => {
-        const toAdd = filteredAvailableEmployees;
-        setSelectedEmployees(prev => [...prev, ...toAdd]);
-        setFormData(prev => ({
-            ...prev,
-            assignment: {
-                ...prev.assignment,
-                staff: [...(prev.assignment.staff || []), ...toAdd.map(emp => emp.username)]
-            }
-        }));
-        setAllEmployees(prev => prev.filter(emp => !toAdd.some(e => e.username === emp.username)));
-    };
-
-    const removeAllEmployees = () => {
-        setAllEmployees(prev => [...prev, ...selectedEmployees]);
-        setFormData(prev => ({
-            ...prev,
-            assignment: {
-                ...prev.assignment,
-                staff: []
-            }
-        }));
-        setSelectedEmployees([]);
-    };
-
-    // Date handlers - Fixed for YYYY-MM-DD format
-    const formatDueDateForDisplay = (dateStr) => {
+    // Date handlers
+    const formatDateForDisplay = (dateStr) => {
         if (!dateStr) return null;
-        // If it's already in YYYY-MM-DD format, parse it
         const parts = dateStr.split('-');
         if (parts.length === 3) {
             const [y, m, d] = parts;
@@ -783,30 +298,26 @@ const EditTaskModal = ({ isOpen, onClose, taskData, onTaskUpdated }) => {
         return null;
     };
 
+    const formatDateForApi = (date) => {
+        if (!date) return '';
+        const y = date.getFullYear();
+        const m = String(date.getMonth() + 1).padStart(2, '0');
+        const d = String(date.getDate()).padStart(2, '0');
+        return `${y}-${m}-${d}`;
+    };
+
     const handleDueDateChange = (date) => {
-        if (date) {
-            // Format to YYYY-MM-DD for API
-            const y = date.getFullYear();
-            const m = String(date.getMonth() + 1).padStart(2, '0');
-            const d = String(date.getDate()).padStart(2, '0');
-            const formattedDate = `${y}-${m}-${d}`;
-            
-            setFormData(prev => ({
-                ...prev,
-                service: {
-                    ...prev.service,
-                    due_date: formattedDate
-                }
-            }));
-        } else {
-            setFormData(prev => ({
-                ...prev,
-                service: {
-                    ...prev.service,
-                    due_date: ''
-                }
-            }));
-        }
+        setFormData(prev => ({
+            ...prev,
+            due_date: date ? formatDateForApi(date) : ''
+        }));
+    };
+
+    const handleTargetDateChange = (date) => {
+        setFormData(prev => ({
+            ...prev,
+            target_date: date ? formatDateForApi(date) : ''
+        }));
     };
 
     // Submit handler
@@ -815,38 +326,20 @@ const EditTaskModal = ({ isOpen, onClose, taskData, onTaskUpdated }) => {
         try {
             const headers = await getHeaders();
             
-            // Prepare payload - ensure due_date is in YYYY-MM-DD format
+            // Prepare payload according to API spec
             const payload = {
-                firms: (formData.firms || []).map(f => f.firm_id || f),
-                groups: (formData.groups || []).map(g => g.group_id || g),
-                service: {
-                    service_id: formData.service.service_id,
-                    fees: parseFloat(formData.service.fees) || 0,
-                    due_date: formData.service.due_date,
-                    has_financial_year: formData.service.has_financial_year || false,
-                    financial_years: formData.service.financial_years || [],
-                    has_assisment_year: formData.service.has_assisment_year || false,
-                    assisment_years: formData.service.assisment_years || []
+                firm_id: formData.firm_id,
+                service_id: formData.service_id,
+                fees: parseFloat(formData.fees) || 0,
+                tax_rate: parseFloat(formData.tax_rate) || 18,
+                ca: {
+                    has_ca: formData.has_ca || false
                 },
-                subtasks: formData.subtasks || [],
-                assignment: {
-                    staff: formData.assignment.staff || [],
-                    ca: formData.assignment.ca || '',
-                    agent: formData.assignment.agent || ''
+                agent: {
+                    has_agent: formData.has_agent || false
                 },
-                notes: {
-                    text: formData.notes.text || [],
-                    attachments: attachedFiles
-                        .filter(a => a.url && a.name)
-                        .map(a => ({
-                            name: a.name,
-                            remark: a.remark || '',
-                            url: a.url
-                        })),
-                    voice: voiceNotesList
-                        .filter(v => v.url)
-                        .map(v => v.url)
-                }
+                due_date: formData.due_date,
+                target_date: formData.target_date
             };
 
             console.log('Submitting payload:', payload);
@@ -893,7 +386,7 @@ const EditTaskModal = ({ isOpen, onClose, taskData, onTaskUpdated }) => {
                     onClick={onClose}
                 >
                     <motion.div
-                        className="bg-white rounded-xl shadow-2xl w-full max-w-6xl max-h-[90vh] flex flex-col overflow-hidden"
+                        className="bg-white rounded-xl shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden"
                         initial={{ scale: 0.95, opacity: 0, y: 20 }}
                         animate={{ scale: 1, opacity: 1, y: 0 }}
                         exit={{ scale: 0.95, opacity: 0, y: 20 }}
@@ -955,218 +448,41 @@ const EditTaskModal = ({ isOpen, onClose, taskData, onTaskUpdated }) => {
                                 </div>
                             ) : (
                                 <>
-                                    {/* Firms & Groups Tab */}
-                                    {activeTab === 'firms-groups' && (
-                                        <div className="space-y-6">
-                                            {/* Firms */}
-                                            <div className="space-y-2">
-                                                <label className="flex items-center gap-2 text-sm font-medium text-gray-700">
-                                                    <FiUser className="w-4 h-4 text-indigo-600" />
-                                                    Firms
-                                                </label>
-                                                <div className="grid grid-cols-1 lg:grid-cols-5 gap-3">
-                                                    <div className="lg:col-span-2 min-w-0">
-                                                        <div className="bg-gray-50 border border-gray-200 rounded-xl overflow-hidden flex flex-col h-72">
-                                                            <div className="p-3 border-b border-gray-200 bg-white">
-                                                                <div className="relative">
-                                                                    <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                                                                    <input
-                                                                        type="text"
-                                                                        value={firmSearchQuery}
-                                                                        onChange={(e) => setFirmSearchQuery(e.target.value)}
-                                                                        placeholder="Search firms (min 3 characters)..."
-                                                                        className="w-full pl-9 pr-3 py-2.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
-                                                                    />
-                                                                </div>
-                                                                <p className="text-xs text-gray-500 mt-1.5">Type to search, then click to add</p>
-                                                            </div>
-                                                            <div className="flex-1 overflow-y-auto p-2 space-y-1.5">
-                                                                {firmSearchLoading && (
-                                                                    <div className="text-center text-gray-500 text-sm py-6">Searching...</div>
-                                                                )}
-                                                                {!firmSearchLoading && firmSearchQuery.trim().length < 3 && (
-                                                                    <div className="text-center text-gray-400 text-sm py-6">Type at least 3 characters</div>
-                                                                )}
-                                                                {!firmSearchLoading && firmSearchQuery.trim().length >= 3 && 
-                                                                    firmSearchResults.filter(f => !selectedFirmOptions.some(s => s.value === f.value)).length === 0 && (
-                                                                    <div className="text-center text-gray-400 text-sm py-6">No firms found</div>
-                                                                )}
-                                                                {!firmSearchLoading && firmSearchResults
-                                                                    .filter(f => !selectedFirmOptions.some(s => s.value === f.value))
-                                                                    .map((opt) => {
-                                                                        const f = opt.__firm;
-                                                                        const c = f?.client || {};
-                                                                        return (
-                                                                            <div
-                                                                                key={opt.value}
-                                                                                onClick={() => addFirm(opt)}
-                                                                                className="p-2.5 bg-white border border-gray-200 rounded-lg cursor-pointer hover:bg-indigo-50 hover:border-indigo-200 transition-colors"
-                                                                            >
-                                                                                <div className="font-medium text-sm text-gray-900 truncate">{f?.firm_name || opt.label}</div>
-                                                                                {c.name && <div className="text-xs text-gray-600 truncate">{c.name}</div>}
-                                                                                <div className="flex flex-wrap gap-x-2 mt-0.5 text-xs text-gray-500">
-                                                                                    {(f?.pan_no || c.pan_number) && <span>PAN: {f?.pan_no || c.pan_number}</span>}
-                                                                                    {f?.branch_id && <span>Branch: {f.branch_id}</span>}
-                                                                                </div>
-                                                                            </div>
-                                                                        );
-                                                                    })}
-                                                            </div>
-                                                        </div>
-                                                    </div>
-                                                    <div className="lg:col-span-1 flex lg:flex-col justify-center items-center gap-2 lg:gap-3">
-                                                        <motion.button
-                                                            type="button"
-                                                            onClick={addAllFirmsFromResults}
-                                                            disabled={firmSearchResults.filter(f => !selectedFirmOptions.some(s => s.value === f.value)).length === 0}
-                                                            className="p-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
-                                                            whileHover={{ scale: 1.05 }}
-                                                            whileTap={{ scale: 0.95 }}
-                                                        >
-                                                            <FiArrowRight className="w-4 h-4" />
-                                                        </motion.button>
-                                                        <motion.button
-                                                            type="button"
-                                                            onClick={removeAllFirms}
-                                                            disabled={selectedFirmOptions.length === 0}
-                                                            className="p-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
-                                                            whileHover={{ scale: 1.05 }}
-                                                            whileTap={{ scale: 0.95 }}
-                                                        >
-                                                            <FiArrowLeft className="w-4 h-4" />
-                                                        </motion.button>
-                                                    </div>
-                                                    <div className="lg:col-span-2 min-w-0">
-                                                        <div className="bg-gray-50 border border-gray-200 rounded-xl p-3 h-72 overflow-hidden flex flex-col">
-                                                            <div className="flex justify-between items-center mb-2">
-                                                                <span className="text-sm font-medium text-gray-700">Selected Firms</span>
-                                                                <span className="text-xs text-gray-500 bg-white px-2 py-1 rounded">{selectedFirmOptions.length}</span>
-                                                            </div>
-                                                            <div className="flex-1 overflow-y-auto space-y-1.5">
-                                                                {selectedFirmOptions.map((opt) => {
-                                                                    const f = opt.__firm;
-                                                                    const c = f?.client || {};
-                                                                    return (
-                                                                        <div
-                                                                            key={opt.value}
-                                                                            onClick={() => removeFirm(opt)}
-                                                                            className="p-2.5 bg-white border border-indigo-200 rounded-lg cursor-pointer hover:bg-red-50 hover:border-red-200 transition-colors"
-                                                                        >
-                                                                            <div className="font-medium text-sm text-gray-900 truncate">{f?.firm_name || opt.label}</div>
-                                                                            {c.name && <div className="text-xs text-gray-600 truncate">{c.name}</div>}
-                                                                        </div>
-                                                                    );
-                                                                })}
-                                                                {selectedFirmOptions.length === 0 && (
-                                                                    <div className="text-center text-gray-400 text-sm py-8">No firms selected</div>
-                                                                )}
-                                                            </div>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            </div>
-
-                                            {/* Groups */}
-                                            <div className="space-y-2">
-                                                <label className="flex items-center gap-2 text-sm font-medium text-gray-700">
-                                                    <FiUsers className="w-4 h-4 text-indigo-600" />
-                                                    Groups
-                                                </label>
-                                                <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
-                                                    <div className="min-w-0">
-                                                        <div className="bg-gray-50 border border-gray-200 rounded-xl p-3 h-72 overflow-hidden flex flex-col">
-                                                            <div className="flex justify-between items-center mb-2">
-                                                                <h3 className="text-sm font-medium text-gray-700">Available Groups</h3>
-                                                                <span className="text-xs text-gray-500 bg-white px-2 py-1 rounded">
-                                                                    {groupOptions.filter(g => !selectedGroupOptions.some(s => s.value === g.value)).length}
-                                                                </span>
-                                                            </div>
-                                                            <div className="flex-1 overflow-y-auto space-y-1.5">
-                                                                {groupsLoading && (
-                                                                    <div className="text-center text-gray-500 text-sm py-6">Loading...</div>
-                                                                )}
-                                                                {!groupsLoading && groupOptions
-                                                                    .filter(g => !selectedGroupOptions.some(s => s.value === g.value))
-                                                                    .map((opt) => (
-                                                                        <div
-                                                                            key={opt.value}
-                                                                            onClick={() => addGroup(opt)}
-                                                                            className={`p-2.5 rounded-lg border cursor-pointer transition-colors ${
-                                                                                opt.firm_count === 0
-                                                                                    ? 'bg-gray-100 border-gray-200 text-gray-400 cursor-not-allowed'
-                                                                                    : 'bg-white border-gray-200 hover:bg-indigo-50 hover:border-indigo-200'
-                                                                            }`}
-                                                                        >
-                                                                            <div className="font-medium text-sm text-gray-800 truncate">{opt.label}</div>
-                                                                            <span className="text-xs text-gray-500">{opt.firm_count ?? 0} firm{(opt.firm_count ?? 0) !== 1 ? 's' : ''}</span>
-                                                                        </div>
-                                                                    ))}
-                                                                {!groupsLoading && groupOptions.filter(g => !selectedGroupOptions.some(s => s.value === g.value)).length === 0 && (
-                                                                    <div className="text-center text-gray-400 text-sm py-8">No groups available</div>
-                                                                )}
-                                                            </div>
-                                                        </div>
-                                                    </div>
-                                                    <div className="min-w-0">
-                                                        <div className="bg-gray-50 border border-gray-200 rounded-xl p-3 h-72 overflow-hidden flex flex-col">
-                                                            <div className="flex justify-between items-center mb-2">
-                                                                <span className="text-sm font-medium text-gray-700">Selected Groups</span>
-                                                                <span className="text-xs text-gray-500 bg-white px-2 py-1 rounded">{selectedGroupOptions.length}</span>
-                                                            </div>
-                                                            <div className="flex-1 overflow-y-auto space-y-1.5">
-                                                                {selectedGroupOptions.map((opt) => (
-                                                                    <div
-                                                                        key={opt.value}
-                                                                        onClick={() => removeGroup(opt)}
-                                                                        className="p-2.5 bg-white border border-indigo-200 rounded-lg cursor-pointer hover:bg-red-50 hover:border-red-200 transition-colors"
-                                                                    >
-                                                                        <div className="font-medium text-sm text-gray-800 truncate">{opt.label}</div>
-                                                                        <span className="text-xs text-gray-500">{opt.firm_count ?? 0} firm{(opt.firm_count ?? 0) !== 1 ? 's' : ''}</span>
-                                                                    </div>
-                                                                ))}
-                                                                {selectedGroupOptions.length === 0 && (
-                                                                    <div className="text-center text-gray-400 text-sm py-8">No groups selected</div>
-                                                                )}
-                                                            </div>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    )}
-
                                     {/* Services Tab */}
                                     {activeTab === 'services' && (
-                                        <div className="space-y-5">
-                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                                <div className="space-y-2">
-                                                    <label className="block text-sm font-medium text-gray-700">Service Category</label>
-                                                    <SearchableSelectStatic
-                                                        options={serviceCategoryOptions}
-                                                        value={formData.service?.service_category || ''}
-                                                        onChange={(val) => handleServiceSelect('service_category', val)}
-                                                        placeholder="All Categories"
-                                                        labelKey="name"
-                                                        valueKey="category_id"
-                                                        leftIcon={<FiLayers className="text-base" />}
-                                                    />
-                                                </div>
-                                                <div className="space-y-2">
-                                                    <label className="block text-sm font-medium text-gray-700">
-                                                        Service <span className="text-red-500">*</span>
-                                                    </label>
-                                                    <SearchableSelectStatic
-                                                        options={mainServiceOptions}
-                                                        value={formData.service?.service_id || ''}
-                                                        onChange={(val) => handleServiceSelect('service_id', val)}
-                                                        placeholder="Select service..."
-                                                        labelKey="name"
-                                                        valueKey="service_id"
-                                                        leftIcon={<FiBriefcase className="text-base" />}
-                                                    />
-                                                </div>
+                                        <div className="space-y-6">
+                                            {/* Service Selection */}
+                                            <div className="space-y-2">
+                                                <label className="block text-sm font-medium text-gray-700">
+                                                    Service Category
+                                                </label>
+                                                <SearchableSelectStatic
+                                                    options={serviceCategoryOptions}
+                                                    value={formData.service_category || ''}
+                                                    onChange={handleServiceCategorySelect}
+                                                    placeholder="All Categories"
+                                                    labelKey="name"
+                                                    valueKey="category_id"
+                                                    leftIcon={<FiLayers className="text-base" />}
+                                                />
                                             </div>
 
+                                            <div className="space-y-2">
+                                                <label className="block text-sm font-medium text-gray-700">
+                                                    Service <span className="text-red-500">*</span>
+                                                </label>
+                                                <SearchableSelectStatic
+                                                    options={mainServiceOptions}
+                                                    value={formData.service_id || ''}
+                                                    onChange={handleServiceSelect}
+                                                    placeholder="Select service..."
+                                                    labelKey="name"
+                                                    valueKey="service_id"
+                                                    leftIcon={<FiBriefcase className="text-base" />}
+                                                />
+                                            </div>
+
+                                            {/* Fees and Tax Rate */}
                                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                                 <div className="space-y-2">
                                                     <label className="block text-sm font-medium text-gray-700">
@@ -1176,23 +492,42 @@ const EditTaskModal = ({ isOpen, onClose, taskData, onTaskUpdated }) => {
                                                         <FiDollarSign className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 text-base" />
                                                         <input
                                                             type="number"
-                                                            name="service.fees"
-                                                            value={formData.service?.fees || ''}
+                                                            name="fees"
+                                                            value={formData.fees}
                                                             onChange={handleInputChange}
                                                             className="w-full pl-12 pr-3 py-3 text-sm border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-white outline-none"
                                                             placeholder="Enter amount"
-                                                            required
                                                         />
                                                     </div>
                                                 </div>
                                                 <div className="space-y-2">
                                                     <label className="block text-sm font-medium text-gray-700">
-                                                        Due Date <span className="text-red-500">*</span>
+                                                        Tax Rate (%) <span className="text-red-500">*</span>
+                                                    </label>
+                                                    <div className="relative">
+                                                        <FiDollarSign className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 text-base" />
+                                                        <input
+                                                            type="number"
+                                                            name="tax_rate"
+                                                            value={formData.tax_rate}
+                                                            onChange={handleInputChange}
+                                                            className="w-full pl-12 pr-3 py-3 text-sm border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-white outline-none"
+                                                            placeholder="Enter tax rate"
+                                                        />
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            {/* Dates */}
+                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                                <div className="space-y-2">
+                                                    <label className="block text-sm font-medium text-gray-700">
+                                                        Due Date
                                                     </label>
                                                     <div className="relative [&_.rs-picker]:w-full">
                                                         <FiCalendar className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-base z-10 pointer-events-none w-4 h-4" />
                                                         <DatePicker
-                                                            value={formData.service?.due_date ? formatDueDateForDisplay(formData.service.due_date) : null}
+                                                            value={formatDateForDisplay(formData.due_date)}
                                                             onChange={handleDueDateChange}
                                                             format="dd/MM/yyyy"
                                                             placeholder="Select due date"
@@ -1205,384 +540,136 @@ const EditTaskModal = ({ isOpen, onClose, taskData, onTaskUpdated }) => {
                                                         />
                                                     </div>
                                                 </div>
+                                                <div className="space-y-2">
+                                                    <label className="block text-sm font-medium text-gray-700">
+                                                        Target Date
+                                                    </label>
+                                                    <div className="relative [&_.rs-picker]:w-full">
+                                                        <FiCalendar className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-base z-10 pointer-events-none w-4 h-4" />
+                                                        <DatePicker
+                                                            value={formatDateForDisplay(formData.target_date)}
+                                                            onChange={handleTargetDateChange}
+                                                            format="dd/MM/yyyy"
+                                                            placeholder="Select target date"
+                                                            oneTap
+                                                            editable={false}
+                                                            cleanable
+                                                            className="w-full"
+                                                            style={{ width: '100%' }}
+                                                            placement="autoVertical"
+                                                        />
+                                                    </div>
+                                                </div>
                                             </div>
 
-                                            {/* Year toggles */}
+                                            {/* CA and Agent Toggles */}
                                             <div className="rounded-2xl border border-gray-100 bg-white p-4 space-y-3">
-                                                <p className="text-sm font-semibold text-gray-900 mb-2">Applicable for</p>
+                                                <p className="text-sm font-semibold text-gray-900 mb-2">Additional Options</p>
                                                 <div className="flex flex-wrap gap-6">
                                                     <div className="flex items-center gap-3">
                                                         <button
                                                             type="button"
                                                             role="switch"
-                                                            aria-checked={formData.service?.has_assisment_year}
-                                                            onClick={handleToggleAY}
+                                                            aria-checked={formData.has_ca}
+                                                            onClick={() => setFormData(prev => ({ ...prev, has_ca: !prev.has_ca }))}
                                                             className={`relative inline-flex h-7 w-12 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 ${
-                                                                formData.service?.has_assisment_year ? 'bg-indigo-600' : 'bg-gray-200'
+                                                                formData.has_ca ? 'bg-indigo-600' : 'bg-gray-200'
                                                             }`}
                                                         >
                                                             <span className={`pointer-events-none inline-block h-6 w-6 transform rounded-full bg-white shadow ring-0 transition ${
-                                                                formData.service?.has_assisment_year ? 'translate-x-5' : 'translate-x-0.5'
+                                                                formData.has_ca ? 'translate-x-5' : 'translate-x-0.5'
                                                             }`} />
                                                         </button>
                                                         <div>
-                                                            <span className="text-sm font-medium text-gray-900">Assessment Year (AY)</span>
-                                                            <p className="text-xs text-gray-500">Applicable for assessment year</p>
+                                                            <span className="text-sm font-medium text-gray-900">Has CA</span>
+                                                            <p className="text-xs text-gray-500">Task requires CA approval</p>
                                                         </div>
                                                     </div>
                                                     <div className="flex items-center gap-3">
                                                         <button
                                                             type="button"
                                                             role="switch"
-                                                            aria-checked={formData.service?.has_financial_year}
-                                                            onClick={handleToggleFY}
+                                                            aria-checked={formData.has_agent}
+                                                            onClick={() => setFormData(prev => ({ ...prev, has_agent: !prev.has_agent }))}
                                                             className={`relative inline-flex h-7 w-12 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 ${
-                                                                formData.service?.has_financial_year ? 'bg-indigo-600' : 'bg-gray-200'
+                                                                formData.has_agent ? 'bg-indigo-600' : 'bg-gray-200'
                                                             }`}
                                                         >
                                                             <span className={`pointer-events-none inline-block h-6 w-6 transform rounded-full bg-white shadow ring-0 transition ${
-                                                                formData.service?.has_financial_year ? 'translate-x-5' : 'translate-x-0.5'
+                                                                formData.has_agent ? 'translate-x-5' : 'translate-x-0.5'
                                                             }`} />
                                                         </button>
                                                         <div>
-                                                            <span className="text-sm font-medium text-gray-900">Financial Year (FY)</span>
-                                                            <p className="text-xs text-gray-500">Applicable for financial year</p>
+                                                            <span className="text-sm font-medium text-gray-900">Has Agent</span>
+                                                            <p className="text-xs text-gray-500">Task requires agent handling</p>
                                                         </div>
                                                     </div>
                                                 </div>
                                             </div>
-
-                                            {formData.service?.has_assisment_year && (
-                                                <div className="space-y-3">
-                                                    <label className="block text-sm font-medium text-gray-700">
-                                                        Assessment Years (AY) <span className="text-red-500">*</span>
-                                                    </label>
-                                                    <div className="bg-gray-50 border border-gray-200 rounded-xl p-4">
-                                                        <div className="grid grid-cols-3 md:grid-cols-3 lg:grid-cols-6 gap-2">
-                                                            {assessmentYearsList.map((year) => (
-                                                                <motion.button
-                                                                    key={year}
-                                                                    type="button"
-                                                                    onClick={() => toggleAssessmentYear(year)}
-                                                                    className={`p-3 text-sm font-medium rounded-lg border transition-all ${
-                                                                        formData.service?.assisment_years?.includes(year)
-                                                                            ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm'
-                                                                            : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-100'
-                                                                    }`}
-                                                                    whileHover={{ scale: 1.02 }}
-                                                                    whileTap={{ scale: 0.98 }}
-                                                                >
-                                                                    AY {year}
-                                                                </motion.button>
-                                                            ))}
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            )}
-
-                                            {formData.service?.has_financial_year && (
-                                                <div className="space-y-3">
-                                                    <label className="block text-sm font-medium text-gray-700">
-                                                        Financial Years (FY) <span className="text-red-500">*</span>
-                                                    </label>
-                                                    <div className="bg-gray-50 border border-gray-200 rounded-xl p-4">
-                                                        <div className="grid grid-cols-3 md:grid-cols-3 lg:grid-cols-6 gap-2">
-                                                            {financialYearsList.map((year) => (
-                                                                <motion.button
-                                                                    key={year}
-                                                                    type="button"
-                                                                    onClick={() => toggleFinancialYear(year)}
-                                                                    className={`p-3 text-sm font-medium rounded-lg border transition-all ${
-                                                                        formData.service?.financial_years?.includes(year)
-                                                                            ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm'
-                                                                            : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-100'
-                                                                    }`}
-                                                                    whileHover={{ scale: 1.02 }}
-                                                                    whileTap={{ scale: 0.98 }}
-                                                                >
-                                                                    FY {year}
-                                                                </motion.button>
-                                                            ))}
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            )}
                                         </div>
                                     )}
 
-                                    {/* Team Tab */}
-                                    {activeTab === 'team' && (
+                                    {/* Firm Tab */}
+                                    {activeTab === 'firm' && (
                                         <div className="space-y-6">
-                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                                {/* CA */}
-                                                <div className="space-y-2">
-                                                    <label className="block text-sm font-medium text-gray-700">CA</label>
-                                                    <div className="relative flex items-center w-full bg-white border border-gray-300 rounded-xl overflow-visible focus-within:ring-2 focus-within:ring-indigo-500 focus-within:border-indigo-500 min-h-[42px]">
-                                                        <FiUserCheck className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 shrink-0 pointer-events-none z-10" />
-                                                        {formData.assignment?.ca ? (
-                                                            <>
-                                                                <span className="flex-1 pl-9 pr-9 py-2.5 text-sm text-gray-900 truncate">
-                                                                    {selectedCaDisplay?.name ?? formData.assignment.ca}
-                                                                </span>
-                                                                <button
-                                                                    type="button"
-                                                                    onClick={() => {
-                                                                        setFormData(prev => ({
-                                                                            ...prev,
-                                                                            assignment: { ...prev.assignment, ca: '' }
-                                                                        }));
-                                                                        setSelectedCaDisplay(null);
-                                                                    }}
-                                                                    className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
-                                                                    title="Clear"
-                                                                >
-                                                                    <FiX className="w-4 h-4" />
-                                                                </button>
-                                                            </>
-                                                        ) : (
-                                                            <>
-                                                                <input
-                                                                    type="text"
-                                                                    value={caSearchQuery}
-                                                                    onChange={(e) => setCaSearchQuery(e.target.value)}
-                                                                    placeholder="Search CA (min 3 characters)..."
-                                                                    className="flex-1 min-w-0 pl-9 pr-3 py-2.5 text-sm border-0 bg-transparent focus:ring-0 focus:outline-none placeholder-gray-400"
-                                                                />
-                                                                {caSearchQuery.trim().length >= 3 && (
-                                                                    <div className="absolute z-20 left-0 right-0 top-full mt-1 bg-white border border-gray-200 rounded-xl shadow-lg max-h-56 overflow-y-auto">
-                                                                        {caSearchLoading && <div className="p-3 text-sm text-gray-500">Searching...</div>}
-                                                                        {!caSearchLoading && caSearchResults.length === 0 && <div className="p-3 text-sm text-gray-500">No results</div>}
-                                                                        {!caSearchLoading && caSearchResults.map((item) => (
-                                                                            <button
-                                                                                key={item.username}
-                                                                                type="button"
-                                                                                onClick={() => {
-                                                                                    setFormData(prev => ({
-                                                                                        ...prev,
-                                                                                        assignment: { ...prev.assignment, ca: item.username }
-                                                                                    }));
-                                                                                    setSelectedCaDisplay({ username: item.username, name: item.name });
-                                                                                    setCaSearchQuery('');
-                                                                                    setCaSearchResults([]);
-                                                                                }}
-                                                                                className="w-full px-3 py-2.5 text-left text-sm hover:bg-indigo-50 flex flex-col border-b border-gray-100 last:border-0"
-                                                                            >
-                                                                                <span className="font-medium text-gray-900">{item.name}</span>
-                                                                                {(item.mobile || item.email) && (
-                                                                                    <span className="text-xs text-gray-500">
-                                                                                        {[item.mobile, item.email].filter(Boolean).join(' · ')}
-                                                                                    </span>
-                                                                                )}
-                                                                            </button>
-                                                                        ))}
-                                                                    </div>
-                                                                )}
-                                                                {caSearchQuery.trim().length > 0 && caSearchQuery.trim().length < 3 && (
-                                                                    <p className="absolute left-9 top-full mt-0.5 text-xs text-gray-500">Type at least 3 characters</p>
-                                                                )}
-                                                            </>
-                                                        )}
-                                                    </div>
-                                                </div>
-
-                                                {/* Agent */}
-                                                <div className="space-y-2">
-                                                    <label className="block text-sm font-medium text-gray-700">Agent</label>
-                                                    <div className="relative flex items-center w-full bg-white border border-gray-300 rounded-xl overflow-visible focus-within:ring-2 focus-within:ring-indigo-500 focus-within:border-indigo-500 min-h-[42px]">
-                                                        <FiUserPlus className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 shrink-0 pointer-events-none z-10" />
-                                                        {formData.assignment?.agent ? (
-                                                            <>
-                                                                <span className="flex-1 pl-9 pr-9 py-2.5 text-sm text-gray-900 truncate">
-                                                                    {selectedAgentDisplay?.name ?? formData.assignment.agent}
-                                                                </span>
-                                                                <button
-                                                                    type="button"
-                                                                    onClick={() => {
-                                                                        setFormData(prev => ({
-                                                                            ...prev,
-                                                                            assignment: { ...prev.assignment, agent: '' }
-                                                                        }));
-                                                                        setSelectedAgentDisplay(null);
-                                                                    }}
-                                                                    className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
-                                                                    title="Clear"
-                                                                >
-                                                                    <FiX className="w-4 h-4" />
-                                                                </button>
-                                                            </>
-                                                        ) : (
-                                                            <>
-                                                                <input
-                                                                    type="text"
-                                                                    value={agentSearchQuery}
-                                                                    onChange={(e) => setAgentSearchQuery(e.target.value)}
-                                                                    placeholder="Search Agent (min 3 characters)..."
-                                                                    className="flex-1 min-w-0 pl-9 pr-3 py-2.5 text-sm border-0 bg-transparent focus:ring-0 focus:outline-none placeholder-gray-400"
-                                                                />
-                                                                {agentSearchQuery.trim().length >= 3 && (
-                                                                    <div className="absolute z-20 left-0 right-0 top-full mt-1 bg-white border border-gray-200 rounded-xl shadow-lg max-h-56 overflow-y-auto">
-                                                                        {agentSearchLoading && <div className="p-3 text-sm text-gray-500">Searching...</div>}
-                                                                        {!agentSearchLoading && agentSearchResults.length === 0 && <div className="p-3 text-sm text-gray-500">No results</div>}
-                                                                        {!agentSearchLoading && agentSearchResults.map((item) => (
-                                                                            <button
-                                                                                key={item.username}
-                                                                                type="button"
-                                                                                onClick={() => {
-                                                                                    setFormData(prev => ({
-                                                                                        ...prev,
-                                                                                        assignment: { ...prev.assignment, agent: item.username }
-                                                                                    }));
-                                                                                    setSelectedAgentDisplay({ username: item.username, name: item.name });
-                                                                                    setAgentSearchQuery('');
-                                                                                    setAgentSearchResults([]);
-                                                                                }}
-                                                                                className="w-full px-3 py-2.5 text-left text-sm hover:bg-indigo-50 flex flex-col border-b border-gray-100 last:border-0"
-                                                                            >
-                                                                                <span className="font-medium text-gray-900">{item.name}</span>
-                                                                                {(item.mobile || item.email) && (
-                                                                                    <span className="text-xs text-gray-500">
-                                                                                        {[item.mobile, item.email].filter(Boolean).join(' · ')}
-                                                                                    </span>
-                                                                                )}
-                                                                            </button>
-                                                                        ))}
-                                                                    </div>
-                                                                )}
-                                                                {agentSearchQuery.trim().length > 0 && agentSearchQuery.trim().length < 3 && (
-                                                                    <p className="absolute left-9 top-full mt-0.5 text-xs text-gray-500">Type at least 3 characters</p>
-                                                                )}
-                                                            </>
-                                                        )}
-                                                    </div>
-                                                </div>
-                                            </div>
-
-                                            {/* Employees */}
-                                            <div className="space-y-3">
-                                                <label className="block text-sm font-medium text-gray-700">Employees</label>
-                                                <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
-                                                    {/* Available Employees */}
-                                                    <div className="lg:col-span-2">
-                                                        <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 min-h-[420px] flex flex-col overflow-hidden">
-                                                            <div className="flex justify-between items-center mb-3 shrink-0">
-                                                                <h3 className="text-sm font-medium text-gray-700">Available Employees</h3>
-                                                                <span className="text-sm text-gray-500 bg-white px-2 py-1 rounded">
-                                                                    {allEmployees.length}
-                                                                </span>
-                                                            </div>
-                                                            <div className="relative mb-2 shrink-0">
-                                                                <FiSearch className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
-                                                                <input
-                                                                    type="text"
-                                                                    value={employeeSearchQuery}
-                                                                    onChange={(e) => setEmployeeSearchQuery(e.target.value)}
-                                                                    placeholder="Search by name, mobile, email, designation..."
-                                                                    className="w-full pl-8 pr-3 py-2 text-sm border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
-                                                                />
-                                                            </div>
-                                                            <div className="flex-1 min-h-0 overflow-y-auto space-y-2">
-                                                                {staffLoading && (
-                                                                    <div className="text-center text-gray-500 text-sm py-8">Loading staff...</div>
-                                                                )}
-                                                                {!staffLoading && filteredAvailableEmployees.length === 0 && (
-                                                                    <div className="text-center text-gray-400 text-sm py-8">
-                                                                        {employeeSearchQuery.trim() ? 'No matching employees' : 'No employees available'}
-                                                                    </div>
-                                                                )}
-                                                                {!staffLoading && filteredAvailableEmployees.map(employee => (
-                                                                    <div
-                                                                        key={employee.username}
-                                                                        onClick={() => addEmployee(employee)}
-                                                                        className="p-3 bg-white border border-gray-200 rounded-lg cursor-pointer hover:bg-indigo-50 hover:border-indigo-200 transition-colors duration-200"
-                                                                    >
-                                                                        <div className="font-medium text-sm text-gray-800">{employee.name}</div>
-                                                                        <div className="text-sm text-gray-400">
-                                                                            {[employee.department, employee.mobile].filter(Boolean).join(' • ') || '—'}
-                                                                        </div>
-                                                                    </div>
-                                                                ))}
-                                                            </div>
+                                            <div className="space-y-2">
+                                                <label className="block text-sm font-medium text-gray-700">
+                                                    Firm <span className="text-red-500">*</span>
+                                                </label>
+                                                
+                                                {!selectedFirm ? (
+                                                    <div className="relative">
+                                                        <div className="relative flex items-center w-full bg-white border border-gray-300 rounded-xl overflow-visible focus-within:ring-2 focus-within:ring-indigo-500 focus-within:border-indigo-500">
+                                                            <FiUsers className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 shrink-0 pointer-events-none z-10" />
+                                                            <input
+                                                                type="text"
+                                                                value={firmSearchQuery}
+                                                                onChange={(e) => setFirmSearchQuery(e.target.value)}
+                                                                placeholder="Search firm (min 3 characters)..."
+                                                                className="flex-1 min-w-0 pl-9 pr-3 py-3 text-sm border-0 bg-transparent focus:ring-0 focus:outline-none placeholder-gray-400"
+                                                            />
+                                                            {firmSearchQuery.trim().length >= 3 && (
+                                                                <div className="absolute z-20 left-0 right-0 top-full mt-1 bg-white border border-gray-200 rounded-xl shadow-lg max-h-64 overflow-y-auto">
+                                                                    {firmSearchLoading && <div className="p-3 text-sm text-gray-500">Searching...</div>}
+                                                                    {!firmSearchLoading && firmSearchResults.length === 0 && <div className="p-3 text-sm text-gray-500">No results</div>}
+                                                                    {!firmSearchLoading && firmSearchResults.map((item) => (
+                                                                        <button
+                                                                            key={item.value}
+                                                                            type="button"
+                                                                            onClick={() => handleFirmSelect(item)}
+                                                                            className="w-full px-3 py-2.5 text-left text-sm hover:bg-indigo-50 flex flex-col border-b border-gray-100 last:border-0"
+                                                                        >
+                                                                            <span className="font-medium text-gray-900">{item.label}</span>
+                                                                            {item.firm?.pan_no && (
+                                                                                <span className="text-xs text-gray-500">PAN: {item.firm.pan_no}</span>
+                                                                            )}
+                                                                        </button>
+                                                                    ))}
+                                                                </div>
+                                                            )}
+                                                            {firmSearchQuery.trim().length > 0 && firmSearchQuery.trim().length < 3 && (
+                                                                <p className="absolute left-9 top-full mt-0.5 text-xs text-gray-500">Type at least 3 characters</p>
+                                                            )}
                                                         </div>
                                                     </div>
-
-                                                    {/* Transfer Controls */}
-                                                    <div className="lg:col-span-1 flex lg:flex-col justify-center items-center space-y-3 lg:space-y-3 space-x-3 lg:space-x-0">
-                                                        <motion.button
-                                                            type="button"
-                                                            onClick={addAllEmployees}
-                                                            disabled={filteredAvailableEmployees.length === 0}
-                                                            className="p-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors duration-200"
-                                                            whileHover={{ scale: 1.1 }}
-                                                            whileTap={{ scale: 0.9 }}
-                                                        >
-                                                            <FiArrowRight className="w-4 h-4" />
-                                                        </motion.button>
-                                                        <motion.button
-                                                            type="button"
-                                                            onClick={removeAllEmployees}
-                                                            disabled={selectedEmployees.length === 0}
-                                                            className="p-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors duration-200"
-                                                            whileHover={{ scale: 1.1 }}
-                                                            whileTap={{ scale: 0.9 }}
-                                                        >
-                                                            <FiArrowLeft className="w-4 h-4" />
-                                                        </motion.button>
-                                                    </div>
-
-                                                    {/* Selected Employees */}
-                                                    <div className="lg:col-span-2">
-                                                        <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 min-h-[420px] flex flex-col overflow-hidden">
-                                                            <div className="flex justify-between items-center mb-3 shrink-0">
-                                                                <h3 className="text-sm font-medium text-gray-700">Selected Employees</h3>
-                                                                <span className="text-sm text-gray-500 bg-white px-2 py-1 rounded">
-                                                                    {selectedEmployees.length}
-                                                                </span>
-                                                            </div>
-                                                            <div className="flex-1 min-h-0 overflow-y-auto space-y-2">
-                                                                {selectedEmployees.map(employee => (
-                                                                    <div
-                                                                        key={employee.username}
-                                                                        onClick={() => removeEmployee(employee)}
-                                                                        className="p-3 bg-white border border-indigo-200 rounded-lg cursor-pointer hover:bg-red-50 hover:border-red-200 transition-colors duration-200"
-                                                                    >
-                                                                        <div className="font-medium text-sm text-gray-800">{employee.name}</div>
-                                                                        <div className="text-sm text-gray-400">
-                                                                            {[employee.department, employee.mobile].filter(Boolean).join(' • ') || '—'}
-                                                                        </div>
-                                                                    </div>
-                                                                ))}
-                                                                {selectedEmployees.length === 0 && (
-                                                                    <div className="text-center text-gray-400 text-sm py-8">
-                                                                        No employees selected
-                                                                    </div>
-                                                                )}
-                                                            </div>
+                                                ) : (
+                                                    <div className="flex items-center justify-between p-3 bg-indigo-50 border border-indigo-200 rounded-xl">
+                                                        <div>
+                                                            <div className="font-medium text-gray-900">{selectedFirm.label}</div>
+                                                            {selectedFirm.firm?.pan_no && (
+                                                                <div className="text-xs text-gray-500 mt-0.5">PAN: {selectedFirm.firm.pan_no}</div>
+                                                            )}
                                                         </div>
+                                                        <button
+                                                            type="button"
+                                                            onClick={removeFirm}
+                                                            className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                                                        >
+                                                            <FiX className="w-4 h-4" />
+                                                        </button>
                                                     </div>
-                                                </div>
+                                                )}
                                             </div>
-                                        </div>
-                                    )}
-
-                                    {/* Subtasks Tab */}
-                                    {activeTab === 'subtasks' && (
-                                        <div className="text-center py-12 text-gray-500">
-                                            <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                                                <FiFileText className="w-8 h-8 text-gray-400" />
-                                            </div>
-                                            <p className="text-gray-600 font-medium">Subtasks editing coming soon...</p>
-                                            <p className="text-gray-400 text-sm mt-1">This feature is under development</p>
-                                        </div>
-                                    )}
-
-                                    {/* Notes Tab */}
-                                    {activeTab === 'notes' && (
-                                        <div className="text-center py-12 text-gray-500">
-                                            <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                                                <FiPaperclip className="w-8 h-8 text-gray-400" />
-                                            </div>
-                                            <p className="text-gray-600 font-medium">Notes editing coming soon...</p>
-                                            <p className="text-gray-400 text-sm mt-1">This feature is under development</p>
                                         </div>
                                     )}
                                 </>

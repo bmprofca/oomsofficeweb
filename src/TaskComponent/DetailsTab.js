@@ -46,6 +46,10 @@ const DetailsTab = ({ taskData: initialData, task_id, onTaskUpdated }) => {
     const [isSaving, setIsSaving] = useState(false);
     const [saveError, setSaveError] = useState(null);
     const [saveSuccess, setSaveSuccess] = useState(null);
+    
+    // Status change state
+    const [isChangingStatus, setIsChangingStatus] = useState(false);
+    const [selectedStatus, setSelectedStatus] = useState('');
 
     // New state for complex fields
     const [selectedFirmOptions, setSelectedFirmOptions] = useState([]);
@@ -66,11 +70,6 @@ const DetailsTab = ({ taskData: initialData, task_id, onTaskUpdated }) => {
     const [agentSearchResults, setAgentSearchResults] = useState([]);
     const [agentSearchLoading, setAgentSearchLoading] = useState(false);
     
-    // Client search based on selected firms
-    const [clientSearchQuery, setClientSearchQuery] = useState('');
-    const [clientSearchResults, setClientSearchResults] = useState([]);
-    const [clientSearchLoading, setClientSearchLoading] = useState(false);
-    
     // Group search
     const [groupSearchQuery, setGroupSearchQuery] = useState('');
     const [groupSearchResults, setGroupSearchResults] = useState([]);
@@ -80,7 +79,6 @@ const DetailsTab = ({ taskData: initialData, task_id, onTaskUpdated }) => {
     const firmSearchAbortRef = useRef(null);
     const caSearchAbortRef = useRef(null);
     const agentSearchAbortRef = useRef(null);
-    const clientSearchAbortRef = useRef(null);
     const groupSearchAbortRef = useRef(null);
 
     // Data lists
@@ -89,21 +87,29 @@ const DetailsTab = ({ taskData: initialData, task_id, onTaskUpdated }) => {
     const [filteredServices, setFilteredServices] = useState([]);
     const [groups, setGroups] = useState([]);
     const [groupsLoading, setGroupsLoading] = useState(false);
-    const [assessmentYearsList, setAssessmentYearsList] = useState([]);
-    const [financialYearsList, setFinancialYearsList] = useState([]);
     const [fullStaffList, setFullStaffList] = useState([]);
 
     // Display states
     const [selectedCaDisplay, setSelectedCaDisplay] = useState(null);
     const [selectedAgentDisplay, setSelectedAgentDisplay] = useState(null);
-    const [selectedClientDisplay, setSelectedClientDisplay] = useState(null);
     const [firmOwnerDisplay, setFirmOwnerDisplay] = useState(null);
+
+    // Status options
+    const statusOptions = [
+        { value: 'unassign', name: 'Unassign', color: 'blue' },
+        { value: 'in process', name: 'In Process', color: 'orange' },
+        { value: 'pending from client', name: 'Pending from Client', color: 'purple' },
+        { value: 'pending from department', name: 'Pending from Department', color: 'yellow' },
+        { value: 'complete', name: 'Complete', color: 'green' },
+        { value: 'cancel', name: 'Cancel', color: 'red' }
+    ];
 
     // Initialize data when component mounts
     useEffect(() => {
         if (taskData) {
             initializeComplexFields();
             fetchSupportingData();
+            setSelectedStatus(taskData.status || '');
         }
     }, [taskData]);
 
@@ -147,7 +153,6 @@ const DetailsTab = ({ taskData: initialData, task_id, onTaskUpdated }) => {
             }));
             setSelectedFirmOptions(firmOptions);
             
-            // Set firm owner from the first firm (assuming single firm)
             if (firmOptions.length > 0) {
                 setFirmOwnerDisplay({
                     name: firmOptions[0].owner_name,
@@ -156,7 +161,7 @@ const DetailsTab = ({ taskData: initialData, task_id, onTaskUpdated }) => {
             }
         }
 
-        // Initialize groups
+        // Initialize groups (view only - not editable)
         if (taskData.groups && Array.isArray(taskData.groups)) {
             const groupOptions = taskData.groups.map(group => ({
                 value: group.group_id || group.id,
@@ -167,7 +172,7 @@ const DetailsTab = ({ taskData: initialData, task_id, onTaskUpdated }) => {
             setSelectedGroupOptions(groupOptions);
         }
 
-        // Initialize staff
+        // Initialize staff (view only - not editable)
         if (taskData.staffs && Array.isArray(taskData.staffs)) {
             const staffList = taskData.staffs.map(staff => ({
                 username: staff.username,
@@ -179,7 +184,7 @@ const DetailsTab = ({ taskData: initialData, task_id, onTaskUpdated }) => {
             setSelectedEmployees(staffList);
         }
 
-        // Initialize CA - Updated to handle the new structure
+        // Initialize CA
         if (taskData.has_ca && taskData.ca) {
             setSelectedCaDisplay({ 
                 username: taskData.ca.username, 
@@ -188,27 +193,13 @@ const DetailsTab = ({ taskData: initialData, task_id, onTaskUpdated }) => {
                 mobile: taskData.ca.mobile,
                 country_code: taskData.ca.country_code
             });
-        } else if (taskData.assignment?.ca) {
-            // Fallback for old structure
-            setSelectedCaDisplay({ 
-                username: taskData.assignment.ca, 
-                name: taskData.assignment.ca 
-            });
         }
 
         // Initialize Agent
-        if (taskData.assignment?.agent) {
+        if (taskData.has_agent && taskData.agent) {
             setSelectedAgentDisplay({ 
-                username: taskData.assignment.agent, 
-                name: taskData.assignment.agent 
-            });
-        }
-
-        // Initialize Client
-        if (taskData.client) {
-            setSelectedClientDisplay({
-                client_id: taskData.client.client_id,
-                name: taskData.client.profile?.name || taskData.client.name || 'Unknown Client'
+                username: taskData.agent.username, 
+                name: taskData.agent.name 
             });
         }
     };
@@ -231,13 +222,10 @@ const DetailsTab = ({ taskData: initialData, task_id, onTaskUpdated }) => {
                 setServices(servicesRes.data.data || []);
             }
 
-            // Fetch groups
+            // Fetch groups (view only)
             fetchAllGroups();
             
-            // Fetch years
-            fetchYears();
-            
-            // Fetch staff
+            // Fetch staff (view only)
             fetchAllStaff();
         } catch (err) {
             console.error('Error fetching supporting data:', err);
@@ -270,10 +258,10 @@ const DetailsTab = ({ taskData: initialData, task_id, onTaskUpdated }) => {
         }
     };
 
-    // Group search - fixed to use the correct endpoint
+    // Group search (view only - not adding)
     useEffect(() => {
         const term = (groupSearchQuery || '').trim();
-        if (term.length < 3) { // Changed from 2 to 3 to match API requirement
+        if (term.length < 3) {
             setGroupSearchResults([]);
             setGroupSearchLoading(false);
             return;
@@ -311,24 +299,7 @@ const DetailsTab = ({ taskData: initialData, task_id, onTaskUpdated }) => {
         };
     }, [groupSearchQuery]);
 
-    // Fetch years
-    const fetchYears = async () => {
-        const headers = await getHeaders();
-        if (!headers) return;
-        const base = API_BASE_URL.replace(/\/$/, '');
-        try {
-            const [ayRes, fyRes] = await Promise.all([
-                fetch(`${base}/utils/assisment-years`, { headers }).then(r => r.json()),
-                fetch(`${base}/utils/financial-years`, { headers }).then(r => r.json())
-            ]);
-            if (ayRes?.success && Array.isArray(ayRes.data)) setAssessmentYearsList(ayRes.data);
-            if (fyRes?.success && Array.isArray(fyRes.data)) setFinancialYearsList(fyRes.data);
-        } catch (err) {
-            console.error('Failed to fetch years:', err);
-        }
-    };
-
-    // Fetch all staff
+    // Fetch all staff (view only)
     const fetchAllStaff = async () => {
         setStaffLoading(true);
         const all = [];
@@ -363,85 +334,12 @@ const DetailsTab = ({ taskData: initialData, task_id, onTaskUpdated }) => {
             // Update all employees list excluding selected ones
             const selectedUsernames = new Set(selectedEmployees.map(emp => emp.username));
             setAllEmployees(mapped.filter(emp => !selectedUsernames.has(emp.username)));
-            
-            // Update CA and Agent display names
-            if (taskData.assignment?.ca) {
-                const caStaff = mapped.find(s => s.username === taskData.assignment.ca);
-                setSelectedCaDisplay(caStaff || { username: taskData.assignment.ca, name: taskData.assignment.ca });
-            }
-            
-            if (taskData.assignment?.agent) {
-                const agentStaff = mapped.find(s => s.username === taskData.assignment.agent);
-                setSelectedAgentDisplay(agentStaff || { username: taskData.assignment.agent, name: taskData.assignment.agent });
-            }
         } catch (err) {
             console.error('Failed to fetch staff list:', err);
         } finally {
             setStaffLoading(false);
         }
     };
-
-    // Client search based on selected firms - fixed to handle the API response properly
-    useEffect(() => {
-        const searchClients = async () => {
-            if (selectedFirmOptions.length === 0) {
-                setClientSearchResults([]);
-                return;
-            }
-
-            const term = (clientSearchQuery || '').trim();
-            if (term.length < 3) { // Changed from 2 to 3 to match API requirement
-                setClientSearchResults([]);
-                return;
-            }
-
-            setClientSearchLoading(true);
-            clientSearchAbortRef.current?.abort();
-            const controller = new AbortController();
-            clientSearchAbortRef.current = controller;
-
-            try {
-                // Get firm IDs from selected firms
-                const firmIds = selectedFirmOptions.map(f => f.value);
-                
-                // Search clients across selected firms
-                const url = `${API_BASE_URL.replace(/\/$/, '')}/client/search?firm_ids=${firmIds.join(',')}&search=${encodeURIComponent(term)}`;
-                const res = await fetch(url, { 
-                    headers: await getHeaders(), 
-                    signal: controller.signal 
-                });
-                const data = await res.json();
-                
-                // Check if the response was successful
-                if (data.success) {
-                    const list = Array.isArray(data?.data) ? data.data : [];
-                    setClientSearchResults(list);
-                } else {
-                    // If API returns error, show empty results
-                    if (data.message && data.message.includes("at least 3 characters")) {
-                        // This is expected, just don't show results
-                        setClientSearchResults([]);
-                    } else {
-                        console.error('Client search error:', data.message);
-                        setClientSearchResults([]);
-                    }
-                }
-            } catch (err) {
-                if (err?.name !== 'AbortError') {
-                    console.error('Client search error:', err);
-                    setClientSearchResults([]);
-                }
-            } finally {
-                setClientSearchLoading(false);
-            }
-        };
-
-        const timeoutId = setTimeout(searchClients, 400);
-        return () => {
-            clearTimeout(timeoutId);
-            clientSearchAbortRef.current?.abort();
-        };
-    }, [clientSearchQuery, selectedFirmOptions]);
 
     // Firm search
     useEffect(() => {
@@ -574,9 +472,47 @@ const DetailsTab = ({ taskData: initialData, task_id, onTaskUpdated }) => {
         setSaveSuccess(null);
     };
 
-    // Handle save changes
+    // Handle status change using change-status API
+    const handleStatusChange = async (newStatus) => {
+        setIsChangingStatus(true);
+        setSaveError(null);
+        
+        try {
+            const headers = await getHeaders();
+            const response = await fetch(`${API_BASE_URL}/task/change-status`, {
+                method: 'PUT',
+                headers: {
+                    ...headers,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    task_ids: [task_id],
+                    status: newStatus
+                })
+            });
+            
+            const responseData = await response.json();
+            
+            if (responseData.success) {
+                setSelectedStatus(newStatus);
+                setTaskData(prev => ({ ...prev, status: newStatus }));
+                toast.success(`Status updated to ${statusOptions.find(s => s.value === newStatus)?.name || newStatus}`);
+                if (onTaskUpdated) onTaskUpdated();
+            } else {
+                throw new Error(responseData.message || 'Failed to update status');
+            }
+        } catch (err) {
+            console.error('Error updating status:', err);
+            setSaveError(err.message || 'Failed to update status');
+            toast.error(err.message || 'Failed to update status');
+        } finally {
+            setIsChangingStatus(false);
+        }
+    };
+
+    // Handle save changes - using edit API
     const handleSaveChanges = async () => {
-        const headers = getHeaders();
+        const headers = await getHeaders();
         if (!headers) {
             setSaveError('Authentication failed. Please login again.');
             return;
@@ -586,62 +522,61 @@ const DetailsTab = ({ taskData: initialData, task_id, onTaskUpdated }) => {
         setSaveError(null);
 
         try {
-            // Prepare payload
+            // Prepare payload according to API spec: /task/edit/:task_id
             const payload = {
-                firms: selectedFirmOptions.map(f => f.value),
-                groups: selectedGroupOptions.map(g => g.value),
-                service: {
-                    service_id: editedData?.service?.service_id || taskData.service?.service_id,
-                    fees: parseFloat(editedData?.charges?.fees || taskData.charges?.fees || 0),
-                    due_date: editedData?.dates?.due_date || taskData.dates?.due_date,
-                    has_financial_year: taskData.service?.has_financial_year || false,
-                    financial_years: taskData.service?.financial_years || [],
-                    has_assisment_year: taskData.service?.has_assisment_year || false,
-                    assisment_years: taskData.service?.assisment_years || []
+                firm_id: selectedFirmOptions.length > 0 ? selectedFirmOptions[0].value : (taskData.firm?.firm_id || ''),
+                service_id: taskData.service?.service_id || '',
+                fees: parseFloat(taskData.charges?.fees || taskData.fees || 0),
+                tax_rate: parseFloat(taskData.charges?.tax_rate || taskData.tax_rate || 18),
+                ca: {
+                    has_ca: !!selectedCaDisplay
                 },
-                assignment: {
-                    staff: selectedEmployees.map(emp => emp.username),
-                    ca: selectedCaDisplay?.username || '',
-                    agent: selectedAgentDisplay?.username || ''
+                agent: {
+                    has_agent: !!selectedAgentDisplay
                 },
-                client_id: selectedClientDisplay?.client_id || taskData.client?.client_id,
-                status: taskData.status,
-                billing_status: taskData.billing_status,
-                tax_rate: taskData.charges?.tax_rate || 0
+                due_date: taskData.dates?.due_date ? formatDateForAPI(taskData.dates.due_date) : '',
+                target_date: taskData.dates?.target_date ? formatDateForAPI(taskData.dates.target_date) : ''
             };
 
-            const response = await axios.put(
-                `${API_BASE_URL}/task/edit/${task_id}`,
-                payload,
-                { headers }
-            );
+            console.log('Submitting payload:', payload);
 
-            if (response.data.success) {
+            const response = await fetch(`${API_BASE_URL}/task/edit/${task_id}`, {
+                method: 'PUT',
+                headers: {
+                    ...headers,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(payload)
+            });
+
+            const responseData = await response.json();
+            
+            if (responseData.success) {
                 setSaveSuccess('Task updated successfully!');
                 
                 // Update taskData with edited values
                 setTaskData(prev => ({
                     ...prev,
+                    firm: selectedFirmOptions[0]?.__firm || prev.firm,
                     firms: selectedFirmOptions.map(f => f.__firm),
-                    groups: selectedGroupOptions.map(g => ({ group_id: g.value, name: g.label })),
-                    assignment: {
-                        ...prev.assignment,
-                        staff: selectedEmployees.map(emp => emp.username),
-                        ca: selectedCaDisplay?.username || '',
-                        agent: selectedAgentDisplay?.username || ''
+                    service: {
+                        ...prev.service,
+                        service_id: payload.service_id
                     },
-                    client: selectedClientDisplay ? {
-                        client_id: selectedClientDisplay.client_id,
-                        profile: { name: selectedClientDisplay.name }
-                    } : prev.client,
-                    ca: selectedCaDisplay ? {
-                        username: selectedCaDisplay.username,
-                        name: selectedCaDisplay.name,
-                        email: selectedCaDisplay.email,
-                        mobile: selectedCaDisplay.mobile,
-                        country_code: selectedCaDisplay.country_code
-                    } : null,
-                    has_ca: !!selectedCaDisplay
+                    charges: {
+                        ...prev.charges,
+                        fees: payload.fees,
+                        tax_rate: payload.tax_rate
+                    },
+                    dates: {
+                        ...prev.dates,
+                        due_date: payload.due_date,
+                        target_date: payload.target_date
+                    },
+                    has_ca: !!selectedCaDisplay,
+                    has_agent: !!selectedAgentDisplay,
+                    ca: selectedCaDisplay,
+                    agent: selectedAgentDisplay
                 }));
 
                 setIsEditing(false);
@@ -651,17 +586,22 @@ const DetailsTab = ({ taskData: initialData, task_id, onTaskUpdated }) => {
                 }
                 
                 setTimeout(() => setSaveSuccess(null), 3000);
+                toast.success('Task updated successfully');
             } else {
-                setSaveError(response.data.message || 'Failed to update task');
+                setSaveError(responseData.message || 'Failed to update task');
+                toast.error(responseData.message || 'Failed to update task');
             }
         } catch (err) {
             console.error('Error updating task:', err);
             if (err.response) {
                 setSaveError(err.response.data?.message || `Error ${err.response.status}: Update failed`);
+                toast.error(err.response.data?.message || `Error ${err.response.status}: Update failed`);
             } else if (err.request) {
                 setSaveError('No response from server. Please check your connection.');
+                toast.error('No response from server. Please check your connection.');
             } else {
                 setSaveError(`Error: ${err.message}`);
+                toast.error(`Error: ${err.message}`);
             }
         } finally {
             setIsSaving(false);
@@ -671,70 +611,22 @@ const DetailsTab = ({ taskData: initialData, task_id, onTaskUpdated }) => {
     // Complex field handlers
     const addFirm = async (option) => {
         if (selectedFirmOptions.some(o => o.value === option.value)) return;
-        const next = [...selectedFirmOptions, option];
+        const next = [option]; // Only allow single firm selection
         setSelectedFirmOptions(next);
         
-        // Set firm owner from the selected firm
         if (next.length > 0) {
             setFirmOwnerDisplay({
                 name: option.owner_name,
                 username: option.owner_username
             });
         }
+        setFirmSearchQuery('');
+        setFirmSearchResults([]);
     };
 
-    const removeFirm = async (option) => {
-        const next = selectedFirmOptions.filter(o => o.value !== option.value);
-        setSelectedFirmOptions(next);
-        
-        // Update firm owner if firms remain
-        if (next.length > 0) {
-            setFirmOwnerDisplay({
-                name: next[0].owner_name,
-                username: next[0].owner_username
-            });
-        } else {
-            setFirmOwnerDisplay(null);
-        }
-    };
-
-    // Fixed group add function
-    const addGroup = async (option) => {
-        if (option.firm_count === 0) {
-            toast?.error?.('Cannot add group with no firms');
-            return;
-        }
-        if (selectedGroupOptions.some(o => o.value === option.value)) return;
-        const next = [...selectedGroupOptions, option];
-        setSelectedGroupOptions(next);
-        setGroupSearchQuery('');
-        setGroupSearchResults([]);
-    };
-
-    const removeGroup = async (option) => {
-        const next = selectedGroupOptions.filter(o => o.value !== option.value);
-        setSelectedGroupOptions(next);
-    };
-
-    const addEmployee = async (employee) => {
-        setSelectedEmployees(prev => [...prev, employee]);
-        setAllEmployees(prev => prev.filter(emp => emp.username !== employee.username));
-    };
-
-    const removeEmployee = async (employee) => {
-        setAllEmployees(prev => [...prev, employee]);
-        setSelectedEmployees(prev => prev.filter(emp => emp.username !== employee.username));
-    };
-
-    const addAllEmployees = async () => {
-        const toAdd = filteredAvailableEmployees;
-        setSelectedEmployees(prev => [...prev, ...toAdd]);
-        setAllEmployees(prev => prev.filter(emp => !toAdd.some(e => e.username === emp.username)));
-    };
-
-    const removeAllEmployees = async () => {
-        setAllEmployees(prev => [...prev, ...selectedEmployees]);
-        setSelectedEmployees([]);
+    const removeFirm = async () => {
+        setSelectedFirmOptions([]);
+        setFirmOwnerDisplay(null);
     };
 
     const handleCaSelect = async (item) => {
@@ -763,65 +655,29 @@ const DetailsTab = ({ taskData: initialData, task_id, onTaskUpdated }) => {
         setSelectedAgentDisplay(null);
     };
 
-    // Client selection handler
-    const handleClientSelect = async (client) => {
-        setSelectedClientDisplay({
-            client_id: client.client_id,
-            name: client.name
-        });
-        setClientSearchQuery('');
-        setClientSearchResults([]);
-    };
-
-    const handleClientClear = async () => {
-        setSelectedClientDisplay(null);
-    };
-
-    const toggleAssessmentYear = async (year) => {
-        const current = [...(taskData.service?.assisment_years || [])];
-        const idx = current.indexOf(year);
-        if (idx >= 0) current.splice(idx, 1);
-        else current.push(year);
-        
-        // Sort years in descending order
-        current.sort((a, b) => b - a);
-        
-        setTaskData(prev => ({
-            ...prev,
-            service: {
-                ...prev.service,
-                assisment_years: current
-            }
-        }));
-    };
-
-    const toggleFinancialYear = async (year) => {
-        const current = [...(taskData.service?.financial_years || [])];
-        const idx = current.indexOf(year);
-        if (idx >= 0) current.splice(idx, 1);
-        else current.push(year);
-        
-        // Sort years in descending order
-        current.sort((a, b) => b - a);
-        
-        setTaskData(prev => ({
-            ...prev,
-            service: {
-                ...prev.service,
-                financial_years: current
-            }
-        }));
-    };
-
-    // Format due date for DatePicker
-    const formatDueDateForDisplay = (dateStr) => {
-        if (!dateStr) return null;
-        const parts = dateStr.split('-');
-        if (parts.length === 3) {
-            const [y, m, d] = parts;
-            return new Date(parseInt(y), parseInt(m) - 1, parseInt(d));
+    // Get status color
+    const getStatusColor = (status) => {
+        switch (status) {
+            case 'unassign': return 'bg-blue-100 text-blue-700';
+            case 'in process': return 'bg-orange-100 text-orange-700';
+            case 'pending from client': return 'bg-purple-100 text-purple-700';
+            case 'pending from department': return 'bg-yellow-100 text-yellow-700';
+            case 'complete': return 'bg-green-100 text-green-700';
+            case 'cancel': return 'bg-red-100 text-red-700';
+            default: return 'bg-gray-100 text-gray-700';
         }
-        return null;
+    };
+
+    const getStatusText = (status) => {
+        switch (status) {
+            case 'unassign': return 'Unassign';
+            case 'in process': return 'In Process';
+            case 'pending from client': return 'Pending from Client';
+            case 'pending from department': return 'Pending from Department';
+            case 'complete': return 'Complete';
+            case 'cancel': return 'Cancel';
+            default: return status || 'N/A';
+        }
     };
 
     // Transform API data to display format
@@ -829,14 +685,12 @@ const DetailsTab = ({ taskData: initialData, task_id, onTaskUpdated }) => {
         service: taskData.service?.name || 'N/A',
         service_category: taskData.service?.category_name || 'N/A',
         client: taskData.client?.profile?.name || taskData.client?.name || 'N/A',
-        firm: taskData.firm?.firm_name || 'N/A',
+        firm: taskData.firm?.firm_name || (selectedFirmOptions[0]?.label) || 'N/A',
         firm_owner: firmOwnerDisplay?.name || taskData.firm?.owner_name || 'N/A',
-        status: taskData.status ? taskData.status.charAt(0).toUpperCase() + taskData.status.slice(1) : 'N/A',
+        status: getStatusText(taskData.status),
         billing_status: taskData.billing_status ? taskData.billing_status.charAt(0).toUpperCase() + taskData.billing_status.slice(1) : 'N/A',
         fees: taskData.charges?.fees || 0,
         tax_rate: taskData.charges?.tax_rate || 0,
-        tax_value: taskData.charges?.tax_value || 0,
-        total: taskData.charges?.total || 0,
         due_date: formatDate(taskData.dates?.due_date),
         target_date: formatDate(taskData.dates?.target_date),
         create_date: taskData.dates?.create_date ? new Date(taskData.dates.create_date).toLocaleString() : 'N/A',
@@ -856,11 +710,19 @@ const DetailsTab = ({ taskData: initialData, task_id, onTaskUpdated }) => {
         </div>
     );
 
+    // Non-editable row (grayed out)
+    const NonEditableRow = ({ label, value }) => (
+        <div className="flex justify-between items-center py-3 border-b border-gray-100 bg-gray-50 opacity-75">
+            <span className="font-medium text-gray-500 text-sm">{label}</span>
+            <span className="text-gray-400">{value}</span>
+        </div>
+    );
+
     return (
         <>
             <style>{datePickerStyles}</style>
             <div className="bg-white rounded-lg border border-gray-200 p-6">
-                <div className="flex items-center justify-between mb-6">
+                <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
                     <div className="flex items-center gap-3">
                         <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
                             <FiClipboard className="w-5 h-5 text-blue-600" />
@@ -942,12 +804,30 @@ const DetailsTab = ({ taskData: initialData, task_id, onTaskUpdated }) => {
                             <DetailRow label="SERVICE CATEGORY" value={displayData.service_category} />
                             <DetailRow label="FIRM" value={displayData.firm} />
                             <DetailRow label="FIRM OWNER" value={displayData.firm_owner} />
-                            <DetailRow label="STATUS" value={displayData.status} />
+                            
+                            {/* Status with dropdown */}
+                            <div className="flex justify-between items-center py-3 border-b border-gray-100">
+                                <span className="font-medium text-gray-700 text-sm">STATUS</span>
+                                <div className="flex items-center gap-2">
+                                    <select
+                                        value={selectedStatus || taskData.status || ''}
+                                        onChange={(e) => handleStatusChange(e.target.value)}
+                                        disabled={isChangingStatus}
+                                        className="px-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none disabled:opacity-50"
+                                    >
+                                        {statusOptions.map(option => (
+                                            <option key={option.value} value={option.value}>
+                                                {option.name}
+                                            </option>
+                                        ))}
+                                    </select>
+                                    {isChangingStatus && <FiLoader className="w-4 h-4 animate-spin text-blue-600" />}
+                                </div>
+                            </div>
+                            
                             <DetailRow label="BILLING STATUS" value={displayData.billing_status} />
                             <DetailRow label="FEES" value={`₹${displayData.fees}`} />
                             <DetailRow label="TAX RATE" value={`${displayData.tax_rate}%`} />
-                            <DetailRow label="TAX VALUE" value={`₹${displayData.tax_value}`} />
-                            <DetailRow label="TOTAL" value={`₹${displayData.total}`} />
                             <DetailRow label="IS RECURRING" value={displayData.is_recurring} />
                         </div>
 
@@ -966,189 +846,81 @@ const DetailsTab = ({ taskData: initialData, task_id, onTaskUpdated }) => {
                         </div>
                     </div>
                 ) : (
-                    // Edit Mode
+                    // Edit Mode - Only editable fields enabled
                     <>
-                        {/* Firms Section */}
+                        {/* Firms Section - Editable */}
                         <div className="mb-6 p-4 bg-gray-50 rounded-lg">
                             <h4 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
-                                <FiUser className="w-4 h-4" /> Firms
+                                <FiUser className="w-4 h-4 text-blue-600" /> Firm (Editable)
                             </h4>
                             <div className="space-y-3">
-                                <div className="relative">
-                                    <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                                    <input
-                                        type="text"
-                                        value={firmSearchQuery}
-                                        onChange={(e) => setFirmSearchQuery(e.target.value)}
-                                        placeholder="Search firms to add (min 3 characters)..."
-                                        className="w-full pl-9 pr-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
-                                    />
-                                </div>
-                                
-                                {/* Search Results */}
-                                {firmSearchQuery.trim().length >= 3 && (
-                                    <div className="bg-white border border-gray-200 rounded-lg max-h-40 overflow-y-auto">
-                                        {firmSearchLoading && (
-                                            <div className="p-3 text-sm text-gray-500 text-center">Searching...</div>
+                                {selectedFirmOptions.length === 0 ? (
+                                    <div className="relative">
+                                        <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                                        <input
+                                            type="text"
+                                            value={firmSearchQuery}
+                                            onChange={(e) => setFirmSearchQuery(e.target.value)}
+                                            placeholder="Search firm to assign (min 3 characters)..."
+                                            className="w-full pl-9 pr-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+                                        />
+                                        {firmSearchQuery.trim().length >= 3 && (
+                                            <div className="absolute z-10 left-0 right-0 top-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-40 overflow-y-auto">
+                                                {firmSearchLoading && <div className="p-3 text-sm text-gray-500 text-center">Searching...</div>}
+                                                {!firmSearchLoading && firmSearchResults.length === 0 && <div className="p-3 text-sm text-gray-500 text-center">No firms found</div>}
+                                                {!firmSearchLoading && firmSearchResults.map((opt) => (
+                                                    <div
+                                                        key={opt.value}
+                                                        onClick={() => addFirm(opt)}
+                                                        className="p-2 hover:bg-blue-50 cursor-pointer border-b border-gray-100 last:border-0"
+                                                    >
+                                                        <div className="font-medium text-sm">{opt.label}</div>
+                                                        <div className="text-xs text-gray-500">Owner: {opt.owner_name}</div>
+                                                    </div>
+                                                ))}
+                                            </div>
                                         )}
-                                        {!firmSearchLoading && firmSearchResults.length === 0 && (
-                                            <div className="p-3 text-sm text-gray-500 text-center">No firms found</div>
-                                        )}
-                                        {!firmSearchLoading && firmSearchResults
-                                            .filter(f => !selectedFirmOptions.some(s => s.value === f.value))
-                                            .map((opt) => (
-                                                <div
-                                                    key={opt.value}
-                                                    onClick={() => addFirm(opt)}
-                                                    className="p-2 hover:bg-blue-50 cursor-pointer border-b border-gray-100 last:border-0"
-                                                >
-                                                    <div className="font-medium text-sm">{opt.label}</div>
-                                                    <div className="text-xs text-gray-500">Owner: {opt.owner_name}</div>
-                                                </div>
-                                            ))}
+                                    </div>
+                                ) : (
+                                    <div className="flex items-center justify-between p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                                        <div>
+                                            <div className="font-medium text-gray-900">{selectedFirmOptions[0].label}</div>
+                                            <div className="text-xs text-gray-500">Owner: {selectedFirmOptions[0].owner_name}</div>
+                                        </div>
+                                        <button
+                                            onClick={removeFirm}
+                                            className="p-1 text-red-600 hover:bg-red-100 rounded"
+                                        >
+                                            <FiX className="w-4 h-4" />
+                                        </button>
                                     </div>
                                 )}
-
-                                {/* Selected Firms */}
-                                <div className="flex flex-wrap gap-2">
-                                    {selectedFirmOptions.map(opt => (
-                                        <div
-                                            key={opt.value}
-                                            className="inline-flex items-center gap-1 px-2 py-1 bg-blue-100 text-blue-800 rounded-lg text-sm"
-                                        >
-                                            <span>{opt.label}</span>
-                                            <span className="text-xs text-blue-600">(Owner: {opt.owner_name})</span>
-                                            <button
-                                                onClick={() => removeFirm(opt)}
-                                                className="p-0.5 hover:bg-blue-200 rounded"
-                                            >
-                                                <FiX className="w-3 h-3" />
-                                            </button>
-                                        </div>
-                                    ))}
-                                </div>
                             </div>
                         </div>
 
-                        {/* Groups Section - Fixed */}
-                        <div className="mb-6 p-4 bg-gray-50 rounded-lg">
-                            <h4 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
-                                <FiUsers className="w-4 h-4" /> Groups
+                        {/* Groups Section - View Only (Grayed out) */}
+                        <div className="mb-6 p-4 bg-gray-100 rounded-lg opacity-75">
+                            <h4 className="text-sm font-semibold text-gray-500 mb-3 flex items-center gap-2">
+                                <FiUsers className="w-4 h-4 text-gray-400" /> Groups (View Only)
                             </h4>
-                            <div className="space-y-3">
-                                <div className="relative">
-                                    <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                                    <input
-                                        type="text"
-                                        value={groupSearchQuery}
-                                        onChange={(e) => setGroupSearchQuery(e.target.value)}
-                                        placeholder="Search groups to add (min 3 characters)..."
-                                        className="w-full pl-9 pr-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
-                                    />
-                                </div>
-                                
-                                {/* Search Results */}
-                                {groupSearchQuery.trim().length >= 3 && (
-                                    <div className="bg-white border border-gray-200 rounded-lg max-h-40 overflow-y-auto">
-                                        {groupSearchLoading && (
-                                            <div className="p-3 text-sm text-gray-500 text-center">Searching...</div>
-                                        )}
-                                        {!groupSearchLoading && groupSearchResults.length === 0 && (
-                                            <div className="p-3 text-sm text-gray-500 text-center">No groups found</div>
-                                        )}
-                                        {!groupSearchLoading && groupSearchResults
-                                            .filter(g => !selectedGroupOptions.some(s => s.value === g.value))
-                                            .map((opt) => (
-                                                <div
-                                                    key={opt.value}
-                                                    onClick={() => opt.firm_count > 0 && addGroup(opt)}
-                                                    className={`p-2 border-b border-gray-100 last:border-0 cursor-pointer ${
-                                                        opt.firm_count === 0 ? 'opacity-50 cursor-not-allowed' : 'hover:bg-blue-50'
-                                                    }`}
-                                                >
-                                                    <div className="font-medium text-sm">{opt.label}</div>
-                                                    <div className="text-xs text-gray-500">{opt.firm_count || 0} firms</div>
-                                                </div>
-                                            ))}
+                            <div className="flex flex-wrap gap-2">
+                                {selectedGroupOptions.map(opt => (
+                                    <div key={opt.value} className="px-2 py-1 bg-gray-200 text-gray-500 rounded-lg text-sm">
+                                        {opt.label}
                                     </div>
+                                ))}
+                                {selectedGroupOptions.length === 0 && (
+                                    <span className="text-gray-400 text-sm">No groups assigned</span>
                                 )}
-
-                                {/* Selected Groups */}
-                                <div className="flex flex-wrap gap-2">
-                                    {selectedGroupOptions.map(opt => (
-                                        <div
-                                            key={opt.value}
-                                            className="inline-flex items-center gap-1 px-2 py-1 bg-blue-100 text-blue-800 rounded-lg text-sm"
-                                        >
-                                            <span>{opt.label}</span>
-                                            <span className="text-xs text-blue-600">({opt.firm_count} firms)</span>
-                                            <button
-                                                onClick={() => removeGroup(opt)}
-                                                className="p-0.5 hover:bg-blue-200 rounded"
-                                            >
-                                                <FiX className="w-3 h-3" />
-                                            </button>
-                                        </div>
-                                    ))}
-                                </div>
                             </div>
                         </div>
 
                         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                            {/* Left Column - Task Details */}
+                            {/* Left Column - Editable Fields */}
                             <div className="space-y-2">
-                                <h4 className="text-sm font-semibold text-gray-600 mb-4 pb-2 border-b">Task Details</h4>
+                                <h4 className="text-sm font-semibold text-blue-600 mb-4 pb-2 border-b">Editable Fields</h4>
                                 
-                                {/* Client Selection - Fixed */}
-                                <div className="flex justify-between items-center py-3 border-b border-gray-100">
-                                    <span className="font-medium text-gray-700 text-sm">CLIENT</span>
-                                    <div className="flex items-center gap-2">
-                                        {selectedClientDisplay ? (
-                                            <>
-                                                <span className="text-gray-900">{selectedClientDisplay.name}</span>
-                                                <button
-                                                    onClick={handleClientClear}
-                                                    className="p-1 text-red-600 hover:bg-red-50 rounded"
-                                                >
-                                                    <FiX className="w-4 h-4" />
-                                                </button>
-                                            </>
-                                        ) : (
-                                            <div className="relative">
-                                                <input
-                                                    type="text"
-                                                    value={clientSearchQuery}
-                                                    onChange={(e) => setClientSearchQuery(e.target.value)}
-                                                    placeholder={selectedFirmOptions.length === 0 ? "Select firms first..." : "Search client (min 3 chars)..."}
-                                                    disabled={selectedFirmOptions.length === 0}
-                                                    className="px-3 py-1 border border-gray-300 rounded text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none disabled:bg-gray-100 disabled:cursor-not-allowed"
-                                                />
-                                                {clientSearchQuery.trim().length >= 3 && (
-                                                    <div className="absolute right-0 top-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-10 min-w-[250px] max-h-60 overflow-y-auto">
-                                                        {clientSearchLoading && <div className="p-2 text-sm text-center">Searching...</div>}
-                                                        {!clientSearchLoading && clientSearchResults.length === 0 && (
-                                                            <div className="p-2 text-sm text-gray-500 text-center">No clients found</div>
-                                                        )}
-                                                        {!clientSearchLoading && clientSearchResults.map(client => (
-                                                            <button
-                                                                key={client.client_id}
-                                                                onClick={() => handleClientSelect(client)}
-                                                                className="w-full px-3 py-2 text-left text-sm hover:bg-blue-50 border-b border-gray-100 last:border-0"
-                                                            >
-                                                                <div className="font-medium">{client.name}</div>
-                                                                {client.email && <div className="text-xs text-gray-500">{client.email}</div>}
-                                                            </button>
-                                                        ))}
-                                                    </div>
-                                                )}
-                                                {clientSearchQuery.trim().length > 0 && clientSearchQuery.trim().length < 3 && (
-                                                    <p className="absolute left-0 top-full mt-0.5 text-xs text-gray-500">Type at least 3 characters</p>
-                                                )}
-                                            </div>
-                                        )}
-                                    </div>
-                                </div>
-
+                                {/* Service - Editable */}
                                 <div className="flex justify-between items-center py-3 border-b border-gray-100">
                                     <span className="font-medium text-gray-700 text-sm">SERVICE</span>
                                     <select
@@ -1166,52 +938,13 @@ const DetailsTab = ({ taskData: initialData, task_id, onTaskUpdated }) => {
                                     </select>
                                 </div>
 
-                                <div className="flex justify-between items-center py-3 border-b border-gray-100">
-                                    <span className="font-medium text-gray-700 text-sm">SERVICE CATEGORY</span>
-                                    <select
-                                        value={taskData.service?.category_id || ''}
-                                        onChange={(e) => setTaskData(prev => ({
-                                            ...prev,
-                                            service: { ...prev.service, category_id: e.target.value }
-                                        }))}
-                                        className="px-2 py-1 border border-gray-300 rounded text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
-                                    >
-                                        <option value="">Select</option>
-                                        {serviceCategories.map(c => (
-                                            <option key={c.category_id} value={c.category_id}>{c.name}</option>
-                                        ))}
-                                    </select>
+                                {/* Service Category - View Only */}
+                                <div className="flex justify-between items-center py-3 border-b border-gray-100 bg-gray-50">
+                                    <span className="font-medium text-gray-500 text-sm">SERVICE CATEGORY</span>
+                                    <span className="text-gray-400">{displayData.service_category}</span>
                                 </div>
 
-                                <div className="flex justify-between items-center py-3 border-b border-gray-100">
-                                    <span className="font-medium text-gray-700 text-sm">STATUS</span>
-                                    <select
-                                        value={taskData.status || ''}
-                                        onChange={(e) => setTaskData(prev => ({ ...prev, status: e.target.value }))}
-                                        className="px-2 py-1 border border-gray-300 rounded text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
-                                    >
-                                        <option value="in process">In Process</option>
-                                        <option value="completed">Completed</option>
-                                        <option value="pending">Pending</option>
-                                        <option value="assigned">Assigned</option>
-                                        <option value="cancelled">Cancelled</option>
-                                    </select>
-                                </div>
-
-                                <div className="flex justify-between items-center py-3 border-b border-gray-100">
-                                    <span className="font-medium text-gray-700 text-sm">BILLING STATUS</span>
-                                    <select
-                                        value={taskData.billing_status || ''}
-                                        onChange={(e) => setTaskData(prev => ({ ...prev, billing_status: e.target.value }))}
-                                        className="px-2 py-1 border border-gray-300 rounded text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
-                                    >
-                                        <option value="pending">Pending</option>
-                                        <option value="paid">Paid</option>
-                                        <option value="overdue">Overdue</option>
-                                        <option value="partial">Partial</option>
-                                    </select>
-                                </div>
-
+                                {/* Fees - Editable */}
                                 <div className="flex justify-between items-center py-3 border-b border-gray-100">
                                     <span className="font-medium text-gray-700 text-sm">FEES (₹)</span>
                                     <input
@@ -1225,6 +958,7 @@ const DetailsTab = ({ taskData: initialData, task_id, onTaskUpdated }) => {
                                     />
                                 </div>
 
+                                {/* Tax Rate - Editable */}
                                 <div className="flex justify-between items-center py-3 border-b border-gray-100">
                                     <span className="font-medium text-gray-700 text-sm">TAX RATE (%)</span>
                                     <input
@@ -1238,28 +972,29 @@ const DetailsTab = ({ taskData: initialData, task_id, onTaskUpdated }) => {
                                     />
                                 </div>
 
-                                <div className="flex justify-between items-center py-3 border-b border-gray-100">
-                                    <span className="font-medium text-gray-700 text-sm">IS RECURRING</span>
-                                    <select
-                                        value={taskData.is_recurring ? 'Yes' : 'No'}
-                                        onChange={(e) => setTaskData(prev => ({ ...prev, is_recurring: e.target.value === 'Yes' }))}
-                                        className="px-2 py-1 border border-gray-300 rounded text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
-                                    >
-                                        <option value="Yes">Yes</option>
-                                        <option value="No">No</option>
-                                    </select>
+                                {/* Billing Status - View Only */}
+                                <div className="flex justify-between items-center py-3 border-b border-gray-100 bg-gray-50">
+                                    <span className="font-medium text-gray-500 text-sm">BILLING STATUS</span>
+                                    <span className="text-gray-400">{displayData.billing_status}</span>
+                                </div>
+
+                                {/* Is Recurring - View Only */}
+                                <div className="flex justify-between items-center py-3 border-b border-gray-100 bg-gray-50">
+                                    <span className="font-medium text-gray-500 text-sm">IS RECURRING</span>
+                                    <span className="text-gray-400">{displayData.is_recurring}</span>
                                 </div>
                             </div>
 
-                            {/* Right Column - Assignment Details */}
+                            {/* Right Column - Editable Fields */}
                             <div className="space-y-2">
-                                <h4 className="text-sm font-semibold text-gray-600 mb-4 pb-2 border-b">Assignment Details</h4>
+                                <h4 className="text-sm font-semibold text-blue-600 mb-4 pb-2 border-b">Editable Fields</h4>
                                 
+                                {/* Due Date - Editable */}
                                 <div className="flex justify-between items-center py-3 border-b border-gray-100">
                                     <span className="font-medium text-gray-700 text-sm">DUE DATE</span>
                                     <input
                                         type="date"
-                                        value={taskData.dates?.due_date ? new Date(taskData.dates.due_date).toISOString().split('T')[0] : ''}
+                                        value={taskData.dates?.due_date ? formatDateForAPI(taskData.dates.due_date) : ''}
                                         onChange={(e) => setTaskData(prev => ({
                                             ...prev,
                                             dates: { ...prev.dates, due_date: e.target.value }
@@ -1268,11 +1003,12 @@ const DetailsTab = ({ taskData: initialData, task_id, onTaskUpdated }) => {
                                     />
                                 </div>
 
+                                {/* Target Date - Editable */}
                                 <div className="flex justify-between items-center py-3 border-b border-gray-100">
                                     <span className="font-medium text-gray-700 text-sm">TARGET DATE</span>
                                     <input
                                         type="date"
-                                        value={taskData.dates?.target_date ? new Date(taskData.dates.target_date).toISOString().split('T')[0] : ''}
+                                        value={taskData.dates?.target_date ? formatDateForAPI(taskData.dates.target_date) : ''}
                                         onChange={(e) => setTaskData(prev => ({
                                             ...prev,
                                             dates: { ...prev.dates, target_date: e.target.value }
@@ -1281,7 +1017,7 @@ const DetailsTab = ({ taskData: initialData, task_id, onTaskUpdated }) => {
                                     />
                                 </div>
                                 
-                                {/* CA Selection - Updated with detailed display */}
+                                {/* CA Selection - Editable */}
                                 <div className="flex justify-between items-center py-3 border-b border-gray-100">
                                     <span className="font-medium text-gray-700 text-sm">CA</span>
                                     <div className="flex items-center gap-2">
@@ -1339,9 +1075,9 @@ const DetailsTab = ({ taskData: initialData, task_id, onTaskUpdated }) => {
                                     </div>
                                 </div>
 
-                                {/* Agent Selection */}
+                                {/* Agent Selection - Editable */}
                                 <div className="flex justify-between items-center py-3 border-b border-gray-100">
-                                    <span className="font-medium text-gray-700 text-sm">Agent</span>
+                                    <span className="font-medium text-gray-700 text-sm">AGENT</span>
                                     <div className="flex items-center gap-2">
                                         {selectedAgentDisplay ? (
                                             <>
@@ -1363,10 +1099,10 @@ const DetailsTab = ({ taskData: initialData, task_id, onTaskUpdated }) => {
                                                     className="px-3 py-1 border border-gray-300 rounded text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
                                                 />
                                                 {agentSearchQuery.trim().length >= 3 && (
-                                                    <div className="absolute right-0 top-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-10 min-w-[200px]">
-                                                        {agentSearchLoading && <div className="p-2 text-sm">Searching...</div>}
+                                                    <div className="absolute right-0 top-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-10 min-w-[200px] max-h-60 overflow-y-auto">
+                                                        {agentSearchLoading && <div className="p-2 text-sm text-center">Searching...</div>}
                                                         {!agentSearchLoading && agentSearchResults.length === 0 && (
-                                                            <div className="p-2 text-sm text-gray-500">No results</div>
+                                                            <div className="p-2 text-sm text-gray-500 text-center">No results</div>
                                                         )}
                                                         {!agentSearchLoading && agentSearchResults.map(item => (
                                                             <button
@@ -1385,138 +1121,41 @@ const DetailsTab = ({ taskData: initialData, task_id, onTaskUpdated }) => {
                                     </div>
                                 </div>
 
-                                <div className="flex justify-between items-center py-3 border-b border-gray-100">
-                                    <span className="font-medium text-gray-700 text-sm">HAS CA</span>
-                                    <select
-                                        value={taskData.has_ca ? 'Yes' : 'No'}
-                                        onChange={(e) => setTaskData(prev => ({ ...prev, has_ca: e.target.value === 'Yes' }))}
-                                        className="px-2 py-1 border border-gray-300 rounded text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
-                                    >
-                                        <option value="Yes">Yes</option>
-                                        <option value="No">No</option>
-                                    </select>
+                                {/* Create Date - View Only */}
+                                <div className="flex justify-between items-center py-3 border-b border-gray-100 bg-gray-50">
+                                    <span className="font-medium text-gray-500 text-sm">CREATE DATE</span>
+                                    <span className="text-gray-400">{displayData.create_date}</span>
                                 </div>
 
-                                <div className="flex justify-between items-center py-3 border-b border-gray-100">
-                                    <span className="font-medium text-gray-700 text-sm">HAS AGENT</span>
-                                    <select
-                                        value={taskData.has_agent ? 'Yes' : 'No'}
-                                        onChange={(e) => setTaskData(prev => ({ ...prev, has_agent: e.target.value === 'Yes' }))}
-                                        className="px-2 py-1 border border-gray-300 rounded text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
-                                    >
-                                        <option value="Yes">Yes</option>
-                                        <option value="No">No</option>
-                                    </select>
+                                {/* Created By - View Only */}
+                                <div className="flex justify-between items-center py-3 border-b border-gray-100 bg-gray-50">
+                                    <span className="font-medium text-gray-500 text-sm">CREATED BY</span>
+                                    <span className="text-gray-400">{displayData.created_by}</span>
+                                </div>
+
+                                {/* Modified By - View Only */}
+                                <div className="flex justify-between items-center py-3 border-b border-gray-100 bg-gray-50">
+                                    <span className="font-medium text-gray-500 text-sm">MODIFIED BY</span>
+                                    <span className="text-gray-400">{displayData.modified_by}</span>
                                 </div>
                             </div>
                         </div>
 
-                        {/* Assessment Years */}
-                        {taskData.service?.has_assisment_year && (
-                            <div className="mt-6 pt-6 border-t border-gray-200">
-                                <h4 className="text-sm font-semibold text-gray-600 mb-4">Assessment Years (AY)</h4>
-                                <div className="flex flex-wrap gap-2">
-                                    {assessmentYearsList.map(year => (
-                                        <button
-                                            key={year}
-                                            onClick={() => toggleAssessmentYear(year)}
-                                            className={`px-3 py-1.5 text-sm font-medium rounded-lg border transition-all ${
-                                                taskData.service?.assisment_years?.includes(year)
-                                                    ? 'bg-blue-600 text-white border-blue-600'
-                                                    : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
-                                            }`}
-                                        >
-                                            AY {year}
-                                        </button>
-                                    ))}
-                                </div>
-                            </div>
-                        )}
-
-                        {/* Financial Years */}
-                        {taskData.service?.has_financial_year && (
-                            <div className="mt-6 pt-6 border-t border-gray-200">
-                                <h4 className="text-sm font-semibold text-gray-600 mb-4">Financial Years (FY)</h4>
-                                <div className="flex flex-wrap gap-2">
-                                    {financialYearsList.map(year => (
-                                        <button
-                                            key={year}
-                                            onClick={() => toggleFinancialYear(year)}
-                                            className={`px-3 py-1.5 text-sm font-medium rounded-lg border transition-all ${
-                                                taskData.service?.financial_years?.includes(year)
-                                                    ? 'bg-blue-600 text-white border-blue-600'
-                                                    : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
-                                            }`}
-                                        >
-                                            FY {year}
-                                        </button>
-                                    ))}
-                                </div>
-                            </div>
-                        )}
-
-                        {/* Staff Information */}
+                        {/* Staff Information - View Only (Grayed out) */}
                         <div className="mt-6 pt-6 border-t border-gray-200">
-                            <h4 className="text-sm font-semibold text-gray-600 mb-4 flex items-center gap-2">
-                                <FiUsers className="w-4 h-4" /> Assigned Staff
+                            <h4 className="text-sm font-semibold text-gray-500 mb-4 flex items-center gap-2">
+                                <FiUsers className="w-4 h-4 text-gray-400" /> Assigned Staff (View Only)
                             </h4>
-                            
-                            {/* Employee search and selection */}
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                                <div>
-                                    <p className="text-xs text-gray-500 mb-2">Available Employees</p>
-                                    <div className="relative mb-2">
-                                        <FiSearch className="absolute left-2 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                                        <input
-                                            type="text"
-                                            value={employeeSearchQuery}
-                                            onChange={(e) => setEmployeeSearchQuery(e.target.value)}
-                                            placeholder="Search employees..."
-                                            className="w-full pl-8 pr-3 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
-                                        />
-                                    </div>
-                                    <div className="bg-white border border-gray-200 rounded-lg max-h-40 overflow-y-auto">
-                                        {staffLoading && <div className="p-3 text-sm text-gray-500">Loading...</div>}
-                                        {!staffLoading && filteredAvailableEmployees.map(emp => (
-                                            <div
-                                                key={emp.username}
-                                                onClick={() => addEmployee(emp)}
-                                                className="p-2 hover:bg-blue-50 cursor-pointer border-b border-gray-100 last:border-0"
-                                            >
-                                                <div className="font-medium text-sm">{emp.name}</div>
-                                                <div className="text-xs text-gray-500">{emp.department || emp.mobile}</div>
-                                            </div>
-                                        ))}
-                                    </div>
-                                    <button
-                                        onClick={addAllEmployees}
-                                        disabled={filteredAvailableEmployees.length === 0}
-                                        className="mt-2 px-2 py-1 text-xs bg-blue-600 text-white rounded hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed"
-                                    >
-                                        Add All
-                                    </button>
-                                </div>
-                                <div>
-                                    <p className="text-xs text-gray-500 mb-2">Selected Employees</p>
-                                    <div className="bg-white border border-gray-200 rounded-lg max-h-40 overflow-y-auto">
-                                        {selectedEmployees.map(emp => (
-                                            <div
-                                                key={emp.username}
-                                                onClick={() => removeEmployee(emp)}
-                                                className="p-2 hover:bg-red-50 cursor-pointer border-b border-gray-100 last:border-0"
-                                            >
-                                                <div className="font-medium text-sm">{emp.name}</div>
-                                                <div className="text-xs text-gray-500">{emp.department || emp.mobile}</div>
-                                            </div>
-                                        ))}
-                                    </div>
-                                    <button
-                                        onClick={removeAllEmployees}
-                                        disabled={selectedEmployees.length === 0}
-                                        className="mt-2 px-2 py-1 text-xs bg-red-600 text-white rounded hover:bg-red-700 disabled:bg-gray-300 disabled:cursor-not-allowed"
-                                    >
-                                        Remove All
-                                    </button>
+                            <div className="bg-gray-100 rounded-lg p-4 opacity-75">
+                                <div className="flex flex-wrap gap-2">
+                                    {selectedEmployees.map(emp => (
+                                        <div key={emp.username} className="px-3 py-1.5 bg-gray-200 text-gray-600 rounded-lg text-sm">
+                                            {emp.name}
+                                        </div>
+                                    ))}
+                                    {selectedEmployees.length === 0 && (
+                                        <span className="text-gray-400 text-sm">No staff assigned</span>
+                                    )}
                                 </div>
                             </div>
                         </div>
