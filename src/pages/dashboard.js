@@ -36,8 +36,10 @@ import {
     FiClock
 } from 'react-icons/fi';
 import { motion, AnimatePresence } from 'framer-motion';
-
+import TaskSummary from '../DashboardComponents/task-summary';
+import { useNavigate } from 'react-router-dom';
 const Dashboard = () => {
+     const navigate = useNavigate();
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
     const [isMinimized, setIsMinimized] = useState(() => {
         const saved = localStorage.getItem('sidebarMinimized');
@@ -1467,155 +1469,34 @@ const Dashboard = () => {
         </WidgetWrapper>
     );
 
-    const TaskStatusBadge = ({ count, color, link }) => (
-        <a href={link} className="inline-block">
-            {count > 0 ? (
-                <motion.span 
-                    className={`inline-flex items-center justify-center w-10 h-10 rounded-full text-sm font-bold ${color} shadow-lg hover:shadow-xl transition-shadow duration-300`}
-                    whileHover={{ scale: 1.1 }}
-                    whileTap={{ scale: 0.95 }}
-                >
-                    {count}
-                </motion.span>
-            ) : (
-                <span className="inline-flex items-center justify-center w-10 h-10 text-gray-400 text-sm">
-                    {count}
-                </span>
-            )}
-        </a>
-    );
+    // const TaskStatusBadge = ({ count, color, link }) => (
+    //     <a href={link} className="inline-block">
+    //         {count > 0 ? (
+    //             <motion.span 
+    //                 className={`inline-flex items-center justify-center w-10 h-10 rounded-full text-sm font-bold ${color} shadow-lg hover:shadow-xl transition-shadow duration-300`}
+    //                 whileHover={{ scale: 1.1 }}
+    //                 whileTap={{ scale: 0.95 }}
+    //             >
+    //                 {count}
+    //             </motion.span>
+    //         ) : (
+    //             <span className="inline-flex items-center justify-center w-10 h-10 text-gray-400 text-sm">
+    //                 {count}
+    //             </span>
+    //         )}
+    //     </a>
+    // );
 
-    const TaskSummaryWidget = () => (
-        <WidgetWrapper widgetId="task-summary" title="Task Summary">
-            <div className="p-6">
-                <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6 mb-6">
-                    <div className="flex items-center gap-3">
-                        <div className="p-3 bg-gradient-to-br from-orange-100 to-amber-100 rounded-xl">
-                            <FiCalendar className="w-6 h-6 text-orange-600" />
-                        </div>
-                        <div>
-                            <h3 className="text-xl font-bold text-gray-800">Task Summary</h3>
-                            <p className="text-gray-500">Real-time task tracking</p>
-                        </div>
-                    </div>
-                    <div className="flex flex-wrap items-center gap-3">
-                        <motion.button 
-                            className="p-3 bg-gradient-to-br from-red-100 to-pink-100 text-red-600 rounded-xl hover:shadow-lg transition-all duration-300"
-                            whileHover={{ scale: 1.05 }}
-                            whileTap={{ scale: 0.95 }}
-                        >
-                            <FiRefreshCw className="w-5 h-5" />
-                        </motion.button>
-                        <select className="px-4 py-3 bg-white border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none shadow-sm">
-                            <option value="">All Services</option>
-                            <option value="gst">GST Filing</option>
-                            <option value="tax">Income Tax</option>
-                            <option value="company">Company Registration</option>
-                        </select>
-                        <motion.button 
-                            className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-xl hover:shadow-xl transition-all duration-300 hover:scale-105"
-                            whileHover={{ scale: 1.05 }}
-                            whileTap={{ scale: 0.95 }}
-                        >
-                            <FiPlus className="w-5 h-5" />
-                            Create Task
-                        </motion.button>
-                    </div>
-                </div>
-                <div className="overflow-x-auto rounded-2xl border border-gray-100">
-                    <table className="w-full">
-                        <thead className="bg-gradient-to-r from-gray-50 to-gray-100">
-                            <tr>
-                                <th className="text-left p-4 font-semibold text-gray-700 text-sm uppercase tracking-wider">SERVICE NAME</th>
-                                <th className="text-center p-4 font-semibold text-gray-700 text-sm uppercase tracking-wider">OD</th>
-                                <th className="text-center p-4 font-semibold text-gray-700 text-sm uppercase tracking-wider">DT</th>
-                                <th className="text-center p-4 font-semibold text-gray-700 text-sm uppercase tracking-wider">D7</th>
-                                <th className="text-center p-4 font-semibold text-gray-700 text-sm uppercase tracking-wider">FT</th>
-                                <th className="text-center p-4 font-semibold text-gray-700 text-sm uppercase tracking-wider">WIP</th>
-                                <th className="text-center p-4 font-semibold text-gray-700 text-sm uppercase tracking-wider">PFC</th>
-                                <th className="text-center p-4 font-semibold text-gray-700 text-sm uppercase tracking-wider">PFD</th>
-                                <th className="text-center p-4 font-semibold text-gray-700 text-sm uppercase tracking-wider">CPL</th>
-                                <th className="text-center p-4 font-semibold text-gray-700 text-sm uppercase tracking-wider">CNL</th>
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-gray-100">
-                            {taskStats.map((service, index) => (
-                                <tr key={index} className="hover:bg-gray-50/50 transition-colors">
-                                    <td className="p-4">
-                                        <div className="font-semibold text-gray-800">{service.name}</div>
-                                        <div className="text-sm text-gray-500">Service tasks</div>
-                                    </td>
-                                    <td className="p-4 text-center">
-                                        <TaskStatusBadge
-                                            count={service.OD}
-                                            color="bg-gradient-to-br from-red-500 to-pink-600 text-white"
-                                            link="/view-task-od"
-                                        />
-                                    </td>
-                                    <td className="p-4 text-center">
-                                        <TaskStatusBadge
-                                            count={service.DT}
-                                            color="bg-gradient-to-br from-yellow-500 to-amber-600 text-white"
-                                            link="/view-task-dt"
-                                        />
-                                    </td>
-                                    <td className="p-4 text-center">
-                                        <TaskStatusBadge
-                                            count={service.D7}
-                                            color="bg-gradient-to-br from-blue-500 to-cyan-600 text-white"
-                                            link="/view-task-d7"
-                                        />
-                                    </td>
-                                    <td className="p-4 text-center">
-                                        <TaskStatusBadge
-                                            count={service.FT}
-                                            color="bg-gradient-to-br from-green-500 to-emerald-600 text-white"
-                                            link="/view-task-ft"
-                                        />
-                                    </td>
-                                    <td className="p-4 text-center">
-                                        <TaskStatusBadge
-                                            count={service.WIP}
-                                            color="bg-gradient-to-br from-blue-400 to-indigo-500 text-white"
-                                            link="/view-task-wip"
-                                        />
-                                    </td>
-                                    <td className="p-4 text-center">
-                                        <TaskStatusBadge
-                                            count={service.PFC}
-                                            color="bg-gradient-to-br from-yellow-400 to-orange-500 text-white"
-                                            link="/view-task-pfc"
-                                        />
-                                    </td>
-                                    <td className="p-4 text-center">
-                                        <TaskStatusBadge
-                                            count={service.PFD}
-                                            color="bg-gradient-to-br from-yellow-300 to-orange-400 text-white"
-                                            link="/view-task-pfd"
-                                        />
-                                    </td>
-                                    <td className="p-4 text-center">
-                                        <TaskStatusBadge
-                                            count={service.CPL}
-                                            color="bg-gradient-to-br from-green-400 to-emerald-500 text-white"
-                                            link="/view-task-cpl"
-                                        />
-                                    </td>
-                                    <td className="p-4 text-center">
-                                        <TaskStatusBadge
-                                            count={service.CNL}
-                                            color="bg-gradient-to-br from-red-400 to-rose-500 text-white"
-                                            link="/view-task-cnl"
-                                        />
-                                    </td>
-                                </tr>
-                            ))}
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-        </WidgetWrapper>
-    );
+  // REPLACE the entire TaskSummaryWidget function with this:
+const TaskSummaryWidget = () => (
+    <WidgetWrapper widgetId="task-summary" title="Task Summary">
+        <TaskSummary 
+            taskStats={taskStats}
+            onRefresh={() => fetchDashboardData()}
+            onCreateTask={() => navigate('/task/create')} // Use navigate here
+        />
+    </WidgetWrapper>
+);
 
     const ServiceWiseSalesWidget = () => (
         <WidgetWrapper widgetId="service-wise-sales" title="Service Wise Sales">
