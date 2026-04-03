@@ -133,6 +133,20 @@ const TaskSummary = ({ onRefresh: externalRefresh, onCreateTask }) => {
         fetchTaskSummary();
     }, [fetchServices, fetchTaskSummary]);
 
+    // Add this after your existing useEffect hooks
+useEffect(() => {
+    const handleClickOutside = (event) => {
+        const dropdown = document.getElementById('service-dropdown');
+        const button = event.target.closest('button');
+        if (dropdown && !dropdown.contains(event.target) && !button?.closest('.relative')) {
+            dropdown.classList.add('hidden');
+        }
+    };
+    
+    document.addEventListener('click', handleClickOutside);
+    return () => document.removeEventListener('click', handleClickOutside);
+}, []);
+
     // Status color mapping
     const statusConfig = {
         OD: 'bg-gradient-to-br from-red-500 to-pink-600 text-white',
@@ -176,31 +190,133 @@ const TaskSummary = ({ onRefresh: externalRefresh, onCreateTask }) => {
                         {loading ? <FiLoader className="w-5 h-5 animate-spin" /> : <FiRefreshCw className="w-5 h-5" />}
                     </motion.button>
                     
-                    <div className="relative">
-                        <select 
-                            id="service-select"
-                            multiple
-                            value={selectedServiceIds}
-                            onChange={handleServiceFilterChange}
-                            className="px-4 py-3 pr-8 bg-white border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none shadow-sm min-w-[200px]"
-                            size={1}
+                  <div className="relative">
+    <div className="flex flex-wrap items-center gap-2">
+        <div className="relative">
+            <button
+                onClick={() => document.getElementById('service-dropdown')?.classList.toggle('hidden')}
+                className="px-4 py-3 bg-white border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none shadow-sm flex items-center justify-between min-w-[250px] hover:bg-gray-50 transition-colors"
+            >
+                <span className="text-gray-700">
+                    {selectedServiceIds.length === 0 ? (
+                        "All Services"
+                    ) : (
+                        <span className="flex items-center gap-2">
+                            <span className="bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded-full text-sm">
+                                {selectedServiceIds.length} selected
+                            </span>
+                        </span>
+                    )}
+                </span>
+                <svg className="w-4 h-4 text-gray-500 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+            </button>
+            
+            <div 
+                id="service-dropdown"
+                className="hidden absolute top-full left-0 mt-2 w-[300px] bg-white border border-gray-200 rounded-xl shadow-lg z-50 max-h-[400px] overflow-hidden"
+            >
+                <div className="p-3 border-b border-gray-100 bg-gray-50">
+                    <div className="flex justify-between items-center">
+                        <span className="text-sm font-medium text-gray-700">Select Services</span>
+                        <button
+                            onClick={handleSelectAll}
+                            className="text-xs text-indigo-600 hover:text-indigo-800 font-medium"
                         >
-                            <option value="">All Services</option>
-                            {services.map(service => (
-                                <option key={service.service_id} value={service.service_id}>
-                                    {service.service_name} ({service.category_name})
-                                </option>
-                            ))}
-                        </select>
-                        {selectedServiceIds.length > 0 && (
-                            <button
-                                onClick={handleSelectAll}
-                                className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-indigo-600 hover:text-indigo-800"
-                            >
-                                Clear
-                            </button>
-                        )}
+                            Clear All
+                        </button>
                     </div>
+                </div>
+                
+                <div className="max-h-[300px] overflow-y-auto">
+                    <div className="p-2">
+                        <label className="flex items-center p-2 hover:bg-gray-50 rounded-lg cursor-pointer">
+                            <input
+                                type="checkbox"
+                                checked={selectedServiceIds.length === 0}
+                                onChange={handleSelectAll}
+                                className="w-4 h-4 text-indigo-600 rounded border-gray-300 focus:ring-indigo-500"
+                            />
+                            <span className="ml-3 text-sm font-medium text-gray-700">All Services</span>
+                            <span className="ml-auto text-xs text-gray-500">
+                                {services.length} services
+                            </span>
+                        </label>
+                        
+                        <div className="border-t border-gray-100 my-2"></div>
+                        
+                        {services.map(service => (
+                            <label key={service.service_id} className="flex items-center p-2 hover:bg-gray-50 rounded-lg cursor-pointer">
+                                <input
+                                    type="checkbox"
+                                    value={service.service_id}
+                                    checked={selectedServiceIds.includes(service.service_id.toString())}
+                                    onChange={(e) => {
+                                        const value = e.target.value;
+                                        const isChecked = e.target.checked;
+                                        let newSelectedIds;
+                                        
+                                        if (isChecked) {
+                                            newSelectedIds = [...selectedServiceIds, value];
+                                        } else {
+                                            newSelectedIds = selectedServiceIds.filter(id => id !== value);
+                                        }
+                                        
+                                        setSelectedServiceIds(newSelectedIds);
+                                        fetchTaskSummary(newSelectedIds);
+                                    }}
+                                    className="w-4 h-4 text-indigo-600 rounded border-gray-300 focus:ring-indigo-500"
+                                />
+                                <div className="ml-3 flex-1">
+                                    <div className="text-sm font-medium text-gray-800">{service.service_name}</div>
+                                    <div className="text-xs text-gray-500">{service.name}</div>
+                                </div>
+                            </label>
+                        ))}
+                    </div>
+                </div>
+                
+                <div className="p-3 border-t border-gray-100 bg-gray-50 flex justify-end">
+                    <button
+                        onClick={() => document.getElementById('service-dropdown')?.classList.add('hidden')}
+                        className="px-3 py-1.5 text-sm bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
+                    >
+                        Apply
+                    </button>
+                </div>
+            </div>
+        </div>
+        
+        {selectedServiceIds.length > 0 && (
+            <div className="flex flex-wrap gap-2">
+                {selectedServiceIds.slice(0, 3).map(id => {
+                    const service = services.find(s => s.service_id.toString() === id);
+                    return service ? (
+                        <span key={id} className="inline-flex items-center gap-1 px-2 py-1 bg-indigo-50 text-indigo-700 rounded-lg text-sm">
+                            {service.service_name}
+                            <button
+                                onClick={() => {
+                                    const newSelectedIds = selectedServiceIds.filter(sid => sid !== id);
+                                    setSelectedServiceIds(newSelectedIds);
+                                    fetchTaskSummary(newSelectedIds);
+                                }}
+                                className="hover:text-indigo-900 ml-1"
+                            >
+                                ×
+                            </button>
+                        </span>
+                    ) : null;
+                })}
+                {selectedServiceIds.length > 3 && (
+                    <span className="inline-flex items-center px-2 py-1 bg-gray-100 text-gray-700 rounded-lg text-sm">
+                        +{selectedServiceIds.length - 3} more
+                    </span>
+                )}
+            </div>
+        )}
+    </div>
+</div>
                     
                     <motion.button 
                         onClick={onCreateTask}
