@@ -37,6 +37,9 @@ import {
 } from 'react-icons/fi';
 import { motion, AnimatePresence } from 'framer-motion';
 import TaskSummary from '../DashboardComponents/task-summary';
+import getHeaders from '../utils/get-headers';
+import API_BASE_URL from '../utils/api-controller';
+import AdditionalStatsComponent from '../DashboardComponents/additional-stats';
 import { useNavigate } from 'react-router-dom';
 const Dashboard = () => {
      const navigate = useNavigate();
@@ -246,46 +249,36 @@ const Dashboard = () => {
                 link: '/view-finance-report',
                 isCurrency: true
             },
-            { 
-                id: 'total-staff', 
-                title: 'Total Staff', 
-                value: 'total_stuff', 
-                icon: FiUsers, 
-                color: 'bg-gradient-to-br from-red-500 to-rose-600 text-white',
-                gradient: 'linear-gradient(135deg, #ef4444 0%, #e11d48 100%)',
-                link: '/view-stuff',
-                isCurrency: false
-            },
-            { 
-                id: 'present-today', 
-                title: 'Present Today', 
-                value: 'present_today', 
-                icon: FiUserCheck, 
-                color: 'bg-gradient-to-br from-blue-500 to-cyan-600 text-white',
-                gradient: 'linear-gradient(135deg, #3b82f6 0%, #06b6d4 100%)',
-                link: '/attendance',
-                isCurrency: false
-            },
-            { 
-                id: 'task-create-today', 
-                title: 'Task Create Today', 
-                value: 'task_create_today', 
-                icon: FiPlus, 
-                color: 'bg-gradient-to-br from-indigo-500 to-blue-600 text-white',
-                gradient: 'linear-gradient(135deg, #667eea 0%, #3b82f6 100%)',
-                link: '/view-task-create-today',
-                isCurrency: false
-            },
-            { 
-                id: 'task-complete-today', 
-                title: 'Task Complete Today', 
-                value: 'task_complete_today', 
-                icon: FiCheckCircle, 
-                color: 'bg-gradient-to-br from-green-500 to-teal-600 text-white',
-                gradient: 'linear-gradient(135deg, #10b981 0%, #0d9488 100%)',
-                link: '/view-task-complete-today',
-                isCurrency: false
-            }
+           { 
+    id: 'total-staff', 
+    title: 'Total Staff', 
+    value: 'total_staff',  // Changed from 'total_stuff'
+    icon: FiUsers, 
+    color: 'bg-gradient-to-br from-red-500 to-rose-600 text-white',
+    gradient: 'linear-gradient(135deg, #ef4444 0%, #e11d48 100%)',
+    link: '/view-stuff',
+    isCurrency: false
+},
+{ 
+    id: 'task-create-today', 
+    title: 'Task Create Today', 
+    value: 'task_created_today',  // Changed from 'task_create_today'
+    icon: FiPlus, 
+    color: 'bg-gradient-to-br from-indigo-500 to-blue-600 text-white',
+    gradient: 'linear-gradient(135deg, #667eea 0%, #3b82f6 100%)',
+    link: '/view-task-create-today',
+    isCurrency: false
+},
+{ 
+    id: 'task-complete-today', 
+    title: 'Task Complete Today', 
+    value: 'task_completed_today',  // Changed from 'task_complete_today'
+    icon: FiCheckCircle, 
+    color: 'bg-gradient-to-br from-green-500 to-teal-600 text-white',
+    gradient: 'linear-gradient(135deg, #10b981 0%, #0d9488 100%)',
+    link: '/view-task-complete-today',
+    isCurrency: false
+}
         ];
     });
 
@@ -547,16 +540,73 @@ const Dashboard = () => {
     useEffect(() => {
         fetchDashboardData();
     }, []);
+const fetchDashboardData = async () => {
+    setLoading(true);
+    try {
+        const headers = getHeaders();
+        const response = await fetch(`${API_BASE_URL}/report/dashboard-summary`, {
+            method: 'GET',
+            headers: {
+                ...headers,
+                'Content-Type': 'application/json',
+            },
+        });
 
-    const fetchDashboardData = async () => {
-        setLoading(true);
-        setTimeout(() => {
-            setStats(mockStats);
-            setTaskStats(mockTaskStats);
-            setTopClients(mockTopClients);
-            setLoading(false);
-        }, 1500);
-    };
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+
+        const result = await response.json();
+
+        if (result.success && result.data) {
+            // Set main stats
+            setStats(result.data);
+            
+            // FIXED: Transform task status breakdown correctly for TaskSummary component
+            if (result.data.additional_metrics?.task_status_breakdown) {
+                const taskBreakdown = result.data.additional_metrics.task_status_breakdown;
+                const transformedTaskStats = [
+                    {
+                        name: 'Task Status',
+                        OD: taskBreakdown['overdue'] || 0,
+                        DT: taskBreakdown['due_today'] || 0,
+                        D7: taskBreakdown['due_in_7_days'] || 0,
+                        FT: taskBreakdown['future_tasks'] || 0,
+                        WIP: taskBreakdown['in process'] || 0,
+                        PFC: taskBreakdown['pending_from_client'] || 0,
+                        PFD: taskBreakdown['pending from department'] || 0,
+                        CPL: taskBreakdown['complete'] || 0,
+                        CNL: taskBreakdown['cancelled'] || 0
+                    }
+                ];
+                setTaskStats(transformedTaskStats);
+            } else {
+                // Fallback to mock data if no task breakdown
+                setTaskStats(mockTaskStats);
+            }
+            
+            // Set top clients if available
+            if (result.data.top_clients) {
+                setTopClients(result.data.top_clients);
+            } else {
+                setTopClients(mockTopClients);
+            }
+            
+            // Store full data in localStorage for backup
+            localStorage.setItem('dashboardFullData', JSON.stringify(result));
+        } else {
+            throw new Error(result.message || 'Failed to fetch dashboard data');
+        }
+    } catch (err) {
+        console.error('Dashboard API Error:', err);
+        // Fallback to mock data if API fails
+        setStats(mockStats);
+        setTaskStats(mockTaskStats);
+        setTopClients(mockTopClients);
+    } finally {
+        setLoading(false);
+    }
+};
 
     const formatCurrency = (amount) => {
         return new Intl.NumberFormat('en-IN', {
@@ -1690,30 +1740,24 @@ const TaskSummaryWidget = () => (
         </WidgetWrapper>
     );
 
-    // UPDATED: Additional Stats Widget with drag and drop for cards
-    const AdditionalStatsWidget = () => (
-        <WidgetWrapper widgetId="additional-stats" title="Additional Stats">
-            <div className="p-6">
-                <div className="flex items-center gap-3 mb-6">
-                    <div className="p-3 bg-gradient-to-br from-gray-100 to-gray-200 rounded-xl">
-                        <FiGrid className="w-6 h-6 text-gray-600" />
-                    </div>
-                    <h3 className="text-xl font-bold text-gray-800">Additional Stats</h3>
-                    {isCustomizing && (
-                        <div className="ml-auto text-xs px-3 py-1 bg-gradient-to-r from-indigo-100 to-purple-100 text-indigo-700 rounded-full">
-                            Drag cards to reorder
-                        </div>
-                    )}
-                </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-                    {additionalStatsCards.map((card, index) => (
-                        <CardComponent key={card.id} card={card} index={index} source="additionalStats" />
-                    ))}
-                </div>
-            </div>
-        </WidgetWrapper>
-    );
-
+ const AdditionalStatsWidget = () => (
+    <WidgetWrapper widgetId="additional-stats" title="Additional Stats">
+        <AdditionalStatsComponent
+            stats={stats}
+            isCustomizing={isCustomizing}
+            onCardDragStart={handleCardDragStart}
+            onCardDragOver={handleCardDragOver}
+            onCardDrop={handleCardDrop}
+            onCardDragEnd={handleCardDragEnd}
+            draggedCard={draggedCard}
+            dragOverCard={dragOverCard}
+            formatCurrency={formatCurrency}
+            formatNumber={formatNumber}
+            blurEnabled={blurEnabled}
+            onNavigate={(link) => navigate(link)}
+        />
+    </WidgetWrapper>
+);
     // Customization Panel Component - FIXED VERSION
     const CustomizationPanel = () => {
         const dataSuggestions = getDataBasedSuggestions();
