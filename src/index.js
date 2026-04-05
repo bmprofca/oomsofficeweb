@@ -68,6 +68,7 @@ import DiscountVoucherDetails from './pages/discount';
 import MyProfile from './components/myProfile';
 import PasswordGroupFirms from './components/PasswordGroupFirms';
 import TransactionHistory from './finance/bank/transaction-history';
+import TaskDetailedPage from './DashboardComponents/TaskDetailedPage';
 // Authentication wrapper component
 const ProtectedRoute = ({ children }) => {
   const isAuthenticated = () => {
@@ -150,12 +151,12 @@ root.render(
           <TaskProfile />
         </ProtectedRoute>
       } />
-      {/* 
- <Route path="/task/profile/client" element={
+      
+ <Route path="/task/detailed" element={
         <ProtectedRoute>
-          <TaskProfileClient />
+          <TaskDetailedPage />
         </ProtectedRoute>
-      } /> */}
+      } />
 
 
       <Route path="/client/create" element={
