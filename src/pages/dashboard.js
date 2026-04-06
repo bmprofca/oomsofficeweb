@@ -203,84 +203,94 @@ const Dashboard = () => {
         ];
     });
 
-    const [additionalStatsCards, setAdditionalStatsCards] = useState(() => {
-        const savedCards = localStorage.getItem('additionalStatsCards');
-        if (savedCards) {
-            return JSON.parse(savedCards);
+  const [additionalStatsCards, setAdditionalStatsCards] = useState(() => {
+    const savedCards = localStorage.getItem('additionalStatsCards');
+    if (savedCards) {
+        return JSON.parse(savedCards);
+    }
+    return [
+        { 
+            id: 'total-client', 
+            title: 'Total Client', 
+            value: 'total_client', 
+            icon: FiUsers, 
+            color: 'bg-gradient-to-br from-gray-600 to-gray-700 text-white',
+            gradient: 'linear-gradient(135deg, #4b5563 0%, #374151 100%)',
+            link: '/dashboard/clients/total_client',
+            isCurrency: false
+        },
+        { 
+            id: 'new-client', 
+            title: 'New Client', 
+            value: 'new_client', 
+            icon: FiUserPlus, 
+            color: 'bg-gradient-to-br from-indigo-500 to-purple-600 text-white',
+            gradient: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+            link: '/dashboard/clients/new_client',
+            isCurrency: false
+        },
+        { 
+            id: 'active-client', 
+            title: 'Active Client', 
+            value: 'active_client', 
+            icon: FiCheckCircle, 
+            color: 'bg-gradient-to-br from-green-500 to-emerald-600 text-white',
+            gradient: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+            link: '/dashboard/clients/active_client',
+            isCurrency: false
+        },
+        { 
+            id: 'net-profit', 
+            title: 'Net Profit', 
+            value: 'net_profit', 
+            icon: FiTrendingUp, 
+            color: 'bg-gradient-to-br from-emerald-500 to-green-600 text-white',
+            gradient: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+            link: '/finance/report',
+            isCurrency: true
+        },
+        { 
+            id: 'total-staff', 
+            title: 'Total Staff', 
+            value: 'total_staff',
+            icon: FiUsers, 
+            color: 'bg-gradient-to-br from-red-500 to-rose-600 text-white',
+            gradient: 'linear-gradient(135deg, #ef4444 0%, #e11d48 100%)',
+            link: '/staff/view',
+            isCurrency: false
+        },
+        { 
+            id: 'present-today', 
+            title: 'Present Today', 
+            value: 'present_today', 
+            icon: FiUserCheck, 
+            color: 'bg-gradient-to-br from-blue-500 to-cyan-600 text-white',
+            gradient: 'linear-gradient(135deg, #3b82f6 0%, #06b6d4 100%)',
+            link: '/staff/attendance',
+            isCurrency: false
+        },
+        { 
+            id: 'task-create-today', 
+            title: 'Task Create Today', 
+            value: 'task_created_today',
+            icon: FiPlus, 
+            color: 'bg-gradient-to-br from-indigo-500 to-blue-600 text-white',
+            gradient: 'linear-gradient(135deg, #667eea 0%, #3b82f6 100%)',
+            link: '/dashboard/tasks/task_created_today',
+            isCurrency: false
+        },
+        { 
+            id: 'task-complete-today', 
+            title: 'Task Complete Today', 
+            value: 'task_completed_today',
+            icon: FiCheckCircle, 
+            color: 'bg-gradient-to-br from-green-500 to-teal-600 text-white',
+            gradient: 'linear-gradient(135deg, #10b981 0%, #0d9488 100%)',
+            link: '/dashboard/tasks/task_completed_today',
+            isCurrency: false
         }
-        return [
-            { 
-                id: 'total-client', 
-                title: 'Total Client', 
-                value: 'total_client', 
-                icon: FiUsers, 
-                color: 'bg-gradient-to-br from-gray-600 to-gray-700 text-white',
-                gradient: 'linear-gradient(135deg, #4b5563 0%, #374151 100%)',
-                link: '/view-client',
-                isCurrency: false
-            },
-            { 
-                id: 'new-client', 
-                title: 'New Client', 
-                value: 'new_client', 
-                icon: FiUserPlus, 
-                color: 'bg-gradient-to-br from-indigo-500 to-purple-600 text-white',
-                gradient: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-                link: '/view-new-client',
-                isCurrency: false
-            },
-            { 
-                id: 'active-client', 
-                title: 'Active Client', 
-                value: 'active_client', 
-                icon: FiCheckCircle, 
-                color: 'bg-gradient-to-br from-green-500 to-emerald-600 text-white',
-                gradient: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
-                link: '/view-active-client',
-                isCurrency: false
-            },
-            { 
-                id: 'net-profit', 
-                title: 'Net Profit', 
-                value: 'net_profit', 
-                icon: FiTrendingUp, 
-                color: 'bg-gradient-to-br from-emerald-500 to-green-600 text-white',
-                gradient: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
-                link: '/view-finance-report',
-                isCurrency: true
-            },
-           { 
-    id: 'total-staff', 
-    title: 'Total Staff', 
-    value: 'total_staff',  // Changed from 'total_stuff'
-    icon: FiUsers, 
-    color: 'bg-gradient-to-br from-red-500 to-rose-600 text-white',
-    gradient: 'linear-gradient(135deg, #ef4444 0%, #e11d48 100%)',
-    link: '/view-stuff',
-    isCurrency: false
-},
-{ 
-    id: 'task-create-today', 
-    title: 'Task Create Today', 
-    value: 'task_created_today',  // Changed from 'task_create_today'
-    icon: FiPlus, 
-    color: 'bg-gradient-to-br from-indigo-500 to-blue-600 text-white',
-    gradient: 'linear-gradient(135deg, #667eea 0%, #3b82f6 100%)',
-    link: '/view-task-create-today',
-    isCurrency: false
-},
-{ 
-    id: 'task-complete-today', 
-    title: 'Task Complete Today', 
-    value: 'task_completed_today',  // Changed from 'task_complete_today'
-    icon: FiCheckCircle, 
-    color: 'bg-gradient-to-br from-green-500 to-teal-600 text-white',
-    gradient: 'linear-gradient(135deg, #10b981 0%, #0d9488 100%)',
-    link: '/view-task-complete-today',
-    isCurrency: false
-}
-        ];
-    });
+    ];
+});
 
     const [draggedCard, setDraggedCard] = useState(null);
     const [dragOverCard, setDragOverCard] = useState(null);
@@ -933,88 +943,88 @@ const fetchDashboardData = async () => {
         ];
         setQuickStatsCards(defaultQuickStatsCards);
         
-        const defaultAdditionalStatsCards = [
-            { 
-                id: 'total-client', 
-                title: 'Total Client', 
-                value: 'total_client', 
-                icon: FiUsers, 
-                color: 'bg-gradient-to-br from-gray-600 to-gray-700 text-white',
-                gradient: 'linear-gradient(135deg, #4b5563 0%, #374151 100%)',
-                link: '/view-client',
-                isCurrency: false
-            },
-            { 
-                id: 'new-client', 
-                title: 'New Client', 
-                value: 'new_client', 
-                icon: FiUserPlus, 
-                color: 'bg-gradient-to-br from-indigo-500 to-purple-600 text-white',
-                gradient: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-                link: '/view-new-client',
-                isCurrency: false
-            },
-            { 
-                id: 'active-client', 
-                title: 'Active Client', 
-                value: 'active_client', 
-                icon: FiCheckCircle, 
-                color: 'bg-gradient-to-br from-green-500 to-emerald-600 text-white',
-                gradient: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
-                link: '/view-active-client',
-                isCurrency: false
-            },
-            { 
-                id: 'net-profit', 
-                title: 'Net Profit', 
-                value: 'net_profit', 
-                icon: FiTrendingUp, 
-                color: 'bg-gradient-to-br from-emerald-500 to-green-600 text-white',
-                gradient: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
-                link: '/view-finance-report',
-                isCurrency: true
-            },
-            { 
-                id: 'total-staff', 
-                title: 'Total Staff', 
-                value: 'total_stuff', 
-                icon: FiUsers, 
-                color: 'bg-gradient-to-br from-red-500 to-rose-600 text-white',
-                gradient: 'linear-gradient(135deg, #ef4444 0%, #e11d48 100%)',
-                link: '/view-stuff',
-                isCurrency: false
-            },
-            { 
-                id: 'present-today', 
-                title: 'Present Today', 
-                value: 'present_today', 
-                icon: FiUserCheck, 
-                color: 'bg-gradient-to-br from-blue-500 to-cyan-600 text-white',
-                gradient: 'linear-gradient(135deg, #3b82f6 0%, #06b6d4 100%)',
-                link: '/attendance',
-                isCurrency: false
-            },
-            { 
-                id: 'task-create-today', 
-                title: 'Task Create Today', 
-                value: 'task_create_today', 
-                icon: FiPlus, 
-                color: 'bg-gradient-to-br from-indigo-500 to-blue-600 text-white',
-                gradient: 'linear-gradient(135deg, #667eea 0%, #3b82f6 100%)',
-                link: '/view-task-create-today',
-                isCurrency: false
-            },
-            { 
-                id: 'task-complete-today', 
-                title: 'Task Complete Today', 
-                value: 'task_complete_today', 
-                icon: FiCheckCircle, 
-                color: 'bg-gradient-to-br from-green-500 to-teal-600 text-white',
-                gradient: 'linear-gradient(135deg, #10b981 0%, #0d9488 100%)',
-                link: '/view-task-complete-today',
-                isCurrency: false
-            }
-        ];
+      const defaultAdditionalStatsCards = [
+    { 
+        id: 'total-client', 
+        title: 'Total Client', 
+        value: 'total_client', 
+        icon: FiUsers, 
+        color: 'bg-gradient-to-br from-gray-600 to-gray-700 text-white',
+        gradient: 'linear-gradient(135deg, #4b5563 0%, #374151 100%)',
+        link: '/dashboard/clients/total_client',
+        isCurrency: false
+    },
+    { 
+        id: 'new-client', 
+        title: 'New Client', 
+        value: 'new_client', 
+        icon: FiUserPlus, 
+        color: 'bg-gradient-to-br from-indigo-500 to-purple-600 text-white',
+        gradient: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+        link: '/dashboard/clients/new_client',
+        isCurrency: false
+    },
+    { 
+        id: 'active-client', 
+        title: 'Active Client', 
+        value: 'active_client', 
+        icon: FiCheckCircle, 
+        color: 'bg-gradient-to-br from-green-500 to-emerald-600 text-white',
+        gradient: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+        link: '/dashboard/clients/active_client',
+        isCurrency: false
+    },
+    { 
+        id: 'net-profit', 
+        title: 'Net Profit', 
+        value: 'net_profit', 
+        icon: FiTrendingUp, 
+        color: 'bg-gradient-to-br from-emerald-500 to-green-600 text-white',
+        gradient: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+        link: '/finance/report',
+        isCurrency: true
+    },
+    { 
+        id: 'total-staff', 
+        title: 'Total Staff', 
+        value: 'total_staff',  // Fixed: changed from 'total_stuff' to 'total_staff'
+        icon: FiUsers, 
+        color: 'bg-gradient-to-br from-red-500 to-rose-600 text-white',
+        gradient: 'linear-gradient(135deg, #ef4444 0%, #e11d48 100%)',
+        link: '/staff/view',
+        isCurrency: false
+    },
+    { 
+        id: 'present-today', 
+        title: 'Present Today', 
+        value: 'present_today', 
+        icon: FiUserCheck, 
+        color: 'bg-gradient-to-br from-blue-500 to-cyan-600 text-white',
+        gradient: 'linear-gradient(135deg, #3b82f6 0%, #06b6d4 100%)',
+        link: '/staff/attendance',
+        isCurrency: false
+    },
+    { 
+        id: 'task-create-today', 
+        title: 'Task Create Today', 
+        value: 'task_created_today',  // Fixed: changed from 'task_create_today' to 'task_created_today'
+        icon: FiPlus, 
+        color: 'bg-gradient-to-br from-indigo-500 to-blue-600 text-white',
+        gradient: 'linear-gradient(135deg, #667eea 0%, #3b82f6 100%)',
+        link: '/dashboard/tasks/task_created_today',
+        isCurrency: false
+    },
+    { 
+        id: 'task-complete-today', 
+        title: 'Task Complete Today', 
+        value: 'task_completed_today',  // Fixed: changed from 'task_complete_today' to 'task_completed_today'
+        icon: FiCheckCircle, 
+        color: 'bg-gradient-to-br from-green-500 to-teal-600 text-white',
+        gradient: 'linear-gradient(135deg, #10b981 0%, #0d9488 100%)',
+        link: '/dashboard/tasks/task_completed_today',
+        isCurrency: false
+    }
+];
         setAdditionalStatsCards(defaultAdditionalStatsCards);
     }, []);
 

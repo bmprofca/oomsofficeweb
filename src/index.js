@@ -68,7 +68,10 @@ import DiscountVoucherDetails from './pages/discount';
 import MyProfile from './components/myProfile';
 import PasswordGroupFirms from './components/PasswordGroupFirms';
 import TransactionHistory from './finance/bank/transaction-history';
+//Dashboard Components
 import TaskDetailedPage from './DashboardComponents/TaskDetailedPage';
+import ClientDetailPage from './DashboardComponents/ClientDetailPage';
+import TaskDashboardDetailPage from './DashboardComponents/TaskDashboardDetailPage';
 // Authentication wrapper component
 const ProtectedRoute = ({ children }) => {
   const isAuthenticated = () => {
@@ -499,6 +502,17 @@ root.render(
         </ProtectedRoute>
       } />
 
+      <Route path="/dashboard/clients/:metric" element={
+        <ProtectedRoute>
+          <ClientDetailPage />
+        </ProtectedRoute>
+      } />
+
+      <Route path="/dashboard/tasks/:metric" element={
+        <ProtectedRoute>
+          <TaskDashboardDetailPage />
+        </ProtectedRoute>
+      } />
 
       {/* Catch-all route for 404 */}
       <Route path="*" element={

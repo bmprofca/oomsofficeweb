@@ -36,7 +36,7 @@ const StatCard = ({ card, stats, isCustomizing, onDragStart, onDragOver, onDrop,
             onDragOver={(e) => onDragOver(e, card.id, 'additionalStats')}
             onDrop={(e) => onDrop(e, card.id, 'additionalStats')}
             onDragEnd={onDragEnd}
-            onClick={() => !isCustomizing && onClick && onClick(card.link)}
+            onClick={() => !isCustomizing && onClick && onClick(card.link, card.id)}
             className={`relative ${isCustomizing ? 'cursor-move select-none' : 'cursor-pointer'} ${
                 isDragged ? 'opacity-50' : ''
             } ${isDragOver ? 'scale-105 transition-transform duration-200' : ''}`}
@@ -193,7 +193,7 @@ const AdditionalStatsComponent = ({
             value: 'total_client', 
             icon: FiUsers, 
             gradient: 'linear-gradient(135deg, #4b5563 0%, #374151 100%)',
-            link: '/view-client',
+            link: '/dashboard/clients/total_client',
             isCurrency: false
         },
         { 
@@ -202,7 +202,7 @@ const AdditionalStatsComponent = ({
             value: 'new_client', 
             icon: FiUserPlus, 
             gradient: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-            link: '/view-new-client',
+            link: '/dashboard/clients/new_client',
             isCurrency: false
         },
         { 
@@ -211,7 +211,7 @@ const AdditionalStatsComponent = ({
             value: 'active_client', 
             icon: FiCheckCircle, 
             gradient: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
-            link: '/view-active-client',
+            link: '/dashboard/clients/active_client',
             isCurrency: false
         },
         { 
@@ -220,7 +220,7 @@ const AdditionalStatsComponent = ({
             value: 'net_profit', 
             icon: FiTrendingUp, 
             gradient: 'linear-gradient(135deg, #f59e0b 0%, #ea580c 100%)',
-            link: '/view-finance-report',
+            link: '/finance/report',
             isCurrency: true
         },
         { 
@@ -229,7 +229,7 @@ const AdditionalStatsComponent = ({
             value: 'total_staff', 
             icon: FiUsers, 
             gradient: 'linear-gradient(135deg, #ef4444 0%, #e11d48 100%)',
-            link: '/view-stuff',
+            link: '/staff/view',
             isCurrency: false
         },
         { 
@@ -238,7 +238,7 @@ const AdditionalStatsComponent = ({
             value: 'present_today', 
             icon: FiUserCheck, 
             gradient: 'linear-gradient(135deg, #3b82f6 0%, #06b6d4 100%)',
-            link: '/attendance',
+            link: '/staff/attendance',
             isCurrency: false
         },
         { 
@@ -247,7 +247,7 @@ const AdditionalStatsComponent = ({
             value: 'task_created_today', 
             icon: FiPlus, 
             gradient: 'linear-gradient(135deg, #8b5cf6 0%, #6d28d9 100%)',
-            link: '/view-task-create-today',
+            link: '/dashboard/tasks/task_created_today',
             isCurrency: false
         },
         { 
@@ -256,7 +256,7 @@ const AdditionalStatsComponent = ({
             value: 'task_completed_today', 
             icon: FiCheckCircle, 
             gradient: 'linear-gradient(135deg, #14b8a6 0%, #0f766e 100%)',
-            link: '/view-task-complete-today',
+            link: '/dashboard/tasks/task_completed_today',
             isCurrency: false
         }
     ];
@@ -350,10 +350,12 @@ const AdditionalStatsComponent = ({
         onCardDrop(e, targetCardId, source);
     };
 
-    const handleCardClick = (link) => {
+    // Handle card click navigation
+    const handleCardClick = (link, cardId) => {
         if (onNavigate) {
             onNavigate(link);
-        } else if (window.location) {
+        } else {
+            // Use the link directly from the card configuration
             window.location.href = link;
         }
     };
