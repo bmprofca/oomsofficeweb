@@ -40,6 +40,7 @@ import TaskSummary from '../DashboardComponents/task-summary';
 import getHeaders from '../utils/get-headers';
 import API_BASE_URL from '../utils/api-controller';
 import AdditionalStatsComponent from '../DashboardComponents/additional-stats';
+import QuickStats from '../DashboardComponents/quick-stats';
 import { useNavigate } from 'react-router-dom';
 const Dashboard = () => {
      const navigate = useNavigate();
@@ -1505,47 +1506,31 @@ const fetchDashboardData = async () => {
         </WidgetWrapper>
     );
 
-    // UPDATED: Quick Stats Widget with drag and drop for cards
-    const QuickStatsWidget = () => (
-        <WidgetWrapper widgetId="quick-stats" title="Quick Stats">
-            <div className="p-6">
-                <div className="flex items-center gap-3 mb-6">
-                    <div className="p-3 bg-gradient-to-br from-blue-100 to-cyan-100 rounded-xl">
-                        <FiBarChart2 className="w-6 h-6 text-blue-600" />
-                    </div>
-                    <h3 className="text-xl font-bold text-gray-800">Quick Stats</h3>
-                    {isCustomizing && (
-                        <div className="ml-auto text-xs px-3 py-1 bg-gradient-to-r from-indigo-100 to-purple-100 text-indigo-700 rounded-full">
-                            Drag cards to reorder
-                        </div>
-                    )}
-                </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {quickStatsCards.map((card, index) => (
-                        <CardComponent key={card.id} card={card} index={index} source="quickStats" />
-                    ))}
-                </div>
-            </div>
-        </WidgetWrapper>
-    );
+   // Then update the QuickStatsWidget and AdditionalStatsWidget functions:
 
-    // const TaskStatusBadge = ({ count, color, link }) => (
-    //     <a href={link} className="inline-block">
-    //         {count > 0 ? (
-    //             <motion.span 
-    //                 className={`inline-flex items-center justify-center w-10 h-10 rounded-full text-sm font-bold ${color} shadow-lg hover:shadow-xl transition-shadow duration-300`}
-    //                 whileHover={{ scale: 1.1 }}
-    //                 whileTap={{ scale: 0.95 }}
-    //             >
-    //                 {count}
-    //             </motion.span>
-    //         ) : (
-    //             <span className="inline-flex items-center justify-center w-10 h-10 text-gray-400 text-sm">
-    //                 {count}
-    //             </span>
-    //         )}
-    //     </a>
-    // );
+const QuickStatsWidget = () => (
+    <WidgetWrapper widgetId="quick-stats" title="Quick Stats">
+        <div className="p-6">
+            <QuickStats
+                stats={stats}
+                isCustomizing={isCustomizing}
+                onCardDragStart={handleCardDragStart}
+                onCardDragOver={handleCardDragOver}
+                onCardDrop={handleCardDrop}
+                onCardDragEnd={handleCardDragEnd}
+                draggedCard={draggedCard}
+                dragOverCard={dragOverCard}
+                formatCurrency={formatCurrency}
+                formatNumber={formatNumber}
+                blurEnabled={blurEnabled}
+                onNavigate={(link) => navigate(link)}
+                quickStatsCards={quickStatsCards}
+                setQuickStatsCards={setQuickStatsCards}
+                onRefresh={fetchDashboardData}
+            />
+        </div>
+    </WidgetWrapper>
+);
 
   // REPLACE the entire TaskSummaryWidget function with this:
 const TaskSummaryWidget = () => (
