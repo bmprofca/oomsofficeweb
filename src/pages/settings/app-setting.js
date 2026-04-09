@@ -1,7 +1,10 @@
-import React, { useState, useEffect } from 'react';
-import { FiSettings, FiUpload, FiFileText, FiImage, FiX } from 'react-icons/fi';
-import { motion, AnimatePresence } from 'framer-motion';
+import React, { useState, useEffect, useRef } from 'react';
+import { FiSettings, FiFileText, FiImage } from 'react-icons/fi';
+import { motion } from 'framer-motion';
 import { Header, Sidebar } from '../../components/header';
+import StateDistrictSelect from '../../components/state-district-select';
+import API_BASE_URL from '../../utils/api-controller';
+import getHeaders from '../../utils/get-headers';
 
 const AppSettings = () => {
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -10,57 +13,54 @@ const AppSettings = () => {
         return saved ? JSON.parse(saved) : false;
     });
     const [loading, setLoading] = useState(true);
-    const [states, setStates] = useState([]);
-    const [districts, setDistricts] = useState([]);
 
     // App settings state
     const [appSettings, setAppSettings] = useState({
         app_name: '',
-        entity_name: '',
-        mobile: '',
-        email: '',
-        description: '',
-        address: '',
+        address_line_1: '',
+        address_line_2: '',
+        city: '',
         state: '',
-        dist: '',
-        town: '',
-        gst_applicable: false,
+        pincode: '',
+        country: 'India',
+        mobile_1: '',
+        mobile_2: '',
+        email_1: '',
+        email_2: '',
+        pan: '',
         gst_number: '',
         gst_rate: ''
     });
 
     // Invoice settings state
     const [invoiceSettings, setInvoiceSettings] = useState({
-        invoice_holder: '',
-        invoice_account_no: '',
-        invoice_ifsc: ''
+        address: '',
     });
 
     // File upload states
     const [logoFile, setLogoFile] = useState(null);
     const [signFile, setSignFile] = useState(null);
+    const [logoUrl, setLogoUrl] = useState('');
+    const [signUrl, setSignUrl] = useState('');
+    const [logoPreviewUrl, setLogoPreviewUrl] = useState('');
+    const [signPreviewUrl, setSignPreviewUrl] = useState('');
+    const [panVerified, setPanVerified] = useState(null);
+    const [gstVerified, setGstVerified] = useState(null);
+    const [isLogoDragging, setIsLogoDragging] = useState(false);
+    const [isSignDragging, setIsSignDragging] = useState(false);
+    const logoInputRef = useRef(null);
+    const signInputRef = useRef(null);
 
-    // Mock data - replace with actual API calls
-    const mockAppSettings = {
-        app_name: 'My Business App',
-        entity_name: 'My Business Entity',
-        mobile: '+91 9876543210',
-        email: 'contact@mybusiness.com',
-        description: 'Business management application',
-        address: '123 Business Street, Commercial Area',
-        state: 'Maharashtra',
-        dist: 'Mumbai',
-        town: 'Mumbai',
-        gst_applicable: true,
-        gst_number: '27ABCDE1234F1Z5',
-        gst_rate: '18'
-    };
-
-    const mockInvoiceSettings = {
-        invoice_holder: 'My Business Name',
-        invoice_account_no: '123456789012345',
-        invoice_ifsc: 'SBIN0000123'
-    };
+    useEffect(() => {
+        return () => {
+            if (logoPreviewUrl) {
+                URL.revokeObjectURL(logoPreviewUrl);
+            }
+            if (signPreviewUrl) {
+                URL.revokeObjectURL(signPreviewUrl);
+            }
+        };
+    }, [logoPreviewUrl, signPreviewUrl]);
 
     // Persist sidebar minimized state
     useEffect(() => {
@@ -82,43 +82,69 @@ const AppSettings = () => {
     // Load initial data
     useEffect(() => {
         fetchSettingsData();
-        fetchStatesData();
     }, []);
 
     const fetchSettingsData = async () => {
-        setLoading(true);
-        // Simulate API calls
-        setTimeout(() => {
-            setAppSettings(mockAppSettings);
-            setInvoiceSettings(mockInvoiceSettings);
+        const headers = getHeaders();
+        if (!headers) {
             setLoading(false);
-        }, 1500); // Increased timeout to show skeleton
-    };
+            alert('Missing authentication. Please sign in again.');
+            return;
+        }
 
-    const fetchStatesData = async () => {
-        // Simulate fetching states from JSON file
-        const mockStates = [
-            {
-                state: "Maharashtra",
-                districts: ["Mumbai", "Pune", "Nagpur", "Thane", "Nashik"]
-            },
-            {
-                state: "Delhi",
-                districts: ["New Delhi", "Central Delhi", "North Delhi", "South Delhi"]
-            },
-            {
-                state: "Karnataka",
-                districts: ["Bangalore", "Mysore", "Hubli", "Mangalore"]
-            }
-        ];
-        setStates(mockStates);
+        setLoading(true);
+        try {
+            const response = await fetch(`${API_BASE_URL}/settings/branch/details`, {
+                method: 'GET',
+                headers,
+            });
 
-        // Set initial districts based on current state
-        if (mockAppSettings.state) {
-            const stateData = mockStates.find(s => s.state === mockAppSettings.state);
-            if (stateData) {
-                setDistricts(stateData.districts);
+            const json = await response.json();
+            if (!response.ok || !json?.success) {
+                throw new Error(json?.message || `Request failed (${response.status})`);
             }
+
+            const basic = json?.data?.basic || {};
+            const address = basic?.address || {};
+            const mobile = basic?.mobile || {};
+            const email = basic?.email || {};
+            const gst = basic?.gst || {};
+            const image = json?.data?.image || {};
+            const invoice = json?.data?.invoice || {};
+            const gstRateValue = gst?.gst_rate ? String(Number(gst.gst_rate)) : '0';
+
+            setAppSettings(prev => ({
+                ...prev,
+                app_name: basic?.name || '',
+                address_line_1: address?.address_line_1 || '',
+                address_line_2: address?.address_line_2 || '',
+                city: address?.city || '',
+                state: address?.state || '',
+                pincode: address?.pincode ? String(address.pincode) : '',
+                country: address?.country || 'India',
+                mobile_1: mobile?.mobile_1 ? String(mobile.mobile_1) : '',
+                mobile_2: mobile?.mobile_2 ? String(mobile.mobile_2) : '',
+                email_1: email?.email_1 || '',
+                email_2: email?.email_2 || '',
+                pan: basic?.pan?.pan || '',
+                gst_number: gst?.gst || '',
+                gst_rate: ['0', '5', '18', '40'].includes(gstRateValue) ? gstRateValue : '0',
+            }));
+
+            setInvoiceSettings(prev => ({
+                ...prev,
+                address: invoice?.address || prev.address,
+            }));
+
+            setLogoUrl(image?.logo || '');
+            setSignUrl(image?.sign || '');
+            setPanVerified(Boolean(basic?.pan?.is_pan_verified));
+            setGstVerified(Boolean(gst?.is_gst_verified));
+        } catch (error) {
+            console.error('Branch details fetch error:', error);
+            alert(error?.message || 'Failed to load app settings');
+        } finally {
+            setLoading(false);
         }
     };
 
@@ -253,21 +279,19 @@ const AppSettings = () => {
     );
 
     const handleAppSettingsChange = (field, value) => {
+        if (field === 'state') {
+            setAppSettings(prev => ({
+                ...prev,
+                state: value,
+                city: '',
+            }));
+            return;
+        }
+
         setAppSettings(prev => ({
             ...prev,
             [field]: value
         }));
-
-        if (field === 'state') {
-            const stateData = states.find(s => s.state === value);
-            if (stateData) {
-                setDistricts(stateData.districts);
-                setAppSettings(prev => ({
-                    ...prev,
-                    dist: ''
-                }));
-            }
-        }
     };
 
     const handleInvoiceSettingsChange = (field, value) => {
@@ -277,27 +301,64 @@ const AppSettings = () => {
         }));
     };
 
-    const handleGstApplicableChange = (checked) => {
-        setAppSettings(prev => ({
-            ...prev,
-            gst_applicable: checked
-        }));
-    };
-
     const handleLogoFileChange = (e) => {
-        setLogoFile(e.target.files[0]);
+        const selectedFile = e.target.files?.[0];
+        if (selectedFile) {
+            setValidatedImageFile(selectedFile, 'logo');
+        }
     };
 
     const handleSignFileChange = (e) => {
-        setSignFile(e.target.files[0]);
+        const selectedFile = e.target.files?.[0];
+        if (selectedFile) {
+            setValidatedImageFile(selectedFile, 'sign');
+        }
+    };
+
+    const setValidatedImageFile = (file, type) => {
+        if (!file.type?.startsWith('image/')) {
+            alert(`Please select a valid image file for ${type === 'logo' ? 'logo' : 'signature'}.`);
+            return;
+        }
+
+        const objectUrl = URL.createObjectURL(file);
+        if (type === 'logo') {
+            if (logoPreviewUrl) URL.revokeObjectURL(logoPreviewUrl);
+            setLogoFile(file);
+            setLogoPreviewUrl(objectUrl);
+        } else {
+            if (signPreviewUrl) URL.revokeObjectURL(signPreviewUrl);
+            setSignFile(file);
+            setSignPreviewUrl(objectUrl);
+        }
+    };
+
+    const clearSelectedFile = (type) => {
+        if (type === 'logo') {
+            setLogoFile(null);
+            if (logoPreviewUrl) URL.revokeObjectURL(logoPreviewUrl);
+            setLogoPreviewUrl('');
+            if (logoInputRef.current) logoInputRef.current.value = '';
+            return;
+        }
+        setSignFile(null);
+        if (signPreviewUrl) URL.revokeObjectURL(signPreviewUrl);
+        setSignPreviewUrl('');
+        if (signInputRef.current) signInputRef.current.value = '';
     };
 
     const handleAppSettingsSubmit = async (e) => {
         e.preventDefault();
         setLoading(true);
 
+        const payload = {
+            ...appSettings,
+            country: 'India',
+        };
+
         setTimeout(() => {
             setLoading(false);
+            console.log('App settings update payload:', payload);
             alert('App settings updated successfully!');
         }, 1000);
     };
@@ -322,7 +383,7 @@ const AppSettings = () => {
         setLoading(true);
         setTimeout(() => {
             setLoading(false);
-            setLogoFile(null);
+            clearSelectedFile('logo');
             alert('Logo uploaded successfully!');
         }, 1000);
     };
@@ -337,9 +398,27 @@ const AppSettings = () => {
         setLoading(true);
         setTimeout(() => {
             setLoading(false);
-            setSignFile(null);
+            clearSelectedFile('sign');
             alert('Signature uploaded successfully!');
         }, 1000);
+    };
+
+    const handleLogoDrop = (e) => {
+        e.preventDefault();
+        setIsLogoDragging(false);
+        const droppedFile = e.dataTransfer?.files?.[0];
+        if (droppedFile) {
+            setValidatedImageFile(droppedFile, 'logo');
+        }
+    };
+
+    const handleSignDrop = (e) => {
+        e.preventDefault();
+        setIsSignDragging(false);
+        const droppedFile = e.dataTransfer?.files?.[0];
+        if (droppedFile) {
+            setValidatedImageFile(droppedFile, 'sign');
+        }
     };
 
     // Show skeleton while loading
@@ -394,14 +473,50 @@ const AppSettings = () => {
 
                                             <div>
                                                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                                                    Entity Name <span className="text-gray-500 text-sm">(Shows on invoice)</span>
+                                                    Address Line 1
                                                 </label>
                                                 <input
                                                     type="text"
-                                                    value={appSettings.entity_name}
-                                                    onChange={(e) => handleAppSettingsChange('entity_name', e.target.value)}
+                                                    value={appSettings.address_line_1}
+                                                    onChange={(e) => handleAppSettingsChange('address_line_1', e.target.value)}
                                                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
-                                                    placeholder="Entity Name"
+                                                    placeholder="Address line 1"
+                                                    required
+                                                />
+                                            </div>
+
+                                            <div>
+                                                <div>
+                                                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                                                        Address Line 2
+                                                    </label>
+                                                    <input
+                                                        type="text"
+                                                        value={appSettings.address_line_2}
+                                                        onChange={(e) => handleAppSettingsChange('address_line_2', e.target.value)}
+                                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
+                                                        placeholder="Address line 2"
+                                                    />
+                                                </div>
+                                            </div>
+
+                                            <StateDistrictSelect
+                                                selectedState={appSettings.state}
+                                                selectedDistrict={appSettings.city}
+                                                onStateChange={(value) => handleAppSettingsChange('state', value)}
+                                                onDistrictChange={(value) => handleAppSettingsChange('city', value)}
+                                            />
+
+                                            <div>
+                                                <label className="block text-sm font-medium text-gray-700 mb-2">
+                                                    Pincode
+                                                </label>
+                                                <input
+                                                    type="text"
+                                                    value={appSettings.pincode}
+                                                    onChange={(e) => handleAppSettingsChange('pincode', e.target.value)}
+                                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
+                                                    placeholder="Pincode"
                                                     required
                                                 />
                                             </div>
@@ -409,151 +524,107 @@ const AppSettings = () => {
                                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                                 <div>
                                                     <label className="block text-sm font-medium text-gray-700 mb-2">
-                                                        Mobile
+                                                        Mobile 1
                                                     </label>
                                                     <input
                                                         type="text"
-                                                        value={appSettings.mobile}
-                                                        onChange={(e) => handleAppSettingsChange('mobile', e.target.value)}
+                                                        value={appSettings.mobile_1}
+                                                        onChange={(e) => handleAppSettingsChange('mobile_1', e.target.value)}
                                                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
-                                                        placeholder="Mobile number"
+                                                        placeholder="Primary mobile"
                                                         required
                                                     />
                                                 </div>
                                                 <div>
                                                     <label className="block text-sm font-medium text-gray-700 mb-2">
-                                                        Email
+                                                        Mobile 2
+                                                    </label>
+                                                    <input
+                                                        type="text"
+                                                        value={appSettings.mobile_2}
+                                                        onChange={(e) => handleAppSettingsChange('mobile_2', e.target.value)}
+                                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
+                                                        placeholder="Secondary mobile"
+                                                    />
+                                                </div>
+                                            </div>
+
+                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                                <div>
+                                                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                                                        Email 1
                                                     </label>
                                                     <input
                                                         type="email"
-                                                        value={appSettings.email}
-                                                        onChange={(e) => handleAppSettingsChange('email', e.target.value)}
+                                                        value={appSettings.email_1}
+                                                        onChange={(e) => handleAppSettingsChange('email_1', e.target.value)}
                                                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
-                                                        placeholder="Email"
+                                                        placeholder="Primary email"
                                                         required
+                                                    />
+                                                </div>
+                                                <div>
+                                                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                                                        Email 2
+                                                    </label>
+                                                    <input
+                                                        type="email"
+                                                        value={appSettings.email_2}
+                                                        onChange={(e) => handleAppSettingsChange('email_2', e.target.value)}
+                                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
+                                                        placeholder="Secondary email"
                                                     />
                                                 </div>
                                             </div>
 
-                                            <div>
-                                                <label className="block text-sm font-medium text-gray-700 mb-2">
-                                                    Description
-                                                </label>
-                                                <textarea
-                                                    value={appSettings.description}
-                                                    onChange={(e) => handleAppSettingsChange('description', e.target.value)}
-                                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
-                                                    rows="3"
-                                                    placeholder="Business description"
-                                                />
-                                            </div>
-
-                                            <div>
-                                                <label className="block text-sm font-medium text-gray-700 mb-2">
-                                                    Address
-                                                </label>
-                                                <textarea
-                                                    value={appSettings.address}
-                                                    onChange={(e) => handleAppSettingsChange('address', e.target.value)}
-                                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
-                                                    rows="3"
-                                                    placeholder="Full address"
-                                                    required
-                                                />
-                                            </div>
-
-                                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 p-4 bg-gray-50 rounded-lg border border-gray-200">
                                                 <div>
                                                     <label className="block text-sm font-medium text-gray-700 mb-2">
-                                                        State
-                                                    </label>
-                                                    <select
-                                                        value={appSettings.state}
-                                                        onChange={(e) => handleAppSettingsChange('state', e.target.value)}
-                                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
-                                                    >
-                                                        <option value="">Select State</option>
-                                                        {states.map((stateObj) => (
-                                                            <option key={stateObj.state} value={stateObj.state}>
-                                                                {stateObj.state}
-                                                            </option>
-                                                        ))}
-                                                    </select>
-                                                </div>
-                                                <div>
-                                                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                                                        District
-                                                    </label>
-                                                    <select
-                                                        value={appSettings.dist}
-                                                        onChange={(e) => handleAppSettingsChange('dist', e.target.value)}
-                                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
-                                                    >
-                                                        <option value="">Select District</option>
-                                                        {districts.map((district) => (
-                                                            <option key={district} value={district}>
-                                                                {district}
-                                                            </option>
-                                                        ))}
-                                                    </select>
-                                                </div>
-                                                <div>
-                                                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                                                        Village/Town
+                                                        PAN
                                                     </label>
                                                     <input
                                                         type="text"
-                                                        value={appSettings.town}
-                                                        onChange={(e) => handleAppSettingsChange('town', e.target.value)}
+                                                        value={appSettings.pan}
+                                                        onChange={(e) => handleAppSettingsChange('pan', e.target.value)}
                                                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
-                                                        placeholder="Village/Town"
-                                                        required
+                                                        placeholder="PAN Number"
+                                                        maxLength="10"
                                                     />
+                                                    <p className={`mt-2 text-xs font-medium ${panVerified ? 'text-green-600' : 'text-amber-600'}`}>
+                                                        PAN {panVerified ? 'Verified' : 'Not Verified'}
+                                                    </p>
+                                                </div>
+                                                <div>
+                                                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                                                        GST Number
+                                                    </label>
+                                                    <input
+                                                        type="text"
+                                                        value={appSettings.gst_number}
+                                                        onChange={(e) => handleAppSettingsChange('gst_number', e.target.value)}
+                                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
+                                                        placeholder="GST Number"
+                                                    />
+                                                    <p className={`mt-2 text-xs font-medium ${gstVerified ? 'text-green-600' : 'text-amber-600'}`}>
+                                                        GST {gstVerified ? 'Verified' : 'Not Verified'}
+                                                    </p>
+                                                </div>
+                                                <div>
+                                                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                                                        GST Rate (%)
+                                                    </label>
+                                                    <select
+                                                        value={appSettings.gst_rate}
+                                                        onChange={(e) => handleAppSettingsChange('gst_rate', e.target.value)}
+                                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
+                                                    >
+                                                        <option value="0">0%</option>
+                                                        <option value="5">5%</option>
+                                                        <option value="18">18%</option>
+                                                        <option value="40">40%</option>
+                                                    </select>
                                                 </div>
                                             </div>
-
-                                            <div className="flex items-center gap-3">
-                                                <input
-                                                    type="checkbox"
-                                                    id="gst_applicable"
-                                                    checked={appSettings.gst_applicable}
-                                                    onChange={(e) => handleGstApplicableChange(e.target.checked)}
-                                                    className="w-4 h-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
-                                                />
-                                                <label htmlFor="gst_applicable" className="text-sm font-medium text-gray-700">
-                                                    GST Applicable
-                                                </label>
-                                            </div>
-
-                                            {appSettings.gst_applicable && (
-                                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 bg-gray-50 rounded-lg border border-gray-200">
-                                                    <div>
-                                                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                                                            GST Number
-                                                        </label>
-                                                        <input
-                                                            type="text"
-                                                            value={appSettings.gst_number}
-                                                            onChange={(e) => handleAppSettingsChange('gst_number', e.target.value)}
-                                                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
-                                                            placeholder="18XXXXX0000X0XX"
-                                                            maxLength="15"
-                                                        />
-                                                    </div>
-                                                    <div>
-                                                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                                                            GST Rate (%)
-                                                        </label>
-                                                        <input
-                                                            type="text"
-                                                            value={appSettings.gst_rate}
-                                                            onChange={(e) => handleAppSettingsChange('gst_rate', e.target.value)}
-                                                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
-                                                            placeholder="GST Rate"
-                                                        />
-                                                    </div>
-                                                </div>
-                                            )}
 
                                             <div className="pt-4">
                                                 <motion.button
@@ -585,7 +656,11 @@ const AppSettings = () => {
                                 <div className="p-6">
                                     <div className="text-center mb-4">
                                         <div className="inline-block p-4 bg-gray-100 rounded-lg">
-                                            <FiImage className="w-12 h-12 text-gray-400" />
+                                            {logoUrl ? (
+                                                <img src={logoUrl} alt="Current Logo" className="w-12 h-12 object-contain" />
+                                            ) : (
+                                                <FiImage className="w-12 h-12 text-gray-400" />
+                                            )}
                                         </div>
                                         <p className="text-sm text-gray-500 mt-2">Current Logo</p>
                                     </div>
@@ -595,12 +670,33 @@ const AppSettings = () => {
                                                 <label className="block text-sm font-medium text-gray-700 mb-2">
                                                     Website Logo <span className="text-red-500 text-sm">*1:1 ratio recommended</span>
                                                 </label>
+                                                <div
+                                                    role="button"
+                                                    tabIndex={0}
+                                                    onClick={() => logoInputRef.current?.click()}
+                                                    onKeyDown={(e) => {
+                                                        if (e.key === 'Enter' || e.key === ' ') logoInputRef.current?.click();
+                                                    }}
+                                                    onDragOver={(e) => {
+                                                        e.preventDefault();
+                                                        setIsLogoDragging(true);
+                                                    }}
+                                                    onDragLeave={() => setIsLogoDragging(false)}
+                                                    onDrop={handleLogoDrop}
+                                                    className={`w-full rounded-xl border-2 border-dashed px-4 py-6 text-center cursor-pointer transition ${isLogoDragging ? 'border-indigo-500 bg-indigo-50' : 'border-gray-300 hover:border-indigo-400 bg-gray-50'}`}
+                                                >
+                                                    <FiImage className="mx-auto h-8 w-8 text-gray-400" />
+                                                    <p className="mt-2 text-sm font-medium text-gray-700">Drag and drop logo here</p>
+                                                    <p className="text-xs text-gray-500">or click to browse</p>
+                                                    {logoFile && <p className="mt-2 text-xs text-indigo-600">{logoFile.name}</p>}
+                                                </div>
                                                 <input
+                                                    ref={logoInputRef}
                                                     type="file"
                                                     onChange={handleLogoFileChange}
-                                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
+                                                    className="hidden"
                                                     accept="image/*"
-                                                    required
+                                                    required={!logoFile}
                                                 />
                                             </div>
                                             <motion.button
@@ -628,7 +724,11 @@ const AppSettings = () => {
                                 <div className="p-6">
                                     <div className="text-center mb-4">
                                         <div className="inline-block p-4 bg-gray-100 rounded-lg">
-                                            <FiFileText className="w-12 h-12 text-gray-400" />
+                                            {signUrl ? (
+                                                <img src={signUrl} alt="Current Signature" className="w-12 h-12 object-contain" />
+                                            ) : (
+                                                <FiFileText className="w-12 h-12 text-gray-400" />
+                                            )}
                                         </div>
                                         <p className="text-sm text-gray-500 mt-2">Current Signature</p>
                                     </div>
@@ -638,12 +738,33 @@ const AppSettings = () => {
                                                 <label className="block text-sm font-medium text-gray-700 mb-2">
                                                     Upload Signature
                                                 </label>
+                                                <div
+                                                    role="button"
+                                                    tabIndex={0}
+                                                    onClick={() => signInputRef.current?.click()}
+                                                    onKeyDown={(e) => {
+                                                        if (e.key === 'Enter' || e.key === ' ') signInputRef.current?.click();
+                                                    }}
+                                                    onDragOver={(e) => {
+                                                        e.preventDefault();
+                                                        setIsSignDragging(true);
+                                                    }}
+                                                    onDragLeave={() => setIsSignDragging(false)}
+                                                    onDrop={handleSignDrop}
+                                                    className={`w-full rounded-xl border-2 border-dashed px-4 py-6 text-center cursor-pointer transition ${isSignDragging ? 'border-indigo-500 bg-indigo-50' : 'border-gray-300 hover:border-indigo-400 bg-gray-50'}`}
+                                                >
+                                                    <FiFileText className="mx-auto h-8 w-8 text-gray-400" />
+                                                    <p className="mt-2 text-sm font-medium text-gray-700">Drag and drop signature here</p>
+                                                    <p className="text-xs text-gray-500">or click to browse</p>
+                                                    {signFile && <p className="mt-2 text-xs text-indigo-600">{signFile.name}</p>}
+                                                </div>
                                                 <input
+                                                    ref={signInputRef}
                                                     type="file"
                                                     onChange={handleSignFileChange}
-                                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
+                                                    className="hidden"
                                                     accept="image/*"
-                                                    required
+                                                    required={!signFile}
                                                 />
                                             </div>
                                             <motion.button
@@ -673,42 +794,14 @@ const AppSettings = () => {
                                         <div className="space-y-4">
                                             <div>
                                                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                                                    Name On Account
+                                                    Invoice Address
                                                 </label>
-                                                <input
-                                                    type="text"
-                                                    value={invoiceSettings.invoice_holder}
-                                                    onChange={(e) => handleInvoiceSettingsChange('invoice_holder', e.target.value)}
+                                                <textarea
+                                                    value={invoiceSettings.address}
+                                                    onChange={(e) => handleInvoiceSettingsChange('address', e.target.value)}
                                                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
-                                                    placeholder="Account Name"
-                                                    required
-                                                />
-                                            </div>
-
-                                            <div>
-                                                <label className="block text-sm font-medium text-gray-700 mb-2">
-                                                    Account Number
-                                                </label>
-                                                <input
-                                                    type="text"
-                                                    value={invoiceSettings.invoice_account_no}
-                                                    onChange={(e) => handleInvoiceSettingsChange('invoice_account_no', e.target.value)}
-                                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
-                                                    placeholder="Account Number"
-                                                    required
-                                                />
-                                            </div>
-
-                                            <div>
-                                                <label className="block text-sm font-medium text-gray-700 mb-2">
-                                                    Account IFSC
-                                                </label>
-                                                <input
-                                                    type="text"
-                                                    value={invoiceSettings.invoice_ifsc}
-                                                    onChange={(e) => handleInvoiceSettingsChange('invoice_ifsc', e.target.value)}
-                                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
-                                                    placeholder="Account IFSC Code"
+                                                    rows="3"
+                                                    placeholder="Invoice address"
                                                     required
                                                 />
                                             </div>

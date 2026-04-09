@@ -3,6 +3,8 @@ import ReactDOM from 'react-dom/client';
 import './index.css';
 import reportWebVitals from './reportWebVitals';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { Toaster } from 'react-hot-toast';
+import BodyScrollLockObserver from './components/BodyScrollLockObserver';
 
 // Import components
 import Login from './pages/login';
@@ -99,6 +101,9 @@ const PublicRoute = ({ children }) => {
 const root = ReactDOM.createRoot(document.getElementById('root'));
 root.render(
   <BrowserRouter>
+    <Toaster position="top-center" toastOptions={{ duration: 4000 }} />
+    {/* Locks body scroll whenever any full-viewport modal/overlay is open — app-wide fix */}
+    <BodyScrollLockObserver />
     <Routes>
       {/* Public Routes */}
       <Route path="/login" element={
