@@ -1,6 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useLocation, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
+import { FiCheckCircle, FiCircle, FiSend, FiMail as FiMailIcon } from 'react-icons/fi';
 import {
     FiArrowLeft,
     FiRefreshCw,
@@ -21,7 +22,15 @@ import {
     FiMail,
     FiCalendar as FiCalendarIcon,
     FiClock,
-    FiX
+    FiX,
+    FiMenu,
+    FiUserPlus,
+    FiLock,
+    FiCheckSquare,
+    FiFileText,
+    FiBookOpen,
+    FiClipboard,
+    FiFolder
 } from 'react-icons/fi';
 import { Sidebar, Header } from '../components/header';
 import getHeaders from '../utils/get-headers';
@@ -52,6 +61,8 @@ const QuickStatsDetailsPage = () => {
     });
     const [searchTerm, setSearchTerm] = useState('');
     const [expandedRows, setExpandedRows] = useState(new Set());
+    const [openMenuId, setOpenMenuId] = useState(null);
+    const menuRef = useRef(null);
 
     // Persist sidebar minimized state
     useEffect(() => {
@@ -69,6 +80,17 @@ const QuickStatsDetailsPage = () => {
             document.body.style.overflow = 'auto';
         };
     }, [mobileMenuOpen]);
+
+    // Close menu when clicking outside
+    useEffect(() => {
+        const handleClickOutside = (event) => {
+            if (menuRef.current && !menuRef.current.contains(event.target)) {
+                setOpenMenuId(null);
+            }
+        };
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, []);
 
     const formatCurrency = (value) => {
         const amount = parseFloat(value) || 0;
@@ -176,6 +198,27 @@ const QuickStatsDetailsPage = () => {
         }
         setExpandedRows(newExpanded);
     };
+
+    const toggleMenu = (menuId, event) => {
+        event.stopPropagation();
+        setOpenMenuId(openMenuId === menuId ? null : menuId);
+    };
+
+    const handleMenuAction = (username, path) => {
+        navigate(`/client/profile/${username}/${path}`);
+        setOpenMenuId(null);
+    };
+
+    const getMenuItems = () => [
+        { icon: <FiUser className="w-4 h-4" />, label: 'Profile', path: 'basic-details' },
+        { icon: <FiBriefcase className="w-4 h-4" />, label: 'Firms', path: 'firms' },
+        { icon: <FiLock className="w-4 h-4" />, label: 'Password', path: 'password' },
+        { icon: <FiCheckSquare className="w-4 h-4" />, label: 'Tasks', path: 'task' },
+        { icon: <FiFileText className="w-4 h-4" />, label: 'Billing', path: 'billing' },
+        { icon: <FiBookOpen className="w-4 h-4" />, label: 'Ledger', path: 'ledger' },
+        { icon: <FiClipboard className="w-4 h-4" />, label: 'Notes', path: 'notes' },
+        { icon: <FiFolder className="w-4 h-4" />, label: 'Documents', path: 'documents' }
+    ];
 
     const getPageTitle = () => {
         switch(type) {
@@ -347,6 +390,8 @@ const QuickStatsDetailsPage = () => {
             );
         }
 
+        const menuItems = getMenuItems();
+
         return (
             <div className="overflow-x-auto">
                 <table className="min-w-full divide-y divide-gray-200">
@@ -394,14 +439,48 @@ const QuickStatsDetailsPage = () => {
                                         </span>
                                         <div className="text-xs text-gray-500">{item.balance_type}</div>
                                     </td>
-                                    <td className="px-6 py-4 whitespace-nowrap text-center">
-                                        <button 
-                                            onClick={() => navigate(`/client/details/${item.username}`)}
-                                            className="inline-flex items-center gap-1 px-3 py-1 bg-cyan-100 text-cyan-700 rounded-lg hover:bg-cyan-200 transition-colors text-sm"
-                                        >
-                                            <FiEye className="w-3 h-3" />
-                                            View
-                                        </button>
+                                    <td className="px-6 py-4 whitespace-nowrap text-center relative">
+                                        <div className="flex items-center justify-center gap-2">
+                                            {/* <button 
+                                                onClick={() => navigate(`/client/details/${item.username}`)}
+                                                className="inline-flex items-center gap-1 px-3 py-1 bg-cyan-100 text-cyan-700 rounded-lg hover:bg-cyan-200 transition-colors text-sm"
+                                            >
+                                                <FiEye className="w-3 h-3" />
+                                                View
+                                            </button> */}
+                                            <div className="relative" ref={menuRef}>
+                                                <button
+                                                    onClick={(e) => toggleMenu(item.username || index, e)}
+                                                    className="inline-flex items-center gap-1 px-3 py-1 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors text-sm"
+                                                >
+                                                    <FiMenu className="w-3 h-3" />
+                                                    Menu
+                                                </button>
+                                                <AnimatePresence>
+                                                    {openMenuId === (item.username || index) && (
+                                                        <motion.div
+                                                            initial={{ opacity: 0, scale: 0.95, y: -10 }}
+                                                            animate={{ opacity: 1, scale: 1, y: 0 }}
+                                                            exit={{ opacity: 0, scale: 0.95, y: -10 }}
+                                                            className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-xl border border-gray-200 z-50"
+                                                        >
+                                                            <div className="py-2">
+                                                                {menuItems.map((menuItem, idx) => (
+                                                                    <button
+                                                                        key={idx}
+                                                                        onClick={() => handleMenuAction(item.username, menuItem.path)}
+                                                                        className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 transition-colors flex items-center gap-3"
+                                                                    >
+                                                                        {menuItem.icon}
+                                                                        {menuItem.label}
+                                                                    </button>
+                                                                ))}
+                                                            </div>
+                                                        </motion.div>
+                                                    )}
+                                                </AnimatePresence>
+                                            </div>
+                                        </div>
                                     </td>
                                 </tr>
                                 <AnimatePresence>
@@ -457,6 +536,8 @@ const QuickStatsDetailsPage = () => {
             );
         }
 
+        const menuItems = getMenuItems();
+
         return (
             <div className="overflow-x-auto">
                 <table className="min-w-full divide-y divide-gray-200">
@@ -511,14 +592,48 @@ const QuickStatsDetailsPage = () => {
                                             <span className="text-sm text-gray-400">No transactions</span>
                                         )}
                                     </td>
-                                    <td className="px-6 py-4 whitespace-nowrap text-center">
-                                        <button 
-                                            onClick={() => navigate(`/client/details/${item.username}`)}
-                                            className="inline-flex items-center gap-1 px-3 py-1 bg-red-100 text-red-700 rounded-lg hover:bg-red-200 transition-colors text-sm"
-                                        >
-                                            <FiEye className="w-3 h-3" />
-                                            View
-                                        </button>
+                                    <td className="px-6 py-4 whitespace-nowrap text-center relative">
+                                        <div className="flex items-center justify-center gap-2">
+                                            {/* <button 
+                                                onClick={() => navigate(`/client/details/${item.username}`)}
+                                                className="inline-flex items-center gap-1 px-3 py-1 bg-red-100 text-red-700 rounded-lg hover:bg-red-200 transition-colors text-sm"
+                                            >
+                                                <FiEye className="w-3 h-3" />
+                                                View
+                                            </button> */}
+                                            <div className="relative" ref={menuRef}>
+                                                <button
+                                                    onClick={(e) => toggleMenu(item.username || index, e)}
+                                                    className="inline-flex items-center gap-1 px-3 py-1 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors text-sm"
+                                                >
+                                                    <FiMenu className="w-3 h-3" />
+                                                    Menu
+                                                </button>
+                                                <AnimatePresence>
+                                                    {openMenuId === (item.username || index) && (
+                                                        <motion.div
+                                                            initial={{ opacity: 0, scale: 0.95, y: -10 }}
+                                                            animate={{ opacity: 1, scale: 1, y: 0 }}
+                                                            exit={{ opacity: 0, scale: 0.95, y: -10 }}
+                                                            className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-xl border border-gray-200 z-50"
+                                                        >
+                                                            <div className="py-2">
+                                                                {menuItems.map((menuItem, idx) => (
+                                                                    <button
+                                                                        key={idx}
+                                                                        onClick={() => handleMenuAction(item.username, menuItem.path)}
+                                                                        className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 transition-colors flex items-center gap-3"
+                                                                    >
+                                                                        {menuItem.icon}
+                                                                        {menuItem.label}
+                                                                    </button>
+                                                                ))}
+                                                            </div>
+                                                        </motion.div>
+                                                    )}
+                                                </AnimatePresence>
+                                            </div>
+                                        </div>
                                     </td>
                                 </tr>
                                 <AnimatePresence>
@@ -728,13 +843,13 @@ const QuickStatsDetailsPage = () => {
                                         {item.birth_date ? formatDate(item.birth_date) : 'N/A'}
                                     </td>
                                     <td className="px-6 py-4 whitespace-nowrap text-center">
-                                        <button 
+                                        {/* <button 
                                             onClick={() => navigate(`/client/details/${item.username}`)}
                                             className="inline-flex items-center gap-1 px-3 py-1 bg-purple-100 text-purple-700 rounded-lg hover:bg-purple-200 transition-colors text-sm"
                                         >
                                             <FiEye className="w-3 h-3" />
                                             View
-                                        </button>
+                                        </button> */}
                                     </td>
                                 </tr>
                                 <AnimatePresence>

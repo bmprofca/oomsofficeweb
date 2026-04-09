@@ -218,7 +218,7 @@ const QuickStats = ({
         return { count: 0, amount: propValue || 0 };
     };
 
-    // Individual Card Component
+    // Individual Card Component - Compact Version
     const CardComponent = React.memo(({ card, index }) => {
         const statData = getStatValue(card.value);
         const count = statData.count || 0;
@@ -252,36 +252,36 @@ const QuickStats = ({
                 {/* Drag indicator */}
                 {isCustomizing && (
                     <div className="absolute -top-2 -left-2 z-10 pointer-events-none">
-                        <div className="p-1.5 bg-gradient-to-r from-indigo-600 to-purple-600 rounded-lg shadow-lg">
-                            <FiMove className="w-3 h-3 text-white" />
+                        <div className="p-1 bg-gradient-to-r from-indigo-600 to-purple-600 rounded-lg shadow-lg">
+                            <FiMove className="w-2.5 h-2.5 text-white" />
                         </div>
                     </div>
                 )}
 
                 <motion.div 
-                    className={`relative overflow-hidden rounded-2xl shadow-lg hover:shadow-2xl transition-all duration-300 h-full`}
+                    className={`relative overflow-hidden rounded-xl shadow-md hover:shadow-lg transition-all duration-300 h-full`}
                     style={{ background: card.gradient }}
                     whileHover={{ 
-                        scale: isCustomizing ? 1 : 1.02,
-                        y: isCustomizing ? 0 : -2,
+                        scale: isCustomizing ? 1 : 1.01,
+                        y: isCustomizing ? 0 : -1,
                         transition: { duration: 0.2 }
                     }}
                     whileTap={{ scale: 0.98 }}
                 >
-                    <div className="p-6">
-                        <div className="flex items-start justify-between mb-4">
+                    <div className="p-3">
+                        <div className="flex items-start justify-between mb-2">
                             <div className="flex-1 min-w-0">
-                                <div className="text-white/80 text-sm font-medium mb-1 flex items-center gap-2 flex-wrap">
+                                <div className="text-white/80 text-xs font-medium mb-1 flex items-center gap-1 flex-wrap">
                                     {card.title}
                                     {!isCustomizing && (
                                         <button
                                             onClick={(e) => toggleCardCollapse(card.id, e)}
-                                            className="p-1 hover:bg-white/20 rounded-lg transition-all duration-200 flex-shrink-0"
+                                            className="p-0.5 hover:bg-white/20 rounded transition-all duration-200 flex-shrink-0"
                                         >
                                             {isCollapsed ? (
-                                                <FiChevronDown className="w-4 h-4 text-white/70" />
+                                                <FiChevronDown className="w-3 h-3 text-white/70" />
                                             ) : (
-                                                <FiChevronUp className="w-4 h-4 text-white/70" />
+                                                <FiChevronUp className="w-3 h-3 text-white/70" />
                                             )}
                                         </button>
                                     )}
@@ -295,42 +295,43 @@ const QuickStats = ({
                                             transition={{ duration: 0.2 }}
                                         >
                                             {loading ? (
-                                                <div className="space-y-2">
-                                                    <div className="animate-pulse h-6 bg-white/20 rounded w-24"></div>
+                                                <div className="space-y-1">
                                                     <div className="animate-pulse h-4 bg-white/20 rounded w-16"></div>
+                                                    <div className="animate-pulse h-3 bg-white/20 rounded w-12"></div>
                                                 </div>
                                             ) : (
-                                                <div className="space-y-2">
-                                                    {/* Count - always show with 0 entries if no data */}
-                                                    {showCount && (
-                                                        <div>
-                                                            <div className={`text-2xl font-bold text-white ${blurEnabled ? 'blur-sm' : ''}`}>
-                                                                {formatNumber(count)}
+                                                <div className="space-y-1">
+                                                    {/* Count and Amount in compact row */}
+                                                    <div className="flex items-baseline gap-3 flex-wrap">
+                                                        {showCount && (
+                                                            <div>
+                                                                <div className={`text-lg font-bold text-white leading-tight ${blurEnabled ? 'blur-sm' : ''}`}>
+                                                                    {formatNumber(count)}
+                                                                </div>
+                                                                <div className="text-white/50 text-[10px] leading-tight">
+                                                                    entries
+                                                                </div>
                                                             </div>
-                                                            <div className="text-white/60 text-xs mt-0.5">
-                                                                {count === 1 ? 'entry' : 'entries'}
+                                                        )}
+                                                        {showAmount && amount > 0 && (
+                                                            <div>
+                                                                <div className={`text-sm font-semibold text-white/90 leading-tight ${blurEnabled ? 'blur-sm' : ''}`}>
+                                                                    {formatCurrency(amount)}
+                                                                </div>
+                                                                <div className="text-white/50 text-[10px] leading-tight">
+                                                                    amount
+                                                                </div>
                                                             </div>
-                                                        </div>
-                                                    )}
-                                                    {/* Amount */}
-                                                    {showAmount && amount > 0 && (
-                                                        <div>
-                                                            <div className={`text-xl font-semibold text-white/90 ${blurEnabled ? 'blur-sm' : ''}`}>
-                                                                {formatCurrency(amount)}
-                                                            </div>
-                                                            <div className="text-white/60 text-xs mt-0.5">
-                                                                amount
-                                                            </div>
-                                                        </div>
-                                                    )}
+                                                        )}
+                                                    </div>
                                                 </div>
                                             )}
                                         </motion.div>
                                     )}
                                 </AnimatePresence>
                             </div>
-                            <div className="p-3 bg-white/20 backdrop-blur-sm rounded-xl flex-shrink-0 ml-3">
-                                {IconComponent && <IconComponent className="w-6 h-6 text-white" />}
+                            <div className="p-1.5 bg-white/20 backdrop-blur-sm rounded-lg flex-shrink-0 ml-2">
+                                {IconComponent && <IconComponent className="w-4 h-4 text-white" />}
                             </div>
                         </div>
                         <AnimatePresence mode="wait">
@@ -341,18 +342,18 @@ const QuickStats = ({
                                     exit={{ opacity: 0 }}
                                     transition={{ duration: 0.2 }}
                                 >
-                                    <div className="flex items-center justify-between mt-2">
-                                        <div className="flex gap-3 text-white/60 text-xs">
-                                            {showCount && <span>Total Count</span>}
-                                            {showAmount && amount > 0 && <span>Total Amount</span>}
+                                    <div className="flex items-center justify-between mt-2 pt-1 border-t border-white/20">
+                                        <div className="flex gap-2 text-white/50 text-[9px]">
+                                            {showCount && <span>Count</span>}
+                                            {showAmount && amount > 0 && <span>Amount</span>}
                                         </div>
                                         {isCustomizing ? (
-                                            <div className="p-1 bg-white/30 rounded-lg">
-                                                <FiMove className="w-3 h-3 text-white" />
+                                            <div className="p-0.5 bg-white/30 rounded">
+                                                <FiMove className="w-2.5 h-2.5 text-white" />
                                             </div>
                                         ) : (
-                                            <div className="text-white/70 text-xs">
-                                                View Details →
+                                            <div className="text-white/60 text-[9px]">
+                                                Details →
                                             </div>
                                         )}
                                     </div>
@@ -449,51 +450,51 @@ const QuickStats = ({
 
     return (
         <div className="w-full relative">
-            <div className="flex items-center gap-3 mb-6 flex-wrap">
-                <div className="p-3 bg-gradient-to-br from-blue-100 to-cyan-100 rounded-xl flex-shrink-0">
-                    <FiTrendingUp className="w-6 h-6 text-blue-600" />
+            <div className="flex items-center gap-2 mb-4 flex-wrap">
+                <div className="p-2 bg-gradient-to-br from-blue-100 to-cyan-100 rounded-lg flex-shrink-0">
+                    <FiTrendingUp className="w-4 h-4 text-blue-600" />
                 </div>
-                <h3 className="text-xl font-bold text-gray-800">Quick Stats</h3>
+                <h3 className="text-base font-bold text-gray-800">Quick Stats</h3>
                 {!isCustomizing && (
-                    <div className="flex items-center gap-2 ml-auto">
+                    <div className="flex items-center gap-1 ml-auto">
                         <button
                             onClick={allCollapsed ? expandAllCards : collapseAllCards}
-                            className="flex items-center gap-1 px-3 py-1.5 text-xs bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg transition-all duration-200"
+                            className="flex items-center gap-1 px-2 py-1 text-xs bg-gray-100 hover:bg-gray-200 text-gray-700 rounded transition-all duration-200"
                             title={allCollapsed ? "Expand all cards" : "Collapse all cards"}
                         >
                             {allCollapsed ? (
-                                <FiMaximize2 className="w-3 h-3" />
+                                <FiMaximize2 className="w-2.5 h-2.5" />
                             ) : (
-                                <FiMinus className="w-3 h-3" />
+                                <FiMinus className="w-2.5 h-2.5" />
                             )}
-                            <span>{allCollapsed ? "Expand All" : "Collapse All"}</span>
+                            <span className="text-[10px]">{allCollapsed ? "Expand All" : "Collapse All"}</span>
                         </button>
                         <button
                             onClick={handleRefresh}
-                            className="p-2 text-gray-500 hover:text-indigo-600 transition-colors"
+                            className="p-1.5 text-gray-500 hover:text-indigo-600 transition-colors"
                             title="Refresh stats"
                             disabled={loading}
                         >
-                            <FiClock className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+                            <FiClock className={`w-3 h-3 ${loading ? 'animate-spin' : ''}`} />
                         </button>
                     </div>
                 )}
                 {isCustomizing && (
-                    <div className="ml-auto text-xs px-3 py-1 bg-gradient-to-r from-indigo-100 to-purple-100 text-indigo-700 rounded-full">
-                        Drag cards to reorder
+                    <div className="ml-auto text-[10px] px-2 py-0.5 bg-gradient-to-r from-indigo-100 to-purple-100 text-indigo-700 rounded-full">
+                        Drag to reorder
                     </div>
                 )}
             </div>
             
             {/* Loading Overlay */}
             {loading && (
-                <div className="absolute inset-0 bg-white/50 backdrop-blur-sm flex items-center justify-center rounded-2xl z-20">
-                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
+                <div className="absolute inset-0 bg-white/50 backdrop-blur-sm flex items-center justify-center rounded-xl z-20">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
                 </div>
             )}
             
-            {/* Grid with proper gap and equal height cards */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 auto-rows-fr relative">
+            {/* Grid with compact cards */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-2 auto-rows-fr relative">
                 {cardsToRender.map((card, index) => (
                     <CardComponent key={card.id} card={card} index={index} />
                 ))}
