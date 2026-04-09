@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { FiSettings, FiFileText, FiImage } from 'react-icons/fi';
 import { motion } from 'framer-motion';
+import { toast } from 'react-hot-toast';
+import axios from 'axios';
 import { Header, Sidebar } from '../../components/header';
 import StateDistrictSelect from '../../components/state-district-select';
 import API_BASE_URL from '../../utils/api-controller';
@@ -50,6 +52,12 @@ const AppSettings = () => {
     const [isSignDragging, setIsSignDragging] = useState(false);
     const logoInputRef = useRef(null);
     const signInputRef = useRef(null);
+    const [activeTab, setActiveTab] = useState('details');
+    const [detailsSaving, setDetailsSaving] = useState(false);
+    const [logoUploading, setLogoUploading] = useState(false);
+    const [signUploading, setSignUploading] = useState(false);
+    const [logoPublicUrl, setLogoPublicUrl] = useState('');
+    const [signPublicUrl, setSignPublicUrl] = useState('');
 
     useEffect(() => {
         return () => {
@@ -84,11 +92,52 @@ const AppSettings = () => {
         fetchSettingsData();
     }, []);
 
+    const applyBranchDetailsData = (data = {}) => {
+        const basic = data?.basic || {};
+        const address = basic?.address || {};
+        const mobile = basic?.mobile || {};
+        const email = basic?.email || {};
+        const gst = basic?.gst || {};
+        const image = data?.image || {};
+        const invoice = data?.invoice || {};
+        const gstRateValue = gst?.gst_rate ? String(Number(gst.gst_rate)) : '0';
+
+        setAppSettings(prev => ({
+            ...prev,
+            app_name: basic?.name || '',
+            address_line_1: address?.address_line_1 || '',
+            address_line_2: address?.address_line_2 || '',
+            city: address?.city || '',
+            state: address?.state || '',
+            pincode: address?.pincode ? String(address.pincode) : '',
+            country: address?.country || 'India',
+            mobile_1: mobile?.mobile_1 ? String(mobile.mobile_1) : '',
+            mobile_2: mobile?.mobile_2 ? String(mobile.mobile_2) : '',
+            email_1: email?.email_1 || '',
+            email_2: email?.email_2 || '',
+            pan: basic?.pan?.pan || '',
+            gst_number: gst?.gst || '',
+            gst_rate: ['0', '5', '18', '40'].includes(gstRateValue) ? gstRateValue : '0',
+        }));
+
+        setInvoiceSettings(prev => ({
+            ...prev,
+            address: invoice?.address || prev.address,
+        }));
+
+        setLogoUrl(image?.logo || '');
+        setSignUrl(image?.sign || '');
+        setLogoPublicUrl('');
+        setSignPublicUrl('');
+        setPanVerified(Boolean(basic?.pan?.is_pan_verified));
+        setGstVerified(Boolean(gst?.is_gst_verified));
+    };
+
     const fetchSettingsData = async () => {
         const headers = getHeaders();
         if (!headers) {
             setLoading(false);
-            alert('Missing authentication. Please sign in again.');
+            toast.error('Missing authentication. Please sign in again.');
             return;
         }
 
@@ -103,46 +152,10 @@ const AppSettings = () => {
             if (!response.ok || !json?.success) {
                 throw new Error(json?.message || `Request failed (${response.status})`);
             }
-
-            const basic = json?.data?.basic || {};
-            const address = basic?.address || {};
-            const mobile = basic?.mobile || {};
-            const email = basic?.email || {};
-            const gst = basic?.gst || {};
-            const image = json?.data?.image || {};
-            const invoice = json?.data?.invoice || {};
-            const gstRateValue = gst?.gst_rate ? String(Number(gst.gst_rate)) : '0';
-
-            setAppSettings(prev => ({
-                ...prev,
-                app_name: basic?.name || '',
-                address_line_1: address?.address_line_1 || '',
-                address_line_2: address?.address_line_2 || '',
-                city: address?.city || '',
-                state: address?.state || '',
-                pincode: address?.pincode ? String(address.pincode) : '',
-                country: address?.country || 'India',
-                mobile_1: mobile?.mobile_1 ? String(mobile.mobile_1) : '',
-                mobile_2: mobile?.mobile_2 ? String(mobile.mobile_2) : '',
-                email_1: email?.email_1 || '',
-                email_2: email?.email_2 || '',
-                pan: basic?.pan?.pan || '',
-                gst_number: gst?.gst || '',
-                gst_rate: ['0', '5', '18', '40'].includes(gstRateValue) ? gstRateValue : '0',
-            }));
-
-            setInvoiceSettings(prev => ({
-                ...prev,
-                address: invoice?.address || prev.address,
-            }));
-
-            setLogoUrl(image?.logo || '');
-            setSignUrl(image?.sign || '');
-            setPanVerified(Boolean(basic?.pan?.is_pan_verified));
-            setGstVerified(Boolean(gst?.is_gst_verified));
+            applyBranchDetailsData(json?.data || {});
         } catch (error) {
             console.error('Branch details fetch error:', error);
-            alert(error?.message || 'Failed to load app settings');
+            toast.error(error?.message || 'Failed to load app settings');
         } finally {
             setLoading(false);
         }
@@ -304,44 +317,28 @@ const AppSettings = () => {
     const handleLogoFileChange = (e) => {
         const selectedFile = e.target.files?.[0];
         if (selectedFile) {
-            setValidatedImageFile(selectedFile, 'logo');
+            processImageSelection(selectedFile, 'logo');
         }
     };
 
     const handleSignFileChange = (e) => {
         const selectedFile = e.target.files?.[0];
         if (selectedFile) {
-            setValidatedImageFile(selectedFile, 'sign');
-        }
-    };
-
-    const setValidatedImageFile = (file, type) => {
-        if (!file.type?.startsWith('image/')) {
-            alert(`Please select a valid image file for ${type === 'logo' ? 'logo' : 'signature'}.`);
-            return;
-        }
-
-        const objectUrl = URL.createObjectURL(file);
-        if (type === 'logo') {
-            if (logoPreviewUrl) URL.revokeObjectURL(logoPreviewUrl);
-            setLogoFile(file);
-            setLogoPreviewUrl(objectUrl);
-        } else {
-            if (signPreviewUrl) URL.revokeObjectURL(signPreviewUrl);
-            setSignFile(file);
-            setSignPreviewUrl(objectUrl);
+            processImageSelection(selectedFile, 'sign');
         }
     };
 
     const clearSelectedFile = (type) => {
         if (type === 'logo') {
             setLogoFile(null);
+            setLogoPublicUrl('');
             if (logoPreviewUrl) URL.revokeObjectURL(logoPreviewUrl);
             setLogoPreviewUrl('');
             if (logoInputRef.current) logoInputRef.current.value = '';
             return;
         }
         setSignFile(null);
+        setSignPublicUrl('');
         if (signPreviewUrl) URL.revokeObjectURL(signPreviewUrl);
         setSignPreviewUrl('');
         if (signInputRef.current) signInputRef.current.value = '';
@@ -349,18 +346,63 @@ const AppSettings = () => {
 
     const handleAppSettingsSubmit = async (e) => {
         e.preventDefault();
-        setLoading(true);
+        const headers = getHeaders();
+        if (!headers) {
+            toast.error('Missing authentication. Please sign in again.');
+            return;
+        }
 
-        const payload = {
-            ...appSettings,
-            country: 'India',
-        };
+        setDetailsSaving(true);
+        try {
+            const payload = {
+                name: appSettings.app_name,
+                address: {
+                    address_line_1: appSettings.address_line_1,
+                    address_line_2: appSettings.address_line_2,
+                    city: appSettings.city,
+                    state: appSettings.state,
+                    pincode: appSettings.pincode,
+                    country: 'India',
+                },
+                mobile: {
+                    mobile_1: appSettings.mobile_1,
+                    mobile_2: appSettings.mobile_2,
+                },
+                email: {
+                    email_1: appSettings.email_1,
+                    email_2: appSettings.email_2,
+                },
+                pan: {
+                    pan: appSettings.pan,
+                },
+                gst: {
+                    gst: appSettings.gst_number,
+                    gst_rate: Number(appSettings.gst_rate).toFixed(2),
+                },
+            };
 
-        setTimeout(() => {
-            setLoading(false);
-            console.log('App settings update payload:', payload);
-            alert('App settings updated successfully!');
-        }, 1000);
+            const response = await fetch(`${API_BASE_URL}/settings/branch/update`, {
+                method: 'PUT',
+                headers: {
+                    ...headers,
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(payload),
+            });
+
+            const json = await response.json();
+            if (!response.ok || !json?.success) {
+                throw new Error(json?.message || `Update failed (${response.status})`);
+            }
+
+            applyBranchDetailsData(json?.data || {});
+            toast.success(json?.message || 'Branch details updated successfully!');
+        } catch (error) {
+            console.error('Branch details update error:', error);
+            toast.error(error?.message || 'Failed to update branch details');
+        } finally {
+            setDetailsSaving(false);
+        }
     };
 
     const handleInvoiceSettingsSubmit = async (e) => {
@@ -369,38 +411,159 @@ const AppSettings = () => {
 
         setTimeout(() => {
             setLoading(false);
-            alert('Invoice settings updated successfully!');
+            toast.success('Invoice settings updated successfully!');
         }, 1000);
+    };
+
+    const uploadFileToServer = async (file) => {
+        const headers = getHeaders();
+        if (!headers) {
+            throw new Error('Authentication headers not found');
+        }
+
+        const formData = new FormData();
+        formData.append('file', file);
+
+        const response = await axios.post(`${API_BASE_URL}/upload`, formData, {
+            headers: {
+                ...headers,
+                'Content-Type': 'multipart/form-data',
+            },
+            timeout: 60000,
+        });
+
+        if (!response?.data?.success) {
+            throw new Error(response?.data?.message || 'File upload failed');
+        }
+
+        return response.data?.data?.url || response.data?.url;
+    };
+
+    const processImageSelection = async (file, type) => {
+        if (!file.type?.startsWith('image/')) {
+            toast.error(`Please select a valid image file for ${type === 'logo' ? 'logo' : 'signature'}.`);
+            return;
+        }
+
+        const objectUrl = URL.createObjectURL(file);
+        if (type === 'logo') {
+            if (logoPreviewUrl) URL.revokeObjectURL(logoPreviewUrl);
+            setLogoFile(file);
+            setLogoPreviewUrl(objectUrl);
+            setLogoUploading(true);
+            try {
+                const uploadedUrl = await uploadFileToServer(file);
+                if (!uploadedUrl) throw new Error('Uploaded logo URL not found');
+                setLogoPublicUrl(uploadedUrl);
+                toast.success('Logo uploaded. Click submit to save.');
+            } catch (error) {
+                console.error('Logo pre-upload error:', error);
+                setLogoPublicUrl('');
+                toast.error(error?.message || 'Failed to upload logo file');
+            } finally {
+                setLogoUploading(false);
+            }
+            return;
+        }
+
+        if (signPreviewUrl) URL.revokeObjectURL(signPreviewUrl);
+        setSignFile(file);
+        setSignPreviewUrl(objectUrl);
+        setSignUploading(true);
+        try {
+            const uploadedUrl = await uploadFileToServer(file);
+            if (!uploadedUrl) throw new Error('Uploaded signature URL not found');
+            setSignPublicUrl(uploadedUrl);
+            toast.success('Signature uploaded. Click submit to save.');
+        } catch (error) {
+            console.error('Signature pre-upload error:', error);
+            setSignPublicUrl('');
+            toast.error(error?.message || 'Failed to upload signature file');
+        } finally {
+            setSignUploading(false);
+        }
     };
 
     const handleLogoUpload = async (e) => {
         e.preventDefault();
-        if (!logoFile) {
-            alert('Please select a logo file');
+        if (!logoPublicUrl) {
+            toast.error('Please select and upload a logo image first.');
             return;
         }
 
-        setLoading(true);
-        setTimeout(() => {
-            setLoading(false);
+        const headers = getHeaders();
+        if (!headers) {
+            toast.error('Missing authentication. Please sign in again.');
+            return;
+        }
+
+        setLogoUploading(true);
+        try {
+            const response = await fetch(`${API_BASE_URL}/settings/branch/logo`, {
+                method: 'POST',
+                headers: {
+                    ...headers,
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ logo: logoPublicUrl }),
+            });
+
+            const json = await response.json();
+            if (!response.ok || !json?.success) {
+                throw new Error(json?.message || `Logo update failed (${response.status})`);
+            }
+
+            setLogoUrl(json?.data?.logo || logoPublicUrl);
+            setLogoPublicUrl('');
             clearSelectedFile('logo');
-            alert('Logo uploaded successfully!');
-        }, 1000);
+            toast.success(json?.message || 'Branch logo updated successfully!');
+        } catch (error) {
+            console.error('Logo upload/update error:', error);
+            toast.error(error?.message || 'Failed to upload logo');
+        } finally {
+            setLogoUploading(false);
+        }
     };
 
     const handleSignUpload = async (e) => {
         e.preventDefault();
-        if (!signFile) {
-            alert('Please select a signature file');
+        if (!signPublicUrl) {
+            toast.error('Please select and upload a signature image first.');
             return;
         }
 
-        setLoading(true);
-        setTimeout(() => {
-            setLoading(false);
+        const headers = getHeaders();
+        if (!headers) {
+            toast.error('Missing authentication. Please sign in again.');
+            return;
+        }
+
+        setSignUploading(true);
+        try {
+            const response = await fetch(`${API_BASE_URL}/settings/branch/sign`, {
+                method: 'POST',
+                headers: {
+                    ...headers,
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ sign: signPublicUrl }),
+            });
+
+            const json = await response.json();
+            if (!response.ok || !json?.success) {
+                throw new Error(json?.message || `Signature update failed (${response.status})`);
+            }
+
+            setSignUrl(json?.data?.sign || signPublicUrl);
+            setSignPublicUrl('');
             clearSelectedFile('sign');
-            alert('Signature uploaded successfully!');
-        }, 1000);
+            toast.success(json?.message || 'Branch sign updated successfully!');
+        } catch (error) {
+            console.error('Signature upload/update error:', error);
+            toast.error(error?.message || 'Failed to upload signature');
+        } finally {
+            setSignUploading(false);
+        }
     };
 
     const handleLogoDrop = (e) => {
@@ -408,7 +571,7 @@ const AppSettings = () => {
         setIsLogoDragging(false);
         const droppedFile = e.dataTransfer?.files?.[0];
         if (droppedFile) {
-            setValidatedImageFile(droppedFile, 'logo');
+            processImageSelection(droppedFile, 'logo');
         }
     };
 
@@ -417,7 +580,7 @@ const AppSettings = () => {
         setIsSignDragging(false);
         const droppedFile = e.dataTransfer?.files?.[0];
         if (droppedFile) {
-            setValidatedImageFile(droppedFile, 'sign');
+            processImageSelection(droppedFile, 'sign');
         }
     };
 
@@ -444,216 +607,243 @@ const AppSettings = () => {
             {/* Main content */}
             <div className={`pt-16 transition-all duration-300 ease-in-out ${isMinimized ? 'md:pl-20' : 'md:pl-72'}`}>
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 md:px-8 py-6">
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                        {/* App Settings Card */}
-                        <div className="space-y-6">
-                            <div className="bg-white rounded-lg border border-gray-200 shadow-sm">
-                                <div className="border-b border-gray-200 px-6 py-4">
-                                    <h5 className="text-lg font-semibold text-gray-800 flex items-center gap-2">
-                                        <FiSettings className="w-5 h-5" />
-                                        App Settings
-                                    </h5>
-                                </div>
-                                <div className="p-6">
-                                    <form onSubmit={handleAppSettingsSubmit}>
-                                        <div className="space-y-4">
-                                            <div>
-                                                <label className="block text-sm font-medium text-gray-700 mb-2">
-                                                    App Name
-                                                </label>
-                                                <input
-                                                    type="text"
-                                                    value={appSettings.app_name}
-                                                    onChange={(e) => handleAppSettingsChange('app_name', e.target.value)}
-                                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
-                                                    placeholder="App Name"
-                                                    required
-                                                />
-                                            </div>
-
-                                            <div>
-                                                <label className="block text-sm font-medium text-gray-700 mb-2">
-                                                    Address Line 1
-                                                </label>
-                                                <input
-                                                    type="text"
-                                                    value={appSettings.address_line_1}
-                                                    onChange={(e) => handleAppSettingsChange('address_line_1', e.target.value)}
-                                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
-                                                    placeholder="Address line 1"
-                                                    required
-                                                />
-                                            </div>
-
-                                            <div>
-                                                <div>
-                                                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                                                        Address Line 2
-                                                    </label>
-                                                    <input
-                                                        type="text"
-                                                        value={appSettings.address_line_2}
-                                                        onChange={(e) => handleAppSettingsChange('address_line_2', e.target.value)}
-                                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
-                                                        placeholder="Address line 2"
-                                                    />
-                                                </div>
-                                            </div>
-
-                                            <StateDistrictSelect
-                                                selectedState={appSettings.state}
-                                                selectedDistrict={appSettings.city}
-                                                onStateChange={(value) => handleAppSettingsChange('state', value)}
-                                                onDistrictChange={(value) => handleAppSettingsChange('city', value)}
-                                            />
-
-                                            <div>
-                                                <label className="block text-sm font-medium text-gray-700 mb-2">
-                                                    Pincode
-                                                </label>
-                                                <input
-                                                    type="text"
-                                                    value={appSettings.pincode}
-                                                    onChange={(e) => handleAppSettingsChange('pincode', e.target.value)}
-                                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
-                                                    placeholder="Pincode"
-                                                    required
-                                                />
-                                            </div>
-
-                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                                <div>
-                                                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                                                        Mobile 1
-                                                    </label>
-                                                    <input
-                                                        type="text"
-                                                        value={appSettings.mobile_1}
-                                                        onChange={(e) => handleAppSettingsChange('mobile_1', e.target.value)}
-                                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
-                                                        placeholder="Primary mobile"
-                                                        required
-                                                    />
-                                                </div>
-                                                <div>
-                                                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                                                        Mobile 2
-                                                    </label>
-                                                    <input
-                                                        type="text"
-                                                        value={appSettings.mobile_2}
-                                                        onChange={(e) => handleAppSettingsChange('mobile_2', e.target.value)}
-                                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
-                                                        placeholder="Secondary mobile"
-                                                    />
-                                                </div>
-                                            </div>
-
-                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                                <div>
-                                                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                                                        Email 1
-                                                    </label>
-                                                    <input
-                                                        type="email"
-                                                        value={appSettings.email_1}
-                                                        onChange={(e) => handleAppSettingsChange('email_1', e.target.value)}
-                                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
-                                                        placeholder="Primary email"
-                                                        required
-                                                    />
-                                                </div>
-                                                <div>
-                                                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                                                        Email 2
-                                                    </label>
-                                                    <input
-                                                        type="email"
-                                                        value={appSettings.email_2}
-                                                        onChange={(e) => handleAppSettingsChange('email_2', e.target.value)}
-                                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
-                                                        placeholder="Secondary email"
-                                                    />
-                                                </div>
-                                            </div>
-
-                                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 p-4 bg-gray-50 rounded-lg border border-gray-200">
-                                                <div>
-                                                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                                                        PAN
-                                                    </label>
-                                                    <input
-                                                        type="text"
-                                                        value={appSettings.pan}
-                                                        onChange={(e) => handleAppSettingsChange('pan', e.target.value)}
-                                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
-                                                        placeholder="PAN Number"
-                                                        maxLength="10"
-                                                    />
-                                                    <p className={`mt-2 text-xs font-medium ${panVerified ? 'text-green-600' : 'text-amber-600'}`}>
-                                                        PAN {panVerified ? 'Verified' : 'Not Verified'}
-                                                    </p>
-                                                </div>
-                                                <div>
-                                                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                                                        GST Number
-                                                    </label>
-                                                    <input
-                                                        type="text"
-                                                        value={appSettings.gst_number}
-                                                        onChange={(e) => handleAppSettingsChange('gst_number', e.target.value)}
-                                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
-                                                        placeholder="GST Number"
-                                                    />
-                                                    <p className={`mt-2 text-xs font-medium ${gstVerified ? 'text-green-600' : 'text-amber-600'}`}>
-                                                        GST {gstVerified ? 'Verified' : 'Not Verified'}
-                                                    </p>
-                                                </div>
-                                                <div>
-                                                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                                                        GST Rate (%)
-                                                    </label>
-                                                    <select
-                                                        value={appSettings.gst_rate}
-                                                        onChange={(e) => handleAppSettingsChange('gst_rate', e.target.value)}
-                                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
-                                                    >
-                                                        <option value="0">0%</option>
-                                                        <option value="5">5%</option>
-                                                        <option value="18">18%</option>
-                                                        <option value="40">40%</option>
-                                                    </select>
-                                                </div>
-                                            </div>
-
-                                            <div className="pt-4">
-                                                <motion.button
-                                                    type="submit"
-                                                    disabled={loading}
-                                                    className="w-full px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors disabled:opacity-50"
-                                                    whileHover={{ scale: 1.02 }}
-                                                    whileTap={{ scale: 0.98 }}
-                                                >
-                                                    {loading ? 'Updating...' : 'Update App Settings'}
-                                                </motion.button>
-                                            </div>
-                                        </div>
-                                    </form>
+                    <div className="bg-white rounded-lg border border-gray-200 shadow-sm">
+                        <div className="border-b border-gray-200 px-6 py-4">
+                            <h5 className="text-lg font-semibold text-gray-800 flex items-center gap-2">
+                                <FiSettings className="w-5 h-5" />
+                                App Settings
+                            </h5>
+                            <div className="mt-4 rounded-xl border border-indigo-100 bg-gradient-to-r from-indigo-50 via-white to-indigo-50 p-1.5">
+                                <div className="grid grid-cols-2 md:grid-cols-4 gap-1.5">
+                                    <button
+                                        type="button"
+                                        onClick={() => setActiveTab('details')}
+                                        className={`flex items-center justify-center gap-2 px-3 py-2 text-sm rounded-lg border transition-all ${activeTab === 'details' ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm' : 'bg-white text-gray-700 border-transparent hover:border-indigo-200 hover:text-indigo-700'}`}
+                                    >
+                                        <FiSettings className="w-4 h-4" />
+                                        <span>Details</span>
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => setActiveTab('logo')}
+                                        className={`flex items-center justify-center gap-2 px-3 py-2 text-sm rounded-lg border transition-all ${activeTab === 'logo' ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm' : 'bg-white text-gray-700 border-transparent hover:border-indigo-200 hover:text-indigo-700'}`}
+                                    >
+                                        <FiImage className="w-4 h-4" />
+                                        <span>Logo</span>
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => setActiveTab('signature')}
+                                        className={`flex items-center justify-center gap-2 px-3 py-2 text-sm rounded-lg border transition-all ${activeTab === 'signature' ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm' : 'bg-white text-gray-700 border-transparent hover:border-indigo-200 hover:text-indigo-700'}`}
+                                    >
+                                        <FiFileText className="w-4 h-4" />
+                                        <span>Signature</span>
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => setActiveTab('invoice')}
+                                        className={`flex items-center justify-center gap-2 px-3 py-2 text-sm rounded-lg border transition-all ${activeTab === 'invoice' ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm' : 'bg-white text-gray-700 border-transparent hover:border-indigo-200 hover:text-indigo-700'}`}
+                                    >
+                                        <FiFileText className="w-4 h-4" />
+                                        <span>Invoice</span>
+                                    </button>
                                 </div>
                             </div>
                         </div>
+                        <div className="p-6">
+                            {activeTab === 'details' && (
+                                <form onSubmit={handleAppSettingsSubmit}>
+                                    <div className="space-y-4">
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                                App Name
+                                            </label>
+                                            <input
+                                                type="text"
+                                                value={appSettings.app_name}
+                                                onChange={(e) => handleAppSettingsChange('app_name', e.target.value)}
+                                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
+                                                placeholder="App Name"
+                                                required
+                                            />
+                                        </div>
 
-                        {/* Right Column - Logo, Sign, and Invoice Settings */}
-                        <div className="space-y-6">
-                            {/* Logo Settings */}
-                            <div className="bg-white rounded-lg border border-gray-200 shadow-sm">
-                                <div className="border-b border-gray-200 px-6 py-4">
-                                    <h5 className="text-lg font-semibold text-gray-800 flex items-center gap-2">
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                                Address Line 1
+                                            </label>
+                                            <input
+                                                type="text"
+                                                value={appSettings.address_line_1}
+                                                onChange={(e) => handleAppSettingsChange('address_line_1', e.target.value)}
+                                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
+                                                placeholder="Address line 1"
+                                                required
+                                            />
+                                        </div>
+
+                                        <div>
+                                            <div>
+                                                <label className="block text-sm font-medium text-gray-700 mb-2">
+                                                    Address Line 2
+                                                </label>
+                                                <input
+                                                    type="text"
+                                                    value={appSettings.address_line_2}
+                                                    onChange={(e) => handleAppSettingsChange('address_line_2', e.target.value)}
+                                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
+                                                    placeholder="Address line 2"
+                                                />
+                                            </div>
+                                        </div>
+
+                                        <StateDistrictSelect
+                                            selectedState={appSettings.state}
+                                            selectedDistrict={appSettings.city}
+                                            onStateChange={(value) => handleAppSettingsChange('state', value)}
+                                            onDistrictChange={(value) => handleAppSettingsChange('city', value)}
+                                        />
+
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                                Pincode
+                                            </label>
+                                            <input
+                                                type="text"
+                                                value={appSettings.pincode}
+                                                onChange={(e) => handleAppSettingsChange('pincode', e.target.value)}
+                                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
+                                                placeholder="Pincode"
+                                                required
+                                            />
+                                        </div>
+
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                            <div>
+                                                <label className="block text-sm font-medium text-gray-700 mb-2">
+                                                    Mobile 1
+                                                </label>
+                                                <input
+                                                    type="text"
+                                                    value={appSettings.mobile_1}
+                                                    onChange={(e) => handleAppSettingsChange('mobile_1', e.target.value)}
+                                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
+                                                    placeholder="Primary mobile"
+                                                    required
+                                                />
+                                            </div>
+                                            <div>
+                                                <label className="block text-sm font-medium text-gray-700 mb-2">
+                                                    Mobile 2
+                                                </label>
+                                                <input
+                                                    type="text"
+                                                    value={appSettings.mobile_2}
+                                                    onChange={(e) => handleAppSettingsChange('mobile_2', e.target.value)}
+                                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
+                                                    placeholder="Secondary mobile"
+                                                />
+                                            </div>
+                                        </div>
+
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                            <div>
+                                                <label className="block text-sm font-medium text-gray-700 mb-2">
+                                                    Email 1
+                                                </label>
+                                                <input
+                                                    type="email"
+                                                    value={appSettings.email_1}
+                                                    onChange={(e) => handleAppSettingsChange('email_1', e.target.value)}
+                                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
+                                                    placeholder="Primary email"
+                                                    required
+                                                />
+                                            </div>
+                                            <div>
+                                                <label className="block text-sm font-medium text-gray-700 mb-2">
+                                                    Email 2
+                                                </label>
+                                                <input
+                                                    type="email"
+                                                    value={appSettings.email_2}
+                                                    onChange={(e) => handleAppSettingsChange('email_2', e.target.value)}
+                                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
+                                                    placeholder="Secondary email"
+                                                />
+                                            </div>
+                                        </div>
+
+                                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 p-4 bg-gray-50 rounded-lg border border-gray-200">
+                                            <div>
+                                                <label className="block text-sm font-medium text-gray-700 mb-2">
+                                                    PAN
+                                                </label>
+                                                <input
+                                                    type="text"
+                                                    value={appSettings.pan}
+                                                    onChange={(e) => handleAppSettingsChange('pan', e.target.value)}
+                                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
+                                                    placeholder="PAN Number"
+                                                    maxLength="10"
+                                                />
+                                                <p className={`mt-2 text-xs font-medium ${panVerified ? 'text-green-600' : 'text-amber-600'}`}>
+                                                    PAN {panVerified ? 'Verified' : 'Not Verified'}
+                                                </p>
+                                            </div>
+                                            <div>
+                                                <label className="block text-sm font-medium text-gray-700 mb-2">
+                                                    GST Number
+                                                </label>
+                                                <input
+                                                    type="text"
+                                                    value={appSettings.gst_number}
+                                                    onChange={(e) => handleAppSettingsChange('gst_number', e.target.value)}
+                                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
+                                                    placeholder="GST Number"
+                                                />
+                                                <p className={`mt-2 text-xs font-medium ${gstVerified ? 'text-green-600' : 'text-amber-600'}`}>
+                                                    GST {gstVerified ? 'Verified' : 'Not Verified'}
+                                                </p>
+                                            </div>
+                                            <div>
+                                                <label className="block text-sm font-medium text-gray-700 mb-2">
+                                                    GST Rate (%)
+                                                </label>
+                                                <select
+                                                    value={appSettings.gst_rate}
+                                                    onChange={(e) => handleAppSettingsChange('gst_rate', e.target.value)}
+                                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
+                                                >
+                                                    <option value="0">0%</option>
+                                                    <option value="5">5%</option>
+                                                    <option value="18">18%</option>
+                                                    <option value="40">40%</option>
+                                                </select>
+                                            </div>
+                                        </div>
+
+                                        <div className="pt-4">
+                                            <motion.button
+                                                type="submit"
+                                                disabled={detailsSaving}
+                                                className="w-full px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors disabled:opacity-50"
+                                                whileHover={{ scale: 1.02 }}
+                                                whileTap={{ scale: 0.98 }}
+                                            >
+                                                {detailsSaving ? 'Updating...' : 'Update App Settings'}
+                                            </motion.button>
+                                        </div>
+                                    </div>
+                                </form>
+                            )}
+
+                            {activeTab === 'logo' && (
+                                <div>
+                                    <h6 className="text-base font-semibold text-gray-800 flex items-center gap-2 mb-4">
                                         <FiImage className="w-5 h-5" />
                                         Logo Settings
-                                    </h5>
-                                </div>
-                                <div className="p-6">
+                                    </h6>
                                     <div className="text-center mb-4">
                                         <div className="inline-block p-4 bg-gray-100 rounded-lg">
                                             {logoUrl ? (
@@ -691,8 +881,9 @@ const AppSettings = () => {
                                                         <FiImage className="mx-auto h-8 w-8 text-gray-400" />
                                                     )}
                                                     <p className="mt-2 text-sm font-medium text-gray-700">{logoPreviewUrl ? 'Selected logo preview' : 'Drag and drop logo here'}</p>
-                                                    <p className="text-xs text-gray-500">{logoPreviewUrl ? 'Click to replace file' : 'or click to browse'}</p>
+                                                    <p className="text-xs text-gray-500">{logoPreviewUrl ? 'File uploaded, click to replace' : 'or click to browse'}</p>
                                                     {logoFile && <p className="mt-2 text-xs text-indigo-600">{logoFile.name}</p>}
+                                                    {logoPublicUrl && <p className="mt-1 text-[11px] text-green-600">Upload complete. Ready to submit.</p>}
                                                 </div>
                                                 <input
                                                     ref={logoInputRef}
@@ -723,27 +914,24 @@ const AppSettings = () => {
                                             </div>
                                             <motion.button
                                                 type="submit"
-                                                disabled={loading || !logoFile}
+                                                disabled={logoUploading || !logoPublicUrl}
                                                 className="w-full px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors disabled:opacity-50"
                                                 whileHover={{ scale: 1.02 }}
                                                 whileTap={{ scale: 0.98 }}
                                             >
-                                                {loading ? 'Uploading...' : 'Upload Logo'}
+                                                {logoUploading ? 'Uploading file...' : 'Save Logo'}
                                             </motion.button>
                                         </div>
                                     </form>
                                 </div>
-                            </div>
+                            )}
 
-                            {/* Signature Settings */}
-                            <div className="bg-white rounded-lg border border-gray-200 shadow-sm">
-                                <div className="border-b border-gray-200 px-6 py-4">
-                                    <h5 className="text-lg font-semibold text-gray-800 flex items-center gap-2">
+                            {activeTab === 'signature' && (
+                                <div>
+                                    <h6 className="text-base font-semibold text-gray-800 flex items-center gap-2 mb-4">
                                         <FiFileText className="w-5 h-5" />
                                         Upload Invoice Sign
-                                    </h5>
-                                </div>
-                                <div className="p-6">
+                                    </h6>
                                     <div className="text-center mb-4">
                                         <div className="inline-block p-4 bg-gray-100 rounded-lg">
                                             {signUrl ? (
@@ -781,8 +969,9 @@ const AppSettings = () => {
                                                         <FiFileText className="mx-auto h-8 w-8 text-gray-400" />
                                                     )}
                                                     <p className="mt-2 text-sm font-medium text-gray-700">{signPreviewUrl ? 'Selected signature preview' : 'Drag and drop signature here'}</p>
-                                                    <p className="text-xs text-gray-500">{signPreviewUrl ? 'Click to replace file' : 'or click to browse'}</p>
+                                                    <p className="text-xs text-gray-500">{signPreviewUrl ? 'File uploaded, click to replace' : 'or click to browse'}</p>
                                                     {signFile && <p className="mt-2 text-xs text-indigo-600">{signFile.name}</p>}
+                                                    {signPublicUrl && <p className="mt-1 text-[11px] text-green-600">Upload complete. Ready to submit.</p>}
                                                 </div>
                                                 <input
                                                     ref={signInputRef}
@@ -813,29 +1002,26 @@ const AppSettings = () => {
                                             </div>
                                             <motion.button
                                                 type="submit"
-                                                disabled={loading || !signFile}
+                                                disabled={signUploading || !signPublicUrl}
                                                 className="w-full px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors disabled:opacity-50"
                                                 whileHover={{ scale: 1.02 }}
                                                 whileTap={{ scale: 0.98 }}
                                             >
-                                                {loading ? 'Uploading...' : 'Upload Signature'}
+                                                {signUploading ? 'Uploading file...' : 'Save Signature'}
                                             </motion.button>
                                         </div>
                                     </form>
                                 </div>
-                            </div>
+                            )}
 
-                            {/* Invoice Settings */}
-                            <div className="bg-white rounded-lg border border-gray-200 shadow-sm">
-                                <div className="border-b border-gray-200 px-6 py-4">
-                                    <h5 className="text-lg font-semibold text-gray-800 flex items-center gap-2">
+                            {activeTab === 'invoice' && (
+                                <div>
+                                    <h6 className="text-base font-semibold text-gray-800 flex items-center gap-2 mb-4">
                                         <FiFileText className="w-5 h-5" />
-                                        Invoice Settings
-                                    </h5>
-                                </div>
-                                <div className="p-6">
+                                        Invoice Address
+                                    </h6>
                                     <form onSubmit={handleInvoiceSettingsSubmit}>
-                                        <div className="space-y-4">
+                                        <div className="space-y-4 max-w-2xl">
                                             <div>
                                                 <label className="block text-sm font-medium text-gray-700 mb-2">
                                                     Invoice Address
@@ -864,7 +1050,7 @@ const AppSettings = () => {
                                         </div>
                                     </form>
                                 </div>
-                            </div>
+                            )}
                         </div>
                     </div>
                 </div>
