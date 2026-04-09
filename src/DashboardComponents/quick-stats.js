@@ -21,7 +21,8 @@ import {
     FiChevronUp,
     FiChevronDown,
     FiMinus,
-    FiMaximize2
+    FiMaximize2,
+    FiDollarSign as FiMoney
 } from 'react-icons/fi';
 import getHeaders from '../utils/get-headers';
 import API_BASE_URL from '../utils/api-controller';
@@ -71,15 +72,32 @@ const QuickStats = ({
             const result = await response.json();
 
             if (result.success && result.data) {
-                // Transform API data to match the expected stats format
+                // Transform API data to include both count and amount
                 const transformedStats = {
-                    pending_for_billing: result.data.pending_billing?.count || 0,
-                    creditor: result.data.creditors?.total_amount || 0,
-                    debtor: result.data.debtors?.total_amount || 0,
-                    today_received: result.data.today_received?.total_amount || 0,
-                    today_payment: result.data.today_payment?.total_amount || 0,
-                    today_birthday: result.data.today_birthday?.count || 0,
-                    // Keep original data for detailed views
+                    pending_billing: {
+                        count: result.data.pending_billing?.count || 0,
+                        amount: 0
+                    },
+                    creditor: {
+                        count: result.data.creditors?.count || 0,
+                        amount: result.data.creditors?.total_amount || 0
+                    },
+                    debtor: {
+                        count: result.data.debtors?.count || 0,
+                        amount: result.data.debtors?.total_amount || 0
+                    },
+                    today_received: {
+                        count: result.data.today_received?.count || 0,
+                        amount: result.data.today_received?.total_amount || 0
+                    },
+                    today_payment: {
+                        count: result.data.today_payment?.count || 0,
+                        amount: result.data.today_payment?.total_amount || 0
+                    },
+                    today_birthday: {
+                        count: result.data.today_birthday?.count || 0,
+                        amount: 0
+                    },
                     _raw: result.data
                 };
                 setApiStats(transformedStats);
@@ -90,12 +108,12 @@ const QuickStats = ({
             console.error('Quick Stats API Error:', err);
             // Fallback to prop stats if API fails
             setApiStats({
-                pending_for_billing: propStats.pending_for_billing || 0,
-                creditor: propStats.creditor || 0,
-                debtor: propStats.debtor || 0,
-                today_received: propStats.today_received || 0,
-                today_payment: propStats.today_payment || 0,
-                today_birthday: propStats.today_birthday || 0,
+                pending_billing: { count: propStats.pending_for_billing || 0, amount: 0 },
+                creditor: { count: 0, amount: propStats.creditor || 0 },
+                debtor: { count: 0, amount: propStats.debtor || 0 },
+                today_received: { count: 0, amount: propStats.today_received || 0 },
+                today_payment: { count: 0, amount: propStats.today_payment || 0 },
+                today_birthday: { count: propStats.today_birthday || 0, amount: 0 },
             });
         } finally {
             setLoading(false);
@@ -169,35 +187,51 @@ const QuickStats = ({
         }
     }, [fetchQuickStats, onRefresh]);
 
+    // Handle card click navigation
+    const handleCardClick = useCallback((card, e) => {
+        if (isCustomizing) return;
+        
+        // Don't navigate if clicking on collapse button
+        if (e.target.closest('button')) return;
+        
+        if (onNavigate && card.link) {
+            onNavigate(card.link);
+        }
+    }, [isCustomizing, onNavigate]);
+
     // Calculate allCollapsed for UI state
     const allCollapsed = localCards.length > 0 && 
                          Object.keys(collapsedCards).length === localCards.length && 
                          localCards.every(card => collapsedCards[card.id] === true);
 
     // Combine stats from API and props (API takes precedence)
-    const combinedStats = {
-        ...propStats,
-        ...apiStats
+    const getStatValue = (statKey) => {
+        const apiStat = apiStats[statKey];
+        if (apiStat) {
+            return apiStat;
+        }
+        // Fallback to prop stats
+        const propValue = propStats[statKey];
+        if (typeof propValue === 'object') {
+            return propValue;
+        }
+        return { count: 0, amount: propValue || 0 };
     };
 
-    // Individual Card Component
+    // Individual Card Component - Compact Version
     const CardComponent = React.memo(({ card, index }) => {
-        const value = combinedStats[card.value] || 0;
+        const statData = getStatValue(card.value);
+        const count = statData.count || 0;
+        const amount = statData.amount || 0;
         const IconComponent = card.icon;
         const isDragged = draggedCard === card.id;
         const isDragOver = dragOverCard === card.id;
         const isCollapsed = collapsedCards[card.id] || false;
-
-        const handleClick = () => {
-            if (!isCustomizing && !isCollapsed && onNavigate && card.link) {
-                // Pass additional data for birthday details if needed
-                if (card.id === 'today-birthday' && combinedStats._raw?.today_birthday?.list) {
-                    onNavigate(card.link, { state: { birthdayList: combinedStats._raw.today_birthday.list } });
-                } else {
-                    onNavigate(card.link);
-                }
-            }
-        };
+        
+        // Determine if this card should show amount (has amount data)
+        const showAmount = card.showAmount !== undefined ? card.showAmount : (amount > 0 || card.alwaysShowAmount);
+        // Determine if this card should show count
+        const showCount = card.showCount !== undefined ? card.showCount : true;
 
         return (
             <div
@@ -206,7 +240,7 @@ const QuickStats = ({
                 onDragOver={(e) => onCardDragOver && onCardDragOver(e, card.id, 'quickStats')}
                 onDrop={(e) => handleCardDropInternal(e, card.id, 'quickStats')}
                 onDragEnd={onCardDragEnd}
-                onClick={handleClick}
+                onClick={(e) => handleCardClick(card, e)}
                 className={`relative ${isCustomizing ? 'cursor-move select-none' : 'cursor-pointer'} ${
                     isDragged ? 'opacity-50' : ''
                 } ${isDragOver ? 'scale-105 transition-transform duration-200' : ''}`}
@@ -215,39 +249,39 @@ const QuickStats = ({
                     userSelect: isCustomizing ? 'none' : 'auto'
                 }}
             >
-                {/* Drag indicator - positioned absolutely but doesn't affect layout */}
+                {/* Drag indicator */}
                 {isCustomizing && (
                     <div className="absolute -top-2 -left-2 z-10 pointer-events-none">
-                        <div className="p-1.5 bg-gradient-to-r from-indigo-600 to-purple-600 rounded-lg shadow-lg">
-                            <FiMove className="w-3 h-3 text-white" />
+                        <div className="p-1 bg-gradient-to-r from-indigo-600 to-purple-600 rounded-lg shadow-lg">
+                            <FiMove className="w-2.5 h-2.5 text-white" />
                         </div>
                     </div>
                 )}
 
                 <motion.div 
-                    className={`relative overflow-hidden rounded-2xl shadow-lg hover:shadow-2xl transition-all duration-300 h-full`}
+                    className={`relative overflow-hidden rounded-xl shadow-md hover:shadow-lg transition-all duration-300 h-full`}
                     style={{ background: card.gradient }}
                     whileHover={{ 
-                        scale: isCustomizing ? 1 : 1.02,
-                        y: isCustomizing ? 0 : -2,
+                        scale: isCustomizing ? 1 : 1.01,
+                        y: isCustomizing ? 0 : -1,
                         transition: { duration: 0.2 }
                     }}
                     whileTap={{ scale: 0.98 }}
                 >
-                    <div className="p-6">
-                        <div className="flex items-start justify-between mb-4">
+                    <div className="p-3">
+                        <div className="flex items-start justify-between mb-2">
                             <div className="flex-1 min-w-0">
-                                <div className="text-white/80 text-sm font-medium mb-1 flex items-center gap-2 flex-wrap">
+                                <div className="text-white/80 text-xs font-medium mb-1 flex items-center gap-1 flex-wrap">
                                     {card.title}
                                     {!isCustomizing && (
                                         <button
                                             onClick={(e) => toggleCardCollapse(card.id, e)}
-                                            className="p-1 hover:bg-white/20 rounded-lg transition-all duration-200 flex-shrink-0"
+                                            className="p-0.5 hover:bg-white/20 rounded transition-all duration-200 flex-shrink-0"
                                         >
                                             {isCollapsed ? (
-                                                <FiChevronDown className="w-4 h-4 text-white/70" />
+                                                <FiChevronDown className="w-3 h-3 text-white/70" />
                                             ) : (
-                                                <FiChevronUp className="w-4 h-4 text-white/70" />
+                                                <FiChevronUp className="w-3 h-3 text-white/70" />
                                             )}
                                         </button>
                                     )}
@@ -261,20 +295,43 @@ const QuickStats = ({
                                             transition={{ duration: 0.2 }}
                                         >
                                             {loading ? (
-                                                <div className="text-2xl font-bold text-white mb-2">
-                                                    <div className="animate-pulse">---</div>
+                                                <div className="space-y-1">
+                                                    <div className="animate-pulse h-4 bg-white/20 rounded w-16"></div>
+                                                    <div className="animate-pulse h-3 bg-white/20 rounded w-12"></div>
                                                 </div>
                                             ) : (
-                                                <div className={`text-2xl font-bold text-white mb-2 truncate ${blurEnabled ? 'blur-sm' : ''}`}>
-                                                    {card.isCurrency ? formatCurrency(value) : formatNumber(value)}
+                                                <div className="space-y-1">
+                                                    {/* Count and Amount in compact row */}
+                                                    <div className="flex items-baseline gap-3 flex-wrap">
+                                                        {showCount && (
+                                                            <div>
+                                                                <div className={`text-lg font-bold text-white leading-tight ${blurEnabled ? 'blur-sm' : ''}`}>
+                                                                    {formatNumber(count)}
+                                                                </div>
+                                                                <div className="text-white/50 text-[10px] leading-tight">
+                                                                    entries
+                                                                </div>
+                                                            </div>
+                                                        )}
+                                                        {showAmount && amount > 0 && (
+                                                            <div>
+                                                                <div className={`text-sm font-semibold text-white/90 leading-tight ${blurEnabled ? 'blur-sm' : ''}`}>
+                                                                    {formatCurrency(amount)}
+                                                                </div>
+                                                                <div className="text-white/50 text-[10px] leading-tight">
+                                                                    amount
+                                                                </div>
+                                                            </div>
+                                                        )}
+                                                    </div>
                                                 </div>
                                             )}
                                         </motion.div>
                                     )}
                                 </AnimatePresence>
                             </div>
-                            <div className="p-3 bg-white/20 backdrop-blur-sm rounded-xl flex-shrink-0 ml-3">
-                                {IconComponent && <IconComponent className="w-6 h-6 text-white" />}
+                            <div className="p-1.5 bg-white/20 backdrop-blur-sm rounded-lg flex-shrink-0 ml-2">
+                                {IconComponent && <IconComponent className="w-4 h-4 text-white" />}
                             </div>
                         </div>
                         <AnimatePresence mode="wait">
@@ -285,17 +342,18 @@ const QuickStats = ({
                                     exit={{ opacity: 0 }}
                                     transition={{ duration: 0.2 }}
                                 >
-                                    <div className="flex items-center justify-between">
-                                        <span className="text-white/70 text-xs">
-                                            {card.isCurrency ? 'Total Amount' : 'Total Count'}
-                                        </span>
+                                    <div className="flex items-center justify-between mt-2 pt-1 border-t border-white/20">
+                                        <div className="flex gap-2 text-white/50 text-[9px]">
+                                            {showCount && <span>Count</span>}
+                                            {showAmount && amount > 0 && <span>Amount</span>}
+                                        </div>
                                         {isCustomizing ? (
-                                            <div className="p-1 bg-white/30 rounded-lg">
-                                                <FiMove className="w-3 h-3 text-white" />
+                                            <div className="p-0.5 bg-white/30 rounded">
+                                                <FiMove className="w-2.5 h-2.5 text-white" />
                                             </div>
                                         ) : (
-                                            <div className="text-white/70 text-xs">
-                                                View Details →
+                                            <div className="text-white/60 text-[9px]">
+                                                Details →
                                             </div>
                                         )}
                                     </div>
@@ -312,17 +370,19 @@ const QuickStats = ({
 
     CardComponent.displayName = 'CardComponent';
 
-    // Default cards configuration
+    // Default cards configuration with both count and amount
     const defaultCards = [
         { 
             id: 'pending-billing', 
             title: 'Pending Billing', 
-            value: 'pending_for_billing', 
+            value: 'pending_billing', 
             icon: FiShoppingBag, 
             color: 'bg-gradient-to-br from-indigo-500 to-purple-600 text-white',
             gradient: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-            link: '/view-billing', 
-            isCurrency: false 
+            link: '/quick-stats/pending-billing', 
+            showCount: true,
+            showAmount: false,
+            alwaysShowCount: true
         },
         { 
             id: 'creditors', 
@@ -331,8 +391,10 @@ const QuickStats = ({
             icon: FiUsers, 
             color: 'bg-gradient-to-br from-cyan-500 to-blue-600 text-white',
             gradient: 'linear-gradient(135deg, #06b6d4 0%, #3b82f6 100%)',
-            link: '/view-creditors', 
-            isCurrency: true 
+            link: '/quick-stats/creditors', 
+            showCount: true,
+            showAmount: true,
+            alwaysShowAmount: true
         },
         { 
             id: 'debtors', 
@@ -341,8 +403,10 @@ const QuickStats = ({
             icon: FiShoppingCart, 
             color: 'bg-gradient-to-br from-red-500 to-pink-600 text-white',
             gradient: 'linear-gradient(135deg, #ef4444 0%, #ec4899 100%)',
-            link: '/view-debtors', 
-            isCurrency: true 
+            link: '/quick-stats/debtors', 
+            showCount: true,
+            showAmount: true,
+            alwaysShowAmount: true
         },
         { 
             id: 'today-received', 
@@ -351,8 +415,10 @@ const QuickStats = ({
             icon: FiDollarSign, 
             color: 'bg-gradient-to-br from-green-500 to-emerald-600 text-white',
             gradient: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
-            link: '/view-received', 
-            isCurrency: true 
+            link: '/quick-stats/today-received', 
+            showCount: true,
+            showAmount: true,
+            alwaysShowAmount: true
         },
         { 
             id: 'today-payment', 
@@ -361,8 +427,10 @@ const QuickStats = ({
             icon: FiCreditCard, 
             color: 'bg-gradient-to-br from-orange-500 to-amber-600 text-white',
             gradient: 'linear-gradient(135deg, #f97316 0%, #f59e0b 100%)',
-            link: '/view-payments', 
-            isCurrency: true 
+            link: '/quick-stats/today-payment', 
+            showCount: true,
+            showAmount: true,
+            alwaysShowAmount: true
         },
         { 
             id: 'today-birthday', 
@@ -371,60 +439,62 @@ const QuickStats = ({
             icon: FiCalendar, 
             color: 'bg-gradient-to-br from-purple-500 to-violet-600 text-white',
             gradient: 'linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%)',
-            link: '/view-birthday-today', 
-            isCurrency: false 
+            link: '/quick-stats/today-birthday', 
+            showCount: true,
+            showAmount: false,
+            alwaysShowCount: true
         }
     ];
 
     const cardsToRender = localCards.length > 0 ? localCards : defaultCards;
 
     return (
-        <div className="w-full">
-            <div className="flex items-center gap-3 mb-6 flex-wrap">
-                <div className="p-3 bg-gradient-to-br from-blue-100 to-cyan-100 rounded-xl flex-shrink-0">
-                    <FiTrendingUp className="w-6 h-6 text-blue-600" />
+        <div className="w-full relative">
+            <div className="flex items-center gap-2 mb-4 flex-wrap">
+                <div className="p-2 bg-gradient-to-br from-blue-100 to-cyan-100 rounded-lg flex-shrink-0">
+                    <FiTrendingUp className="w-4 h-4 text-blue-600" />
                 </div>
-                <h3 className="text-xl font-bold text-gray-800">Quick Stats</h3>
+                <h3 className="text-base font-bold text-gray-800">Quick Stats</h3>
                 {!isCustomizing && (
-                    <div className="flex items-center gap-2 ml-auto">
+                    <div className="flex items-center gap-1 ml-auto">
                         <button
                             onClick={allCollapsed ? expandAllCards : collapseAllCards}
-                            className="flex items-center gap-1 px-3 py-1.5 text-xs bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg transition-all duration-200"
+                            className="flex items-center gap-1 px-2 py-1 text-xs bg-gray-100 hover:bg-gray-200 text-gray-700 rounded transition-all duration-200"
                             title={allCollapsed ? "Expand all cards" : "Collapse all cards"}
                         >
                             {allCollapsed ? (
-                                <FiMaximize2 className="w-3 h-3" />
+                                <FiMaximize2 className="w-2.5 h-2.5" />
                             ) : (
-                                <FiMinus className="w-3 h-3" />
+                                <FiMinus className="w-2.5 h-2.5" />
                             )}
-                            <span>{allCollapsed ? "Expand All" : "Collapse All"}</span>
+                            <span className="text-[10px]">{allCollapsed ? "Expand All" : "Collapse All"}</span>
                         </button>
                         <button
                             onClick={handleRefresh}
-                            className="p-2 text-gray-500 hover:text-indigo-600 transition-colors"
+                            className="p-1.5 text-gray-500 hover:text-indigo-600 transition-colors"
                             title="Refresh stats"
                             disabled={loading}
                         >
-                            <FiClock className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+                            <FiClock className={`w-3 h-3 ${loading ? 'animate-spin' : ''}`} />
                         </button>
                     </div>
                 )}
                 {isCustomizing && (
-                    <div className="ml-auto text-xs px-3 py-1 bg-gradient-to-r from-indigo-100 to-purple-100 text-indigo-700 rounded-full">
-                        Drag cards to reorder
+                    <div className="ml-auto text-[10px] px-2 py-0.5 bg-gradient-to-r from-indigo-100 to-purple-100 text-indigo-700 rounded-full">
+                        Drag to reorder
                     </div>
                 )}
             </div>
             
             {/* Loading Overlay */}
             {loading && (
-                <div className="absolute inset-0 bg-white/50 backdrop-blur-sm flex items-center justify-center rounded-2xl z-20">
-                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
+                <div className="absolute inset-0 bg-white/50 backdrop-blur-sm flex items-center justify-center rounded-xl z-20">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
                 </div>
             )}
             
-            {/* Grid with proper gap and equal height cards */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 auto-rows-fr relative">
+            {/* Grid with compact cards */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-2 auto-rows-fr relative">
                 {cardsToRender.map((card, index) => (
                     <CardComponent key={card.id} card={card} index={index} />
                 ))}

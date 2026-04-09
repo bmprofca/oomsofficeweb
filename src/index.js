@@ -74,6 +74,7 @@ import TransactionHistory from './finance/bank/transaction-history';
 import TaskDetailedPage from './DashboardComponents/TaskDetailedPage';
 import ClientDetailPage from './DashboardComponents/ClientDetailPage';
 import TaskDashboardDetailPage from './DashboardComponents/TaskDashboardDetailPage';
+import QuickStatsDetailsPage from './DashboardComponents/quick-stats-details';
 // Authentication wrapper component
 const ProtectedRoute = ({ children }) => {
   const isAuthenticated = () => {
@@ -516,6 +517,12 @@ root.render(
       <Route path="/dashboard/tasks/:metric" element={
         <ProtectedRoute>
           <TaskDashboardDetailPage />
+        </ProtectedRoute>
+      } />
+
+      <Route path="/quick-stats/:type" element={
+        <ProtectedRoute>
+          <QuickStatsDetailsPage />
         </ProtectedRoute>
       } />
 
