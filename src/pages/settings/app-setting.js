@@ -685,9 +685,13 @@ const AppSettings = () => {
                                                     onDrop={handleLogoDrop}
                                                     className={`w-full rounded-xl border-2 border-dashed px-4 py-6 text-center cursor-pointer transition ${isLogoDragging ? 'border-indigo-500 bg-indigo-50' : 'border-gray-300 hover:border-indigo-400 bg-gray-50'}`}
                                                 >
-                                                    <FiImage className="mx-auto h-8 w-8 text-gray-400" />
-                                                    <p className="mt-2 text-sm font-medium text-gray-700">Drag and drop logo here</p>
-                                                    <p className="text-xs text-gray-500">or click to browse</p>
+                                                    {logoPreviewUrl ? (
+                                                        <img src={logoPreviewUrl} alt="Selected Logo Preview" className="mx-auto h-20 w-20 object-contain rounded-md border border-gray-200 bg-white p-1" />
+                                                    ) : (
+                                                        <FiImage className="mx-auto h-8 w-8 text-gray-400" />
+                                                    )}
+                                                    <p className="mt-2 text-sm font-medium text-gray-700">{logoPreviewUrl ? 'Selected logo preview' : 'Drag and drop logo here'}</p>
+                                                    <p className="text-xs text-gray-500">{logoPreviewUrl ? 'Click to replace file' : 'or click to browse'}</p>
                                                     {logoFile && <p className="mt-2 text-xs text-indigo-600">{logoFile.name}</p>}
                                                 </div>
                                                 <input
@@ -698,6 +702,24 @@ const AppSettings = () => {
                                                     accept="image/*"
                                                     required={!logoFile}
                                                 />
+                                                {logoFile && (
+                                                    <div className="mt-3 flex items-center gap-3">
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => logoInputRef.current?.click()}
+                                                            className="px-3 py-1.5 text-xs font-medium text-indigo-700 bg-indigo-50 border border-indigo-200 rounded-md hover:bg-indigo-100"
+                                                        >
+                                                            Change file
+                                                        </button>
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => clearSelectedFile('logo')}
+                                                            className="px-3 py-1.5 text-xs font-medium text-red-700 bg-red-50 border border-red-200 rounded-md hover:bg-red-100"
+                                                        >
+                                                            Remove file
+                                                        </button>
+                                                    </div>
+                                                )}
                                             </div>
                                             <motion.button
                                                 type="submit"
@@ -753,9 +775,13 @@ const AppSettings = () => {
                                                     onDrop={handleSignDrop}
                                                     className={`w-full rounded-xl border-2 border-dashed px-4 py-6 text-center cursor-pointer transition ${isSignDragging ? 'border-indigo-500 bg-indigo-50' : 'border-gray-300 hover:border-indigo-400 bg-gray-50'}`}
                                                 >
-                                                    <FiFileText className="mx-auto h-8 w-8 text-gray-400" />
-                                                    <p className="mt-2 text-sm font-medium text-gray-700">Drag and drop signature here</p>
-                                                    <p className="text-xs text-gray-500">or click to browse</p>
+                                                    {signPreviewUrl ? (
+                                                        <img src={signPreviewUrl} alt="Selected Signature Preview" className="mx-auto h-20 w-20 object-contain rounded-md border border-gray-200 bg-white p-1" />
+                                                    ) : (
+                                                        <FiFileText className="mx-auto h-8 w-8 text-gray-400" />
+                                                    )}
+                                                    <p className="mt-2 text-sm font-medium text-gray-700">{signPreviewUrl ? 'Selected signature preview' : 'Drag and drop signature here'}</p>
+                                                    <p className="text-xs text-gray-500">{signPreviewUrl ? 'Click to replace file' : 'or click to browse'}</p>
                                                     {signFile && <p className="mt-2 text-xs text-indigo-600">{signFile.name}</p>}
                                                 </div>
                                                 <input
@@ -766,6 +792,24 @@ const AppSettings = () => {
                                                     accept="image/*"
                                                     required={!signFile}
                                                 />
+                                                {signFile && (
+                                                    <div className="mt-3 flex items-center gap-3">
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => signInputRef.current?.click()}
+                                                            className="px-3 py-1.5 text-xs font-medium text-indigo-700 bg-indigo-50 border border-indigo-200 rounded-md hover:bg-indigo-100"
+                                                        >
+                                                            Change file
+                                                        </button>
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => clearSelectedFile('sign')}
+                                                            className="px-3 py-1.5 text-xs font-medium text-red-700 bg-red-50 border border-red-200 rounded-md hover:bg-red-100"
+                                                        >
+                                                            Remove file
+                                                        </button>
+                                                    </div>
+                                                )}
                                             </div>
                                             <motion.button
                                                 type="submit"

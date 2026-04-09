@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import API_BASE_URL from '../utils/api-controller';
+import getHeaders from '../utils/get-headers';
 
 const StateDistrictSelect = ({
     selectedState = '',
@@ -25,11 +26,14 @@ const StateDistrictSelect = ({
 
     const fetchStatesAndDistricts = async () => {
         try {
+            const headers = getHeaders();
+            if (!headers) {
+                throw new Error('Missing authentication headers');
+            }
+
             const response = await fetch(`${API_BASE_URL}/utils/states-and-districts`, {
                 method: 'GET',
-                headers: {
-                    Accept: 'application/json',
-                },
+                headers,
             });
 
             if (!response.ok) {
