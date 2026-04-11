@@ -16,7 +16,8 @@
 | Styling | Tailwind CSS |
 | Animations | Framer Motion (`motion`, `AnimatePresence`) |
 | Icons | `react-icons` (fi, pi, tb, md, hi, bs, fa6, ai) |
-| HTTP | Native `fetch` with `AbortController` for cancellation |
+| HTTP | Native `fetch` (most APIs); `axios` for some multipart uploads (e.g. `/upload`) |
+| Toasts | `react-hot-toast` (`toast.success` / `toast.error`) on several settings flows |
 | Auth | localStorage tokens passed as request headers |
 
 ---
@@ -53,7 +54,10 @@ src/
 │   ├── lead.js                 # Lead management
 │   ├── broadcast.js            # Broadcast messages
 │   ├── office-assistance.js    # Office assistance
-│   └── settings.js             # Settings
+│   ├── settings.js             # Settings hub / routing
+│   └── settings/
+│       ├── app-setting.js      # Branch app settings (tabs: details, logo, signature, invoice address)
+│       └── invoice-setting.js    # Invoice prefix settings (example of `getHeaders` + `fetch`)
 │
 ├── components/                 # Shared/reusable components
 │   ├── header.js               # Header + Sidebar navigation
@@ -66,6 +70,7 @@ src/
 │   ├── DatePickerComponent.js  # Single date picker
 │   ├── delete-confirmation.js  # Delete confirm modal
 │   ├── menus.js                # Menu definitions
+│   ├── state-district-select.js # India state + district `<select>`s (shared; calls `/utils/states-and-districts`)
 │   ├── SearchableSelect.js     # Async searchable select
 │   ├── SearchableSelectStatic.js # Static searchable select
 │   ├── create-ledger-modal.js  # Ledger creation modal
@@ -304,6 +309,183 @@ Fixed bar at bottom of screen when items are selected (Pending tab only). Slides
 - State persisted in `localStorage('sidebarMinimized')`
 - No underline on sidebar navigation links (removed default link hover style)
 - Props: `mobileMenuOpen`, `setMobileMenuOpen`, `isMinimized`, `setIsMinimized`
+
+---
+
+## `app-setting.js` — Branch / App Settings (`src/pages/settings/app-setting.js`)
+
+Single settings screen with **tabbed sections**: **Details**, **Logo**, **Signature**, **Invoice**. Uses `Header` + `Sidebar`, same sidebar padding pattern as other pages. User feedback uses **`react-hot-toast`** (not `window.alert`).
+
+### Data load
+
+- **`GET /settings/branch/details`** — no query params. Headers from `getHeaders()`.
+- Response `data` includes `basic`, `image`, `invoice`. A helper **`applyBranchDetailsData(data)`** maps this into local form state and updates logo/sign URLs and PAN/GST verification flags.
+
+### Details tab — update branch profile
+
+- **`PUT /settings/branch/update`**
+- JSON body shape (country always **`"India"`** in payload; country is **not** shown as a field on the UI):
+
+```json
+{
+  "name": "...",
+  "address": {
+    "address_line_1": "...",
+    "address_line_2": "...",
+    "city": "...",
+    "state": "...",
+    "pincode": "...",
+    "country": "India"
+  },
+  "mobile": { "mobile_1": "...", "mobile_2": "..." },
+  "email": { "email_1": "...", "email_2": "..." },
+  "pan": { "pan": "..." },
+  "gst": { "gst": "...", "gst_rate": "18.00" }
+}
+```
+
+- `gst_rate` is sent with two decimal places (`Number(select).toFixed(2)`). The UI uses a **select** with **0%, 5%, 18%, 40%** only.
+- **PAN / GST verification** labels read `basic.pan.is_pan_verified` and `basic.gst.is_gst_verified` (display only).
+- Submit uses local **`detailsSaving`** so the main page skeleton `loading` is not tied to this action.
+
+### State & district fields
+
+- Reusable component: **`src/components/state-district-select.js`** (`StateDistrictSelect`).
+- **`GET /utils/states-and-districts`** — no params; **must** send **`getHeaders()`** (same auth as other authenticated routes).
+- Response: `{ success, data: [ { name, districts: string[] } ] }`. State dropdown is **before** district; changing state clears district.
+
+### Logo & Signature tabs — upload flow
+
+Matches the pattern in **`DocumentsTab.js`** for generic file upload:
+
+1. User picks or **drag-drops** a file; frontend checks **`file.type.startsWith('image/')`**.
+2. **Immediate upload**: **`POST /upload`** with **`FormData`** (`file` field), **`axios`**, headers from **`getHeaders()`**, `Content-Type: multipart/form-data`. Public URL from `response.data.data.url` or `response.data.url`.
+3. URL is stored locally (`logoPublicUrl` / `signPublicUrl`) with preview via object URL; toast indicates upload done.
+4. **Submit** only calls the branch endpoints with that URL (no second file upload on submit):
+   - **`POST /settings/branch/logo`** — body `{ "logo": "<public-url>" }`
+   - **`POST /settings/branch/sign`** — body `{ "sign": "<public-url>" }`
+5. Success response updates displayed logo/sign URL from `data.logo` / `data.sign`. Per-tab busy state: **`logoUploading`** / **`signUploading`**.
+
+### Invoice tab
+
+- **`POST /settings/branch/invoice-address`** — body `{ "address": "<string>" }`, headers from `getHeaders()` + JSON content type.
+- On success, sync textarea from `data.address` when present (including `null` → empty string). Submit uses **`invoiceSaving`**.
+
+### Tab UI
+
+- Tabs are a **segmented control** (gradient container, icon + label, active pill style), not plain bordered buttons.
+
+### Skeleton loading
+
+- Initial **`GET /settings/branch/details`** still drives full-page **`loading`** + skeleton (unchanged pattern for first paint).
+
+---
+
+## `state-district-select.js` — Shared state / district picker
+
+- **File:** `src/components/state-district-select.js`
+- **Props:** `selectedState`, `selectedDistrict`, `onStateChange`, `onDistrictChange`, optional `stateLabel`, `districtLabel`, `required`, `selectClassName`.
+- Fetches once on mount from **`GET ${API_BASE_URL}/utils/states-and-districts`** with **`getHeaders()`**.
+- If headers are missing, fetch fails gracefully (logged); dropdowns stay empty until auth is fixed.
+- Use anywhere a form needs India state + district selection.
+
+---
+
+## `DocumentsTab.js` — File upload reference
+
+- Generic upload: **`POST ${API_BASE_URL}/upload`** with `FormData.append('file', file)`, **`axios`**, and `getHeaders()`. Success URL: `response.data.data?.url || response.data.url`.
+- **`app-setting.js`** logo/signature pre-upload reuses this contract.
+
+---
+
+## Email Broadcast Module (`src/pages/broadcast/email/*`)
+
+Implemented a full Email Broadcast frontend module with Bootstrap-based admin UI, toast feedback, reusable API layer, and route integration.
+
+### Files added
+
+- `src/pages/broadcast/email/emailApi.js`
+- `src/pages/broadcast/email/EmailConfigList.jsx`
+- `src/pages/broadcast/email/EmailConfigFormModal.jsx`
+- `src/pages/broadcast/email/EmailTemplateList.jsx`
+- `src/pages/broadcast/email/EmailTemplateFormModal.jsx`
+- `src/pages/broadcast/email/EmailBroadcastList.jsx`
+- `src/pages/broadcast/email/EmailBroadcastCreate.jsx`
+- `src/pages/broadcast/email/EmailBroadcastDetails.jsx`
+
+### Routing integration
+
+- Added in `src/index.js`:
+  - `/broadcast/email/configs`
+  - `/broadcast/email/templates`
+  - `/broadcast/email`
+  - `/broadcast/email/create`
+  - `/broadcast/email/details/:broadcast_id`
+- Added **Email** tab/cards in `src/pages/broadcast.js` to navigate to this module.
+
+### Dependencies used
+
+- `axios`
+- `react-hot-toast`
+- `bootstrap`
+- `react-bootstrap`
+
+### Auth/header pattern (critical)
+
+- **Aligned to dashboard pattern** by using **`getHeaders()`** in `emailApi.js`.
+- Every API request now sends:
+  - `username`
+  - `token`
+  - `branch`
+- If auth headers are missing, requests fail early with a clear error.
+
+### API base mount and endpoints
+
+Backend router mount is `/broadcast/email`; all module APIs use this prefix:
+
+#### SMTP Config
+- `POST /broadcast/email/config/create`
+- `PUT /broadcast/email/config/update`
+- `GET /broadcast/email/config/list`
+- `GET /broadcast/email/config/details/:config_id`
+- `POST /broadcast/email/config/test`
+- `PUT /broadcast/email/config/set-default`
+- `PUT /broadcast/email/config/change-status`
+
+#### Template
+- `POST /broadcast/email/template/create`
+- `PUT /broadcast/email/template/update`
+- `GET /broadcast/email/template/list`
+- `GET /broadcast/email/template/details/:template_id`
+- `POST /broadcast/email/template/preview`
+- `PUT /broadcast/email/template/change-status`
+
+#### Broadcast
+- `POST /broadcast/email/broadcast/create`
+- `GET /broadcast/email/broadcast/list`
+- `GET /broadcast/email/broadcast/details/:broadcast_id`
+- `GET /broadcast/email/broadcast/recipient-list/:broadcast_id`
+- `POST /broadcast/email/broadcast/pause`
+- `POST /broadcast/email/broadcast/resume`
+- `POST /broadcast/email/broadcast/cancel`
+- `POST /broadcast/email/broadcast/retry-failed`
+- `POST /broadcast/email/broadcast/process-due` (helper included in API layer)
+
+### Backend contract nuances already handled
+
+- **Config create** uses `username` key.
+- **Config update** uses `smtp_username` key.
+- Template preview payload uses `variables` key (not `variables_json`).
+- Pagination helper supports `has_more` in addition to page metadata.
+- List screens show empty states + simple prev/next pagination controls.
+
+### Module behavior summary
+
+- SMTP page: list/add/edit/test/set-default/change-status.
+- Template page: list/add/edit/preview/change-status; preview renders subject/html/text.
+- Broadcast list: status/counters + control actions (pause/resume/cancel/retry).
+- Broadcast create: sectioned form with config/template, schedule, timezone, global JSON, recipients table, import textarea, email + JSON validation.
+- Broadcast details: master info, template snapshot, counters, recipient status table, control actions.
 
 ---
 

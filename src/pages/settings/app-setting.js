@@ -54,6 +54,7 @@ const AppSettings = () => {
     const signInputRef = useRef(null);
     const [activeTab, setActiveTab] = useState('details');
     const [detailsSaving, setDetailsSaving] = useState(false);
+    const [invoiceSaving, setInvoiceSaving] = useState(false);
     const [logoUploading, setLogoUploading] = useState(false);
     const [signUploading, setSignUploading] = useState(false);
     const [logoPublicUrl, setLogoPublicUrl] = useState('');
@@ -407,12 +408,41 @@ const AppSettings = () => {
 
     const handleInvoiceSettingsSubmit = async (e) => {
         e.preventDefault();
-        setLoading(true);
+        const headers = getHeaders();
+        if (!headers) {
+            toast.error('Missing authentication. Please sign in again.');
+            return;
+        }
 
-        setTimeout(() => {
-            setLoading(false);
-            toast.success('Invoice settings updated successfully!');
-        }, 1000);
+        setInvoiceSaving(true);
+        try {
+            const response = await fetch(`${API_BASE_URL}/settings/branch/invoice-address`, {
+                method: 'POST',
+                headers: {
+                    ...headers,
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ address: invoiceSettings.address }),
+            });
+
+            const json = await response.json();
+            if (!response.ok || !json?.success) {
+                throw new Error(json?.message || `Update failed (${response.status})`);
+            }
+
+            if (json?.data && Object.prototype.hasOwnProperty.call(json.data, 'address')) {
+                setInvoiceSettings(prev => ({
+                    ...prev,
+                    address: json.data.address ?? '',
+                }));
+            }
+            toast.success(json?.message || 'Branch invoice address updated successfully!');
+        } catch (error) {
+            console.error('Invoice address update error:', error);
+            toast.error(error?.message || 'Failed to update invoice address');
+        } finally {
+            setInvoiceSaving(false);
+        }
     };
 
     const uploadFileToServer = async (file) => {
@@ -1039,12 +1069,12 @@ const AppSettings = () => {
                                             <div className="pt-2">
                                                 <motion.button
                                                     type="submit"
-                                                    disabled={loading}
+                                                    disabled={invoiceSaving}
                                                     className="w-full px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors disabled:opacity-50"
                                                     whileHover={{ scale: 1.02 }}
                                                     whileTap={{ scale: 0.98 }}
                                                 >
-                                                    {loading ? 'Updating...' : 'Update Invoice Settings'}
+                                                    {invoiceSaving ? 'Updating...' : 'Update Invoice Settings'}
                                                 </motion.button>
                                             </div>
                                         </div>
