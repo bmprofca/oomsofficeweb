@@ -41,6 +41,8 @@ import getHeaders from '../utils/get-headers';
 import API_BASE_URL from '../utils/api-controller';
 import AdditionalStatsComponent from '../DashboardComponents/additional-stats';
 import QuickStats from '../DashboardComponents/quick-stats';
+import ServiceWiseSales  from '../DashboardComponents/serviceWiseSales';
+import StaffWiseSales from '../DashboardComponents/staffWiseSales';
 import { useNavigate } from 'react-router-dom';
 
 // Version constants for localStorage migration
@@ -296,6 +298,7 @@ const Dashboard = () => {
     const [stats, setStats] = useState({});
     const [taskStats, setTaskStats] = useState([]);
     const [topClients, setTopClients] = useState([]);
+        const [refreshKey, setRefreshKey] = useState(0);
     
     // Customization state
     const [isCustomizing, setIsCustomizing] = useState(false);
@@ -1166,116 +1169,30 @@ const Dashboard = () => {
         </WidgetWrapper>
     );
 
-    const ServiceWiseSalesWidget = () => (
-        <WidgetWrapper widgetId="service-wise-sales" title="Service Wise Sales">
-            <div className="p-8">
-                <div className="flex items-center justify-between mb-6">
-                    <div className="flex items-center gap-3">
-                        <div className="p-3 bg-gradient-to-br from-violet-100 to-purple-100 rounded-xl">
-                            <FiPieChart className="w-6 h-6 text-violet-600" />
-                        </div>
-                        <div>
-                            <h3 className="text-xl font-bold text-gray-800">Service Wise Sales</h3>
-                            <p className="text-gray-500">Revenue distribution by service</p>
-                        </div>
-                    </div>
-                    <div className="flex items-center gap-2">
-                        <motion.button 
-                            className="p-3 bg-gradient-to-br from-gray-100 to-gray-200 text-gray-700 rounded-xl hover:shadow-lg transition-all duration-300"
-                            whileHover={{ scale: 1.05 }}
-                            whileTap={{ scale: 0.95 }}
-                        >
-                            <FiCalendar className="w-5 h-5" />
-                        </motion.button>
-                        <div className="flex items-center gap-2">
-                            <input
-                                type="text"
-                                className="px-4 py-3 bg-white border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none shadow-sm min-w-[200px]"
-                                placeholder="Select date range"
-                            />
-                            <motion.button 
-                                className="p-3 bg-gradient-to-br from-indigo-100 to-purple-100 text-indigo-600 rounded-xl hover:shadow-lg transition-all duration-300 hover:scale-105"
-                                whileHover={{ scale: 1.05 }}
-                                whileTap={{ scale: 0.95 }}
-                            >
-                                <FiArrowUpRight className="w-5 h-5" />
-                            </motion.button>
-                        </div>
-                    </div>
-                </div>
-                <div className="h-80 flex items-center justify-center bg-gradient-to-br from-violet-50 to-purple-50 rounded-2xl border border-violet-100">
-                    <div className="text-center">
-                        <div className="relative inline-block">
-                            <FiPieChart className="w-20 h-20 text-violet-400/50 mb-4" />
-                            <div className="absolute inset-0 flex items-center justify-center">
-                                <div className="w-12 h-12 bg-gradient-to-br from-violet-500 to-purple-600 rounded-full flex items-center justify-center">
-                                    <FiPieChart className="w-6 h-6 text-white" />
-                                </div>
-                            </div>
-                        </div>
-                        <p className="text-gray-500 text-lg font-medium">Service wise sales chart</p>
-                        <p className="text-gray-400 mt-2">Interactive chart visualization</p>
-                    </div>
-                </div>
-            </div>
-        </WidgetWrapper>
-    );
+const ServiceWiseSalesWidget = () => (
+    <WidgetWrapper widgetId="service-wise-sales" title="Service Wise Sales">
+        <ServiceWiseSales 
+            onViewDetails={() => navigate('/sales/service-wise')}
+            refreshTrigger={refreshKey}
+        />
+    </WidgetWrapper>
+);
 
-    const StaffWiseSalesWidget = () => (
-        <WidgetWrapper widgetId="staff-wise-sales" title="Staff Wise Sales">
-            <div className="p-8">
-                <div className="flex items-center justify-between mb-6">
-                    <div className="flex items-center gap-3">
-                        <div className="p-3 bg-gradient-to-br from-teal-100 to-emerald-100 rounded-xl">
-                            <FiUsers className="w-6 h-6 text-teal-600" />
-                        </div>
-                        <div>
-                            <h3 className="text-xl font-bold text-gray-800">Staff Wise Sales</h3>
-                            <p className="text-gray-500">Performance by team members</p>
-                        </div>
-                    </div>
-                    <div className="flex items-center gap-2">
-                        <motion.button 
-                            className="p-3 bg-gradient-to-br from-gray-100 to-gray-200 text-gray-700 rounded-xl hover:shadow-lg transition-all duration-300"
-                            whileHover={{ scale: 1.05 }}
-                            whileTap={{ scale: 0.95 }}
-                        >
-                            <FiCalendar className="w-5 h-5" />
-                        </motion.button>
-                        <div className="flex items-center gap-2">
-                            <input
-                                type="text"
-                                className="px-4 py-3 bg-white border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none shadow-sm min-w-[200px]"
-                                placeholder="Select date range"
-                            />
-                            <motion.button 
-                                className="p-3 bg-gradient-to-br from-indigo-100 to-purple-100 text-indigo-600 rounded-xl hover:shadow-lg transition-all duration-300 hover:scale-105"
-                                whileHover={{ scale: 1.05 }}
-                                whileTap={{ scale: 0.95 }}
-                            >
-                                <FiArrowUpRight className="w-5 h-5" />
-                            </motion.button>
-                        </div>
-                    </div>
-                </div>
-                <div className="h-80 flex items-center justify-center bg-gradient-to-br from-teal-50 to-emerald-50 rounded-2xl border border-teal-100">
-                    <div className="text-center">
-                        <div className="relative inline-block">
-                            <FiBarChart2 className="w-20 h-20 text-teal-400/50 mb-4" />
-                            <div className="absolute inset-0 flex items-center justify-center">
-                                <div className="w-12 h-12 bg-gradient-to-br from-teal-500 to-emerald-600 rounded-full flex items-center justify-center">
-                                    <FiBarChart2 className="w-6 h-6 text-white" />
-                                </div>
-                            </div>
-                        </div>
-                        <p className="text-gray-500 text-lg font-medium">Staff wise sales chart</p>
-                        <p className="text-gray-400 mt-2">Performance analytics by staff</p>
-                    </div>
-                </div>
-            </div>
-        </WidgetWrapper>
-    );
-
+const StaffWiseSalesWidget = () => (
+    <WidgetWrapper widgetId="staff-wise-sales" title="Staff Wise Sales">
+        <StaffWiseSales 
+            onViewDetails={() => navigate('/sales/staff-wise')}
+            refreshTrigger={refreshKey}
+        />
+    </WidgetWrapper>
+);
+// Use this container to show them side by side
+const SalesWidgetsContainer = () => (
+    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
+        <ServiceWiseSalesWidget />
+        <StaffWiseSalesWidget />
+    </div>
+);
     const TopClientsWidget = () => (
         <WidgetWrapper widgetId="top-clients" title="Top Clients">
             <div className="p-8">
