@@ -1,8 +1,11 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import './index.css';
+import 'bootstrap/dist/css/bootstrap.min.css';
 import reportWebVitals from './reportWebVitals';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { Toaster } from 'react-hot-toast';
+import BodyScrollLockObserver from './components/BodyScrollLockObserver';
 
 // Import components
 import Login from './pages/login';
@@ -48,6 +51,11 @@ import TextMessageOoms from './pages/broadcast/message/ooms';
 import BroadcastReport from './pages/broadcast/report';
 import WhatsAppOoms from './pages/broadcast/whatsapp/ooms';
 import PushNotification from './pages/broadcast/push-notification/notification';
+import EmailConfigList from './pages/broadcast/email/EmailConfigList';
+import EmailTemplateList from './pages/broadcast/email/EmailTemplateList';
+import EmailBroadcastList from './pages/broadcast/email/EmailBroadcastList';
+import EmailBroadcastCreate from './pages/broadcast/email/EmailBroadcastCreate';
+import EmailBroadcastDetails from './pages/broadcast/email/EmailBroadcastDetails';
 import Settings from './pages/settings';
 import StaffList from './pages/settings/staff-list';
 import PermissionList from './pages/settings/permission';
@@ -100,6 +108,9 @@ const PublicRoute = ({ children }) => {
 const root = ReactDOM.createRoot(document.getElementById('root'));
 root.render(
   <BrowserRouter>
+    <Toaster position="top-center" toastOptions={{ duration: 4000 }} />
+    {/* Locks body scroll whenever any full-viewport modal/overlay is open — app-wide fix */}
+    <BodyScrollLockObserver />
     <Routes>
       {/* Public Routes */}
       <Route path="/login" element={
@@ -410,6 +421,33 @@ root.render(
       <Route path="/broadcast/report" element={
         <ProtectedRoute>
           <BroadcastReport />
+        </ProtectedRoute>
+      } />
+
+      {/* Email Broadcast Module */}
+      <Route path="/broadcast/email/configs" element={
+        <ProtectedRoute>
+          <EmailConfigList />
+        </ProtectedRoute>
+      } />
+      <Route path="/broadcast/email/templates" element={
+        <ProtectedRoute>
+          <EmailTemplateList />
+        </ProtectedRoute>
+      } />
+      <Route path="/broadcast/email" element={
+        <ProtectedRoute>
+          <EmailBroadcastList />
+        </ProtectedRoute>
+      } />
+      <Route path="/broadcast/email/create" element={
+        <ProtectedRoute>
+          <EmailBroadcastCreate />
+        </ProtectedRoute>
+      } />
+      <Route path="/broadcast/email/details/:broadcast_id" element={
+        <ProtectedRoute>
+          <EmailBroadcastDetails />
         </ProtectedRoute>
       } />
 

@@ -9,6 +9,7 @@ import {
     FiMessageSquare,
     FiDatabase,
     FiLayers,
+    FiMail,
 } from 'react-icons/fi';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
@@ -213,6 +214,37 @@ const Broadcast = () => {
         }
     ];
 
+    const emailCards = [
+        {
+            title: "SMTP Configs",
+            description: "Manage SMTP connections",
+            icon: <FiSettings className="w-5 h-5" />,
+            link: "/broadcast/email/configs",
+            color: "bg-indigo-100 text-indigo-600"
+        },
+        {
+            title: "Templates",
+            description: "Manage email templates",
+            icon: <FiFileText className="w-5 h-5" />,
+            link: "/broadcast/email/templates",
+            color: "bg-indigo-100 text-indigo-600"
+        },
+        {
+            title: "Broadcasts",
+            description: "View all email broadcasts",
+            icon: <FiMail className="w-5 h-5" />,
+            link: "/broadcast/email",
+            color: "bg-indigo-100 text-indigo-600"
+        },
+        {
+            title: "Create Broadcast",
+            description: "Create new email campaign",
+            icon: <FiSend className="w-5 h-5" />,
+            link: "/broadcast/email/create",
+            color: "bg-indigo-100 text-indigo-600"
+        },
+    ];
+
     // Handle channel changes
     const handleTextMessageChannelChange = async (newChannel) => {
         setTextMessageChannel(newChannel);
@@ -347,6 +379,17 @@ const Broadcast = () => {
         </div>
     );
 
+    const renderEmailSection = () => (
+        <div className="bg-white rounded-lg border border-gray-200 mb-6">
+            <div className="border-b border-gray-200 px-6 py-4">
+                <h5 className="text-lg font-semibold text-gray-800">Email Broadcast</h5>
+            </div>
+            <div className="p-6">
+                {renderCardGrid(emailCards)}
+            </div>
+        </div>
+    );
+
     return (
         <div className="min-h-screen bg-gray-50">
             <Header
@@ -392,33 +435,39 @@ const Broadcast = () => {
                                     <nav className="-mb-px flex space-x-8 overflow-x-auto">
                                         <button
                                             onClick={() => setActiveTab('text-message')}
-                                            className={`py-2 px-1 border-b-2 font-medium text-sm whitespace-nowrap transition-colors ${
-                                                activeTab === 'text-message'
-                                                    ? 'border-blue-500 text-blue-600'
-                                                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                                            }`}
+                                            className={`py-2 px-1 border-b-2 font-medium text-sm whitespace-nowrap transition-colors ${activeTab === 'text-message'
+                                                ? 'border-blue-500 text-blue-600'
+                                                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                                                }`}
                                         >
                                             Text Message
                                         </button>
                                         <button
                                             onClick={() => setActiveTab('whatsapp')}
-                                            className={`py-2 px-1 border-b-2 font-medium text-sm whitespace-nowrap transition-colors ${
-                                                activeTab === 'whatsapp'
-                                                    ? 'border-green-500 text-green-600'
-                                                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                                            }`}
+                                            className={`py-2 px-1 border-b-2 font-medium text-sm whitespace-nowrap transition-colors ${activeTab === 'whatsapp'
+                                                ? 'border-green-500 text-green-600'
+                                                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                                                }`}
                                         >
                                             WhatsApp
                                         </button>
                                         <button
                                             onClick={() => setActiveTab('push')}
-                                            className={`py-2 px-1 border-b-2 font-medium text-sm whitespace-nowrap transition-colors ${
-                                                activeTab === 'push'
-                                                    ? 'border-purple-500 text-purple-600'
-                                                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                                            }`}
+                                            className={`py-2 px-1 border-b-2 font-medium text-sm whitespace-nowrap transition-colors ${activeTab === 'push'
+                                                ? 'border-purple-500 text-purple-600'
+                                                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                                                }`}
                                         >
                                             Push Notification
+                                        </button>
+                                        <button
+                                            onClick={() => setActiveTab('email')}
+                                            className={`py-2 px-1 border-b-2 font-medium text-sm whitespace-nowrap transition-colors ${activeTab === 'email'
+                                                ? 'border-indigo-500 text-indigo-600'
+                                                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                                                }`}
+                                        >
+                                            Email
                                         </button>
                                     </nav>
                                 </div>
@@ -449,6 +498,7 @@ const Broadcast = () => {
                                 {activeTab === 'whatsapp' && renderWhatsappSection()}
 
                                 {activeTab === 'push' && renderPushNotificationSection()}
+                                {activeTab === 'email' && renderEmailSection()}
                             </div>
                         </div>
                     </motion.div>
