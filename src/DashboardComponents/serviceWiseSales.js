@@ -1,10 +1,12 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { FiPieChart, FiCalendar, FiArrowUpRight, FiTrendingUp, FiAward } from 'react-icons/fi';
 import { motion } from 'framer-motion';
+import { useNavigate } from 'react-router-dom';
 import getHeaders from '../utils/get-headers';
 import API_BASE_URL from '../utils/api-controller';
 
-const ServiceWiseSales = ({ onViewDetails, refreshTrigger }) => {
+const ServiceWiseSales = ({ refreshTrigger }) => {
+    const navigate = useNavigate();
     const [loading, setLoading] = useState(false);
     const [salesData, setSalesData] = useState([]);
     const [totalSales, setTotalSales] = useState(0);
@@ -36,7 +38,7 @@ const ServiceWiseSales = ({ onViewDetails, refreshTrigger }) => {
         }).format(amount || 0);
     };
 
-    const fetchSalesData = async () => {
+    const fetchSalesData = useCallback(async () => {
         setLoading(true);
         try {
             const headers = getHeaders();
@@ -63,35 +65,39 @@ const ServiceWiseSales = ({ onViewDetails, refreshTrigger }) => {
                 if (result.data.service_wise) {
                     const serviceData = result.data.service_wise;
                     
-                    if (serviceData.top_service) {
-                        formattedData.push({
-                            id: 0,
-                            name: serviceData.top_service.service_name,
-                            value: parseFloat(serviceData.top_service.total_sales),
-                            service_id: serviceData.top_service.service_id
-                        });
-                        total = parseFloat(serviceData.total_sales);
-                    }
-                    
                     if (serviceData.services && Array.isArray(serviceData.services)) {
                         formattedData = serviceData.services.map((item, index) => ({
-                            id: index,
+                            id: item.service_id || index,
                             name: item.service_name || item.name,
                             value: parseFloat(item.total_sales || item.amount || 0),
-                            service_id: item.service_id
+                            service_id: item.service_id,
+                            percentage: parseFloat(item.percentage) || 0
                         }));
                         total = parseFloat(serviceData.total_sales);
+                    } else if (serviceData.top_service) {
+                        formattedData = [{
+                            id: serviceData.top_service.service_id || 0,
+                            name: serviceData.top_service.service_name,
+                            value: parseFloat(serviceData.top_service.total_sales),
+                            service_id: serviceData.top_service.service_id,
+                            percentage: 100
+                        }];
+                        total = parseFloat(serviceData.total_sales);
                     }
-                }
-                
-                if (Array.isArray(result.data)) {
+                } else if (Array.isArray(result.data)) {
                     formattedData = result.data.map((item, index) => ({
-                        id: index,
+                        id: item.service_id || index,
                         name: item.service_name || item.name || `Service ${index + 1}`,
                         value: parseFloat(item.total_sales || item.amount || 0),
-                        service_id: item.service_id
+                        service_id: item.service_id,
+                        percentage: 0
                     }));
                     total = formattedData.reduce((sum, item) => sum + item.value, 0);
+                    
+                    formattedData = formattedData.map(item => ({
+                        ...item,
+                        percentage: (item.value / total) * 100
+                    }));
                 }
                 
                 setSalesData(formattedData);
@@ -102,6 +108,8 @@ const ServiceWiseSales = ({ onViewDetails, refreshTrigger }) => {
                         item.value > max.value ? item : max, formattedData[0]
                     );
                     setTopService(top);
+                } else {
+                    setTopService(null);
                 }
             } else {
                 throw new Error(result.message || 'Failed to fetch service sales data');
@@ -114,11 +122,11 @@ const ServiceWiseSales = ({ onViewDetails, refreshTrigger }) => {
         } finally {
             setLoading(false);
         }
-    };
+    }, [dateRange]);
 
     useEffect(() => {
         fetchSalesData();
-    }, [dateRange, refreshTrigger]);
+    }, [fetchSalesData, refreshTrigger]);
 
     const handleDateChange = (type, value) => {
         setDateRange(prev => ({
@@ -127,9 +135,13 @@ const ServiceWiseSales = ({ onViewDetails, refreshTrigger }) => {
         }));
     };
 
+    const handleViewDetails = () => {
+        // Navigate to details page with current date range
+        navigate(`/service-sales-details?from_date=${dateRange.from_date}&to_date=${dateRange.to_date}`);
+    };
+
     const COLORS = ['#6366f1', '#8b5cf6', '#ec4899', '#f43f5e', '#f97316', '#10b981', '#06b6d4', '#3b82f6', '#a855f7', '#14b8a6'];
 
-    // Calculate pie chart segments
     const calculatePieSegments = (data, total) => {
         if (data.length === 0 || total === 0) return [];
         
@@ -167,7 +179,10 @@ const ServiceWiseSales = ({ onViewDetails, refreshTrigger }) => {
         return segments;
     };
 
-    const pieSegments = calculatePieSegments(salesData, totalSales);
+    const pieSegments = useMemo(() => 
+        calculatePieSegments(salesData, totalSales),
+        [salesData, totalSales]
+    );
 
     return (
         <div className="p-4">
@@ -220,9 +235,10 @@ const ServiceWiseSales = ({ onViewDetails, refreshTrigger }) => {
                     
                     {/* View Details Button */}
                     <motion.button
-                        onClick={() => onViewDetails && onViewDetails()}
+                        onClick={handleViewDetails}
                         className="p-1.5 bg-indigo-50 text-indigo-600 rounded-lg hover:bg-indigo-100"
                         whileHover={{ scale: 1.05 }}
+                        disabled={salesData.length === 0}
                     >
                         <FiArrowUpRight className="w-3.5 h-3.5" />
                     </motion.button>
@@ -244,7 +260,9 @@ const ServiceWiseSales = ({ onViewDetails, refreshTrigger }) => {
                         {topService && (
                             <div className="bg-gradient-to-br from-amber-50 to-orange-50 p-3 rounded-lg">
                                 <p className="text-xs text-gray-500">Top Service</p>
-                                <p className="text-sm font-semibold text-amber-800 truncate">{topService.name}</p>
+                                <p className="text-sm font-semibold text-amber-800 truncate" title={topService.name}>
+                                    {topService.name}
+                                </p>
                                 <p className="text-sm font-bold text-amber-600">{formatCurrency(topService.value)}</p>
                             </div>
                         )}
@@ -291,7 +309,7 @@ const ServiceWiseSales = ({ onViewDetails, refreshTrigger }) => {
                         </div>
 
                         {/* Service List */}
-                        <div className="flex-1 space-y-2">
+                        <div className="flex-1 space-y-2 max-h-[200px] overflow-y-auto pr-2">
                             {salesData.map((service, index) => {
                                 const percentage = (service.value / totalSales) * 100;
                                 return (
@@ -302,14 +320,16 @@ const ServiceWiseSales = ({ onViewDetails, refreshTrigger }) => {
                                         onMouseLeave={() => setHoveredService(null)}
                                     >
                                         <div className="flex justify-between items-center text-xs mb-1">
-                                            <div className="flex items-center gap-1.5 flex-1">
+                                            <div className="flex items-center gap-1.5 flex-1 min-w-0">
                                                 <div 
-                                                    className="w-2 h-2 rounded-full"
+                                                    className="w-2 h-2 rounded-full flex-shrink-0"
                                                     style={{ backgroundColor: COLORS[index % COLORS.length] }}
                                                 />
-                                                <span className="text-gray-700 truncate">{service.name}</span>
+                                                <span className="text-gray-700 truncate" title={service.name}>
+                                                    {service.name}
+                                                </span>
                                             </div>
-                                            <span className="font-semibold text-indigo-600">
+                                            <span className="font-semibold text-indigo-600 flex-shrink-0 ml-2">
                                                 {formatCurrency(service.value)}
                                             </span>
                                         </div>
