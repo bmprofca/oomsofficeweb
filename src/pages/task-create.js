@@ -1443,29 +1443,29 @@ const TaskCreate = () => {
                                     {/* Estimate (Firms & Groups) */}
                                     {currentStep === 1 && (
                                         <div className="rounded-2xl border border-indigo-100 bg-indigo-50/40 p-4 shadow-sm mt-4">
-                                        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-                                            <div className="flex items-start gap-3">
-                                                <div className="w-10 h-10 rounded-xl bg-indigo-100 flex items-center justify-center">
-                                                    <FiUsers className="w-5 h-5 text-indigo-700" />
+                                            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                                                <div className="flex items-start gap-3">
+                                                    <div className="w-10 h-10 rounded-xl bg-indigo-100 flex items-center justify-center">
+                                                        <FiUsers className="w-5 h-5 text-indigo-700" />
+                                                    </div>
+                                                    <div>
+                                                        <p className="text-sm font-semibold text-indigo-900">Estimated tasks to create</p>
+                                                        <p className="text-xs text-indigo-700 mt-0.5">Based on your selected firms and groups</p>
+                                                    </div>
                                                 </div>
-                                                <div>
-                                                    <p className="text-sm font-semibold text-indigo-900">Estimated tasks to create</p>
-                                                    <p className="text-xs text-indigo-700 mt-0.5">Based on your selected firms and groups</p>
+                                                <div className="text-right">
+                                                    <div className="text-3xl font-extrabold text-indigo-700 leading-none">
+                                                        {estimatedTaskCreateCount}
+                                                    </div>
+                                                    <div className="text-xs text-indigo-600 mt-1 font-medium">tasks</div>
                                                 </div>
                                             </div>
-                                            <div className="text-right">
-                                                <div className="text-3xl font-extrabold text-indigo-700 leading-none">
-                                                    {estimatedTaskCreateCount}
-                                                </div>
-                                                <div className="text-xs text-indigo-600 mt-1 font-medium">tasks</div>
+                                            <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-xs text-indigo-800">
+                                                <span>Firms selected: <span className="font-semibold">{selectedFirmCount}</span></span>
+                                                <span>Groups selected: <span className="font-semibold">{selectedGroupCount}</span></span>
+                                                <span>Firms in groups: <span className="font-semibold">{selectedGroupFirmCount}</span></span>
                                             </div>
                                         </div>
-                                        <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-xs text-indigo-800">
-                                            <span>Firms selected: <span className="font-semibold">{selectedFirmCount}</span></span>
-                                            <span>Groups selected: <span className="font-semibold">{selectedGroupCount}</span></span>
-                                            <span>Firms in groups: <span className="font-semibold">{selectedGroupFirmCount}</span></span>
-                                        </div>
-                                    </div>
                                     )}
 
                                     {/* Step 2: Services, fees & due date */}

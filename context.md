@@ -489,6 +489,236 @@ Backend router mount is `/broadcast/email`; all module APIs use this prefix:
 
 ---
 
+## `TaskComponent/` — Task Detail Tabs
+
+These components live inside `src/TaskComponent/` and are rendered as tabs inside the individual task detail page (`task-profile.js`). All share the same global patterns: `getHeaders()`, `API_BASE_URL`, `react-hot-toast`, `framer-motion` animations, and Tailwind CSS styling.
+
+---
+
+### `NotesTab.js`
+
+#### Purpose
+Displays and manages notes attached to a task. Notes can be of three types: **Text**, **File attachment**, or **Voice recording**.
+
+#### API Endpoints
+```
+GET  /task/details/notes        Fetch notes list (params: task_id, search, page, limit)
+POST /task/details/notes/add    Add a new note
+```
+
+#### Key state
+- `activeFilter`: `'all'` | `'text'` | `'file'` | `'voice'` — drives list filter tabs
+- `notes`, `notesLoading`, `totalNotes`, `currentPage`, `hasMore`
+- `showAddModal`, `newNote` — add note form state
+- `isRecording`, `recordingBlob`, `recordingSeconds` — voice recording state
+
+#### Implemented behaviours
+1. **Single unified `useEffect`** with debounce for `task_id` and `searchTerm` changes (prevents duplicate API calls on mount).
+2. **`openAddModal()`** pre-selects `newNote.type` based on `activeFilter`:
+   - `'all'` or `'text'` → `'text'`
+   - `'file'` → `'file'`
+   - `'voice'` → `'voice'`
+3. **Add note modal layout** — `flex flex-col` container with `flex-shrink-0` header/footer and `flex-1 min-h-0 overflow-y-auto` body, so header and footer are always visible regardless of content length.
+4. **`getEmptyNoteForm()`** and **`clearRecordingState()`** helpers for clean state resets.
+
+---
+
+### `SubTaskTab.js`
+
+#### Purpose
+Manages subtasks for a task. Subtasks can be of type `"text"` (free text) or `"service"` (linked to a service).
+
+#### API Endpoints
+```
+GET  /task/details/subtask/list           List subtasks (task_id)
+POST /task/details/subtask/add            Add subtask(s)
+PUT  /details/subtask/update              Update subtask content
+PUT  /details/subtask/status              Change subtask status (separate endpoint)
+DELETE /task/details/subtask/delete       Delete subtask
+```
+
+#### Status options
+`pending` | `complete` | `cancel`
+
+#### Key behaviours
+1. **Subtask types displayed as** `"service"` (API type `"task"`) or `"text"`.
+2. **`service_id` hidden** in the table for subtasks with `type="task"`.
+3. **Status changes** call `PUT /details/subtask/status` with body `{ task_id, subtask_id, status }`. Status is **not** part of the edit modal.
+4. **Edit modal** (`PUT /details/subtask/update`) — sends `{ task_id, subtask_id, subtasks: [{ type, text?, service_id? }] }`. No `status` field in body.
+5. **Details modal** — opened by `FiInfo` button in action column. Shows all subtask fields except backend-only IDs (`subtask_id`, `service_id`, `task_id`, etc.). Uses `isHiddenDetailKey()` + `buildSubtaskDetailRows()`.
+6. **Custom confirm modal** for delete/status-change confirmations (replaces `window.confirm`).
+7. **`react-hot-toast`** for all API success/error feedback. No modal alerts for API responses.
+
+#### Payload shapes
+```js
+// PUT /details/subtask/status
+{ task_id, subtask_id, status }
+
+// PUT /details/subtask/update
+{ task_id, subtask_id, subtasks: [{ type: 'text'|'service', text?, service_id? }] }
+```
+
+---
+
+### `StaffTab.js`
+
+#### Purpose
+Displays staff assigned to a task and provides an assignment UI with a two-box transfer layout.
+
+#### API Endpoints
+```
+GET  /settings/staff/list           All branch staff (paginated, limit 100, fetched until last page)
+GET  /task/details/staff/list       Staff currently assigned to the task
+PUT  /task/details/staff/update     Assign/unassign staff (full replace: send remaining usernames)
+```
+
+#### Key state
+- `staffList` — currently assigned staff (task)
+- `allBranchStaff` — all staff in the branch (loaded once on tab open, paginated loop)
+- `selectedStaff` — array of usernames in the assignment modal (right-box)
+- `tableSelectedRows` — array of usernames selected in the assigned staff table (for bulk delete)
+- `deleteConfirm` — `{ label: string, usernames: string[] } | null`
+- `viewStaff` — staff object for the view details modal
+
+#### Staff fetching
+On tab mount, two parallel fetches run:
+1. `fetchStaffList()` — loads currently assigned staff for this task.
+2. `fetchAllBranchStaff()` — loops `GET /settings/staff/list?limit=100&page=N` until `meta.is_last_page === true`. Standardised through `mapBranchStaffItem()`.
+
+#### Assignment modal (two-box transfer UI)
+- **Available Staff** (left box): all branch staff not in `selectedStaff`, filtered by search
+- **Selected Staff** (right box): staff currently selected for assignment
+- Transfer buttons (`FiArrowRight` / `FiArrowLeft`) are vertically centred between the two boxes
+- Staff items fade in/out (`AnimatePresence`) on selection/deselection
+- Submitting with an empty `selectedStaff` array shows a confirmation modal before calling the API
+
+#### Assign API payload
+```js
+PUT /task/details/staff/update
+{ task_id, staff_ids: [username1, username2, ...] }
+```
+
+#### Multi-select table (assigned staff)
+- First column: `AnimatedCheckbox` — custom framer-motion checkbox (handles `checked` and `indeterminate` states)
+- Header checkbox: select all / deselect all visible rows; reflects indeterminate state when some rows are selected
+- Selected rows highlighted with `bg-indigo-50`
+- `tableSelectedRows` resets when `staffList` changes
+
+#### Bulk action bar
+- Appears (via `AnimatePresence`) when `tableSelectedRows.length > 0`
+- Shows count, "Clear" button, and `bg-red-600` "Delete Selected (N)" button
+- Disabled while API is in flight
+
+#### Delete logic (unified — `performDelete`)
+```js
+// DRY helper used for single AND bulk delete
+performDelete(usernamesToRemove) {
+  const remaining = staffList
+    .map(m => m.username)
+    .filter(u => !usernamesToRemove.includes(u));
+  executeAssignStaff(remaining); // calls PUT /task/details/staff/update
+}
+```
+- Single-row delete → `requestDelete([member.username])`
+- Bulk delete → `requestDelete(tableSelectedRows)`
+- Both route through a custom `deleteConfirm` confirmation modal before executing
+
+#### View Staff modal (eye button)
+- Width `max-w-xl`, height capped at `90vh`, fixed header/footer, scrollable body
+- Header text: "Assigned Staff Details"
+- Body starts with a compact profile strip (avatar initials, name, designation badge)
+- Details in `grid grid-cols-1 sm:grid-cols-2` using `DetailRow` helper (only renders if value is present)
+- Scrollbar hidden: `[scrollbar-width:none] [&::-webkit-scrollbar]:hidden`
+- No blue gradient banner
+
+---
+
+### `DetailsTab.js`
+
+#### Purpose
+Displays and manages core task details: firm, service, fees, tax, CA, agent, dates, status, and billing.
+
+#### API Endpoints
+```
+GET  /service/list                          Load service options (on mount)
+GET  /task/details/search?query=...         Search firms (debounced)
+GET  /task/details/ca/search?query=...      Search CA (debounced)
+GET  /task/details/agent/search?query=...   Search agents (debounced)
+PUT  /task/change-status                    Change task status
+PUT  /task/edit/:task_id                    Edit task details
+POST /billing/generate/billable             Generate invoice
+POST /billing/generate/nonbillable          Mark as non-billable
+```
+
+#### Status options
+```js
+['in process', 'pending from client', 'pending from department', 'complete', 'cancel']
+```
+`'unassign'` is **not** a valid option and is excluded.
+
+#### Status change rules
+- Status `'complete'` → locked once set. Dropdown is replaced with a static green badge. No further status changes allowed.
+- Status `'cancel'` or `'complete'` → shows a **confirmation modal** before calling the API. Other statuses change immediately.
+- Confirmation modal is green-themed for `complete`, red-themed for `cancel`.
+- `handleStatusChange(newStatus)` intercepts → sets `statusConfirm`. `executeStatusChange(newStatus)` performs the actual API call.
+
+#### Edit modal
+- Triggered by "Edit Task" button → `showEditModal = true`
+- Width `max-w-3xl`, height capped at `92vh`, fixed header/footer, scrollable body (`overflow-y-auto [scrollbar-width:thin]`)
+- `editForm` state holds all editable fields: `firm_id`, `firmOption`, `service_id`, `fees`, `tax_rate`, `has_ca`, `ca_id`, `caDisplay`, `has_agent`, `agent_id`, `agentDisplay`, `due_date`, `target_date`
+
+#### Edit API payload
+```js
+PUT /task/edit/:task_id
+{
+  firm_id, service_id, fees, tax_rate,
+  ca: { has_ca, ...(has_ca && { ca_id }) },
+  agent: { has_agent, ...(has_agent && { agent_id }) },
+  due_date,   // "YYYY-MM-DD"
+  target_date // "YYYY-MM-DD"
+}
+```
+`ca_id` and `agent_id` are only included in the payload when `has_ca`/`has_agent` is `true`.
+
+#### Billing status logic
+| `billing_status` | Meaning |
+|---|---|
+| `'pending'` | Bill generation pending |
+| `'complete'` | Bill (invoice) generated |
+| `'non billable'` | Marked as non-billable |
+
+- **Generate Bill section** is shown only when `taskData.status === 'complete'` **AND** `taskData.billing_status === 'pending'`
+- When `billing_status === 'complete'`, `invoice_no` is displayed in the view
+- Billing status badge colours: `complete` = green, `non billable` = blue, `pending` = amber
+
+#### Billing confirmation modal
+- Opened by "Generate Bill" or "Generate Non Billable" buttons → `setBillingModal('bill' | 'nonbillable')`
+- Modal layout: `flex flex-col`, `maxHeight: '90vh'`, `flex-shrink-0` header/footer, `flex-1 min-h-0 overflow-y-auto` body (prevents header/footer from going off-screen)
+- Shows fee breakdown (Base Fees, Tax, Total) for billable; strikethrough for non-billable
+- Amber warning notice before confirming
+- `handleConfirmBilling()` calls the appropriate endpoint, shows toast, updates `taskData` locally on success
+
+#### Conditional field locking (`billGenerated`)
+When `billing_status === 'complete' || 'non billable'`:
+- An amber warning banner is shown at the top of the edit modal body
+- **Editable**: `fees`, CA toggle + search, Agent toggle + search
+- **Locked** (replaced with `LockedField` component with lock icon): Firm, Service, Tax Rate, Due Date, Target Date
+
+#### Input enhancements
+- **Fees / Tax Rate**: `type="text" inputMode="decimal"` (no spinners, no scroll-to-change). Dynamic "Total Amount" preview shown when `fees > 0`: `fees * (1 + tax_rate/100)`, formatted with `toLocaleString('en-IN')`.
+- **Service select**: Searchable custom dropdown (client-side filter of `services` array).
+- **Firm search results**: Show Firm name (bold), Client name, Mobile, File No, PAN No in a 2×2 grid.
+- **CA / Agent**: Toggle switches (`h-6 w-10`) to enable/disable. When enabled, searchable input with clear button and detailed results.
+
+#### Helper components (local to this file)
+```jsx
+InfoPair     // View mode: label + value row with border-b
+SectionTitle // Section header with icon + title
+LockedField  // Read-only field in edit modal with lock icon
+```
+
+---
+
 ## Naming Conventions
 
 - Page components: `PascalCase` named export, default export at bottom
@@ -508,4 +738,97 @@ Backend router mount is `/broadcast/email`; all module APIs use this prefix:
 - **Tab switches**: Clear data immediately (`setData([])`) before new fetch to avoid stale data flash
 - **Confirmations**: Use `AppDialog` modal, never `window.confirm` or `window.alert`
 - **Fetch cancellation**: Use `AbortController` + sequence counters to handle race conditions
-- **Pagination**: Always visible, with limit selector; changing limit resets to page 1
+- **Pagination**: Prefer a consistent footer (range text, page size, prev/next, optional “go to page”); changing limit resets to page 1. Canonical layout: **Ledger pagination footer** (`src/ClientComponents/LedgerTab.js`) — full spec in the section below.
+
+---
+
+## UI reference: Ledger pagination footer (`src/ClientComponents/LedgerTab.js`)
+
+Use this when implementing the same table footer on other pages. Source: lines ~1099–1169 (footer JSX), state ~275–280, effects ~314–324, fetch meta ~370–374, handlers ~626–641.
+
+### Role
+
+Footer sits **below the scrollable `<table>`** (inside the card). It shows:
+
+1. **Range summary** — “Showing *start* to *end* of *total* entries”
+2. **Page size** — `<select>` bound to `itemsPerPage` with fixed options
+3. **Prev / current / total / next** — bordered buttons + highlighted current page pill
+4. **Go to page** — number input + submit (“Go”) to jump
+
+### State
+
+| State | Typical initial | Notes |
+|--------|-----------------|--------|
+| `currentPage` | `1` | 1-based; sent to API as `page_no` |
+| `totalPages` | `1` | Set after fetch: `Math.max(1, Math.ceil(total / limit))` |
+| `totalItems` | `0` | From API `meta.total` |
+| `itemsPerPage` | `20` | Drives `limit` query param |
+| `LIMIT_OPTIONS` | `[5, 10, 20, 50, 100]` | Constant; map to `<option>`s |
+| `pageJumpInput` | `''` | Controlled string for “go to”; cleared after successful jump |
+
+### API response (ledger)
+
+```js
+const meta = response.data.meta || {};
+const total = meta.total ?? 0;
+const limit = meta.limit ?? itemsPerPage;
+setTotalItems(total);
+setTotalPages(Math.max(1, Math.ceil(total / limit)));
+```
+
+Other list APIs should expose **total count** and **applied limit** (or `total_pages` directly). List request uses `page_no=${currentPage}&limit=${itemsPerPage}`.
+
+### Effects
+
+- **Reset to page 1** when date filters or `itemsPerPage` change: `useEffect(() => { setCurrentPage(1); }, [fromDate, toDate, itemsPerPage]);`
+- **Refetch** when `currentPage`, `itemsPerPage`, filters, or parent id (e.g. `clientProfile?.id`) change.
+
+### Handlers
+
+```js
+const handlePageChange = (newPage) => {
+  const page = Math.max(1, Math.min(totalPages, Math.floor(newPage)));
+  if (page >= 1 && page <= totalPages) {
+    setCurrentPage(page);
+    setPageJumpInput('');
+  }
+};
+
+const handlePageJump = (e) => {
+  e.preventDefault();
+  const page = parseInt(pageJumpInput, 10);
+  if (!isNaN(page)) {
+    handlePageChange(page);
+  }
+};
+```
+
+Limit select: `onChange={(e) => setItemsPerPage(Number(e.target.value))}`. Prev/next: `handlePageChange(currentPage ± 1)` with `e.stopPropagation()` on click if inside a clickable wrapper.
+
+### Visibility (ledger)
+
+```jsx
+{!loading && !fetchingTransactions && (transactions.length > 0 || totalItems > 0) && totalPages > 0 && (
+  /* footer */
+)}
+```
+
+### “Showing X to Y”
+
+- `start = totalItems === 0 ? 0 : (currentPage - 1) * itemsPerPage + 1`
+- `end = Math.min(currentPage * itemsPerPage, totalItems)`
+
+### Layout / Tailwind (summary)
+
+- Container: `border-t border-slate-200 px-6 py-4 bg-white`
+- Flex: `flex flex-col sm:flex-row items-center justify-between gap-4`
+- Left: range (`text-sm text-slate-600`) + “Show” + `<select id="limit-select">` (`border-slate-200`, `focus:ring-2 focus:ring-indigo-500`) + “per page”
+- Right: Prev/Next buttons (bordered slate, disabled styles); current page `bg-indigo-600 text-white rounded-lg min-w-[2.5rem]`; `/` + total pages; `<form onSubmit={handlePageJump}>` with number input (`min={1}` `max={totalPages}` `w-14`) and indigo text “Go” button
+
+### Checklist for a new page
+
+1. Mirror state + `LIMIT_OPTIONS` (or your limits).
+2. Parse list response meta → `totalItems` / `totalPages`.
+3. Query `page_no` + `limit` from `currentPage` / `itemsPerPage`.
+4. Reset page to `1` when limit or major filters change.
+5. Reuse footer JSX pattern; swap loading/row guards and accent color if needed.

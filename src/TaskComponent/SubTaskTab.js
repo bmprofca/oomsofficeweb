@@ -14,9 +14,11 @@ import {
     FiPackage,
     FiChevronLeft,
     FiChevronRight,
-    FiAlertCircle
+    FiAlertCircle,
+    FiInfo
 } from 'react-icons/fi';
 import axios from 'axios';
+import { toast } from 'react-hot-toast';
 import getHeaders from "../utils/get-headers";
 import API_BASE_URL from "../utils/api-controller";
 
@@ -27,8 +29,6 @@ const SubtaskTab = ({
 }) => {
     // Use either taskId or task_id
     const effectiveTaskId = taskId || task_id;
-    
-    console.log('SubtaskTab initialized with taskId:', effectiveTaskId);
     
     const [subtaskList, setSubtaskList] = useState([]);
     const [showModal, setShowModal] = useState(false);
@@ -65,21 +65,27 @@ const SubtaskTab = ({
         search: ''
     });
 
-    // Status options
+    const [detailsSubtask, setDetailsSubtask] = useState(null);
+    const [blockingConfirm, setBlockingConfirm] = useState(null);
+
+    // Status options (API: pending, complete, cancel)
     const statusOptions = [
         { value: 'pending', label: 'Pending' },
-        { value: 'in process', label: 'In Process' },
-        { value: 'completed', label: 'Completed' },
-        { value: 'on hold', label: 'On Hold' },
-        { value: 'cancelled', label: 'Cancelled' }
+        { value: 'complete', label: 'Complete' },
+        { value: 'cancel', label: 'Cancel' }
     ];
 
-    // Helper function to normalize status
+    // Map legacy / alternate API values onto pending | complete | cancel
     const normalizeStatus = (status) => {
-        if (!status || status.trim() === '') {
-            return 'pending';
-        }
-        return status.toLowerCase();
+        if (!status || String(status).trim() === '') return 'pending';
+        const s = String(status).toLowerCase().trim().replace(/\s+/g, ' ');
+        if (['complete', 'completed', 'done'].includes(s)) return 'complete';
+        if (['cancel', 'cancelled', 'canceled'].includes(s)) return 'cancel';
+        return 'pending';
+    };
+
+    const showConfirm = (message, onConfirm, title = 'Please confirm', confirmLabel = 'Confirm') => {
+        setBlockingConfirm({ title, message, onConfirm, confirmLabel });
     };
 
     // Helper function to format subtask data from API
@@ -87,7 +93,9 @@ const SubtaskTab = ({
         return apiData.map(task => ({
             ...task,
             subtask_id: task.subtask_id,
-            text: task.type === 'text' ? (task.text || task.content || '') : '',
+            text: task.type === 'text' || task.type === 'task'
+                ? (task.text || task.content || '')
+                : '',
             status: normalizeStatus(task.status),
             service: task.service || null,
             created_by: task.created_by || task.create_by || { name: 'Unknown' },
@@ -119,15 +127,11 @@ const SubtaskTab = ({
                 ...(filters.search && { search: filters.search })
             });
 
-            console.log('Fetching subtasks from:', `${API_BASE_URL}/task/details/subtask/list?${params}`);
-
             const response = await axios.get(
                 `${API_BASE_URL}/task/details/subtask/list?${params}`,
                 { headers }
             );
             
-            console.log('Subtasks response:', response.data);
-
             if (response.data?.success) {
                 const formattedData = formatSubtaskData(response.data.data || []);
                 setSubtaskList(formattedData);
@@ -198,35 +202,33 @@ const SubtaskTab = ({
     const getStatusColor = (status) => {
         const normalizedStatus = normalizeStatus(status);
         const colorMap = {
-            'completed': 'text-green-600 border-green-200 bg-green-50',
-            'in process': 'text-blue-600 border-blue-200 bg-blue-50',
-            'on hold': 'text-yellow-600 border-yellow-200 bg-yellow-50',
-            'pending': 'text-gray-600 border-gray-200 bg-gray-50',
-            'cancelled': 'text-red-600 border-red-200 bg-red-50'
+            complete: 'text-green-600 border-green-200 bg-green-50',
+            cancel: 'text-red-600 border-red-200 bg-red-50',
+            pending: 'text-gray-600 border-gray-200 bg-gray-50'
         };
-        return colorMap[normalizedStatus] || colorMap['pending'];
+        return colorMap[normalizedStatus] || colorMap.pending;
     };
 
     const getTypeIcon = (type) => {
-        return type === 'service' ? 
-            <FiPackage className="w-4 h-4" /> : 
-            <FiType className="w-4 h-4" />;
+        return type === 'service'
+            ? <FiPackage className="w-4 h-4" />
+            : <FiType className="w-4 h-4" />;
     };
 
     // Create subtask - FIXED: Send as array in subtasks field
     const handleAdd = async () => {
         if (!effectiveTaskId) {
-            alert('Task ID is missing');
+            toast.error('Task ID is missing');
             return;
         }
 
         // Validate form
         if (formData.type === 'text' && !formData.text.trim()) {
-            alert('Please enter text content');
+            toast.error('Please enter text content');
             return;
         }
         if (formData.type === 'service' && !formData.service_id) {
-            alert('Please select a service');
+            toast.error('Please select a service');
             return;
         }
 
@@ -240,7 +242,7 @@ const SubtaskTab = ({
             // Prepare the subtask object
             const subtaskItem = {
                 type: formData.type,
-                status: formData.status || 'pending'
+                status: normalizeStatus(formData.status || 'pending')
             };
 
             // Add type-specific fields
@@ -256,49 +258,41 @@ const SubtaskTab = ({
                 subtasks: [subtaskItem]  // Send as array with one item
             };
 
-            console.log('Creating subtask with payload:', JSON.stringify(payload, null, 2));
-            console.log('API URL:', `${API_BASE_URL}/task/details/subtask/create`);
-
             const response = await axios.post(
                 `${API_BASE_URL}/task/details/subtask/create`,
                 payload,
                 { headers }
             );
 
-            console.log('Create response:', response.data);
-
             if (response.data?.success) {
                 resetForm();
                 await fetchSubtasks(pagination.page_no);
-                alert('Subtask created successfully!');
+                toast.success('Subtask created successfully.');
             } else {
-                alert(response.data?.message || 'Failed to create subtask');
+                toast.error(response.data?.message || 'Failed to create subtask');
             }
         } catch (error) {
             console.error('Error creating subtask:', error);
-            console.error('Error response:', error.response?.data);
-            
             const errorMessage = error.response?.data?.message || 
                                 error.response?.data?.error || 
                                 error.message || 
                                 'Failed to create subtask';
-            alert(`Error: ${errorMessage}`);
+            toast.error(errorMessage);
         } finally {
             setSubmitting(false);
         }
     };
 
-    // Update subtask - FIXED: Send as array in subtasks field
+    // Update subtask — PUT /details/subtask/update (body: task_id, subtask_id, subtasks[0]; no status)
     const handleUpdate = async () => {
         if (!editingSubtask || !effectiveTaskId) return;
 
-        // Validate form
         if (formData.type === 'text' && !formData.text.trim()) {
-            alert('Please enter text content');
+            toast.error('Please enter text content');
             return;
         }
         if (formData.type === 'service' && !formData.service_id) {
-            alert('Please select a service');
+            toast.error('Please select a service');
             return;
         }
 
@@ -307,128 +301,115 @@ const SubtaskTab = ({
             const headers = getHeaders();
             if (!headers) throw new Error('Authentication failed');
 
-            // Prepare the subtask object
-            const subtaskItem = {
-                type: formData.type,
-                status: formData.status
-            };
-
+            const subtaskItem = { type: formData.type };
             if (formData.type === 'text') {
                 subtaskItem.text = formData.text.trim();
             } else {
                 subtaskItem.service_id = formData.service_id;
             }
 
-            // Create payload with array structure
             const payload = {
                 task_id: effectiveTaskId,
-                subtasks: [subtaskItem]  // Send as array with one item
+                subtask_id: editingSubtask.subtask_id,
+                subtasks: [subtaskItem]
             };
 
-            console.log('Updating subtask:', editingSubtask.subtask_id, 'with payload:', payload);
-
             const response = await axios.put(
-                `${API_BASE_URL}/task/details/subtask/update/${editingSubtask.subtask_id}`,
+                `${API_BASE_URL}/task/details/subtask/update`,
                 payload,
                 { headers }
             );
 
-            console.log('Update response:', response.data);
-
             if (response.data?.success) {
                 resetForm();
                 await fetchSubtasks(pagination.page_no);
-                alert('Subtask updated successfully!');
+                toast.success('Subtask updated successfully.');
             } else {
-                alert(response.data?.message || 'Failed to update subtask');
+                toast.error(response.data?.message || 'Failed to update subtask');
             }
         } catch (error) {
             console.error('Error updating subtask:', error);
-            console.error('Error response:', error.response?.data);
-            
             const errorMessage = error.response?.data?.message || 
                                 error.response?.data?.error || 
                                 error.message ||
                                 'Failed to update subtask';
-            alert(`Error: ${errorMessage}`);
+            toast.error(errorMessage);
         } finally {
             setSubmitting(false);
         }
     };
 
-    // Delete subtask
-    const handleDelete = async (subtaskId) => {
-        if (!subtaskId) return;
-        
-        if (window.confirm('Are you sure you want to delete this subtask?')) {
-            try {
-                const headers = getHeaders();
-                if (!headers) throw new Error('Authentication failed');
+    const executeDelete = async (subtaskId) => {
+        try {
+            const headers = getHeaders();
+            if (!headers) throw new Error('Authentication failed');
 
-                console.log('Deleting subtask:', subtaskId);
-
-                const response = await axios.delete(
-                    `${API_BASE_URL}/task/details/subtask/delete/${subtaskId}`,
-                    { 
-                        headers,
-                        data: { task_id: effectiveTaskId }
-                    }
-                );
-                
-                console.log('Delete response:', response.data);
-
-                if (response.data?.success) {
-                    await fetchSubtasks(pagination.page_no);
-                    alert('Subtask deleted successfully!');
-                } else {
-                    alert(response.data?.message || 'Failed to delete subtask');
+            const response = await axios.delete(
+                `${API_BASE_URL}/task/details/subtask/delete/${subtaskId}`,
+                {
+                    headers,
+                    data: { task_id: effectiveTaskId }
                 }
-            } catch (error) {
-                console.error('Error deleting subtask:', error);
-                console.error('Error response:', error.response?.data);
-                
-                const errorMessage = error.response?.data?.message || 
-                                    error.response?.data?.error || 
-                                    error.message ||
-                                    'Failed to delete subtask';
-                alert(`Error: ${errorMessage}`);
+            );
+
+            if (response.data?.success) {
+                await fetchSubtasks(pagination.page_no);
+                toast.success('Subtask deleted successfully.');
+            } else {
+                toast.error(response.data?.message || 'Failed to delete subtask');
             }
+        } catch (error) {
+            console.error('Error deleting subtask:', error);
+            const errorMessage = error.response?.data?.message ||
+                error.response?.data?.error ||
+                error.message ||
+                'Failed to delete subtask';
+            toast.error(errorMessage);
+        } finally {
+            setSubmitting(false);
         }
     };
 
-    // Update status
+    const handleDelete = (subtaskId) => {
+        if (!subtaskId) return;
+        showConfirm(
+            'Are you sure you want to delete this subtask? This cannot be undone.',
+            () => executeDelete(subtaskId),
+            'Delete subtask',
+            'Delete'
+        );
+    };
+
+    // Update status — PUT /details/subtask/status (body: task_id, subtask_id, status)
     const handleStatusChange = async (subtaskId, newStatus) => {
         try {
             const headers = getHeaders();
             if (!headers) throw new Error('Authentication failed');
 
-            console.log('Updating status:', subtaskId, 'to', newStatus);
-
+            const statusNorm = normalizeStatus(newStatus);
             const response = await axios.put(
-                `${API_BASE_URL}/task/details/subtask/status/${subtaskId}`,
+                `${API_BASE_URL}/task/details/subtask/status`,
                 {
                     task_id: effectiveTaskId,
-                    status: newStatus
+                    subtask_id: subtaskId,
+                    status: statusNorm
                 },
                 { headers }
             );
 
-            console.log('Status update response:', response.data);
-
             if (response.data?.success) {
                 await fetchSubtasks(pagination.page_no);
+                toast.success(response.data?.message || 'Status updated');
             } else {
-                alert(response.data?.message || 'Failed to update status');
+                toast.error(response.data?.message || 'Failed to update status');
             }
         } catch (error) {
             console.error('Error updating status:', error);
-            console.error('Error response:', error.response?.data);
-            
             const errorMessage = error.response?.data?.message || 
                                 error.response?.data?.error || 
                                 error.message ||
                                 'Failed to update status';
-            alert(`Error: ${errorMessage}`);
+            toast.error(errorMessage);
         }
     };
 
@@ -437,7 +418,7 @@ const SubtaskTab = ({
             type: 'text',
             text: '',
             service_id: '',
-            status: 'pending'
+            status: 'pending' // only used when creating; edit does not send status
         });
         setEditingSubtask(null);
         setShowModal(false);
@@ -446,18 +427,34 @@ const SubtaskTab = ({
         setError(null);
     };
 
+    const openAddModal = () => {
+        setEditingSubtask(null);
+        setFormData({
+            type: 'text',
+            text: '',
+            service_id: '',
+            status: 'pending'
+        });
+        setServiceSearch('');
+        setShowServiceDropdown(false);
+        setShowModal(true);
+    };
+
     const openEditModal = (subtask) => {
         setEditingSubtask(subtask);
+        const rawType = subtask.type || 'text';
+        const formType = rawType === 'service' ? 'service' : 'text';
         setFormData({
-            type: subtask.type || 'text',
-            text: subtask.type === 'text' ? (subtask.text || subtask.content || '') : '',
-            service_id: subtask.type === 'service' ? subtask.service?.service_id || '' : '',
-            status: normalizeStatus(subtask.status)
+            type: formType,
+            text: rawType === 'text' || rawType === 'task' ? (subtask.text || subtask.content || '') : '',
+            service_id: rawType === 'service' ? subtask.service?.service_id || '' : ''
         });
         setShowModal(true);
-        
-        if (subtask.type === 'service' && subtask.service) {
+
+        if (rawType === 'service' && subtask.service) {
             setServiceSearch(subtask.service.name);
+        } else {
+            setServiceSearch('');
         }
     };
 
@@ -477,8 +474,75 @@ const SubtaskTab = ({
     };
 
     const getCreatedByInfo = (subtask) => {
-        if (!subtask.created_by) return '-';
-        return subtask.created_by.name || subtask.created_by.username || '-';
+        const author = subtask.created_by || subtask.create_by;
+        if (!author) return '-';
+        return author.name || author.username || '-';
+    };
+
+    const isHiddenDetailKey = (key) => {
+        if (!key) return true;
+        const k = String(key).toLowerCase();
+        if (['subtask_id', 'service_id', 'task_id', 'id', 'note_id', 'client_id', 'user_id'].includes(k)) return true;
+        if (k.endsWith('_id')) return true;
+        return false;
+    };
+
+    const humanizeKey = (key) =>
+        String(key).replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+
+    const buildSubtaskDetailRows = (st) => {
+        if (!st) return [];
+        const rows = [];
+        const typeLabel = st.type ? String(st.type).charAt(0).toUpperCase() + String(st.type).slice(1) : '-';
+        rows.push({ label: 'Type', value: typeLabel });
+        rows.push({ label: 'Status', value: normalizeStatus(st.status) });
+
+        if (st.type === 'text' || st.type === 'task') {
+            const content = st.text || st.content;
+            if (content) rows.push({ label: 'Content', value: content });
+        }
+        if (st.type === 'task' && st.service?.name) {
+            rows.push({ label: 'Service', value: st.service.name });
+        }
+        if (st.type === 'service' && st.service) {
+            rows.push({ label: 'Service', value: st.service.name || '-' });
+            if (st.service.category?.name) {
+                rows.push({ label: 'Category', value: st.service.category.name });
+            }
+        }
+
+        rows.push({ label: 'Created by', value: getCreatedByInfo(st) });
+        const created =
+            st.dates?.create_date || st.create_date || st.dates?.created_at;
+        if (created) rows.push({ label: 'Created', value: formatDate(created) });
+
+        if (st.dates && typeof st.dates === 'object') {
+            Object.entries(st.dates).forEach(([k, v]) => {
+                if (isHiddenDetailKey(k) || v == null || typeof v === 'object') return;
+                if (k === 'create_date' || k === 'created_at') return;
+                rows.push({ label: humanizeKey(k), value: formatDate(v) || String(v) });
+            });
+        }
+
+        ['priority', 'remark', 'description', 'notes'].forEach((k) => {
+            if (st[k] != null && String(st[k]).trim() !== '') {
+                rows.push({ label: humanizeKey(k), value: String(st[k]) });
+            }
+        });
+
+        const skip = new Set([
+            'type', 'status', 'text', 'content', 'service', 'created_by', 'create_by',
+            'dates', 'subtask_id', 'service_id', 'task_id'
+        ]);
+        Object.keys(st).forEach((key) => {
+            if (skip.has(key) || isHiddenDetailKey(key)) return;
+            const val = st[key];
+            if (val != null && typeof val !== 'object' && typeof val !== 'function') {
+                rows.push({ label: humanizeKey(key), value: String(val) });
+            }
+        });
+
+        return rows;
     };
 
     const handlePageChange = (newPage) => {
@@ -496,15 +560,22 @@ const SubtaskTab = ({
     const getDisplayContent = (task) => {
         if (task.type === 'service') {
             return (
+                <div className="font-medium text-gray-900">{task.service?.name || 'N/A'}</div>
+            );
+        }
+        if (task.type === 'task') {
+            const displayText = task.text || task.content || 'N/A';
+            return (
                 <div>
-                    <div className="font-medium text-gray-900">{task.service?.name || 'N/A'}</div>
-                    <div className="text-xs text-gray-500 mt-1">ID: {task.service?.service_id || ''}</div>
+                    <div className="font-medium text-gray-900">{displayText}</div>
+                    {task.service?.name && (
+                        <div className="text-xs text-gray-500 mt-1">{task.service.name}</div>
+                    )}
                 </div>
             );
-        } else {
-            const displayText = task.text || task.content || 'N/A';
-            return <div className="font-medium text-gray-900">{displayText}</div>;
         }
+        const displayText = task.text || task.content || 'N/A';
+        return <div className="font-medium text-gray-900">{displayText}</div>;
     };
 
     const clearFilters = () => {
@@ -543,6 +614,7 @@ const SubtaskTab = ({
                     >
                         <option value="">All Types</option>
                         <option value="text">Text</option>
+                        <option value="task">Task</option>
                         <option value="service">Service</option>
                     </select>
                     <select
@@ -566,7 +638,7 @@ const SubtaskTab = ({
                         </button>
                     )}
                     <motion.button
-                        onClick={() => setShowModal(true)}
+                        onClick={openAddModal}
                         className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-colors duration-200 font-medium shadow-sm hover:shadow"
                         whileHover={{ scale: 1.02 }}
                         whileTap={{ scale: 0.98 }}
@@ -632,8 +704,8 @@ const SubtaskTab = ({
                                             <td className="px-4 py-3">
                                                 <div className="flex items-center gap-2">
                                                     <span className={`p-1.5 rounded-lg ${
-                                                        task.type === 'service' 
-                                                            ? 'text-purple-600 bg-purple-50' 
+                                                        task.type === 'service'
+                                                            ? 'text-purple-600 bg-purple-50'
                                                             : 'text-blue-600 bg-blue-50'
                                                     }`}>
                                                         {getTypeIcon(task.type)}
@@ -674,6 +746,18 @@ const SubtaskTab = ({
                                             <td className="px-4 py-3">
                                                 <div className="flex items-center gap-2">
                                                     <motion.button
+                                                        type="button"
+                                                        onClick={() => setDetailsSubtask(task)}
+                                                        className="p-1.5 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+                                                        whileHover={{ scale: 1.1 }}
+                                                        whileTap={{ scale: 0.9 }}
+                                                        title="Details"
+                                                        disabled={submitting}
+                                                    >
+                                                        <FiInfo className="w-4 h-4" />
+                                                    </motion.button>
+                                                    <motion.button
+                                                        type="button"
                                                         onClick={() => openEditModal(task)}
                                                         className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
                                                         whileHover={{ scale: 1.1 }}
@@ -684,6 +768,7 @@ const SubtaskTab = ({
                                                         <FiEdit className="w-4 h-4" />
                                                     </motion.button>
                                                     <motion.button
+                                                        type="button"
                                                         onClick={() => handleDelete(task.subtask_id)}
                                                         className="p-1.5 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
                                                         whileHover={{ scale: 1.1 }}
@@ -708,7 +793,8 @@ const SubtaskTab = ({
                                 </div>
                                 <p className="text-gray-600 mb-2">No subtasks found</p>
                                 <button
-                                    onClick={() => setShowModal(true)}
+                                    type="button"
+                                    onClick={openAddModal}
                                     className="text-blue-600 hover:text-blue-700 font-medium"
                                 >
                                     Add your first subtask
@@ -902,24 +988,26 @@ const SubtaskTab = ({
                                     </div>
                                 )}
 
-                                {/* Status Selection */}
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                                        Status
-                                    </label>
-                                    <select
-                                        value={formData.status}
-                                        onChange={(e) => setFormData(prev => ({ ...prev, status: e.target.value }))}
-                                        disabled={submitting}
-                                        className="w-full px-3 py-2 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all duration-200 disabled:bg-gray-50 disabled:cursor-not-allowed"
-                                    >
-                                        {statusOptions.map(option => (
-                                            <option key={option.value} value={option.value}>
-                                                {option.label}
-                                            </option>
-                                        ))}
-                                    </select>
-                                </div>
+                                {/* Status only on create; updates use the table status control + PUT .../subtask/status */}
+                                {!editingSubtask && (
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                                            Status
+                                        </label>
+                                        <select
+                                            value={formData.status}
+                                            onChange={(e) => setFormData(prev => ({ ...prev, status: e.target.value }))}
+                                            disabled={submitting}
+                                            className="w-full px-3 py-2 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all duration-200 disabled:bg-gray-50 disabled:cursor-not-allowed"
+                                        >
+                                            {statusOptions.map(option => (
+                                                <option key={option.value} value={option.value}>
+                                                    {option.label}
+                                                </option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                )}
                             </div>
 
                             {/* Footer */}
@@ -947,6 +1035,115 @@ const SubtaskTab = ({
                                         <span>{editingSubtask ? 'Update' : 'Create'}</span>
                                     )}
                                 </motion.button>
+                            </div>
+                        </motion.div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
+
+            {/* Custom confirm (replaces window.confirm) */}
+            <AnimatePresence>
+                {blockingConfirm && (
+                    <motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        className="fixed inset-0 bg-black/50 flex items-center justify-center z-[60] p-4"
+                        onClick={(e) => !submitting && e.target === e.currentTarget && setBlockingConfirm(null)}
+                    >
+                        <motion.div
+                            initial={{ scale: 0.95, opacity: 0 }}
+                            animate={{ scale: 1, opacity: 1 }}
+                            exit={{ scale: 0.95, opacity: 0 }}
+                            className="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden"
+                            onClick={(e) => e.stopPropagation()}
+                        >
+                            <div className="px-6 py-4 border-b border-gray-100">
+                                <h3 className="text-lg font-semibold text-gray-900">{blockingConfirm.title}</h3>
+                            </div>
+                            <div className="px-6 py-4">
+                                <p className="text-sm text-gray-600">{blockingConfirm.message}</p>
+                            </div>
+                            <div className="px-6 py-4 border-t border-gray-100 flex justify-end gap-3">
+                                <button
+                                    type="button"
+                                    disabled={submitting}
+                                    onClick={() => setBlockingConfirm(null)}
+                                    className="px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-lg font-medium disabled:opacity-50"
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    type="button"
+                                    disabled={submitting}
+                                    onClick={async () => {
+                                        const fn = blockingConfirm.onConfirm;
+                                        setBlockingConfirm(null);
+                                        if (typeof fn === 'function') await fn();
+                                    }}
+                                    className="px-4 py-2 bg-red-600 text-white text-sm font-medium rounded-lg hover:bg-red-700 disabled:opacity-50 inline-flex items-center gap-2"
+                                >
+                                    {submitting && (
+                                        <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                                    )}
+                                    {blockingConfirm.confirmLabel}
+                                </button>
+                            </div>
+                        </motion.div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
+
+            {/* Subtask details (no internal / backend IDs) */}
+            <AnimatePresence>
+                {detailsSubtask && (
+                    <motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        className="fixed inset-0 bg-black/50 flex items-center justify-center z-[55] p-4"
+                        onClick={(e) => e.target === e.currentTarget && setDetailsSubtask(null)}
+                    >
+                        <motion.div
+                            initial={{ scale: 0.95, opacity: 0 }}
+                            animate={{ scale: 1, opacity: 1 }}
+                            exit={{ scale: 0.95, opacity: 0 }}
+                            className="bg-white rounded-2xl shadow-xl w-full max-w-lg max-h-[85vh] overflow-hidden flex flex-col"
+                            onClick={(e) => e.stopPropagation()}
+                        >
+                            <div className="flex-shrink-0 px-6 py-4 border-b border-gray-200 flex items-center justify-between">
+                                <h3 className="text-lg font-semibold text-gray-900">Subtask details</h3>
+                                <button
+                                    type="button"
+                                    onClick={() => setDetailsSubtask(null)}
+                                    className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg"
+                                    aria-label="Close"
+                                >
+                                    <FiX className="w-5 h-5" />
+                                </button>
+                            </div>
+                            <div className="flex-1 min-h-0 overflow-y-auto px-6 py-4">
+                                <dl className="space-y-3">
+                                    {buildSubtaskDetailRows(detailsSubtask).map((row, idx) => (
+                                        <div key={`${row.label}-${idx}`} className="border-b border-gray-100 pb-3 last:border-0 last:pb-0">
+                                            <dt className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">
+                                                {row.label}
+                                            </dt>
+                                            <dd className="text-sm text-gray-900 whitespace-pre-wrap break-words">
+                                                {row.value}
+                                            </dd>
+                                        </div>
+                                    ))}
+                                </dl>
+                            </div>
+                            <div className="flex-shrink-0 px-6 py-4 border-t border-gray-100 flex justify-end">
+                                <button
+                                    type="button"
+                                    onClick={() => setDetailsSubtask(null)}
+                                    className="px-4 py-2 bg-gray-900 text-white text-sm font-medium rounded-lg hover:bg-gray-800"
+                                >
+                                    Close
+                                </button>
                             </div>
                         </motion.div>
                     </motion.div>
