@@ -83,6 +83,7 @@ import TaskDashboardDetailPage from './DashboardComponents/TaskDashboardDetailPa
 import QuickStatsDetailsPage from './DashboardComponents/quick-stats-details';
 import ServiceWiseSales from './DashboardComponents/ServiceSalesDetails';
 import StaffSalesDetails from './DashboardComponents/StaffSalesDetails';
+import TopClientsViewAll from './DashboardComponents/TopClientsViewAll';
 // Authentication wrapper component
 const ProtectedRoute = ({ children }) => {
   const isAuthenticated = () => {
@@ -570,6 +571,12 @@ root.render(
       <Route path="/staff-sales-details" element={
         <ProtectedRoute>
           <StaffSalesDetails />
+        </ProtectedRoute>
+      } />
+
+       <Route path="/clients/top" element={
+        <ProtectedRoute>
+          <TopClientsViewAll />
         </ProtectedRoute>
       } />
 

@@ -43,6 +43,7 @@ import AdditionalStatsComponent from '../DashboardComponents/additional-stats';
 import QuickStats from '../DashboardComponents/quick-stats';
 import ServiceWiseSales  from '../DashboardComponents/serviceWiseSales';
 import StaffWiseSales from '../DashboardComponents/staffWiseSales';
+import TopClients from '../DashboardComponents/TopClients';
 import { useNavigate } from 'react-router-dom';
 
 // Version constants for localStorage migration
@@ -1193,87 +1194,16 @@ const SalesWidgetsContainer = () => (
         <StaffWiseSalesWidget />
     </div>
 );
-    const TopClientsWidget = () => (
-        <WidgetWrapper widgetId="top-clients" title="Top Clients">
-            <div className="p-8">
-                <div className="flex items-center justify-between mb-6">
-                    <div className="flex items-center gap-3">
-                        <div className="p-3 bg-gradient-to-br from-amber-100 to-orange-100 rounded-xl">
-                            <FiAward className="w-6 h-6 text-amber-600" />
-                        </div>
-                        <div>
-                            <h3 className="text-xl font-bold text-gray-800">
-                                Top 10 Clients by Sales
-                            </h3>
-                            <p className="text-gray-500">Highest revenue generating clients</p>
-                        </div>
-                    </div>
-                    <div className="flex items-center gap-2">
-                        <input
-                            type="text"
-                            className="px-4 py-3 bg-white border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none shadow-sm min-w-[200px]"
-                            placeholder="Select date range"
-                        />
-                        <motion.button 
-                            className="p-3 bg-gradient-to-br from-indigo-100 to-purple-100 text-indigo-600 rounded-xl hover:shadow-lg transition-all duration-300 hover:scale-105"
-                            whileHover={{ scale: 1.05 }}
-                            whileTap={{ scale: 0.95 }}
-                        >
-                            <FiArrowUpRight className="w-5 h-5" />
-                        </motion.button>
-                    </div>
-                </div>
-                <div className="overflow-hidden rounded-2xl border border-gray-100">
-                    <table className="w-full">
-                        <thead className="bg-gradient-to-r from-gray-50 to-gray-100">
-                            <tr>
-                                <th className="text-left p-4 font-semibold text-gray-700 text-sm uppercase tracking-wider">#</th>
-                                <th className="text-left p-4 font-semibold text-gray-700 text-sm uppercase tracking-wider">Name</th>
-                                <th className="text-left p-4 font-semibold text-gray-700 text-sm uppercase tracking-wider">Contact</th>
-                                <th className="text-left p-4 font-semibold text-gray-700 text-sm uppercase tracking-wider">Firms</th>
-                                <th className="text-left p-4 font-semibold text-gray-700 text-sm uppercase tracking-wider">Amount</th>
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-gray-100">
-                            {topClients.map((client, index) => (
-                                <motion.tr 
-                                    key={index} 
-                                    className="hover:bg-gray-50/50 transition-colors"
-                                    initial={{ opacity: 0, y: 10 }}
-                                    animate={{ opacity: 1, y: 0 }}
-                                    transition={{ delay: index * 0.1 }}
-                                >
-                                    <td className="p-4">
-                                        <div className={`w-8 h-8 flex items-center justify-center rounded-full ${index < 3 ? 'bg-gradient-to-br from-amber-100 to-orange-100 text-amber-600' : 'bg-gray-100 text-gray-600'}`}>
-                                            <span className="font-bold">{index + 1}</span>
-                                        </div>
-                                    </td>
-                                    <td className="p-4">
-                                        <div className="font-semibold text-gray-800">{client.name}</div>
-                                        <div className="text-sm text-gray-500">C/O: {client.guardian_name}</div>
-                                    </td>
-                                    <td className="p-4">
-                                        <div className="text-gray-700 font-medium">{client.mobile}</div>
-                                        <div className="text-sm text-gray-500">{client.email}</div>
-                                    </td>
-                                    <td className="p-4">
-                                        <span className="px-3 py-1 bg-gradient-to-r from-amber-50 to-orange-50 text-amber-700 font-medium rounded-full text-sm">
-                                            {client.firms}
-                                        </span>
-                                    </td>
-                                    <td className="p-4">
-                                        <span className="text-lg font-bold bg-gradient-to-r from-green-600 to-emerald-600 bg-clip-text text-transparent">
-                                            {formatCurrency(client.total)}
-                                        </span>
-                                    </td>
-                                </motion.tr>
-                            ))}
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-        </WidgetWrapper>
-    );
+    // Update the TopClientsWidget component
+const TopClientsWidget = () => (
+    <WidgetWrapper widgetId="top-clients" title="Top Clients">
+        <TopClients 
+            defaultDays={30}
+            onViewDetails={() => navigate('/clients/top')}
+            refreshTrigger={refreshKey}
+        />
+    </WidgetWrapper>
+);
 
     const AdditionalStatsWidget = () => (
         <WidgetWrapper widgetId="additional-stats" title="Additional Stats">
