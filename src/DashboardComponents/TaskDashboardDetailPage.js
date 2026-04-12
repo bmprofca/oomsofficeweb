@@ -81,7 +81,16 @@ const TaskDashboardDetailPage = () => {
             
             if (data.success) {
                 setTasks(data.data.items);
-                setSummary(data.data.summary);
+                // Ensure numeric values are properly parsed
+                const parsedSummary = {
+                    ...data.data.summary,
+                    total: Number(data.data.summary?.total) || 0,
+                    completed: Number(data.data.summary?.completed) || 0,
+                    pending: Number(data.data.summary?.pending) || 0,
+                    total_amount: Number(data.data.summary?.total_amount) || 0,
+                    avg_completion_days: Number(data.data.summary?.avg_completion_days) || 0
+                };
+                setSummary(parsedSummary);
                 setPagination(data.data.pagination);
             }
         } catch (error) {
@@ -252,29 +261,29 @@ const TaskDashboardDetailPage = () => {
                                     </div>
                                     {summary && Object.keys(summary).length > 0 && (
                                         <div className="mt-4 flex flex-wrap gap-4 text-sm">
-                                            {summary.total !== undefined && (
+                                            {summary.total !== undefined && summary.total > 0 && (
                                                 <span className="px-3 py-1 bg-gray-100 rounded-full">
                                                     Total: {summary.total}
                                                 </span>
                                             )}
-                                            {summary.completed !== undefined && (
+                                            {summary.completed !== undefined && summary.completed > 0 && (
                                                 <span className="px-3 py-1 bg-green-100 text-green-700 rounded-full">
                                                     Completed: {summary.completed}
                                                 </span>
                                             )}
-                                            {summary.pending !== undefined && (
+                                            {summary.pending !== undefined && summary.pending > 0 && (
                                                 <span className="px-3 py-1 bg-yellow-100 text-yellow-700 rounded-full">
                                                     Pending: {summary.pending}
                                                 </span>
                                             )}
-                                            {summary.total_amount !== undefined && (
+                                            {summary.total_amount !== undefined && summary.total_amount > 0 && (
                                                 <span className="px-3 py-1 bg-blue-100 text-blue-700 rounded-full">
                                                     Total Amount: {formatCurrency(summary.total_amount)}
                                                 </span>
                                             )}
-                                            {summary.avg_completion_days !== undefined && (
+                                            {summary.avg_completion_days !== undefined && summary.avg_completion_days > 0 && (
                                                 <span className="px-3 py-1 bg-purple-100 text-purple-700 rounded-full">
-                                                    Avg Completion: {summary.avg_completion_days.toFixed(1)} days
+                                                    Avg Completion: {typeof summary.avg_completion_days === 'number' ? summary.avg_completion_days.toFixed(1) : parseFloat(summary.avg_completion_days || 0).toFixed(1)} days
                                                 </span>
                                             )}
                                         </div>
@@ -446,8 +455,8 @@ const TaskDashboardDetailPage = () => {
                                                                 <span className="text-sm">
                                                                     {formatDate(task.create_date)}
                                                                 </span>
-                                                            </td>
-                                                        </tr>
+                                                             </td>
+                                                         </tr>
                                                         
                                                         {/* Expanded Row */}
                                                         <AnimatePresence>
