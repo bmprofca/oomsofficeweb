@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Sidebar, Header } from '../components/header';
 import {
     FiTrendingUp,
@@ -35,7 +35,14 @@ import {
     FiShoppingBag,
     FiUserPlus,
     FiCheckCircle,
-    FiClock
+    FiClock,
+    FiMenu,
+    FiChevronUp,
+    FiChevronDown,
+    FiMinimize2,
+    FiMaximize2,
+    FiArrowUp,
+    FiArrowDown
 } from 'react-icons/fi';
 import { motion, AnimatePresence } from 'framer-motion';
 import TaskSummary from '../DashboardComponents/task-summary';
@@ -50,7 +57,7 @@ import { useNavigate } from 'react-router-dom';
 import SalesOverviewWidget from '../DashboardComponents/SalesOverviewWidget';
 
 // Version constants for localStorage migration
-const DASHBOARD_VERSION = '2';
+const DASHBOARD_VERSION = '3';
 const QUICK_STATS_VERSION = '2';
 const ADDITIONAL_STATS_VERSION = '2';
 
@@ -69,11 +76,6 @@ const migrateQuickStatsLinks = (cards) => {
         ...card,
         link: linkMap[card.link] || card.link
     }));
-};
-
-// Helper function to migrate old additional stats links
-const migrateAdditionalStatsLinks = (cards) => {
-    return cards;
 };
 
 // Default configurations
@@ -305,7 +307,12 @@ const Dashboard = () => {
     
     // Customization state
     const [isCustomizing, setIsCustomizing] = useState(false);
-    const [showCustomizeMenu, setShowCustomizeMenu] = useState(false);
+    const [customizationPanelMinimized, setCustomizationPanelMinimized] = useState(false);
+    
+    // Working copy for customization (only updated on save)
+    const [workingWidgets, setWorkingWidgets] = useState(null);
+    const [workingQuickStatsCards, setWorkingQuickStatsCards] = useState(null);
+    const [workingAdditionalStatsCards, setWorkingAdditionalStatsCards] = useState(null);
     
     // Dashboard Widgets with version control and migration
     const [widgets, setWidgets] = useState(() => {
@@ -322,9 +329,6 @@ const Dashboard = () => {
         return JSON.parse(savedLayout);
     });
 
-    const [draggedWidget, setDraggedWidget] = useState(null);
-    const [dragOverWidget, setDragOverWidget] = useState(null);
-    
     // Quick Stats Cards with version control and migration
     const [quickStatsCards, setQuickStatsCards] = useState(() => {
         const savedVersion = localStorage.getItem('quickStatsVersion');
@@ -372,167 +376,76 @@ const Dashboard = () => {
         
         const cards = JSON.parse(savedCards);
         
-        const needsMigration = migrateAdditionalStatsLinks(cards) !== cards;
-        
-        if (needsMigration) {
-            const migratedCards = migrateAdditionalStatsLinks(cards);
-            localStorage.setItem('additionalStatsCards', JSON.stringify(migratedCards));
-            localStorage.setItem('additionalStatsVersion', ADDITIONAL_STATS_VERSION);
-            return migratedCards;
-        }
-        
         return cards;
     });
 
-    const [draggedCard, setDraggedCard] = useState(null);
-    const [dragOverCard, setDragOverCard] = useState(null);
-    const [draggedCardSource, setDraggedCardSource] = useState(null);
-
     // Available widgets for adding
-    const [availableWidgets, setAvailableWidgets] = useState([
+    const availableWidgets = useMemo(() => [
         {
             id: 'performance-metrics',
             title: 'Performance Metrics',
             component: 'PerformanceMetrics',
-            visible: false,
-            order: 7,
             icon: FiActivity,
-            category: 'analytics'
+            category: 'analytics',
+            description: 'Track team productivity and performance'
         },
         {
             id: 'revenue-trend',
             title: 'Revenue Trend',
             component: 'RevenueTrend',
-            visible: false,
-            order: 8,
             icon: FiTrendingUp,
-            category: 'sales'
+            category: 'sales',
+            description: 'Monitor revenue growth and trends'
         },
         {
             id: 'client-acquisition',
             title: 'Client Acquisition',
             component: 'ClientAcquisition',
-            visible: false,
-            order: 9,
             icon: FiBriefcase,
-            category: 'clients'
+            category: 'clients',
+            description: 'Track new and active clients'
         },
         {
             id: 'goal-progress',
             title: 'Goal Progress',
             component: 'GoalProgress',
-            visible: false,
-            order: 10,
             icon: FiTarget,
-            category: 'overview'
+            category: 'overview',
+            description: 'Monitor business goals and targets'
         }
-    ]);
+    ], []);
 
-    // Predefined templates
-    const predefinedTemplates = {
-        default: {
-            name: 'Default Layout',
-            description: 'Balanced view with all essential widgets',
-            icon: FiGrid,
-            widgets: [
-                'sales-overview',
-                'quick-stats',
-                'task-summary',
-                'service-wise-sales',
-                'staff-wise-sales',
-                'top-clients',
-                'additional-stats'
-            ]
-        },
-        salesFocus: {
-            name: 'Sales Focus',
-            description: 'Focus on sales and revenue metrics',
-            icon: FiTrendingUp,
-            widgets: [
-                'sales-overview',
-                'service-wise-sales',
-                'staff-wise-sales',
-                'revenue-trend',
-                'quick-stats',
-                'top-clients'
-            ]
-        },
-        taskManagement: {
-            name: 'Task Management',
-            description: 'Focus on task tracking and productivity',
-            icon: FiCalendar,
-            widgets: [
-                'task-summary',
-                'quick-stats',
-                'performance-metrics',
-                'goal-progress',
-                'additional-stats'
-            ]
-        },
-        executiveView: {
-            name: 'Executive View',
-            description: 'High-level overview for management',
-            icon: FiBriefcase,
-            widgets: [
-                'sales-overview',
-                'performance-metrics',
-                'revenue-trend',
-                'goal-progress',
-                'top-clients'
-            ]
-        },
-        analyticsHeavy: {
-            name: 'Analytics Heavy',
-            description: 'Data-driven view with maximum analytics',
-            icon: FiBarChart2,
-            widgets: [
-                'performance-metrics',
-                'revenue-trend',
-                'service-wise-sales',
-                'staff-wise-sales',
-                'client-acquisition',
-                'goal-progress'
-            ]
+    // Initialize working copies when entering customization mode
+    useEffect(() => {
+        if (isCustomizing && !workingWidgets) {
+            setWorkingWidgets(JSON.parse(JSON.stringify(widgets)));
+            setWorkingQuickStatsCards(JSON.parse(JSON.stringify(quickStatsCards)));
+            setWorkingAdditionalStatsCards(JSON.parse(JSON.stringify(additionalStatsCards)));
         }
-    };
+    }, [isCustomizing, widgets, quickStatsCards, additionalStatsCards, workingWidgets]);
 
-    // Data-based layout suggestions
-    const getDataBasedSuggestions = () => {
-        const suggestions = [];
-        
-        if (stats.total_sale > 1000000) {
-            suggestions.push({
-                title: "High Revenue Focus",
-                description: "Your sales are high. Focus on maintaining growth.",
-                recommendedWidgets: ['revenue-trend', 'performance-metrics', 'goal-progress']
-            });
-        }
-        
-        if (stats.task_created_today > 30) {
-            suggestions.push({
-                title: "Task Management Focus",
-                description: "High task activity detected.",
-                recommendedWidgets: ['task-summary', 'performance-metrics']
-            });
-        }
-        
-        if (stats.total_client > 300) {
-            suggestions.push({
-                title: "Client Management Focus",
-                description: "Large client base detected.",
-                recommendedWidgets: ['client-acquisition', 'top-clients']
-            });
-        }
-        
-        return suggestions;
-    };
+    // Use working copies or original based on customization mode
+    const displayWidgets = isCustomizing && workingWidgets ? workingWidgets : widgets;
+    const displayQuickStatsCards = isCustomizing && workingQuickStatsCards ? workingQuickStatsCards : quickStatsCards;
+    const displayAdditionalStatsCards = isCustomizing && workingAdditionalStatsCards ? workingAdditionalStatsCards : additionalStatsCards;
+
+    // Memoized visible and hidden widgets for performance
+    const visibleWidgets = useMemo(() => 
+        displayWidgets.filter(w => w.visible).sort((a, b) => a.order - b.order),
+        [displayWidgets]
+    );
+    
+    const hiddenWidgets = useMemo(() => [
+        ...displayWidgets.filter(w => !w.visible),
+        ...availableWidgets.filter(aw => !displayWidgets.find(w => w.id === aw.id))
+    ], [displayWidgets, availableWidgets]);
 
     // Persist sidebar minimized state
     useEffect(() => {
         localStorage.setItem('sidebarMinimized', JSON.stringify(isMinimized));
     }, [isMinimized]);
 
-    // Save layout to localStorage when not customizing
+    // Save layout to localStorage only when not customizing
     useEffect(() => {
         if (!isCustomizing) {
             localStorage.setItem('dashboardLayout', JSON.stringify(widgets));
@@ -627,122 +540,53 @@ const Dashboard = () => {
         return new Intl.NumberFormat('en-IN').format(number);
     };
 
-    // Drag and drop handlers for widgets
-    const handleWidgetDragStart = useCallback((e, widgetId) => {
-        if (!isCustomizing) return;
-        e.stopPropagation();
-        setDraggedWidget(widgetId);
-        e.dataTransfer.setData('widgetId', widgetId);
-        e.dataTransfer.effectAllowed = 'move';
+    // Arrow-based movement - only updates working copy (sidebar only)
+    const moveWidgetUp = useCallback((index) => {
+        if (!isCustomizing || index === 0) return;
+        
+        setWorkingWidgets(prevWidgets => {
+            if (!prevWidgets) return prevWidgets;
+            const newWidgets = [...prevWidgets];
+            const visibleWidgetsList = newWidgets.filter(w => w.visible);
+            const hiddenWidgetsList = newWidgets.filter(w => !w.visible);
+            
+            // Swap positions
+            [visibleWidgetsList[index], visibleWidgetsList[index - 1]] = 
+            [visibleWidgetsList[index - 1], visibleWidgetsList[index]];
+            
+            // Update orders
+            return [
+                ...visibleWidgetsList.map((w, idx) => ({ ...w, order: idx })),
+                ...hiddenWidgetsList.map((w, idx) => ({ ...w, order: visibleWidgetsList.length + idx }))
+            ];
+        });
     }, [isCustomizing]);
 
-    const handleWidgetDragOver = useCallback((e, widgetId) => {
-        if (!isCustomizing || !draggedWidget) return;
-        e.stopPropagation();
-        e.preventDefault();
-        if (widgetId !== draggedWidget) {
-            setDragOverWidget(widgetId);
-        }
-    }, [isCustomizing, draggedWidget]);
-
-    const handleWidgetDrop = useCallback((e, targetWidgetId) => {
-        if (!isCustomizing || !draggedWidget) return;
-        e.stopPropagation();
-        e.preventDefault();
+    const moveWidgetDown = useCallback((index) => {
+        if (!isCustomizing || index === visibleWidgets.length - 1) return;
         
-        if (draggedWidget !== targetWidgetId) {
-            setWidgets(prevWidgets => {
-                const draggedIndex = prevWidgets.findIndex(w => w.id === draggedWidget);
-                const targetIndex = prevWidgets.findIndex(w => w.id === targetWidgetId);
-                
-                if (draggedIndex === -1 || targetIndex === -1) return prevWidgets;
-                
-                const newWidgets = [...prevWidgets];
-                const [removed] = newWidgets.splice(draggedIndex, 1);
-                newWidgets.splice(targetIndex, 0, removed);
-                
-                return newWidgets.map((widget, index) => ({
-                    ...widget,
-                    order: index
-                }));
-            });
-        }
-        setDraggedWidget(null);
-        setDragOverWidget(null);
-    }, [isCustomizing, draggedWidget]);
+        setWorkingWidgets(prevWidgets => {
+            if (!prevWidgets) return prevWidgets;
+            const newWidgets = [...prevWidgets];
+            const visibleWidgetsList = newWidgets.filter(w => w.visible);
+            const hiddenWidgetsList = newWidgets.filter(w => !w.visible);
+            
+            // Swap positions
+            [visibleWidgetsList[index], visibleWidgetsList[index + 1]] = 
+            [visibleWidgetsList[index + 1], visibleWidgetsList[index]];
+            
+            // Update orders
+            return [
+                ...visibleWidgetsList.map((w, idx) => ({ ...w, order: idx })),
+                ...hiddenWidgetsList.map((w, idx) => ({ ...w, order: visibleWidgetsList.length + idx }))
+            ];
+        });
+    }, [isCustomizing, visibleWidgets.length]);
 
-    const handleWidgetDragEnd = useCallback(() => {
-        setDraggedWidget(null);
-        setDragOverWidget(null);
-    }, []);
-
-    // Drag and drop handlers for cards inside components
-    const handleCardDragStart = useCallback((e, cardId, source) => {
-        if (!isCustomizing) return;
-        e.stopPropagation();
-        setDraggedCard(cardId);
-        setDraggedCardSource(source);
-        e.dataTransfer.setData('cardId', cardId);
-        e.dataTransfer.setData('source', source);
-        e.dataTransfer.effectAllowed = 'move';
-    }, [isCustomizing]);
-
-    const handleCardDragOver = useCallback((e, cardId, source) => {
-        if (!isCustomizing || !draggedCard || draggedCardSource !== source) return;
-        e.stopPropagation();
-        e.preventDefault();
-        if (cardId !== draggedCard) {
-            setDragOverCard(cardId);
-        }
-    }, [isCustomizing, draggedCard, draggedCardSource]);
-
-    const handleCardDrop = useCallback((e, targetCardId, source) => {
-        if (!isCustomizing || !draggedCard || draggedCardSource !== source) return;
-        e.stopPropagation();
-        e.preventDefault();
-        
-        if (draggedCard !== targetCardId) {
-            if (source === 'quickStats') {
-                setQuickStatsCards(prevCards => {
-                    const draggedIndex = prevCards.findIndex(c => c.id === draggedCard);
-                    const targetIndex = prevCards.findIndex(c => c.id === targetCardId);
-                    
-                    if (draggedIndex === -1 || targetIndex === -1) return prevCards;
-                    
-                    const newCards = [...prevCards];
-                    const [removed] = newCards.splice(draggedIndex, 1);
-                    newCards.splice(targetIndex, 0, removed);
-                    return newCards;
-                });
-            } else if (source === 'additionalStats') {
-                setAdditionalStatsCards(prevCards => {
-                    const draggedIndex = prevCards.findIndex(c => c.id === draggedCard);
-                    const targetIndex = prevCards.findIndex(c => c.id === targetCardId);
-                    
-                    if (draggedIndex === -1 || targetIndex === -1) return prevCards;
-                    
-                    const newCards = [...prevCards];
-                    const [removed] = newCards.splice(draggedIndex, 1);
-                    newCards.splice(targetIndex, 0, removed);
-                    return newCards;
-                });
-            }
-        }
-        setDraggedCard(null);
-        setDragOverCard(null);
-        setDraggedCardSource(null);
-    }, [isCustomizing, draggedCard, draggedCardSource]);
-
-    const handleCardDragEnd = useCallback(() => {
-        setDraggedCard(null);
-        setDragOverCard(null);
-        setDraggedCardSource(null);
-    }, []);
-
-    // Widget management
+    // Widget management functions (only on working copy)
     const toggleWidgetVisibility = useCallback((widgetId) => {
         if (!isCustomizing) return;
-        setWidgets(items =>
+        setWorkingWidgets(items =>
             items.map(item =>
                 item.id === widgetId
                     ? { ...item, visible: !item.visible }
@@ -751,147 +595,66 @@ const Dashboard = () => {
         );
     }, [isCustomizing]);
 
-    const deleteWidget = useCallback((widgetId) => {
-        if (!isCustomizing) return;
-        setWidgets(items => items.filter(item => item.id !== widgetId));
-        
-        const widget = widgets.find(w => w.id === widgetId);
-        if (widget && availableWidgets.find(aw => aw.id === widgetId)) {
-            setAvailableWidgets(prev => 
-                prev.map(w => w.id === widgetId ? { ...w, visible: false } : w)
-            );
-        }
-    }, [isCustomizing, widgets, availableWidgets]);
-
     const addWidget = useCallback((widgetId) => {
         if (!isCustomizing) return;
         
-        const widgetToAdd = availableWidgets.find(w => w.id === widgetId) || widgets.find(w => w.id === widgetId);
-        if (widgetToAdd) {
+        const widgetToAdd = availableWidgets.find(w => w.id === widgetId);
+        if (widgetToAdd && !displayWidgets.find(w => w.id === widgetId)) {
+            const visibleCount = displayWidgets.filter(w => w.visible).length;
             const newWidget = {
                 ...widgetToAdd,
                 visible: true,
-                order: widgets.length
+                order: visibleCount
             };
-            setWidgets(prev => [...prev.filter(w => w.id !== widgetId), newWidget]);
-            setAvailableWidgets(prev => 
-                prev.map(w => w.id === widgetId ? { ...w, visible: true } : w)
-            );
+            setWorkingWidgets(prev => [...prev, newWidget]);
         }
-    }, [isCustomizing, widgets, availableWidgets]);
-
-    const applyTemplate = useCallback((templateName) => {
-        const template = predefinedTemplates[templateName];
-        if (!template) return;
-        
-        const newWidgets = template.widgets.map((widgetId, index) => {
-            const existingWidget = widgets.find(w => w.id === widgetId);
-            const availableWidget = availableWidgets.find(w => w.id === widgetId);
-            
-            if (existingWidget) {
-                return { ...existingWidget, visible: true, order: index };
-            } else if (availableWidget) {
-                return { ...availableWidget, visible: true, order: index };
-            }
-            return null;
-        }).filter(Boolean);
-        
-        const defaultWidgets = widgets.filter(w => 
-            !template.widgets.includes(w.id) && 
-            ['quick-stats', 'additional-stats'].includes(w.id)
-        ).map(w => ({ ...w, order: newWidgets.length + 1 }));
-        
-        setWidgets([...newWidgets, ...defaultWidgets]);
-    }, [widgets, availableWidgets]);
+    }, [isCustomizing, displayWidgets, availableWidgets]);
 
     const resetLayout = useCallback(() => {
+        if (!isCustomizing) return;
         const defaultLayout = getDefaultWidgets();
         const defaultQuickStats = getDefaultQuickStatsCards();
         const defaultAdditionalStats = getDefaultAdditionalStatsCards();
         
-        setWidgets(defaultLayout);
-        setQuickStatsCards(defaultQuickStats);
-        setAdditionalStatsCards(defaultAdditionalStats);
-        
-        localStorage.setItem('dashboardLayout', JSON.stringify(defaultLayout));
-        localStorage.setItem('dashboardVersion', DASHBOARD_VERSION);
-        localStorage.setItem('quickStatsCards', JSON.stringify(defaultQuickStats));
-        localStorage.setItem('quickStatsVersion', QUICK_STATS_VERSION);
-        localStorage.setItem('additionalStatsCards', JSON.stringify(defaultAdditionalStats));
-        localStorage.setItem('additionalStatsVersion', ADDITIONAL_STATS_VERSION);
-    }, []);
+        setWorkingWidgets(defaultLayout);
+        setWorkingQuickStatsCards(defaultQuickStats);
+        setWorkingAdditionalStatsCards(defaultAdditionalStats);
+    }, [isCustomizing]);
 
     const saveLayout = useCallback(() => {
+        if (workingWidgets) {
+            // Apply changes to main state - ONLY ONE RE-RENDER HERE
+            setWidgets(workingWidgets);
+            setQuickStatsCards(workingQuickStatsCards || quickStatsCards);
+            setAdditionalStatsCards(workingAdditionalStatsCards || additionalStatsCards);
+        }
         setIsCustomizing(false);
-        setShowCustomizeMenu(false);
-        localStorage.setItem('dashboardLayout', JSON.stringify(widgets));
-        localStorage.setItem('dashboardVersion', DASHBOARD_VERSION);
-        localStorage.setItem('quickStatsCards', JSON.stringify(quickStatsCards));
-        localStorage.setItem('quickStatsVersion', QUICK_STATS_VERSION);
-        localStorage.setItem('additionalStatsCards', JSON.stringify(additionalStatsCards));
-        localStorage.setItem('additionalStatsVersion', ADDITIONAL_STATS_VERSION);
-    }, [widgets, quickStatsCards, additionalStatsCards]);
+        setCustomizationPanelMinimized(false);
+        setWorkingWidgets(null);
+        setWorkingQuickStatsCards(null);
+        setWorkingAdditionalStatsCards(null);
+    }, [workingWidgets, workingQuickStatsCards, workingAdditionalStatsCards, quickStatsCards, additionalStatsCards]);
+
+    const cancelCustomization = useCallback(() => {
+        setIsCustomizing(false);
+        setCustomizationPanelMinimized(false);
+        setWorkingWidgets(null);
+        setWorkingQuickStatsCards(null);
+        setWorkingAdditionalStatsCards(null);
+    }, []);
 
     // Widget Wrapper Component
     const WidgetWrapper = React.memo(({ widgetId, title, children, className = '' }) => {
-        const isVisible = widgets.find(w => w.id === widgetId)?.visible ?? true;
-        
-        if (!isVisible) return null;
-
-        const isDragged = draggedWidget === widgetId;
-        const isDragOver = dragOverWidget === widgetId;
+        const widget = displayWidgets.find(w => w.id === widgetId);
+        if (!widget || !widget.visible) return null;
 
         return (
-            <div
-                draggable={isCustomizing}
-                onDragStart={(e) => handleWidgetDragStart(e, widgetId)}
-                onDragOver={(e) => handleWidgetDragOver(e, widgetId)}
-                onDrop={(e) => handleWidgetDrop(e, widgetId)}
-                onDragEnd={handleWidgetDragEnd}
-                className={`relative ${isCustomizing ? 'cursor-move select-none' : ''} ${
-                    isDragged ? 'opacity-50' : ''
-                } ${isDragOver ? 'border-2 border-dashed border-indigo-500 rounded-2xl' : ''} ${className}`}
-                style={{ 
-                    pointerEvents: isCustomizing ? 'auto' : 'auto',
-                    userSelect: isCustomizing ? 'none' : 'auto'
-                }}
-            >
-                {isCustomizing && (
-                    <div className="absolute -top-3 -left-3 z-10 flex items-center gap-2">
-                        <div className="p-2 bg-gradient-to-r from-indigo-600 to-purple-600 rounded-lg shadow-lg">
-                            <FiMove className="w-3 h-3 text-white" />
-                        </div>
-                    </div>
-                )}
-
-                {isCustomizing && (
-                    <div className="absolute top-4 right-4 z-10 flex items-center gap-2">
-                        <button
-                            onClick={() => toggleWidgetVisibility(widgetId)}
-                            className="p-2 bg-white/90 backdrop-blur-sm rounded-lg shadow-lg hover:bg-white transition-all duration-200 hover:scale-110"
-                            title="Hide widget"
-                        >
-                            <FiEye className="w-4 h-4 text-gray-700" />
-                        </button>
-                        <button
-                            onClick={() => deleteWidget(widgetId)}
-                            className="p-2 bg-white/90 backdrop-blur-sm rounded-lg shadow-lg hover:bg-red-50 transition-all duration-200 hover:scale-110"
-                            title="Remove widget"
-                        >
-                            <FiTrash2 className="w-4 h-4 text-red-600" />
-                        </button>
-                    </div>
-                )}
-
+            <div className={`relative ${className}`}>
                 <motion.div
-                    animate={{
-                        scale: isCustomizing ? 1.01 : 1,
-                        borderColor: isCustomizing ? '#6366f1' : 'transparent'
-                    }}
                     className="bg-white rounded-2xl shadow-xl overflow-hidden"
-                    style={{ 
-                        pointerEvents: isCustomizing ? 'none' : 'auto'
-                    }}
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.3 }}
                 >
                     {children}
                 </motion.div>
@@ -901,18 +664,197 @@ const Dashboard = () => {
 
     WidgetWrapper.displayName = 'WidgetWrapper';
 
-    const QuickStatsWidget = () => (
+    // Customization Sidebar Component - NO DRAG AND DROP, ONLY ARROWS
+    const CustomizationSidebar = () => {
+        return (
+            <motion.div
+                initial={{ x: -400, opacity: 0 }}
+                animate={{ 
+                    x: customizationPanelMinimized ? -380 : 0,
+                    opacity: 1 
+                }}
+                transition={{ type: "spring", stiffness: 300, damping: 30 }}
+                className="fixed left-0 top-16 h-[calc(100vh-4rem)] z-40 bg-white shadow-2xl border-r border-gray-200"
+                style={{ width: '380px' }}
+            >
+                {/* Minimize/Expand Toggle */}
+                <button
+                    onClick={() => setCustomizationPanelMinimized(!customizationPanelMinimized)}
+                    className="absolute -right-3 top-6 bg-white border border-gray-200 rounded-full p-1.5 shadow-lg hover:shadow-xl transition-all duration-300 z-50"
+                >
+                    {customizationPanelMinimized ? (
+                        <FiMaximize2 className="w-3.5 h-3.5 text-indigo-600" />
+                    ) : (
+                        <FiMinimize2 className="w-3.5 h-3.5 text-indigo-600" />
+                    )}
+                </button>
+
+                {/* Header */}
+                <div className="bg-gradient-to-r from-indigo-600 to-purple-600 p-4">
+                    <div className="flex items-center justify-between">
+                        <div>
+                            <h3 className="text-white font-semibold text-base">Customize Dashboard</h3>
+                            <p className="text-indigo-200 text-xs mt-0.5">Use arrows to reorder widgets</p>
+                        </div>
+                        <div className="flex items-center gap-2">
+                            <button
+                                onClick={resetLayout}
+                                className="px-3 py-1.5 bg-white/20 hover:bg-white/30 text-white rounded-lg transition-all duration-300 flex items-center gap-1.5 text-xs"
+                            >
+                                <FiRefreshCw className="w-3.5 h-3.5" />
+                                Reset
+                            </button>
+                            <button
+                                onClick={saveLayout}
+                                className="px-3 py-1.5 bg-white text-indigo-600 hover:bg-gray-50 rounded-lg transition-all duration-300 flex items-center gap-1.5 text-xs font-medium"
+                            >
+                                <FiSave className="w-3.5 h-3.5" />
+                                Save
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Content */}
+                <div className="h-[calc(100%-73px)] overflow-y-auto p-4 space-y-5">
+                    {/* Active Widgets Section */}
+                    <div>
+                        <h4 className="text-xs font-semibold text-gray-800 mb-2.5 flex items-center gap-1.5">
+                            <FiGrid className="w-3.5 h-3.5 text-indigo-600" />
+                            Active Widgets
+                            <span className="text-xs font-normal text-gray-500 ml-1">({visibleWidgets.length})</span>
+                        </h4>
+                        <div className="space-y-2">
+                            {visibleWidgets.map((widget, index) => {
+                                const WidgetIcon = widget.icon || FiGrid;
+                                return (
+                                    <div
+                                        key={widget.id}
+                                        className="group flex items-center gap-2 p-2.5 bg-gradient-to-r from-gray-50 to-white rounded-lg border border-gray-200 hover:shadow-md transition-all duration-200"
+                                    >
+                                        {/* Icon */}
+                                        <div className="p-1.5 bg-gradient-to-br from-indigo-100 to-purple-100 rounded-lg">
+                                            <WidgetIcon className="w-3.5 h-3.5 text-indigo-600" />
+                                        </div>
+                                        
+                                        {/* Info */}
+                                        <div className="flex-1 min-w-0">
+                                            <div className="font-medium text-gray-800 text-sm truncate">{widget.title}</div>
+                                            <div className="text-xs text-gray-500 capitalize">{widget.category}</div>
+                                        </div>
+                                        
+                                        {/* Arrow Controls */}
+                                        <div className="flex items-center gap-1">
+                                            <button
+                                                onClick={() => moveWidgetUp(index)}
+                                                disabled={index === 0}
+                                                className={`p-1 rounded transition-all duration-200 ${
+                                                    index === 0
+                                                        ? 'text-gray-300 cursor-not-allowed'
+                                                        : 'text-gray-600 hover:bg-gray-100 hover:text-indigo-600'
+                                                }`}
+                                                title="Move up"
+                                            >
+                                                <FiArrowUp className="w-3.5 h-3.5" />
+                                            </button>
+                                            <button
+                                                onClick={() => moveWidgetDown(index)}
+                                                disabled={index === visibleWidgets.length - 1}
+                                                className={`p-1 rounded transition-all duration-200 ${
+                                                    index === visibleWidgets.length - 1
+                                                        ? 'text-gray-300 cursor-not-allowed'
+                                                        : 'text-gray-600 hover:bg-gray-100 hover:text-indigo-600'
+                                                }`}
+                                                title="Move down"
+                                            >
+                                                <FiArrowDown className="w-3.5 h-3.5" />
+                                            </button>
+                                        </div>
+                                        
+                                        {/* Hide Button */}
+                                        <button
+                                            onClick={() => toggleWidgetVisibility(widget.id)}
+                                            className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-all duration-200"
+                                            title="Hide widget"
+                                        >
+                                            <FiEyeOff className="w-3.5 h-3.5" />
+                                        </button>
+                                    </div>
+                                );
+                            })}
+                            {visibleWidgets.length === 0 && (
+                                <div className="text-center py-8 text-gray-500">
+                                    <FiGrid className="w-8 h-8 mx-auto mb-2 text-gray-300" />
+                                    <p className="text-sm">No active widgets</p>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+
+                    {/* Hidden Widgets Section */}
+                    {hiddenWidgets.length > 0 && (
+                        <div>
+                            <h4 className="text-xs font-semibold text-gray-800 mb-2.5 flex items-center gap-1.5">
+                                <FiEyeOff className="w-3.5 h-3.5 text-gray-500" />
+                                Hidden Widgets
+                                <span className="text-xs font-normal text-gray-500 ml-1">({hiddenWidgets.length})</span>
+                            </h4>
+                            <div className="space-y-2">
+                                {hiddenWidgets.map((widget) => {
+                                    const WidgetIcon = widget.icon || FiGrid;
+                                    return (
+                                        <div
+                                            key={widget.id}
+                                            className="flex items-center gap-2 p-2.5 bg-gray-50 rounded-lg border border-gray-100 opacity-75 hover:opacity-100 transition-all duration-200"
+                                        >
+                                            <div className="p-1.5 bg-gray-200 rounded-lg">
+                                                <WidgetIcon className="w-3.5 h-3.5 text-gray-500" />
+                                            </div>
+                                            <div className="flex-1 min-w-0">
+                                                <div className="font-medium text-gray-600 text-sm truncate">{widget.title}</div>
+                                                {widget.description && (
+                                                    <div className="text-xs text-gray-400 truncate">{widget.description}</div>
+                                                )}
+                                                <div className="text-xs text-gray-400 capitalize mt-0.5">{widget.category}</div>
+                                            </div>
+                                            <button
+                                                onClick={() => {
+                                                    if (displayWidgets.find(w => w.id === widget.id)) {
+                                                        toggleWidgetVisibility(widget.id);
+                                                    } else {
+                                                        addWidget(widget.id);
+                                                    }
+                                                }}
+                                                className="p-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition-all duration-200"
+                                                title="Show widget"
+                                            >
+                                                <FiEye className="w-3.5 h-3.5" />
+                                            </button>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        </div>
+                    )}
+                </div>
+
+                {/* Footer */}
+                <div className="absolute bottom-0 left-0 right-0 p-3 bg-gray-50 border-t border-gray-200">
+                    <div className="text-xs text-gray-500 text-center">
+                        💡 Tip: Use arrow buttons ↑ ↓ to reorder widgets
+                    </div>
+                </div>
+            </motion.div>
+        );
+    };
+
+    // Quick Stats Widget
+    const QuickStatsWidget = React.memo(() => (
         <WidgetWrapper widgetId="quick-stats" title="Quick Stats">
             <div className="p-6">
                 <QuickStats
                     stats={stats}
-                    isCustomizing={isCustomizing}
-                    onCardDragStart={handleCardDragStart}
-                    onCardDragOver={handleCardDragOver}
-                    onCardDrop={handleCardDrop}
-                    onCardDragEnd={handleCardDragEnd}
-                    draggedCard={draggedCard}
-                    dragOverCard={dragOverCard}
+                    isCustomizing={false}
                     formatCurrency={formatCurrency}
                     formatNumber={formatNumber}
                     blurEnabled={blurEnabled}
@@ -923,15 +865,15 @@ const Dashboard = () => {
                             navigate(path);
                         }
                     }}
-                    quickStatsCards={quickStatsCards}
-                    setQuickStatsCards={setQuickStatsCards}
+                    quickStatsCards={displayQuickStatsCards}
+                    setQuickStatsCards={isCustomizing ? setWorkingQuickStatsCards : setQuickStatsCards}
                     onRefresh={fetchDashboardData}
                 />
             </div>
         </WidgetWrapper>
-    );
+    ));
 
-    const TaskSummaryWidget = () => (
+    const TaskSummaryWidget = React.memo(() => (
         <WidgetWrapper widgetId="task-summary" title="Task Summary">
             <TaskSummary 
                 taskStats={taskStats}
@@ -939,27 +881,27 @@ const Dashboard = () => {
                 onCreateTask={() => navigate('/task/create')}
             />
         </WidgetWrapper>
-    );
+    ));
 
-    const ServiceWiseSalesWidget = () => (
+    const ServiceWiseSalesWidget = React.memo(() => (
         <WidgetWrapper widgetId="service-wise-sales" title="Service Wise Sales">
             <ServiceWiseSales 
                 onViewDetails={() => navigate('/sales/service-wise')}
                 refreshTrigger={refreshKey}
             />
         </WidgetWrapper>
-    );
+    ));
 
-    const StaffWiseSalesWidget = () => (
+    const StaffWiseSalesWidget = React.memo(() => (
         <WidgetWrapper widgetId="staff-wise-sales" title="Staff Wise Sales">
             <StaffWiseSales 
                 onViewDetails={() => navigate('/sales/staff-wise')}
                 refreshTrigger={refreshKey}
             />
         </WidgetWrapper>
-    );
+    ));
 
-    const TopClientsWidget = () => (
+    const TopClientsWidget = React.memo(() => (
         <WidgetWrapper widgetId="top-clients" title="Top Clients">
             <TopClients 
                 defaultDays={30}
@@ -967,92 +909,94 @@ const Dashboard = () => {
                 refreshTrigger={refreshKey}
             />
         </WidgetWrapper>
-    );
+    ));
 
-    const AdditionalStatsWidget = () => (
+    const AdditionalStatsWidget = React.memo(() => (
         <WidgetWrapper widgetId="additional-stats" title="Additional Stats">
             <AdditionalStatsComponent
                 stats={stats}
-                isCustomizing={isCustomizing}
-                onCardDragStart={handleCardDragStart}
-                onCardDragOver={handleCardDragOver}
-                onCardDrop={handleCardDrop}
-                onCardDragEnd={handleCardDragEnd}
-                draggedCard={draggedCard}
-                dragOverCard={dragOverCard}
+                isCustomizing={false}
                 formatCurrency={formatCurrency}
                 formatNumber={formatNumber}
                 blurEnabled={blurEnabled}
                 onNavigate={(link) => navigate(link)}
+                additionalStatsCards={displayAdditionalStatsCards}
+                setAdditionalStatsCards={isCustomizing ? setWorkingAdditionalStatsCards : setAdditionalStatsCards}
             />
         </WidgetWrapper>
-    );
+    ));
 
-    const PerformanceMetricsWidget = () => (
+    const SalesOverviewWidgetComponent = React.memo(() => (
+        <WidgetWrapper widgetId="sales-overview" title="Sales Overview">
+            <SalesOverviewWidget />
+        </WidgetWrapper>
+    ));
+
+    const PerformanceMetricsWidget = React.memo(() => (
         <WidgetWrapper widgetId="performance-metrics" title="Performance Metrics">
-            <div className="p-8">
-                <div className="flex items-center gap-3 mb-6">
-                    <div className="p-3 bg-gradient-to-br from-indigo-100 to-purple-100 rounded-xl">
-                        <FiActivity className="w-6 h-6 text-indigo-600" />
+            <div className="p-6">
+                <div className="flex items-center gap-3 mb-4">
+                    <div className="p-2 bg-gradient-to-br from-indigo-100 to-purple-100 rounded-xl">
+                        <FiActivity className="w-5 h-5 text-indigo-600" />
                     </div>
-                    <h3 className="text-xl font-bold text-gray-800">Performance Metrics</h3>
+                    <h3 className="text-lg font-bold text-gray-800">Performance Metrics</h3>
                 </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div className="bg-gradient-to-br from-indigo-50 to-purple-50 p-6 rounded-2xl border border-indigo-100">
-                        <div className="flex items-center justify-between mb-4">
-                            <span className="text-gray-600 font-medium">Productivity Score</span>
-                            <span className="text-2xl font-bold text-indigo-600">87%</span>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="bg-gradient-to-br from-indigo-50 to-purple-50 p-4 rounded-xl border border-indigo-100">
+                        <div className="flex items-center justify-between mb-3">
+                            <span className="text-gray-600 font-medium text-sm">Productivity Score</span>
+                            <span className="text-xl font-bold text-indigo-600">87%</span>
                         </div>
-                        <div className="w-full bg-gray-200 rounded-full h-3">
+                        <div className="w-full bg-gray-200 rounded-full h-2">
                             <motion.div 
-                                className="bg-gradient-to-r from-indigo-500 to-purple-500 h-3 rounded-full"
+                                className="bg-gradient-to-r from-indigo-500 to-purple-500 h-2 rounded-full"
                                 initial={{ width: 0 }}
                                 animate={{ width: '87%' }}
                                 transition={{ duration: 1, ease: "easeOut" }}
                             />
                         </div>
-                        <div className="mt-4 text-sm text-gray-500">↑ 12% from last month</div>
+                        <div className="mt-3 text-xs text-gray-500">↑ 12% from last month</div>
                     </div>
-                    <div className="bg-gradient-to-br from-green-50 to-emerald-50 p-6 rounded-2xl border border-green-100">
-                        <div className="flex items-center justify-between mb-4">
-                            <span className="text-gray-600 font-medium">Client Satisfaction</span>
-                            <span className="text-2xl font-bold text-green-600">92%</span>
+                    <div className="bg-gradient-to-br from-green-50 to-emerald-50 p-4 rounded-xl border border-green-100">
+                        <div className="flex items-center justify-between mb-3">
+                            <span className="text-gray-600 font-medium text-sm">Client Satisfaction</span>
+                            <span className="text-xl font-bold text-green-600">92%</span>
                         </div>
-                        <div className="w-full bg-gray-200 rounded-full h-3">
+                        <div className="w-full bg-gray-200 rounded-full h-2">
                             <motion.div 
-                                className="bg-gradient-to-r from-green-500 to-emerald-500 h-3 rounded-full"
+                                className="bg-gradient-to-r from-green-500 to-emerald-500 h-2 rounded-full"
                                 initial={{ width: 0 }}
                                 animate={{ width: '92%' }}
                                 transition={{ duration: 1, ease: "easeOut" }}
                             />
                         </div>
-                        <div className="mt-4 text-sm text-gray-500">↑ 8% from last month</div>
+                        <div className="mt-3 text-xs text-gray-500">↑ 8% from last month</div>
                     </div>
                 </div>
             </div>
         </WidgetWrapper>
-    );
+    ));
 
-    const RevenueTrendWidget = () => (
+    const RevenueTrendWidget = React.memo(() => (
         <WidgetWrapper widgetId="revenue-trend" title="Revenue Trend">
-            <div className="p-8">
-                <div className="flex items-center gap-3 mb-6">
-                    <div className="p-3 bg-gradient-to-br from-green-100 to-emerald-100 rounded-xl">
-                        <FiTrendingUp className="w-6 h-6 text-green-600" />
+            <div className="p-6">
+                <div className="flex items-center gap-3 mb-4">
+                    <div className="p-2 bg-gradient-to-br from-green-100 to-emerald-100 rounded-xl">
+                        <FiTrendingUp className="w-5 h-5 text-green-600" />
                     </div>
-                    <h3 className="text-xl font-bold text-gray-800">Revenue Trend</h3>
+                    <h3 className="text-lg font-bold text-gray-800">Revenue Trend</h3>
                 </div>
-                <div className="bg-gradient-to-br from-green-50 to-emerald-50 rounded-2xl p-8 border border-green-100">
+                <div className="bg-gradient-to-br from-green-50 to-emerald-50 rounded-xl p-6 border border-green-100">
                     <div className="text-center">
-                        <div className="text-4xl font-bold text-green-600 mb-2">+24.5%</div>
-                        <div className="text-lg font-medium text-gray-700 mb-1">Growth this quarter</div>
-                        <p className="text-gray-500">Compared to previous quarter</p>
+                        <div className="text-3xl font-bold text-green-600 mb-1">+24.5%</div>
+                        <div className="text-sm font-medium text-gray-700 mb-1">Growth this quarter</div>
+                        <p className="text-xs text-gray-500">Compared to previous quarter</p>
                     </div>
-                    <div className="mt-8 h-32 flex items-end justify-center gap-4">
+                    <div className="mt-6 h-24 flex items-end justify-center gap-3">
                         {[30, 50, 70, 90, 75, 85, 95].map((height, index) => (
                             <motion.div
                                 key={index}
-                                className="w-8 bg-gradient-to-t from-green-400 to-emerald-500 rounded-t-lg"
+                                className="w-6 bg-gradient-to-t from-green-400 to-emerald-500 rounded-t-lg"
                                 initial={{ height: 0 }}
                                 animate={{ height: `${height}%` }}
                                 transition={{ duration: 1, delay: index * 0.1 }}
@@ -1062,280 +1006,103 @@ const Dashboard = () => {
                 </div>
             </div>
         </WidgetWrapper>
-    );
+    ));
 
-    const ClientAcquisitionWidget = () => (
+    const ClientAcquisitionWidget = React.memo(() => (
         <WidgetWrapper widgetId="client-acquisition" title="Client Acquisition">
-            <div className="p-8">
-                <div className="flex items-center gap-3 mb-6">
-                    <div className="p-3 bg-gradient-to-br from-blue-100 to-cyan-100 rounded-xl">
-                        <FiBriefcase className="w-6 h-6 text-blue-600" />
+            <div className="p-6">
+                <div className="flex items-center gap-3 mb-4">
+                    <div className="p-2 bg-gradient-to-br from-blue-100 to-cyan-100 rounded-xl">
+                        <FiBriefcase className="w-5 h-5 text-blue-600" />
                     </div>
-                    <h3 className="text-xl font-bold text-gray-800">Client Acquisition</h3>
+                    <h3 className="text-lg font-bold text-gray-800">Client Acquisition</h3>
                 </div>
-                <div className="space-y-6">
-                    <div className="bg-gradient-to-br from-blue-50 to-cyan-50 p-6 rounded-2xl border border-blue-100">
-                        <div className="flex items-center justify-between mb-4">
+                <div className="space-y-4">
+                    <div className="bg-gradient-to-br from-blue-50 to-cyan-50 p-4 rounded-xl border border-blue-100">
+                        <div className="flex items-center justify-between mb-3">
                             <div>
-                                <div className="text-sm text-gray-600 mb-1">New Clients</div>
-                                <div className="text-2xl font-bold text-blue-600">12</div>
+                                <div className="text-xs text-gray-600 mb-0.5">New Clients</div>
+                                <div className="text-xl font-bold text-blue-600">12</div>
                             </div>
-                            <div className="p-3 bg-blue-100 rounded-xl">
-                                <FiUserPlus className="w-6 h-6 text-blue-600" />
+                            <div className="p-2 bg-blue-100 rounded-lg">
+                                <FiUserPlus className="w-4 h-4 text-blue-600" />
                             </div>
                         </div>
-                        <div className="w-full bg-gray-200 rounded-full h-2">
-                            <div className="bg-gradient-to-r from-blue-500 to-cyan-500 h-2 rounded-full" style={{ width: '60%' }}></div>
+                        <div className="w-full bg-gray-200 rounded-full h-1.5">
+                            <div className="bg-gradient-to-r from-blue-500 to-cyan-500 h-1.5 rounded-full" style={{ width: '60%' }}></div>
                         </div>
-                        <div className="mt-3 text-sm text-gray-500">Goal: 20 clients</div>
+                        <div className="mt-2 text-xs text-gray-500">Goal: 20 clients</div>
                     </div>
-                    <div className="bg-gradient-to-br from-emerald-50 to-green-50 p-6 rounded-2xl border border-emerald-100">
-                        <div className="flex items-center justify-between mb-4">
+                    <div className="bg-gradient-to-br from-emerald-50 to-green-50 p-4 rounded-xl border border-emerald-100">
+                        <div className="flex items-center justify-between mb-3">
                             <div>
-                                <div className="text-sm text-gray-600 mb-1">Active Clients</div>
-                                <div className="text-2xl font-bold text-emerald-600">389</div>
+                                <div className="text-xs text-gray-600 mb-0.5">Active Clients</div>
+                                <div className="text-xl font-bold text-emerald-600">389</div>
                             </div>
-                            <div className="p-3 bg-emerald-100 rounded-xl">
-                                <FiUsers className="w-6 h-6 text-emerald-600" />
+                            <div className="p-2 bg-emerald-100 rounded-lg">
+                                <FiUsers className="w-4 h-4 text-emerald-600" />
                             </div>
                         </div>
-                        <div className="w-full bg-gray-200 rounded-full h-2">
-                            <div className="bg-gradient-to-r from-emerald-500 to-green-500 h-2 rounded-full" style={{ width: '85%' }}></div>
+                        <div className="w-full bg-gray-200 rounded-full h-1.5">
+                            <div className="bg-gradient-to-r from-emerald-500 to-green-500 h-1.5 rounded-full" style={{ width: '85%' }}></div>
                         </div>
-                        <div className="mt-3 text-sm text-gray-500">↑ 15% retention rate</div>
+                        <div className="mt-2 text-xs text-gray-500">↑ 15% retention rate</div>
                     </div>
                 </div>
             </div>
         </WidgetWrapper>
-    );
+    ));
 
-    const GoalProgressWidget = () => (
+    const GoalProgressWidget = React.memo(() => (
         <WidgetWrapper widgetId="goal-progress" title="Goal Progress">
-            <div className="p-8">
-                <div className="flex items-center gap-3 mb-6">
-                    <div className="p-3 bg-gradient-to-br from-purple-100 to-violet-100 rounded-xl">
-                        <FiTarget className="w-6 h-6 text-purple-600" />
+            <div className="p-6">
+                <div className="flex items-center gap-3 mb-4">
+                    <div className="p-2 bg-gradient-to-br from-purple-100 to-violet-100 rounded-xl">
+                        <FiTarget className="w-5 h-5 text-purple-600" />
                     </div>
-                    <h3 className="text-xl font-bold text-gray-800">Goal Progress</h3>
+                    <h3 className="text-lg font-bold text-gray-800">Goal Progress</h3>
                 </div>
-                <div className="space-y-6">
-                    <div className="bg-gradient-to-br from-purple-50 to-violet-50 p-6 rounded-2xl border border-purple-100">
-                        <div className="flex items-center justify-between mb-4">
+                <div className="space-y-4">
+                    <div className="bg-gradient-to-br from-purple-50 to-violet-50 p-4 rounded-xl border border-purple-100">
+                        <div className="flex items-center justify-between mb-3">
                             <div>
-                                <div className="text-sm text-gray-600 mb-1">Monthly Sales Target</div>
-                                <div className="text-2xl font-bold text-purple-600">75%</div>
+                                <div className="text-xs text-gray-600 mb-0.5">Monthly Sales Target</div>
+                                <div className="text-xl font-bold text-purple-600">75%</div>
                             </div>
-                            <div className="text-2xl">🎯</div>
+                            <div className="text-xl">🎯</div>
                         </div>
-                        <div className="w-full bg-gray-200 rounded-full h-3">
+                        <div className="w-full bg-gray-200 rounded-full h-2">
                             <motion.div 
-                                className="bg-gradient-to-r from-purple-500 to-violet-500 h-3 rounded-full"
+                                className="bg-gradient-to-r from-purple-500 to-violet-500 h-2 rounded-full"
                                 initial={{ width: 0 }}
                                 animate={{ width: '75%' }}
                                 transition={{ duration: 1.5, ease: "easeOut" }}
                             />
                         </div>
-                        <div className="mt-3 text-sm text-gray-500">₹9.4L / ₹12.5L target</div>
+                        <div className="mt-2 text-xs text-gray-500">₹9.4L / ₹12.5L target</div>
                     </div>
-                    <div className="bg-gradient-to-br from-indigo-50 to-blue-50 p-6 rounded-2xl border border-indigo-100">
-                        <div className="flex items-center justify-between mb-4">
+                    <div className="bg-gradient-to-br from-indigo-50 to-blue-50 p-4 rounded-xl border border-indigo-100">
+                        <div className="flex items-center justify-between mb-3">
                             <div>
-                                <div className="text-sm text-gray-600 mb-1">Client Acquisition</div>
-                                <div className="text-2xl font-bold text-indigo-600">90%</div>
+                                <div className="text-xs text-gray-600 mb-0.5">Client Acquisition</div>
+                                <div className="text-xl font-bold text-indigo-600">90%</div>
                             </div>
-                            <div className="text-2xl">🚀</div>
+                            <div className="text-xl">🚀</div>
                         </div>
-                        <div className="w-full bg-gray-200 rounded-full h-3">
+                        <div className="w-full bg-gray-200 rounded-full h-2">
                             <motion.div 
-                                className="bg-gradient-to-r from-indigo-500 to-blue-500 h-3 rounded-full"
+                                className="bg-gradient-to-r from-indigo-500 to-blue-500 h-2 rounded-full"
                                 initial={{ width: 0 }}
                                 animate={{ width: '90%' }}
                                 transition={{ duration: 1.5, ease: "easeOut" }}
                             />
                         </div>
-                        <div className="mt-3 text-sm text-gray-500">18/20 new clients</div>
+                        <div className="mt-2 text-xs text-gray-500">18/20 new clients</div>
                     </div>
                 </div>
             </div>
         </WidgetWrapper>
-    );
-
-    // Customization Panel Component
-    const CustomizationPanel = () => {
-        const dataSuggestions = getDataBasedSuggestions();
-        const hiddenWidgets = widgets.filter(w => !w.visible);
-        const newAvailableWidgets = availableWidgets.filter(w => !w.visible);
-
-        return (
-            <motion.div
-                initial={{ y: -20, opacity: 0 }}
-                animate={{ y: 0, opacity: 1 }}
-                exit={{ y: -20, opacity: 0 }}
-                className="bg-white rounded-2xl shadow-2xl border border-gray-200 p-6 mb-6"
-            >
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                    <div>
-                        <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
-                            <FiLayers className="w-5 h-5 text-indigo-600" />
-                            Predefined Templates
-                        </h3>
-                        <div className="space-y-3">
-                            {Object.entries(predefinedTemplates).map(([key, template]) => {
-                                const TemplateIcon = template.icon || FiGrid;
-                                return (
-                                    <motion.button
-                                        key={key}
-                                        onClick={() => applyTemplate(key)}
-                                        className="w-full p-4 text-left bg-gradient-to-r from-gray-50 to-white hover:from-indigo-50 hover:to-white rounded-xl border border-gray-200 transition-all duration-300 hover:shadow-lg hover:border-indigo-200"
-                                        whileHover={{ scale: 1.02 }}
-                                        whileTap={{ scale: 0.98 }}
-                                    >
-                                        <div className="flex items-center gap-3">
-                                            <div className="p-2 bg-gradient-to-br from-indigo-100 to-purple-100 rounded-lg">
-                                                <TemplateIcon className="w-4 h-4 text-indigo-600" />
-                                            </div>
-                                            <div>
-                                                <div className="font-semibold text-gray-800">{template.name}</div>
-                                                <div className="text-sm text-gray-500">{template.description}</div>
-                                            </div>
-                                        </div>
-                                    </motion.button>
-                                );
-                            })}
-                        </div>
-                    </div>
-
-                    <div>
-                        <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
-                            <FiPlus className="w-5 h-5 text-green-600" />
-                            Add Widgets
-                        </h3>
-                        <div className="space-y-3">
-                            {[...hiddenWidgets, ...newAvailableWidgets].map((widget) => {
-                                const WidgetIcon = widget.icon || FiGrid;
-                                return (
-                                    <motion.button
-                                        key={widget.id}
-                                        onClick={() => addWidget(widget.id)}
-                                        className="w-full p-4 text-left bg-gradient-to-r from-gray-50 to-white hover:from-green-50 hover:to-white rounded-xl border border-gray-200 transition-all duration-300 hover:shadow-lg hover:border-green-200"
-                                        whileHover={{ scale: 1.02 }}
-                                        whileTap={{ scale: 0.98 }}
-                                    >
-                                        <div className="flex items-center gap-3">
-                                            <div className="p-2 bg-gradient-to-br from-green-100 to-emerald-100 rounded-lg">
-                                                <WidgetIcon className="w-4 h-4 text-green-600" />
-                                            </div>
-                                            <div>
-                                                <div className="font-semibold text-gray-800">{widget.title}</div>
-                                                <div className="text-sm text-gray-500 capitalize">{widget.category}</div>
-                                            </div>
-                                            <div className="ml-auto">
-                                                <FiPlus className="w-4 h-4 text-green-600" />
-                                            </div>
-                                        </div>
-                                    </motion.button>
-                                );
-                            })}
-                            {[...hiddenWidgets, ...newAvailableWidgets].length === 0 && (
-                                <div className="text-center py-8 text-gray-500">
-                                    <FiCheck className="w-8 h-8 mx-auto mb-2 text-green-500" />
-                                    <p>All available widgets are added</p>
-                                </div>
-                            )}
-                        </div>
-                    </div>
-
-                    <div>
-                        <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
-                            <FiStar className="w-5 h-5 text-yellow-600" />
-                            Smart Suggestions
-                        </h3>
-                        <div className="space-y-3">
-                            {dataSuggestions.map((suggestion, index) => (
-                                <motion.div
-                                    key={index}
-                                    className="p-4 bg-gradient-to-r from-yellow-50 to-amber-50 rounded-xl border border-yellow-100"
-                                    initial={{ opacity: 0, x: 20 }}
-                                    animate={{ opacity: 1, x: 0 }}
-                                    transition={{ delay: index * 0.1 }}
-                                >
-                                    <div className="font-semibold text-gray-800 mb-1">{suggestion.title}</div>
-                                    <div className="text-sm text-gray-600 mb-3">{suggestion.description}</div>
-                                    <div className="flex flex-wrap gap-2">
-                                        {suggestion.recommendedWidgets.map(widgetId => {
-                                            const widget = [...widgets, ...availableWidgets].find(w => w.id === widgetId);
-                                            if (!widget) return null;
-                                            const WidgetIcon = widget.icon || FiGrid;
-                                            return (
-                                                <button
-                                                    key={widgetId}
-                                                    onClick={() => addWidget(widgetId)}
-                                                    className="flex items-center gap-1 px-3 py-1 bg-gradient-to-r from-yellow-100 to-amber-100 text-yellow-800 rounded-full text-sm hover:shadow-md transition-all duration-300"
-                                                >
-                                                    <WidgetIcon className="w-3 h-3" />
-                                                    {widget.title}
-                                                </button>
-                                            );
-                                        })}
-                                    </div>
-                                </motion.div>
-                            ))}
-                            {dataSuggestions.length === 0 && (
-                                <div className="text-center py-8 text-gray-500">
-                                    <FiActivity className="w-8 h-8 mx-auto mb-2 text-gray-400" />
-                                    <p>No data-based suggestions available</p>
-                                    <p className="text-sm">More suggestions will appear as you use the system</p>
-                                </div>
-                            )}
-                        </div>
-                    </div>
-                </div>
-            </motion.div>
-        );
-    };
-
-    // Customization Mode Toolbar
-    const CustomizationToolbar = () => (
-        <motion.div
-            initial={{ y: -50, opacity: 0 }}
-            animate={{ y: 0, opacity: 1 }}
-            exit={{ y: -50, opacity: 0 }}
-            className="bg-gradient-to-r from-indigo-600 to-purple-600 text-white p-6 mb-6 rounded-2xl shadow-xl"
-        >
-            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-                <div className="flex items-center gap-3">
-                    <div className="p-3 bg-white/20 backdrop-blur-sm rounded-xl">
-                        <FiLayout className="w-6 h-6" />
-                    </div>
-                    <div>
-                        <h3 className="font-semibold text-lg">Dashboard Customization Mode</h3>
-                        <p className="text-indigo-200 text-sm">
-                            Drag widgets to reorder • Drag cards inside widgets to reorder • Click icons to hide/delete
-                        </p>
-                    </div>
-                </div>
-                <div className="flex items-center gap-3">
-                    <motion.button
-                        onClick={resetLayout}
-                        className="px-5 py-2.5 bg-white/20 backdrop-blur-sm hover:bg-white/30 text-white rounded-xl transition-all duration-300 hover:scale-105"
-                        whileHover={{ scale: 1.05 }}
-                        whileTap={{ scale: 0.95 }}
-                    >
-                        Reset Layout
-                    </motion.button>
-                    <motion.button
-                        onClick={saveLayout}
-                        className="flex items-center gap-2 px-5 py-2.5 bg-white text-indigo-600 rounded-xl hover:bg-gray-50 transition-all duration-300 hover:scale-105"
-                        whileHover={{ scale: 1.05 }}
-                        whileTap={{ scale: 0.95 }}
-                    >
-                        <FiCheck className="w-4 h-4" />
-                        Save & Exit
-                    </motion.button>
-                </div>
-            </div>
-        </motion.div>
-    );
+    ));
 
     return (
         <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
@@ -1353,33 +1120,33 @@ const Dashboard = () => {
             />
 
             <div className={`pt-16 transition-all duration-300 ease-in-out w-full ${isMinimized ? 'md:pl-20' : 'md:pl-72'}`}>
-                <div className="w-full px-4 sm:px-6 lg:px-8 py-6">
-                    {/* Header with alert and 3-dot button in same row */}
-                    <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4 mb-8">
+                <div className="w-full px-4 sm:px-6 lg:px-8 py-4">
+                    {/* Header with alert and customize button */}
+                    <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4 mb-6">
                         {/* Subscription Alert */}
                         <div className="flex-1">
                             <motion.div 
-                                className="bg-gradient-to-r from-red-50 to-rose-50 border border-red-200 rounded-2xl p-6 shadow-lg"
+                                className="bg-gradient-to-r from-red-50 to-rose-50 border border-red-200 rounded-xl p-4 shadow-lg"
                                 initial={{ opacity: 0, y: -20 }}
                                 animate={{ opacity: 1, y: 0 }}
                                 transition={{ duration: 0.3 }}
                             >
-                                <div className="flex flex-col sm:flex-row sm:items-center gap-4">
-                                    <div className="p-3 bg-gradient-to-br from-red-100 to-rose-100 rounded-xl">
-                                        <FiAward className="w-6 h-6 text-red-600" />
+                                <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+                                    <div className="p-2 bg-gradient-to-br from-red-100 to-rose-100 rounded-lg">
+                                        <FiAward className="w-5 h-5 text-red-600" />
                                     </div>
                                     <div className="flex-1">
-                                        <div className="font-bold text-red-800 text-lg">
+                                        <div className="font-bold text-red-800 text-sm">
                                             ALERT: Your subscription will expire in 7 days.
                                         </div>
-                                        <div className="text-red-600 text-sm">
+                                        <div className="text-red-600 text-xs">
                                             Renew your subscription to continue uninterrupted service
                                         </div>
                                     </div>
                                     <motion.button 
-                                        className="px-6 py-3 bg-gradient-to-r from-red-600 to-rose-600 text-white rounded-xl hover:shadow-xl transition-all duration-300 hover:scale-105"
-                                        whileHover={{ scale: 1.05 }}
-                                        whileTap={{ scale: 0.95 }}
+                                        className="px-4 py-2 bg-gradient-to-r from-red-600 to-rose-600 text-white rounded-lg hover:shadow-xl transition-all duration-300 text-sm"
+                                        whileHover={{ scale: 1.02 }}
+                                        whileTap={{ scale: 0.98 }}
                                     >
                                         Renew Now
                                     </motion.button>
@@ -1388,175 +1155,73 @@ const Dashboard = () => {
                         </div>
                         
                         {/* Customize Button */}
-                        <div className="flex items-center justify-center pt-5">
-                            <div className="relative">
-                                <motion.button
-                                    onClick={() => setShowCustomizeMenu(!showCustomizeMenu)}
-                                    className="p-3 bg-white rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 border border-gray-200 hover:border-indigo-300 hover:scale-105"
-                                    whileHover={{ scale: 1.05 }}
-                                    whileTap={{ scale: 0.95 }}
-                                >
-                                    <FiMoreVertical className="w-5 h-5 text-gray-700" />
-                                </motion.button>
-
-                                {/* Customize Menu Dropdown */}
-                                <AnimatePresence>
-                                    {showCustomizeMenu && !isCustomizing && (
-                                        <motion.div
-                                            initial={{ opacity: 0, y: -10 }}
-                                            animate={{ opacity: 1, y: 0 }}
-                                            exit={{ opacity: 0, y: -10 }}
-                                            className="absolute top-12 right-0 bg-white rounded-xl shadow-2xl border border-gray-200 z-50 min-w-[240px]"
-                                        >
-                                            <div className="p-2">
-                                                <button
-                                                    onClick={() => {
-                                                        setIsCustomizing(true);
-                                                        setShowCustomizeMenu(false);
-                                                    }}
-                                                    className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-gradient-to-r from-indigo-50 to-white rounded-lg transition-all duration-300"
-                                                >
-                                                    <div className="p-2 bg-gradient-to-br from-indigo-100 to-purple-100 rounded-lg">
-                                                        <FiGrid className="w-4 h-4 text-indigo-600" />
-                                                    </div>
-                                                    <div>
-                                                        <div className="font-semibold text-gray-800">Customize Layout</div>
-                                                        <div className="text-xs text-gray-500">Rearrange and modify widgets</div>
-                                                    </div>
-                                                </button>
-                                                <button
-                                                    onClick={() => {
-                                                        resetLayout();
-                                                        setShowCustomizeMenu(false);
-                                                    }}
-                                                    className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-gradient-to-r from-gray-50 to-white rounded-lg transition-all duration-300"
-                                                >
-                                                    <div className="p-2 bg-gradient-to-br from-gray-100 to-gray-200 rounded-lg">
-                                                        <FiRefreshCw className="w-4 h-4 text-gray-600" />
-                                                    </div>
-                                                    <div>
-                                                        <div className="font-semibold text-gray-800">Reset to Default</div>
-                                                        <div className="text-xs text-gray-500">Restore original layout</div>
-                                                    </div>
-                                                </button>
-                                                <button
-                                                    onClick={() => {
-                                                        setBlurEnabled(!blurEnabled);
-                                                        setShowCustomizeMenu(false);
-                                                    }}
-                                                    className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-gradient-to-r from-gray-50 to-white rounded-lg transition-all duration-300"
-                                                >
-                                                    <div className="p-2 bg-gradient-to-br from-green-100 to-emerald-100 rounded-lg">
-                                                        {blurEnabled ? (
-                                                            <FiEye className="w-4 h-4 text-green-600" />
-                                                        ) : (
-                                                            <FiEyeOff className="w-4 h-4 text-gray-600" />
-                                                        )}
-                                                    </div>
-                                                    <div>
-                                                        <div className="font-semibold text-gray-800">
-                                                            {blurEnabled ? 'Show Values' : 'Hide Values'}
-                                                        </div>
-                                                        <div className="text-xs text-gray-500">
-                                                            {blurEnabled ? 'Display all values' : 'Blur sensitive data'}
-                                                        </div>
-                                                    </div>
-                                                </button>
-                                            </div>
-                                        </motion.div>
-                                    )}
-                                </AnimatePresence>
-                            </div>
+                        <div className="flex items-center justify-center">
+                            <motion.button
+                                onClick={() => setIsCustomizing(!isCustomizing)}
+                                className={`p-2.5 rounded-lg shadow-lg transition-all duration-300 border ${
+                                    isCustomizing 
+                                        ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white border-indigo-600' 
+                                        : 'bg-white text-gray-700 border-gray-200 hover:border-indigo-300'
+                                }`}
+                                whileHover={{ scale: 1.02 }}
+                                whileTap={{ scale: 0.98 }}
+                            >
+                                <FiLayout className="w-4 h-4" />
+                            </motion.button>
                         </div>
                     </div>
 
-                    {/* Customization Toolbar */}
-                    <AnimatePresence>
-                        {isCustomizing && (
-                            <>
-                                <CustomizationToolbar />
-                                <CustomizationPanel />
-                            </>
-                        )}
-                    </AnimatePresence>
-
                     {/* Dashboard Widgets Grid */}
-                    <div className={`grid grid-cols-1 ${isCustomizing ? 'pb-20' : ''} space-y-8`}>
-                        {widgets
-                            .filter(widget => widget.visible)
-                            .sort((a, b) => a.order - b.order)
-                            .map((widget) => {
-                                switch (widget.component) {
-                                    case 'SalesOverview':
-                                        return <SalesOverviewWidget key={widget.id} />;
-                                    case 'QuickStats':
-                                        return <QuickStatsWidget key={widget.id} />;
-                                    case 'TaskSummary':
-                                        return <TaskSummaryWidget key={widget.id} />;
-                                    case 'ServiceWiseSales':
-                                        return <ServiceWiseSalesWidget key={widget.id} />;
-                                    case 'StaffWiseSales':
-                                        return <StaffWiseSalesWidget key={widget.id} />;
-                                    case 'TopClients':
-                                        return <TopClientsWidget key={widget.id} />;
-                                    case 'AdditionalStats':
-                                        return <AdditionalStatsWidget key={widget.id} />;
-                                    case 'PerformanceMetrics':
-                                        return <PerformanceMetricsWidget key={widget.id} />;
-                                    case 'RevenueTrend':
-                                        return <RevenueTrendWidget key={widget.id} />;
-                                    case 'ClientAcquisition':
-                                        return <ClientAcquisitionWidget key={widget.id} />;
-                                    case 'GoalProgress':
-                                        return <GoalProgressWidget key={widget.id} />;
-                                    default:
-                                        return null;
-                                }
-                            })}
+                    <div className="space-y-6">
+                        {visibleWidgets.map((widget) => {
+                            switch (widget.component) {
+                                case 'SalesOverview':
+                                    return <SalesOverviewWidgetComponent key={widget.id} />;
+                                case 'QuickStats':
+                                    return <QuickStatsWidget key={widget.id} />;
+                                case 'TaskSummary':
+                                    return <TaskSummaryWidget key={widget.id} />;
+                                case 'ServiceWiseSales':
+                                    return <ServiceWiseSalesWidget key={widget.id} />;
+                                case 'StaffWiseSales':
+                                    return <StaffWiseSalesWidget key={widget.id} />;
+                                case 'TopClients':
+                                    return <TopClientsWidget key={widget.id} />;
+                                case 'AdditionalStats':
+                                    return <AdditionalStatsWidget key={widget.id} />;
+                                case 'PerformanceMetrics':
+                                    return <PerformanceMetricsWidget key={widget.id} />;
+                                case 'RevenueTrend':
+                                    return <RevenueTrendWidget key={widget.id} />;
+                                case 'ClientAcquisition':
+                                    return <ClientAcquisitionWidget key={widget.id} />;
+                                case 'GoalProgress':
+                                    return <GoalProgressWidget key={widget.id} />;
+                                default:
+                                    return null;
+                            }
+                        })}
                     </div>
-
-                    {/* Save Button (Fixed at bottom during customization) */}
-                    <AnimatePresence>
-                        {isCustomizing && (
-                            <motion.div
-                                initial={{ y: 100, opacity: 0 }}
-                                animate={{ y: 0, opacity: 1 }}
-                                exit={{ y: 100, opacity: 0 }}
-                                className="fixed bottom-6 left-1/2 transform -translate-x-1/2 z-20"
-                            >
-                                <div className="bg-white rounded-2xl shadow-2xl p-6 border border-gray-200 min-w-[320px] backdrop-blur-sm bg-white/95">
-                                    <div className="flex flex-col sm:flex-row items-center gap-4">
-                                        <div className="text-center sm:text-left">
-                                            <p className="font-bold text-gray-800">Customization Mode Active</p>
-                                            <p className="text-sm text-gray-500">Drag widgets and cards to customize</p>
-                                        </div>
-                                        <div className="flex items-center gap-2">
-                                            <button
-                                                onClick={() => {
-                                                    setIsCustomizing(false);
-                                                    setShowCustomizeMenu(false);
-                                                }}
-                                                className="px-5 py-2.5 text-gray-700 hover:bg-gray-100 rounded-xl transition-all duration-300"
-                                            >
-                                                Cancel
-                                            </button>
-                                            <motion.button
-                                                onClick={saveLayout}
-                                                className="flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-xl hover:shadow-xl transition-all duration-300 hover:scale-105"
-                                                whileHover={{ scale: 1.05 }}
-                                                whileTap={{ scale: 0.95 }}
-                                            >
-                                                <FiCheck className="w-4 h-4" />
-                                                Save Layout
-                                            </motion.button>
-                                        </div>
-                                    </div>
-                                </div>
-                            </motion.div>
-                        )}
-                    </AnimatePresence>
                 </div>
             </div>
+
+            {/* Customization Sidebar */}
+            <AnimatePresence>
+                {isCustomizing && <CustomizationSidebar />}
+            </AnimatePresence>
+
+            {/* Overlay */}
+            <AnimatePresence>
+                {isCustomizing && (
+                    <motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        onClick={cancelCustomization}
+                        className="fixed inset-0 bg-black/30 z-30"
+                    />
+                )}
+            </AnimatePresence>
 
             <style jsx>{`
                 @keyframes float {
@@ -1565,12 +1230,6 @@ const Dashboard = () => {
                 }
                 .animate-float {
                     animation: float 3s ease-in-out infinite;
-                }
-                .animation-delay-100 {
-                    animation-delay: 0.1s;
-                }
-                .animation-delay-200 {
-                    animation-delay: 0.2s;
                 }
             `}</style>
         </div>
