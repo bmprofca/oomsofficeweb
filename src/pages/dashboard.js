@@ -2,6 +2,8 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Sidebar, Header } from '../components/header';
 import {
     FiTrendingUp,
+    FiAlertCircle,
+    FiTrendingDown,
     FiDownload,
     FiUsers,
     FiUserCheck,
@@ -45,6 +47,7 @@ import ServiceWiseSales  from '../DashboardComponents/serviceWiseSales';
 import StaffWiseSales from '../DashboardComponents/staffWiseSales';
 import TopClients from '../DashboardComponents/TopClients';
 import { useNavigate } from 'react-router-dom';
+import SalesOverviewWidget from '../DashboardComponents/SalesOverviewWidget';
 
 // Version constants for localStorage migration
 const DASHBOARD_VERSION = '2';
@@ -70,7 +73,6 @@ const migrateQuickStatsLinks = (cards) => {
 
 // Helper function to migrate old additional stats links
 const migrateAdditionalStatsLinks = (cards) => {
-    // Additional stats links are correct, but we keep this for future migrations
     return cards;
 };
 
@@ -299,7 +301,7 @@ const Dashboard = () => {
     const [stats, setStats] = useState({});
     const [taskStats, setTaskStats] = useState([]);
     const [topClients, setTopClients] = useState([]);
-        const [refreshKey, setRefreshKey] = useState(0);
+    const [refreshKey, setRefreshKey] = useState(0);
     
     // Customization state
     const [isCustomizing, setIsCustomizing] = useState(false);
@@ -310,7 +312,6 @@ const Dashboard = () => {
         const savedVersion = localStorage.getItem('dashboardVersion');
         const savedLayout = localStorage.getItem('dashboardLayout');
         
-        // If no saved layout or version mismatch, use default
         if (!savedLayout || savedVersion !== DASHBOARD_VERSION) {
             const defaultLayout = getDefaultWidgets();
             localStorage.setItem('dashboardLayout', JSON.stringify(defaultLayout));
@@ -329,7 +330,6 @@ const Dashboard = () => {
         const savedVersion = localStorage.getItem('quickStatsVersion');
         const savedCards = localStorage.getItem('quickStatsCards');
         
-        // If no saved cards or version mismatch, use default
         if (!savedCards || savedVersion !== QUICK_STATS_VERSION) {
             const defaultCards = getDefaultQuickStatsCards();
             localStorage.setItem('quickStatsCards', JSON.stringify(defaultCards));
@@ -337,10 +337,8 @@ const Dashboard = () => {
             return defaultCards;
         }
         
-        // Parse saved cards
         const cards = JSON.parse(savedCards);
         
-        // Check if migration is needed (old links)
         const needsMigration = cards.some(card => 
             card.link === '/view-billing' || 
             card.link === '/view-creditors' || 
@@ -365,7 +363,6 @@ const Dashboard = () => {
         const savedVersion = localStorage.getItem('additionalStatsVersion');
         const savedCards = localStorage.getItem('additionalStatsCards');
         
-        // If no saved cards or version mismatch, use default
         if (!savedCards || savedVersion !== ADDITIONAL_STATS_VERSION) {
             const defaultCards = getDefaultAdditionalStatsCards();
             localStorage.setItem('additionalStatsCards', JSON.stringify(defaultCards));
@@ -375,7 +372,6 @@ const Dashboard = () => {
         
         const cards = JSON.parse(savedCards);
         
-        // Check if migration is needed
         const needsMigration = migrateAdditionalStatsLinks(cards) !== cards;
         
         if (needsMigration) {
@@ -512,7 +508,7 @@ const Dashboard = () => {
             });
         }
         
-        if (stats.task_create_today > 30) {
+        if (stats.task_created_today > 30) {
             suggestions.push({
                 title: "Task Management Focus",
                 description: "High task activity detected.",
@@ -560,90 +556,6 @@ const Dashboard = () => {
         };
     }, [mobileMenuOpen]);
 
-    const mockStats = {
-        total_sale: 1250000,
-        pending_for_billing: 23,
-        today_received: 45000,
-        creditor: 125000,
-        today_payment: 28000,
-        debtor: 89000,
-        today_birthday: 3,
-        total_client: 456,
-        new_client: 12,
-        active_client: 389,
-        total_stuff: 24,
-        present_today: 18,
-        task_create_today: 45,
-        task_complete_today: 38,
-        net_profit: 285000
-    };
-
-    const mockTaskStats = [
-        {
-            name: 'GST Filing',
-            OD: 2,
-            DT: 1,
-            D7: 3,
-            FT: 8,
-            WIP: 5,
-            PFC: 2,
-            PFD: 1,
-            CPL: 15,
-            CNL: 0
-        },
-        {
-            name: 'Income Tax',
-            OD: 1,
-            DT: 0,
-            D7: 2,
-            FT: 6,
-            WIP: 3,
-            PFC: 1,
-            PFD: 0,
-            CPL: 12,
-            CNL: 1
-        },
-        {
-            name: 'Company Registration',
-            OD: 0,
-            DT: 2,
-            D7: 1,
-            FT: 4,
-            WIP: 2,
-            PFC: 0,
-            PFD: 1,
-            CPL: 8,
-            CNL: 0
-        }
-    ];
-
-    const mockTopClients = [
-        {
-            name: 'Rajesh Kumar',
-            guardian_name: 'Suresh Kumar',
-            mobile: '+91 9876543210',
-            email: 'rajesh@company.com',
-            firms: 'Manufacturing, Trading',
-            total: 450000
-        },
-        {
-            name: 'Priya Sharma',
-            guardian_name: 'Ramesh Sharma',
-            mobile: '+91 9876543211',
-            email: 'priya@company.com',
-            firms: 'Services',
-            total: 380000
-        },
-        {
-            name: 'Amit Singh',
-            guardian_name: 'Vikram Singh',
-            mobile: '+91 9876543212',
-            email: 'amit@company.com',
-            firms: 'IT Services',
-            total: 320000
-        }
-    ];
-
     // Load initial data
     useEffect(() => {
         fetchDashboardData();
@@ -687,25 +599,16 @@ const Dashboard = () => {
                         }
                     ];
                     setTaskStats(transformedTaskStats);
-                } else {
-                    setTaskStats(mockTaskStats);
                 }
                 
                 if (result.data.top_clients) {
                     setTopClients(result.data.top_clients);
-                } else {
-                    setTopClients(mockTopClients);
                 }
-                
-                localStorage.setItem('dashboardFullData', JSON.stringify(result));
             } else {
                 throw new Error(result.message || 'Failed to fetch dashboard data');
             }
         } catch (err) {
             console.error('Dashboard API Error:', err);
-            setStats(mockStats);
-            setTaskStats(mockTaskStats);
-            setTopClients(mockTopClients);
         } finally {
             setLoading(false);
         }
@@ -910,7 +813,6 @@ const Dashboard = () => {
         setQuickStatsCards(defaultQuickStats);
         setAdditionalStatsCards(defaultAdditionalStats);
         
-        // Save to localStorage with versions
         localStorage.setItem('dashboardLayout', JSON.stringify(defaultLayout));
         localStorage.setItem('dashboardVersion', DASHBOARD_VERSION);
         localStorage.setItem('quickStatsCards', JSON.stringify(defaultQuickStats));
@@ -999,137 +901,6 @@ const Dashboard = () => {
 
     WidgetWrapper.displayName = 'WidgetWrapper';
 
-    // Widget Components
-    const SalesOverviewWidget = () => (
-        <WidgetWrapper widgetId="sales-overview" title="Sales Overview" className="col-span-full">
-            <div className="relative overflow-hidden">
-                <div className="absolute inset-0 bg-gradient-to-br from-indigo-50 via-white to-purple-50" />
-                <div className="absolute top-0 right-0 w-64 h-64 bg-gradient-to-br from-indigo-100/50 to-purple-100/50 rounded-full -translate-y-32 translate-x-32" />
-                <div className="absolute bottom-0 left-0 w-96 h-96 bg-gradient-to-tr from-blue-100/30 to-cyan-100/30 rounded-full -translate-x-48 translate-y-48" />
-                
-                <div className="relative p-8 md:p-12">
-                    <div className="flex flex-col lg:flex-row items-center justify-between gap-8">
-                        <div className="flex-1">
-                            <div className="flex items-center gap-4 mb-6">
-                                <div className="relative">
-                                    <div className="p-3 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-xl shadow-lg">
-                                        <FiTrendingUp className="w-8 h-8 text-white" />
-                                    </div>
-                                    <div className="absolute -top-2 -right-2">
-                                        <span className="animate-ping absolute inline-flex h-4 w-4 rounded-full bg-green-400 opacity-75"></span>
-                                        <span className="relative inline-flex h-4 w-4 rounded-full bg-green-500"></span>
-                                    </div>
-                                </div>
-                                <div>
-                                    <div className="flex items-center gap-2">
-                                        <h3 className="text-2xl md:text-3xl font-bold text-gray-800">
-                                            Congratulations! 
-                                        </h3>
-                                    </div>
-                                    <p className="text-gray-600 mt-2">Outstanding performance this fiscal year!</p>
-                                </div>
-                            </div>
-
-                            <div className="mb-8">
-                                <p className="text-gray-500 mb-2">Current FY Total Sales</p>
-                                <div className="flex items-end gap-4">
-                                    <div className={`text-4xl md:text-5xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent ${blurEnabled ? 'blur' : ''}`}>
-                                        {formatCurrency(stats.total_sale || 0)}
-                                    </div>
-                                    <div className="flex items-center gap-2 px-3 py-1 bg-gradient-to-r from-green-100 to-emerald-100 rounded-full">
-                                        <FiTrendingUp className="w-4 h-4 text-green-600" />
-                                        <span className="text-sm font-semibold text-green-600">+24.5%</span>
-                                    </div>
-                                </div>
-                                <p className="text-gray-500 mt-3">Achieved 92% of annual target</p>
-                            </div>
-
-                            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-                                <div className="bg-white/50 backdrop-blur-sm p-4 rounded-xl border border-gray-100">
-                                    <div className="text-sm text-gray-600">Growth Rate</div>
-                                    <div className="text-xl font-bold text-green-600">24.5%</div>
-                                </div>
-                                <div className="bg-white/50 backdrop-blur-sm p-4 rounded-xl border border-gray-100">
-                                    <div className="text-sm text-gray-600">Net Profit</div>
-                                    <div className="text-xl font-bold text-indigo-600">{formatCurrency(stats.net_profit || 0)}</div>
-                                </div>
-                                <div className="bg-white/50 backdrop-blur-sm p-4 rounded-xl border border-gray-100">
-                                    <div className="text-sm text-gray-600">Active Clients</div>
-                                    <div className="text-xl font-bold text-purple-600">{stats.active_client || 0}</div>
-                                </div>
-                                <div className="bg-white/50 backdrop-blur-sm p-4 rounded-xl border border-gray-100">
-                                    <div className="text-sm text-gray-600">Task Completion</div>
-                                    <div className="text-xl font-bold text-blue-600">{stats.task_complete_today || 0}</div>
-                                </div>
-                            </div>
-
-                            <div className="flex flex-wrap gap-3">
-                                <motion.button 
-                                    className="px-6 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-xl hover:shadow-xl transition-all duration-300 hover:scale-105"
-                                    whileHover={{ scale: 1.05 }}
-                                    whileTap={{ scale: 0.95 }}
-                                >
-                                    <div className="flex items-center gap-2">
-                                        <FiBarChart2 className="w-5 h-5" />
-                                        View Sales Report
-                                    </div>
-                                </motion.button>
-                                <motion.button 
-                                    className="px-6 py-3 bg-white text-gray-700 rounded-xl border border-gray-200 hover:bg-gray-50 transition-all duration-300 hover:shadow-lg hover:scale-105"
-                                    whileHover={{ scale: 1.05 }}
-                                    whileTap={{ scale: 0.95 }}
-                                >
-                                    <div className="flex items-center gap-2">
-                                        <FiDownload className="w-5 h-5" />
-                                        Export Data
-                                    </div>
-                                </motion.button>
-                            </div>
-                        </div>
-
-                        <div className="lg:w-1/3">
-                            <div className="relative">
-                                <div className="w-64 h-64 mx-auto relative">
-                                    <svg className="w-full h-full" viewBox="0 0 100 100">
-                                        <circle cx="50" cy="50" r="45" fill="none" stroke="#e5e7eb" strokeWidth="4"/>
-                                        <motion.circle 
-                                            cx="50" cy="50" r="45" fill="none" 
-                                            stroke="url(#gradient)" strokeWidth="6" strokeLinecap="round"
-                                            initial={{ strokeDasharray: '0, 283' }}
-                                            animate={{ strokeDasharray: '283, 283' }}
-                                            transition={{ duration: 2, ease: "easeOut" }}
-                                            transform="rotate(-90 50 50)"
-                                        />
-                                        <defs>
-                                            <linearGradient id="gradient" x1="0%" y1="0%" x2="100%" y2="100%">
-                                                <stop offset="0%" stopColor="#6366f1" />
-                                                <stop offset="100%" stopColor="#8b5cf6" />
-                                            </linearGradient>
-                                        </defs>
-                                    </svg>
-                                    
-                                    <div className="absolute inset-0 flex items-center justify-center">
-                                        <div className="text-center">
-                                            <div className="text-4xl font-bold text-indigo-600">92%</div>
-                                            <div className="text-gray-600">Target Achieved</div>
-                                        </div>
-                                    </div>
-                                </div>
-                                
-                                <div className="absolute -top-4 -right-4 w-16 h-16 bg-gradient-to-br from-yellow-400 to-orange-500 rounded-full flex items-center justify-center shadow-lg">
-                                    <FiAward className="w-8 h-8 text-white" />
-                                </div>
-                                <div className="absolute -bottom-4 -left-4 w-12 h-12 bg-gradient-to-br from-green-400 to-emerald-500 rounded-full flex items-center justify-center shadow-lg">
-                                    <FiTrendingUp className="w-6 h-6 text-white" />
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </WidgetWrapper>
-    );
-
     const QuickStatsWidget = () => (
         <WidgetWrapper widgetId="quick-stats" title="Quick Stats">
             <div className="p-6">
@@ -1170,40 +941,33 @@ const Dashboard = () => {
         </WidgetWrapper>
     );
 
-const ServiceWiseSalesWidget = () => (
-    <WidgetWrapper widgetId="service-wise-sales" title="Service Wise Sales">
-        <ServiceWiseSales 
-            onViewDetails={() => navigate('/sales/service-wise')}
-            refreshTrigger={refreshKey}
-        />
-    </WidgetWrapper>
-);
+    const ServiceWiseSalesWidget = () => (
+        <WidgetWrapper widgetId="service-wise-sales" title="Service Wise Sales">
+            <ServiceWiseSales 
+                onViewDetails={() => navigate('/sales/service-wise')}
+                refreshTrigger={refreshKey}
+            />
+        </WidgetWrapper>
+    );
 
-const StaffWiseSalesWidget = () => (
-    <WidgetWrapper widgetId="staff-wise-sales" title="Staff Wise Sales">
-        <StaffWiseSales 
-            onViewDetails={() => navigate('/sales/staff-wise')}
-            refreshTrigger={refreshKey}
-        />
-    </WidgetWrapper>
-);
-// Use this container to show them side by side
-const SalesWidgetsContainer = () => (
-    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
-        <ServiceWiseSalesWidget />
-        <StaffWiseSalesWidget />
-    </div>
-);
-    // Update the TopClientsWidget component
-const TopClientsWidget = () => (
-    <WidgetWrapper widgetId="top-clients" title="Top Clients">
-        <TopClients 
-            defaultDays={30}
-            onViewDetails={() => navigate('/clients/top')}
-            refreshTrigger={refreshKey}
-        />
-    </WidgetWrapper>
-);
+    const StaffWiseSalesWidget = () => (
+        <WidgetWrapper widgetId="staff-wise-sales" title="Staff Wise Sales">
+            <StaffWiseSales 
+                onViewDetails={() => navigate('/sales/staff-wise')}
+                refreshTrigger={refreshKey}
+            />
+        </WidgetWrapper>
+    );
+
+    const TopClientsWidget = () => (
+        <WidgetWrapper widgetId="top-clients" title="Top Clients">
+            <TopClients 
+                defaultDays={30}
+                onViewDetails={() => navigate('/clients/top')}
+                refreshTrigger={refreshKey}
+            />
+        </WidgetWrapper>
+    );
 
     const AdditionalStatsWidget = () => (
         <WidgetWrapper widgetId="additional-stats" title="Additional Stats">
@@ -1410,7 +1174,6 @@ const TopClientsWidget = () => (
                 className="bg-white rounded-2xl shadow-2xl border border-gray-200 p-6 mb-6"
             >
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                    {/* Left Column - Templates */}
                     <div>
                         <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
                             <FiLayers className="w-5 h-5 text-indigo-600" />
@@ -1442,7 +1205,6 @@ const TopClientsWidget = () => (
                         </div>
                     </div>
 
-                    {/* Middle Column - Add Widgets */}
                     <div>
                         <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
                             <FiPlus className="w-5 h-5 text-green-600" />
@@ -1483,7 +1245,6 @@ const TopClientsWidget = () => (
                         </div>
                     </div>
 
-                    {/* Right Column - Data Based Suggestions */}
                     <div>
                         <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
                             <FiStar className="w-5 h-5 text-yellow-600" />
@@ -1591,7 +1352,6 @@ const TopClientsWidget = () => (
                 setIsMinimized={setIsMinimized}
             />
 
-            {/* Main content - FULL WIDTH */}
             <div className={`pt-16 transition-all duration-300 ease-in-out w-full ${isMinimized ? 'md:pl-20' : 'md:pl-72'}`}>
                 <div className="w-full px-4 sm:px-6 lg:px-8 py-6">
                     {/* Header with alert and 3-dot button in same row */}
@@ -1720,7 +1480,7 @@ const TopClientsWidget = () => (
                         )}
                     </AnimatePresence>
 
-                    {/* Dashboard Widgets Grid - FULL WIDTH with proper spacing */}
+                    {/* Dashboard Widgets Grid */}
                     <div className={`grid grid-cols-1 ${isCustomizing ? 'pb-20' : ''} space-y-8`}>
                         {widgets
                             .filter(widget => widget.visible)
@@ -1798,7 +1558,6 @@ const TopClientsWidget = () => (
                 </div>
             </div>
 
-            {/* Custom CSS for animations */}
             <style jsx>{`
                 @keyframes float {
                     0%, 100% { transform: translateY(0px); }
