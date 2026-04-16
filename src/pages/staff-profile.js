@@ -22,13 +22,11 @@ import {
     FiStar,
     FiMaximize2,
     FiMinimize2,
-    FiAlertCircle
+    FiAlertCircle,
+    FiCheckSquare // Added for Task tab
 } from 'react-icons/fi';
-
-// Import API utilities
-import API_BASE_URL from "../utils/api-controller";
-import getHeaders from "../utils/get-headers";
-
+import  API_BASE_URL  from '../utils/api-controller';
+import  getHeaders  from '../utils/get-headers';
 // Import tab components
 import ProfileTab from '../staff/ProfileTab';
 import AttendanceTab from '../staff/AttendanceTab';
@@ -39,6 +37,7 @@ import LedgerTab from '../staff/LedgerTab';
 import LoanTab from '../staff/LoanTab';
 import PerformanceTab from '../staff/PerformanceTab';
 import EntryReportTab from '../staff/EntryReportTab';
+import TaskTab from '../staff/StaffTaskTab'; // Import the new TaskTab component
 
 // TabLink Component
 const TabLink = ({ to, icon: Icon, label, isActive, onClick }) => {
@@ -177,6 +176,9 @@ const StaffProfile = () => {
         month: new Date().toLocaleDateString('en-US', { month: 'short', year: 'numeric' }),
         entries: []
     });
+    
+    // New state for tasks
+    const [tasks, setTasks] = useState([]);
 
     // Extract username from URL query params on component mount
     useEffect(() => {
@@ -237,7 +239,6 @@ const StaffProfile = () => {
         }
     }, [username]);
 
-    // Function to fetch staff profile from API
     // Function to fetch staff profile from API
     const fetchStaffProfile = async () => {
         setLoading(true);
@@ -361,6 +362,7 @@ const StaffProfile = () => {
                 fetchLoanData();
                 fetchPerformanceData();
                 fetchEntryReportData();
+                fetchTasksData(); // Fetch tasks data
 
             } else {
                 throw new Error('No staff data found');
@@ -385,6 +387,7 @@ const StaffProfile = () => {
             return '';
         }
     };
+    
     // Function to generate calendar data for attendance
     const generateCalendarData = () => {
         const days = [];
@@ -480,6 +483,18 @@ const StaffProfile = () => {
         });
     };
 
+    // New function to fetch tasks data
+    const fetchTasksData = async () => {
+        try {
+            // This would be implemented with actual API calls
+            // For now, using sample data
+            setTasks(generateTaskData());
+        } catch (error) {
+            console.error('Error fetching tasks:', error);
+            setTasks([]);
+        }
+    };
+
     // Helper function to generate sample task data
     const generateTaskData = () => {
         return [
@@ -495,11 +510,37 @@ const StaffProfile = () => {
                 pan: "XXXXX1234A",
                 mobile: "9876543210",
                 status: "ASSIGNED"
+            },
+            {
+                id: 2,
+                createDate: formatDate(new Date()),
+                dueDate: formatDate(new Date(Date.now() + 14 * 24 * 60 * 60 * 1000)),
+                targetDate: formatDate(new Date(Date.now() + 14 * 24 * 60 * 60 * 1000)),
+                task: "GST Filing",
+                fees: "1500.00",
+                client: "ABC Corp",
+                assignor: "Admin",
+                pan: "XXXXX5678B",
+                mobile: "9876543211",
+                status: "IN_PROGRESS"
+            },
+            {
+                id: 3,
+                createDate: formatDate(new Date(Date.now() - 5 * 24 * 60 * 60 * 1000)),
+                dueDate: formatDate(new Date(Date.now() + 3 * 24 * 60 * 60 * 1000)),
+                targetDate: formatDate(new Date(Date.now() + 3 * 24 * 60 * 60 * 1000)),
+                task: "TDS Return",
+                fees: "1000.00",
+                client: "XYZ Ltd",
+                assignor: "Manager",
+                pan: "XXXXX9012C",
+                mobile: "9876543212",
+                status: "PENDING"
             }
         ];
     };
 
-    // Profile tabs with paths
+    // Profile tabs with paths - Added 'task' tab
     const profileTabs = [
         { id: 'profile', name: 'Profile', icon: FiUser },
         { id: 'attendance', name: 'Attendance', icon: FiClock },
@@ -509,7 +550,8 @@ const StaffProfile = () => {
         { id: 'ledger', name: 'Ledger', icon: FiBookOpen },
         { id: 'loan', name: 'Loan', icon: FiDollarSign },
         { id: 'performance', name: 'Performance', icon: FiTrendingUp },
-        { id: 'entry-report', name: 'Entry Report', icon: FiFileText }
+        { id: 'entry-report', name: 'Entry Report', icon: FiFileText },
+        { id: 'task', name: 'Task', icon: FiCheckSquare } // New Task tab
     ];
 
     // Handle tab change with navigation
@@ -571,6 +613,8 @@ const StaffProfile = () => {
                 return <PerformanceTab key="performance" performance={performance} setPerformance={setPerformance} staffUsername={username} {...props} />;
             case 'entry-report':
                 return <EntryReportTab key="entry-report" entryReport={entryReport} setEntryReport={setEntryReport} username={username} {...props} />;
+            case 'task':
+                return <TaskTab key="task" tasks={tasks} setTasks={setTasks} username={username} {...props} />;
             default:
                 return null;
         }
