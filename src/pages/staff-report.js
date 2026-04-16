@@ -515,7 +515,7 @@ const StaffReport = () => {
                 setIsMinimized={setIsMinimized}
             />
 
-            <div className={`pt-16 transition-all duration-300 ease-in-out ${isMinimized ? 'md:pl-20' : 'md:pl-72'}`}>
+            <div className={`pt-16 transition-all duration-300 ease-in-out ${isMinimized ? 'md:pl-20' : 'md:pl-[260px]'}`}>
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 md:px-8 py-6">
                     <div className="bg-white rounded-xl shadow-sm border border-slate-200">
                         <div className="border-b border-slate-200 px-6 py-4">
@@ -582,7 +582,7 @@ const StaffReport = () => {
                 setIsMinimized={setIsMinimized}
             />
 
-            <div className={`pt-16 transition-all duration-300 ease-in-out ${isMinimized ? 'md:pl-20' : 'md:pl-72'}`}>
+            <div className={`pt-16 transition-all duration-300 ease-in-out ${isMinimized ? 'md:pl-20' : 'md:pl-[260px]'}`}>
                 <div className="max-w-full mx-auto px-4 sm:px-6 lg:px-8 py-6">
                     {/* Header Stats Cards */}
                     <div className="grid grid-cols-1 md:grid-cols-4 gap-3 mb-4">

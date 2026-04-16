@@ -15,9 +15,6 @@ import {
     FiMail,
     FiPhone,
     FiMapPin,
-    FiEdit2,
-    FiLock,
-    FiLogOut,
     FiHome,
     FiChevronRight,
     FiRefreshCw,
@@ -48,16 +45,15 @@ const TabLink = ({ to, icon: Icon, label, isActive, onClick }) => {
     return (
         <motion.button
             onClick={() => onClick(to)}
-            className={`flex flex-col items-center justify-center p-3 rounded-lg transition-all duration-200 ${
-                isActive
-                    ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-sm'
-                    : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50 border border-gray-200'
-            }`}
+            className={`flex flex-col items-center justify-center p-3 rounded-lg transition-all duration-200 ${isActive
+                ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-sm'
+                : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50 border border-gray-200'
+                }`}
             whileHover={{ scale: 1.03, y: -1 }}
             whileTap={{ scale: 0.98 }}
         >
             <motion.div
-                animate={{ 
+                animate={{
                     rotate: isActive ? [0, 5, 0] : 0,
                     scale: isActive ? 1.1 : 1
                 }}
@@ -76,11 +72,10 @@ const CompactTabIcon = ({ to, icon: Icon, label, isActive, onClick }) => {
     return (
         <motion.button
             onClick={() => onClick(to)}
-            className={`flex flex-col items-center justify-center p-2 rounded-lg transition-all duration-200 min-w-[70px] ${
-                isActive
-                    ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-sm'
-                    : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50 border border-gray-200'
-            }`}
+            className={`flex flex-col items-center justify-center p-2 rounded-lg transition-all duration-200 min-w-[70px] ${isActive
+                ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-sm'
+                : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50 border border-gray-200'
+                }`}
             whileHover={{ scale: 1.05, y: -2 }}
             whileTap={{ scale: 0.98 }}
         >
@@ -94,10 +89,10 @@ const StaffProfile = () => {
     const navigate = useNavigate();
     const { tab } = useParams();
     const location = useLocation();
-    
+
     // Get username from URL query parameters
     const [username, setUsername] = useState(null);
-    
+
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
     const [isMinimized, setIsMinimized] = useState(() => {
         const saved = localStorage.getItem('sidebarMinimized');
@@ -110,7 +105,7 @@ const StaffProfile = () => {
     const [activeTab, setActiveTab] = useState(tab || 'profile');
     const [showSettings, setShowSettings] = useState(false);
     const [isMobileView, setIsMobileView] = useState(false);
-    
+
     // Loading and error states
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
@@ -187,7 +182,7 @@ const StaffProfile = () => {
     useEffect(() => {
         const searchParams = new URLSearchParams(location.search);
         const usernameParam = searchParams.get('username');
-        
+
         if (usernameParam) {
             setUsername(usernameParam);
             console.log('Username from URL:', usernameParam);
@@ -227,7 +222,7 @@ const StaffProfile = () => {
         const checkMobile = () => {
             setIsMobileView(window.innerWidth < 768);
         };
-        
+
         checkMobile();
         window.addEventListener('resize', checkMobile);
         return () => window.removeEventListener('resize', checkMobile);
@@ -242,154 +237,154 @@ const StaffProfile = () => {
         }
     }, [username]);
 
-   // Function to fetch staff profile from API
-// Function to fetch staff profile from API
-const fetchStaffProfile = async () => {
-    setLoading(true);
-    setError(null);
-    
-    try {
-        const headers = await getHeaders();
-        if (!headers) {
-            throw new Error('Authentication failed. Please login again.');
-        }
+    // Function to fetch staff profile from API
+    // Function to fetch staff profile from API
+    const fetchStaffProfile = async () => {
+        setLoading(true);
+        setError(null);
 
-        console.log(`Fetching staff profile for username: ${username}`);
-        
-        // Use the correct endpoint with username in URL path
-        const response = await fetch(
-            `${API_BASE_URL}/settings/staff/profile/${username}`,
-            {
-                method: 'GET',
-                headers: headers
+        try {
+            const headers = await getHeaders();
+            if (!headers) {
+                throw new Error('Authentication failed. Please login again.');
             }
-        );
 
-        if (!response.ok) {
-            if (response.status === 404) {
-                throw new Error('Staff member not found');
-            } else if (response.status === 401) {
-                throw new Error('Unauthorized. Please login again.');
-            } else if (response.status === 403) {
-                throw new Error('You do not have permission to view this profile');
-            } else {
-                throw new Error(`Failed to fetch profile: ${response.status}`);
+            console.log(`Fetching staff profile for username: ${username}`);
+
+            // Use the correct endpoint with username in URL path
+            const response = await fetch(
+                `${API_BASE_URL}/settings/staff/profile/${username}`,
+                {
+                    method: 'GET',
+                    headers: headers
+                }
+            );
+
+            if (!response.ok) {
+                if (response.status === 404) {
+                    throw new Error('Staff member not found');
+                } else if (response.status === 401) {
+                    throw new Error('Unauthorized. Please login again.');
+                } else if (response.status === 403) {
+                    throw new Error('You do not have permission to view this profile');
+                } else {
+                    throw new Error(`Failed to fetch profile: ${response.status}`);
+                }
             }
-        }
 
-        const responseData = await response.json();
-        console.log('Staff profile response:', responseData);
-        
-        // Check if the response has data array and it's not empty
-        if (responseData.success && responseData.data && responseData.data.length > 0) {
-            const staffMember = responseData.data[0]; // Get the first item from data array
-            
-            // Check if staff is accepted (from the response)
-            const isAcceptedStaff = staffMember.is_accepted === true;
-            setIsAccepted(isAcceptedStaff);
-            
-            // Get branch info from response
-            const branchInfo = staffMember.branch || {};
-            
-            // Format phone number with country code
-            const formattedPhone = staffMember.mobile 
-                ? `${staffMember.country_code ? '+' + staffMember.country_code : ''} ${staffMember.mobile}`.trim()
-                : '';
-            
-            // Transform API response to match component's data structure
-            const transformedData = {
-                firstName: staffMember.name?.split(' ')[0] || '',
-                lastName: staffMember.name?.split(' ').slice(1).join(' ') || '',
-                fullName: staffMember.name || 'Unknown',
-                email: staffMember.email || '',
-                phone: formattedPhone,
-                joinDate: staffMember.create_date ? formatDate(staffMember.create_date) : '',
-                balance: "0.00", // You might need to fetch this from another endpoint
-                designation: staffMember.designation || 'Not Assigned', // From branch_mapping
-                dateOfBirth: staffMember.date_of_birth ? formatDate(staffMember.date_of_birth) : '',
-                gender: staffMember.gender || '',
-                username: staffMember.username || username,
-                status: staffMember.status === true, // Profile status
-                userStatus: staffMember.user_status === true, // User account status
-                is_accepted: staffMember.is_accepted === true,
-                
-                // Address from profile
-                address: {
-                    state: staffMember.state || '',
-                    district: staffMember.district || '',
-                    city: staffMember.city || '',
-                    line1: staffMember.address_line_1 || '',
-                    line2: staffMember.address_line_2 || '',
-                    pincode: staffMember.pincode || '',
-                    country: staffMember.country || ''
-                },
-                
-                // Branch information
-                branch: {
-                    id: branchInfo.id,
-                    db_id: branchInfo.db_id,
-                    name: branchInfo.name,
-                    logo: branchInfo.logo,
-                    address: branchInfo.address || {
-                        line1: null,
-                        line2: null,
-                        city: null,
-                        state: null,
-                        country: null,
-                        pincode: null
+            const responseData = await response.json();
+            console.log('Staff profile response:', responseData);
+
+            // Check if the response has data array and it's not empty
+            if (responseData.success && responseData.data && responseData.data.length > 0) {
+                const staffMember = responseData.data[0]; // Get the first item from data array
+
+                // Check if staff is accepted (from the response)
+                const isAcceptedStaff = staffMember.is_accepted === true;
+                setIsAccepted(isAcceptedStaff);
+
+                // Get branch info from response
+                const branchInfo = staffMember.branch || {};
+
+                // Format phone number with country code
+                const formattedPhone = staffMember.mobile
+                    ? `${staffMember.country_code ? '+' + staffMember.country_code : ''} ${staffMember.mobile}`.trim()
+                    : '';
+
+                // Transform API response to match component's data structure
+                const transformedData = {
+                    firstName: staffMember.name?.split(' ')[0] || '',
+                    lastName: staffMember.name?.split(' ').slice(1).join(' ') || '',
+                    fullName: staffMember.name || 'Unknown',
+                    email: staffMember.email || '',
+                    phone: formattedPhone,
+                    joinDate: staffMember.create_date ? formatDate(staffMember.create_date) : '',
+                    balance: "0.00", // You might need to fetch this from another endpoint
+                    designation: staffMember.designation || 'Not Assigned', // From branch_mapping
+                    dateOfBirth: staffMember.date_of_birth ? formatDate(staffMember.date_of_birth) : '',
+                    gender: staffMember.gender || '',
+                    username: staffMember.username || username,
+                    status: staffMember.status === true, // Profile status
+                    userStatus: staffMember.user_status === true, // User account status
+                    is_accepted: staffMember.is_accepted === true,
+
+                    // Address from profile
+                    address: {
+                        state: staffMember.state || '',
+                        district: staffMember.district || '',
+                        city: staffMember.city || '',
+                        line1: staffMember.address_line_1 || '',
+                        line2: staffMember.address_line_2 || '',
+                        pincode: staffMember.pincode || '',
+                        country: staffMember.country || ''
                     },
-                    tax_info: branchInfo.tax_info || {
-                        pan: "",
-                        gst: ""
-                    }
-                },
-                
-                // Additional fields that might be useful
-                profile_id: staffMember.profile_id,
-                care_of: staffMember.care_of,
-                guardian_name: staffMember.guardian_name,
-                country_code: staffMember.country_code,
-                pan_number: staffMember.pan_number,
-                village_town: staffMember.village_town,
-                image: staffMember.image
-            };
 
-            setStaffData(transformedData);
-            console.log('Transformed staff data:', transformedData);
-            
-            // After profile is loaded, fetch other tab data
-            fetchAttendanceData();
-            fetchExpensesData();
-            fetchBonusFineData();
-            fetchSalaryData();
-            fetchLedgerData();
-            fetchLoanData();
-            fetchPerformanceData();
-            fetchEntryReportData();
-            
-        } else {
-            throw new Error('No staff data found');
+                    // Branch information
+                    branch: {
+                        id: branchInfo.id,
+                        db_id: branchInfo.db_id,
+                        name: branchInfo.name,
+                        logo: branchInfo.logo,
+                        address: branchInfo.address || {
+                            line1: null,
+                            line2: null,
+                            city: null,
+                            state: null,
+                            country: null,
+                            pincode: null
+                        },
+                        tax_info: branchInfo.tax_info || {
+                            pan: "",
+                            gst: ""
+                        }
+                    },
+
+                    // Additional fields that might be useful
+                    profile_id: staffMember.profile_id,
+                    care_of: staffMember.care_of,
+                    guardian_name: staffMember.guardian_name,
+                    country_code: staffMember.country_code,
+                    pan_number: staffMember.pan_number,
+                    village_town: staffMember.village_town,
+                    image: staffMember.image
+                };
+
+                setStaffData(transformedData);
+                console.log('Transformed staff data:', transformedData);
+
+                // After profile is loaded, fetch other tab data
+                fetchAttendanceData();
+                fetchExpensesData();
+                fetchBonusFineData();
+                fetchSalaryData();
+                fetchLedgerData();
+                fetchLoanData();
+                fetchPerformanceData();
+                fetchEntryReportData();
+
+            } else {
+                throw new Error('No staff data found');
+            }
+
+        } catch (err) {
+            console.error('Error fetching staff profile:', err);
+            setError(err.message || 'Failed to load staff profile');
+        } finally {
+            setLoading(false);
         }
-        
-    } catch (err) {
-        console.error('Error fetching staff profile:', err);
-        setError(err.message || 'Failed to load staff profile');
-    } finally {
-        setLoading(false);
-    }
-};
+    };
 
-   // Helper function to format date
-const formatDate = (dateString) => {
-    if (!dateString) return '';
-    try {
-        const date = new Date(dateString);
-        if (isNaN(date.getTime())) return '';
-        return date.toLocaleDateString('en-GB');
-    } catch (e) {
-        return '';
-    }
-};
+    // Helper function to format date
+    const formatDate = (dateString) => {
+        if (!dateString) return '';
+        try {
+            const date = new Date(dateString);
+            if (isNaN(date.getTime())) return '';
+            return date.toLocaleDateString('en-GB');
+        } catch (e) {
+            return '';
+        }
+    };
     // Function to generate calendar data for attendance
     const generateCalendarData = () => {
         const days = [];
@@ -437,7 +432,7 @@ const formatDate = (dateString) => {
         const today = new Date();
         const firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
         const lastDay = new Date(today.getFullYear(), today.getMonth() + 1, 0);
-        
+
         setLedger({
             period: `${formatDate(firstDay)} - ${formatDate(lastDay)}`,
             entries: [],
@@ -453,7 +448,7 @@ const formatDate = (dateString) => {
         const today = new Date();
         const startDate = formatDate(today);
         const endDate = new Date(today.getFullYear() + 10, today.getMonth(), today.getDate());
-        
+
         setLoan({
             period: `${startDate} - ${formatDate(endDate)}`,
             entries: [],
@@ -469,7 +464,7 @@ const formatDate = (dateString) => {
         const today = new Date();
         const startDate = formatDate(today);
         const endDate = new Date(today.getFullYear() + 10, today.getMonth(), today.getDate());
-        
+
         setPerformance({
             period: `${startDate} - ${formatDate(endDate)}`,
             services: [],
@@ -527,24 +522,6 @@ const formatDate = (dateString) => {
     // Toggle tabs minimized state
     const toggleTabsMinimized = () => {
         setTabsMinimized(!tabsMinimized);
-    };
-
-    // Handle edit profile
-    const handleEditProfile = () => {
-        console.log("Edit profile clicked");
-        setShowSettings(false);
-    };
-
-    // Handle change password
-    const handleChangePassword = () => {
-        console.log("Change password clicked");
-        setShowSettings(false);
-    };
-
-    // Handle force logout
-    const handleForceLogout = () => {
-        console.log("Force logout clicked");
-        setShowSettings(false);
     };
 
     // Handle refresh data
@@ -615,7 +592,7 @@ const formatDate = (dateString) => {
                 setIsMinimized={setIsMinimized}
             />
 
-            <div className={`pt-16 transition-all duration-300 ease-in-out ${isMinimized ? 'md:pl-20' : 'md:pl-72'}`}>
+            <div className={`pt-16 transition-all duration-300 ease-in-out ${isMinimized ? 'md:pl-20' : 'md:pl-[260px]'}`}>
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 md:px-8 py-6">
                     <div className="animate-pulse">
                         {/* Breadcrumb skeleton */}
@@ -683,7 +660,7 @@ const formatDate = (dateString) => {
                     setIsMinimized={setIsMinimized}
                 />
 
-                <div className={`pt-16 transition-all duration-300 ease-in-out ${isMinimized ? 'md:pl-20' : 'md:pl-72'}`}>
+                <div className={`pt-16 transition-all duration-300 ease-in-out ${isMinimized ? 'md:pl-20' : 'md:pl-[260px]'}`}>
                     <div className="max-w-7xl mx-auto px-4 sm:px-6 md:px-8 py-6">
                         <motion.div
                             initial={{ opacity: 0, y: 20 }}
@@ -741,7 +718,7 @@ const formatDate = (dateString) => {
             />
 
             {/* Main content */}
-            <div className={`pt-16 transition-all duration-300 ease-in-out ${isMinimized ? 'md:pl-20' : 'md:pl-72'}`}>
+            <div className={`pt-16 transition-all duration-300 ease-in-out ${isMinimized ? 'md:pl-20' : 'md:pl-[260px]'}`}>
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 md:px-8 py-6">
                     <motion.div
                         initial={{ opacity: 0, y: 10 }}
@@ -750,7 +727,7 @@ const formatDate = (dateString) => {
                     >
                         {/* Breadcrumb Navigation */}
                         <div className="flex items-center gap-2 mb-4 text-sm text-gray-600">
-                            <button 
+                            <button
                                 onClick={handleGoBack}
                                 className="hover:text-blue-600 flex items-center gap-1"
                             >
@@ -761,7 +738,7 @@ const formatDate = (dateString) => {
                             <span className="font-medium text-gray-900">{staffData.fullName}</span>
                             <FiChevronRight className="w-4 h-4" />
                             <span className="capitalize">{activeTab.replace('-', ' ')}</span>
-                            
+
                             {/* Refresh button */}
                             <motion.button
                                 onClick={handleRefresh}
@@ -775,7 +752,7 @@ const formatDate = (dateString) => {
                         </div>
 
                         {/* Staff Header Card */}
-                        <motion.div 
+                        <motion.div
                             className="bg-white rounded-lg shadow-sm border border-gray-200 p-5 mb-6 relative"
                             initial={{ opacity: 0, y: -20 }}
                             animate={{ opacity: 1, y: 0 }}
@@ -784,7 +761,7 @@ const formatDate = (dateString) => {
                             <div className="relative">
                                 <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-5">
                                     <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 w-full">
-                                        <motion.div 
+                                        <motion.div
                                             className="relative flex-shrink-0"
                                             whileHover={{ scale: 1.03 }}
                                         >
@@ -799,16 +776,15 @@ const formatDate = (dateString) => {
                                         <div className="flex-1 min-w-0">
                                             <div className="flex flex-col sm:flex-row sm:items-center gap-2 mb-3">
                                                 <h1 className="text-xl font-bold text-gray-900 truncate">{staffData.fullName || 'Unknown'}</h1>
-                                                <span className={`px-2.5 py-1 rounded-full text-xs font-semibold flex items-center gap-1 w-fit ${
-                                                    isAccepted 
-                                                        ? 'bg-blue-100 text-blue-700' 
-                                                        : 'bg-amber-100 text-amber-700'
-                                                }`}>
+                                                <span className={`px-2.5 py-1 rounded-full text-xs font-semibold flex items-center gap-1 w-fit ${isAccepted
+                                                    ? 'bg-blue-100 text-blue-700'
+                                                    : 'bg-amber-100 text-amber-700'
+                                                    }`}>
                                                     <FiStar className="w-3 h-3" />
                                                     {staffData.designation || 'Pending'}
                                                 </span>
                                             </div>
-                                            
+
                                             {/* Contact Info Grid */}
                                             <div className={`grid ${isMobileView ? 'grid-cols-1' : 'grid-cols-2 lg:grid-cols-4'} gap-3`}>
                                                 <div className="flex items-center gap-2.5 bg-gray-50 px-3 py-2.5 rounded-lg border border-gray-100">
@@ -850,22 +826,13 @@ const formatDate = (dateString) => {
                                             </div>
                                         </div>
                                     </div>
-                                    
+
                                     <div className="flex items-center gap-3 lg:mt-0 flex-shrink-0">
-                                        <motion.button
-                                            onClick={() => setShowSettings(!showSettings)}
-                                            className="relative p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg"
-                                            whileHover={{ scale: 1.05 }}
-                                            whileTap={{ scale: 0.95 }}
-                                        >
-                                            <FiUser className="w-5 h-5" />
-                                        </motion.button>
-                                        <motion.div 
-                                            className={`px-4 py-2 rounded-lg font-semibold shadow-sm ${
-                                                isAccepted 
-                                                    ? 'bg-gradient-to-r from-green-500 to-emerald-600 text-white' 
-                                                    : 'bg-gray-100 text-gray-500'
-                                            }`}
+                                        <motion.div
+                                            className={`px-4 py-2 rounded-lg font-semibold shadow-sm ${isAccepted
+                                                ? 'bg-gradient-to-r from-green-500 to-emerald-600 text-white'
+                                                : 'bg-gray-100 text-gray-500'
+                                                }`}
                                             whileHover={{ scale: 1.02 }}
                                         >
                                             Balance: ₹{staffData.balance}
@@ -874,43 +841,10 @@ const formatDate = (dateString) => {
                                 </div>
                             </div>
 
-                            {/* Settings Dropdown */}
-                            <AnimatePresence>
-                                {showSettings && (
-                                    <motion.div
-                                        initial={{ opacity: 0, y: -10 }}
-                                        animate={{ opacity: 1, y: 0 }}
-                                        exit={{ opacity: 0, y: -10 }}
-                                        className="absolute right-6 top-20 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-10"
-                                    >
-                                        <button
-                                            onClick={handleEditProfile}
-                                            className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2"
-                                        >
-                                            <FiEdit2 className="w-4 h-4" />
-                                            Edit Profile
-                                        </button>
-                                        <button
-                                            onClick={handleChangePassword}
-                                            className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2"
-                                        >
-                                            <FiLock className="w-4 h-4" />
-                                            Change Password
-                                        </button>
-                                        <button
-                                            onClick={handleForceLogout}
-                                            className="w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50 flex items-center gap-2"
-                                        >
-                                            <FiLogOut className="w-4 h-4" />
-                                            Force Logout
-                                        </button>
-                                    </motion.div>
-                                )}
-                            </AnimatePresence>
                         </motion.div>
 
                         {/* Enhanced Profile Tabs with Minimize Option */}
-                        <motion.div 
+                        <motion.div
                             className="bg-white rounded-lg border border-gray-200 shadow-sm mb-6 overflow-hidden"
                             initial={{ opacity: 0 }}
                             animate={{ opacity: 1 }}
@@ -979,7 +913,7 @@ const formatDate = (dateString) => {
                             </div>
                         </motion.div>
 
-                        {/* Tab Content with AnimatePresence */}
+                        {/* Tab content — no outer card; each tab owns its own layout */}
                         <AnimatePresence mode="wait">
                             <motion.div
                                 key={activeTab}
@@ -987,7 +921,7 @@ const formatDate = (dateString) => {
                                 animate={{ opacity: 1, y: 0 }}
                                 exit={{ opacity: 0, y: -10 }}
                                 transition={{ duration: 0.2 }}
-                                className="bg-white rounded-lg border border-gray-200 shadow-sm p-5"
+                                className="min-w-0 w-full"
                             >
                                 {renderTabContent()}
                             </motion.div>

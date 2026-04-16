@@ -125,23 +125,25 @@ const JournalEntry = ({
 
     // Debounced search for FROM dropdown
     useEffect(() => {
+        if (!isOpen) return;
         const debounceTimer = setTimeout(() => {
             setFromPage(1);
             fetchFromClients(fromSearchValue, 1, false);
         }, 500);
 
         return () => clearTimeout(debounceTimer);
-    }, [fromSearchValue, fetchFromClients]);
+    }, [isOpen, fromSearchValue, fetchFromClients]);
 
     // Debounced search for TO dropdown
     useEffect(() => {
+        if (!isOpen) return;
         const debounceTimer = setTimeout(() => {
             setToPage(1);
             fetchToClients(toSearchValue, 1, false);
         }, 500);
 
         return () => clearTimeout(debounceTimer);
-    }, [toSearchValue, fetchToClients]);
+    }, [isOpen, toSearchValue, fetchToClients]);
 
     // Load more clients for FROM dropdown
     const loadMoreFromClients = () => {

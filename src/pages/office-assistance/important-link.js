@@ -457,7 +457,7 @@ const ImportantLinks = () => {
                 setIsMinimized={setIsMinimized}
             />
 
-            <div className={`pt-16 transition-all duration-300 ease-in-out ${isMinimized ? 'md:pl-20' : 'md:pl-72'}`}>
+            <div className={`pt-16 transition-all duration-300 ease-in-out ${isMinimized ? 'md:pl-20' : 'md:pl-[260px]'}`}>
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 md:px-8 py-6">
                     <div className="mb-6 animate-pulse">
                         <div className="h-8 bg-gradient-to-r from-gray-200 to-gray-300 rounded-lg w-48 mb-2"></div>
@@ -639,7 +639,7 @@ const ImportantLinks = () => {
                 setIsMinimized={setIsMinimized}
             />
 
-            <div className={`pt-16 transition-all duration-300 ease-in-out ${isMinimized ? 'md:pl-20' : 'md:pl-72'}`}>
+            <div className={`pt-16 transition-all duration-300 ease-in-out ${isMinimized ? 'md:pl-20' : 'md:pl-[260px]'}`}>
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 md:px-8 py-6">
                     {/* Alert Messages */}
                     <AnimatePresence>

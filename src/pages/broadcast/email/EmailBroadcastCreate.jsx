@@ -104,7 +104,7 @@ const EmailBroadcastCreate = () => {
     <div className="min-h-screen bg-light">
       <Header mobileMenuOpen={mobileMenuOpen} setMobileMenuOpen={setMobileMenuOpen} isMinimized={isMinimized} setIsMinimized={setIsMinimized} />
       <Sidebar mobileMenuOpen={mobileMenuOpen} setMobileMenuOpen={setMobileMenuOpen} isMinimized={isMinimized} setIsMinimized={setIsMinimized} />
-      <div className={`pt-16 ${isMinimized ? 'md:pl-20' : 'md:pl-72'}`}>
+      <div className={`pt-16 ${isMinimized ? 'md:pl-20' : 'md:pl-[260px]'}`}>
         <div className="container-fluid py-4">
           <Card className="mb-3"><Card.Header><strong>Section A: Basic</strong></Card.Header><Card.Body>
             <Row className="g-3">

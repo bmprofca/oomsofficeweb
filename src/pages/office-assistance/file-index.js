@@ -447,7 +447,7 @@ const ViewFileIndex = () => {
                 isMinimized={isMinimized} setIsMinimized={setIsMinimized} />
             <Sidebar mobileMenuOpen={mobileMenuOpen} setMobileMenuOpen={setMobileMenuOpen}
                 isMinimized={isMinimized} setIsMinimized={setIsMinimized} />
-            <div className={`pt-16 transition-all duration-300 ease-in-out ${isMinimized ? 'md:pl-20' : 'md:pl-72'}`}>
+            <div className={`pt-16 transition-all duration-300 ease-in-out ${isMinimized ? 'md:pl-20' : 'md:pl-[260px]'}`}>
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 md:px-8 py-6">
                     <div className="bg-white rounded-xl shadow-sm border border-slate-200">
                         {/* Skeleton Header */}
@@ -512,7 +512,7 @@ const ViewFileIndex = () => {
                 setIsMinimized={setIsMinimized}
             />
 
-            <div className={`pt-16 transition-all duration-300 ease-in-out ${isMinimized ? 'md:pl-20' : 'md:pl-72'}`}>
+            <div className={`pt-16 transition-all duration-300 ease-in-out ${isMinimized ? 'md:pl-20' : 'md:pl-[260px]'}`}>
                 <div className="max-w-full mx-auto px-4 sm:px-6 lg:px-8 py-6">
                     {/* Header Stats Cards - Professional Compact Design */}
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-4">

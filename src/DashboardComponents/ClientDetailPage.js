@@ -358,7 +358,7 @@ const ClientDetailPage = () => {
                     isMinimized={isMinimized}
                     setIsMinimized={setIsMinimized}
                 />
-                <div className={`pt-16 transition-all duration-300 ease-in-out w-full ${isMinimized ? 'md:pl-20' : 'md:pl-72'}`}>
+                <div className={`pt-16 transition-all duration-300 ease-in-out w-full ${isMinimized ? 'md:pl-20' : 'md:pl-[260px]'}`}>
                     <div className="w-full px-4 sm:px-6 lg:px-8 py-6">
                         <div className="bg-white rounded-2xl shadow-xl p-12 text-center">
                             <h2 className="text-2xl font-bold text-gray-800 mb-4">Invalid Metric</h2>
@@ -391,7 +391,7 @@ const ClientDetailPage = () => {
                 setIsMinimized={setIsMinimized}
             />
 
-            <div className={`pt-16 transition-all duration-300 ease-in-out w-full ${isMinimized ? 'md:pl-20' : 'md:pl-72'}`}>
+            <div className={`pt-16 transition-all duration-300 ease-in-out w-full ${isMinimized ? 'md:pl-20' : 'md:pl-[260px]'}`}>
                 <div className="w-full px-4 sm:px-6 lg:px-8 py-6">
                     {/* Header */}
                     <div className="mb-6">

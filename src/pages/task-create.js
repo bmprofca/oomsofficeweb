@@ -1200,7 +1200,7 @@ const TaskCreate = () => {
             />
 
             {/* Main content */}
-            <div className={`pt-16 transition-all duration-300 ease-in-out ${isMinimized ? 'md:pl-20' : 'md:pl-72'} overflow-x-hidden min-w-0 w-full max-w-full flex-1`}>
+            <div className={`pt-16 transition-all duration-300 ease-in-out ${isMinimized ? 'md:pl-20' : 'md:pl-[260px]'} overflow-x-hidden min-w-0 w-full max-w-full flex-1`}>
                 <div className="max-w-6xl mx-auto px-4 sm:px-6 md:px-8 py-6 min-w-0 w-full box-border">
                     {/* Page header */}
                     <div className="mb-6">

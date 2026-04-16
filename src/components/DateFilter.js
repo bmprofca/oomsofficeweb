@@ -1,9 +1,33 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { FiCalendar, FiChevronDown, FiSearch } from 'react-icons/fi';
+import { FiChevronDown } from 'react-icons/fi';
 
-const DateFilter = ({ onChange, onSearch }) => {
+const formatDateForDisplay = (date) => {
+    if (!date || date === '') return '';
+    const dateObj = date instanceof Date ? date : new Date(date);
+    if (isNaN(dateObj.getTime())) return '';
+    return dateObj.toLocaleDateString('en-GB', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+    }).replace(/\//g, '/');
+};
+
+const buildRangeLabel = (from, to) => {
+    if (!from || !to) return '';
+    return `${formatDateForDisplay(from)} – ${formatDateForDisplay(to)}`;
+};
+
+const getThisMonthBounds = () => {
+    const today = new Date();
+    const from = new Date(today.getFullYear(), today.getMonth(), 1);
+    const to = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+    return { from, to, label: buildRangeLabel(from, to) };
+};
+
+const DateFilter = ({ onChange, onSearch, className = '' }) => {
     const [isOpen, setIsOpen] = useState(false);
-    const [selectedOption, setSelectedOption] = useState('↑↓ Expires On');
+    /** Preset title shown on the trigger (actual range is shown by the parent page). */
+    const [selectionTitle, setSelectionTitle] = useState('This Month');
     const [showCustomPicker, setShowCustomPicker] = useState(false);
     const [customStartDate, setCustomStartDate] = useState('');
     const [customEndDate, setCustomEndDate] = useState('');
@@ -18,43 +42,25 @@ const DateFilter = ({ onChange, onSearch }) => {
             }
         };
 
-        document.addEventListener('mousedown', handleClickOutside);
+        document.addEventListener('click', handleClickOutside, true);
         return () => {
-            document.removeEventListener('mousedown', handleClickOutside);
+            document.removeEventListener('click', handleClickOutside, true);
         };
     }, []);
 
     const options = [
-        { label: 'Clear', value: 'clear' },
         { label: 'Today', value: 'today' },
         { label: 'This Week', value: 'this_week' },
         { label: 'This Month', value: 'this_month' },
+        { label: 'Last Month', value: 'last_month' },
         { label: 'This FY', value: 'this_fy' },
         { label: 'Previous FY', value: 'prev_fy' },
-        { label: 'Custom Date', value: 'custom' }
+        { label: 'Custom Dates', value: 'custom' },
     ];
 
     const formatDateForInput = (date) => {
         return date.toISOString().split('T')[0];
     };
-
-    const formatDateForDisplay = (date) => {
-        if (!date || date === '') {
-            return '';
-        }
-
-        const dateObj = new Date(date);
-        if (isNaN(dateObj.getTime())) {
-            return '';
-        }
-
-        return dateObj.toLocaleDateString('en-GB', {
-            day: '2-digit',
-            month: '2-digit',
-            year: 'numeric'
-        }).replace(/\//g, '/');
-    };
-
 
     const handleSelect = (option) => {
         if (option.value === 'custom') {
@@ -63,7 +69,6 @@ const DateFilter = ({ onChange, onSearch }) => {
             return;
         }
 
-        setSelectedOption(option.label);
         setIsOpen(false);
         setShowCustomPicker(false);
 
@@ -72,10 +77,6 @@ const DateFilter = ({ onChange, onSearch }) => {
         let from, to;
 
         switch (option.value) {
-            case 'clear':
-                from = '';
-                to = '';
-                break;
             case 'today':
                 from = today;
                 to = today;
@@ -91,6 +92,10 @@ const DateFilter = ({ onChange, onSearch }) => {
             case 'this_month':
                 from = new Date(today.getFullYear(), today.getMonth(), 1);
                 to = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+                break;
+            case 'last_month':
+                from = new Date(today.getFullYear(), today.getMonth() - 1, 1);
+                to = new Date(today.getFullYear(), today.getMonth(), 0);
                 break;
             case 'this_fy':
                 // Financial year logic (April to March)
@@ -110,18 +115,19 @@ const DateFilter = ({ onChange, onSearch }) => {
                 to = new Date(prevYear + 1, 2, 31);
                 break;
             default:
-                from = '';
-                to = '';
+                return;
         }
 
         const range = `${formatDateForDisplay(from)} - ${formatDateForDisplay(to)}`;
+        setSelectionTitle(option.label);
 
         if (onChange) {
             onChange({
                 type: option.value,
-                range: range,
-                from: from,
-                to: to
+                range,
+                from,
+                to,
+                presetLabel: option.label,
             });
         }
 
@@ -145,7 +151,7 @@ const DateFilter = ({ onChange, onSearch }) => {
             return;
         }
 
-        setSelectedOption('Custom Date');
+        setSelectionTitle('Custom Dates');
         setIsOpen(false);
         setShowCustomPicker(false);
 
@@ -154,9 +160,10 @@ const DateFilter = ({ onChange, onSearch }) => {
         if (onChange) {
             onChange({
                 type: 'custom',
-                range: range,
+                range,
                 from: start,
-                to: end
+                to: end,
+                presetLabel: 'Custom Dates',
             });
         }
 
@@ -172,7 +179,7 @@ const DateFilter = ({ onChange, onSearch }) => {
         setCustomEndDate('');
     };
 
-    // Set default custom dates to current month
+    // Default custom dates + sync label with "this month" (same as parent default range)
     useEffect(() => {
         const today = new Date();
         const firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
@@ -180,25 +187,33 @@ const DateFilter = ({ onChange, onSearch }) => {
 
         setCustomStartDate(formatDateForInput(firstDay));
         setCustomEndDate(formatDateForInput(lastDay));
+        setSelectionTitle('This Month');
     }, []);
 
+    const rootClassName = className.trim()
+        ? `relative flex items-center gap-2 ${className}`
+        : 'relative flex w-full items-center gap-2 sm:w-auto';
+
     return (
-        <div className="relative flex items-center gap-2" ref={dropdownRef}>
+        <div className={rootClassName} ref={dropdownRef}>
             {/* Date Filter Dropdown */}
-            <div className="relative">
+            <div className="relative w-full sm:w-auto">
                 <button
-                    onClick={() => setIsOpen(!isOpen)}
-                    className="flex items-center gap-2 px-4 py-2.5 bg-white border border-slate-300 rounded-lg text-slate-700 hover:border-slate-400 transition-colors shadow-sm min-w-[160px] justify-between"
+                    type="button"
+                    onClick={(e) => {
+                        e.stopPropagation();
+                        setIsOpen((o) => !o);
+                    }}
+                    className="flex h-9 w-full min-w-0 items-center justify-between gap-2 rounded-lg border border-slate-300 bg-white px-2.5 text-left text-slate-700 shadow-sm transition-colors hover:border-slate-400 sm:h-10 sm:min-w-[10.5rem] sm:max-w-[14rem] sm:px-3"
                 >
-                    <div className="flex items-center gap-2">
-                        <FiCalendar className="w-4 h-4 text-slate-500" />
-                        <span className="text-sm font-medium">{selectedOption}</span>
-                    </div>
-                    <FiChevronDown className={`w-4 h-4 text-slate-500 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+                    <span className="min-w-0 flex-1 truncate text-xs font-medium text-slate-800 sm:text-sm">
+                        {selectionTitle}
+                    </span>
+                    <FiChevronDown className={`h-4 w-4 shrink-0 text-slate-500 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
                 </button>
 
                 {isOpen && (
-                    <div className="absolute top-full left-0 mt-1 w-64 bg-white rounded-lg shadow-xl border border-slate-200 z-50 overflow-hidden">
+                    <div className="absolute left-0 top-full z-[200] mt-1 w-64 overflow-hidden rounded-lg border border-slate-200 bg-white shadow-xl">
                         {!showCustomPicker ? (
                             // Main options list
                             <>

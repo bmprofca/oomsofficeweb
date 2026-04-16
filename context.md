@@ -158,7 +158,7 @@ const fetchData = useCallback(async () => {
 ```
 
 ### Sidebar minimized state
-Persisted in `localStorage` key `sidebarMinimized`. All pages read this to apply `lg:pl-20` (minimized) or `lg:pl-72` (expanded) left padding.
+Persisted in `localStorage` key `sidebarMinimized`. All pages read this to apply `lg:pl-20` (minimized) or `lg:pl-72` (expanded) left padding. **Keep main content left padding and any fixed/offset UI** (e.g. bulk bars, wide cards) **in sync with the real sidebar width** (`md:` / `lg:` breakpoints and px values) so content does not sit under the drawer; some pages (e.g. **`billing-view.js`**) use explicit pixel offsets (`288px` / `80px`) where `pl-*` alone is not enough.
 
 ### SkeletonPulse component
 Used for loading placeholders:
@@ -260,6 +260,14 @@ Fetched in parallel with `Promise.all` using `limit=1` on each tab endpoint to r
 
 ### Bulk action bottom bar
 Fixed bar at bottom of screen when items are selected (Pending tab only). Slides in/out with spring animation. Contains: selected count, info note, "Generate bill", "Non-billable", "Clear" buttons. Offset by sidebar width (`left: isMinimized ? 80px : 288px`).
+
+---
+
+## `sale-display.js` — Sales list (Sales Register)
+
+- **Sticky table header:** Block **(1)** — title **Sales Register** + **date range** subtitle (en-dash variants normalized to ` - ` for display). Block **(2)** — single **`flex-nowrap`** row: **search** (`min-w-0 flex-1` wrapper, input `w-full`, min width ~`8rem`) → **`DateFilter`** (compact via `className`, see `DateFilter.js`) → **Export** dropdown → **Add Sale** (rightmost; search flex fills space so actions stay aligned to the right).
+- **Stats** from API **`stats`** (e.g. net / tax / total amounts + count); rupee affordances use **`TbCurrencyRupee`** where used in this page.
+- **Pagination:** server-driven list (no client **`slice`** over the full dataset). Footer follows the **Ledger-style** pattern (`meta` / totals, `LIMIT_OPTIONS`, page jump) — align with `LedgerTab.js` when changing limits or filters (reset page 1 on filter/limit change).
 
 ---
 
@@ -395,6 +403,16 @@ Matches the pattern in **`DocumentsTab.js`** for generic file upload:
 
 - Generic upload: **`POST ${API_BASE_URL}/upload`** with `FormData.append('file', file)`, **`axios`**, and `getHeaders()`. Success URL: `response.data.data?.url || response.data.url`.
 - **`app-setting.js`** logo/signature pre-upload reuses this contract.
+
+---
+
+## `DateFilter.js` — Shared date filter (`src/components/DateFilter.js`)
+
+- Presets include **This Month**, **Last Month**, and **Custom Dates** (inline from/to inputs when custom is chosen).
+- Trigger label uses internal **`selectionTitle`** (preset name); **parent pages** show the **actual range string** (e.g. under “Sales Register” on `sale-display.js`).
+- **`onChange`:** callers receive range / filter payload as implemented (including preset metadata where wired).
+- **UX / stacking:** menu uses a high **z-index**; outside-close uses **document click (capture)**. Avoid **`overflow-x-auto`** on ancestors that would clip the dropdown; toolbar rows may use **`flex-nowrap`** + width-safe children instead of horizontal scroll on the whole bar.
+- **`className` prop:** if non-empty (trimmed), the root is **`relative flex items-center gap-2` + `className`** only — **no** default **`w-full sm:w-auto`**. Use in compact toolbars (e.g. **`className="w-auto max-w-[16rem] shrink-0"`** on `sale-display.js`) so the control does not stretch across the row.
 
 ---
 

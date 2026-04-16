@@ -179,7 +179,7 @@ const AppSettings = () => {
             />
 
             {/* Main content */}
-            <div className={`pt-16 transition-all duration-300 ease-in-out ${isMinimized ? 'md:pl-20' : 'md:pl-72'}`}>
+            <div className={`pt-16 transition-all duration-300 ease-in-out ${isMinimized ? 'md:pl-20' : 'md:pl-[260px]'}`}>
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 md:px-8 py-6">
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                         {/* Left Column Skeleton */}
@@ -635,7 +635,7 @@ const AppSettings = () => {
             />
 
             {/* Main content */}
-            <div className={`pt-16 transition-all duration-300 ease-in-out ${isMinimized ? 'md:pl-20' : 'md:pl-72'}`}>
+            <div className={`pt-16 transition-all duration-300 ease-in-out ${isMinimized ? 'md:pl-20' : 'md:pl-[260px]'}`}>
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 md:px-8 py-6">
                     <div className="bg-white rounded-lg border border-gray-200 shadow-sm">
                         <div className="border-b border-gray-200 px-6 py-4">

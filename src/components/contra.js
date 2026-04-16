@@ -131,23 +131,25 @@ const ContraTransfer = ({
 
     // Debounced search for FROM dropdown
     useEffect(() => {
+        if (!isOpen) return;
         const debounceTimer = setTimeout(() => {
             setFromPage(1);
             fetchFromBanks(fromSearchValue, 1, false);
         }, 500);
 
         return () => clearTimeout(debounceTimer);
-    }, [fromSearchValue, fetchFromBanks]);
+    }, [isOpen, fromSearchValue, fetchFromBanks]);
 
     // Debounced search for TO dropdown
     useEffect(() => {
+        if (!isOpen) return;
         const debounceTimer = setTimeout(() => {
             setToPage(1);
             fetchToBanks(toSearchValue, 1, false);
         }, 500);
 
         return () => clearTimeout(debounceTimer);
-    }, [toSearchValue, fetchToBanks]);
+    }, [isOpen, toSearchValue, fetchToBanks]);
 
     // Load more banks for FROM dropdown
     const loadMoreFromBanks = () => {

@@ -1592,7 +1592,7 @@ const TopClientsWidget = () => (
             />
 
             {/* Main content - FULL WIDTH */}
-            <div className={`pt-16 transition-all duration-300 ease-in-out w-full ${isMinimized ? 'md:pl-20' : 'md:pl-72'}`}>
+            <div className={`pt-16 transition-all duration-300 ease-in-out w-full ${isMinimized ? 'md:pl-20' : 'md:pl-[260px]'}`}>
                 <div className="w-full px-4 sm:px-6 lg:px-8 py-6">
                     {/* Header with alert and 3-dot button in same row */}
                     <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4 mb-8">

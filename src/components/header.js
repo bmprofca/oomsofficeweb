@@ -723,7 +723,8 @@ export const Sidebar = ({ mobileMenuOpen, setMobileMenuOpen, isMinimized, setIsM
           </nav>
         </div>
 
-        <AnimatePresence>
+        {/* Contact Support section — hidden for now, to be implemented later */}
+        {/* <AnimatePresence>
           {(!isMinimized || isHovered) && (
             <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 10 }} transition={{ delay: 0.1 }} className="p-4 border-t border-indigo-100">
               <div className="bg-gradient-to-br from-indigo-50 to-white rounded-xl p-4 text-xs border border-indigo-100 shadow-sm">
@@ -733,7 +734,7 @@ export const Sidebar = ({ mobileMenuOpen, setMobileMenuOpen, isMinimized, setIsM
               </div>
             </motion.div>
           )}
-        </AnimatePresence>
+        </AnimatePresence> */}
       </motion.div>
     </>
   );
