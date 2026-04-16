@@ -48,10 +48,12 @@ const PurchaseForm = ({
     const [isLoadingBanks, setIsLoadingBanks] = useState(false);
     const [userSearchTerm, setUserSearchTerm] = useState('');
 
-    // Fetch services from API
+    // Fetch services from API — only when modal opens
     useEffect(() => {
-        fetchServices();
-    }, []);
+        if (isOpen) {
+            fetchServices();
+        }
+    }, [isOpen]);
 
     // Fetch banks when component mounts (for bank flow)
     useEffect(() => {

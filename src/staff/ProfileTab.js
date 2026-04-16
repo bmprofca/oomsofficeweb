@@ -1,112 +1,78 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { motion } from 'framer-motion';
-import { FiEdit2, FiSave, FiX, FiRefreshCw } from 'react-icons/fi';
-import API_BASE_URL from "../utils/api-controller";
-import getHeaders from "../utils/get-headers";
+import {
+    FiUser, FiMail, FiPhone, FiMapPin, FiCalendar,
+    FiBriefcase, FiHash, FiHome, FiFlag, FiLayers,
+    FiGlobe, FiCreditCard, FiInfo,
+} from 'react-icons/fi';
 
-const ProfileTab = ({ staffData, setStaffData, variants, username }) => {
-    const [isEditing, setIsEditing] = useState(false);
-    const [editedData, setEditedData] = useState(staffData);
-    const [loading, setLoading] = useState(false);
-    const [saving, setSaving] = useState(false);
-    const [error, setError] = useState(null);
-    const [success, setSuccess] = useState(null);
+/* ─── helpers ──────────────────────────────────────────────── */
+const val = (v) => (v && String(v).trim() !== '' ? v : null);
 
-    // Update edited data when staffData changes
-    useEffect(() => {
-        setEditedData(staffData);
-    }, [staffData]);
+const SectionHeader = ({ icon: Icon, title, color = 'indigo' }) => {
+    const bg = {
+        indigo: 'bg-indigo-50 text-indigo-600',
+        purple: 'bg-purple-50 text-purple-600',
+        emerald: 'bg-emerald-50 text-emerald-600',
+        amber: 'bg-amber-50 text-amber-600',
+    }[color] ?? 'bg-indigo-50 text-indigo-600';
 
-    const handleSave = async () => {
-        setSaving(true);
-        setError(null);
-        setSuccess(null);
+    return (
+        <div className="flex items-center gap-2.5 mb-4">
+            <div className={`w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0 ${bg}`}>
+                <Icon className="w-3.5 h-3.5" />
+            </div>
+            <h3 className="text-sm font-semibold text-gray-700 uppercase tracking-wide">{title}</h3>
+        </div>
+    );
+};
 
-        try {
-            const headers = await getHeaders();
-            if (!headers) {
-                throw new Error('Authentication failed. Please login again.');
-            }
-            
-            // Prepare data for API update
-            const updateData = {
-                firstName: editedData.firstName,
-                lastName: editedData.lastName,
-                email: editedData.email,
-                mobile: editedData.phone.replace(/[^0-9]/g, ''), // Remove country code and spaces
-                country_code: '91', // Default country code
-                designation: editedData.designation,
-                dob: editedData.dateOfBirth,
-                gender: editedData.gender,
-                address: {
-                    state: editedData.address.state,
-                    district: editedData.address.district,
-                    city: editedData.address.city,
-                    address_line_1: editedData.address.line1,
-                    address_line_2: editedData.address.line2
-                }
-            };
+const InfoRow = ({ icon: Icon, label, value, iconColor = 'text-gray-400', mono = false }) => {
+    if (!val(value)) return null;
+    return (
+        <div className="flex items-start gap-3 py-2.5 border-b border-gray-50 last:border-0">
+            <div className="w-7 h-7 flex items-center justify-center flex-shrink-0 mt-0.5">
+                <Icon className={`w-3.5 h-3.5 ${iconColor}`} />
+            </div>
+            <div className="min-w-0 flex-1">
+                <p className="text-[10px] font-medium text-gray-400 uppercase tracking-wide mb-0.5">{label}</p>
+                <p className={`text-sm text-gray-800 font-medium break-words ${mono ? 'font-mono' : ''}`}>
+                    {value}
+                </p>
+            </div>
+        </div>
+    );
+};
 
-            console.log('Updating profile with data:', updateData);
+const Card = ({ children, className = '' }) => (
+    <div className={`bg-white border border-gray-100 rounded-2xl p-5 shadow-sm ${className}`}>
+        {children}
+    </div>
+);
 
-            const response = await fetch(
-                `${API_BASE_URL}/settings/staff/profile/update/?username=${username}`,
-                {
-                    method: 'PUT', // or 'POST' depending on your API
-                    headers: headers,
-                    body: JSON.stringify(updateData)
-                }
-            );
+/* ─── main component ────────────────────────────────────────── */
+const ProfileTab = ({ staffData, variants }) => {
+    const d = staffData || {};
+    const addr = d.address || {};
 
-            const data = await response.json();
+    const addressParts = [
+        addr.line1,
+        addr.line2,
+        addr.city,
+        d.village_town,
+        addr.district,
+        addr.state,
+        addr.country,
+        addr.pincode,
+    ].filter(Boolean);
 
-            if (!response.ok) {
-                throw new Error(data.message || `Failed to update profile: ${response.status}`);
-            }
+    const fullAddress = addressParts.length > 0 ? addressParts.join(', ') : null;
 
-            console.log('Profile update response:', data);
-            
-            // Update parent component with new data
-            setStaffData(editedData);
-            setIsEditing(false);
-            setSuccess('Profile updated successfully');
-            
-            // Clear success message after 3 seconds
-            setTimeout(() => setSuccess(null), 3000);
-            
-        } catch (err) {
-            console.error('Error updating profile:', err);
-            setError(err.message || 'Failed to update profile');
-            
-            // Clear error message after 5 seconds
-            setTimeout(() => setError(null), 5000);
-        } finally {
-            setSaving(false);
-        }
-    };
-
-    const handleCancel = () => {
-        setEditedData(staffData);
-        setIsEditing(false);
-        setError(null);
-        setSuccess(null);
-    };
-
-    const handleChange = (e) => {
-        const { name, value } = e.target;
-        if (name.includes('.')) {
-            const [parent, child] = name.split('.');
-            setEditedData(prev => ({
-                ...prev,
-                [parent]: {
-                    ...prev[parent],
-                    [child]: value
-                }
-            }));
-        } else {
-            setEditedData(prev => ({ ...prev, [name]: value }));
-        }
-    };
+    const initials = (d.fullName || '?')
+        .split(' ')
+        .slice(0, 2)
+        .map((w) => w[0]?.toUpperCase() ?? '')
+        .join('');
 
     return (
         <motion.div
@@ -114,210 +80,102 @@ const ProfileTab = ({ staffData, setStaffData, variants, username }) => {
             initial="initial"
             animate="animate"
             exit="exit"
-            className="bg-white rounded-lg shadow-sm border border-gray-200 p-6"
+            className="space-y-5"
         >
-            <div className="flex justify-between items-center mb-6">
-                <h2 className="text-lg font-semibold text-gray-900">Profile Information</h2>
-                <div className="flex items-center gap-3">
-                    {/* Success Message */}
-                    {success && (
-                        <motion.div
-                            initial={{ opacity: 0, x: 20 }}
-                            animate={{ opacity: 1, x: 0 }}
-                            className="text-sm text-green-600 bg-green-50 px-3 py-1 rounded-lg"
-                        >
-                            {success}
-                        </motion.div>
-                    )}
-                    
-                    {/* Error Message */}
-                    {error && (
-                        <motion.div
-                            initial={{ opacity: 0, x: 20 }}
-                            animate={{ opacity: 1, x: 0 }}
-                            className="text-sm text-red-600 bg-red-50 px-3 py-1 rounded-lg"
-                        >
-                            {error}
-                        </motion.div>
-                    )}
-                    
-                    {!isEditing ? (
-                        <button
-                            onClick={() => setIsEditing(true)}
-                            className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded-lg transition-colors"
-                        >
-                            <FiEdit2 className="w-4 h-4" />
-                            Edit Profile
-                        </button>
-                    ) : (
-                        <div className="flex gap-2">
-                            <button
-                                onClick={handleSave}
-                                disabled={saving}
-                                className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-green-600 hover:text-green-700 hover:bg-green-50 rounded-lg transition-colors disabled:opacity-50"
-                            >
-                                {saving ? (
-                                    <>
-                                        <FiRefreshCw className="w-4 h-4 animate-spin" />
-                                        Saving...
-                                    </>
-                                ) : (
-                                    <>
-                                        <FiSave className="w-4 h-4" />
-                                        Save
-                                    </>
-                                )}
-                            </button>
-                            <button
-                                onClick={handleCancel}
-                                disabled={saving}
-                                className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-red-600 hover:text-red-700 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50"
-                            >
-                                <FiX className="w-4 h-4" />
-                                Cancel
-                            </button>
+            {/* ── Identity banner ─────────────────────────────── */}
+            <Card>
+                <div className="flex items-center gap-4">
+                    {/* Avatar */}
+                    <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center text-white text-xl font-bold shadow-sm flex-shrink-0 select-none">
+                        {initials}
+                    </div>
+
+                    <div className="min-w-0 flex-1">
+                        <h2 className="text-lg font-bold text-gray-900 truncate">
+                            {val(d.fullName) ?? 'Unknown'}
+                        </h2>
+                        <div className="flex flex-wrap items-center gap-2 mt-1">
+                            {val(d.designation) && (
+                                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 bg-indigo-50 text-indigo-700 text-xs font-semibold rounded-full border border-indigo-100">
+                                    <FiBriefcase className="w-3 h-3" />
+                                    {d.designation}
+                                </span>
+                            )}
+                            {val(d.gender) && (
+                                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 bg-gray-100 text-gray-600 text-xs font-medium rounded-full">
+                                    <FiUser className="w-3 h-3" />
+                                    {d.gender}
+                                </span>
+                            )}
                         </div>
+                    </div>
+
+                    {/* Status pill */}
+                    <div className="flex-shrink-0">
+                        {d.is_accepted ? (
+                            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 text-emerald-700 text-xs font-semibold rounded-xl border border-emerald-200">
+                                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block"></span>
+                                Accepted
+                            </span>
+                        ) : (
+                            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-amber-50 text-amber-700 text-xs font-semibold rounded-xl border border-amber-200">
+                                <span className="w-1.5 h-1.5 rounded-full bg-amber-400 inline-block"></span>
+                                Pending
+                            </span>
+                        )}
+                    </div>
+                </div>
+            </Card>
+
+            {/* ── Two-column grid ─────────────────────────────── */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+
+                {/* Personal + Contact Details (merged) */}
+                <Card className="lg:col-span-2">
+                    <SectionHeader icon={FiInfo} title="Staff Details" color="indigo" />
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-8">
+                        <InfoRow icon={FiUser}       label="Full Name"     value={val(d.fullName)}      iconColor="text-indigo-400" />
+                        <InfoRow icon={FiBriefcase}  label="Designation"   value={val(d.designation)}   iconColor="text-indigo-400" />
+                        <InfoRow icon={FiCalendar}   label="Date of Birth" value={val(d.dateOfBirth)}   iconColor="text-violet-400" />
+                        <InfoRow icon={FiUser}       label="Gender"        value={val(d.gender)}        iconColor="text-violet-400" />
+                        <InfoRow icon={FiCalendar}   label="Joined On"     value={val(d.joinDate)}      iconColor="text-amber-400" />
+                        <InfoRow icon={FiPhone}      label="Mobile"        value={val(d.phone)}         iconColor="text-purple-400" />
+                        <InfoRow icon={FiMail}       label="Email"         value={val(d.email)}         iconColor="text-blue-400" />
+                        {val(d.pan_number) && (
+                            <InfoRow icon={FiCreditCard} label="PAN Number" value={val(d.pan_number)}   iconColor="text-orange-400" mono />
+                        )}
+                        {val(d.guardian_name) && (
+                            <InfoRow icon={FiUser}   label="Guardian Name" value={val(d.guardian_name)} iconColor="text-gray-400" />
+                        )}
+                        {val(d.care_of) && (
+                            <InfoRow icon={FiUser}   label="Care Of"       value={val(d.care_of)}       iconColor="text-gray-400" />
+                        )}
+                    </div>
+                </Card>
+
+                {/* Address */}
+                <Card className="lg:col-span-2">
+                    <SectionHeader icon={FiMapPin} title="Address" color="emerald" />
+                    {fullAddress ? (
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-8">
+                            <InfoRow icon={FiHome}   label="Address Line 1"  value={val(addr.line1)}      iconColor="text-emerald-400" />
+                            <InfoRow icon={FiHome}   label="Address Line 2"  value={val(addr.line2)}      iconColor="text-emerald-400" />
+                            {val(d.village_town) && (
+                                <InfoRow icon={FiLayers} label="Village / Town" value={val(d.village_town)} iconColor="text-emerald-400" />
+                            )}
+                            <InfoRow icon={FiMapPin} label="City"            value={val(addr.city)}       iconColor="text-teal-400" />
+                            <InfoRow icon={FiFlag}   label="District"        value={val(addr.district)}   iconColor="text-teal-400" />
+                            <InfoRow icon={FiGlobe}  label="State"           value={val(addr.state)}      iconColor="text-teal-400" />
+                            <InfoRow icon={FiGlobe}  label="Country"         value={val(addr.country)}    iconColor="text-teal-400" />
+                            <InfoRow icon={FiHash}   label="Pincode"         value={val(addr.pincode)}    iconColor="text-gray-400" mono />
+                        </div>
+                    ) : (
+                        <p className="text-sm text-gray-400 italic py-2">No address information available.</p>
                     )}
-                </div>
-            </div>
+                </Card>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                {/* About Section */}
-                <div className="space-y-4">
-                    <h3 className="text-md font-medium text-gray-700 border-b pb-2">About</h3>
-                    <div className="space-y-3">
-                        <ProfileField
-                            label="Designation"
-                            value={editedData.designation}
-                            name="designation"
-                            isEditing={isEditing}
-                            onChange={handleChange}
-                        />
-                        <ProfileField
-                            label="Full Name"
-                            value={editedData.fullName}
-                            name="fullName"
-                            isEditing={isEditing}
-                            onChange={handleChange}
-                        />
-                        <ProfileField
-                            label="Date of Birth"
-                            value={editedData.dateOfBirth}
-                            name="dateOfBirth"
-                            isEditing={isEditing}
-                            onChange={handleChange}
-                            type="date"
-                        />
-                        <ProfileField
-                            label="Gender"
-                            value={editedData.gender}
-                            name="gender"
-                            isEditing={isEditing}
-                            onChange={handleChange}
-                            type="select"
-                            options={['Male', 'Female', 'Other']}
-                        />
-                    </div>
-                </div>
-
-                {/* Contacts Section */}
-                <div className="space-y-4">
-                    <h3 className="text-md font-medium text-gray-700 border-b pb-2">Contacts</h3>
-                    <div className="space-y-3">
-                        <ProfileField
-                            label="Mobile"
-                            value={editedData.phone}
-                            name="phone"
-                            isEditing={isEditing}
-                            onChange={handleChange}
-                        />
-                        <ProfileField
-                            label="Email"
-                            value={editedData.email}
-                            name="email"
-                            isEditing={isEditing}
-                            onChange={handleChange}
-                            type="email"
-                        />
-                    </div>
-                </div>
-
-                {/* Address Section */}
-                <div className="space-y-4 md:col-span-2">
-                    <h3 className="text-md font-medium text-gray-700 border-b pb-2">Address</h3>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <ProfileField
-                            label="State"
-                            value={editedData.address.state}
-                            name="address.state"
-                            isEditing={isEditing}
-                            onChange={handleChange}
-                        />
-                        <ProfileField
-                            label="District"
-                            value={editedData.address.district}
-                            name="address.district"
-                            isEditing={isEditing}
-                            onChange={handleChange}
-                        />
-                        <ProfileField
-                            label="City/Town"
-                            value={editedData.address.city}
-                            name="address.city"
-                            isEditing={isEditing}
-                            onChange={handleChange}
-                        />
-                        <ProfileField
-                            label="Address Line 1"
-                            value={editedData.address.line1}
-                            name="address.line1"
-                            isEditing={isEditing}
-                            onChange={handleChange}
-                        />
-                        <ProfileField
-                            label="Address Line 2"
-                            value={editedData.address.line2}
-                            name="address.line2"
-                            isEditing={isEditing}
-                            onChange={handleChange}
-                        />
-                    </div>
-                </div>
             </div>
         </motion.div>
-    );
-};
-
-const ProfileField = ({ label, value, name, isEditing, onChange, type = 'text', options = [] }) => {
-    return (
-        <div>
-            <label className="block text-sm font-medium text-gray-600 mb-1">{label}</label>
-            {isEditing ? (
-                type === 'select' ? (
-                    <select
-                        name={name}
-                        value={value || ''}
-                        onChange={onChange}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    >
-                        <option value="">Select {label}</option>
-                        {options.map(opt => (
-                            <option key={opt} value={opt}>{opt}</option>
-                        ))}
-                    </select>
-                ) : (
-                    <input
-                        type={type}
-                        name={name}
-                        value={value || ''}
-                        onChange={onChange}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    />
-                )
-            ) : (
-                <p className="text-gray-900">{value || 'Not specified'}</p>
-            )}
-        </div>
     );
 };
 

@@ -1,26 +1,17 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
-    FiSearch,
     FiPlus,
     FiSettings,
     FiEdit,
     FiFileText,
-    FiDollarSign,
     FiUsers,
     FiUser,
-    FiCreditCard,
     FiX,
     FiMenu,
     FiPrinter,
     FiMail,
     FiMessageSquare,
-    FiChevronRight,
-    FiTrendingUp,
-    FiFilter,
     FiChevronDown,
-    FiChevronUp,
-    FiChevronLeft,
-    FiChevronRight as FiChevronRightIcon,
     FiEye,
     FiInfo,
     FiCalendar,
@@ -29,9 +20,11 @@ import {
     FiHome,
     FiBriefcase,
     FiPercent,
-    FiPlusCircle
+    FiPlusCircle,
+    FiLayers,
 } from 'react-icons/fi';
 import { PiExportBold } from "react-icons/pi";
+import { TbCurrencyRupee } from 'react-icons/tb';
 import { PiFilePdfDuotone, PiMicrosoftExcelLogoDuotone } from "react-icons/pi";
 import { AiOutlineMail } from "react-icons/ai";
 import { FaWhatsapp } from "react-icons/fa6";
@@ -45,6 +38,8 @@ import API_BASE_URL from '../utils/api-controller';
 import getHeaders from '../utils/get-headers';
 import axios from 'axios';
 
+const LIMIT_OPTIONS = [5, 10, 20, 50, 100];
+
 const ViewSales = () => {
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
     const [isMinimized, setIsMinimized] = useState(() => {
@@ -53,13 +48,13 @@ const ViewSales = () => {
     });
     const [loading, setLoading] = useState(true);
     const [dateRange, setDateRange] = useState('');
-    const [fromToDate, setFromToDate] = useState('');
     const [sales, setSales] = useState([]);
     const [saleFormModal, setSaleFormModal] = useState(false);
     const [summary, setSummary] = useState({
-        total: 0,
+        count: 0,
+        net: 0,
         tax: 0,
-        grand_total: 0
+        total: 0,
     });
 
     // View Modal State
@@ -83,12 +78,11 @@ const ViewSales = () => {
 
     // Pagination state
     const [currentPage, setCurrentPage] = useState(1);
-    const [itemsPerPage, setItemsPerPage] = useState(10);
-    const [showAll, setShowAll] = useState(false);
+    const [totalPages, setTotalPages] = useState(1);
+    const [pageJumpInput, setPageJumpInput] = useState('');
+    const [itemsPerPage, setItemsPerPage] = useState(20);
     const [totalRecords, setTotalRecords] = useState(0);
     const [isLastPage, setIsLastPage] = useState(false);
-    const [apiStats, setApiStats] = useState(null);
-
     // Debounce search term
     useEffect(() => {
         const timerId = setTimeout(() => {
@@ -100,11 +94,10 @@ const ViewSales = () => {
         };
     }, [searchTerm]);
 
-    // Reset to first page when search term changes
+    // Reset to page 1 when search, date range, or page size changes (LedgerTab pattern)
     useEffect(() => {
         setCurrentPage(1);
-        setShowAll(false);
-    }, [debouncedSearchTerm, dateRange]);
+    }, [debouncedSearchTerm, dateRange, itemsPerPage]);
 
     // Persist sidebar minimized state
     useEffect(() => {
@@ -159,7 +152,6 @@ const ViewSales = () => {
         const to = formatDate(lastDay);
 
         setDateRange(`${from} - ${to}`);
-        setFromToDate(`From ${from} to ${to}`);
     }, []);
 
     // Fetch sales data from API
@@ -173,13 +165,9 @@ const ViewSales = () => {
             const fromDateFormatted = formatDateForAPI(from);
             const toDateFormatted = formatDateForAPI(to);
 
-            // Determine pagination parameters
-            const page = showAll ? 1 : currentPage;
-            const limit = showAll ? 1000 : itemsPerPage;
-
             const params = {
-                page_no: page,
-                limit: limit,
+                page_no: currentPage,
+                limit: itemsPerPage,
                 from_date: fromDateFormatted,
                 to_date: toDateFormatted,
                 search: debouncedSearchTerm || ''
@@ -187,45 +175,78 @@ const ViewSales = () => {
 
             // Get headers with authentication
             const headers = await getHeaders();
-            
-            const response = await axios.get(`${API_BASE_URL}/sale/list`, { 
+
+            const response = await axios.get(`${API_BASE_URL}/sale/list`, {
                 params,
-                headers 
+                headers
             });
 
             if (response.data.success) {
-                const salesData = response.data.data;
+                const salesData = response.data.data || [];
                 setSales(salesData);
-                setTotalRecords(response.data.meta.total);
-                setIsLastPage(response.data.meta.is_last_page);
-                setApiStats(response.data.stats);
 
-                // Calculate summary from stats if available
+                const meta = response.data.meta || {};
+                const total = Number(meta.total) || 0;
+                const limit = Number(meta.limit) || itemsPerPage;
+                const totalPagesFromMeta =
+                    meta.total_pages != null && meta.total_pages !== ''
+                        ? Math.max(1, Number(meta.total_pages) || 1)
+                        : Math.max(1, Math.ceil(total / (limit || 1)));
+
+                setTotalRecords(total);
+                setTotalPages(totalPagesFromMeta);
+                setIsLastPage(Boolean(meta.is_last_page));
+                setCurrentPage((prev) => Math.min(Math.max(1, prev), totalPagesFromMeta));
                 if (response.data.stats) {
-                    setSummary({
-                        total: parseFloat(response.data.stats.amount) || 0,
-                        tax: 0,
-                        grand_total: parseFloat(response.data.stats.amount) || 0
-                    });
+                    const st = response.data.stats;
+                    if (st.amount && typeof st.amount === 'object') {
+                        const amt = st.amount;
+                        setSummary({
+                            count: Number(st.count) || 0,
+                            net: Number(amt.net) || 0,
+                            tax: Number(amt.tax) || 0,
+                            total: Number(amt.total) || 0,
+                        });
+                    } else {
+                        const legacy = parseFloat(st.amount) || 0;
+                        setSummary({
+                            count: Number(st.count) || 0,
+                            net: legacy,
+                            tax: 0,
+                            total: legacy,
+                        });
+                    }
                 } else {
-                    // Calculate summary from sales data if stats not provided
-                    const summaryData = salesData.reduce((acc, sale) => ({
-                        total: acc.total + parseFloat(sale.calculation?.total || sale.amount || 0),
-                        tax: acc.tax + parseFloat(sale.calculation?.gst_value || 0),
-                        grand_total: acc.grand_total + parseFloat(sale.calculation?.grand_total || sale.amount || 0)
-                    }), { total: 0, tax: 0, grand_total: 0 });
+                    const summaryData = salesData.reduce(
+                        (acc, sale) => {
+                            const c = sale.calculation || {};
+                            return {
+                                count: acc.count + 1,
+                                net: acc.net + parseFloat(c.subtotal ?? sale.amount ?? 0),
+                                tax: acc.tax + parseFloat(c.gst_value ?? 0),
+                                total: acc.total + parseFloat(c.grand_total ?? sale.amount ?? 0),
+                            };
+                        },
+                        { count: 0, net: 0, tax: 0, total: 0 }
+                    );
                     setSummary(summaryData);
                 }
             } else {
                 console.error('API returned success false');
                 setSales([]);
                 setTotalRecords(0);
+                setTotalPages(1);
+                setIsLastPage(true);
+                setSummary({ count: 0, net: 0, tax: 0, total: 0 });
             }
         } catch (error) {
             console.error('Error fetching sales data:', error);
             setSales([]);
             setTotalRecords(0);
-            
+            setTotalPages(1);
+            setIsLastPage(true);
+            setSummary({ count: 0, net: 0, tax: 0, total: 0 });
+
             if (error.response) {
                 if (error.response.status === 401) {
                     console.error('Unauthorized access - please login again');
@@ -242,7 +263,7 @@ const ViewSales = () => {
         } finally {
             setLoading(false);
         }
-    }, [dateRange, debouncedSearchTerm, currentPage, itemsPerPage, showAll]);
+    }, [dateRange, debouncedSearchTerm, currentPage, itemsPerPage]);
 
     // Fetch data when dependencies change
     useEffect(() => {
@@ -268,31 +289,29 @@ const ViewSales = () => {
 
     // Handle date filter change
     const handleDateFilterChange = (filter) => {
-        console.log('Selected filter:', filter);
         if (filter.range) {
             setDateRange(filter.range);
-            const [from, to] = filter.range.split(' - ');
-            setFromToDate(`From ${from} to ${to}`);
         }
     };
 
-    // Handle items per page change
     const handleItemsPerPageChange = (e) => {
-        const newLimit = parseInt(e.target.value);
-        setItemsPerPage(newLimit);
-        setCurrentPage(1);
-        setShowAll(false);
+        setItemsPerPage(Number(e.target.value));
     };
 
-    // Handle show all toggle
-    const handleShowAll = () => {
-        setShowAll(true);
-        setCurrentPage(1);
+    const handlePageChange = (newPage) => {
+        const page = Math.max(1, Math.min(totalPages, Math.floor(Number(newPage))));
+        if (page >= 1 && page <= totalPages) {
+            setCurrentPage(page);
+            setPageJumpInput('');
+        }
     };
 
-    const handleShowLess = () => {
-        setShowAll(false);
-        setCurrentPage(1);
+    const handlePageJump = (e) => {
+        e.preventDefault();
+        const page = parseInt(pageJumpInput, 10);
+        if (!Number.isNaN(page)) {
+            handlePageChange(page);
+        }
     };
 
     const handleSaleSuccess = (saleData) => {
@@ -317,7 +336,7 @@ const ViewSales = () => {
 
         try {
             const headers = await getHeaders();
-            
+
             const exportData = {
                 type: type,
                 data: data || sales,
@@ -479,18 +498,10 @@ const ViewSales = () => {
         };
     }, []);
 
-    // Get current items based on pagination
-    const indexOfFirstItem = (currentPage - 1) * itemsPerPage;
-    const indexOfLastItem = showAll ? sales.length : currentPage * itemsPerPage;
-    const currentItems = showAll ? sales : sales.slice(indexOfFirstItem, indexOfLastItem);
-    const totalPages = Math.ceil(totalRecords / itemsPerPage);
-
-    // Calculate paginated summary
-    const paginatedSummary = currentItems.reduce((acc, sale) => ({
-        total: acc.total + parseFloat(sale.calculation?.total || sale.amount || 0),
-        tax: acc.tax + parseFloat(sale.calculation?.gst_value || 0),
-        grand_total: acc.grand_total + parseFloat(sale.calculation?.grand_total || sale.amount || 0)
-    }), { total: 0, tax: 0, grand_total: 0 });
+    // List rows are server-paginated; `sales` is already the current page from the API
+    const currentItems = sales;
+    const displayRangeStart = totalRecords === 0 ? 0 : (currentPage - 1) * itemsPerPage + 1;
+    const displayRangeEnd = Math.min(currentPage * itemsPerPage, totalRecords);
 
     // Skeleton loader component
     const SkeletonRow = () => (
@@ -538,9 +549,17 @@ const ViewSales = () => {
                 setIsMinimized={setIsMinimized}
             />
 
-            <div className={`pt-16 transition-all duration-300 ease-in-out ${isMinimized ? 'md:pl-20' : 'md:pl-72'}`}>
+            <div className={`pt-16 transition-all duration-300 ease-in-out ${isMinimized ? 'md:pl-20' : 'md:pl-[260px]'}`}>
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 md:px-8 py-6">
-                    <div className="bg-white rounded-xl shadow-sm border border-slate-200">
+                    <div className="mb-4 grid grid-cols-2 gap-2 sm:gap-3 lg:grid-cols-4">
+                        {[...Array(4)].map((_, i) => (
+                            <div
+                                key={i}
+                                className="h-[4.25rem] animate-pulse rounded-xl border border-slate-200 bg-slate-100/80 sm:h-[4.5rem]"
+                            />
+                        ))}
+                    </div>
+                    <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
                         <div className="border-b border-slate-200 px-6 py-4">
                             <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
                                 <div>
@@ -587,7 +606,7 @@ const ViewSales = () => {
 
         const partyDetails = getSalePartyDetails(selectedSale);
         const calculation = selectedSale.calculation || {};
-        
+
         return (
             <motion.div
                 initial={{ opacity: 0 }}
@@ -654,11 +673,10 @@ const ViewSales = () => {
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                     <div>
                                         <p className="text-xs text-slate-500 mb-1">Sale Type</p>
-                                        <span className={`inline-flex px-3 py-1 rounded-full text-xs font-medium ${
-                                            selectedSale.sale_type === 'client' ? 'bg-blue-100 text-blue-700' :
+                                        <span className={`inline-flex px-3 py-1 rounded-full text-xs font-medium ${selectedSale.sale_type === 'client' ? 'bg-blue-100 text-blue-700' :
                                             selectedSale.sale_type === 'bank' ? 'bg-amber-100 text-amber-700' :
-                                            'bg-slate-100 text-slate-700'
-                                        }`}>
+                                                'bg-slate-100 text-slate-700'
+                                            }`}>
                                             {getSaleTypeDisplay(selectedSale.sale_type)}
                                         </span>
                                     </div>
@@ -713,7 +731,7 @@ const ViewSales = () => {
                         {/* Calculation Details */}
                         <div>
                             <h3 className="text-lg font-semibold text-slate-800 mb-3 flex items-center gap-2">
-                                <FiDollarSign className="w-4 h-4 text-green-600" />
+                                <TbCurrencyRupee className="h-4 w-4 text-green-600" aria-hidden />
                                 Financial Details
                             </h3>
                             <div className="bg-gradient-to-r from-green-50 to-emerald-50 rounded-xl p-4 border border-green-200">
@@ -834,7 +852,7 @@ const ViewSales = () => {
                 isMinimized={isMinimized}
                 setIsMinimized={setIsMinimized}
             />
-            
+
             {/* Fixed Sidebar */}
             <Sidebar
                 mobileMenuOpen={mobileMenuOpen}
@@ -844,192 +862,191 @@ const ViewSales = () => {
             />
 
             {/* Main Content Area - Full Page Scroll */}
-            <div className={`pt-16 transition-all duration-300 ease-in-out ${isMinimized ? 'md:pl-20' : 'md:pl-72'}`}>
+            <div className={`pt-16 transition-all duration-300 ease-in-out ${isMinimized ? 'md:pl-20' : 'md:pl-[260px]'}`}>
                 <div className="max-w-full mx-auto px-4 sm:px-6 lg:px-8 py-6">
-                    {/* Header Stats Cards */}
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-4">
-                        <motion.div 
-                            initial={{ opacity: 0, y: 10 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            transition={{ duration: 0.2 }}
-                            className="bg-gradient-to-r from-blue-500 to-blue-600 rounded-lg p-4 text-white shadow-md"
-                        >
-                            <div className="flex items-center justify-between">
-                                <div>
-                                    <p className="text-blue-100 text-xs font-medium">Total Value</p>
-                                    <h3 className="text-lg font-bold mt-1">₹{formatCurrency(summary.total)}</h3>
-                                    {apiStats && (
-                                        <p className="text-blue-100 text-[10px] mt-1">
-                                            {apiStats.count} transactions
-                                        </p>
-                                    )}
-                                </div>
-                                <FiDollarSign className="w-5 h-5 opacity-80" />
-                            </div>
-                        </motion.div>
-
-                        <motion.div 
-                            initial={{ opacity: 0, y: 10 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            transition={{ duration: 0.2, delay: 0.1 }}
-                            className="bg-gradient-to-r from-emerald-500 to-emerald-600 rounded-lg p-4 text-white shadow-md"
-                        >
-                            <div className="flex items-center justify-between">
-                                <div>
-                                    <p className="text-emerald-100 text-xs font-medium">Total Tax</p>
-                                    <h3 className="text-lg font-bold mt-1">₹{formatCurrency(summary.tax)}</h3>
-                                </div>
-                                <FiTrendingUp className="w-5 h-5 opacity-80" />
-                            </div>
-                        </motion.div>
-
-                        <motion.div 
-                            initial={{ opacity: 0, y: 10 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            transition={{ duration: 0.2, delay: 0.2 }}
-                            className="bg-gradient-to-r from-violet-500 to-violet-600 rounded-lg p-4 text-white shadow-md"
-                        >
-                            <div className="flex items-center justify-between">
-                                <div>
-                                    <p className="text-violet-100 text-xs font-medium">Grand Total</p>
-                                    <h3 className="text-lg font-bold mt-1">₹{formatCurrency(summary.grand_total)}</h3>
-                                </div>
-                                <FiCreditCard className="w-5 h-5 opacity-80" />
-                            </div>
-                        </motion.div>
+                    {/* Summary stats — matches API stats: count, amount.net, amount.tax, amount.total */}
+                    <div className="mb-4 grid grid-cols-2 gap-2 sm:gap-3 lg:grid-cols-4">
+                        {[
+                            {
+                                key: 'count',
+                                label: 'No. of sales',
+                                value: String(summary.count),
+                                icon: FiLayers,
+                                cardClass:
+                                    'bg-gradient-to-br from-indigo-600 via-indigo-500 to-violet-600 text-white shadow-md shadow-indigo-500/30',
+                                iconWrap: 'bg-white/20 text-white',
+                            },
+                            {
+                                key: 'net',
+                                label: 'Net amount',
+                                value: `₹${formatCurrency(summary.net)}`,
+                                icon: TbCurrencyRupee,
+                                cardClass:
+                                    'bg-gradient-to-br from-emerald-600 via-teal-500 to-cyan-600 text-white shadow-md shadow-emerald-500/25',
+                                iconWrap: 'bg-white/20 text-white',
+                            },
+                            {
+                                key: 'tax',
+                                label: 'Tax amount',
+                                value: `₹${formatCurrency(summary.tax)}`,
+                                icon: FiPercent,
+                                cardClass:
+                                    'bg-gradient-to-br from-amber-500 via-orange-500 to-rose-500 text-white shadow-md shadow-amber-500/25',
+                                iconWrap: 'bg-white/20 text-white',
+                            },
+                            {
+                                key: 'total',
+                                label: 'Total amount',
+                                value: `₹${formatCurrency(summary.total)}`,
+                                icon: TbCurrencyRupee,
+                                cardClass:
+                                    'bg-gradient-to-br from-violet-600 via-fuchsia-600 to-pink-600 text-white shadow-md shadow-violet-500/30',
+                                iconWrap: 'bg-white/20 text-white',
+                            },
+                        ].map((card, i) => {
+                            const Icon = card.icon;
+                            return (
+                                <motion.div
+                                    key={card.key}
+                                    initial={{ opacity: 0, y: 8 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    transition={{ duration: 0.2, delay: i * 0.04 }}
+                                    className={`overflow-hidden rounded-xl border border-white/10 p-3 sm:p-3.5 ${card.cardClass}`}
+                                >
+                                    <div className="flex items-start justify-between gap-2">
+                                        <div className="min-w-0 flex-1">
+                                            <p className="text-[10px] font-semibold uppercase tracking-wide text-white/80 sm:text-[11px]">
+                                                {card.label}
+                                            </p>
+                                            <p className="mt-0.5 truncate text-sm font-bold tabular-nums sm:text-base">
+                                                {card.value}
+                                            </p>
+                                        </div>
+                                        <div className={`shrink-0 rounded-lg p-1.5 ${card.iconWrap}`}>
+                                            <Icon className="h-3.5 w-3.5 sm:h-4 sm:w-4" aria-hidden />
+                                        </div>
+                                    </div>
+                                </motion.div>
+                            );
+                        })}
                     </div>
 
                     {/* Main Card */}
-                    <motion.div 
+                    <motion.div
                         initial={{ opacity: 0, scale: 0.98 }}
                         animate={{ opacity: 1, scale: 1 }}
                         transition={{ duration: 0.3 }}
-                        className="bg-white rounded-xl shadow-lg border border-slate-200"
+                        className="bg-white rounded-2xl shadow-lg border border-slate-200 overflow-hidden"
                     >
-                        {/* Card Header */}
-                        <div className="border-b border-slate-200 px-6 py-4 bg-gradient-to-r from-slate-50 to-white sticky top-0 z-10">
-                            <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
-                                <div>
-                                    <div className="flex items-center gap-2 mb-1">
-                                        <div className="p-1.5 bg-blue-100 rounded-lg">
-                                            <FiDollarSign className="w-4 h-4 text-blue-600" />
-                                        </div>
-                                        <h5 className="text-lg font-bold text-slate-800">
-                                            Sale Register
-                                        </h5>
-                                    </div>
-                                    {fromToDate && (
-                                        <div className="flex items-center gap-1 text-slate-600">
-                                            <FiFilter className="w-3 h-3" />
-                                            <p className="text-xs font-medium">
-                                                {fromToDate}
-                                            </p>
-                                        </div>
-                                    )}
+                        <div className="sticky top-0 z-10 border-b border-slate-200 bg-gradient-to-r from-slate-50 to-white px-3 py-2.5 sm:px-4">
+                            <div className="mb-3 min-w-0 border-b border-slate-200/80 pb-3">
+                                <h5 className="text-sm font-bold tracking-tight text-slate-800 sm:text-base">
+                                    Sales Register
+                                </h5>
+                                {dateRange ? (
+                                    <p className="mt-0.5 text-xs font-medium tabular-nums text-slate-500 sm:text-sm">
+                                        {dateRange.replace(/\s*[–—]\s*/g, ' - ')}
+                                    </p>
+                                ) : null}
+                            </div>
+                            <div className="flex min-w-0 w-full flex-nowrap items-center gap-2">
+                                <div className="min-w-0 flex-1">
+                                    <input
+                                        type="text"
+                                        placeholder="Search…"
+                                        value={searchTerm}
+                                        onChange={handleSearchChange}
+                                        className="h-9 w-full min-w-[8rem] rounded-lg border border-slate-300 px-2.5 text-sm transition-all focus:border-transparent focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                    />
                                 </div>
+                                <div className="w-auto shrink-0">
+                                    <DateFilter
+                                        className="w-auto max-w-[16rem] shrink-0"
+                                        onChange={handleDateFilterChange}
+                                    />
+                                </div>
+                                <div className="dropdown-container relative shrink-0">
+                                    <motion.button
+                                        type="button"
+                                        onClick={() => setShowAddDropdown(!showAddDropdown)}
+                                        className="inline-flex h-9 items-center justify-center gap-1.5 rounded-lg bg-gradient-to-r from-blue-600 to-blue-700 px-2.5 text-xs font-semibold text-white shadow-sm transition-all duration-200 hover:from-blue-700 hover:to-blue-800 hover:shadow sm:h-10 sm:px-3"
+                                        whileHover={{ scale: 1.02 }}
+                                        whileTap={{ scale: 0.98 }}
+                                    >
+                                        <PiExportBold className="h-4 w-4 shrink-0" />
+                                        <span className="whitespace-nowrap">Export</span>
+                                        <FiChevronDown className={`h-3.5 w-3.5 shrink-0 opacity-90 transition-transform ${showAddDropdown ? 'rotate-180' : ''}`} />
+                                    </motion.button>
 
-                                <div className="flex flex-col lg:flex-row gap-3 w-full lg:w-auto">
-                                    {/* Search Input */}
-                                    <div className="relative w-full lg:w-64">
-                                        <input
-                                            type="text"
-                                            placeholder="Search by invoice no, party name..."
-                                            value={searchTerm}
-                                            onChange={handleSearchChange}
-                                            className="w-full pl-9 pr-3 py-2 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
-                                        />
-                                        <FiSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 w-4 h-4" />
-                                    </div>
-
-                                    {/* Date Filter Component */}
-                                    <div className="w-full lg:w-auto">
-                                        <DateFilter onChange={handleDateFilterChange} />
-                                    </div>
-
-                                    <div className="flex gap-2">
-                                        {/* Export Dropdown */}
-                                        <div className="dropdown-container relative">
-                                            <motion.button
-                                                onClick={() => setShowAddDropdown(!showAddDropdown)}
-                                                className="px-4 py-2.5 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white rounded-lg text-xs font-semibold transition-all duration-200 flex items-center gap-2 shadow-sm hover:shadow"
-                                                whileHover={{ scale: 1.02 }}
-                                                whileTap={{ scale: 0.98 }}
+                                    <AnimatePresence>
+                                        {showAddDropdown && (
+                                            <motion.div
+                                                initial={{ opacity: 0, y: 5 }}
+                                                animate={{ opacity: 1, y: 0 }}
+                                                exit={{ opacity: 0, y: 5 }}
+                                                className="absolute right-0 z-50 mt-1 w-56 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-xl"
                                             >
-                                                <PiExportBold className="w-4 h-4" />
-                                                Export
-                                                <FiChevronRight className={`w-3 h-3 transition-transform ${showAddDropdown ? 'rotate-90' : ''}`} />
-                                            </motion.button>
-
-                                            <AnimatePresence>
-                                                {showAddDropdown && (
-                                                    <motion.div
-                                                        initial={{ opacity: 0, y: 5 }}
-                                                        animate={{ opacity: 1, y: 0 }}
-                                                        exit={{ opacity: 0, y: 5 }}
-                                                        className="absolute right-0 mt-1 w-56 bg-white rounded-lg shadow-xl border border-slate-200 z-50 overflow-hidden"
+                                                <div className="py-1">
+                                                    <button
+                                                        onClick={() => handleExport('pdf')}
+                                                        className="flex items-center w-full px-3 py-2 text-sm text-slate-700 hover:bg-blue-50 transition-all duration-150 group"
                                                     >
-                                                        <div className="py-1">
-                                                            <button
-                                                                onClick={() => handleExport('pdf')}
-                                                                className="flex items-center w-full px-3 py-2 text-sm text-slate-700 hover:bg-blue-50 transition-all duration-150 group"
-                                                            >
-                                                                <div className="p-1.5 bg-red-50 rounded mr-2 group-hover:bg-red-100 transition-colors">
-                                                                    <PiFilePdfDuotone className="w-3.5 h-3.5 text-red-500" />
-                                                                </div>
-                                                                <div className="text-left">
-                                                                    <div className="font-medium text-xs">Export as PDF</div>
-                                                                </div>
-                                                            </button>
-                                                            <button
-                                                                onClick={() => handleExport('excel')}
-                                                                className="flex items-center w-full px-3 py-2 text-sm text-slate-700 hover:bg-blue-50 transition-all duration-150 group"
-                                                            >
-                                                                <div className="p-1.5 bg-green-50 rounded mr-2 group-hover:bg-green-100 transition-colors">
-                                                                    <PiMicrosoftExcelLogoDuotone className="w-3.5 h-3.5 text-green-500" />
-                                                                </div>
-                                                                <div className="text-left">
-                                                                    <div className="font-medium text-xs">Export as Excel</div>
-                                                                </div>
-                                                            </button>
-                                                            <button
-                                                                onClick={() => setWhatsappModalOpen(true)}
-                                                                className="flex items-center w-full px-3 py-2 text-sm text-slate-700 hover:bg-blue-50 transition-all duration-150 group"
-                                                            >
-                                                                <div className="p-1.5 bg-green-50 rounded mr-2 group-hover:bg-green-100 transition-colors">
-                                                                    <FaWhatsapp className="w-3.5 h-3.5 text-green-500" />
-                                                                </div>
-                                                                <div className="text-left">
-                                                                    <div className="font-medium text-xs">Share via WhatsApp</div>
-                                                                </div>
-                                                            </button>
-                                                            <button
-                                                                onClick={() => setIsEmailModalOpen(true)}
-                                                                className="flex items-center w-full px-3 py-2 text-sm text-slate-700 hover:bg-blue-50 transition-all duration-150 group"
-                                                            >
-                                                                <div className="p-1.5 bg-blue-50 rounded mr-2 group-hover:bg-blue-100 transition-colors">
-                                                                    <AiOutlineMail className="w-3.5 h-3.5 text-blue-500" />
-                                                                </div>
-                                                                <div className="text-left">
-                                                                    <div className="font-medium text-xs">Share via Email</div>
-                                                                </div>
-                                                            </button>
+                                                        <div className="p-1.5 bg-red-50 rounded mr-2 group-hover:bg-red-100 transition-colors">
+                                                            <PiFilePdfDuotone className="w-3.5 h-3.5 text-red-500" />
                                                         </div>
-                                                    </motion.div>
-                                                )}
-                                            </AnimatePresence>
-                                        </div>
-
-                                        <motion.button
-                                            onClick={() => setSaleFormModal(true)}
-                                            className="px-4 py-2.5 bg-gradient-to-r from-emerald-600 to-emerald-700 hover:from-emerald-700 hover:to-emerald-800 text-white rounded-lg text-xs font-semibold transition-all duration-200 flex items-center gap-2 shadow-sm hover:shadow"
-                                            whileHover={{ scale: 1.02 }}
-                                            whileTap={{ scale: 0.98 }}
-                                        >
-                                            <FiPlus className="w-4 h-4" />
-                                            Add Sale
-                                        </motion.button>
-                                    </div>
+                                                        <div className="text-left">
+                                                            <div className="font-medium text-xs">Export as PDF</div>
+                                                        </div>
+                                                    </button>
+                                                    <button
+                                                        onClick={() => handleExport('excel')}
+                                                        className="flex items-center w-full px-3 py-2 text-sm text-slate-700 hover:bg-blue-50 transition-all duration-150 group"
+                                                    >
+                                                        <div className="p-1.5 bg-green-50 rounded mr-2 group-hover:bg-green-100 transition-colors">
+                                                            <PiMicrosoftExcelLogoDuotone className="w-3.5 h-3.5 text-green-500" />
+                                                        </div>
+                                                        <div className="text-left">
+                                                            <div className="font-medium text-xs">Export as Excel</div>
+                                                        </div>
+                                                    </button>
+                                                    <button
+                                                        onClick={() => setWhatsappModalOpen(true)}
+                                                        className="flex items-center w-full px-3 py-2 text-sm text-slate-700 hover:bg-blue-50 transition-all duration-150 group"
+                                                    >
+                                                        <div className="p-1.5 bg-green-50 rounded mr-2 group-hover:bg-green-100 transition-colors">
+                                                            <FaWhatsapp className="w-3.5 h-3.5 text-green-500" />
+                                                        </div>
+                                                        <div className="text-left">
+                                                            <div className="font-medium text-xs">Share via WhatsApp</div>
+                                                        </div>
+                                                    </button>
+                                                    <button
+                                                        onClick={() => setIsEmailModalOpen(true)}
+                                                        className="flex items-center w-full px-3 py-2 text-sm text-slate-700 hover:bg-blue-50 transition-all duration-150 group"
+                                                    >
+                                                        <div className="p-1.5 bg-blue-50 rounded mr-2 group-hover:bg-blue-100 transition-colors">
+                                                            <AiOutlineMail className="w-3.5 h-3.5 text-blue-500" />
+                                                        </div>
+                                                        <div className="text-left">
+                                                            <div className="font-medium text-xs">Share via Email</div>
+                                                        </div>
+                                                    </button>
+                                                </div>
+                                            </motion.div>
+                                        )}
+                                    </AnimatePresence>
                                 </div>
+
+                                <motion.button
+                                    type="button"
+                                    onClick={() => setSaleFormModal(true)}
+                                    className="inline-flex h-9 shrink-0 items-center justify-center gap-1.5 rounded-lg bg-gradient-to-r from-emerald-600 to-emerald-700 px-2.5 text-xs font-semibold text-white shadow-sm transition-all duration-200 hover:from-emerald-700 hover:to-emerald-800 hover:shadow sm:h-10 sm:px-3"
+                                    whileHover={{ scale: 1.02 }}
+                                    whileTap={{ scale: 0.98 }}
+                                >
+                                    <FiPlus className="h-4 w-4 shrink-0" />
+                                    <span className="whitespace-nowrap">Add Sale</span>
+                                </motion.button>
                             </div>
                         </div>
 
@@ -1093,7 +1110,7 @@ const ViewSales = () => {
                                         currentItems.map((sale, index) => {
                                             const { editLink, invoiceLink } = getActionLinks(sale);
                                             const isDropdownOpen = activeRowDropdown === sale.invoice_id;
-                                            const actualIndex = showAll ? index : (currentPage - 1) * itemsPerPage + index;
+                                            const actualIndex = (currentPage - 1) * itemsPerPage + index;
                                             const partyDetails = getSalePartyDetails(sale);
 
                                             return (
@@ -1120,11 +1137,10 @@ const ViewSales = () => {
                                                                 {getSalePartyName(sale) || 'N/A'}
                                                             </div>
                                                             <div className="flex flex-col items-center gap-1 mt-1">
-                                                                <span className={`px-2 py-0.5 rounded-full text-[10px] font-medium capitalize ${
-                                                                    sale.sale_type === 'client' ? 'bg-blue-100 text-blue-700' :
+                                                                <span className={`px-2 py-0.5 rounded-full text-[10px] font-medium capitalize ${sale.sale_type === 'client' ? 'bg-blue-100 text-blue-700' :
                                                                     sale.sale_type === 'bank' ? 'bg-amber-100 text-amber-700' :
-                                                                    'bg-slate-100 text-slate-700'
-                                                                }`}>
+                                                                        'bg-slate-100 text-slate-700'
+                                                                    }`}>
                                                                     {getSaleTypeDisplay(sale.sale_type)}
                                                                 </span>
                                                                 {partyDetails && partyDetails.mobile && (
@@ -1264,91 +1280,82 @@ const ViewSales = () => {
                                 </tbody>
                             </table>
 
-                            {/* Pagination Controls */}
-                            {!loading && totalRecords > itemsPerPage && !showAll && (
-                                <div className="border-t border-slate-200 bg-gradient-to-r from-slate-50 to-slate-100">
-                                    <div className="flex flex-col sm:flex-row justify-between items-center px-4 py-3 gap-3">
-                                        <div className="text-xs text-slate-600">
-                                            Showing {indexOfFirstItem + 1} to {Math.min(indexOfLastItem, totalRecords)} of {totalRecords} entries
-                                        </div>
-                                        <div className="flex items-center gap-2">
-                                            <select
-                                                value={itemsPerPage}
-                                                onChange={handleItemsPerPageChange}
-                                                className="px-2 py-1 text-xs border border-slate-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                            >
-                                                <option value={10}>10 per page</option>
-                                                <option value={25}>25 per page</option>
-                                                <option value={50}>50 per page</option>
-                                                <option value={100}>100 per page</option>
-                                            </select>
-                                            <button
-                                                onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
-                                                disabled={currentPage === 1}
-                                                className="px-3 py-1.5 text-xs font-medium rounded-lg border border-slate-300 bg-white hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-1"
-                                            >
-                                                <FiChevronLeft className="w-3 h-3" />
-                                                Previous
-                                            </button>
-                                            <div className="flex items-center gap-1">
-                                                {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                                                    let pageNumber;
-                                                    if (totalPages <= 5) {
-                                                        pageNumber = i + 1;
-                                                    } else if (currentPage <= 3) {
-                                                        pageNumber = i + 1;
-                                                    } else if (currentPage >= totalPages - 2) {
-                                                        pageNumber = totalPages - 4 + i;
-                                                    } else {
-                                                        pageNumber = currentPage - 2 + i;
-                                                    }
-                                                    
-                                                    return (
-                                                        <button
-                                                            key={pageNumber}
-                                                            onClick={() => setCurrentPage(pageNumber)}
-                                                            className={`w-8 h-8 text-xs font-medium rounded-lg transition-colors ${
-                                                                currentPage === pageNumber
-                                                                    ? 'bg-blue-600 text-white'
-                                                                    : 'border border-slate-300 bg-white hover:bg-slate-50 text-slate-700'
-                                                            }`}
-                                                        >
-                                                            {pageNumber}
-                                                        </button>
-                                                    );
-                                                })}
+                            {/* Pagination — same pattern as LedgerTab (context.md); meta: page_no, limit, total, total_pages?, is_last_page */}
+                            {!loading && (currentItems.length > 0 || totalRecords > 0) && totalPages > 0 && (
+                                <div className="border-t border-slate-200 bg-white px-4 py-3 sm:px-6 sm:py-4">
+                                    <div className="flex flex-col items-center justify-between gap-4 sm:flex-row">
+                                        <div className="flex flex-wrap items-center gap-4">
+                                            <div className="text-sm text-slate-600">
+                                                Showing {displayRangeStart} to {displayRangeEnd} of {totalRecords} entries
                                             </div>
-                                            <button
-                                                onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
-                                                disabled={currentPage === totalPages || isLastPage}
-                                                className="px-3 py-1.5 text-xs font-medium rounded-lg border border-slate-300 bg-white hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-1"
-                                            >
-                                                Next
-                                                <FiChevronRightIcon className="w-3 h-3" />
-                                            </button>
-                                            <button
-                                                onClick={handleShowAll}
-                                                className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium rounded-lg border border-slate-300 bg-white hover:bg-slate-50 transition-colors"
-                                            >
-                                                Show All
-                                                <FiChevronDown className="w-3 h-3" />
-                                            </button>
+                                            <div className="flex items-center gap-2">
+                                                <label htmlFor="sale-limit-select" className="text-sm text-slate-500">
+                                                    Show
+                                                </label>
+                                                <select
+                                                    id="sale-limit-select"
+                                                    value={itemsPerPage}
+                                                    onChange={handleItemsPerPageChange}
+                                                    className="rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-sm text-slate-700 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500"
+                                                >
+                                                    {LIMIT_OPTIONS.map((n) => (
+                                                        <option key={n} value={n}>
+                                                            {n}
+                                                        </option>
+                                                    ))}
+                                                </select>
+                                                <span className="text-sm text-slate-500">per page</span>
+                                            </div>
                                         </div>
-                                    </div>
-                                </div>
-                            )}
-
-                            {/* Show Less Button when showing all */}
-                            {!loading && showAll && totalRecords > itemsPerPage && (
-                                <div className="border-t border-slate-200 bg-gradient-to-r from-slate-50 to-slate-100">
-                                    <div className="flex justify-center px-4 py-3">
-                                        <button
-                                            onClick={handleShowLess}
-                                            className="flex items-center gap-1 px-4 py-2 text-xs font-medium rounded-lg border border-slate-300 bg-white hover:bg-slate-50 transition-colors shadow-sm"
-                                        >
-                                            Show Less
-                                            <FiChevronUp className="w-3 h-3" />
-                                        </button>
+                                        <div className="flex flex-wrap items-center gap-3">
+                                            <div className="flex items-center gap-1">
+                                                <button
+                                                    type="button"
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        handlePageChange(currentPage - 1);
+                                                    }}
+                                                    disabled={currentPage <= 1}
+                                                    className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 transition-all hover:border-slate-300 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-white"
+                                                >
+                                                    Previous
+                                                </button>
+                                                <span className="min-w-[2.5rem] rounded-lg bg-indigo-600 px-3 py-2 text-center text-sm font-medium text-white">
+                                                    {currentPage}
+                                                </span>
+                                                <span className="px-1 text-sm text-slate-400">/</span>
+                                                <span className="px-2 py-2 text-sm font-medium text-slate-600">{totalPages}</span>
+                                                <button
+                                                    type="button"
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        handlePageChange(currentPage + 1);
+                                                    }}
+                                                    disabled={currentPage >= totalPages || isLastPage}
+                                                    className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 transition-all hover:border-slate-300 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-white"
+                                                >
+                                                    Next
+                                                </button>
+                                            </div>
+                                            <form onSubmit={handlePageJump} className="flex items-center gap-2">
+                                                <span className="text-sm text-slate-500">Go to</span>
+                                                <input
+                                                    type="number"
+                                                    min={1}
+                                                    max={totalPages}
+                                                    value={pageJumpInput}
+                                                    onChange={(e) => setPageJumpInput(e.target.value)}
+                                                    placeholder={String(currentPage)}
+                                                    className="w-14 rounded-lg border border-slate-200 px-2 py-1.5 text-center text-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500"
+                                                />
+                                                <button
+                                                    type="submit"
+                                                    className="rounded-lg px-2 py-1.5 text-sm font-medium text-indigo-600 transition-colors hover:bg-indigo-50 hover:text-indigo-700"
+                                                >
+                                                    Go
+                                                </button>
+                                            </form>
+                                        </div>
                                     </div>
                                 </div>
                             )}

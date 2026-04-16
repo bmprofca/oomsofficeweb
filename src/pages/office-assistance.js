@@ -262,7 +262,7 @@ const OfficeAssistance = () => {
             />
 
             {/* Main Content Area - Scrollable */}
-            <div className={`pt-20 transition-all duration-300 ease-in-out h-screen overflow-hidden ${isMinimized ? 'md:pl-20' : 'md:pl-72'}`}>
+            <div className={`pt-20 transition-all duration-300 ease-in-out h-screen overflow-hidden ${isMinimized ? 'md:pl-20' : 'md:pl-[260px]'}`}>
                 <div className="h-full overflow-y-auto px-4 md:px-8 py-6">
                     <div className="max-w-7xl mx-auto">
                         {/* Premium Header Section */}

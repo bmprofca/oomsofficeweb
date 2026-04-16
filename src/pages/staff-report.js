@@ -267,10 +267,28 @@ const StaffReport = () => {
     );
 
     const SkeletonLoader = () => (
+<<<<<<< HEAD
+        <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
+            <Header
+                mobileMenuOpen={mobileMenuOpen}
+                setMobileMenuOpen={setMobileMenuOpen}
+                isMinimized={isMinimized}
+                setIsMinimized={setIsMinimized}
+            />
+            <Sidebar
+                mobileMenuOpen={mobileMenuOpen}
+                setMobileMenuOpen={setMobileMenuOpen}
+                isMinimized={isMinimized}
+                setIsMinimized={setIsMinimized}
+            />
+
+            <div className={`pt-16 transition-all duration-300 ease-in-out ${isMinimized ? 'md:pl-20' : 'md:pl-[260px]'}`}>
+=======
         <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
             <Header mobileMenuOpen={mobileMenuOpen} setMobileMenuOpen={setMobileMenuOpen} isMinimized={isMinimized} setIsMinimized={setIsMinimized} />
             <Sidebar mobileMenuOpen={mobileMenuOpen} setMobileMenuOpen={setMobileMenuOpen} isMinimized={isMinimized} setIsMinimized={setIsMinimized} />
             <div className={`pt-16 transition-all duration-300 ${isMinimized ? 'md:pl-20' : 'md:pl-72'}`}>
+>>>>>>> d68b8565dcbb251b76474acab80e33ddfddeaf89
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 md:px-8 py-6">
                     <div className="bg-white rounded-xl shadow-sm border border-slate-200">
                         <div className="border-b border-slate-200 px-6 py-4">
@@ -299,7 +317,11 @@ const StaffReport = () => {
             <Header mobileMenuOpen={mobileMenuOpen} setMobileMenuOpen={setMobileMenuOpen} isMinimized={isMinimized} setIsMinimized={setIsMinimized} />
             <Sidebar mobileMenuOpen={mobileMenuOpen} setMobileMenuOpen={setMobileMenuOpen} isMinimized={isMinimized} setIsMinimized={setIsMinimized} />
 
+<<<<<<< HEAD
+            <div className={`pt-16 transition-all duration-300 ease-in-out ${isMinimized ? 'md:pl-20' : 'md:pl-[260px]'}`}>
+=======
             <div className={`pt-16 transition-all duration-300 ${isMinimized ? 'md:pl-20' : 'md:pl-72'}`}>
+>>>>>>> d68b8565dcbb251b76474acab80e33ddfddeaf89
                 <div className="max-w-full mx-auto px-4 sm:px-6 lg:px-8 py-6">
                     {/* Error Alert */}
                     {apiError && (

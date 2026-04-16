@@ -1604,7 +1604,7 @@
 //             />
 
 //             {/* Main content */}
-//             <div className={`pt-16 transition-all duration-300 ease-in-out ${isMinimized ? 'md:pl-20' : 'md:pl-72'}`}>
+//             <div className={`pt-16 transition-all duration-300 ease-in-out ${isMinimized ? 'md:pl-20' : 'md:pl-[260px]'}`}>
 //                 <div className="max-w-7xl mx-auto px-4 sm:px-6 md:px-8 py-6">
 //                     <div className="mb-6">
 //                         <h1 className="text-2xl font-bold text-gray-800">Task Profile</h1>
@@ -1924,7 +1924,7 @@
 //             />
 
 //             {/* Main content */}
-//             <div className={`pt-16 transition-all duration-300 ease-in-out ${isMinimized ? 'md:pl-20' : 'md:pl-72'}`}>
+//             <div className={`pt-16 transition-all duration-300 ease-in-out ${isMinimized ? 'md:pl-20' : 'md:pl-[260px]'}`}>
 //                 <div className="max-w-7xl mx-auto px-4 sm:px-6 md:px-8 py-6">
 //                     {/* Header Card */}
 //                     <motion.div 

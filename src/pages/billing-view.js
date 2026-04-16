@@ -920,7 +920,7 @@ const BillDisplay = () => {
             />
 
             {/* Main content */}
-            <div className={`pt-16 transition-all duration-300 ${isMinimized ? 'lg:pl-20' : 'lg:pl-72'}`}>
+            <div className={`pt-16 transition-all duration-300 ease-in-out ${isMinimized ? 'md:pl-20' : 'md:pl-[260px]'}`}>
                 <div className="px-4 sm:px-6 lg:px-8 py-4">
                     <motion.div
                         initial={{ opacity: 0, y: 20 }}
@@ -935,7 +935,7 @@ const BillDisplay = () => {
                         }}
                     >
                         {/* Header Section */}
-                        <div className="bg-white/80 backdrop-blur-sm rounded-2xl border border-gray-200/50 shadow-xl relative z-10">
+                        <div className="bg-white/80 backdrop-blur-sm rounded-2xl border border-gray-200/50 shadow-xl relative z-10 overflow-hidden">
                             <div className="border-b border-gray-200/60 px-6 py-4 bg-gradient-to-r from-gray-50 to-white">
                                 <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
                                     <div className="flex-1 min-w-0">
@@ -1072,7 +1072,7 @@ const BillDisplay = () => {
                                             setSelectAll(false);
                                             setBillingData([]);
                                         }}
-                                        className={`relative cursor-pointer overflow-hidden rounded-xl border transition-all duration-200 ${isActive
+                                        className={`relative cursor-pointer overflow-hidden rounded-2xl border transition-all duration-200 ${isActive
                                                 ? `border ${card.borderColor} shadow-lg shadow-${card.color}-500/10 ring-1 ring-${card.color}-200`
                                                 : 'border-gray-200 shadow-sm hover:shadow-md'
                                             } ${card.lightGradient} backdrop-blur-sm`}
@@ -1129,7 +1129,7 @@ const BillDisplay = () => {
                         </div>
 
                         {/* Table Section */}
-                        <div className="bg-white rounded-xl border border-gray-200 shadow-sm">
+                        <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
                             {/* Table Header */}
                             <div className="border-b border-gray-200">
                                 <div className="px-4 py-3 bg-gray-50 flex items-center justify-between">
@@ -1511,7 +1511,7 @@ const BillDisplay = () => {
                                 initial={{ opacity: 0, scale: 0.95, y: dropdownPos.openUpward ? 6 : -6 }}
                                 animate={{ opacity: 1, scale: 1, y: 0 }}
                                 transition={{ duration: 0.12 }}
-                                className="dropdown-container fixed bg-white rounded-lg shadow-2xl border border-gray-200 overflow-hidden"
+                                className="dropdown-container fixed bg-white rounded-xl shadow-2xl border border-gray-200 overflow-hidden"
                                 style={{
                                     top: dropdownPos.top,
                                     bottom: dropdownPos.bottom,
@@ -1599,9 +1599,9 @@ const BillDisplay = () => {
                         animate={{ opacity: 1, y: 0 }}
                         exit={{ opacity: 0, y: 24 }}
                         transition={{ type: 'spring', damping: 26, stiffness: 320 }}
-                        className="fixed bottom-0 left-0 right-0 z-[46] max-h-[min(42vh,240px)] overflow-y-auto border-t border-indigo-100/90 bg-white/95 pb-[max(0.35rem,env(safe-area-inset-bottom))] shadow-[0_-6px_28px_-8px_rgba(15,23,42,0.18)] backdrop-blur-md"
+                        className="fixed bottom-0 left-0 right-0 z-[46] max-h-[min(42vh,240px)] overflow-y-auto overflow-x-hidden rounded-t-2xl border-t border-indigo-100/90 bg-white/95 pb-[max(0.35rem,env(safe-area-inset-bottom))] shadow-[0_-6px_28px_-8px_rgba(15,23,42,0.18)] backdrop-blur-md"
                         style={{
-                            left: isMinimized ? '80px' : '288px',
+                            left: isMinimized ? '80px' : '260px',
                             transition: 'left 0.3s ease',
                         }}
                     >
@@ -1709,7 +1709,7 @@ const BillDisplay = () => {
                             initial={{ opacity: 0, scale: 0.95 }}
                             animate={{ opacity: 1, scale: 1 }}
                             exit={{ opacity: 0, scale: 0.95 }}
-                            className="bg-white rounded-xl p-6 max-w-sm w-full mx-auto shadow-xl"
+                            className="bg-white rounded-2xl p-6 max-w-sm w-full mx-auto shadow-xl overflow-hidden"
                         >
                             <div className="text-center">
                                 <motion.div

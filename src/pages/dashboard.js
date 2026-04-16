@@ -50,7 +50,7 @@ import getHeaders from '../utils/get-headers';
 import API_BASE_URL from '../utils/api-controller';
 import AdditionalStatsComponent from '../DashboardComponents/additional-stats';
 import QuickStats from '../DashboardComponents/quick-stats';
-import ServiceWiseSales  from '../DashboardComponents/serviceWiseSales';
+import ServiceWiseSales from '../DashboardComponents/serviceWiseSales';
 import StaffWiseSales from '../DashboardComponents/staffWiseSales';
 import TopClients from '../DashboardComponents/TopClients';
 import { useNavigate } from 'react-router-dom';
@@ -71,7 +71,7 @@ const migrateQuickStatsLinks = (cards) => {
         '/view-payments': '/quick-stats/today-payment',
         '/view-birthday-today': '/quick-stats/today-birthday'
     };
-    
+
     return cards.map(card => ({
         ...card,
         link: linkMap[card.link] || card.link
@@ -146,144 +146,144 @@ const getDefaultWidgets = () => [
 ];
 
 const getDefaultQuickStatsCards = () => [
-    { 
-        id: 'pending-billing', 
-        title: 'Pending Billing', 
-        value: 'pending_for_billing', 
-        icon: FiShoppingBag, 
+    {
+        id: 'pending-billing',
+        title: 'Pending Billing',
+        value: 'pending_for_billing',
+        icon: FiShoppingBag,
         color: 'bg-gradient-to-br from-indigo-500 to-purple-600 text-white',
         gradient: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
         link: '/billing',
-        isCurrency: false 
+        isCurrency: false
     },
-    { 
-        id: 'creditors', 
-        title: 'Creditors', 
-        value: 'creditor', 
-        icon: FiUsers, 
+    {
+        id: 'creditors',
+        title: 'Creditors',
+        value: 'creditor',
+        icon: FiUsers,
         color: 'bg-gradient-to-br from-cyan-500 to-blue-600 text-white',
         gradient: 'linear-gradient(135deg, #06b6d4 0%, #3b82f6 100%)',
         link: '/quick-stats/creditors',
-        isCurrency: true 
+        isCurrency: true
     },
-    { 
-        id: 'debtors', 
-        title: 'Debtors', 
-        value: 'debtor', 
-        icon: FiShoppingCart, 
+    {
+        id: 'debtors',
+        title: 'Debtors',
+        value: 'debtor',
+        icon: FiShoppingCart,
         color: 'bg-gradient-to-br from-red-500 to-pink-600 text-white',
         gradient: 'linear-gradient(135deg, #ef4444 0%, #ec4899 100%)',
         link: '/quick-stats/debtors',
-        isCurrency: true 
+        isCurrency: true
     },
-    { 
-        id: 'today-received', 
-        title: 'Today Received', 
-        value: 'today_received', 
-        icon: FiDollarSign, 
+    {
+        id: 'today-received',
+        title: 'Today Received',
+        value: 'today_received',
+        icon: FiDollarSign,
         color: 'bg-gradient-to-br from-green-500 to-emerald-600 text-white',
         gradient: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
         link: '/quick-stats/today-received',
-        isCurrency: true 
+        isCurrency: true
     },
-    { 
-        id: 'today-payment', 
-        title: 'Today Payment', 
-        value: 'today_payment', 
-        icon: FiCreditCard, 
+    {
+        id: 'today-payment',
+        title: 'Today Payment',
+        value: 'today_payment',
+        icon: FiCreditCard,
         color: 'bg-gradient-to-br from-orange-500 to-amber-600 text-white',
         gradient: 'linear-gradient(135deg, #f97316 0%, #f59e0b 100%)',
         link: '/quick-stats/today-payment',
-        isCurrency: true 
+        isCurrency: true
     },
-    { 
-        id: 'today-birthday', 
-        title: 'Today Birthday', 
-        value: 'today_birthday', 
-        icon: FiCalendar, 
+    {
+        id: 'today-birthday',
+        title: 'Today Birthday',
+        value: 'today_birthday',
+        icon: FiCalendar,
         color: 'bg-gradient-to-br from-purple-500 to-violet-600 text-white',
         gradient: 'linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%)',
         link: '/quick-stats/today-birthday',
-        isCurrency: false 
+        isCurrency: false
     }
 ];
 
 const getDefaultAdditionalStatsCards = () => [
-    { 
-        id: 'total-client', 
-        title: 'Total Client', 
-        value: 'total_client', 
-        icon: FiUsers, 
+    {
+        id: 'total-client',
+        title: 'Total Client',
+        value: 'total_client',
+        icon: FiUsers,
         color: 'bg-gradient-to-br from-gray-600 to-gray-700 text-white',
         gradient: 'linear-gradient(135deg, #4b5563 0%, #374151 100%)',
         link: '/dashboard/clients/total_client',
         isCurrency: false
     },
-    { 
-        id: 'new-client', 
-        title: 'New Client', 
-        value: 'new_client', 
-        icon: FiUserPlus, 
+    {
+        id: 'new-client',
+        title: 'New Client',
+        value: 'new_client',
+        icon: FiUserPlus,
         color: 'bg-gradient-to-br from-indigo-500 to-purple-600 text-white',
         gradient: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
         link: '/dashboard/clients/new_client',
         isCurrency: false
     },
-    { 
-        id: 'active-client', 
-        title: 'Active Client', 
-        value: 'active_client', 
-        icon: FiCheckCircle, 
+    {
+        id: 'active-client',
+        title: 'Active Client',
+        value: 'active_client',
+        icon: FiCheckCircle,
         color: 'bg-gradient-to-br from-green-500 to-emerald-600 text-white',
         gradient: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
         link: '/dashboard/clients/active_client',
         isCurrency: false
     },
-    { 
-        id: 'net-profit', 
-        title: 'Net Profit', 
-        value: 'net_profit', 
-        icon: FiTrendingUp, 
+    {
+        id: 'net-profit',
+        title: 'Net Profit',
+        value: 'net_profit',
+        icon: FiTrendingUp,
         color: 'bg-gradient-to-br from-emerald-500 to-green-600 text-white',
         gradient: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
         link: '/finance/report',
         isCurrency: true
     },
-    { 
-        id: 'total-staff', 
-        title: 'Total Staff', 
+    {
+        id: 'total-staff',
+        title: 'Total Staff',
         value: 'total_staff',
-        icon: FiUsers, 
+        icon: FiUsers,
         color: 'bg-gradient-to-br from-red-500 to-rose-600 text-white',
         gradient: 'linear-gradient(135deg, #ef4444 0%, #e11d48 100%)',
         link: '/staff/view',
         isCurrency: false
     },
-    { 
-        id: 'present-today', 
-        title: 'Present Today', 
-        value: 'present_today', 
-        icon: FiUserCheck, 
+    {
+        id: 'present-today',
+        title: 'Present Today',
+        value: 'present_today',
+        icon: FiUserCheck,
         color: 'bg-gradient-to-br from-blue-500 to-cyan-600 text-white',
         gradient: 'linear-gradient(135deg, #3b82f6 0%, #06b6d4 100%)',
         link: '/staff/attendance',
         isCurrency: false
     },
-    { 
-        id: 'task-create-today', 
-        title: 'Task Create Today', 
+    {
+        id: 'task-create-today',
+        title: 'Task Create Today',
         value: 'task_created_today',
-        icon: FiPlus, 
+        icon: FiPlus,
         color: 'bg-gradient-to-br from-indigo-500 to-blue-600 text-white',
         gradient: 'linear-gradient(135deg, #667eea 0%, #3b82f6 100%)',
         link: '/dashboard/tasks/task_created_today',
         isCurrency: false
     },
-    { 
-        id: 'task-complete-today', 
-        title: 'Task Complete Today', 
+    {
+        id: 'task-complete-today',
+        title: 'Task Complete Today',
         value: 'task_completed_today',
-        icon: FiCheckCircle, 
+        icon: FiCheckCircle,
         color: 'bg-gradient-to-br from-green-500 to-teal-600 text-white',
         gradient: 'linear-gradient(135deg, #10b981 0%, #0d9488 100%)',
         link: '/dashboard/tasks/task_completed_today',
@@ -304,28 +304,28 @@ const Dashboard = () => {
     const [taskStats, setTaskStats] = useState([]);
     const [topClients, setTopClients] = useState([]);
     const [refreshKey, setRefreshKey] = useState(0);
-    
+
     // Customization state
     const [isCustomizing, setIsCustomizing] = useState(false);
     const [customizationPanelMinimized, setCustomizationPanelMinimized] = useState(false);
-    
+
     // Working copy for customization (only updated on save)
     const [workingWidgets, setWorkingWidgets] = useState(null);
     const [workingQuickStatsCards, setWorkingQuickStatsCards] = useState(null);
     const [workingAdditionalStatsCards, setWorkingAdditionalStatsCards] = useState(null);
-    
+
     // Dashboard Widgets with version control and migration
     const [widgets, setWidgets] = useState(() => {
         const savedVersion = localStorage.getItem('dashboardVersion');
         const savedLayout = localStorage.getItem('dashboardLayout');
-        
+
         if (!savedLayout || savedVersion !== DASHBOARD_VERSION) {
             const defaultLayout = getDefaultWidgets();
             localStorage.setItem('dashboardLayout', JSON.stringify(defaultLayout));
             localStorage.setItem('dashboardVersion', DASHBOARD_VERSION);
             return defaultLayout;
         }
-        
+
         return JSON.parse(savedLayout);
     });
 
@@ -333,32 +333,32 @@ const Dashboard = () => {
     const [quickStatsCards, setQuickStatsCards] = useState(() => {
         const savedVersion = localStorage.getItem('quickStatsVersion');
         const savedCards = localStorage.getItem('quickStatsCards');
-        
+
         if (!savedCards || savedVersion !== QUICK_STATS_VERSION) {
             const defaultCards = getDefaultQuickStatsCards();
             localStorage.setItem('quickStatsCards', JSON.stringify(defaultCards));
             localStorage.setItem('quickStatsVersion', QUICK_STATS_VERSION);
             return defaultCards;
         }
-        
+
         const cards = JSON.parse(savedCards);
-        
-        const needsMigration = cards.some(card => 
-            card.link === '/view-billing' || 
-            card.link === '/view-creditors' || 
+
+        const needsMigration = cards.some(card =>
+            card.link === '/view-billing' ||
+            card.link === '/view-creditors' ||
             card.link === '/view-debtors' ||
             card.link === '/view-received' ||
             card.link === '/view-payments' ||
             card.link === '/view-birthday-today'
         );
-        
+
         if (needsMigration) {
             const migratedCards = migrateQuickStatsLinks(cards);
             localStorage.setItem('quickStatsCards', JSON.stringify(migratedCards));
             localStorage.setItem('quickStatsVersion', QUICK_STATS_VERSION);
             return migratedCards;
         }
-        
+
         return cards;
     });
 
@@ -366,16 +366,16 @@ const Dashboard = () => {
     const [additionalStatsCards, setAdditionalStatsCards] = useState(() => {
         const savedVersion = localStorage.getItem('additionalStatsVersion');
         const savedCards = localStorage.getItem('additionalStatsCards');
-        
+
         if (!savedCards || savedVersion !== ADDITIONAL_STATS_VERSION) {
             const defaultCards = getDefaultAdditionalStatsCards();
             localStorage.setItem('additionalStatsCards', JSON.stringify(defaultCards));
             localStorage.setItem('additionalStatsVersion', ADDITIONAL_STATS_VERSION);
             return defaultCards;
         }
-        
+
         const cards = JSON.parse(savedCards);
-        
+
         return cards;
     });
 
@@ -430,11 +430,11 @@ const Dashboard = () => {
     const displayAdditionalStatsCards = isCustomizing && workingAdditionalStatsCards ? workingAdditionalStatsCards : additionalStatsCards;
 
     // Memoized visible and hidden widgets for performance
-    const visibleWidgets = useMemo(() => 
+    const visibleWidgets = useMemo(() =>
         displayWidgets.filter(w => w.visible).sort((a, b) => a.order - b.order),
         [displayWidgets]
     );
-    
+
     const hiddenWidgets = useMemo(() => [
         ...displayWidgets.filter(w => !w.visible),
         ...availableWidgets.filter(aw => !displayWidgets.find(w => w.id === aw.id))
@@ -494,7 +494,7 @@ const Dashboard = () => {
 
             if (result.success && result.data) {
                 setStats(result.data);
-                
+
                 if (result.data.additional_metrics?.task_status_breakdown) {
                     const taskBreakdown = result.data.additional_metrics.task_status_breakdown;
                     const transformedTaskStats = [
@@ -513,7 +513,7 @@ const Dashboard = () => {
                     ];
                     setTaskStats(transformedTaskStats);
                 }
-                
+
                 if (result.data.top_clients) {
                     setTopClients(result.data.top_clients);
                 }
@@ -543,17 +543,17 @@ const Dashboard = () => {
     // Arrow-based movement - only updates working copy (sidebar only)
     const moveWidgetUp = useCallback((index) => {
         if (!isCustomizing || index === 0) return;
-        
+
         setWorkingWidgets(prevWidgets => {
             if (!prevWidgets) return prevWidgets;
             const newWidgets = [...prevWidgets];
             const visibleWidgetsList = newWidgets.filter(w => w.visible);
             const hiddenWidgetsList = newWidgets.filter(w => !w.visible);
-            
+
             // Swap positions
-            [visibleWidgetsList[index], visibleWidgetsList[index - 1]] = 
-            [visibleWidgetsList[index - 1], visibleWidgetsList[index]];
-            
+            [visibleWidgetsList[index], visibleWidgetsList[index - 1]] =
+                [visibleWidgetsList[index - 1], visibleWidgetsList[index]];
+
             // Update orders
             return [
                 ...visibleWidgetsList.map((w, idx) => ({ ...w, order: idx })),
@@ -564,17 +564,17 @@ const Dashboard = () => {
 
     const moveWidgetDown = useCallback((index) => {
         if (!isCustomizing || index === visibleWidgets.length - 1) return;
-        
+
         setWorkingWidgets(prevWidgets => {
             if (!prevWidgets) return prevWidgets;
             const newWidgets = [...prevWidgets];
             const visibleWidgetsList = newWidgets.filter(w => w.visible);
             const hiddenWidgetsList = newWidgets.filter(w => !w.visible);
-            
+
             // Swap positions
-            [visibleWidgetsList[index], visibleWidgetsList[index + 1]] = 
-            [visibleWidgetsList[index + 1], visibleWidgetsList[index]];
-            
+            [visibleWidgetsList[index], visibleWidgetsList[index + 1]] =
+                [visibleWidgetsList[index + 1], visibleWidgetsList[index]];
+
             // Update orders
             return [
                 ...visibleWidgetsList.map((w, idx) => ({ ...w, order: idx })),
@@ -597,7 +597,7 @@ const Dashboard = () => {
 
     const addWidget = useCallback((widgetId) => {
         if (!isCustomizing) return;
-        
+
         const widgetToAdd = availableWidgets.find(w => w.id === widgetId);
         if (widgetToAdd && !displayWidgets.find(w => w.id === widgetId)) {
             const visibleCount = displayWidgets.filter(w => w.visible).length;
@@ -615,7 +615,7 @@ const Dashboard = () => {
         const defaultLayout = getDefaultWidgets();
         const defaultQuickStats = getDefaultQuickStatsCards();
         const defaultAdditionalStats = getDefaultAdditionalStatsCards();
-        
+
         setWorkingWidgets(defaultLayout);
         setWorkingQuickStatsCards(defaultQuickStats);
         setWorkingAdditionalStatsCards(defaultAdditionalStats);
@@ -669,9 +669,9 @@ const Dashboard = () => {
         return (
             <motion.div
                 initial={{ x: -400, opacity: 0 }}
-                animate={{ 
+                animate={{
                     x: customizationPanelMinimized ? -380 : 0,
-                    opacity: 1 
+                    opacity: 1
                 }}
                 transition={{ type: "spring", stiffness: 300, damping: 30 }}
                 className="fixed left-0 top-16 h-[calc(100vh-4rem)] z-40 bg-white shadow-2xl border-r border-gray-200"
@@ -736,23 +736,22 @@ const Dashboard = () => {
                                         <div className="p-1.5 bg-gradient-to-br from-indigo-100 to-purple-100 rounded-lg">
                                             <WidgetIcon className="w-3.5 h-3.5 text-indigo-600" />
                                         </div>
-                                        
+
                                         {/* Info */}
                                         <div className="flex-1 min-w-0">
                                             <div className="font-medium text-gray-800 text-sm truncate">{widget.title}</div>
                                             <div className="text-xs text-gray-500 capitalize">{widget.category}</div>
                                         </div>
-                                        
+
                                         {/* Arrow Controls */}
                                         <div className="flex items-center gap-1">
                                             <button
                                                 onClick={() => moveWidgetUp(index)}
                                                 disabled={index === 0}
-                                                className={`p-1 rounded transition-all duration-200 ${
-                                                    index === 0
+                                                className={`p-1 rounded transition-all duration-200 ${index === 0
                                                         ? 'text-gray-300 cursor-not-allowed'
                                                         : 'text-gray-600 hover:bg-gray-100 hover:text-indigo-600'
-                                                }`}
+                                                    }`}
                                                 title="Move up"
                                             >
                                                 <FiArrowUp className="w-3.5 h-3.5" />
@@ -760,17 +759,16 @@ const Dashboard = () => {
                                             <button
                                                 onClick={() => moveWidgetDown(index)}
                                                 disabled={index === visibleWidgets.length - 1}
-                                                className={`p-1 rounded transition-all duration-200 ${
-                                                    index === visibleWidgets.length - 1
+                                                className={`p-1 rounded transition-all duration-200 ${index === visibleWidgets.length - 1
                                                         ? 'text-gray-300 cursor-not-allowed'
                                                         : 'text-gray-600 hover:bg-gray-100 hover:text-indigo-600'
-                                                }`}
+                                                    }`}
                                                 title="Move down"
                                             >
                                                 <FiArrowDown className="w-3.5 h-3.5" />
                                             </button>
                                         </div>
-                                        
+
                                         {/* Hide Button */}
                                         <button
                                             onClick={() => toggleWidgetVisibility(widget.id)}
@@ -875,7 +873,7 @@ const Dashboard = () => {
 
     const TaskSummaryWidget = React.memo(() => (
         <WidgetWrapper widgetId="task-summary" title="Task Summary">
-            <TaskSummary 
+            <TaskSummary
                 taskStats={taskStats}
                 onRefresh={() => fetchDashboardData()}
                 onCreateTask={() => navigate('/task/create')}
@@ -885,7 +883,7 @@ const Dashboard = () => {
 
     const ServiceWiseSalesWidget = React.memo(() => (
         <WidgetWrapper widgetId="service-wise-sales" title="Service Wise Sales">
-            <ServiceWiseSales 
+            <ServiceWiseSales
                 onViewDetails={() => navigate('/sales/service-wise')}
                 refreshTrigger={refreshKey}
             />
@@ -894,7 +892,7 @@ const Dashboard = () => {
 
     const StaffWiseSalesWidget = React.memo(() => (
         <WidgetWrapper widgetId="staff-wise-sales" title="Staff Wise Sales">
-            <StaffWiseSales 
+            <StaffWiseSales
                 onViewDetails={() => navigate('/sales/staff-wise')}
                 refreshTrigger={refreshKey}
             />
@@ -903,7 +901,7 @@ const Dashboard = () => {
 
     const TopClientsWidget = React.memo(() => (
         <WidgetWrapper widgetId="top-clients" title="Top Clients">
-            <TopClients 
+            <TopClients
                 defaultDays={30}
                 onViewDetails={() => navigate('/clients/top')}
                 refreshTrigger={refreshKey}
@@ -948,7 +946,7 @@ const Dashboard = () => {
                             <span className="text-xl font-bold text-indigo-600">87%</span>
                         </div>
                         <div className="w-full bg-gray-200 rounded-full h-2">
-                            <motion.div 
+                            <motion.div
                                 className="bg-gradient-to-r from-indigo-500 to-purple-500 h-2 rounded-full"
                                 initial={{ width: 0 }}
                                 animate={{ width: '87%' }}
@@ -963,7 +961,7 @@ const Dashboard = () => {
                             <span className="text-xl font-bold text-green-600">92%</span>
                         </div>
                         <div className="w-full bg-gray-200 rounded-full h-2">
-                            <motion.div 
+                            <motion.div
                                 className="bg-gradient-to-r from-green-500 to-emerald-500 h-2 rounded-full"
                                 initial={{ width: 0 }}
                                 animate={{ width: '92%' }}
@@ -1072,7 +1070,7 @@ const Dashboard = () => {
                             <div className="text-xl">🎯</div>
                         </div>
                         <div className="w-full bg-gray-200 rounded-full h-2">
-                            <motion.div 
+                            <motion.div
                                 className="bg-gradient-to-r from-purple-500 to-violet-500 h-2 rounded-full"
                                 initial={{ width: 0 }}
                                 animate={{ width: '75%' }}
@@ -1090,7 +1088,7 @@ const Dashboard = () => {
                             <div className="text-xl">🚀</div>
                         </div>
                         <div className="w-full bg-gray-200 rounded-full h-2">
-                            <motion.div 
+                            <motion.div
                                 className="bg-gradient-to-r from-indigo-500 to-blue-500 h-2 rounded-full"
                                 initial={{ width: 0 }}
                                 animate={{ width: '90%' }}
@@ -1119,13 +1117,14 @@ const Dashboard = () => {
                 setIsMinimized={setIsMinimized}
             />
 
+            {/* Main content - FULL WIDTH */}
             <div className={`pt-16 transition-all duration-300 ease-in-out w-full ${isMinimized ? 'md:pl-20' : 'md:pl-72'}`}>
-                <div className="w-full px-4 sm:px-6 lg:px-8 py-4">
-                    {/* Header with alert and customize button */}
-                    <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4 mb-6">
+                <div className="w-full px-4 sm:px-6 lg:px-8 py-6">
+                    {/* Header with alert and 3-dot button in same row */}
+                    <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4 mb-8">
                         {/* Subscription Alert */}
                         <div className="flex-1">
-                            <motion.div 
+                            <motion.div
                                 className="bg-gradient-to-r from-red-50 to-rose-50 border border-red-200 rounded-xl p-4 shadow-lg"
                                 initial={{ opacity: 0, y: -20 }}
                                 animate={{ opacity: 1, y: 0 }}
@@ -1143,7 +1142,7 @@ const Dashboard = () => {
                                             Renew your subscription to continue uninterrupted service
                                         </div>
                                     </div>
-                                    <motion.button 
+                                    <motion.button
                                         className="px-4 py-2 bg-gradient-to-r from-red-600 to-rose-600 text-white rounded-lg hover:shadow-xl transition-all duration-300 text-sm"
                                         whileHover={{ scale: 1.02 }}
                                         whileTap={{ scale: 0.98 }}
@@ -1153,16 +1152,15 @@ const Dashboard = () => {
                                 </div>
                             </motion.div>
                         </div>
-                        
+
                         {/* Customize Button */}
                         <div className="flex items-center justify-center">
                             <motion.button
                                 onClick={() => setIsCustomizing(!isCustomizing)}
-                                className={`p-2.5 rounded-lg shadow-lg transition-all duration-300 border ${
-                                    isCustomizing 
-                                        ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white border-indigo-600' 
+                                className={`p-2.5 rounded-lg shadow-lg transition-all duration-300 border ${isCustomizing
+                                        ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white border-indigo-600'
                                         : 'bg-white text-gray-700 border-gray-200 hover:border-indigo-300'
-                                }`}
+                                    }`}
                                 whileHover={{ scale: 1.02 }}
                                 whileTap={{ scale: 0.98 }}
                             >
