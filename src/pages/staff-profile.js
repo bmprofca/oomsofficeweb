@@ -591,7 +591,7 @@ const formatDate = (dateString) => {
             case 'loan':
                 return <LoanTab key="loan" loan={loan} setLoan={setLoan} username={username} {...props} />;
             case 'performance':
-                return <PerformanceTab key="performance" performance={performance} setPerformance={setPerformance} username={username} {...props} />;
+                return <PerformanceTab key="performance" performance={performance} setPerformance={setPerformance} staffUsername={username} {...props} />;
             case 'entry-report':
                 return <EntryReportTab key="entry-report" entryReport={entryReport} setEntryReport={setEntryReport} username={username} {...props} />;
             default:

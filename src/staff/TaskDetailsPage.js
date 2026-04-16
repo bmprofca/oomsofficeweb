@@ -21,7 +21,8 @@ import {
     FiChevronLeft,
     FiChevronRight,
     FiMapPin,
-    FiStar
+    FiStar,
+    FiBarChart2
 } from 'react-icons/fi';
 import { motion } from 'framer-motion';
 import { Header, Sidebar } from '../components/header';
@@ -39,6 +40,7 @@ const TaskDetailsPage = () => {
     const [loading, setLoading] = useState(true);
     const [taskData, setTaskData] = useState(null);
     const [staffInfo, setStaffInfo] = useState(null);
+    const [performanceData, setPerformanceData] = useState(null);
     const [tasks, setTasks] = useState([]);
     const [pagination, setPagination] = useState(null);
     const [filtersApplied, setFiltersApplied] = useState(null);
@@ -66,6 +68,29 @@ const TaskDetailsPage = () => {
     };
 
     const categoryInfo = getCategoryInfo(category);
+
+    // Fetch performance stats
+    const fetchPerformanceStats = async () => {
+        if (!staffUsername) return;
+        
+        try {
+            const headers = await getHeaders();
+            const currentDate = new Date();
+            const currentYear = currentDate.getFullYear();
+            const fromDate = `${currentYear}-01-01`;
+            const toDate = currentDate.toISOString().split('T')[0];
+            
+            const url = `${API_BASE_URL}/report/staff-performance-stats?staff_username=${staffUsername}&from_date=${fromDate}&to_date=${toDate}&range=`;
+            const response = await fetch(url, { headers });
+            const result = await response.json();
+            
+            if (result.success && result.data?.staff_performance?.length > 0) {
+                setPerformanceData(result.data.staff_performance[0]);
+            }
+        } catch (error) {
+            console.error('Error fetching performance stats:', error);
+        }
+    };
 
     // Fetch task details
     const fetchTaskDetails = async (page = 1) => {
@@ -124,6 +149,7 @@ const TaskDetailsPage = () => {
 
     useEffect(() => {
         fetchTaskDetails(currentPage);
+        fetchPerformanceStats();
     }, [staffUsername, category, currentPage]);
 
     // Handle page change
@@ -131,6 +157,11 @@ const TaskDetailsPage = () => {
         if (newPage >= 1 && pagination && newPage <= pagination.total_pages) {
             setCurrentPage(newPage);
         }
+    };
+
+    // Navigate to performance tab
+    const handleViewPerformance = () => {
+        navigate(`/staff/view/profile/performance?username=${staffUsername}`);
     };
 
     // Get status badge color
@@ -154,6 +185,25 @@ const TaskDetailsPage = () => {
             'FT': { bg: 'bg-green-50', text: 'text-green-700', border: 'border-green-200' }
         };
         return dueConfig[dueCategory] || { bg: 'bg-gray-50', text: 'text-gray-700', border: 'border-gray-200' };
+    };
+
+    // Get performance score color
+    const getPerformanceScoreColor = (score) => {
+        if (score >= 80) return 'text-green-600';
+        if (score >= 60) return 'text-blue-600';
+        if (score >= 40) return 'text-yellow-600';
+        return 'text-red-600';
+    };
+
+    // Get rating badge color
+    const getRatingBadgeClass = (rating) => {
+        const ratingConfig = {
+            'Excellent': 'bg-green-100 text-green-700 border-green-200',
+            'Good': 'bg-blue-100 text-blue-700 border-blue-200',
+            'Average': 'bg-yellow-100 text-yellow-700 border-yellow-200',
+            'Poor': 'bg-red-100 text-red-700 border-red-200'
+        };
+        return ratingConfig[rating] || 'bg-gray-100 text-gray-700 border-gray-200';
     };
 
     // Format date
@@ -182,16 +232,6 @@ const TaskDetailsPage = () => {
             minimumFractionDigits: 0,
             maximumFractionDigits: 0
         }).format(amount);
-    };
-
-    // Get priority indicator
-    const getPriorityIndicator = (dueCategory) => {
-        switch(dueCategory) {
-            case 'OD': return '🔴 High';
-            case 'DT': return '🟠 Urgent';
-            case 'D7': return '🔵 Medium';
-            default: return '🟢 Low';
-        }
     };
 
     // Persist sidebar minimized state
@@ -292,32 +332,7 @@ const TaskDetailsPage = () => {
                         </motion.div>
                     )}
 
-                    {/* Header Banner - Professional
-                    <motion.div
-                        initial={{ opacity: 0, y: 20 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        className={`${categoryInfo.bgColor} border-l-4 ${categoryInfo.borderColor} rounded-lg p-5 mb-6 shadow-sm`}
-                    >
-                        <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-4">
-                                <div className={`p-2.5 rounded-lg bg-white shadow-sm ${categoryInfo.textColor}`}>
-                                    <CategoryIcon className="w-6 h-6" />
-                                </div>
-                                <div>
-                                    <h1 className="text-xl font-bold text-slate-800">{categoryInfo.name}</h1>
-                                    <p className="text-slate-500 text-xs mt-0.5">Detailed task breakdown</p>
-                                </div>
-                            </div>
-                            {pagination && (
-                                <div className="text-right">
-                                    <div className="text-2xl font-bold text-slate-800">{pagination.total}</div>
-                                    <div className="text-slate-400 text-xs">Total Tasks</div>
-                                </div>
-                            )}
-                        </div>
-                    </motion.div> */}
-
-                    {/* Compact Staff Information Card - Professional */}
+                    {/* Staff Information Card with Performance Score */}
                     {staffInfo && (
                         <motion.div
                             initial={{ opacity: 0, y: 20 }}
@@ -325,32 +340,81 @@ const TaskDetailsPage = () => {
                             transition={{ delay: 0.1 }}
                             className="bg-white rounded-lg border border-slate-200 mb-6 shadow-sm hover:shadow-md transition-shadow"
                         >
-                            <div className="flex items-center justify-between p-4">
-                                <div className="flex items-center gap-4">
-                                    <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg flex items-center justify-center shadow-sm">
-                                        {staffInfo.image ? (
-                                            <img src={staffInfo.image} alt={staffInfo.name} className="w-10 h-10 rounded-lg object-cover" />
-                                        ) : (
-                                            <FiUser className="w-5 h-5 text-white" />
-                                        )}
+                            <div className="p-4">
+                                <div className="flex items-center justify-between flex-wrap gap-4">
+                                    {/* Left Section - Staff Info */}
+                                    <div className="flex items-center gap-4">
+                                        <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg flex items-center justify-center shadow-sm">
+                                            {staffInfo.image ? (
+                                                <img src={staffInfo.image} alt={staffInfo.name} className="w-12 h-12 rounded-lg object-cover" />
+                                            ) : (
+                                                <FiUser className="w-6 h-6 text-white" />
+                                            )}
+                                        </div>
+                                        <div>
+                                            <h3 className="font-semibold text-slate-800 text-lg">{staffInfo.name}</h3>
+                                            <div className="flex items-center gap-2 mt-0.5">
+                                                <p className="text-slate-500 text-sm">{staffInfo.designation}</p>
+                                                {performanceData && (
+                                                    <>
+                                                        <span className="text-slate-300">•</span>
+                                                        <div className="flex items-center gap-1.5">
+                                                            <FiStar className="w-3.5 h-3.5 text-yellow-500" />
+                                                            <span className={`text-sm font-medium ${getPerformanceScoreColor(performanceData.performance_score)}`}>
+                                                                Score: {performanceData.performance_score}%
+                                                            </span>
+                                                        </div>
+                                                    </>
+                                                )}
+                                            </div>
+                                        </div>
                                     </div>
-                                    <div>
-                                        <h3 className="font-semibold text-slate-800">{staffInfo.name}</h3>
-                                        <p className="text-slate-500 text-xs">{staffInfo.designation}</p>
+
+                                    {/* Middle Section - Performance Rating Badge */}
+                                    {performanceData && (
+                                        <div className="flex items-center gap-3">
+                                            <span className={`inline-flex items-center px-3 py-1.5 rounded-full text-xs font-medium border ${getRatingBadgeClass(performanceData.performance_rating)}`}>
+                                                {performanceData.performance_rating}
+                                            </span>
+                                        </div>
+                                    )}
+
+                                    {/* Right Section - Contact Info & Action Button */}
+                                    <div className="flex items-center gap-4">
+                                        <div className="hidden md:flex items-center gap-3">
+                                            <div className="flex items-center gap-2 text-slate-600">
+                                                <FiMail className="w-4 h-4 text-slate-400" />
+                                                <span className="text-sm">{staffInfo.email}</span>
+                                            </div>
+                                            <div className="w-px h-4 bg-slate-200"></div>
+                                            <div className="flex items-center gap-2 text-slate-600">
+                                                <FiPhone className="w-4 h-4 text-slate-400" />
+                                                <span className="text-sm">{staffInfo.mobile}</span>
+                                            </div>
+                                        </div>
+                                        
+                                        {/* View Performance Button */}
+                                        <motion.button
+                                            onClick={handleViewPerformance}
+                                            whileHover={{ scale: 1.02 }}
+                                            whileTap={{ scale: 0.98 }}
+                                            className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white text-sm font-medium rounded-lg hover:from-blue-700 hover:to-indigo-700 transition-all shadow-sm"
+                                        >
+                                            <FiBarChart2 className="w-4 h-4" />
+                                            View Full Performance
+                                        </motion.button>
                                     </div>
                                 </div>
-                                <div className="flex items-center gap-6">
-                                    <div className="hidden md:flex items-center gap-2 text-slate-600">
+
+                                {/* Mobile Contact Info */}
+                                <div className="flex md:hidden items-center gap-4 mt-3 pt-3 border-t border-slate-100">
+                                    <div className="flex items-center gap-2 text-slate-600">
                                         <FiMail className="w-4 h-4 text-slate-400" />
-                                        <span className="text-sm">{staffInfo.email}</span>
+                                        <span className="text-xs">{staffInfo.email}</span>
                                     </div>
-                                    <div className="hidden md:flex items-center gap-2 text-slate-600">
+                                    <div className="flex items-center gap-2 text-slate-600">
                                         <FiPhone className="w-4 h-4 text-slate-400" />
-                                        <span className="text-sm">{staffInfo.mobile}</span>
-                                    </div>
-                                    <div className="flex md:hidden items-center gap-2 text-slate-600">
-                                        <FiMail className="w-4 h-4 text-slate-400" />
-                                        <FiPhone className="w-4 h-4 text-slate-400" />
+                                        <span className="text-xs">{staffInfo.mobile}</span>
                                     </div>
                                 </div>
                             </div>
@@ -438,7 +502,7 @@ const TaskDetailsPage = () => {
                                                             <span className={`inline-flex items-center px-2.5 py-1 rounded-md text-xs font-medium border ${dueConfig.bg} ${dueConfig.text} ${dueConfig.border}`}>
                                                                 {task.task_details?.due_category || 'N/A'}
                                                             </span>
-                                                        </td>
+                                                         </td>
                                                         <td className="px-4 py-3 text-right">
                                                             <div className="text-sm font-semibold text-slate-800">{formatCurrency(task.financials?.total || 0)}</div>
                                                             <div className="text-xs mt-0.5">
@@ -448,7 +512,7 @@ const TaskDetailsPage = () => {
                                                                     <span className="text-amber-600">Pending</span>
                                                                 )}
                                                             </div>
-                                                        </td>
+                                                         </td>
                                                     </motion.tr>
                                                 );
                                             })}
