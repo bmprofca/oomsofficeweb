@@ -11,6 +11,13 @@ import {
     FiCalendar,
     FiCheckCircle,
     FiXCircle,
+    FiEye,
+    FiCheck,
+    FiGrid,
+    FiList,
+    FiMaximize2,
+    FiMinimize2,
+    FiDownload,
 } from 'react-icons/fi';
 import { motion } from 'framer-motion';
 import { toast } from 'react-hot-toast';
@@ -34,6 +41,7 @@ const InvoiceSettings = () => {
     const [deleteConfirmText, setDeleteConfirmText] = useState('');
     const [deleteLoading, setDeleteLoading] = useState(false);
     const [selectedInvoice, setSelectedInvoice] = useState(null);
+    const [activeTab, setActiveTab] = useState('prefix');
     const [formData, setFormData] = useState({
         type: '',
         prefix: '',
@@ -42,8 +50,18 @@ const InvoiceSettings = () => {
         current: '1',
     });
 
+    // Format related states
+    const [formatData, setFormatData] = useState(null);
+    const [selectedFormatType, setSelectedFormatType] = useState('sale');
+    const [selectedFormatSample, setSelectedFormatSample] = useState(null);
+    const [showPreviewModal, setShowPreviewModal] = useState(false);
+    const [previewPdfUrl, setPreviewPdfUrl] = useState(null);
+    const [activatingFormat, setActivatingFormat] = useState(false);
+    const [formatLoading, setFormatLoading] = useState(false);
+    const [isFullscreen, setIsFullscreen] = useState(false);
+    const previewContainerRef = useRef(null);
 
-    // Invoice type options — must match backend values exactly
+    // Invoice type options
     const invoiceTypes = [
         { value: 'opening balance', label: 'Opening Balance' },
         { value: 'receive', label: 'Receive' },
@@ -62,12 +80,16 @@ const InvoiceSettings = () => {
         { value: 'asset purchase', label: 'Asset Purchase' },
     ];
 
-    // Persist sidebar minimized state
+    const formatDisplayNames = {
+        'classic': 'Classic',
+        'compact': 'Compact',
+        'minimal': 'Minimal'
+    };
+
     useEffect(() => {
         localStorage.setItem('sidebarMinimized', JSON.stringify(isMinimized));
     }, [isMinimized]);
 
-    // Lock body scroll when mobile sidebar is open
     useEffect(() => {
         if (mobileMenuOpen) {
             document.body.style.overflow = 'hidden';
@@ -79,10 +101,16 @@ const InvoiceSettings = () => {
         };
     }, [mobileMenuOpen]);
 
-    // Load initial data
     useEffect(() => {
         fetchInvoicePrefixData();
+        fetchFormatData();
     }, []);
+
+    useEffect(() => {
+        if (activeTab === 'format') {
+            fetchFormatData();
+        }
+    }, [selectedFormatType]);
 
     const fetchInvoicePrefixData = async () => {
         const headers = getHeaders();
@@ -103,11 +131,12 @@ const InvoiceSettings = () => {
                 headers,
                 signal: ac.signal,
             });
-            const json = await response.json();
-
+            
             if (!response.ok) {
-                throw new Error(json?.message || `Request failed (${response.status})`);
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
             }
+            
+            const json = await response.json();
 
             if (json.success && Array.isArray(json.data)) {
                 setInvoicePrefixData(json.data);
@@ -125,7 +154,181 @@ const InvoiceSettings = () => {
         }
     };
 
-    // Filter invoices based on search and filters
+    const fetchFormatData = async () => {
+        const headers = getHeaders();
+        if (!headers) {
+            toast.error('Missing authentication. Please sign in again.');
+            return;
+        }
+
+        setFormatLoading(true);
+        try {
+            const response = await fetch(`${API_BASE_URL}/invoice/formats?type=${selectedFormatType}`, {
+                method: 'GET',
+                headers,
+            });
+            
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+            
+            // Check if response is JSON
+            const contentType = response.headers.get('content-type');
+            if (!contentType || !contentType.includes('application/json')) {
+                throw new Error('Server returned non-JSON response. Please check if the endpoint is correct.');
+            }
+            
+            const json = await response.json();
+
+            if (json.success) {
+                setFormatData(json.data);
+            } else {
+                setFormatData(null);
+                toast.error(json?.message || 'Failed to load format data');
+            }
+        } catch (error) {
+            console.error('Format fetch error:', error);
+            toast.error(error.message || 'Failed to load invoice formats');
+            setFormatData(null);
+        } finally {
+            setFormatLoading(false);
+        }
+    };
+
+    const handleActivateFormat = async (formatId) => {
+        const headers = getHeaders();
+        if (!headers) {
+            toast.error('Missing authentication. Please sign in again.');
+            return;
+        }
+
+        setActivatingFormat(true);
+        try {
+            const response = await fetch(`${API_BASE_URL}/invoice/update-format`, {
+                method: 'PUT',
+                headers: {
+                    ...headers,
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    format_id: formatId,
+                    type: selectedFormatType,
+                }),
+            });
+            
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+            
+            // Check if response is JSON
+            const contentType = response.headers.get('content-type');
+            if (!contentType || !contentType.includes('application/json')) {
+                throw new Error('Server returned non-JSON response. Please check if the update-format endpoint is correct.');
+            }
+            
+            const json = await response.json();
+
+            if (!json.success) {
+                throw new Error(json?.message || 'Update failed');
+            }
+
+            toast.success(`Format "${formatDisplayNames[formatId]}" activated successfully!`);
+            await fetchFormatData();
+        } catch (error) {
+            console.error('Format activation error:', error);
+            toast.error(error.message || 'Failed to activate format. Please check if the endpoint is correct.');
+        } finally {
+            setActivatingFormat(false);
+        }
+    };
+
+    const handlePreviewFormat = (sample) => {
+        try {
+            // Clean base64 string (remove any whitespace or newlines)
+            let base64Data = sample.data;
+            if (base64Data.includes(',')) {
+                base64Data = base64Data.split(',')[1];
+            }
+            base64Data = base64Data.replace(/\s/g, '');
+            
+            // Decode base64 to binary
+            const binaryString = atob(base64Data);
+            const bytes = new Uint8Array(binaryString.length);
+            for (let i = 0; i < binaryString.length; i++) {
+                bytes[i] = binaryString.charCodeAt(i);
+            }
+            const blob = new Blob([bytes], { type: 'application/pdf' });
+            const url = URL.createObjectURL(blob);
+            setPreviewPdfUrl(url);
+            setSelectedFormatSample(sample);
+            setShowPreviewModal(true);
+            setIsFullscreen(false);
+        } catch (error) {
+            console.error('PDF preview error:', error);
+            toast.error('Failed to load PDF preview. The file may be corrupted.');
+        }
+    };
+
+    const handleDownloadPdf = () => {
+        if (previewPdfUrl) {
+            const link = document.createElement('a');
+            link.href = previewPdfUrl;
+            link.download = `${selectedFormatSample.format_id}_${selectedFormatType}_format.pdf`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            toast.success('Download started');
+        }
+    };
+
+    const toggleFullscreen = () => {
+        if (!isFullscreen) {
+            if (previewContainerRef.current) {
+                if (previewContainerRef.current.requestFullscreen) {
+                    previewContainerRef.current.requestFullscreen();
+                } else if (previewContainerRef.current.webkitRequestFullscreen) {
+                    previewContainerRef.current.webkitRequestFullscreen();
+                } else if (previewContainerRef.current.msRequestFullscreen) {
+                    previewContainerRef.current.msRequestFullscreen();
+                }
+            }
+        } else {
+            if (document.exitFullscreen) {
+                document.exitFullscreen();
+            } else if (document.webkitExitFullscreen) {
+                document.webkitExitFullscreen();
+            } else if (document.msExitFullscreen) {
+                document.msExitFullscreen();
+            }
+        }
+    };
+
+    useEffect(() => {
+        const handleFullscreenChange = () => {
+            setIsFullscreen(!!document.fullscreenElement);
+        };
+        
+        document.addEventListener('fullscreenchange', handleFullscreenChange);
+        document.addEventListener('webkitfullscreenchange', handleFullscreenChange);
+        document.addEventListener('msfullscreenchange', handleFullscreenChange);
+        
+        return () => {
+            document.removeEventListener('fullscreenchange', handleFullscreenChange);
+            document.removeEventListener('webkitfullscreenchange', handleFullscreenChange);
+            document.removeEventListener('msfullscreenchange', handleFullscreenChange);
+        };
+    }, []);
+
+    const closePreviewModal = () => {
+        if (previewPdfUrl) {
+            URL.revokeObjectURL(previewPdfUrl);
+        }
+        setPreviewPdfUrl(null);
+        setSelectedFormatSample(null);
+        setShowPreviewModal(false);
+        setIsFullscreen(false);
+    };
+
     const filteredInvoices = invoicePrefixData.filter(invoice => {
         const matchesSearch = searchQuery === '' ||
             invoice.type.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -163,16 +366,9 @@ const InvoiceSettings = () => {
     const formatDateForDisplay = (dateString) => {
         if (!dateString) return '';
         const date = new Date(dateString);
-        return date.toLocaleDateString('en-GB'); // DD/MM/YYYY format
+        return date.toLocaleDateString('en-GB');
     };
 
-    const formatDateForInput = (dateString) => {
-        if (!dateString) return '';
-        const date = new Date(dateString);
-        return date.toISOString().split('T')[0]; // YYYY-MM-DD format for input
-    };
-
-    // Handle create invoice prefix
     const handleCreateInvoicePrefix = async (e) => {
         e.preventDefault();
 
@@ -202,15 +398,17 @@ const InvoiceSettings = () => {
                 body: JSON.stringify(payload),
             });
 
-            const json = await response.json();
-
-            if (!response.ok || !json.success) {
-                throw new Error(json?.message || `Create failed (${response.status})`);
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
             }
 
-            // Refresh list so we get the new row with correct fields (including id)
-            await fetchInvoicePrefixData();
+            const json = await response.json();
 
+            if (!json.success) {
+                throw new Error(json?.message || 'Create failed');
+            }
+
+            await fetchInvoicePrefixData();
             resetForm();
             setShowCreateModal(false);
             toast.success(json?.message || 'Invoice prefix created successfully!');
@@ -222,7 +420,6 @@ const InvoiceSettings = () => {
         }
     };
 
-    // Handle delete invoice prefix
     const handleDeleteInvoicePrefix = async (invoiceId) => {
         const headers = getHeaders();
         if (!headers) {
@@ -241,9 +438,13 @@ const InvoiceSettings = () => {
                 body: JSON.stringify({ id: invoiceId }),
             });
 
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+
             const json = await response.json();
-            if (!response.ok || !json.success) {
-                throw new Error(json?.message || `Delete failed (${response.status})`);
+            if (!json.success) {
+                throw new Error(json?.message || 'Delete failed');
             }
 
             setDeleteModal(false);
@@ -264,7 +465,6 @@ const InvoiceSettings = () => {
         setShowCreateModal(true);
     };
 
-    // Get type color
     const getTypeColor = (type) => {
         const colors = {
             'opening balance': 'from-teal-500 to-teal-600',
@@ -286,7 +486,6 @@ const InvoiceSettings = () => {
         return colors[type] || 'from-gray-500 to-gray-600';
     };
 
-    // Skeleton loader component
     const SkeletonRow = () => (
         <tr className="animate-pulse">
             <td className="p-4"><div className="h-3 bg-gray-200 rounded w-6"></div></td>
@@ -308,6 +507,81 @@ const InvoiceSettings = () => {
         </tr>
     );
 
+    const FormatCard = ({ sample, isActive, onPreview, onActivate, activating }) => {
+        return (
+            <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                whileHover={{ y: -4 }}
+                className={`bg-white rounded-xl border-2 transition-all duration-300 overflow-visible ${
+                    isActive 
+                        ? 'border-green-500 shadow-lg shadow-green-100' 
+                        : 'border-gray-200 hover:border-indigo-300 hover:shadow-md'
+                }`}
+            >
+                <div className="p-6">
+                    <div className="flex items-start justify-between mb-4">
+                        <div className="flex items-center gap-3 flex-1 min-w-0">
+                            <div className={`w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0 ${
+                                isActive ? 'bg-green-100' : 'bg-indigo-100'
+                            }`}>
+                                <FiFileText className={`w-6 h-6 ${
+                                    isActive ? 'text-green-600' : 'text-indigo-600'
+                                }`} />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                                <h3 className="text-lg font-bold text-gray-800 capitalize truncate">
+                                    {formatDisplayNames[sample.format_id] || sample.format_id}
+                                </h3>
+                                <p className="text-xs text-gray-500 mt-0.5 truncate">
+                                    Format ID: {sample.format_id}
+                                </p>
+                            </div>
+                        </div>
+                        {isActive && (
+                            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-green-50 text-green-700 border border-green-200 flex-shrink-0 ml-2">
+                                <FiCheckCircle className="w-3 h-3" />
+                                Active
+                            </span>
+                        )}
+                    </div>
+
+                    <div className="space-y-3">
+                        <button
+                            onClick={() => onPreview(sample)}
+                            className="w-full py-2.5 px-4 bg-gray-50 hover:bg-gray-100 text-gray-700 rounded-lg text-sm font-medium transition-all duration-200 flex items-center justify-center gap-2 border border-gray-200"
+                        >
+                            <FiEye className="w-4 h-4" />
+                            Preview
+                        </button>
+                        
+                        {!isActive && (
+                            <button
+                                onClick={() => onActivate(sample.format_id)}
+                                disabled={activating}
+                                className="w-full py-2.5 px-4 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-sm font-medium transition-all duration-200 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                                <FiCheck className="w-4 h-4" />
+                                {activating ? 'Activating...' : 'Activate'}
+                            </button>
+                        )}
+                    </div>
+                </div>
+            </motion.div>
+        );
+    };
+
+    // Sort samples to show active format first
+    const getSortedSamples = () => {
+        if (!formatData || !formatData.samples) return [];
+        const samples = [...formatData.samples];
+        return samples.sort((a, b) => {
+            if (a.format_id === formatData.active_format) return -1;
+            if (b.format_id === formatData.active_format) return 1;
+            return 0;
+        });
+    };
+
     return (
         <div className="min-h-screen bg-gray-50">
             <Header
@@ -323,192 +597,317 @@ const InvoiceSettings = () => {
                 setIsMinimized={setIsMinimized}
             />
 
-            {/* Main content */}
             <div className={`pt-16 transition-all duration-300 ease-in-out ${isMinimized ? 'md:pl-20' : 'md:pl-[260px]'}`}>
                 <div className="max-w-full mx-auto px-4 sm:px-6 md:px-8 py-6">
                     <div className="h-full flex flex-col">
-                        {/* Main Card - Full height with scrolling */}
-                        <div className="bg-white rounded-lg shadow-sm border border-gray-200 flex flex-col h-full">
-                            {/* Card Header */}
-                            <div className="border-b border-gray-200 px-6 py-4">
-                                <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
-                                    <div>
-                                        <h5 className="text-xl font-bold text-gray-800 mb-1">
-                                            Invoice Prefix Management
-                                        </h5>
-                                        <p className="text-gray-500 text-xs">
-                                            {filteredInvoices.length} of {invoicePrefixData.length} invoice prefixes shown
-                                        </p>
-                                    </div>
+                        {/* Tabs */}
+                        <div className="mb-6">
+                            <div className="border-b border-gray-200">
+                                <nav className="flex gap-8">
+                                    <button
+                                        onClick={() => setActiveTab('prefix')}
+                                        className={`py-3 px-1 text-sm font-medium transition-all duration-200 border-b-2 ${
+                                            activeTab === 'prefix'
+                                                ? 'border-indigo-600 text-indigo-600'
+                                                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                                        }`}
+                                    >
+                                        <div className="flex items-center gap-2">
+                                            <FiList className="w-4 h-4" />
+                                            Prefix Management
+                                        </div>
+                                    </button>
+                                    <button
+                                        onClick={() => setActiveTab('format')}
+                                        className={`py-3 px-1 text-sm font-medium transition-all duration-200 border-b-2 ${
+                                            activeTab === 'format'
+                                                ? 'border-indigo-600 text-indigo-600'
+                                                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                                        }`}
+                                    >
+                                        <div className="flex items-center gap-2">
+                                            <FiGrid className="w-4 h-4" />
+                                            Invoice Format
+                                        </div>
+                                    </button>
+                                </nav>
+                            </div>
+                        </div>
 
-                                    <div className="flex flex-col lg:flex-row gap-3 w-full lg:w-auto">
-                                        {/* Search Input */}
-                                        <div className="flex-1 relative min-w-[300px]">
-                                            <FiSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-                                            <input
-                                                type="text"
-                                                placeholder="Search by type or prefix..."
-                                                value={searchQuery}
-                                                onChange={(e) => setSearchQuery(e.target.value)}
-                                                className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg text-gray-700 font-medium transition-all duration-200 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 shadow-sm text-sm"
-                                            />
+                        {/* Prefix Management Tab */}
+                        {activeTab === 'prefix' && (
+                            <div className="bg-white rounded-lg shadow-sm border border-gray-200 flex flex-col h-full">
+                                <div className="border-b border-gray-200 px-6 py-4">
+                                    <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
+                                        <div>
+                                            <h5 className="text-xl font-bold text-gray-800 mb-1">
+                                                Invoice Prefix Management
+                                            </h5>
+                                            <p className="text-gray-500 text-xs">
+                                                {filteredInvoices.length} of {invoicePrefixData.length} invoice prefixes shown
+                                            </p>
                                         </div>
 
-                                        <div className="flex gap-2">
-                                            {/* Type Filter */}
+                                        <div className="flex flex-col lg:flex-row gap-3 w-full lg:w-auto">
+                                            <div className="flex-1 relative min-w-[300px]">
+                                                <FiSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                                                <input
+                                                    type="text"
+                                                    placeholder="Search by type or prefix..."
+                                                    value={searchQuery}
+                                                    onChange={(e) => setSearchQuery(e.target.value)}
+                                                    className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg text-gray-700 font-medium transition-all duration-200 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 shadow-sm text-sm"
+                                                />
+                                            </div>
+
+                                            <div className="flex gap-2">
+                                                <select
+                                                    value={selectedType}
+                                                    onChange={(e) => setSelectedType(e.target.value)}
+                                                    className="px-4 py-2.5 border border-gray-300 rounded-lg bg-white text-gray-700 font-medium transition-all duration-200 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 shadow-sm text-sm"
+                                                >
+                                                    <option value="">All Types</option>
+                                                    {invoiceTypes.map(type => (
+                                                        <option key={type.value} value={type.value}>
+                                                            {type.label}
+                                                        </option>
+                                                    ))}
+                                                </select>
+
+                                                <motion.button
+                                                    onClick={openCreateModal}
+                                                    className="px-4 py-2.5 bg-green-600 hover:bg-green-700 text-white rounded-lg text-sm font-medium transition-all duration-200 flex items-center gap-2 shadow-sm"
+                                                    whileHover={{ scale: 1.02 }}
+                                                    whileTap={{ scale: 0.98 }}
+                                                >
+                                                    <FiPlus className="w-4 h-4" />
+                                                    Add Prefix
+                                                </motion.button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div className="flex-1 overflow-x-auto">
+                                    <table className="w-full">
+                                        <thead className="bg-gradient-to-r from-gray-50 to-gray-100 border-b border-gray-200">
+                                            <tr>
+                                                <th className="text-left p-4 font-semibold text-gray-700 text-sm">#</th>
+                                                <th className="text-left p-4 font-semibold text-gray-700 text-sm">Type</th>
+                                                <th className="text-left p-4 font-semibold text-gray-700 text-sm">Prefix</th>
+                                                <th className="text-center p-4 font-semibold text-gray-700 text-sm">Current #</th>
+                                                <th className="text-left p-4 font-semibold text-gray-700 text-sm">Valid Period</th>
+                                                <th className="text-center p-4 font-semibold text-gray-700 text-sm">Status</th>
+                                                <th className="text-center p-4 font-semibold text-gray-700 text-sm">Actions</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className="divide-y divide-gray-100">
+                                            {loading ? (
+                                                Array.from({ length: 5 }).map((_, index) => (
+                                                    <SkeletonRow key={index} />
+                                                ))
+                                            ) : filteredInvoices.length === 0 ? (
+                                                <tr>
+                                                    <td colSpan="7" className="p-8 text-center">
+                                                        <div className="flex flex-col items-center justify-center py-8">
+                                                            <FiFileText className="w-16 h-16 text-gray-300 mb-4" />
+                                                            <p className="text-gray-500 text-lg font-medium mb-2">
+                                                                {listError ? 'Failed to load prefixes' : 'No invoice prefixes found'}
+                                                            </p>
+                                                            <p className="text-gray-400 text-sm mb-6">
+                                                                {listError
+                                                                    ? listError
+                                                                    : 'Try adjusting your search or add a new prefix'}
+                                                            </p>
+                                                            {listError ? (
+                                                                <button
+                                                                    onClick={fetchInvoicePrefixData}
+                                                                    className="px-6 py-3 bg-gray-600 text-white rounded-lg text-sm font-medium hover:bg-gray-700 transition-all duration-200 shadow-sm"
+                                                                >
+                                                                    Retry
+                                                                </button>
+                                                            ) : (
+                                                                <button
+                                                                    onClick={openCreateModal}
+                                                                    className="px-6 py-3 bg-indigo-600 text-white rounded-lg text-sm font-medium hover:bg-indigo-700 transition-all duration-200 shadow-sm"
+                                                                >
+                                                                    <FiPlus className="w-4 h-4 inline mr-2" />
+                                                                    Add New Prefix
+                                                                </button>
+                                                            )}
+                                                        </div>
+                                                    </td>
+                                                </tr>
+                                            ) : (
+                                                filteredInvoices.map((invoice, index) => {
+                                                    const active = isActive(invoice.issue_date, invoice.expire_date);
+                                                    return (
+                                                        <tr key={invoice.id} className={`transition-colors ${active ? 'hover:bg-gray-50' : 'bg-gray-50/60 hover:bg-gray-100/60 opacity-80'}`}>
+                                                            <td className="p-4 text-sm text-gray-600 font-medium">
+                                                                {index + 1}
+                                                            </td>
+                                                            <td className="p-4">
+                                                                <div className="flex items-center gap-3">
+                                                                    <div className={`w-8 h-8 bg-gradient-to-br ${getTypeColor(invoice.type)} rounded-lg flex items-center justify-center shadow-sm`}>
+                                                                        <FiFileText className="w-4 h-4 text-white" />
+                                                                    </div>
+                                                                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-indigo-100 text-indigo-800 capitalize">
+                                                                        {invoice.type}
+                                                                    </span>
+                                                                </div>
+                                                            </td>
+                                                            <td className="p-4">
+                                                                <code className="text-sm font-mono text-gray-800 bg-gray-100 px-3 py-1.5 rounded-lg border border-gray-200">
+                                                                    {invoice.prefix}
+                                                                </code>
+                                                            </td>
+                                                            <td className="p-4 text-center">
+                                                                <span className="inline-flex items-center justify-center min-w-[2rem] px-2.5 py-0.5 rounded-full text-xs font-bold bg-indigo-50 text-indigo-700 border border-indigo-200">
+                                                                    {invoice.current ?? '—'}
+                                                                </span>
+                                                            </td>
+                                                            <td className="p-4">
+                                                                <div className="flex items-center gap-2 text-sm text-gray-700">
+                                                                    <FiCalendar className="w-3 h-3 text-gray-400 flex-shrink-0" />
+                                                                    <span>{formatDateForDisplay(invoice.issue_date)}</span>
+                                                                    <span className="text-gray-400">→</span>
+                                                                    <FiCalendar className="w-3 h-3 text-gray-400 flex-shrink-0" />
+                                                                    <span>{formatDateForDisplay(invoice.expire_date)}</span>
+                                                                </div>
+                                                            </td>
+                                                            <td className="p-4 text-center">
+                                                                {active ? (
+                                                                    <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-green-50 text-green-700 border border-green-200">
+                                                                        <FiCheckCircle className="w-3 h-3" />
+                                                                        Active
+                                                                    </span>
+                                                                ) : (
+                                                                    <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-red-50 text-red-600 border border-red-200">
+                                                                        <FiXCircle className="w-3 h-3" />
+                                                                        Inactive
+                                                                    </span>
+                                                                )}
+                                                            </td>
+                                                            <td className="p-4">
+                                                                <div className="flex justify-center">
+                                                                    <button
+                                                                        onClick={() => {
+                                                                            setSelectedInvoice(invoice);
+                                                                            setDeleteConfirmText('');
+                                                                            setDeleteModal(true);
+                                                                        }}
+                                                                        className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                                                                        title="Delete"
+                                                                    >
+                                                                        <FiTrash2 className="w-4 h-4" />
+                                                                    </button>
+                                                                </div>
+                                                            </td>
+                                                        </tr>
+                                                    );
+                                                })
+                                            )}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Invoice Format Tab */}
+                        {activeTab === 'format' && (
+                            <div className="bg-white rounded-lg shadow-sm border border-gray-200 flex flex-col h-full">
+                                <div className="border-b border-gray-200 px-6 py-4">
+                                    <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
+                                        <div>
+                                            <h5 className="text-xl font-bold text-gray-800 mb-1">
+                                                Invoice Format Management
+                                            </h5>
+                                            <p className="text-gray-500 text-xs">
+                                                Manage and activate different invoice formats for each invoice type
+                                            </p>
+                                        </div>
+
+                                        <div className="w-full lg:w-72">
+                                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                                Invoice Type
+                                            </label>
                                             <select
-                                                value={selectedType}
-                                                onChange={(e) => setSelectedType(e.target.value)}
-                                                className="px-4 py-2.5 border border-gray-300 rounded-lg bg-white text-gray-700 font-medium transition-all duration-200 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 shadow-sm text-sm"
+                                                value={selectedFormatType}
+                                                onChange={(e) => setSelectedFormatType(e.target.value)}
+                                                className="w-full px-4 py-2.5 border border-gray-300 rounded-lg bg-white text-gray-700 font-medium transition-all duration-200 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 shadow-sm text-sm"
                                             >
-                                                <option value="">All Types</option>
                                                 {invoiceTypes.map(type => (
                                                     <option key={type.value} value={type.value}>
                                                         {type.label}
                                                     </option>
                                                 ))}
                                             </select>
-
-                                            <motion.button
-                                                onClick={openCreateModal}
-                                                className="px-4 py-2.5 bg-green-600 hover:bg-green-700 text-white rounded-lg text-sm font-medium transition-all duration-200 flex items-center gap-2 shadow-sm"
-                                                whileHover={{ scale: 1.02 }}
-                                                whileTap={{ scale: 0.98 }}
-                                            >
-                                                <FiPlus className="w-4 h-4" />
-                                                Add Prefix
-                                            </motion.button>
                                         </div>
                                     </div>
                                 </div>
-                            </div>
 
-                            {/* Table Container */}
-                            <div className="flex-1 overflow-x-auto">
-                                <table className="w-full">
-                                    <thead className="bg-gradient-to-r from-gray-50 to-gray-100 border-b border-gray-200">
-                                        <tr>
-                                            <th className="text-left p-4 font-semibold text-gray-700 text-sm">#</th>
-                                            <th className="text-left p-4 font-semibold text-gray-700 text-sm">Type</th>
-                                            <th className="text-left p-4 font-semibold text-gray-700 text-sm">Prefix</th>
-                                            <th className="text-center p-4 font-semibold text-gray-700 text-sm">Current #</th>
-                                            <th className="text-left p-4 font-semibold text-gray-700 text-sm">Valid Period</th>
-                                            <th className="text-center p-4 font-semibold text-gray-700 text-sm">Status</th>
-                                            <th className="text-center p-4 font-semibold text-gray-700 text-sm">Actions</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody className="divide-y divide-gray-100">
-                                        {loading ? (
-                                            // Skeleton Loaders
-                                            Array.from({ length: 5 }).map((_, index) => (
-                                                <SkeletonRow key={index} />
-                                            ))
-                                        ) : filteredInvoices.length === 0 ? (
-                                            <tr>
-                                                <td colSpan="7" className="p-8 text-center">
-                                                    <div className="flex flex-col items-center justify-center py-8">
-                                                        <FiFileText className="w-16 h-16 text-gray-300 mb-4" />
-                                                        <p className="text-gray-500 text-lg font-medium mb-2">
-                                                            {listError ? 'Failed to load prefixes' : 'No invoice prefixes found'}
-                                                        </p>
-                                                        <p className="text-gray-400 text-sm mb-6">
-                                                            {listError
-                                                                ? listError
-                                                                : 'Try adjusting your search or add a new prefix'}
-                                                        </p>
-                                                        {listError ? (
-                                                            <button
-                                                                onClick={fetchInvoicePrefixData}
-                                                                className="px-6 py-3 bg-gray-600 text-white rounded-lg text-sm font-medium hover:bg-gray-700 transition-all duration-200 shadow-sm"
-                                                            >
-                                                                Retry
-                                                            </button>
-                                                        ) : (
-                                                            <button
-                                                                onClick={openCreateModal}
-                                                                className="px-6 py-3 bg-indigo-600 text-white rounded-lg text-sm font-medium hover:bg-indigo-700 transition-all duration-200 shadow-sm"
-                                                            >
-                                                                <FiPlus className="w-4 h-4 inline mr-2" />
-                                                                Add New Prefix
-                                                            </button>
-                                                        )}
+                                <div className="p-6">
+                                    {formatLoading ? (
+                                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                                            {[1, 2, 3].map((i) => (
+                                                <div key={i} className="animate-pulse">
+                                                    <div className="bg-gray-100 rounded-xl p-6">
+                                                        <div className="flex items-center gap-3 mb-4">
+                                                            <div className="w-12 h-12 bg-gray-200 rounded-xl"></div>
+                                                            <div className="flex-1">
+                                                                <div className="h-5 bg-gray-200 rounded w-24 mb-2"></div>
+                                                                <div className="h-3 bg-gray-200 rounded w-20"></div>
+                                                            </div>
+                                                        </div>
+                                                        <div className="space-y-3">
+                                                            <div className="h-10 bg-gray-200 rounded-lg"></div>
+                                                            <div className="h-10 bg-gray-200 rounded-lg"></div>
+                                                        </div>
                                                     </div>
-                                                </td>
-                                            </tr>
-                                        ) : (
-                                            filteredInvoices.map((invoice, index) => {
-                                                const active = isActive(invoice.issue_date, invoice.expire_date);
-                                                return (
-                                                    <tr key={invoice.id} className={`transition-colors ${active ? 'hover:bg-gray-50' : 'bg-gray-50/60 hover:bg-gray-100/60 opacity-80'}`}>
-                                                        <td className="p-4 text-sm text-gray-600 font-medium">
-                                                            {index + 1}
-                                                        </td>
-                                                        <td className="p-4">
-                                                            <div className="flex items-center gap-3">
-                                                                <div className={`w-8 h-8 bg-gradient-to-br ${getTypeColor(invoice.type)} rounded-lg flex items-center justify-center shadow-sm`}>
-                                                                    <FiFileText className="w-4 h-4 text-white" />
-                                                                </div>
-                                                                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-indigo-100 text-indigo-800 capitalize">
-                                                                    {invoice.type}
-                                                                </span>
-                                                            </div>
-                                                        </td>
-                                                        <td className="p-4">
-                                                            <code className="text-sm font-mono text-gray-800 bg-gray-100 px-3 py-1.5 rounded-lg border border-gray-200">
-                                                                {invoice.prefix}
-                                                            </code>
-                                                        </td>
-                                                        <td className="p-4 text-center">
-                                                            <span className="inline-flex items-center justify-center min-w-[2rem] px-2.5 py-0.5 rounded-full text-xs font-bold bg-indigo-50 text-indigo-700 border border-indigo-200">
-                                                                {invoice.current ?? '—'}
-                                                            </span>
-                                                        </td>
-                                                        <td className="p-4">
-                                                            <div className="flex items-center gap-2 text-sm text-gray-700">
-                                                                <FiCalendar className="w-3 h-3 text-gray-400 flex-shrink-0" />
-                                                                <span>{formatDateForDisplay(invoice.issue_date)}</span>
-                                                                <span className="text-gray-400">→</span>
-                                                                <FiCalendar className="w-3 h-3 text-gray-400 flex-shrink-0" />
-                                                                <span>{formatDateForDisplay(invoice.expire_date)}</span>
-                                                            </div>
-                                                        </td>
-                                                        <td className="p-4 text-center">
-                                                            {active ? (
-                                                                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-green-50 text-green-700 border border-green-200">
-                                                                    <FiCheckCircle className="w-3 h-3" />
-                                                                    Active
-                                                                </span>
-                                                            ) : (
-                                                                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-red-50 text-red-600 border border-red-200">
-                                                                    <FiXCircle className="w-3 h-3" />
-                                                                    Inactive
-                                                                </span>
-                                                            )}
-                                                        </td>
-                                                        <td className="p-4">
-                                                            <div className="flex justify-center">
-                                                                <button
-                                                                    onClick={() => {
-                                                                        setSelectedInvoice(invoice);
-                                                                    setDeleteConfirmText('');
-                                                                        setDeleteModal(true);
-                                                                    }}
-                                                                    className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                                                                    title="Delete"
-                                                                >
-                                                                    <FiTrash2 className="w-4 h-4" />
-                                                                </button>
-                                                            </div>
-                                                        </td>
-                                                    </tr>
-                                                );
-                                            })
-                                        )}
-                                    </tbody>
-                                </table>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    ) : formatData && formatData.samples ? (
+                                        <div>
+                                            <div className="mb-4 p-3 bg-blue-50 rounded-lg border border-blue-200">
+                                                <p className="text-sm text-blue-800">
+                                                    <strong>Branch ID:</strong> {formatData.branch_id || 'N/A'} | 
+                                                    <strong className="ml-3">Active Format:</strong> {formatDisplayNames[formatData.active_format] || formatData.active_format}
+                                                </p>
+                                            </div>
+                                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                                                {getSortedSamples().map((sample) => (
+                                                    <FormatCard
+                                                        key={sample.format_id}
+                                                        sample={sample}
+                                                        isActive={formatData.active_format === sample.format_id}
+                                                        onPreview={handlePreviewFormat}
+                                                        onActivate={handleActivateFormat}
+                                                        activating={activatingFormat}
+                                                    />
+                                                ))}
+                                            </div>
+                                        </div>
+                                    ) : (
+                                        <div className="flex flex-col items-center justify-center py-12">
+                                            <FiFileText className="w-16 h-16 text-gray-300 mb-4" />
+                                            <p className="text-gray-500 text-lg font-medium mb-2">
+                                                No formats found
+                                            </p>
+                                            <p className="text-gray-400 text-sm">
+                                                Could not load invoice formats for this type
+                                            </p>
+                                            <button
+                                                onClick={fetchFormatData}
+                                                className="mt-4 px-4 py-2 bg-indigo-600 text-white rounded-lg text-sm"
+                                            >
+                                                Retry
+                                            </button>
+                                        </div>
+                                    )}
+                                </div>
                             </div>
-
-                        </div>
+                        )}
                     </div>
                 </div>
             </div>
@@ -639,6 +1038,7 @@ const InvoiceSettings = () => {
                 </div>
             )}
 
+            {/* Delete Confirmation Modal */}
             {deleteModal && selectedInvoice && (
                 <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 transition-all duration-300">
                     <div className="bg-white rounded-xl shadow-2xl w-full max-w-md transform transition-all duration-300">
@@ -700,6 +1100,56 @@ const InvoiceSettings = () => {
                                 {deleteLoading ? 'Deleting...' : 'Confirm Delete'}
                             </button>
                         </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Full Screen PDF Preview Modal */}
+            {showPreviewModal && previewPdfUrl && selectedFormatSample && (
+                <div className="fixed inset-0 bg-black bg-opacity-95 z-50 flex flex-col">
+                    {/* Modal Header */}
+                    <div className="bg-gradient-to-r from-indigo-600 to-indigo-700 text-white px-6 py-4 flex justify-between items-center shadow-lg">
+                        <div>
+                            <h2 className="text-xl font-bold capitalize">
+                                {formatDisplayNames[selectedFormatSample.format_id]} Format Preview
+                            </h2>
+                            <p className="text-indigo-100 text-sm mt-1">
+                                Previewing invoice format for {selectedFormatType} type
+                            </p>
+                        </div>
+                        <div className="flex items-center gap-3">
+                            <button
+                                onClick={handleDownloadPdf}
+                                className="text-white hover:text-indigo-200 transition-colors duration-200 p-2 rounded-lg hover:bg-indigo-500"
+                                title="Download PDF"
+                            >
+                                <FiDownload className="w-5 h-5" />
+                            </button>
+                            <button
+                                onClick={toggleFullscreen}
+                                className="text-white hover:text-indigo-200 transition-colors duration-200 p-2 rounded-lg hover:bg-indigo-500"
+                                title={isFullscreen ? "Exit Fullscreen" : "Fullscreen"}
+                            >
+                                {isFullscreen ? <FiMinimize2 className="w-5 h-5" /> : <FiMaximize2 className="w-5 h-5" />}
+                            </button>
+                            <button
+                                onClick={closePreviewModal}
+                                className="text-white hover:text-indigo-200 transition-colors duration-200 p-2 rounded-lg hover:bg-indigo-500"
+                                title="Close"
+                            >
+                                <FiX className="w-6 h-6" />
+                            </button>
+                        </div>
+                    </div>
+                    
+                    {/* PDF Viewer - Full Screen Content */}
+                    <div ref={previewContainerRef} className="flex-1 bg-gray-900 p-4">
+                        <iframe
+                            src={previewPdfUrl}
+                            className="w-full h-full rounded-lg shadow-2xl"
+                            title="PDF Preview"
+                            style={{ backgroundColor: '#fff' }}
+                        />
                     </div>
                 </div>
             )}

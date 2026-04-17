@@ -870,367 +870,213 @@ const FilterRow = ({ filters, setFilters, serviceOptions, statusOptions, onSearc
     );
 };
 
-// Task Table Component
+// Professional Task Table Component - Compact & Clean (Screen Responsive)
 const TaskTable = ({ 
     tasks, 
     selectedTasks, 
     handleTaskSelect, 
     selectAll, 
     handleSelectAll, 
-    columnConfig, 
-    renderCellContent,
     loading,
     toggleRowDropdown,
     activeRowDropdown,
     handleGetInOut,
     setActiveRowDropdown,
-    handleStatusChange,
     navigate,
     openStatusModal,
     openUsersModal,
     openClientDetailsModal,
     handleEditTask
 }) => {
-    // Skeleton loader
-    const SkeletonRow = () => (
-        <div className="flex items-center border-b border-gray-100 animate-pulse p-3">
-            <div className="w-8 md:w-10 flex-shrink-0 mr-2">
-                <div className="h-4 bg-gray-200 rounded w-4"></div>
-            </div>
-            <div className="w-8 flex-shrink-0 mr-3">
-                <div className="h-4 bg-gray-200 rounded w-4"></div>
-            </div>
-            {columnConfig.map((column, index) => (
-                <div key={index} className="hidden md:block flex-1 p-2">
-                    <div className="space-y-1">
-                        {column.items.map((item, itemIndex) => (
-                            <div key={itemIndex} className="min-h-[1.25rem] flex items-center">
-                                <div className="h-3 bg-gray-200 rounded w-3/4"></div>
-                            </div>
-                        ))}
-                    </div>
-                </div>
-            ))}
-        </div>
-    );
-
-    // Format date function
     const formatDate = (dateString) => {
         if (!dateString) return '-';
         const date = new Date(dateString);
         return date.toLocaleDateString('en-GB');
     };
 
-    // Calculate days left
     const getDaysLeft = (dueDate) => {
-        if (!dueDate) return 0;
+        if (!dueDate) return null;
         const due = new Date(dueDate);
         const today = new Date();
         const diffTime = due - today;
-        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-        return diffDays;
+        return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
     };
 
-    // Mobile task card for table view
-    const MobileTaskCard = ({ task, index }) => {
-        const daysLeft = getDaysLeft(task.dates?.due_date);
-        const isOverdue = daysLeft < 0;
-
-        return (
-            <motion.div
-                className="bg-white border border-gray-200 rounded-lg p-3 mb-2 md:hidden"
-                initial={{ opacity: 0, y: 5 }}
-                animate={{ opacity: 1, y: 0 }}
-            >
-                {/* Mobile Card Header */}
-                <div className="flex items-start justify-between mb-2">
-                    <div className="flex items-center gap-2">
-                        <input
-                            type="checkbox"
-                            checked={selectedTasks.has(task.task_id)}
-                            onChange={() => handleTaskSelect(task.task_id)}
-                            className="w-4 h-4 text-indigo-600 rounded border-gray-400 focus:ring-indigo-500"
-                        />
-                        <div className="font-bold text-gray-800 text-sm w-4">{index + 1}</div>
-                        <div className="w-7 h-7 bg-gradient-to-br from-indigo-500 to-indigo-600 rounded-lg flex items-center justify-center">
-                            <FiBriefcase className="w-3.5 h-3.5 text-white" />
-                        </div>
-                        <div>
-                            <div className="font-semibold text-gray-800 text-sm truncate max-w-[150px]">{task.service?.name}</div>
-                            <div className="text-xs text-gray-500 truncate">{task.task_id}</div>
-                        </div>
-                    </div>
-                    {/* 3-dot menu for mobile */}
-                    <div className="relative">
-                        <motion.button
-                            onClick={() => toggleRowDropdown(task.task_id)}
-                            className="w-7 h-7 flex items-center justify-center rounded-full bg-gray-100 hover:bg-gray-200"
-                            whileHover={{ scale: 1.1 }}
-                            whileTap={{ scale: 0.95 }}
-                        >
-                            <div className="flex flex-col items-center justify-center space-y-0.5">
-                                <div className="w-1 h-1 rounded-full bg-gray-600"></div>
-                                <div className="w-1 h-1 rounded-full bg-gray-600"></div>
-                                <div className="w-1 h-1 rounded-full bg-gray-600"></div>
-                            </div>
-                        </motion.button>
-                        
-                        {/* Mobile dropdown */}
-                        <AnimatePresence>
-                            {activeRowDropdown === task.task_id && (
-                                <motion.div
-                                    className="absolute right-0 top-full mt-1 w-48 bg-white rounded-lg shadow-xl border border-gray-200 z-50 overflow-hidden"
-                                    initial={{ opacity: 0, y: -8, scale: 0.96 }}
-                                    animate={{ opacity: 1, y: 0, scale: 1 }}
-                                    exit={{ opacity: 0, y: -8, scale: 0.96 }}
-                                >
-                                    {/* Get In/Out option - Placeholder */}
-                                    <button
-                                        onClick={() => {
-                                            handleGetInOut(task.task_id, 'in');
-                                            setActiveRowDropdown(null);
-                                        }}
-                                        className="flex items-center w-full px-4 py-3 text-sm text-indigo-600 hover:bg-indigo-50"
-                                    >
-                                        <FiArrowLeft className="mr-3" />
-                                        GET IN
-                                    </button>
-
-                                    <div className="border-t my-1"></div>
-                                    
-                                    {/* Status Change Button */}
-                                    <button
-                                        onClick={() => {
-                                            openStatusModal(task.task_id, task.status);
-                                            setActiveRowDropdown(null);
-                                        }}
-                                        className="flex items-center w-full px-4 py-3 text-sm text-blue-600 hover:bg-blue-50"
-                                    >
-                                        <FiCheckCircle className="mr-3" />
-                                        Change Status
-                                    </button>
-
-                                    <button
-                                        onClick={() => {
-                                            setActiveRowDropdown(null);
-                                            navigate(`/task/${task.task_id}`);
-                                        }}
-                                        className="flex items-center w-full px-4 py-3 text-sm text-gray-700 hover:bg-gray-100"
-                                    >
-                                        <FiEye className="mr-3" />
-                                        View Details
-                                    </button>
-
-                                    <button
-                                        onClick={() => {
-                                            setActiveRowDropdown(null);
-                                            handleEditTask(task);
-                                        }}
-                                        className="flex items-center w-full px-4 py-3 text-sm text-gray-700 hover:bg-gray-100"
-                                    >
-                                        <FiEdit className="mr-3" />
-                                        Edit Task
-                                    </button>
-
-                                    <div className="border-t my-1"></div>
-
-                                    <button
-                                        onClick={() => {
-                                            setActiveRowDropdown(null);
-                                            // delete modal
-                                        }}
-                                        className="flex items-center w-full px-4 py-3 text-sm text-red-600 hover:bg-red-50"
-                                    >
-                                        <FiTrash2 className="mr-3" />
-                                        Delete Task
-                                    </button>
-                                </motion.div>
-                            )}
-                        </AnimatePresence>
-                    </div>
-                </div>
-
-                {/* Mobile Card Content */}
-                <div className="space-y-2">
-                    <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2 text-gray-700 text-sm">
-                            <FiCalendar className="w-3 h-3 text-gray-400" />
-                            <span>Target: {task.dates?.target_date ? formatDate(task.dates.target_date) : '-'}</span>
-                        </div>
-                        <div className="text-sm font-semibold text-gray-800">
-                            ₹{task.charges?.fees?.toLocaleString() || 0}
-                        </div>
-                    </div>
-
-                    <div className="flex items-center gap-2 text-gray-700 text-sm">
-                        <FiCalendar className="w-3 h-3 text-gray-400" />
-                        <span>Due: {task.dates?.due_date ? formatDate(task.dates.due_date) : '-'}</span>
-                        {task.dates?.due_date && (
-                            <span className={`text-xs font-bold ${isOverdue ? 'text-red-600' : daysLeft <= 7 ? 'text-orange-600' : 'text-green-600'}`}>
-                                {isOverdue
-                                    ? `Overdue by ${Math.abs(daysLeft)} day${Math.abs(daysLeft) > 1 ? 's' : ''}`
-                                    : `Due in ${daysLeft} day${daysLeft > 1 ? 's' : ''}`
-                                }
-                            </span>
-                        )}
-                    </div>
-
-                    <div className="flex items-center gap-2 text-gray-700 text-sm">
-                        <FiPhone className="w-3 h-3 text-gray-400" />
-                        <span>{task.client?.profile?.mobile || '-'}</span>
-                    </div>
-
-                    <div className="text-sm text-gray-600">
-                        <button 
-                            onClick={() => navigate(`/task/${task.task_id}`)}
-                            className="text-indigo-600 hover:text-indigo-800 hover:underline"
-                        >
-                            Service: {task.service?.name}
-                        </button>
-                    </div>
-
-                    <div className="text-xs text-gray-500">
-                        File: {task.file_no || '-'}
-                    </div>
-
-                    <div className="text-xs text-gray-500">
-                        Firm: {task.firm?.firm_name || '-'}
-                    </div>
-                </div>
-            </motion.div>
-        );
+    const getStatusStyle = (status) => {
+        switch (status) {
+            case 'unassign': return 'bg-blue-50 text-blue-700 border-blue-200';
+            case 'in process': return 'bg-orange-50 text-orange-700 border-orange-200';
+            case 'pending from client': return 'bg-purple-50 text-purple-700 border-purple-200';
+            case 'pending from department': return 'bg-yellow-50 text-yellow-700 border-yellow-200';
+            case 'complete': return 'bg-green-50 text-green-700 border-green-200';
+            case 'cancel': return 'bg-red-50 text-red-700 border-red-200';
+            default: return 'bg-gray-50 text-gray-700 border-gray-200';
+        }
     };
+
+    const getStatusText = (status) => {
+        switch (status) {
+            case 'unassign': return 'Unassign';
+            case 'in process': return 'In Process';
+            case 'pending from client': return 'Client Pnd';
+            case 'pending from department': return 'Dept Pnd';
+            case 'complete': return 'Complete';
+            case 'cancel': return 'Cancel';
+            default: return status || '-';
+        }
+    };
+
+    // Grid Layout: Balanced to remove the gap between Dates and Staff
+    const gridLayout = "grid grid-cols-[5%_4%_24%_18%_18%_10%_14%_7%] items-center w-full";
+
+    const SkeletonRow = () => (
+        <div className={`${gridLayout} border-b border-gray-100 animate-pulse px-1`}>
+            <div className="px-2 py-3"><div className="h-4 w-8 bg-gray-200 rounded-full mx-auto"></div></div>
+            <div className="px-2 py-3 text-center"><div className="h-3.5 w-4 bg-gray-200 rounded mx-auto"></div></div>
+            <div className="px-2 py-3"><div className="h-4 bg-gray-200 rounded w-3/4"></div></div>
+            <div className="px-2 py-3"><div className="h-4 bg-gray-200 rounded w-1/2"></div></div>
+            <div className="px-2 py-3"><div className="h-4 bg-gray-200 rounded w-2/3"></div></div>
+            <div className="px-2 py-3 flex justify-center"><div className="h-6 w-6 bg-gray-200 rounded-full"></div></div>
+            <div className="px-2 py-3 flex justify-center"><div className="h-5 w-16 bg-gray-200 rounded-full"></div></div>
+            <div className="px-2 py-3 flex justify-center"><div className="h-6 w-6 bg-gray-200 rounded"></div></div>
+        </div>
+    );
 
     return (
-        <div className="flex-1 flex flex-col overflow-hidden">
-            {/* Table Header - Fixed for desktop only */}
-            <div className="hidden md:block border-b border-gray-200 bg-gradient-to-r from-gray-50 to-gray-100 sticky top-0 z-10">
-                <div className="flex items-center min-w-max">
-                    {/* Checkbox Column */}
-                    <div className="w-10 p-3 flex-shrink-0">
-                        <input
-                            type="checkbox"
-                            checked={selectAll}
-                            onChange={handleSelectAll}
-                            className="w-4 h-4 text-indigo-600 rounded border-gray-400 focus:ring-indigo-500"
-                        />
-                    </div>
-
-                    {/* SL No Column */}
-                    <div className="w-10 p-3 font-bold text-black-700 text-sm flex-shrink-0 text-center">
-                        SL No
-                    </div>
-
-                    {/* Fixed Columns Layout - Equal width distribution */}
-                    {columnConfig.map(column => (
-                        <div
-                            key={column.id}
-                            className="p-3 font-semibold text-gray-700 text-sm flex-1 min-w-0 text-left"
-                            style={{ flex: '1 1 0%' }}
+        <div className="flex-1 flex flex-col overflow-hidden w-full bg-white">
+            {/* Header */}
+            <div className="bg-gray-50 border-b border-gray-200 sticky top-0 z-10 w-full px-1">
+                <div className={`${gridLayout} text-[11px] font-bold text-gray-500 uppercase tracking-tight`}>
+                    <div className="px-2 py-3.5 flex justify-center">
+                        {/* Header Toggle (Select All) */}
+                        <button 
+                            onClick={handleSelectAll}
+                            className={`w-7 h-4 flex items-center rounded-full p-0.5 transition-colors duration-200 ease-in-out ${selectAll ? 'bg-indigo-600' : 'bg-gray-300'}`}
                         >
-                            <div className="truncate">{column.name === 'Users' ? 'Assigned' : column.name}</div>
-                        </div>
-                    ))}
-                </div>
-            </div>
-
-            {/* Mobile header */}
-            <div className="md:hidden border-b border-gray-200 bg-white px-3 py-2 sticky top-0 z-10">
-                <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                        <input
-                            type="checkbox"
-                            checked={selectAll}
-                            onChange={handleSelectAll}
-                            className="w-4 h-4 text-indigo-600 rounded border-gray-400 focus:ring-indigo-500"
-                        />
-                        <span className="font-semibold text-gray-800 text-sm">Tasks</span>
+                            <div className={`bg-white w-3 h-3 rounded-full shadow-md transform transition-transform duration-200 ease-in-out ${selectAll ? 'translate-x-3' : 'translate-x-0'}`} />
+                        </button>
                     </div>
-                    <span className="text-xs text-gray-600">{tasks.length} tasks</span>
+                    <div className="px-2 py-3.5 text-center">#</div>
+                    <div className="px-2 py-3.5">Client</div>
+                    <div className="px-2 py-3.5">Task Details</div>
+                    <div className="px-2 py-3.5">Dates</div>
+                    <div className="px-2 py-3.5 text-center">Staffs</div>
+                    <div className="px-2 py-3.5 text-center">Status</div>
+                    <div className="px-2 py-3.5 text-center">Action</div>
                 </div>
             </div>
 
-            {/* Scrollable Table Body */}
-            <div className="flex-1 overflow-y-auto overflow-x-hidden">
+            {/* Body */}
+            <div className="flex-1 overflow-y-auto overflow-x-hidden px-1">
                 {loading ? (
-                    // Skeleton Loaders
-                    <div className="md:min-w-max">
-                        {Array.from({ length: 6 }).map((_, index) => (
-                            <SkeletonRow key={index} />
-                        ))}
-                    </div>
+                    <div>{Array.from({ length: 10 }).map((_, i) => <SkeletonRow key={i} />)}</div>
                 ) : tasks.length === 0 ? (
-                    <div className="flex items-center justify-center py-8 text-gray-500 px-4">
-                        <div className="text-center">
-                            <div className="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-3">
-                                <FiUser className="w-6 h-6 text-gray-400" />
-                            </div>
-                            <p className="text-gray-500 font-medium text-sm">No tasks found</p>
-                            <p className="text-gray-400 text-xs mt-1">Try adjusting your search or filters</p>
-                        </div>
+                    <div className="flex flex-col items-center justify-center py-16 text-gray-400">
+                        <p className="text-sm font-medium">No tasks found</p>
                     </div>
                 ) : (
-                    <div className="md:min-w-max">
-                        {/* Mobile view - cards */}
-                        <div className="md:hidden px-3 py-1">
-                            {tasks.map((task, index) => (
-                                <MobileTaskCard key={task.task_id} task={task} index={index} />
-                            ))}
-                        </div>
-
-                        {/* Desktop view - table */}
-                        <div className="hidden md:block">
-                            {tasks.map((task, index) => (
-                                <motion.div
-                                    key={task.task_id}
-                                    className={`flex items-center border-b border-gray-100 hover:bg-gray-50 transition-colors group`}
-                                    initial={{ opacity: 0, y: 5 }}
-                                    animate={{ opacity: 1, y: 0 }}
-                                    transition={{ delay: index * 0.03 }}
-                                >
-                                    {/* Checkbox */}
-                                    <div className="w-10 p-3 flex-shrink-0">
-                                        <input
-                                            type="checkbox"
-                                            checked={selectedTasks.has(task.task_id)}
-                                            onChange={() => handleTaskSelect(task.task_id)}
-                                            className="w-4 h-4 text-indigo-600 rounded border-gray-400 focus:ring-indigo-500"
-                                        />
+                    <div className="w-full">
+                        {tasks.map((task, index) => {
+                            const daysLeft = getDaysLeft(task.dates?.due_date);
+                            const isOverdue = daysLeft !== null && daysLeft < 0;
+                            const isSelected = selectedTasks.has(task.task_id);
+                            
+                            return (
+                                <div key={task.task_id} className={`${gridLayout} border-b border-gray-50 hover:bg-gray-50/40 transition-colors py-1.5`}>
+                                    {/* Selection Toggle */}
+                                    <div className="px-2 py-2 flex justify-center">
+                                        <button 
+                                            onClick={() => handleTaskSelect(task.task_id)}
+                                            className={`w-7 h-4 flex items-center rounded-full p-0.5 transition-colors duration-200 ease-in-out ${isSelected ? 'bg-indigo-600' : 'bg-gray-200'}`}
+                                        >
+                                            <div className={`bg-white w-3 h-3 rounded-full shadow-sm transform transition-transform duration-200 ease-in-out ${isSelected ? 'translate-x-3' : 'translate-x-0'}`} />
+                                        </button>
                                     </div>
 
-                                    {/* SL No - Bold */}
-                                    <div className="w-10 p-3 flex-shrink-0 text-center">
-                                        <span className="font-bold text-gray-800 text-sm">
-                                            {index + 1}
+                                    {/* SL No */}
+                                    <div className="px-2 py-2 text-center text-gray-400 font-bold text-[11px]">{index + 1}</div>
+
+                                    {/* Client */}
+                                    <div className="px-2 py-2 min-w-0">
+                                        <button onClick={() => openClientDetailsModal(task.client?.username)} className="font-bold text-gray-800 hover:text-indigo-600 truncate text-left w-full block text-[13px] leading-tight">
+                                            {task.client?.profile?.name || task.client?.name || '-'}
+                                        </button>
+                                        <div className="text-gray-500 text-[11px] font-semibold mt-0.5">{task.client?.profile?.mobile || '-'}</div>
+                                    </div>
+
+                                    {/* Task Details */}
+                                    <div className="px-2 py-2 min-w-0">
+                                        <button onClick={() => navigate(`/task/${task.task_id}`)} className="font-bold text-gray-700 hover:text-indigo-600 truncate block w-full text-left text-[12px] leading-tight">
+                                            {task.service?.name || '-'}
+                                        </button>
+                                        <div className="text-indigo-600 font-extrabold text-[11px] mt-0.5">₹{(task.charges?.fees || 0).toLocaleString()}</div>
+                                        <div className="text-gray-400 truncate text-[10.5px] font-medium italic">{task.firm?.firm_name || '-'}</div>
+                                    </div>
+
+                                    {/* Dates */}
+                                    <div className="px-2 py-2 min-w-0 leading-tight">
+                                        <div className="text-[10.5px] text-gray-500 truncate font-medium"><span className="font-bold text-gray-400">C:</span> {task.dates?.create_date ? formatDate(task.dates.create_date) : '-'}</div>
+                                        <div className="text-[10.5px] text-gray-500 truncate font-medium"><span className="font-bold text-gray-400">T:</span> {task.dates?.target_date ? formatDate(task.dates.target_date) : '-'}</div>
+                                        <div className="text-[11px] text-gray-800 font-bold truncate mt-0.5">
+                                            <span className="text-red-500">D:</span> {task.dates?.due_date ? formatDate(task.dates.due_date) : '-'}
+                                            {daysLeft !== null && <span className={`ml-1 ${isOverdue ? 'text-red-600' : 'text-green-600'}`}>({isOverdue ? '!' : `${daysLeft}d`})</span>}
+                                        </div>
+                                    </div>
+
+                                    {/* Staffs */}
+                                    <div className="px-2 py-2 flex justify-center">
+                                        {task.staffs && task.staffs.length > 0 ? (
+                                            <div className="flex -space-x-1.5">
+                                                {task.staffs.slice(0, 2).map((staff, idx) => (
+                                                    <button key={idx} onClick={() => openUsersModal(task.staffs, task.service?.name)} className="w-6 h-6 bg-indigo-500 rounded-full border border-white flex items-center justify-center text-[10px] font-bold text-white shadow-sm transition-transform hover:scale-110" title={staff.name}>
+                                                        {staff.name?.charAt(0) || 'S'}
+                                                    </button>
+                                                ))}
+                                                {task.staffs.length > 2 && (
+                                                    <button onClick={() => openUsersModal(task.staffs, task.service?.name)} className="w-6 h-6 bg-gray-200 rounded-full border border-white flex items-center justify-center text-[10px] font-bold text-gray-600">
+                                                        +{task.staffs.length - 2}
+                                                    </button>
+                                                )}
+                                            </div>
+                                        ) : <span className="text-gray-300 font-bold">—</span>}
+                                    </div>
+
+                                    {/* Status */}
+                                    <div className="px-2 py-2 flex justify-center">
+                                        <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold border whitespace-nowrap uppercase tracking-tighter ${getStatusStyle(task.status)}`}>
+                                            {getStatusText(task.status)}
                                         </span>
                                     </div>
 
-                                    {/* Fixed Columns Layout - Equal width distribution */}
-                                    {columnConfig.map(column => (
-                                        <div 
-                                            key={column.id} 
-                                            className="p-3 flex-1 min-w-0 text-left"
-                                            style={{ flex: '1 1 0%' }}
-                                        >
-                                            <div className="space-y-1">
-                                                {column.items.map(item => (
-                                                    <div key={item.id} className="min-h-[1.25rem] flex items-center">
-                                                        {renderCellContent(task, item.id, handleGetInOut, navigate, openStatusModal, openUsersModal, openClientDetailsModal, handleEditTask)}
-                                                    </div>
-                                                ))}
-                                            </div>
-                                        </div>
-                                    ))}
-                                </motion.div>
-                            ))}
-                        </div>
+                                    {/* Actions */}
+                                    <div className="px-2 py-2 flex justify-center relative">
+                                        <button onClick={() => toggleRowDropdown(task.task_id)} className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-100 transition-colors">
+                                            <FiMenu className="w-4 h-4 text-gray-400" />
+                                        </button>
+
+                                        <AnimatePresence>
+                                            {activeRowDropdown === task.task_id && (
+                                                <motion.div className="absolute right-4 top-10 w-36 bg-white rounded-lg shadow-2xl border border-gray-100 z-50 py-1" initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }}>
+                                                    <button onClick={() => { handleGetInOut(task.task_id, 'in'); setActiveRowDropdown(null); }} className="flex items-center w-full px-3 py-2 text-[11px] text-indigo-600 hover:bg-indigo-50 font-bold uppercase tracking-tight"><FiArrowLeft className="mr-2" /> GET IN</button>
+                                                    <div className="border-t border-gray-50"></div>
+                                                    <button onClick={() => { openStatusModal(task.task_id, task.status); setActiveRowDropdown(null); }} className="flex items-center w-full px-3 py-2 text-[11px] text-blue-600 hover:bg-blue-50 font-semibold"><FiCheckCircle className="mr-2" /> Status</button>
+                                                    <button onClick={() => { setActiveRowDropdown(null); navigate(`/task/${task.task_id}`); }} className="flex items-center w-full px-3 py-2 text-[11px] text-gray-700 hover:bg-gray-50 font-semibold"><FiEye className="mr-2" /> Details</button>
+                                                    <button onClick={() => { setActiveRowDropdown(null); handleEditTask(task); }} className="flex items-center w-full px-3 py-2 text-[11px] text-gray-700 hover:bg-gray-50 font-semibold"><FiEdit className="mr-2" /> Edit</button>
+                                                    <div className="border-t border-gray-50"></div>
+                                                    <button onClick={() => { setActiveRowDropdown(null); }} className="flex items-center w-full px-3 py-2 text-[11px] text-red-600 hover:bg-red-50 font-bold uppercase tracking-tight"><FiTrash2 className="mr-2" /> Delete</button>
+                                                </motion.div>
+                                            )}
+                                        </AnimatePresence>
+                                    </div>
+                                </div>
+                            );
+                        })}
                     </div>
                 )}
             </div>
         </div>
     );
 };
-
 // Task Cards Component
 const TaskCards = ({ 
     tasks, 

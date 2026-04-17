@@ -268,8 +268,18 @@ const StaffReport = () => {
 
     const SkeletonLoader = () => (
         <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
-            <Header mobileMenuOpen={mobileMenuOpen} setMobileMenuOpen={setMobileMenuOpen} isMinimized={isMinimized} setIsMinimized={setIsMinimized} />
-            <Sidebar mobileMenuOpen={mobileMenuOpen} setMobileMenuOpen={setMobileMenuOpen} isMinimized={isMinimized} setIsMinimized={setIsMinimized} />
+            <Header
+                mobileMenuOpen={mobileMenuOpen}
+                setMobileMenuOpen={setMobileMenuOpen}
+                isMinimized={isMinimized}
+                setIsMinimized={setIsMinimized}
+            />
+            <Sidebar
+                mobileMenuOpen={mobileMenuOpen}
+                setMobileMenuOpen={setMobileMenuOpen}
+                isMinimized={isMinimized}
+                setIsMinimized={setIsMinimized}
+            />
             <div className={`pt-16 transition-all duration-300 ease-in-out ${isMinimized ? 'md:pl-20' : 'md:pl-[260px]'}`}>
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 md:px-8 py-6">
                     <div className="bg-white rounded-xl shadow-sm border border-slate-200">
@@ -296,21 +306,40 @@ const StaffReport = () => {
 
     return (
         <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
-            <Header mobileMenuOpen={mobileMenuOpen} setMobileMenuOpen={setMobileMenuOpen} isMinimized={isMinimized} setIsMinimized={setIsMinimized} />
-            <Sidebar mobileMenuOpen={mobileMenuOpen} setMobileMenuOpen={setMobileMenuOpen} isMinimized={isMinimized} setIsMinimized={setIsMinimized} />
+            <Header 
+                mobileMenuOpen={mobileMenuOpen} 
+                setMobileMenuOpen={setMobileMenuOpen} 
+                isMinimized={isMinimized} 
+                setIsMinimized={setIsMinimized} 
+            />
+            <Sidebar 
+                mobileMenuOpen={mobileMenuOpen} 
+                setMobileMenuOpen={setMobileMenuOpen} 
+                isMinimized={isMinimized} 
+                setIsMinimized={setIsMinimized} 
+            />
 
             <div className={`pt-16 transition-all duration-300 ease-in-out ${isMinimized ? 'md:pl-20' : 'md:pl-[260px]'}`}>
                 <div className="max-w-full mx-auto px-4 sm:px-6 lg:px-8 py-6">
                     {/* Error Alert */}
                     {apiError && (
-                        <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="mb-4 bg-red-50 border border-red-200 rounded-lg p-4">
+                        <motion.div 
+                            initial={{ opacity: 0, y: -10 }} 
+                            animate={{ opacity: 1, y: 0 }} 
+                            className="mb-4 bg-red-50 border border-red-200 rounded-lg p-4"
+                        >
                             <div className="flex items-center gap-3">
                                 <FiAlertTriangle className="w-5 h-5 text-red-600" />
                                 <div className="flex-1">
                                     <p className="text-red-800 text-sm font-medium">Error loading data</p>
                                     <p className="text-red-600 text-xs">{apiError}</p>
                                 </div>
-                                <button onClick={handleReload} className="px-3 py-1.5 bg-red-100 text-red-700 rounded-lg text-xs font-medium hover:bg-red-200 transition-colors">Retry</button>
+                                <button 
+                                    onClick={handleReload} 
+                                    className="px-3 py-1.5 bg-red-100 text-red-700 rounded-lg text-xs font-medium hover:bg-red-200 transition-colors"
+                                >
+                                    Retry
+                                </button>
                             </div>
                         </motion.div>
                     )}
@@ -319,19 +348,27 @@ const StaffReport = () => {
                     <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
                         <div className="bg-white rounded-lg p-4 border-l-4 border-blue-500 shadow-sm">
                             <p className="text-slate-500 text-xs font-medium uppercase tracking-wider">Total Staff</p>
-                            <h3 className="text-2xl font-bold text-slate-800 mt-1">{globalSummary?.total_staff ?? filteredTaskData.length}</h3>
+                            <h3 className="text-2xl font-bold text-slate-800 mt-1">
+                                {globalSummary?.total_staff ?? filteredTaskData.length}
+                            </h3>
                         </div>
                         <div className="bg-white rounded-lg p-4 border-l-4 border-emerald-500 shadow-sm">
                             <p className="text-slate-500 text-xs font-medium uppercase tracking-wider">Total Tasks</p>
-                            <h3 className="text-2xl font-bold text-slate-800 mt-1">{globalSummary?.total_tasks ?? filteredTaskData.reduce((sum, s) => sum + s.OD + s.DT + s.D7 + s.FT + s.WIP + s.PFC + s.PFD, 0)}</h3>
+                            <h3 className="text-2xl font-bold text-slate-800 mt-1">
+                                {globalSummary?.total_tasks ?? filteredTaskData.reduce((sum, s) => sum + s.OD + s.DT + s.D7 + s.FT + s.WIP + s.PFC + s.PFD, 0)}
+                            </h3>
                         </div>
                         <div className="bg-white rounded-lg p-4 border-l-4 border-red-500 shadow-sm">
                             <p className="text-slate-500 text-xs font-medium uppercase tracking-wider">Overdue</p>
-                            <h3 className="text-2xl font-bold text-slate-800 mt-1">{globalSummary?.global_due_date_breakdown?.overdue ?? filteredTaskData.reduce((sum, s) => sum + s.OD, 0)}</h3>
+                            <h3 className="text-2xl font-bold text-slate-800 mt-1">
+                                {globalSummary?.global_due_date_breakdown?.overdue ?? filteredTaskData.reduce((sum, s) => sum + s.OD, 0)}
+                            </h3>
                         </div>
                         <div className="bg-white rounded-lg p-4 border-l-4 border-purple-500 shadow-sm">
                             <p className="text-slate-500 text-xs font-medium uppercase tracking-wider">In Progress</p>
-                            <h3 className="text-2xl font-bold text-slate-800 mt-1">{globalSummary?.global_status_breakdown?.in_process ?? filteredTaskData.reduce((sum, s) => sum + s.WIP, 0)}</h3>
+                            <h3 className="text-2xl font-bold text-slate-800 mt-1">
+                                {globalSummary?.global_status_breakdown?.in_process ?? filteredTaskData.reduce((sum, s) => sum + s.WIP, 0)}
+                            </h3>
                         </div>
                     </div>
 
@@ -346,22 +383,44 @@ const StaffReport = () => {
                                 </div>
                                 <div className="flex gap-2">
                                     <div className="relative">
-                                        <input type="text" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} onKeyPress={handleKeyPress} placeholder="Search staff..." className="pl-9 pr-3 py-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 w-64" />
+                                        <input 
+                                            type="text" 
+                                            value={searchQuery} 
+                                            onChange={(e) => setSearchQuery(e.target.value)} 
+                                            onKeyPress={handleKeyPress} 
+                                            placeholder="Search staff..." 
+                                            className="pl-9 pr-3 py-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 w-64" 
+                                        />
                                         <FiSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-slate-400" />
                                     </div>
                                     <div className="relative">
-                                        <select value={selectedService} onChange={handleServiceChange} className="pl-9 pr-3 py-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 appearance-none w-40">
+                                        <select 
+                                            value={selectedService} 
+                                            onChange={handleServiceChange} 
+                                            className="pl-9 pr-3 py-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 appearance-none w-40"
+                                        >
                                             <option value="">All Services</option>
-                                            {services.map(service => <option key={service.service_id} value={service.service_id}>{service.name}</option>)}
+                                            {services.map(service => (
+                                                <option key={service.service_id} value={service.service_id}>
+                                                    {service.name}
+                                                </option>
+                                            ))}
                                         </select>
                                         <FiFilter className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-slate-400" />
                                     </div>
                                     {(selectedService || searchQuery) && (
-                                        <button onClick={handleClearFilters} className="px-3 py-2 bg-slate-600 hover:bg-slate-700 text-white rounded-lg text-xs font-medium transition flex items-center gap-1">
+                                        <button 
+                                            onClick={handleClearFilters} 
+                                            className="px-3 py-2 bg-slate-600 hover:bg-slate-700 text-white rounded-lg text-xs font-medium transition flex items-center gap-1"
+                                        >
                                             <FiX className="w-3 h-3" /> Clear
                                         </button>
                                     )}
-                                    <button onClick={handleReload} disabled={loading} className="px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-medium transition flex items-center gap-1">
+                                    <button 
+                                        onClick={handleReload} 
+                                        disabled={loading} 
+                                        className="px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-medium transition flex items-center gap-1"
+                                    >
                                         <FiRefreshCw className={`w-3 h-3 ${loading ? 'animate-spin' : ''}`} /> Refresh
                                     </button>
                                 </div>
@@ -393,7 +452,9 @@ const StaffReport = () => {
                                                         <FiUsers className="w-6 h-6 text-slate-400" />
                                                     </div>
                                                     <p className="text-slate-500 text-sm">No staff records found</p>
-                                                    <button onClick={handleClearFilters} className="mt-3 text-blue-600 text-sm hover:underline">Clear filters</button>
+                                                    <button onClick={handleClearFilters} className="mt-3 text-blue-600 text-sm hover:underline">
+                                                        Clear filters
+                                                    </button>
                                                 </div>
                                             </td>
                                         </tr>
@@ -401,15 +462,25 @@ const StaffReport = () => {
                                         <>
                                             {loading && [...Array(3)].map((_, i) => <SkeletonRow key={i} />)}
                                             {!loading && currentItems.map((staff, idx) => (
-                                                <motion.tr key={staff.username} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: idx * 0.03 }} className="hover:bg-slate-50/80 transition-colors group">
+                                                <motion.tr 
+                                                    key={staff.username} 
+                                                    initial={{ opacity: 0 }} 
+                                                    animate={{ opacity: 1 }} 
+                                                    transition={{ delay: idx * 0.03 }} 
+                                                    className="hover:bg-slate-50/80 transition-colors group"
+                                                >
                                                     <td className="px-4 py-3">
                                                         <div className="flex items-center gap-3">
                                                             <div className="w-9 h-9 bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg flex items-center justify-center shadow-sm">
-                                                                <span className="text-white font-semibold text-sm">{staff.name?.charAt(0).toUpperCase() || 'S'}</span>
+                                                                <span className="text-white font-semibold text-sm">
+                                                                    {staff.name?.charAt(0).toUpperCase() || 'S'}
+                                                                </span>
                                                             </div>
                                                             <div>
                                                                 <div className="font-medium text-slate-800 text-sm">{staff.name}</div>
-                                                                {staff.designation && <div className="text-slate-400 text-xs">{staff.designation}</div>}
+                                                                {staff.designation && (
+                                                                    <div className="text-slate-400 text-xs">{staff.designation}</div>
+                                                                )}
                                                             </div>
                                                         </div>
                                                     </td>
@@ -427,8 +498,13 @@ const StaffReport = () => {
                                                     </td>
                                                     {['OD', 'DT', 'D7', 'FT', 'WIP', 'PFC', 'PFD'].map((type) => (
                                                         <td key={type} className="px-3 py-3 text-center">
-                                                            <div className={`inline-flex items-center justify-center min-w-[48px] px-2 py-1.5 rounded-md ${getMetricBackground(type)} transition-all ${staff[type] > 0 ? 'cursor-pointer hover:shadow-sm' : ''}`} onClick={() => openTaskDetails(type, staff)}>
-                                                                <span className={getMetricClass(staff[type], type)}>{staff[type]}</span>
+                                                            <div 
+                                                                className={`inline-flex items-center justify-center min-w-[48px] px-2 py-1.5 rounded-md ${getMetricBackground(type)} transition-all ${staff[type] > 0 ? 'cursor-pointer hover:shadow-sm' : ''}`} 
+                                                                onClick={() => openTaskDetails(type, staff)}
+                                                            >
+                                                                <span className={getMetricClass(staff[type], type)}>
+                                                                    {staff[type]}
+                                                                </span>
                                                             </div>
                                                         </td>
                                                     ))}
@@ -443,24 +519,63 @@ const StaffReport = () => {
                             {filteredTaskData.length > itemsPerPage && !showAll && !loading && (
                                 <div className="border-t border-slate-200 px-4 py-3 bg-slate-50/50">
                                     <div className="flex justify-between items-center">
-                                        <div className="text-xs text-slate-500">Showing {indexOfFirstItem + 1} to {Math.min(indexOfLastItem, filteredTaskData.length)} of {filteredTaskData.length}</div>
+                                        <div className="text-xs text-slate-500">
+                                            Showing {indexOfFirstItem + 1} to {Math.min(indexOfLastItem, filteredTaskData.length)} of {filteredTaskData.length}
+                                        </div>
                                         <div className="flex gap-1">
-                                            <button onClick={() => setCurrentPage(p => Math.max(p - 1, 1))} disabled={currentPage === 1} className="px-2.5 py-1 text-xs border border-slate-300 rounded hover:bg-white disabled:opacity-50 transition">Prev</button>
+                                            <button 
+                                                onClick={() => setCurrentPage(p => Math.max(p - 1, 1))} 
+                                                disabled={currentPage === 1} 
+                                                className="px-2.5 py-1 text-xs border border-slate-300 rounded hover:bg-white disabled:opacity-50 transition"
+                                            >
+                                                Prev
+                                            </button>
                                             {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                                                let page = currentPage <= 3 ? i + 1 : currentPage >= totalPages - 2 ? totalPages - 4 + i : currentPage - 2 + i;
+                                                let page;
+                                                if (totalPages <= 5) {
+                                                    page = i + 1;
+                                                } else if (currentPage <= 3) {
+                                                    page = i + 1;
+                                                } else if (currentPage >= totalPages - 2) {
+                                                    page = totalPages - 4 + i;
+                                                } else {
+                                                    page = currentPage - 2 + i;
+                                                }
                                                 return (
-                                                    <button key={page} onClick={() => setCurrentPage(page)} className={`px-2.5 py-1 text-xs rounded transition ${currentPage === page ? 'bg-blue-600 text-white' : 'border border-slate-300 hover:bg-white'}`}>{page}</button>
+                                                    <button 
+                                                        key={page} 
+                                                        onClick={() => setCurrentPage(page)} 
+                                                        className={`px-2.5 py-1 text-xs rounded transition ${currentPage === page ? 'bg-blue-600 text-white' : 'border border-slate-300 hover:bg-white'}`}
+                                                    >
+                                                        {page}
+                                                    </button>
                                                 );
                                             })}
-                                            <button onClick={() => setCurrentPage(p => Math.min(p + 1, totalPages))} disabled={currentPage === totalPages} className="px-2.5 py-1 text-xs border border-slate-300 rounded hover:bg-white disabled:opacity-50 transition">Next</button>
-                                            <button onClick={() => setShowAll(true)} className="px-2.5 py-1 text-xs border border-slate-300 rounded hover:bg-white transition ml-2">Show All</button>
+                                            <button 
+                                                onClick={() => setCurrentPage(p => Math.min(p + 1, totalPages))} 
+                                                disabled={currentPage === totalPages} 
+                                                className="px-2.5 py-1 text-xs border border-slate-300 rounded hover:bg-white disabled:opacity-50 transition"
+                                            >
+                                                Next
+                                            </button>
+                                            <button 
+                                                onClick={() => setShowAll(true)} 
+                                                className="px-2.5 py-1 text-xs border border-slate-300 rounded hover:bg-white transition ml-2"
+                                            >
+                                                Show All
+                                            </button>
                                         </div>
                                     </div>
                                 </div>
                             )}
                             {showAll && filteredTaskData.length > itemsPerPage && (
                                 <div className="border-t border-slate-200 px-4 py-3 bg-slate-50/50 text-center">
-                                    <button onClick={() => { setShowAll(false); setCurrentPage(1); }} className="px-3 py-1 text-xs border border-slate-300 rounded hover:bg-white transition flex items-center gap-1 mx-auto">Show Less <FiChevronUp className="w-3 h-3" /></button>
+                                    <button 
+                                        onClick={() => { setShowAll(false); setCurrentPage(1); }} 
+                                        className="px-3 py-1 text-xs border border-slate-300 rounded hover:bg-white transition flex items-center gap-1 mx-auto"
+                                    >
+                                        Show Less <FiChevronUp className="w-3 h-3" />
+                                    </button>
                                 </div>
                             )}
                         </div>
