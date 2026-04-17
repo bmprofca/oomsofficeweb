@@ -21,11 +21,12 @@ import {
 import toast from 'react-hot-toast';
 import API_BASE_URL from '../utils/api-controller';
 import getHeaders from '../utils/get-headers';
-import { DateRangePickerField, DEFAULT_LOAN_QUICK_KEYS } from '../components/PortalDatePicker';
+import { DateRangePickerField } from '../components/PortalDatePicker';
 
 // ─── helpers ────────────────────────────────────────────────────────────────
 
 const LIMIT_OPTIONS = [5, 10, 20, 50, 100];
+const DEFAULT_LOAN_QUICK_KEYS = ['td', 'yd', 'tm', 'lm', 'tw', 'lw', 'fy', 'lf'];
 
 const pad = (n) => String(n).padStart(2, '0');
 

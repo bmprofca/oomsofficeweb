@@ -1,14 +1,16 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  FiPlus, FiEdit, FiTrash, FiArrowLeft, FiMoreVertical, FiCheck, FiSearch, 
-  FiEye, FiEyeOff, FiX, FiPhone, FiMail, FiCopy , FiShare2   
+import {
+    FiPlus, FiEdit, FiTrash, FiArrowLeft, FiMoreVertical, FiCheck, FiSearch,
+    FiEye, FiEyeOff, FiX, FiPhone, FiMail, FiCopy, FiShare2
 } from 'react-icons/fi';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Header, Sidebar } from '../components/header';
 import API_BASE_URL from '../utils/api-controller';
 import getHeaders from '../utils/get-headers';
-import { useParams, useLocation, useNavigate } from 'react-router-dom';
+import { useParams, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { toast, Toaster } from 'react-hot-toast';
+import { passwordGroupService } from '../services/passwordGroupService';
+import useDebouncedValue from '../hooks/useDebouncedValue';
 
 // Professional Toast Configuration
 const toastConfig = {
@@ -110,231 +112,231 @@ const showToast = {
 
 // View Credential Modal
 const ViewCredentialModal = ({ credential, onClose }) => {
-  const [showPassword, setShowPassword] = useState(false);
-  
-  const copyToClipboard = (text, label) => {
-    navigator.clipboard.writeText(text);
-    showToast.success(`${label} copied to clipboard`);
-  };
+    const [showPassword, setShowPassword] = useState(false);
 
-  if (!credential) return null;
+    const copyToClipboard = (text, label) => {
+        navigator.clipboard.writeText(text);
+        showToast.success(`${label} copied to clipboard`);
+    };
 
-  return (
-    <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50 backdrop-blur-sm"
-      onClick={onClose}
-    >
-      <motion.div
-        initial={{ scale: 0.9, y: 20 }}
-        animate={{ scale: 1, y: 0 }}
-        exit={{ scale: 0.9, y: 20 }}
-        className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl mx-auto overflow-hidden"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="bg-gradient-to-r from-blue-600 to-indigo-700 px-6 py-5">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-white/20 rounded-xl">
-                <FiEye className="w-5 h-5 text-white" />
-              </div>
-              <div>
-                <h3 className="text-lg font-semibold text-white">Credential Details</h3>
-                <p className="text-xs text-blue-100 mt-1">View complete credential information</p>
-              </div>
-            </div>
-            <button
-              onClick={onClose}
-              className="p-2 hover:bg-white/10 rounded-lg transition-colors"
-            >
-              <FiX className="w-5 h-5 text-white" />
-            </button>
-          </div>
-        </div>
+    if (!credential) return null;
 
-        <div className="px-6 py-6 max-h-[70vh] overflow-y-auto">
-          {/* Firm Details Section */}
-          <div className="mb-6">
-            <h4 className="text-sm font-semibold text-slate-400 uppercase tracking-wider mb-3">Firm Information</h4>
-            <div className="bg-slate-50 rounded-xl p-4 border border-slate-200">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <p className="text-xs text-slate-500">Firm Name</p>
-                  <p className="text-sm font-medium text-slate-800 mt-1">{credential.firm?.firm_name || 'N/A'}</p>
-                </div>
-                <div>
-                  <p className="text-xs text-slate-500">Firm Type</p>
-                  <p className="text-sm font-medium text-slate-800 mt-1">{credential.firm?.firm_type || 'N/A'}</p>
-                </div>
-                <div>
-                  <p className="text-xs text-slate-500">PAN Number</p>
-                  <p className="text-sm font-medium text-slate-800 mt-1">{credential.firm?.pan_no || 'N/A'}</p>
-                </div>
-                <div>
-                  <p className="text-xs text-slate-500">GST Number</p>
-                  <p className="text-sm font-medium text-slate-800 mt-1">{credential.firm?.gst_no || 'N/A'}</p>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Client Details Section */}
-          {credential.owner && (
-            <div className="mb-6">
-              <h4 className="text-sm font-semibold text-slate-400 uppercase tracking-wider mb-3">Client Information</h4>
-              <div className="bg-slate-50 rounded-xl p-4 border border-slate-200">
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="col-span-2">
-                    <p className="text-xs text-slate-500">Client Name</p>
-                    <p className="text-sm font-medium text-slate-800 mt-1">{credential.owner.name || 'N/A'}</p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-slate-500">Mobile Number</p>
-                    <div className="flex items-center gap-2 mt-1">
-                      <FiPhone className="w-4 h-4 text-slate-400" />
-                      <p className="text-sm font-medium text-slate-800">{credential.owner.mobile || 'N/A'}</p>
-                    </div>
-                  </div>
-                  <div>
-                    <p className="text-xs text-slate-500">Email Address</p>
-                    <div className="flex items-center gap-2 mt-1">
-                      <FiMail className="w-4 h-4 text-slate-400" />
-                      <p className="text-sm font-medium text-slate-800">{credential.owner.email || 'N/A'}</p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Credential Details Section */}
-          <div className="mb-6">
-            <h4 className="text-sm font-semibold text-slate-400 uppercase tracking-wider mb-3">Credential Information</h4>
-            <div className="bg-slate-50 rounded-xl p-4 border border-slate-200">
-              <div className="space-y-4">
-                {/* Username with Copy */}
-                <div>
-                  <p className="text-xs text-slate-500">Username</p>
-                  <div className="flex items-center justify-between mt-1">
-                    <p className="text-sm font-medium text-slate-800">{credential.credential?.username || 'N/A'}</p>
-                    <button
-                      onClick={() => copyToClipboard(credential.credential?.username, 'Username')}
-                      className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                      title="Copy username"
-                    >
-                      <FiCopy className="w-4 h-4" />
-                    </button>
-                  </div>
-                </div>
-
-                {/* Password with Copy and Toggle */}
-                <div>
-                  <p className="text-xs text-slate-500">Password</p>
-                  <div className="flex items-center justify-between mt-1">
-                    <p className="text-sm font-mono font-medium text-slate-800">
-                      {showPassword ? credential.credential?.password : '••••••••'}
-                    </p>
-                    <div className="flex items-center gap-2">
-                      <button
-                        onClick={() => setShowPassword(!showPassword)}
-                        className="p-2 text-slate-600 hover:bg-slate-100 rounded-lg transition-colors"
-                        title={showPassword ? 'Hide password' : 'Show password'}
-                      >
-                        {showPassword ? <FiEyeOff className="w-4 h-4" /> : <FiEye className="w-4 h-4" />}
-                      </button>
-                      <button
-                        onClick={() => copyToClipboard(credential.credential?.password, 'Password')}
-                        className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                        title="Copy password"
-                      >
-                        <FiCopy className="w-4 h-4" />
-                      </button>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Description */}
-                {credential.credential?.description && (
-                  <div>
-                    <p className="text-xs text-slate-500">Description</p>
-                    <p className="text-sm text-slate-700 mt-1">{credential.credential.description}</p>
-                  </div>
-                )}
-
-                {/* Status */}
-                <div>
-                  <p className="text-xs text-slate-500">Status</p>
-                  <div className="mt-1">
-                    <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
-                      credential.credential?.status === 'active' 
-                        ? 'bg-green-100 text-green-700 border border-green-200' 
-                        : 'bg-slate-100 text-slate-600 border border-slate-200'
-                    }`}>
-                      {credential.credential?.status || 'inactive'}
-                    </span>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Metadata Section */}
-          <div>
-            <h4 className="text-sm font-semibold text-slate-400 uppercase tracking-wider mb-3">Additional Information</h4>
-            <div className="bg-slate-50 rounded-xl p-4 border border-slate-200">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <p className="text-xs text-slate-500">Created Date</p>
-                  <p className="text-sm font-medium text-slate-800 mt-1">
-                    {credential.credential?.created_at ? new Date(credential.credential.created_at).toLocaleString() : 'N/A'}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-xs text-slate-500">Created By</p>
-                  <p className="text-sm font-medium text-slate-800 mt-1">
-                    {credential.credential?.created_by?.name || credential.credential?.created_by || 'N/A'}
-                  </p>
-                </div>
-                {credential.credential?.updated_at && (
-                  <>
-                    <div>
-                      <p className="text-xs text-slate-500">Last Updated</p>
-                      <p className="text-sm font-medium text-slate-800 mt-1">
-                        {new Date(credential.credential.updated_at).toLocaleString()}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-xs text-slate-500">Updated By</p>
-                      <p className="text-sm font-medium text-slate-800 mt-1">
-                        {credential.credential?.updated_by?.name || credential.credential?.updated_by || 'N/A'}
-                      </p>
-                    </div>
-                  </>
-                )}
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div className="px-6 py-4 border-t border-slate-200 bg-slate-50/50 flex justify-end">
-          <button
+    return (
+        <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50 backdrop-blur-sm"
             onClick={onClose}
-            className="px-6 py-2.5 bg-gradient-to-r from-slate-600 to-slate-700 hover:from-slate-700 hover:to-slate-800 text-white text-sm font-medium rounded-xl shadow-lg shadow-slate-200 hover:shadow-xl transition-all duration-200"
-          >
-            Close
-          </button>
-        </div>
-      </motion.div>
-    </motion.div>
-  );
+        >
+            <motion.div
+                initial={{ scale: 0.9, y: 20 }}
+                animate={{ scale: 1, y: 0 }}
+                exit={{ scale: 0.9, y: 20 }}
+                className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl mx-auto overflow-hidden"
+                onClick={(e) => e.stopPropagation()}
+            >
+                <div className="bg-gradient-to-r from-blue-600 to-indigo-700 px-6 py-5">
+                    <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                            <div className="p-2 bg-white/20 rounded-xl">
+                                <FiEye className="w-5 h-5 text-white" />
+                            </div>
+                            <div>
+                                <h3 className="text-lg font-semibold text-white">Credential Details</h3>
+                                <p className="text-xs text-blue-100 mt-1">View complete credential information</p>
+                            </div>
+                        </div>
+                        <button
+                            onClick={onClose}
+                            className="p-2 hover:bg-white/10 rounded-lg transition-colors"
+                        >
+                            <FiX className="w-5 h-5 text-white" />
+                        </button>
+                    </div>
+                </div>
+
+                <div className="px-6 py-6 max-h-[70vh] overflow-y-auto">
+                    {/* Firm Details Section */}
+                    <div className="mb-6">
+                        <h4 className="text-sm font-semibold text-slate-400 uppercase tracking-wider mb-3">Firm Information</h4>
+                        <div className="bg-slate-50 rounded-xl p-4 border border-slate-200">
+                            <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                    <p className="text-xs text-slate-500">Firm Name</p>
+                                    <p className="text-sm font-medium text-slate-800 mt-1">{credential.firm?.firm_name || 'N/A'}</p>
+                                </div>
+                                <div>
+                                    <p className="text-xs text-slate-500">Firm Type</p>
+                                    <p className="text-sm font-medium text-slate-800 mt-1">{credential.firm?.firm_type || 'N/A'}</p>
+                                </div>
+                                <div>
+                                    <p className="text-xs text-slate-500">PAN Number</p>
+                                    <p className="text-sm font-medium text-slate-800 mt-1">{credential.firm?.pan_no || 'N/A'}</p>
+                                </div>
+                                <div>
+                                    <p className="text-xs text-slate-500">GST Number</p>
+                                    <p className="text-sm font-medium text-slate-800 mt-1">{credential.firm?.gst_no || 'N/A'}</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Client Details Section */}
+                    {credential.owner && (
+                        <div className="mb-6">
+                            <h4 className="text-sm font-semibold text-slate-400 uppercase tracking-wider mb-3">Client Information</h4>
+                            <div className="bg-slate-50 rounded-xl p-4 border border-slate-200">
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div className="col-span-2">
+                                        <p className="text-xs text-slate-500">Client Name</p>
+                                        <p className="text-sm font-medium text-slate-800 mt-1">{credential.owner.name || 'N/A'}</p>
+                                    </div>
+                                    <div>
+                                        <p className="text-xs text-slate-500">Mobile Number</p>
+                                        <div className="flex items-center gap-2 mt-1">
+                                            <FiPhone className="w-4 h-4 text-slate-400" />
+                                            <p className="text-sm font-medium text-slate-800">{credential.owner.mobile || 'N/A'}</p>
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <p className="text-xs text-slate-500">Email Address</p>
+                                        <div className="flex items-center gap-2 mt-1">
+                                            <FiMail className="w-4 h-4 text-slate-400" />
+                                            <p className="text-sm font-medium text-slate-800">{credential.owner.email || 'N/A'}</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Credential Details Section */}
+                    <div className="mb-6">
+                        <h4 className="text-sm font-semibold text-slate-400 uppercase tracking-wider mb-3">Credential Information</h4>
+                        <div className="bg-slate-50 rounded-xl p-4 border border-slate-200">
+                            <div className="space-y-4">
+                                {/* Username with Copy */}
+                                <div>
+                                    <p className="text-xs text-slate-500">Username</p>
+                                    <div className="flex items-center justify-between mt-1">
+                                        <p className="text-sm font-medium text-slate-800">{credential.credential?.username || 'N/A'}</p>
+                                        <button
+                                            onClick={() => copyToClipboard(credential.credential?.username, 'Username')}
+                                            className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                                            title="Copy username"
+                                        >
+                                            <FiCopy className="w-4 h-4" />
+                                        </button>
+                                    </div>
+                                </div>
+
+                                {/* Password with Copy and Toggle */}
+                                <div>
+                                    <p className="text-xs text-slate-500">Password</p>
+                                    <div className="flex items-center justify-between mt-1">
+                                        <p className="text-sm font-mono font-medium text-slate-800">
+                                            {showPassword ? credential.credential?.password : '••••••••'}
+                                        </p>
+                                        <div className="flex items-center gap-2">
+                                            <button
+                                                onClick={() => setShowPassword(!showPassword)}
+                                                className="p-2 text-slate-600 hover:bg-slate-100 rounded-lg transition-colors"
+                                                title={showPassword ? 'Hide password' : 'Show password'}
+                                            >
+                                                {showPassword ? <FiEyeOff className="w-4 h-4" /> : <FiEye className="w-4 h-4" />}
+                                            </button>
+                                            <button
+                                                onClick={() => copyToClipboard(credential.credential?.password, 'Password')}
+                                                className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                                                title="Copy password"
+                                            >
+                                                <FiCopy className="w-4 h-4" />
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Description */}
+                                {credential.credential?.description && (
+                                    <div>
+                                        <p className="text-xs text-slate-500">Description</p>
+                                        <p className="text-sm text-slate-700 mt-1">{credential.credential.description}</p>
+                                    </div>
+                                )}
+
+                                {/* Status */}
+                                <div>
+                                    <p className="text-xs text-slate-500">Status</p>
+                                    <div className="mt-1">
+                                        <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${credential.credential?.status === 'active'
+                                            ? 'bg-green-100 text-green-700 border border-green-200'
+                                            : 'bg-slate-100 text-slate-600 border border-slate-200'
+                                            }`}>
+                                            {credential.credential?.status || 'inactive'}
+                                        </span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Metadata Section */}
+                    <div>
+                        <h4 className="text-sm font-semibold text-slate-400 uppercase tracking-wider mb-3">Additional Information</h4>
+                        <div className="bg-slate-50 rounded-xl p-4 border border-slate-200">
+                            <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                    <p className="text-xs text-slate-500">Created Date</p>
+                                    <p className="text-sm font-medium text-slate-800 mt-1">
+                                        {credential.credential?.created_at ? new Date(credential.credential.created_at).toLocaleString() : 'N/A'}
+                                    </p>
+                                </div>
+                                <div>
+                                    <p className="text-xs text-slate-500">Created By</p>
+                                    <p className="text-sm font-medium text-slate-800 mt-1">
+                                        {credential.credential?.created_by?.name || credential.credential?.created_by || 'N/A'}
+                                    </p>
+                                </div>
+                                {credential.credential?.updated_at && (
+                                    <>
+                                        <div>
+                                            <p className="text-xs text-slate-500">Last Updated</p>
+                                            <p className="text-sm font-medium text-slate-800 mt-1">
+                                                {new Date(credential.credential.updated_at).toLocaleString()}
+                                            </p>
+                                        </div>
+                                        <div>
+                                            <p className="text-xs text-slate-500">Updated By</p>
+                                            <p className="text-sm font-medium text-slate-800 mt-1">
+                                                {credential.credential?.updated_by?.name || credential.credential?.updated_by || 'N/A'}
+                                            </p>
+                                        </div>
+                                    </>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div className="px-6 py-4 border-t border-slate-200 bg-slate-50/50 flex justify-end">
+                    <button
+                        onClick={onClose}
+                        className="px-6 py-2.5 bg-gradient-to-r from-slate-600 to-slate-700 hover:from-slate-700 hover:to-slate-800 text-white text-sm font-medium rounded-xl shadow-lg shadow-slate-200 hover:shadow-xl transition-all duration-200"
+                    >
+                        Close
+                    </button>
+                </div>
+            </motion.div>
+        </motion.div>
+    );
 };
 
 const PasswordGroupFirms = () => {
     const { group_id } = useParams();
     const location = useLocation();
     const navigate = useNavigate();
+    const [searchParams, setSearchParams] = useSearchParams();
     const group_name = location.state?.group_name || 'Group';
 
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -350,14 +352,14 @@ const PasswordGroupFirms = () => {
     const [showDeleteModal, setShowDeleteModal] = useState(false);
     const [showViewModal, setShowViewModal] = useState(false);
     const [selectedCredential, setSelectedCredential] = useState(null);
-    const [searchTerm, setSearchTerm] = useState('');
+    const [searchTerm, setSearchTerm] = useState(searchParams.get('search') || '');
     const [firms, setFirms] = useState([]);
     const [firmsLoading, setFirmsLoading] = useState(false);
     const [activeDropdown, setActiveDropdown] = useState(null);
     const [showPassword, setShowPassword] = useState({});
     const [pagination, setPagination] = useState({
-        page: 1,
-        limit: 20,
+        page: Number(searchParams.get('page_no')) || 1,
+        limit: Number(searchParams.get('limit')) || 20,
         total: 0,
         total_pages: 1,
         is_last_page: false
@@ -400,10 +402,12 @@ const PasswordGroupFirms = () => {
         };
     }, [mobileMenuOpen]);
 
+    const debouncedSearch = useDebouncedValue(searchTerm, 300);
+
     // Fetch group firms data
     useEffect(() => {
-        fetchGroupFirms();
-    }, [group_id, pagination.page]);
+        fetchGroupFirms(group_id, pagination.page, pagination.limit, debouncedSearch);
+    }, [group_id, pagination.page, pagination.limit, debouncedSearch]);
 
     // Debounced firm search
     useEffect(() => {
@@ -419,45 +423,31 @@ const PasswordGroupFirms = () => {
         return () => clearTimeout(delayDebounce);
     }, [firmSearchQuery, showAddModal]);
 
-    // Filter credentials when search term changes
-    useEffect(() => {
-        const delayDebounce = setTimeout(() => {
-            if (searchTerm) {
-                const filtered = credentials.filter(cred => 
-                    cred.firm?.firm_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                    cred.credential?.username?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                    cred.credential?.description?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                    cred.owner?.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                    cred.owner?.mobile?.includes(searchTerm)
-                );
-                setFilteredCredentials(filtered);
-            } else {
-                setFilteredCredentials(credentials);
-            }
-        }, 500);
-
-        return () => clearTimeout(delayDebounce);
-    }, [searchTerm, credentials]);
-
-    const fetchGroupFirms = async () => {
+    const fetchGroupFirms = async (currentGroupId = group_id, pageNo = pagination.page, limitValue = pagination.limit, searchValue = searchTerm) => {
         setLoading(true);
         try {
-            const headers = await getHeaders();
-            const response = await fetch(
-                `${API_BASE_URL}/assistance/password-group/list/${group_id}?page=${pagination.page}&limit=${pagination.limit}`,
-                { headers }
-            );
-            const result = await response.json();
+            const response = await passwordGroupService.listFirmCredentials(currentGroupId, {
+                page_no: Math.max(1, Number(pageNo) || 1),
+                limit: Math.min(100, Math.max(1, Number(limitValue) || 20)),
+                search: searchValue || '',
+            });
+            const result = response.data;
 
             if (result.success) {
-                setCredentials(result.data.credentials || []);
-                setFilteredCredentials(result.data.credentials || []);
+                const rows = Array.isArray(result.data) ? result.data : (result.data?.credentials || []);
+                setCredentials(rows);
+                setFilteredCredentials(rows);
                 setPagination({
-                    page: result.meta.page,
-                    limit: result.meta.limit,
-                    total: result.meta.total,
-                    total_pages: result.meta.total_pages,
-                    is_last_page: result.meta.is_last_page
+                    page: result.meta?.page || pageNo,
+                    limit: result.meta?.limit || limitValue,
+                    total: result.meta?.total || 0,
+                    total_pages: result.meta?.total_pages || 1,
+                    is_last_page: result.meta?.is_last_page || false
+                });
+                setSearchParams({
+                    page_no: String(result.meta?.page || pageNo || 1),
+                    limit: String(result.meta?.limit || limitValue || 20),
+                    ...(searchValue?.trim() ? { search: searchValue.trim() } : {}),
                 });
             } else {
                 showToast.error(result.message || 'Failed to fetch credentials');
@@ -479,18 +469,18 @@ const PasswordGroupFirms = () => {
 
         setFirmsLoading(true);
         setSearchPerformed(true);
-        
+
         try {
             const headers = await getHeaders();
             const url = `${API_BASE_URL}/firm/search?search=${encodeURIComponent(searchQuery)}`;
-            
+
             const response = await fetch(url, { headers });
             const result = await response.json();
 
             if (result.success) {
                 // Handle different possible response structures
                 let firmsData = [];
-                
+
                 if (Array.isArray(result.data)) {
                     firmsData = result.data;
                 } else if (result.data && typeof result.data === 'object') {
@@ -507,9 +497,9 @@ const PasswordGroupFirms = () => {
                         }
                     }
                 }
-                
+
                 setFirms(firmsData);
-                
+
                 if (firmsData.length === 0) {
                     showToast.info(`No firms found matching "${searchQuery}"`);
                 }
@@ -529,17 +519,17 @@ const PasswordGroupFirms = () => {
 
     const handleAddCredential = async (e) => {
         e.preventDefault();
-        
+
         if (!addForm.firm_id) {
             showToast.error('Please select a firm');
             return;
         }
-        
+
         if (!addForm.username.trim()) {
             showToast.error('Please enter a username');
             return;
         }
-        
+
         if (!addForm.password.trim()) {
             showToast.error('Please enter a password');
             return;
@@ -548,13 +538,14 @@ const PasswordGroupFirms = () => {
         const loadingToast = showToast.loading('Adding credential...');
 
         try {
-            const headers = await getHeaders();
-            const response = await fetch(`${API_BASE_URL}/assistance/password-group/add`, {
-                method: 'POST',
-                headers,
-                body: JSON.stringify(addForm)
+            const response = await passwordGroupService.createFirmCredential({
+                group_id: addForm.group_id,
+                firm_id: addForm.firm_id,
+                username: addForm.username?.trim(),
+                password: addForm.password,
+                description: addForm.description?.trim() || undefined,
             });
-            const result = await response.json();
+            const result = response.data;
 
             showToast.dismiss(loadingToast);
 
@@ -584,12 +575,12 @@ const PasswordGroupFirms = () => {
 
     const handleEditCredential = async (e) => {
         e.preventDefault();
-        
+
         if (!editForm.username.trim()) {
             showToast.error('Please enter a username');
             return;
         }
-        
+
         if (!editForm.password.trim()) {
             showToast.error('Please enter a password');
             return;
@@ -598,18 +589,13 @@ const PasswordGroupFirms = () => {
         const loadingToast = showToast.loading('Updating credential...');
 
         try {
-            const headers = await getHeaders();
-            const response = await fetch(`${API_BASE_URL}/assistance/password-group/edit/${editForm.credential_id}`, {
-                method: 'PUT',
-                headers,
-                body: JSON.stringify({
-                    username: editForm.username,
-                    password: editForm.password,
-                    description: editForm.description,
-                    status: editForm.status
-                })
+            const response = await passwordGroupService.editFirmCredential(editForm.credential_id, {
+                username: editForm.username?.trim(),
+                password: editForm.password,
+                description: editForm.description?.trim() || null,
+                status: editForm.status,
             });
-            const result = await response.json();
+            const result = response.data;
 
             showToast.dismiss(loadingToast);
 
@@ -641,12 +627,8 @@ const PasswordGroupFirms = () => {
         const loadingToast = showToast.loading('Deleting credential...');
 
         try {
-            const headers = await getHeaders();
-            const response = await fetch(`${API_BASE_URL}/assistance/password-group/delete/${selectedCredential.credential.credential_id}`, {
-                method: 'DELETE',
-                headers
-            });
-            const result = await response.json();
+            const response = await passwordGroupService.deleteFirmCredential(selectedCredential.credential.credential_id);
+            const result = response.data;
 
             showToast.dismiss(loadingToast);
 
@@ -727,14 +709,14 @@ const PasswordGroupFirms = () => {
     };
 
     const handleSelectFirm = (firm) => {
-        setAddForm({...addForm, firm_id: firm.firm_id || firm.id});
+        setAddForm({ ...addForm, firm_id: firm.firm_id || firm.id });
         setFirmSearchQuery(firm.firm_name || firm.name || '');
         setFirms([]);
         setSearchPerformed(false);
     };
 
     const handleClearSelectedFirm = () => {
-        setAddForm({...addForm, firm_id: ''});
+        setAddForm({ ...addForm, firm_id: '' });
         setFirmSearchQuery('');
         setFirms([]);
         setSearchPerformed(false);
@@ -821,7 +803,7 @@ const PasswordGroupFirms = () => {
                                         </p>
                                     </div>
                                 </div>
-                                
+
                                 <div className="flex justify-end">
                                     <motion.button
                                         onClick={() => setShowAddModal(true)}
@@ -909,17 +891,35 @@ const PasswordGroupFirms = () => {
                             </motion.div>
                         </div>
 
-                        {/* Search Bar */}
-                        <div className="mb-4">
+                        {/* Search + Pagination Controls */}
+                        <div className="mb-4 grid grid-cols-1 md:grid-cols-[1fr_auto] gap-3">
                             <div className="relative">
                                 <input
                                     type="text"
                                     value={searchTerm}
-                                    onChange={(e) => setSearchTerm(e.target.value)}
+                                    onChange={(e) => {
+                                        setSearchTerm(e.target.value);
+                                        setPagination(prev => ({ ...prev, page: 1 }));
+                                    }}
                                     placeholder="Search by firm name, username, description, or client details..."
                                     className="w-full pl-10 pr-4 py-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-white shadow-sm"
                                 />
                                 <FiSearch className="absolute left-3 top-3.5 w-4 h-4 text-slate-400" />
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <label className="text-xs text-slate-500 font-medium">Rows</label>
+                                <select
+                                    value={pagination.limit}
+                                    onChange={(e) => {
+                                        const nextLimit = Math.min(100, Math.max(1, Number(e.target.value) || 20));
+                                        setPagination(prev => ({ ...prev, page: 1, limit: nextLimit }));
+                                    }}
+                                    className="px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                >
+                                    <option value={20}>20</option>
+                                    <option value={50}>50</option>
+                                    <option value={100}>100</option>
+                                </select>
                             </div>
                         </div>
 
@@ -961,8 +961,8 @@ const PasswordGroupFirms = () => {
                                                             No credentials found
                                                         </p>
                                                         <p className="text-slate-400 text-sm mb-6">
-                                                            {searchTerm 
-                                                                ? `No results for "${searchTerm}"` 
+                                                            {searchTerm
+                                                                ? `No results for "${searchTerm}"`
                                                                 : 'Get started by adding credentials to this group'}
                                                         </p>
                                                         <button
@@ -989,7 +989,7 @@ const PasswordGroupFirms = () => {
                                                             {((pagination.page - 1) * pagination.limit) + index + 1}
                                                         </span>
                                                     </td>
-                                                    
+
                                                     {/* Firm Details */}
                                                     <td className="px-4 py-4">
                                                         <div className="text-sm font-semibold text-slate-800">
@@ -1039,8 +1039,8 @@ const PasswordGroupFirms = () => {
                                                                 <span className="text-xs font-medium text-slate-500 w-16">Password:</span>
                                                                 <div className="flex items-center gap-2">
                                                                     <span className="text-sm text-slate-700 font-mono">
-                                                                        {showPassword[item.credential?.credential_id] 
-                                                                            ? item.credential?.password 
+                                                                        {showPassword[item.credential?.credential_id]
+                                                                            ? item.credential?.password
                                                                             : '••••••••'}
                                                                     </span>
                                                                     <button
@@ -1048,7 +1048,7 @@ const PasswordGroupFirms = () => {
                                                                         className="p-1 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-all"
                                                                         title={showPassword[item.credential?.credential_id] ? 'Hide password' : 'Show password'}
                                                                     >
-                                                                        {showPassword[item.credential?.credential_id] 
+                                                                        {showPassword[item.credential?.credential_id]
                                                                             ? <FiEyeOff className="w-3.5 h-3.5" />
                                                                             : <FiEye className="w-3.5 h-3.5" />
                                                                         }
@@ -1056,11 +1056,10 @@ const PasswordGroupFirms = () => {
                                                                 </div>
                                                             </div>
                                                             <div>
-                                                                <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
-                                                                    item.credential?.status === 'active' 
-                                                                        ? 'bg-green-100 text-green-700 border border-green-200' 
-                                                                        : 'bg-slate-100 text-slate-600 border border-slate-200'
-                                                                }`}>
+                                                                <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${item.credential?.status === 'active'
+                                                                    ? 'bg-green-100 text-green-700 border border-green-200'
+                                                                    : 'bg-slate-100 text-slate-600 border border-slate-200'
+                                                                    }`}>
                                                                     {item.credential?.status || 'inactive'}
                                                                 </span>
                                                             </div>
@@ -1074,46 +1073,46 @@ const PasswordGroupFirms = () => {
                                                         </div>
                                                     </td>
 
-                                                   {/* Created By */}
-<td className="px-4 py-4 whitespace-nowrap">
-    {item.credential?.created_by?.name ? (
-        <div>
-            <div className="text-sm font-medium text-slate-800">
-                {item.credential.created_by.name}
-            </div>
-            <div className="text-xs text-slate-500 mt-1">
-                {formatDate(item.create_date || item.credential?.created_at)}
-            </div>
-        </div>
-    ) : (
-        <div className="text-sm text-slate-500">—</div>
-    )}
-</td>
+                                                    {/* Created By */}
+                                                    <td className="px-4 py-4 whitespace-nowrap">
+                                                        {item.credential?.created_by?.name ? (
+                                                            <div>
+                                                                <div className="text-sm font-medium text-slate-800">
+                                                                    {item.credential.created_by.name}
+                                                                </div>
+                                                                <div className="text-xs text-slate-500 mt-1">
+                                                                    {formatDate(item.create_date || item.credential?.created_at)}
+                                                                </div>
+                                                            </div>
+                                                        ) : (
+                                                            <div className="text-sm text-slate-500">—</div>
+                                                        )}
+                                                    </td>
                                                     {/* Actions */}
                                                     <td className="px-4 py-4 whitespace-nowrap text-right">
                                                         <div className="dropdown-container relative">
-                                                               <button
-            onClick={() => {
-                // Share functionality
-                if (navigator.share) {
-                    navigator.share({
-                        title: `${item.firm?.firm_name} Credentials`,
-                        text: `Username: ${item.credential?.username}\nPassword: ${item.credential?.password}`,
-                        url: window.location.href,
-                    }).catch(console.error);
-                } else {
-                    // Fallback - copy to clipboard or show toast
-                    navigator.clipboard.writeText(
-                        `Firm: ${item.firm?.firm_name}\nUsername: ${item.credential?.username}\nPassword: ${item.credential?.password}`
-                    );
-                    showToast.success('Credential details copied to clipboard');
-                }
-            }}
-            className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all duration-200"
-            title="Share credentials"
-        >
-            <FiShare2 className="w-5 h-5" />
-        </button>
+                                                            <button
+                                                                onClick={() => {
+                                                                    // Share functionality
+                                                                    if (navigator.share) {
+                                                                        navigator.share({
+                                                                            title: `${item.firm?.firm_name} Credentials`,
+                                                                            text: `Username: ${item.credential?.username}\nPassword: ${item.credential?.password}`,
+                                                                            url: window.location.href,
+                                                                        }).catch(console.error);
+                                                                    } else {
+                                                                        // Fallback - copy to clipboard or show toast
+                                                                        navigator.clipboard.writeText(
+                                                                            `Firm: ${item.firm?.firm_name}\nUsername: ${item.credential?.username}\nPassword: ${item.credential?.password}`
+                                                                        );
+                                                                        showToast.success('Credential details copied to clipboard');
+                                                                    }
+                                                                }}
+                                                                className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all duration-200"
+                                                                title="Share credentials"
+                                                            >
+                                                                <FiShare2 className="w-5 h-5" />
+                                                            </button>
                                                             <button
                                                                 className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-all duration-200"
                                                                 onClick={() => toggleDropdown(item.credential?.credential_id)}
@@ -1222,11 +1221,10 @@ const PasswordGroupFirms = () => {
                                         <button
                                             onClick={handlePrevPage}
                                             disabled={pagination.page === 1}
-                                            className={`inline-flex items-center px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
-                                                pagination.page === 1
-                                                    ? 'text-slate-400 cursor-not-allowed'
-                                                    : 'text-slate-700 hover:bg-indigo-50 hover:text-indigo-600'
-                                            }`}
+                                            className={`inline-flex items-center px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${pagination.page === 1
+                                                ? 'text-slate-400 cursor-not-allowed'
+                                                : 'text-slate-700 hover:bg-indigo-50 hover:text-indigo-600'
+                                                }`}
                                         >
                                             Previous
                                         </button>
@@ -1236,11 +1234,10 @@ const PasswordGroupFirms = () => {
                                         <button
                                             onClick={handleNextPage}
                                             disabled={pagination.is_last_page}
-                                            className={`inline-flex items-center px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
-                                                pagination.is_last_page
-                                                    ? 'text-slate-400 cursor-not-allowed'
-                                                    : 'text-slate-700 hover:bg-indigo-50 hover:text-indigo-600'
-                                            }`}
+                                            className={`inline-flex items-center px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${pagination.is_last_page
+                                                ? 'text-slate-400 cursor-not-allowed'
+                                                : 'text-slate-700 hover:bg-indigo-50 hover:text-indigo-600'
+                                                }`}
                                         >
                                             Next
                                         </button>
@@ -1294,7 +1291,7 @@ const PasswordGroupFirms = () => {
                                         <label className="block text-sm font-semibold text-slate-700 mb-2">
                                             Search Firm <span className="text-red-500">*</span>
                                         </label>
-                                        
+
                                         {/* Selected Firm Display */}
                                         {addForm.firm_id && (
                                             <div className="mb-3 p-3 bg-indigo-50 border border-indigo-200 rounded-xl flex items-center justify-between">
@@ -1313,7 +1310,7 @@ const PasswordGroupFirms = () => {
                                                 </button>
                                             </div>
                                         )}
-                                        
+
                                         {/* Search Input */}
                                         <div className="relative">
                                             <input
@@ -1331,16 +1328,16 @@ const PasswordGroupFirms = () => {
                                                 </div>
                                             )}
                                         </div>
-                                        
+
                                         {/* Helper text */}
                                         {!addForm.firm_id && (
                                             <p className="text-xs text-slate-500 mt-2">
-                                                {firmSearchQuery.length < 2 
-                                                    ? 'Type at least 2 characters to search for firms' 
+                                                {firmSearchQuery.length < 2
+                                                    ? 'Type at least 2 characters to search for firms'
                                                     : searchPerformed ? `Found ${firms.length} firm${firms.length !== 1 ? 's' : ''}` : ''}
                                             </p>
                                         )}
-                                        
+
                                         {/* Search Results */}
                                         {!addForm.firm_id && firmSearchQuery.length >= 2 && (
                                             <div className="mt-3 max-h-60 overflow-y-auto border border-slate-200 rounded-xl bg-white shadow-sm">
@@ -1404,7 +1401,7 @@ const PasswordGroupFirms = () => {
                                         <input
                                             type="text"
                                             value={addForm.username}
-                                            onChange={(e) => setAddForm({...addForm, username: e.target.value})}
+                                            onChange={(e) => setAddForm({ ...addForm, username: e.target.value })}
                                             className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-white shadow-sm"
                                             placeholder="Enter username"
                                             required
@@ -1419,7 +1416,7 @@ const PasswordGroupFirms = () => {
                                         <input
                                             type="password"
                                             value={addForm.password}
-                                            onChange={(e) => setAddForm({...addForm, password: e.target.value})}
+                                            onChange={(e) => setAddForm({ ...addForm, password: e.target.value })}
                                             className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-white shadow-sm"
                                             placeholder="Enter password"
                                             required
@@ -1433,7 +1430,7 @@ const PasswordGroupFirms = () => {
                                         </label>
                                         <textarea
                                             value={addForm.description}
-                                            onChange={(e) => setAddForm({...addForm, description: e.target.value})}
+                                            onChange={(e) => setAddForm({ ...addForm, description: e.target.value })}
                                             className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-white shadow-sm"
                                             placeholder="Enter description (optional)"
                                             rows="3"
@@ -1519,7 +1516,7 @@ const PasswordGroupFirms = () => {
                                         <input
                                             type="text"
                                             value={editForm.username}
-                                            onChange={(e) => setEditForm({...editForm, username: e.target.value})}
+                                            onChange={(e) => setEditForm({ ...editForm, username: e.target.value })}
                                             className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-amber-500 bg-white shadow-sm"
                                             placeholder="Enter username"
                                             required
@@ -1533,7 +1530,7 @@ const PasswordGroupFirms = () => {
                                         <input
                                             type="text"
                                             value={editForm.password}
-                                            onChange={(e) => setEditForm({...editForm, password: e.target.value})}
+                                            onChange={(e) => setEditForm({ ...editForm, password: e.target.value })}
                                             className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-amber-500 bg-white shadow-sm"
                                             placeholder="Enter password"
                                             required
@@ -1546,7 +1543,7 @@ const PasswordGroupFirms = () => {
                                         </label>
                                         <textarea
                                             value={editForm.description}
-                                            onChange={(e) => setEditForm({...editForm, description: e.target.value})}
+                                            onChange={(e) => setEditForm({ ...editForm, description: e.target.value })}
                                             className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-amber-500 bg-white shadow-sm"
                                             placeholder="Enter description"
                                             rows="3"
@@ -1559,7 +1556,7 @@ const PasswordGroupFirms = () => {
                                         </label>
                                         <select
                                             value={editForm.status}
-                                            onChange={(e) => setEditForm({...editForm, status: e.target.value})}
+                                            onChange={(e) => setEditForm({ ...editForm, status: e.target.value })}
                                             className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-amber-500 bg-white shadow-sm"
                                         >
                                             <option value="active">Active</option>

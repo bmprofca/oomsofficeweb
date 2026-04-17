@@ -74,7 +74,7 @@ import LedgerGroup from './finance/ledger-group';
 import ExpenseDetails from './pages/expense-details';
 import DiscountVoucherDetails from './pages/discount';
 import MyProfile from './components/myProfile';
-import PasswordGroupFirms from './components/PasswordGroupFirms';
+import PasswordGroupFirms from './staff/PasswordGroupFirms';
 import TransactionHistory from './finance/bank/transaction-history';
 //Dashboard Components
 import TaskDetailedPage from './DashboardComponents/TaskDetailedPage';

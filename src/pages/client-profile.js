@@ -35,8 +35,6 @@ import {
     FiChevronLeft,
     FiChevronRight,
     FiChevronsRight,
-    FiStar,
-    FiTrendingUp,
     FiSave,
     FiGlobe,
     FiNavigation,
@@ -66,658 +64,625 @@ import DocumentsTab from "../ClientComponents/DocumentsTab";
 import ChattingTab from "../ClientComponents/ChattingTab";
 import AutomationTab from "../ClientComponents/AutomationTab";
 
-// Enhanced DetailRow Component with inline editing
-const DetailRow = ({ 
-    label, 
-    value, 
-    field, 
-    isEditing, 
-    editedValue, 
-    onEdit, 
-    onSave, 
-    onCancel, 
-    onChange,
-    type = 'text'
-}) => {
-    const inputRef = useRef(null);
-
-    useEffect(() => {
-        if (isEditing && inputRef.current) {
-            inputRef.current.focus();
-        }
-    }, [isEditing]);
-
-    return (
-        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center py-4 border-b border-gray-100 hover:bg-gray-50/50 transition-colors duration-200 rounded-lg px-3 -mx-3">
-            <div className="flex items-center gap-3 mb-2 sm:mb-0">
-                <div className="w-8 h-8 bg-gradient-to-br from-blue-50 to-indigo-50 rounded-lg flex items-center justify-center flex-shrink-0">
-                    <span className="text-xs font-semibold text-blue-600 uppercase">
-                        {label.charAt(0)}
-                    </span>
-                </div>
-                <span className="font-medium text-gray-700 text-sm min-w-[120px]">{label}</span>
-            </div>
-            
-            <div className="flex items-center justify-between sm:justify-end gap-3 w-full sm:w-auto">
-                <span className="text-gray-900 font-medium text-sm sm:text-base truncate">{value}</span>
-            </div>
-        </div>
-    );
-};
-
-// Enhanced BasicDetailsTab Component with bulk edit mode
-// Enhanced BasicDetailsTab Component with bulk edit mode and API integration
-const BasicDetailsTab = ({ clientData, onEdit, loading, clientUsername  }) => {
-    const [editingField, setEditingField] = useState(null);
-    const [editedValue, setEditedValue] = useState('');
-    const [isBulkEditMode, setIsBulkEditMode] = useState(false);
-    const [bulkEditData, setBulkEditData] = useState({});
+const BasicDetailsTab = ({ clientData, onEdit, loading, clientUsername, onRefresh }) => {
     const [saveStatus, setSaveStatus] = useState(null);
     const [isSaving, setIsSaving] = useState(false);
+    const [activeModal, setActiveModal] = useState(null);
+    const [formData, setFormData] = useState({});
+    const [careOfTypes, setCareOfTypes] = useState([]);
+    const [statesAndDistricts, setStatesAndDistricts] = useState([]);
+    const [utilsLoading, setUtilsLoading] = useState(false);
+    const [uploadingImage, setUploadingImage] = useState(false);
+    const fileInputRef = useRef(null);
 
-    const handleEditClick = (field, value) => {
-        setEditingField(field);
-        setEditedValue(value);
+    const personalFields = [
+        { label: "Full Name", key: "name", type: "text", icon: FiUser },
+        { label: "Care Of", key: "care_of", type: "select", icon: FiUserCheck },
+        { label: "Guardian Name", key: "guardian_name", type: "text", icon: FiUserCheck },
+        { label: "Date of Birth", key: "date_of_birth", type: "date", icon: FiCalendar },
+        { label: "Gender", key: "gender", type: "select", icon: FiUser },
+        { label: "Mobile", key: "mobile", type: "tel", icon: FiPhone },
+        { label: "Country Code", key: "country_code", type: "text", icon: FiGlobe },
+        { label: "Email", key: "email", type: "email", icon: FiMail },
+        { label: "PAN Number", key: "pan_number", type: "text", icon: FiCreditCard },
+        { label: "Active Status", key: "is_active", type: "checkbox", icon: FiCheckSquare },
+    ];
+
+    const addressFields = [
+        { label: "State", key: "state", type: "select", icon: FiMapPin },
+        { label: "District", key: "district", type: "select", icon: FiMapPin },
+        { label: "City", key: "city", type: "text", icon: FiHome },
+        { label: "Town/Village", key: "village_town", type: "text", icon: FiNavigation },
+        { label: "Pincode", key: "pincode", type: "text", icon: FiMapPin },
+        { label: "Address Line 1", key: "address_line_1", type: "text", icon: FiMapPin },
+        { label: "Address Line 2", key: "address_line_2", type: "text", icon: FiMapPin },
+    ];
+
+    const fieldKeys = [
+        "name", "care_of", "guardian_name", "date_of_birth", "gender", "mobile", "country_code",
+        "email", "pan_number", "image", "is_active", "state", "district", "city", "village_town",
+        "pincode", "address_line_1", "address_line_2"
+    ];
+
+    useEffect(() => {
+        if (!activeModal) return;
+        if (careOfTypes.length > 0 && statesAndDistricts.length > 0) return;
+
+        let mounted = true;
+        const fetchUtils = async () => {
+            try {
+                setUtilsLoading(true);
+                const headers = getHeaders();
+                const requestConfig = headers ? { headers } : {};
+                const [careOfRes, statesRes] = await Promise.all([
+                    axios.get(`${API_BASE_URL}/utils/care-of-types`, requestConfig),
+                    axios.get(`${API_BASE_URL}/utils/states-and-districts`, requestConfig),
+                ]);
+
+                if (!mounted) return;
+                if (careOfRes.data?.success && Array.isArray(careOfRes.data.data)) {
+                    setCareOfTypes(careOfRes.data.data);
+                }
+                if (statesRes.data?.success && Array.isArray(statesRes.data.data)) {
+                    setStatesAndDistricts(statesRes.data.data);
+                }
+            } catch (error) {
+                if (mounted) {
+                    console.error("Failed to load utility options:", error);
+                }
+            } finally {
+                if (mounted) setUtilsLoading(false);
+            }
+        };
+
+        fetchUtils();
+        return () => { mounted = false; };
+    }, [activeModal, careOfTypes.length, statesAndDistricts.length]);
+
+    const formatDateForInput = (value) => {
+        if (!value) return "";
+        if (/^\d{4}-\d{2}-\d{2}$/.test(value)) return value;
+        const m = String(value).match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/);
+        if (m) {
+            const dd = String(m[1]).padStart(2, "0");
+            const mm = String(m[2]).padStart(2, "0");
+            const yyyy = m[3];
+            return `${yyyy}-${mm}-${dd}`;
+        }
+        const date = new Date(value);
+        if (!isNaN(date.getTime())) return date.toISOString().split("T")[0];
+        return "";
     };
 
-    // Function to update client profile via API
+    const openEditModal = (section) => {
+        const sourceFields = section === "personal" ? personalFields : addressFields;
+        const initialData = {};
+        sourceFields.forEach(({ key }) => {
+            if (key === "date_of_birth") {
+                initialData[key] = formatDateForInput(clientData.date_of_birth);
+                return;
+            }
+            initialData[key] = clientData[key] ?? (key === "country_code" ? "91" : "");
+        });
+        setFormData(initialData);
+        setActiveModal(section);
+    };
+
+    const closeModal = () => {
+        setActiveModal(null);
+        setFormData({});
+    };
+
+    const uploadImage = async (file) => {
+        const data = new FormData();
+        data.append("file", file);
+        const headers = getHeaders();
+        if (!headers) throw new Error("Authentication headers missing");
+
+        setUploadingImage(true);
+        try {
+            const response = await axios.post(`${API_BASE_URL}/upload`, data, {
+                headers: {
+                    ...headers,
+                    "Content-Type": "multipart/form-data",
+                },
+            });
+            if (response.data?.success && response.data?.data?.url) {
+                return response.data.data.url;
+            }
+            throw new Error("Invalid response format from upload API");
+        } finally {
+            setUploadingImage(false);
+        }
+    };
+
+    const handleProfileImageFile = async (file) => {
+        if (!file) return;
+        if (!file.type.startsWith("image/")) {
+            setSaveStatus({ type: "error", message: "Please select a valid image file." });
+            setTimeout(() => setSaveStatus(null), 2500);
+            return;
+        }
+        if (file.size > 5 * 1024 * 1024) {
+            setSaveStatus({ type: "error", message: "Image size should be less than 5MB." });
+            setTimeout(() => setSaveStatus(null), 2500);
+            return;
+        }
+        try {
+            const url = await uploadImage(file);
+            setFormData((prev) => ({ ...prev, image: url }));
+            setSaveStatus({ type: "success", message: "Profile image uploaded." });
+            setTimeout(() => setSaveStatus(null), 2000);
+        } catch (error) {
+            setSaveStatus({ type: "error", message: error.message || "Failed to upload image." });
+            setTimeout(() => setSaveStatus(null), 2500);
+        }
+    };
+
+    const formatDateForApi = (value) => {
+        if (!value) return "";
+        if (/^\d{4}-\d{2}-\d{2}$/.test(value)) return value;
+        const date = new Date(value);
+        if (!isNaN(date.getTime())) {
+            return date.toISOString().split("T")[0];
+        }
+        return value;
+    };
+
     const updateClientProfile = async (updatedData) => {
         const headers = getHeaders();
         if (!headers) {
-            setSaveStatus({ type: 'error', message: 'Authentication headers missing. Please login again.' });
+            setSaveStatus({ type: "error", message: "Authentication headers missing. Please login again." });
             return false;
         }
+
+        const getValue = (field, fallback = "") =>
+            Object.prototype.hasOwnProperty.call(updatedData, field) ? updatedData[field] : (clientData[field] ?? fallback);
+
+        const requestBody = {
+            username: clientUsername,
+            name: getValue("name"),
+            care_of: getValue("care_of"),
+            guardian_name: getValue("guardian_name"),
+            date_of_birth: formatDateForApi(getValue("date_of_birth")),
+            gender: getValue("gender"),
+            mobile: getValue("mobile"),
+            country_code: getValue("country_code", "91") || "91",
+            email: getValue("email"),
+            pan_number: getValue("pan_number"),
+            image: getValue("image", null),
+            is_active: getValue("is_active", false),
+            address: {
+                state: getValue("state"),
+                district: getValue("district"),
+                city: getValue("city"),
+                village_town: getValue("village_town"),
+                pincode: getValue("pincode"),
+                address_line_1: getValue("address_line_1"),
+                address_line_2: getValue("address_line_2"),
+            },
+        };
 
         try {
             setIsSaving(true);
-            
-            // Prepare the request body according to API specification
-            const requestBody = {
-                username: clientUsername,
-                name: updatedData.name || clientData.name,
-                care_of: updatedData.care_of || clientData.care_of,
-                guardian_name: updatedData.guardian_name || clientData.guardian_name,
-                date_of_birth: updatedData.date_of_birth || clientData.date_of_birth,
-                gender: updatedData.gender || clientData.gender,
-                mobile: updatedData.mobile || clientData.mobile,
-                country_code: updatedData.country_code || clientData.country_code || "91",
-                email: updatedData.email || clientData.email,
-                pan_number: updatedData.pan_number || clientData.pan_number,
-                image: updatedData.image || clientData.image,
-                is_active: updatedData.is_active !== undefined ? updatedData.is_active : clientData.is_active,
-                address: {
-                    state: updatedData.state || clientData.state,
-                    district: updatedData.district || clientData.district,
-                    city: updatedData.city || clientData.city,
-                    village_town: updatedData.village_town || clientData.village_town,
-                    pincode: updatedData.pincode || clientData.pincode,
-                    address_line_1: updatedData.address_line_1 || clientData.address_line_1,
-                    address_line_2: updatedData.address_line_2 || clientData.address_line_2
-                }
-            };
-
-            // Format date to YYYY-MM-DD if it exists
-            if (requestBody.date_of_birth) {
-                const date = new Date(requestBody.date_of_birth);
-                if (!isNaN(date.getTime())) {
-                    requestBody.date_of_birth = date.toISOString().split('T')[0];
-                }
-            }
-
-            // console.log('Updating client profile:', requestBody);
-            
-            const response = await axios.post(
-                `${API_BASE_URL}/client/details/edit-profile`,
-                requestBody,
-                { headers }
-            );
-
-            // console.log('Update response:', response.data);
-
-            if (response.data.success) {
-                // Update local state with the new data
-                onEdit('name', requestBody.name);
-                onEdit('care_of', requestBody.care_of);
-                onEdit('guardian_name', requestBody.guardian_name);
-                onEdit('date_of_birth', requestBody.date_of_birth);
-                onEdit('gender', requestBody.gender);
-                onEdit('mobile', requestBody.mobile);
-                onEdit('country_code', requestBody.country_code);
-                onEdit('email', requestBody.email);
-                onEdit('pan_number', requestBody.pan_number);
-                onEdit('image', requestBody.image);
-                onEdit('is_active', requestBody.is_active);
-                onEdit('state', requestBody.address.state);
-                onEdit('district', requestBody.address.district);
-                onEdit('city', requestBody.address.city);
-                onEdit('village_town', requestBody.address.village_town);
-                onEdit('pincode', requestBody.address.pincode);
-                onEdit('address_line_1', requestBody.address.address_line_1);
-                onEdit('address_line_2', requestBody.address.address_line_2);
-                
-                return true;
-            } else {
-                setSaveStatus({ 
-                    type: 'error', 
-                    message: response.data.message || 'Failed to update profile' 
-                });
+            const response = await axios.post(`${API_BASE_URL}/client/details/edit-profile`, requestBody, { headers });
+            if (!response.data.success) {
+                setSaveStatus({ type: "error", message: response.data.message || "Failed to update profile" });
                 return false;
             }
+
+            onEdit("name", requestBody.name);
+            onEdit("care_of", requestBody.care_of);
+            onEdit("guardian_name", requestBody.guardian_name);
+            onEdit("date_of_birth", requestBody.date_of_birth);
+            onEdit("gender", requestBody.gender);
+            onEdit("mobile", requestBody.mobile);
+            onEdit("country_code", requestBody.country_code);
+            onEdit("email", requestBody.email);
+            onEdit("pan_number", requestBody.pan_number);
+            onEdit("image", requestBody.image);
+            onEdit("is_active", requestBody.is_active);
+            onEdit("state", requestBody.address.state);
+            onEdit("district", requestBody.address.district);
+            onEdit("city", requestBody.address.city);
+            onEdit("village_town", requestBody.address.village_town);
+            onEdit("pincode", requestBody.address.pincode);
+            onEdit("address_line_1", requestBody.address.address_line_1);
+            onEdit("address_line_2", requestBody.address.address_line_2);
+            return true;
         } catch (err) {
-            console.error('Error updating client profile:', err);
-            let errorMessage = 'Failed to update profile';
-            
+            let errorMessage = "Failed to update profile";
             if (err.response) {
-                if (err.response.status === 401) {
-                    errorMessage = 'Unauthorized. Please login again.';
-                } else if (err.response.status === 400) {
-                    errorMessage = err.response.data?.message || 'Invalid data provided';
-                } else {
-                    errorMessage = `Error ${err.response.status}: ${err.response.data?.message || 'Update failed'}`;
-                }
+                errorMessage = err.response.data?.message || `Error ${err.response.status}: Update failed`;
             } else if (err.request) {
-                errorMessage = 'No response from server. Please check your connection.';
+                errorMessage = "No response from server. Please check your connection.";
             }
-            
-            setSaveStatus({ type: 'error', message: errorMessage });
+            setSaveStatus({ type: "error", message: errorMessage });
             return false;
         } finally {
             setIsSaving(false);
         }
     };
 
-    const handleSave = async (field, value) => {
-        const updatedData = { [field]: value };
-        const success = await updateClientProfile(updatedData);
-        
-        if (success) {
-            setEditingField(null);
-            setEditedValue('');
-            setSaveStatus({ 
-                type: 'success', 
-                message: `${field.replace('_', ' ')} updated successfully!` 
-            });
-            setTimeout(() => setSaveStatus(null), 3000);
-        }
-    };
-
-    const handleCancel = () => {
-        setEditingField(null);
-        setEditedValue('');
-    };
-
-    const handleBulkEditToggle = () => {
-        if (!isBulkEditMode) {
-            setBulkEditData({ 
-                ...clientData,
-                // Ensure all fields exist to prevent undefined errors
-                name: clientData.name || '',
-                care_of: clientData.care_of || '',
-                guardian_name: clientData.guardian_name || '',
-                date_of_birth: clientData.date_of_birth || '',
-                gender: clientData.gender || '',
-                mobile: clientData.mobile || '',
-                country_code: clientData.country_code || '91',
-                email: clientData.email || '',
-                pan_number: clientData.pan_number || '',
-                image: clientData.image || '',
-                is_active: clientData.is_active || false,
-                state: clientData.state || '',
-                district: clientData.district || '',
-                city: clientData.city || '',
-                village_town: clientData.village_town || '',
-                pincode: clientData.pincode || '',
-                address_line_1: clientData.address_line_1 || '',
-                address_line_2: clientData.address_line_2 || ''
-            });
-        }
-        setIsBulkEditMode(!isBulkEditMode);
-    };
-
-    const handleBulkSave = async () => {
-        // Compare and prepare only changed data
-        const changedData = {};
-        Object.entries(bulkEditData).forEach(([field, value]) => {
-            if (value !== clientData[field]) {
-                changedData[field] = value;
-            }
+    const handleModalSave = async () => {
+        const payload = {};
+        fieldKeys.forEach((key) => {
+            payload[key] = formData[key] ?? clientData[key] ?? "";
         });
 
-        if (Object.keys(changedData).length === 0) {
-            setSaveStatus({ type: 'info', message: 'No changes to save' });
-            setIsBulkEditMode(false);
-            setTimeout(() => setSaveStatus(null), 2000);
-            return;
+        const success = await updateClientProfile(payload);
+        if (!success) return;
+
+        if (onRefresh) {
+            await onRefresh();
         }
-
-        const success = await updateClientProfile(changedData);
-        
-        if (success) {
-            setIsBulkEditMode(false);
-            setBulkEditData({});
-            setSaveStatus({ 
-                type: 'success', 
-                message: 'All changes saved successfully!' 
-            });
-            setTimeout(() => setSaveStatus(null), 3000);
-        }
+        setSaveStatus({ type: "success", message: "Profile updated successfully." });
+        closeModal();
+        setTimeout(() => setSaveStatus(null), 2500);
     };
 
-    const handleBulkCancel = () => {
-        setIsBulkEditMode(false);
-        setBulkEditData({});
+    const renderValue = (field) => {
+        if (field.key === "is_active") return clientData[field.key] ? "Active" : "Inactive";
+        return clientData[field.key] || "Not provided";
     };
 
-    const handleBulkFieldChange = (field, value) => {
-        setBulkEditData(prev => ({
-            ...prev,
-            [field]: value
-        }));
-    };
-
-    const renderField = (label, field, value, type = 'text') => {
-        if (isBulkEditMode) {
-            return (
-                <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center py-4 border-b border-gray-100 hover:bg-blue-50/30 transition-colors duration-200 rounded-lg px-3 -mx-3">
-                    <div className="flex items-center gap-3 mb-2 sm:mb-0">
-                        <div className="w-8 h-8 bg-gradient-to-br from-blue-100 to-indigo-100 rounded-lg flex items-center justify-center flex-shrink-0">
-                            <span className="text-xs font-semibold text-blue-700 uppercase">
-                                {label.charAt(0)}
+    const renderList = (fields) => (
+        <dl className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+            {fields.map((field) => {
+                const Icon = field.icon;
+                const value = renderValue(field);
+                return (
+                    <div
+                        key={field.key}
+                        className="rounded-lg border border-slate-200/70 bg-white/70 px-3 py-2"
+                    >
+                        <dt className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                            <span className="flex h-6 w-6 items-center justify-center rounded-md bg-white text-slate-500 ring-1 ring-slate-200">
+                                <Icon className="h-3.5 w-3.5" />
                             </span>
-                        </div>
-                        <span className="font-medium text-gray-700 text-sm min-w-[120px]">{label}</span>
+                            <span className="truncate">{field.label}</span>
+                        </dt>
+                        <dd className="mt-1 text-xs font-semibold leading-snug text-slate-900 break-words">
+                            {value || "—"}
+                        </dd>
                     </div>
-                    
-                    <div className="w-full sm:w-48">
-                        {type === 'select' ? (
-                            <select
-                                value={bulkEditData[field] || value || ''}
-                                onChange={(e) => handleBulkFieldChange(field, e.target.value)}
-                                className="w-full px-3 py-2 border border-blue-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all text-sm bg-white shadow-sm"
-                            >
-                                <option value="">Select Gender</option>
-                                <option value="male">Male</option>
-                                <option value="female">Female</option>
-                                <option value="other">Other</option>
-                            </select>
-                        ) : type === 'date' ? (
-                            <input
-                                type="date"
-                                value={bulkEditData[field] || value || ''}
-                                onChange={(e) => handleBulkFieldChange(field, e.target.value)}
-                                className="w-full px-3 py-2 border border-blue-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all text-sm bg-white shadow-sm"
-                            />
-                        ) : type === 'checkbox' ? (
-                            <div className="flex items-center h-full">
-                                <input
-                                    type="checkbox"
-                                    checked={bulkEditData[field] || value || false}
-                                    onChange={(e) => handleBulkFieldChange(field, e.target.checked)}
-                                    className="w-5 h-5 text-blue-600 rounded focus:ring-blue-500"
-                                />
-                            </div>
-                        ) : (
-                            <input
-                                type={type}
-                                value={bulkEditData[field] || value || ''}
-                                onChange={(e) => handleBulkFieldChange(field, e.target.value)}
-                                className="w-full px-3 py-2 border border-blue-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all text-sm bg-white shadow-sm"
-                                placeholder={`Enter ${label.toLowerCase()}`}
-                            />
-                        )}
-                    </div>
-                </div>
-            );
-        }
+                );
+            })}
+        </dl>
+    );
 
-        return (
-            <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center py-4 border-b border-gray-100 hover:bg-gray-50/50 transition-colors duration-200 rounded-lg px-3 -mx-3">
-                <div className="flex items-center gap-3 mb-2 sm:mb-0">
-                    <div className="w-8 h-8 bg-gradient-to-br from-blue-50 to-indigo-50 rounded-lg flex items-center justify-center flex-shrink-0">
-                        <span className="text-xs font-semibold text-blue-600 uppercase">
-                            {label.charAt(0)}
-                        </span>
+    const renderSkeletonCard = (count = 8) => (
+        <div className="rounded-xl border border-slate-200 bg-white p-3.5">
+            <div className="mb-3 flex items-center justify-between gap-3">
+                <div className="h-4 w-40 animate-pulse rounded bg-slate-200" />
+                <div className="h-7 w-20 animate-pulse rounded bg-slate-200" />
+            </div>
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                {[...Array(count)].map((_, index) => (
+                    <div
+                        key={`sk-${index}`}
+                        className="rounded-lg border border-slate-100 bg-slate-50 px-3 py-2"
+                    >
+                        <div className="h-3 w-28 animate-pulse rounded bg-slate-200" />
+                        <div className="mt-2 h-3 w-full animate-pulse rounded bg-slate-200" />
                     </div>
-                    <span className="font-medium text-gray-700 text-sm min-w-[120px]">{label}</span>
-                </div>
-                
-                <div className="flex items-center justify-between sm:justify-end gap-3 w-full sm:w-auto">
-                    <span className="text-gray-900 font-medium text-sm sm:text-base truncate">
-                        {type === 'checkbox' ? (value ? 'Active' : 'Inactive') : value || 'Not provided'}
-                    </span>
-                    {type !== 'checkbox' && (
-                        <button
-                            onClick={() => handleEditClick(field, value)}
-                            className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                        >
-                            {/* <FiEdit className="w-3.5 h-3.5" /> */}
-                        </button>
-                    )}
-                </div>
+                ))}
             </div>
-        );
-    };
+        </div>
+    );
 
-    if (loading) {
-        return (
-            <div className="bg-gradient-to-br from-white to-gray-50/30 rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
-                <div className="p-8 flex flex-col items-center justify-center">
-                    <div className="w-12 h-12 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin mb-4"></div>
-                    <p className="text-gray-600 font-medium">Loading client details...</p>
-                </div>
-            </div>
-        );
-    }
+    const modalFields = activeModal === "personal" ? personalFields : addressFields;
+    const selectedStateName = formData.state || clientData.state || "";
+    const selectedStateData = statesAndDistricts.find((stateItem) => stateItem.name === selectedStateName);
+    const districtOptions = selectedStateData?.districts || [];
+    const currentImage = formData.image || clientData.image || "";
 
     return (
-        <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -20 }}
-            className="bg-gradient-to-br from-white to-gray-50/30 rounded-2xl border border-gray-200 shadow-sm overflow-hidden"
-        >
-            <div className="bg-gradient-to-r from-gray-50 to-white border-b border-gray-200 p-6">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                    <div>
-                        <div className="flex items-center gap-3 mb-2">
-                            <div className="w-12 h-12 bg-gradient-to-br from-blue-600 to-indigo-700 rounded-xl flex items-center justify-center shadow-lg">
-                                <FiUserCheck className="w-6 h-6 text-white" />
-                            </div>
-                            <div>
-                                <h3 className="text-xl font-bold text-gray-900">Basic Details</h3>
-                                <p className="text-sm text-gray-600 mt-1">Manage and update client information</p>
-                            </div>
+        <>
+            <motion.div
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="rounded-2xl border border-slate-200 bg-white shadow-sm"
+            >
+                <div className="border-b border-slate-200 px-4 py-3">
+                    <div className="flex flex-wrap items-center justify-between gap-2.5">
+                        <div>
+                            <h3 className="text-sm font-semibold text-slate-900">Profile Details</h3>
+                            <p className="text-xs text-slate-500">Compact client information overview</p>
                         </div>
-                    </div>
-                    
-                    <div className="flex items-center gap-3">
                         {saveStatus && (
-                            <motion.div
-                                initial={{ opacity: 0, x: 10 }}
-                                animate={{ opacity: 1, x: 0 }}
-                                className={`px-4 py-2 rounded-lg ${saveStatus.type === 'success' 
-                                    ? 'bg-gradient-to-r from-emerald-50 to-green-50 text-emerald-700 border border-emerald-200' 
-                                    : saveStatus.type === 'error'
-                                    ? 'bg-gradient-to-r from-red-50 to-rose-50 text-red-700 border border-red-200'
-                                    : 'bg-gradient-to-r from-blue-50 to-indigo-50 text-blue-700 border border-blue-200'}`}
-                            >
-                                <div className="flex items-center gap-2">
-                                    {saveStatus.type === 'success' && <FiCheck className="w-4 h-4" />}
-                                    {saveStatus.type === 'error' && <FiX className="w-4 h-4" />}
-                                    {saveStatus.type === 'info' && <FiInfo className="w-4 h-4" />}
-                                    <span className="text-sm font-medium">{saveStatus.message}</span>
-                                </div>
-                            </motion.div>
-                        )}
-                        
-                        {isSaving && (
-                            <div className="flex items-center gap-2 px-4 py-2 bg-blue-50 text-blue-700 rounded-lg border border-blue-200">
-                                <FiLoader className="w-4 h-4 animate-spin" />
-                                <span className="text-sm font-medium">Saving...</span>
+                            <div className={`inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium ${saveStatus.type === "success" ? "bg-emerald-50 text-emerald-700" : "bg-rose-50 text-rose-700"}`}>
+                                {saveStatus.type === "success" ? <FiCheck className="h-3.5 w-3.5" /> : <FiX className="h-3.5 w-3.5" />}
+                                {saveStatus.message}
                             </div>
                         )}
-                        
-                        <motion.button
-                            onClick={handleBulkEditToggle}
-                            className={`px-5 py-2.5 rounded-lg font-medium text-sm flex items-center gap-2 transition-all duration-200 ${isBulkEditMode 
-                                ? 'bg-gradient-to-r from-blue-600 to-indigo-700 text-white shadow-lg' 
-                                : 'bg-white text-gray-700 hover:text-blue-600 hover:bg-blue-50 border border-gray-300 hover:border-blue-300'}`}
-                            whileHover={{ scale: 1.02 }}
-                            whileTap={{ scale: 0.98 }}
-                            disabled={isSaving}
-                        >
-                            {isBulkEditMode ? (
-                                <>
-                                    <FiGrid className="w-4 h-4" />
-                                    Exit Edit
-                                </>
-                            ) : (
-                                <>
-                                    <FiEdit className="w-4 h-4" />
-                                    Edit Profile
-                                </>
-                            )}
-                        </motion.button>
                     </div>
                 </div>
-            </div>
 
-            {isBulkEditMode && (
-                <motion.div
-                    initial={{ opacity: 0, height: 0 }}
-                    animate={{ opacity: 1, height: 'auto' }}
-                    className="bg-gradient-to-r from-blue-50 via-indigo-50 to-blue-50 border-b border-blue-200"
-                >
-                    <div className="p-4">
-                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                            <div className="flex items-center gap-3">
-                                <div className="w-10 h-10 bg-gradient-to-r from-blue-600 to-indigo-600 rounded-lg flex items-center justify-center">
-                                    <FiEdit className="w-5 h-5 text-white" />
+                <div className="p-3.5">
+                    {loading ? (
+                        <div className="space-y-3">
+                            {renderSkeletonCard(Math.min(10, personalFields.length))}
+                            {renderSkeletonCard(Math.min(10, addressFields.length))}
+                        </div>
+                    ) : (
+                        <div className="space-y-3">
+                            <section className="rounded-xl border border-indigo-100 bg-gradient-to-br from-indigo-50/55 via-white to-white p-3.5">
+                                <div className="mb-2 flex items-center justify-between">
+                                    <div className="flex items-center gap-2">
+                                        <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-50 text-indigo-600">
+                                            <FiUserCheck className="h-4 w-4" />
+                                        </span>
+                                        <div>
+                                            <h4 className="text-sm font-semibold text-slate-900">Personal Details</h4>
+                                            <p className="text-[11px] text-slate-500">Identity and contact</p>
+                                        </div>
+                                    </div>
+                                    <button
+                                        type="button"
+                                        onClick={() => openEditModal("personal")}
+                                        className="inline-flex items-center gap-1 rounded-md border border-slate-300 bg-white px-2 py-1 text-xs font-medium text-slate-700 hover:border-indigo-300 hover:text-indigo-700"
+                                    >
+                                        <FiEdit className="h-3.5 w-3.5" />
+                                        Edit
+                                    </button>
                                 </div>
-                                <div>
-                                    <h4 className="font-semibold text-gray-900">Bulk Edit Mode Active</h4>
-                                    <p className="text-sm text-gray-600">You can edit multiple fields at once</p>
+                                {renderList(personalFields)}
+                            </section>
+
+                            <section className="rounded-xl border border-emerald-100 bg-gradient-to-br from-emerald-50/55 via-white to-white p-3.5">
+                                <div className="mb-2 flex items-center justify-between">
+                                    <div className="flex items-center gap-2">
+                                        <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-50 text-emerald-600">
+                                            <FiNavigation className="h-4 w-4" />
+                                        </span>
+                                        <div>
+                                            <h4 className="text-sm font-semibold text-slate-900">Address</h4>
+                                            <p className="text-[11px] text-slate-500">Communication address</p>
+                                        </div>
+                                    </div>
+                                    <button
+                                        type="button"
+                                        onClick={() => openEditModal("address")}
+                                        className="inline-flex items-center gap-1 rounded-md border border-slate-300 bg-white px-2 py-1 text-xs font-medium text-slate-700 hover:border-emerald-300 hover:text-emerald-700"
+                                    >
+                                        <FiEdit className="h-3.5 w-3.5" />
+                                        Edit
+                                    </button>
+                                </div>
+                                {renderList(addressFields)}
+                            </section>
+                        </div>
+                    )}
+                </div>
+            </motion.div>
+
+            <AnimatePresence>
+                {activeModal && (
+                    <motion.div
+                        className="fixed inset-0 z-[1000] flex items-center justify-center bg-slate-900/45 px-4"
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                    >
+                        <motion.div
+                            className="flex max-h-[88vh] w-full max-w-3xl flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl"
+                            initial={{ opacity: 0, y: 12, scale: 0.98 }}
+                            animate={{ opacity: 1, y: 0, scale: 1 }}
+                            exit={{ opacity: 0, y: 10, scale: 0.98 }}
+                        >
+                            <div className="sticky top-0 z-10 shrink-0 flex items-center justify-between border-b border-slate-200 bg-white px-4 py-3">
+                                <h4 className="text-sm font-semibold text-slate-900">
+                                    Edit {activeModal === "personal" ? "Personal Details" : "Address"}
+                                </h4>
+                                <button
+                                    type="button"
+                                    onClick={closeModal}
+                                    className="rounded-md p-1 text-slate-500 hover:bg-slate-100 hover:text-slate-700"
+                                    disabled={isSaving}
+                                >
+                                    <FiX className="h-4 w-4" />
+                                </button>
+                            </div>
+                            <div
+                                className="min-h-0 flex-1 overflow-y-auto p-4 [&::-webkit-scrollbar]:hidden"
+                                style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
+                            >
+                                {activeModal === "personal" && (
+                                    <div className="mb-4 rounded-xl border border-slate-200 bg-slate-50/70 p-3">
+                                        <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                                            Profile Picture
+                                        </p>
+                                        <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+                                            <div className="h-16 w-16 overflow-hidden rounded-full border border-slate-200 bg-white ring-1 ring-slate-100">
+                                                {currentImage ? (
+                                                    <img src={currentImage} alt="Profile preview" className="h-full w-full object-cover" />
+                                                ) : (
+                                                    <div className="flex h-full w-full items-center justify-center text-slate-400">
+                                                        <FiUser className="h-6 w-6" />
+                                                    </div>
+                                                )}
+                                            </div>
+                                            <div className="min-w-0 flex-1">
+                                                <input
+                                                    ref={fileInputRef}
+                                                    type="file"
+                                                    accept="image/*"
+                                                    className="hidden"
+                                                    onChange={(e) => handleProfileImageFile(e.target.files?.[0])}
+                                                />
+                                                <div
+                                                    className={`rounded-lg border-2 border-dashed px-3 py-2 text-xs ${uploadingImage ? "border-indigo-300 bg-indigo-50/60 text-indigo-700" : "border-slate-300 bg-white text-slate-600"}`}
+                                                    onDragOver={(e) => e.preventDefault()}
+                                                    onDrop={(e) => {
+                                                        e.preventDefault();
+                                                        handleProfileImageFile(e.dataTransfer.files?.[0]);
+                                                    }}
+                                                >
+                                                    <p className="font-medium">Drag & drop image here</p>
+                                                    <p className="mt-0.5 text-[11px] text-slate-500">PNG, JPG, JPEG up to 5MB</p>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => fileInputRef.current?.click()}
+                                                        disabled={uploadingImage}
+                                                        className="mt-2 inline-flex items-center gap-1 rounded-md border border-slate-300 bg-white px-2 py-1 text-[11px] font-medium text-slate-700 hover:border-indigo-300 hover:text-indigo-700 disabled:opacity-60"
+                                                    >
+                                                        {uploadingImage ? <FiLoader className="h-3.5 w-3.5 animate-spin" /> : <FiUpload className="h-3.5 w-3.5" />}
+                                                        {uploadingImage ? "Uploading..." : "Select Image"}
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
+                                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                                    {modalFields.map((field) => (
+                                        <div key={field.key} className={field.type === "checkbox" ? "sm:col-span-2" : ""}>
+                                            <label className="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                                                {field.label}
+                                            </label>
+                                            {field.key === "care_of" ? (
+                                                <select
+                                                    value={formData[field.key] ?? ""}
+                                                    onChange={(e) => setFormData((prev) => ({ ...prev, [field.key]: e.target.value }))}
+                                                    className="w-full rounded-md border border-slate-300 px-2.5 py-2 text-sm text-slate-900 outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100"
+                                                >
+                                                    <option value="">{utilsLoading ? "Loading..." : "Select care of type"}</option>
+                                                    {careOfTypes.map((typeValue) => (
+                                                        <option key={typeValue} value={typeValue}>
+                                                            {typeValue}
+                                                        </option>
+                                                    ))}
+                                                </select>
+                                            ) : field.key === "state" ? (
+                                                <select
+                                                    value={formData[field.key] ?? ""}
+                                                    onChange={(e) => {
+                                                        const nextState = e.target.value;
+                                                        setFormData((prev) => {
+                                                            const nextDistrictOptions = statesAndDistricts.find((s) => s.name === nextState)?.districts || [];
+                                                            const shouldResetDistrict = !nextDistrictOptions.includes(prev.district || "");
+                                                            return {
+                                                                ...prev,
+                                                                state: nextState,
+                                                                district: shouldResetDistrict ? "" : (prev.district || ""),
+                                                            };
+                                                        });
+                                                    }}
+                                                    className="w-full rounded-md border border-slate-300 px-2.5 py-2 text-sm text-slate-900 outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100"
+                                                >
+                                                    <option value="">{utilsLoading ? "Loading..." : "Select state"}</option>
+                                                    {statesAndDistricts.map((stateItem) => (
+                                                        <option key={stateItem.name} value={stateItem.name}>
+                                                            {stateItem.name}
+                                                        </option>
+                                                    ))}
+                                                </select>
+                                            ) : field.key === "district" ? (
+                                                <select
+                                                    value={formData[field.key] ?? ""}
+                                                    onChange={(e) => setFormData((prev) => ({ ...prev, [field.key]: e.target.value }))}
+                                                    className="w-full rounded-md border border-slate-300 px-2.5 py-2 text-sm text-slate-900 outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100"
+                                                    disabled={!selectedStateName}
+                                                >
+                                                    <option value="">
+                                                        {!selectedStateName ? "Select state first" : (utilsLoading ? "Loading..." : "Select district")}
+                                                    </option>
+                                                    {districtOptions.map((districtName) => (
+                                                        <option key={districtName} value={districtName}>
+                                                            {districtName}
+                                                        </option>
+                                                    ))}
+                                                </select>
+                                            ) : field.type === "select" ? (
+                                                <select
+                                                    value={formData[field.key] ?? ""}
+                                                    onChange={(e) => setFormData((prev) => ({ ...prev, [field.key]: e.target.value }))}
+                                                    className="w-full rounded-md border border-slate-300 px-2.5 py-2 text-sm text-slate-900 outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100"
+                                                >
+                                                    <option value="">Select gender</option>
+                                                    <option value="male">Male</option>
+                                                    <option value="female">Female</option>
+                                                    <option value="other">Other</option>
+                                                </select>
+                                            ) : field.type === "checkbox" ? (
+                                                activeModal === "personal" ? (
+                                                    <button
+                                                        type="button"
+                                                        role="switch"
+                                                        aria-checked={!!formData[field.key]}
+                                                        onClick={() => setFormData((prev) => ({ ...prev, [field.key]: !prev[field.key] }))}
+                                                        className={`w-full rounded-lg border px-3 py-2.5 transition-all ${formData[field.key]
+                                                            ? "border-emerald-200 bg-emerald-50"
+                                                            : "border-slate-200 bg-slate-50"
+                                                            }`}
+                                                    >
+                                                        <span className="flex items-center justify-between">
+                                                            <span className="text-sm font-medium text-slate-700">Status</span>
+                                                            <span
+                                                                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${formData[field.key] ? "bg-emerald-500" : "bg-slate-300"
+                                                                    }`}
+                                                            >
+                                                                <span
+                                                                    className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition-transform ${formData[field.key] ? "translate-x-5" : "translate-x-0.5"
+                                                                        }`}
+                                                                />
+                                                            </span>
+                                                        </span>
+                                                        <span className={`mt-1 block text-left text-xs font-semibold ${formData[field.key] ? "text-emerald-700" : "text-slate-600"}`}>
+                                                            {formData[field.key] ? "Active" : "Inactive"}
+                                                        </span>
+                                                    </button>
+                                                ) : (
+                                                    <label className="inline-flex items-center gap-2 rounded-md border border-slate-200 px-3 py-2">
+                                                        <input
+                                                            type="checkbox"
+                                                            checked={!!formData[field.key]}
+                                                            onChange={(e) => setFormData((prev) => ({ ...prev, [field.key]: e.target.checked }))}
+                                                            className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-400"
+                                                        />
+                                                        <span className="text-sm font-medium text-slate-700">Active</span>
+                                                    </label>
+                                                )
+                                            ) : (
+                                                <input
+                                                    type={field.type}
+                                                    value={formData[field.key] ?? ""}
+                                                    onChange={(e) => setFormData((prev) => ({ ...prev, [field.key]: e.target.value }))}
+                                                    className="w-full rounded-md border border-slate-300 px-2.5 py-2 text-sm text-slate-900 outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100"
+                                                />
+                                            )}
+                                        </div>
+                                    ))}
                                 </div>
                             </div>
-                            <div className="flex items-center gap-2">
-                                <motion.button
-                                    onClick={handleBulkCancel}
-                                    className="px-4 py-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg font-medium transition-all duration-200 text-sm border border-gray-300"
-                                    whileHover={{ scale: 1.05 }}
-                                    whileTap={{ scale: 0.95 }}
+                            <div className="sticky bottom-0 z-10 shrink-0 flex items-center justify-end gap-2 border-t border-slate-200 bg-white px-4 py-3">
+                                <button
+                                    type="button"
+                                    onClick={closeModal}
+                                    className="rounded-md border border-slate-300 px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50"
                                     disabled={isSaving}
                                 >
                                     Cancel
-                                </motion.button>
-                                <motion.button
-                                    onClick={handleBulkSave}
-                                    className="px-4 py-2 bg-gradient-to-r from-emerald-500 to-green-600 text-white rounded-lg font-medium hover:from-emerald-600 hover:to-green-700 transform hover:-translate-y-0.5 transition-all duration-200 shadow-md hover:shadow-lg text-sm flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-                                    whileHover={{ scale: 1.05 }}
-                                    whileTap={{ scale: 0.95 }}
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={handleModalSave}
+                                    className="inline-flex items-center gap-1 rounded-md bg-indigo-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-indigo-700 disabled:opacity-60"
                                     disabled={isSaving}
                                 >
-                                    {isSaving ? (
-                                        <FiLoader className="w-4 h-4 animate-spin" />
-                                    ) : (
-                                        <FiSave className="w-4 h-4" />
-                                    )}
-                                    {isSaving ? 'Saving...' : 'Save All Changes'}
-                                </motion.button>
+                                    {isSaving ? <FiLoader className="h-3.5 w-3.5 animate-spin" /> : <FiSave className="h-3.5 w-3.5" />}
+                                    {isSaving ? "Saving..." : "Save Changes"}
+                                </button>
                             </div>
-                        </div>
-                    </div>
-                </motion.div>
-            )}
-
-            <div className="p-6">
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                    <motion.div
-                        className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden"
-                        whileHover={{ y: -2, transition: { duration: 0.2 } }}
-                    >
-                        <div className="bg-gradient-to-r from-blue-50 via-indigo-50 to-blue-50 border-b border-gray-200 p-5">
-                            <div className="flex items-center gap-3">
-                                <div className="w-10 h-10 bg-gradient-to-br from-blue-600 to-indigo-700 rounded-lg flex items-center justify-center">
-                                    <FiUserCheck className="w-5 h-5 text-white" />
-                                </div>
-                                <div>
-                                    <h4 className="font-semibold text-gray-900 text-lg">Personal Information</h4>
-                                    <p className="text-sm text-gray-600">Client's personal details</p>
-                                </div>
-                            </div>
-                        </div>
-                        <div className="p-5">
-                            <div className="space-y-1">
-                                {renderField("Full Name", "name", clientData.name)}
-                                {renderField("Care Of", "care_of", clientData.care_of)}
-                                {renderField("Guardian Name", "guardian_name", clientData.guardian_name)}
-                                {renderField("Date of Birth", "date_of_birth", clientData.date_of_birth, "date")}
-                                {renderField("Gender", "gender", clientData.gender, "select")}
-                                {renderField("Mobile", "mobile", clientData.mobile, "tel")}
-                                {renderField("Country Code", "country_code", clientData.country_code || "91")}
-                                {renderField("Email", "email", clientData.email, "email")}
-                                {renderField("PAN Number", "pan_number", clientData.pan_number)}
-                                {renderField("Active Status", "is_active", clientData.is_active, "checkbox")}
-                            </div>
-                        </div>
+                        </motion.div>
                     </motion.div>
-
-                    <motion.div
-                        className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden"
-                        whileHover={{ y: -2, transition: { duration: 0.2 } }}
-                    >
-                        <div className="bg-gradient-to-r from-emerald-50 via-teal-50 to-emerald-50 border-b border-gray-200 p-5">
-                            <div className="flex items-center gap-3">
-                                <div className="w-10 h-10 bg-gradient-to-br from-emerald-600 to-teal-700 rounded-lg flex items-center justify-center">
-                                    <FiNavigation className="w-5 h-5 text-white" />
-                                </div>
-                                <div>
-                                    <h4 className="font-semibold text-gray-900 text-lg">Address Information</h4>
-                                    <p className="text-sm text-gray-600">Contact and location details</p>
-                                </div>
-                            </div>
-                        </div>
-                        <div className="p-5">
-                            <div className="space-y-1">
-                                {renderField("State", "state", clientData.state)}
-                                {renderField("District", "district", clientData.district)}
-                                {renderField("City", "city", clientData.city)}
-                                {renderField("Town/Village", "village_town", clientData.village_town)}
-                                {renderField("Pincode", "pincode", clientData.pincode)}
-                                {renderField("Address Line 1", "address_line_1", clientData.address_line_1)}
-                                {renderField("Address Line 2", "address_line_2", clientData.address_line_2)}
-                            </div>
-                            
-                            <div className="mt-6 pt-6 border-t border-gray-100">
-                                <div className="flex items-center gap-2 mb-3">
-                                    <FiGlobe className="w-4 h-4 text-gray-500" />
-                                    <span className="text-sm font-medium text-gray-700">Location Preview</span>
-                                </div>
-                                <div className="h-32 bg-gradient-to-br from-gray-100 to-gray-200 rounded-lg flex items-center justify-center border border-gray-300">
-                                    <div className="text-center">
-                                        <FiMapPin className="w-6 h-6 text-blue-600 mx-auto mb-2" />
-                                        <p className="text-sm text-gray-600">
-                                            {clientData.village_town || clientData.city}, {clientData.state}
-                                        </p>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </motion.div>
-                </div>
-            </div>
-
-            {/* Individual Field Edit Modal */}
-            {editingField && (
-                <EditFieldModal
-                    field={editingField}
-                    value={editedValue}
-                    onSave={handleSave}
-                    onCancel={handleCancel}
-                    isOpen={!!editingField}
-                />
-            )}
-        </motion.div>
+                )}
+            </AnimatePresence>
+        </>
     );
 };
 
-// Individual Field Edit Modal Component
-const EditFieldModal = ({ isOpen, onClose, field, value, onSave }) => {
-    const [inputValue, setInputValue] = useState(value);
-    const [isSaving, setIsSaving] = useState(false);
-
-    const handleSave = async () => {
-        setIsSaving(true);
-        try {
-            await onSave(field, inputValue);
-            onClose();
-        } finally {
-            setIsSaving(false);
-        }
-    };
-
-    if (!isOpen) return null;
-
-    const getFieldLabel = (fieldName) => {
-        return fieldName.replace(/_/g, ' ')
-            .replace(/\b\w/g, l => l.toUpperCase());
-    };
-
-    const getInputType = (fieldName) => {
-        if (fieldName.includes('email')) return 'email';
-        if (fieldName.includes('date')) return 'date';
-        if (fieldName.includes('mobile') || fieldName.includes('phone')) return 'tel';
-        if (fieldName.includes('pincode')) return 'number';
-        return 'text';
-    };
-
-    return (
-        <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4"
-        >
-            <motion.div
-                initial={{ scale: 0.9, opacity: 0 }}
-                animate={{ scale: 1, opacity: 1 }}
-                exit={{ scale: 0.9, opacity: 0 }}
-                className="bg-white rounded-xl shadow-2xl w-full max-w-md overflow-hidden border border-gray-200"
-            >
-                <div className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white p-5">
-                    <div className="flex justify-between items-center">
-                        <div>
-                            <h2 className="text-xl font-bold">Edit {getFieldLabel(field)}</h2>
-                            <p className="text-blue-100 text-xs mt-1">Update the {field.toLowerCase()} information</p>
-                        </div>
-                        <button 
-                            onClick={onClose} 
-                            className="text-white/80 hover:text-white hover:bg-white/10 p-1.5 rounded-full transition-all disabled:opacity-50"
-                            disabled={isSaving}
-                        >
-                            <FiX className="w-5 h-5" />
-                        </button>
-                    </div>
-                </div>
-                <div className="p-5">
-                    <label className="block text-sm font-semibold text-gray-700 mb-2 uppercase tracking-wide">
-                        {getFieldLabel(field)}
-                    </label>
-                    <input
-                        type={getInputType(field)}
-                        value={inputValue || ''}
-                        onChange={(e) => setInputValue(e.target.value)}
-                        className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all bg-gray-50/50 text-sm"
-                        autoFocus
-                    />
-                </div>
-                <div className="px-5 py-4 bg-gray-50/80 border-t border-gray-200 flex justify-end gap-2">
-                    <button 
-                        onClick={onClose} 
-                        className="px-4 py-2 text-gray-600 hover:bg-gray-200 rounded-lg font-medium transition-all duration-200 text-sm disabled:opacity-50"
-                        disabled={isSaving}
-                    >
-                        Cancel
-                    </button>
-                    <button 
-                        onClick={handleSave}
-                        className="px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-lg font-medium hover:from-blue-700 hover:to-indigo-700 transform hover:-translate-y-0.5 transition-all duration-200 shadow-md hover:shadow-lg text-sm flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-                        disabled={isSaving || !inputValue}
-                    >
-                        {isSaving ? (
-                            <>
-                                <FiLoader className="w-4 h-4 animate-spin" />
-                                Saving...
-                            </>
-                        ) : (
-                            'Save Changes'
-                        )}
-                    </button>
-                </div>
-            </motion.div>
-        </motion.div>
-    );
-};
 const EditModal = ({ isOpen, onClose, field, value, onSave, type = 'text' }) => {
     const [inputValue, setInputValue] = useState(value);
 
@@ -747,8 +712,8 @@ const EditModal = ({ isOpen, onClose, field, value, onSave, type = 'text' }) => 
                             <h2 className="text-xl font-bold">Edit {field}</h2>
                             <p className="text-blue-100 text-xs mt-1">Update the {field.toLowerCase()} information</p>
                         </div>
-                        <button 
-                            onClick={onClose} 
+                        <button
+                            onClick={onClose}
                             className="text-white/80 hover:text-white hover:bg-white/10 p-1.5 rounded-full transition-all"
                         >
                             <FiX className="w-5 h-5" />
@@ -776,13 +741,13 @@ const EditModal = ({ isOpen, onClose, field, value, onSave, type = 'text' }) => 
                     )}
                 </div>
                 <div className="px-5 py-4 bg-gray-50/80 border-t border-gray-200 flex justify-end gap-2">
-                    <button 
-                        onClick={onClose} 
+                    <button
+                        onClick={onClose}
                         className="px-4 py-2 text-gray-600 hover:bg-gray-200 rounded-lg font-medium transition-all duration-200 text-sm"
                     >
                         Cancel
                     </button>
-                    <button 
+                    <button
                         onClick={handleSave}
                         className="px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-lg font-medium hover:from-blue-700 hover:to-indigo-700 transform hover:-translate-y-0.5 transition-all duration-200 shadow-md hover:shadow-lg text-sm"
                     >
@@ -816,8 +781,8 @@ const DeleteModal = ({ isOpen, onClose, onConfirm, title, message }) => {
                             <h2 className="text-xl font-bold">{title}</h2>
                             <p className="text-red-100 text-xs mt-1">This action cannot be undone</p>
                         </div>
-                        <button 
-                            onClick={onClose} 
+                        <button
+                            onClick={onClose}
                             className="text-white/80 hover:text-white hover:bg-white/10 p-1.5 rounded-full transition-all"
                         >
                             <FiX className="w-5 h-5" />
@@ -833,13 +798,13 @@ const DeleteModal = ({ isOpen, onClose, onConfirm, title, message }) => {
                     <p className="text-gray-700 text-center font-medium">{message}</p>
                 </div>
                 <div className="px-5 py-4 bg-gray-50/80 border-t border-gray-200 flex justify-end gap-2">
-                    <button 
+                    <button
                         onClick={onClose}
                         className="px-4 py-2 text-gray-600 hover:bg-gray-200 rounded-lg font-medium transition-all duration-200 text-sm"
                     >
                         Cancel
                     </button>
-                    <button 
+                    <button
                         onClick={onConfirm}
                         className="px-4 py-2 bg-gradient-to-r from-red-500 to-rose-600 text-white rounded-lg font-medium hover:from-red-600 hover:to-rose-700 transform hover:-translate-y-0.5 transition-all duration-200 shadow-md hover:shadow-lg text-sm"
                     >
@@ -888,8 +853,8 @@ const AddFirmModal = ({ isOpen, onClose, onAdd }) => {
                             <h2 className="text-xl font-bold">Add New Firm</h2>
                             <p className="text-blue-100 text-xs mt-1">Register a new business entity</p>
                         </div>
-                        <button 
-                            onClick={onClose} 
+                        <button
+                            onClick={onClose}
                             className="text-white/80 hover:text-white hover:bg-white/10 p-1.5 rounded-full transition-all"
                         >
                             <FiX className="w-5 h-5" />
@@ -902,16 +867,16 @@ const AddFirmModal = ({ isOpen, onClose, onAdd }) => {
                         <input
                             type="text"
                             value={formData.name}
-                            onChange={(e) => setFormData({...formData, name: e.target.value})}
+                            onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                             className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all bg-gray-50/50 text-sm"
                             placeholder="Enter firm name"
                         />
                     </div>
                     <div>
                         <label className="block text-sm font-semibold text-gray-700 mb-2 uppercase tracking-wide">Business Type</label>
-                        <select 
+                        <select
                             value={formData.type}
-                            onChange={(e) => setFormData({...formData, type: e.target.value})}
+                            onChange={(e) => setFormData({ ...formData, type: e.target.value })}
                             className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all bg-gray-50/50 text-sm"
                         >
                             <option value="Proprietorship">Proprietorship</option>
@@ -925,7 +890,7 @@ const AddFirmModal = ({ isOpen, onClose, onAdd }) => {
                         <input
                             type="text"
                             value={formData.pan}
-                            onChange={(e) => setFormData({...formData, pan: e.target.value})}
+                            onChange={(e) => setFormData({ ...formData, pan: e.target.value })}
                             className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all bg-gray-50/50 text-sm"
                             placeholder="Enter PAN number"
                         />
@@ -935,20 +900,20 @@ const AddFirmModal = ({ isOpen, onClose, onAdd }) => {
                         <input
                             type="text"
                             value={formData.gst}
-                            onChange={(e) => setFormData({...formData, gst: e.target.value})}
+                            onChange={(e) => setFormData({ ...formData, gst: e.target.value })}
                             className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all bg-gray-50/50 text-sm"
                             placeholder="Enter GST number"
                         />
                     </div>
                 </div>
                 <div className="px-5 py-4 bg-gray-50/80 border-t border-gray-200 flex justify-end gap-2">
-                    <button 
-                        onClick={onClose} 
+                    <button
+                        onClick={onClose}
                         className="px-4 py-2 text-gray-600 hover:bg-gray-200 rounded-lg font-medium transition-all duration-200 text-sm"
                     >
                         Cancel
                     </button>
-                    <button 
+                    <button
                         onClick={handleSubmit}
                         className="px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-lg font-medium hover:from-blue-700 hover:to-indigo-700 transform hover:-translate-y-0.5 transition-all duration-200 shadow-md hover:shadow-lg text-sm"
                     >
@@ -1007,8 +972,8 @@ const EditFirmModal = ({ isOpen, onClose, onSave, firm }) => {
                             <h2 className="text-xl font-bold">Edit Firm</h2>
                             <p className="text-blue-100 text-xs mt-1">Update firm details</p>
                         </div>
-                        <button 
-                            onClick={onClose} 
+                        <button
+                            onClick={onClose}
                             className="text-white/80 hover:text-white hover:bg-white/10 p-1.5 rounded-full transition-all"
                         >
                             <FiX className="w-5 h-5" />
@@ -1021,15 +986,15 @@ const EditFirmModal = ({ isOpen, onClose, onSave, firm }) => {
                         <input
                             type="text"
                             value={formData.name}
-                            onChange={(e) => setFormData({...formData, name: e.target.value})}
+                            onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                             className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all bg-gray-50/50 text-sm"
                         />
                     </div>
                     <div>
                         <label className="block text-sm font-semibold text-gray-700 mb-2 uppercase tracking-wide">Business Type</label>
-                        <select 
+                        <select
                             value={formData.type}
-                            onChange={(e) => setFormData({...formData, type: e.target.value})}
+                            onChange={(e) => setFormData({ ...formData, type: e.target.value })}
                             className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all bg-gray-50/50 text-sm"
                         >
                             <option value="Proprietorship">Proprietorship</option>
@@ -1043,7 +1008,7 @@ const EditFirmModal = ({ isOpen, onClose, onSave, firm }) => {
                         <input
                             type="text"
                             value={formData.pan}
-                            onChange={(e) => setFormData({...formData, pan: e.target.value})}
+                            onChange={(e) => setFormData({ ...formData, pan: e.target.value })}
                             className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all bg-gray-50/50 text-sm"
                         />
                     </div>
@@ -1052,19 +1017,19 @@ const EditFirmModal = ({ isOpen, onClose, onSave, firm }) => {
                         <input
                             type="text"
                             value={formData.gst}
-                            onChange={(e) => setFormData({...formData, gst: e.target.value})}
+                            onChange={(e) => setFormData({ ...formData, gst: e.target.value })}
                             className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all bg-gray-50/50 text-sm"
                         />
                     </div>
                 </div>
                 <div className="px-5 py-4 bg-gray-50/80 border-t border-gray-200 flex justify-end gap-2">
-                    <button 
-                        onClick={onClose} 
+                    <button
+                        onClick={onClose}
                         className="px-4 py-2 text-gray-600 hover:bg-gray-200 rounded-lg font-medium transition-all duration-200 text-sm"
                     >
                         Cancel
                     </button>
-                    <button 
+                    <button
                         onClick={handleSubmit}
                         className="px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-lg font-medium hover:from-blue-700 hover:to-indigo-700 transform hover:-translate-y-0.5 transition-all duration-200 shadow-md hover:shadow-lg text-sm"
                     >
@@ -1077,50 +1042,48 @@ const EditFirmModal = ({ isOpen, onClose, onSave, firm }) => {
 };
 // TabLink Component - Add this near other components
 const TabLink = ({ to, icon: Icon, label, isActive, onClick }) => {
-  return (
-    <motion.button
-      onClick={() => onClick(to)}
-      className={`flex flex-col items-center justify-center p-3 rounded-lg transition-all duration-200 ${
-        isActive
-          ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-sm'
-          : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50 border border-gray-200'
-      }`}
-      whileHover={{ scale: 1.03, y: -1 }}
-      whileTap={{ scale: 0.98 }}
-    >
-      <motion.div
-        animate={{ 
-          rotate: isActive ? [0, 5, 0] : 0,
-          scale: isActive ? 1.1 : 1
-        }}
-        transition={{ duration: 0.2 }}
-        className="mb-1"
-      >
-        <Icon className="w-4 h-4" />
-      </motion.div>
-      <span className="text-xs font-medium text-center leading-tight">{label}</span>
-    </motion.button>
-  );
+    return (
+        <motion.button
+            onClick={() => onClick(to)}
+            className={`flex flex-col items-center justify-center p-3 rounded-lg transition-all duration-200 ${isActive
+                ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-sm'
+                : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50 border border-gray-200'
+                }`}
+            whileHover={{ scale: 1.03, y: -1 }}
+            whileTap={{ scale: 0.98 }}
+        >
+            <motion.div
+                animate={{
+                    rotate: isActive ? [0, 5, 0] : 0,
+                    scale: isActive ? 1.1 : 1
+                }}
+                transition={{ duration: 0.2 }}
+                className="mb-1"
+            >
+                <Icon className="w-4 h-4" />
+            </motion.div>
+            <span className="text-xs font-medium text-center leading-tight">{label}</span>
+        </motion.button>
+    );
 };
 
 // CompactTabIcon Component for minimized view with hover tooltip
 // CompactTabIcon Component for minimized view with name under icon - CENTERED
 const CompactTabIcon = ({ to, icon: Icon, label, isActive, onClick }) => {
-  return (
-    <motion.button
-      onClick={() => onClick(to)}
-      className={`flex flex-col items-center justify-center p-2 rounded-lg transition-all duration-200 min-w-[70px] ${
-        isActive
-          ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-sm'
-          : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50 border border-gray-200'
-      }`}
-      whileHover={{ scale: 1.05, y: -2 }}
-      whileTap={{ scale: 0.98 }}
-    >
-      <Icon className="w-4 h-4 mb-1 mx-auto" />
-      <span className="text-[10px] font-medium text-center leading-tight w-full">{label}</span>
-    </motion.button>
-  );
+    return (
+        <motion.button
+            onClick={() => onClick(to)}
+            className={`flex flex-col items-center justify-center p-2 rounded-lg transition-all duration-200 min-w-[70px] ${isActive
+                ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-sm'
+                : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50 border border-gray-200'
+                }`}
+            whileHover={{ scale: 1.05, y: -2 }}
+            whileTap={{ scale: 0.98 }}
+        >
+            <Icon className="w-4 h-4 mb-1 mx-auto" />
+            <span className="text-[10px] font-medium text-center leading-tight w-full">{label}</span>
+        </motion.button>
+    );
 };
 
 // Main Component - ClientProfile
@@ -1137,7 +1100,6 @@ const ClientProfile = () => {
         return saved ? JSON.parse(saved) : true;
     });
     const [editModal, setEditModal] = useState({ isOpen: false, field: '', value: '' });
-    const [isMobileView, setIsMobileView] = useState(false);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const [previousUsername, setPreviousUsername] = useState(null);
@@ -1152,6 +1114,7 @@ const ClientProfile = () => {
         // Basic info
         name: "",
         care_of: "",
+        guardian_type: "",
         guardian_name: "",
         date_of_birth: "",
         gender: "",
@@ -1161,7 +1124,7 @@ const ClientProfile = () => {
         pan_number: "",
         image: null,
         is_active: true,
-        
+
         // Address info
         state: "",
         district: "",
@@ -1170,7 +1133,7 @@ const ClientProfile = () => {
         pincode: "",
         address_line_1: "",
         address_line_2: "",
-        
+
         // Transactional info
         balance: 0,
         debit: 0,
@@ -1180,7 +1143,7 @@ const ClientProfile = () => {
     // Fetch client data from API
     const fetchClientData = useCallback(async (currentUsername) => {
         const usernameToFetch = currentUsername || username;
-        
+
         if (!usernameToFetch) {
             setError('No username provided');
             setLoading(false);
@@ -1197,7 +1160,7 @@ const ClientProfile = () => {
         try {
             setLoading(true);
             setError(null);
-            
+
             const response = await axios.get(
                 `${API_BASE_URL}/client/details/profile?username=${encodeURIComponent(usernameToFetch)}`,
                 { headers }
@@ -1205,14 +1168,15 @@ const ClientProfile = () => {
 
             if (response.data.success && response.data.data) {
                 const apiData = response.data.data;
-                
+
                 // Transform API data to match our component structure
                 setClientData({
                     // Basic info
                     name: apiData.basic?.name || "",
                     care_of: apiData.basic?.care_of || "",
+                    guardian_type: apiData.basic?.guardian_type || apiData.basic?.care_of || "",
                     guardian_name: apiData.basic?.guardian_name || "",
-                    date_of_birth: apiData.basic?.date_of_birth ? 
+                    date_of_birth: apiData.basic?.date_of_birth ?
                         new Date(apiData.basic.date_of_birth).toLocaleDateString('en-GB') : "",
                     gender: apiData.basic?.gender || "",
                     mobile: apiData.basic?.mobile || "",
@@ -1221,7 +1185,7 @@ const ClientProfile = () => {
                     pan_number: apiData.basic?.pan_number || "",
                     image: apiData.basic?.image || null,
                     is_active: apiData.basic?.is_active || false,
-                    
+
                     // Address info
                     state: apiData.basic?.address?.state || "",
                     district: apiData.basic?.address?.district || "",
@@ -1230,7 +1194,7 @@ const ClientProfile = () => {
                     pincode: apiData.basic?.address?.pincode || "",
                     address_line_1: apiData.basic?.address?.address_line_1 || "",
                     address_line_2: apiData.basic?.address?.address_line_2 || "",
-                    
+
                     // Transactional info
                     balance: apiData.transactional?.balance || 0,
                     debit: apiData.transactional?.debit || 0,
@@ -1265,7 +1229,7 @@ const ClientProfile = () => {
         if (username && username !== previousUsername) {
             // Reset state for new user
             setClientData({
-                name: "", care_of: "", guardian_name: "", date_of_birth: "", gender: "",
+                name: "", care_of: "", guardian_type: "", guardian_name: "", date_of_birth: "", gender: "",
                 mobile: "", country_code: "", email: "", pan_number: "", image: null,
                 is_active: false, state: "", district: "", city: "", village_town: "",
                 pincode: "", address_line_1: "", address_line_2: "", balance: 0,
@@ -1273,11 +1237,11 @@ const ClientProfile = () => {
             });
             setError(null);
             setPreviousUsername(username);
-            
+
             // Fetch new data
             fetchClientData(username);
         }
-        
+
         // If no tab specified, redirect to basic-details
         if (username && !tab) {
             navigate(`/client/profile/${username}/basic-details`, { replace: true });
@@ -1312,17 +1276,6 @@ const ClientProfile = () => {
         { id: 'chatting', name: 'Chatting', icon: FiMessageSquare },
         { id: 'automation', name: 'Automation', icon: FiSettings }
     ];
-
-    // Check mobile view on resize
-    useEffect(() => {
-        const checkMobile = () => {
-            setIsMobileView(window.innerWidth < 768);
-        };
-        
-        checkMobile();
-        window.addEventListener('resize', checkMobile);
-        return () => window.removeEventListener('resize', checkMobile);
-    }, []);
 
     // Persist sidebar minimized state
     useEffect(() => {
@@ -1384,15 +1337,16 @@ const ClientProfile = () => {
             'chatting': 'chatting',
             'automation': 'automation'
         };
-        
+
         const componentKey = tabMap[tab] || 'basic';
-        
+
         const tabComponents = {
-            basic: <BasicDetailsTab 
-                clientData={clientData} 
-                onEdit={handleEditField} 
-                loading={loading} 
+            basic: <BasicDetailsTab
+                clientData={clientData}
+                onEdit={handleEditField}
+                loading={loading}
                 clientUsername={username}
+                onRefresh={() => fetchClientData(username)}
             />,
             firms: <FirmsTab clientUsername={username} />,
             password: <PasswordTab clientUsername={username} />,
@@ -1481,218 +1435,258 @@ const ClientProfile = () => {
                         {/* Client Profile Content */}
                         {!loading && !error && (
                             <>
-                                {/* Breadcrumb Navigation */}
-                                <div className="flex items-center gap-2 mb-4 text-sm text-gray-600">
-                                    <button 
+                                {/* Breadcrumb */}
+                                <nav
+                                    className="mb-4 flex flex-wrap items-center gap-x-1 gap-y-1 text-xs text-slate-500 sm:text-sm"
+                                    aria-label="Breadcrumb"
+                                >
+                                    <button
+                                        type="button"
                                         onClick={() => navigate('/client/view')}
-                                        className="hover:text-blue-600 flex items-center gap-1"
+                                        className="inline-flex items-center gap-1 rounded-md px-1.5 py-1 font-medium text-slate-600 transition-colors hover:bg-slate-100 hover:text-slate-900"
                                     >
-                                        <FiHome className="w-4 h-4" />
+                                        <FiHome className="h-3.5 w-3.5 shrink-0 opacity-70" aria-hidden />
                                         Clients
                                     </button>
-                                    <FiChevronRight className="w-4 h-4" />
-                                    <span className="font-medium text-gray-900">{clientData.name}</span>
-                                    <FiChevronRight className="w-4 h-4" />
-                                    <span className="capitalize">{tab.replace('-', ' ')}</span>
-                                </div>
+                                    <FiChevronRight className="h-3.5 w-3.5 shrink-0 text-slate-300" aria-hidden />
+                                    <span className="max-w-[12rem] truncate font-medium text-slate-800 sm:max-w-xs">
+                                        {clientData.name}
+                                    </span>
+                                    <FiChevronRight className="h-3.5 w-3.5 shrink-0 text-slate-300" aria-hidden />
+                                    <span className="capitalize text-slate-600">{tab.replace('-', ' ')}</span>
+                                </nav>
 
-                                {/* Compact Header Card */}
-                                <motion.div
-                                    className="bg-white rounded-xl shadow-md border border-gray-200 p-5 mb-6 relative overflow-hidden"
-                                    initial={{ opacity: 0, y: -10 }}
+                                <motion.section
+                                    className="mb-4 px-3 py-2.5 sm:px-4 sm:py-3"
+                                    style={{
+                                        borderRadius: '1rem',
+                                        background: 'linear-gradient(145deg, #f8fafc 0%, #e8ecfe 38%, #f1edff 100%)',
+                                        border: '1px solid rgba(199, 210, 254, 0.95)',
+                                        boxShadow:
+                                            '0 1px 3px rgba(49, 46, 129, 0.08), 0 0 0 1px rgba(30, 27, 75, 0.045)',
+                                    }}
+                                    initial={{ opacity: 0, y: 6 }}
                                     animate={{ opacity: 1, y: 0 }}
-                                    transition={{ duration: 0.3 }}
+                                    transition={{ duration: 0.26, ease: [0.22, 1, 0.36, 1] }}
+                                    aria-label="Client summary"
                                 >
-                                    <div className="relative">
-                                        <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-5">
-                                            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 w-full">
-                                                <motion.div
-                                                    className="relative flex-shrink-0"
-                                                    whileHover={{ scale: 1.03 }}
-                                                    transition={{ type: "spring", stiffness: 300 }}
-                                                >
-                                                    <div className="w-16 h-16 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-xl flex items-center justify-center shadow-sm">
-                                                        {clientData.image ? (
-                                                            <img 
-                                                                src={clientData.image} 
-                                                                alt={clientData.name}
-                                                                className="w-full h-full rounded-xl object-cover"
-                                                            />
-                                                        ) : (
-                                                            <FiUser className="w-7 h-7 text-white" />
-                                                        )}
+                                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-2.5">
+                                        <div className="flex min-w-0 items-center gap-3">
+                                            <div className="relative h-10 w-10 shrink-0 overflow-hidden rounded-full border-2 border-white bg-slate-100 shadow-sm ring-1 ring-slate-200/90 sm:h-11 sm:w-11">
+                                                {clientData.image ? (
+                                                    <img
+                                                        src={clientData.image}
+                                                        alt=""
+                                                        className="h-full w-full object-cover"
+                                                    />
+                                                ) : (
+                                                    <div className="flex h-full w-full items-center justify-center text-slate-400">
+                                                        <FiUser className="h-[18px] w-[18px]" aria-hidden />
                                                     </div>
-                                                    <div className={`absolute -bottom-1 -right-1 w-6 h-6 rounded-full flex items-center justify-center shadow-sm ${
-                                                        clientData.is_active 
-                                                            ? 'bg-gradient-to-r from-green-400 to-emerald-500' 
-                                                            : 'bg-gradient-to-r from-red-400 to-rose-500'
-                                                    }`}>
-                                                        {clientData.is_active ? (
-                                                            <FiStar className="w-3 h-3 text-white" />
-                                                        ) : (
-                                                            <FiX className="w-3 h-3 text-white" />
-                                                        )}
-                                                    </div>
-                                                </motion.div>
-                                                <div className="flex-1 min-w-0">
-                                                    <div className="flex flex-col sm:flex-row sm:items-center gap-2 mb-3">
-                                                        <h1 className="text-xl font-bold text-gray-900 truncate">{clientData.name}</h1>
-                                                        <span className={`px-2.5 py-1 rounded-full text-xs font-semibold flex items-center gap-1 w-fit ${
-                                                            clientData.is_active 
-                                                                ? 'bg-gradient-to-r from-green-100 to-emerald-100 text-emerald-700' 
-                                                                : 'bg-gradient-to-r from-red-100 to-rose-100 text-rose-700'
-                                                        }`}>
-                                                            {clientData.is_active ? (
-                                                                <>
-                                                                    <FiTrendingUp className="w-3 h-3" />
-                                                                    Active
-                                                                </>
-                                                            ) : (
-                                                                <>
-                                                                    <FiX className="w-3 h-3" />
-                                                                    Inactive
-                                                                </>
-                                                            )}
-                                                        </span>
-                                                    </div>
-                                                    
-                                                    {/* Mobile - Collapsible Contact Info */}
-                                                    <div className={`grid ${isMobileView ? 'grid-cols-1' : 'grid-cols-2 lg:grid-cols-4'} gap-3`}>
-                                                        <div className="flex items-center gap-2.5 bg-gray-50 px-3 py-2.5 rounded-lg border border-gray-100">
-                                                            <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center flex-shrink-0">
-                                                                <FiPhone className="w-4 h-4 text-blue-600" />
-                                                            </div>
-                                                            <div className="min-w-0">
-                                                                <p className="text-xs font-medium text-gray-500">Mobile</p>
-                                                                <p className="text-sm font-semibold text-gray-900 truncate">
-                                                                    +{clientData.country_code} {clientData.mobile}
-                                                                </p>
-                                                            </div>
-                                                        </div>
-                                                        <div className="flex items-center gap-2.5 bg-gray-50 px-3 py-2.5 rounded-lg border border-gray-100">
-                                                            <div className="w-8 h-8 bg-purple-100 rounded-lg flex items-center justify-center flex-shrink-0">
-                                                                <FiMail className="w-4 h-4 text-purple-600" />
-                                                            </div>
-                                                            <div className="min-w-0">
-                                                                <p className="text-xs font-medium text-gray-500">Email</p>
-                                                                <p className="text-sm font-semibold text-gray-900 truncate">{clientData.email}</p>
-                                                            </div>
-                                                        </div>
-                                                        <div className="flex items-center gap-2.5 bg-gray-50 px-3 py-2.5 rounded-lg border border-gray-100">
-                                                            <div className="w-8 h-8 bg-amber-100 rounded-lg flex items-center justify-center flex-shrink-0">
-                                                                <FiCalendar className="w-4 h-4 text-amber-600" />
-                                                            </div>
-                                                            <div className="min-w-0">
-                                                                <p className="text-xs font-medium text-gray-500">Date of Birth</p>
-                                                                <p className="text-sm font-semibold text-gray-900 truncate">
-                                                                    {formatDate(clientData.date_of_birth)}
-                                                                </p>
-                                                            </div>
-                                                        </div>
-                                                        <div className="flex items-center gap-2.5 bg-gray-50 px-3 py-2.5 rounded-lg border border-gray-100">
-                                                            <div className="w-8 h-8 bg-emerald-100 rounded-lg flex items-center justify-center flex-shrink-0">
-                                                                <FiMapPin className="w-4 h-4 text-emerald-600" />
-                                                            </div>
-                                                            <div className="min-w-0">
-                                                                <p className="text-xs font-medium text-gray-500">Location</p>
-                                                                <p className="text-sm font-semibold text-gray-900 truncate">{clientData.state}</p>
-                                                            </div>
-                                                        </div>
-                                                    </div>
+                                                )}
+                                            </div>
+                                            <div className="min-w-0 flex-1 text-left">
+                                                <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500">
+                                                    Client
+                                                </p>
+                                                <div className="mt-0.5 flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
+                                                    <h1 className="min-w-0 max-w-full truncate text-[0.9375rem] font-semibold leading-tight tracking-tight text-slate-900 sm:text-lg">
+                                                        {clientData.name || '—'}
+                                                    </h1>
+                                                    <span
+                                                        className={`inline-flex shrink-0 items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-semibold leading-none ${clientData.is_active
+                                                            ? 'border-emerald-200 bg-emerald-50 text-emerald-800'
+                                                            : 'border-amber-200 bg-amber-50 text-amber-900'
+                                                            }`}
+                                                    >
+                                                        <span
+                                                            className={`h-1.5 w-1.5 rounded-full ${clientData.is_active ? 'bg-emerald-500' : 'bg-amber-500'}`}
+                                                            aria-hidden
+                                                        />
+                                                        {clientData.is_active ? 'Active' : 'Inactive'}
+                                                    </span>
                                                 </div>
                                             </div>
-                                            <motion.div
-                                                className="mt-4 lg:mt-0 flex-shrink-0"
-                                                whileHover={{ scale: 1.02 }}
-                                                transition={{ type: "spring", stiffness: 400 }}
-                                            >
-                                                <div className="bg-gradient-to-r from-emerald-500 to-green-600 text-white px-5 py-3 rounded-lg font-bold text-lg shadow-sm hover:shadow transform hover:-translate-y-0.5 transition-all duration-200 min-w-[180px]">
-                                                    <div className="flex items-center justify-center gap-2">
-                                                        <FiDollarSign className="w-5 h-5" />
-                                                        <div>
-                                                            <p className="text-xs font-medium text-emerald-100">Balance</p>
-                                                            <p className="text-xl">₹{clientData.balance.toLocaleString()}</p>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            </motion.div>
                                         </div>
+                                        <div
+                                            className="flex w-full flex-col px-2 py-1.5 text-left sm:w-auto sm:min-w-[6.5rem] sm:text-right"
+                                            style={{
+                                                borderRadius: '0.75rem',
+                                                border: '1px solid rgba(255, 255, 255, 0.9)',
+                                                backgroundColor: 'rgba(255, 255, 255, 0.88)',
+                                                boxShadow: '0 1px 2px rgba(49, 46, 129, 0.07)',
+                                                backdropFilter: 'blur(2px)',
+                                            }}
+                                            role="status"
+                                            aria-label="Account balance"
+                                        >
+                                            <span
+                                                className={`mt-0.5 text-center text-sm font-semibold tabular-nums tracking-tight sm:text-base ${Number(clientData.balance ?? 0) < 0
+                                                    ? 'text-rose-700'
+                                                    : Number(clientData.balance ?? 0) > 0
+                                                        ? 'text-emerald-700'
+                                                        : 'text-slate-800'
+                                                    }`}
+                                            >
+                                                {Number(clientData.balance ?? 0) < 0
+                                                    ? `- ₹${Math.abs(clientData.balance).toLocaleString('en-IN', {
+                                                        minimumFractionDigits: 2,
+                                                        maximumFractionDigits: 2,
+                                                    })}`
+                                                    : `₹${Number(clientData.balance ?? 0).toLocaleString('en-IN', {
+                                                        minimumFractionDigits: 2,
+                                                        maximumFractionDigits: 2,
+                                                    })}`
+                                                }
+
+                                            </span>
+                                        </div>
+                                    </div>
+                                    <dl
+                                        className="mt-3 grid grid-cols-1 gap-2 pt-3 sm:grid-cols-2 lg:grid-cols-4"
+                                        style={{ borderTop: '1px solid rgba(199, 210, 254, 0.8)' }}
+                                    >
+                                        <div
+                                            className="min-w-0 rounded-lg px-2.5 py-2"
+                                            style={{
+                                                background: 'rgba(238, 242, 255, 0.72)',
+                                                border: '1px solid rgba(199, 210, 254, 0.9)',
+                                            }}
+                                        >
+                                            <dt className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">
+                                                Guardian
+                                            </dt>
+                                            <dd className="mt-0.5 truncate text-xs font-medium text-slate-900 sm:text-[13px]">
+                                                {(() => {
+                                                    const prefix = (clientData.guardian_type || clientData.care_of || '').trim();
+                                                    const gname = (clientData.guardian_name || '').trim();
+                                                    const line = [prefix, gname].filter(Boolean).join(' ').trim();
+                                                    return line || '—';
+                                                })()}
+                                            </dd>
+                                        </div>
+                                        <div
+                                            className="min-w-0 rounded-lg px-2.5 py-2"
+                                            style={{
+                                                background: 'rgba(236, 254, 255, 0.72)',
+                                                border: '1px solid rgba(186, 230, 253, 0.9)',
+                                            }}
+                                        >
+                                            <dt className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">
+                                                Date of birth
+                                            </dt>
+                                            <dd className="mt-0.5 text-xs font-medium tabular-nums text-slate-900 sm:text-[13px]">
+                                                {formatDate(clientData.date_of_birth) || '—'}
+                                            </dd>
+                                        </div>
+                                        <div
+                                            className="min-w-0 rounded-lg px-2.5 py-2 sm:col-span-2 lg:col-span-1"
+                                            style={{
+                                                background: 'rgba(241, 245, 249, 0.88)',
+                                                border: '1px solid rgba(203, 213, 225, 0.95)',
+                                            }}
+                                        >
+                                            <dt className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">
+                                                Phone
+                                            </dt>
+                                            <dd className="mt-0.5 flex min-w-0 items-center gap-1.5 text-xs font-medium text-slate-900 sm:text-[13px]">
+                                                <FiPhone className="h-3.5 w-3.5 shrink-0 text-slate-500" aria-hidden />
+                                                <span className="min-w-0 truncate">
+                                                    {clientData.mobile
+                                                        ? `+${clientData.country_code || '91'} ${clientData.mobile}`
+                                                        : '—'}
+                                                </span>
+                                            </dd>
+                                        </div>
+                                        <div
+                                            className="min-w-0 rounded-lg px-2.5 py-2 sm:col-span-2 lg:col-span-1"
+                                            style={{
+                                                background: 'rgba(240, 249, 255, 0.8)',
+                                                border: '1px solid rgba(186, 230, 253, 0.9)',
+                                            }}
+                                        >
+                                            <dt className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">
+                                                Email
+                                            </dt>
+                                            <dd className="mt-0.5 flex min-w-0 items-center gap-1.5 text-xs font-medium text-slate-900 sm:text-[13px]">
+                                                <FiMail className="h-3.5 w-3.5 shrink-0 text-slate-500" aria-hidden />
+                                                <span className="min-w-0 truncate">{clientData.email || '—'}</span>
+                                            </dd>
+                                        </div>
+                                    </dl>
+                                </motion.section>
+
+
+                                <motion.div
+                                    className="bg-white rounded-xl border border-gray-200 shadow-sm mb-6 overflow-hidden"
+                                    initial={{ opacity: 0 }}
+                                    animate={{ opacity: 1 }}
+                                    transition={{ delay: 0.2 }}
+                                >
+                                    <div className="p-3 flex items-center justify-between">
+                                        {tabsMinimized ? (
+                                            // Minimized view - icons with labels in one line - CENTERED
+                                            <>
+                                                <div className="flex items-center justify-center gap-1 flex-1 flex-wrap">
+                                                    {profileTabs.map((tabItem) => {
+                                                        const Icon = tabItem.icon;
+                                                        const isActive = tab === tabItem.id;
+                                                        return (
+                                                            <CompactTabIcon
+                                                                key={tabItem.id}
+                                                                to={tabItem.id}
+                                                                icon={Icon}
+                                                                label={tabItem.name}
+                                                                isActive={isActive}
+                                                                onClick={handleTabClick}
+                                                            />
+                                                        );
+                                                    })}
+                                                </div>
+                                                <motion.button
+                                                    onClick={toggleTabsMinimized}
+                                                    className="p-2 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all duration-200 ml-1 flex-shrink-0"
+                                                    whileHover={{ scale: 1.1 }}
+                                                    whileTap={{ scale: 0.9 }}
+                                                    title="Show full tabs"
+                                                >
+                                                    <FiMaximize2 className="w-4 h-4" />
+                                                </motion.button>
+                                            </>
+                                        ) : (
+                                            // Expanded view - grid layout with minimize button
+                                            <>
+                                                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2 flex-1">
+                                                    {profileTabs.map((tabItem) => {
+                                                        const Icon = tabItem.icon;
+                                                        const isActive = tab === tabItem.id;
+                                                        return (
+                                                            <TabLink
+                                                                key={tabItem.id}
+                                                                to={tabItem.id}
+                                                                icon={Icon}
+                                                                label={tabItem.name}
+                                                                isActive={isActive}
+                                                                onClick={handleTabClick}
+                                                            />
+                                                        );
+                                                    })}
+                                                </div>
+                                                <motion.button
+                                                    onClick={toggleTabsMinimized}
+                                                    className="p-2 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all duration-200 ml-1 flex-shrink-0"
+                                                    whileHover={{ scale: 1.1 }}
+                                                    whileTap={{ scale: 0.9 }}
+                                                    title="Minimize tabs"
+                                                >
+                                                    <FiMinimize2 className="w-4 h-4" />
+                                                </motion.button>
+                                            </>
+                                        )}
                                     </div>
                                 </motion.div>
 
-                                {/* Enhanced Profile Tabs with Minimize Option */}
-                               {/* Enhanced Profile Tabs with Minimize Option */}
-{/* Enhanced Profile Tabs with Minimize Option */}
-<motion.div
-    className="bg-white rounded-xl border border-gray-200 shadow-sm mb-6 overflow-hidden"
-    initial={{ opacity: 0 }}
-    animate={{ opacity: 1 }}
-    transition={{ delay: 0.2 }}
->
-    <div className="p-3 flex items-center justify-between">
-        {tabsMinimized ? (
-            // Minimized view - icons with labels in one line - CENTERED
-            <>
-                <div className="flex items-center justify-center gap-1 flex-1 flex-wrap">
-                    {profileTabs.map((tabItem) => {
-                        const Icon = tabItem.icon;
-                        const isActive = tab === tabItem.id;
-                        return (
-                            <CompactTabIcon
-                                key={tabItem.id}
-                                to={tabItem.id}
-                                icon={Icon}
-                                label={tabItem.name}
-                                isActive={isActive}
-                                onClick={handleTabClick}
-                            />
-                        );
-                    })}
-                </div>
-                <motion.button
-                    onClick={toggleTabsMinimized}
-                    className="p-2 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all duration-200 ml-1 flex-shrink-0"
-                    whileHover={{ scale: 1.1 }}
-                    whileTap={{ scale: 0.9 }}
-                    title="Show full tabs"
-                >
-                    <FiMaximize2 className="w-4 h-4" />
-                </motion.button>
-            </>
-        ) : (
-            // Expanded view - grid layout with minimize button
-            <>
-                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2 flex-1">
-                    {profileTabs.map((tabItem) => {
-                        const Icon = tabItem.icon;
-                        const isActive = tab === tabItem.id;
-                        return (
-                            <TabLink
-                                key={tabItem.id}
-                                to={tabItem.id}
-                                icon={Icon}
-                                label={tabItem.name}
-                                isActive={isActive}
-                                onClick={handleTabClick}
-                            />
-                        );
-                    })}
-                </div>
-                <motion.button
-                    onClick={toggleTabsMinimized}
-                    className="p-2 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all duration-200 ml-1 flex-shrink-0"
-                    whileHover={{ scale: 1.1 }}
-                    whileTap={{ scale: 0.9 }}
-                    title="Minimize tabs"
-                >
-                    <FiMinimize2 className="w-4 h-4" />
-                </motion.button>
-            </>
-        )}
-    </div>
-</motion.div>
-
-                                {/* Tab Content with AnimatePresence */}
+                                {/* Tab content: full width of main column (no inner card — tabs supply their own layout) */}
                                 <AnimatePresence mode="wait">
                                     <motion.div
                                         key={tab}
@@ -1700,7 +1694,7 @@ const ClientProfile = () => {
                                         animate={{ opacity: 1, y: 0 }}
                                         exit={{ opacity: 0, y: -10 }}
                                         transition={{ duration: 0.2 }}
-                                        className="bg-white rounded-xl border border-gray-200 shadow-sm p-5"
+                                        className="w-full min-w-0 text-sm [&_h2]:text-lg [&_h2]:font-semibold [&_h3]:text-sm [&_h3]:font-semibold [&_h4]:text-sm [&_p]:text-xs [&_label]:text-xs [&_label]:font-medium [&_input]:text-sm [&_select]:text-sm [&_textarea]:text-sm [&_input]:rounded-md [&_select]:rounded-md [&_textarea]:rounded-md [&_input]:px-3 [&_select]:px-3 [&_textarea]:px-3 [&_input]:py-2 [&_select]:py-2 [&_textarea]:py-2 [&_button]:text-xs [&_button]:rounded-md [&_button]:px-3 [&_button]:py-1.5"
                                     >
                                         {renderTabContent()}
                                     </motion.div>

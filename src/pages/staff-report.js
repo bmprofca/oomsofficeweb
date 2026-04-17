@@ -52,7 +52,7 @@ const StaffReport = () => {
     // Transform API data to table format
     const transformApiData = (apiData) => {
         if (!apiData || !Array.isArray(apiData)) return [];
-        
+
         return apiData.map(item => ({
             username: item.staff?.username || '',
             name: item.staff?.name || '',
@@ -73,18 +73,18 @@ const StaffReport = () => {
     const fetchTeamReport = async (staffUsername = 'all', serviceId = 'all', search = null) => {
         setLoading(true);
         setApiError(null);
-        
+
         try {
             const headers = await getHeaders();
             const url = `${API_BASE_URL}/report/team-report`;
-            
+
             const params = new URLSearchParams();
             if (staffUsername && staffUsername !== 'all') params.append('staff_username', staffUsername);
             if (serviceId && serviceId !== 'all') params.append('service_id', serviceId);
             if (search) params.append('search', search);
-            
+
             const finalUrl = params.toString() ? `${url}?${params.toString()}` : url;
-            
+
             const response = await fetch(finalUrl, {
                 method: 'GET',
                 headers: {
@@ -92,13 +92,13 @@ const StaffReport = () => {
                     'Content-Type': 'application/json'
                 }
             });
-            
+
             if (!response.ok) {
                 throw new Error(`HTTP error! status: ${response.status}`);
             }
-            
+
             const result = await response.json();
-            
+
             if (result.success) {
                 const transformedData = transformApiData(result.data);
                 setTaskData(transformedData);
@@ -132,7 +132,7 @@ const StaffReport = () => {
                     'Content-Type': 'application/json'
                 }
             });
-            
+
             if (response.ok) {
                 const result = await response.json();
                 if (result.success && result.data) {
@@ -188,9 +188,9 @@ const StaffReport = () => {
         if (count === 0) {
             return 'text-slate-300 cursor-not-allowed';
         }
-        
+
         const baseClasses = 'font-mono font-semibold text-sm cursor-pointer transition-all hover:scale-105 inline-flex items-center justify-center';
-        
+
         switch (type) {
             case 'OD':
                 return `${baseClasses} text-red-600 hover:text-red-700`;
@@ -267,28 +267,10 @@ const StaffReport = () => {
     );
 
     const SkeletonLoader = () => (
-<<<<<<< HEAD
-        <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
-            <Header
-                mobileMenuOpen={mobileMenuOpen}
-                setMobileMenuOpen={setMobileMenuOpen}
-                isMinimized={isMinimized}
-                setIsMinimized={setIsMinimized}
-            />
-            <Sidebar
-                mobileMenuOpen={mobileMenuOpen}
-                setMobileMenuOpen={setMobileMenuOpen}
-                isMinimized={isMinimized}
-                setIsMinimized={setIsMinimized}
-            />
-
-            <div className={`pt-16 transition-all duration-300 ease-in-out ${isMinimized ? 'md:pl-20' : 'md:pl-[260px]'}`}>
-=======
         <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
             <Header mobileMenuOpen={mobileMenuOpen} setMobileMenuOpen={setMobileMenuOpen} isMinimized={isMinimized} setIsMinimized={setIsMinimized} />
             <Sidebar mobileMenuOpen={mobileMenuOpen} setMobileMenuOpen={setMobileMenuOpen} isMinimized={isMinimized} setIsMinimized={setIsMinimized} />
-            <div className={`pt-16 transition-all duration-300 ${isMinimized ? 'md:pl-20' : 'md:pl-72'}`}>
->>>>>>> d68b8565dcbb251b76474acab80e33ddfddeaf89
+            <div className={`pt-16 transition-all duration-300 ease-in-out ${isMinimized ? 'md:pl-20' : 'md:pl-[260px]'}`}>
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 md:px-8 py-6">
                     <div className="bg-white rounded-xl shadow-sm border border-slate-200">
                         <div className="border-b border-slate-200 px-6 py-4">
@@ -317,11 +299,7 @@ const StaffReport = () => {
             <Header mobileMenuOpen={mobileMenuOpen} setMobileMenuOpen={setMobileMenuOpen} isMinimized={isMinimized} setIsMinimized={setIsMinimized} />
             <Sidebar mobileMenuOpen={mobileMenuOpen} setMobileMenuOpen={setMobileMenuOpen} isMinimized={isMinimized} setIsMinimized={setIsMinimized} />
 
-<<<<<<< HEAD
             <div className={`pt-16 transition-all duration-300 ease-in-out ${isMinimized ? 'md:pl-20' : 'md:pl-[260px]'}`}>
-=======
-            <div className={`pt-16 transition-all duration-300 ${isMinimized ? 'md:pl-20' : 'md:pl-72'}`}>
->>>>>>> d68b8565dcbb251b76474acab80e33ddfddeaf89
                 <div className="max-w-full mx-auto px-4 sm:px-6 lg:px-8 py-6">
                     {/* Error Alert */}
                     {apiError && (
