@@ -3,14 +3,13 @@ import {
     FiPlus, FiEdit, FiTrash, FiSettings, FiCheck, FiX,
     FiMoreVertical, FiEye, FiHome, FiAlertCircle, FiFilter,
     FiChevronLeft, FiChevronRight, FiCalendar, FiUser, FiGrid,
-    FiDownload, FiRefreshCw, FiCopy, FiShare2
+    FiDownload, FiRefreshCw, FiShare2
 } from 'react-icons/fi';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Header, Sidebar } from '../../components/header';
-import API_BASE_URL from '../../utils/api-controller';
-import getHeaders from '../../utils/get-headers';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { toast, Toaster } from 'react-hot-toast';
+import { passwordGroupService } from '../../services/passwordGroupService';
 
 // Professional Toast Configuration
 const toastConfig = {
@@ -112,6 +111,7 @@ const showToast = {
 
 const PasswordGroups = () => {
     const navigate = useNavigate();
+    const [searchParams, setSearchParams] = useSearchParams();
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
     const [isMinimized, setIsMinimized] = useState(() => {
         const saved = localStorage.getItem('sidebarMinimized');
@@ -123,17 +123,19 @@ const PasswordGroups = () => {
     const [showCreateModal, setShowCreateModal] = useState(false);
     const [showEditModal, setShowEditModal] = useState(false);
     const [showDeleteModal, setShowDeleteModal] = useState(false);
+    const [showViewModal, setShowViewModal] = useState(false);
     const [selectedGroup, setSelectedGroup] = useState(null);
     const [activeDropdown, setActiveDropdown] = useState(null);
-    const [searchTerm, setSearchTerm] = useState('');
+    const [searchTerm, setSearchTerm] = useState(searchParams.get('search') || '');
     const [pagination, setPagination] = useState({
-        page: 1,
-        limit: 20,
+        page: Number(searchParams.get('page')) || 1,
+        limit: Number(searchParams.get('limit')) || 20,
         total: 0,
         total_pages: 1,
         is_last_page: false
     });
-    const [statusFilter, setStatusFilter] = useState('all');
+    const [jumpPageInput, setJumpPageInput] = useState(String(Number(searchParams.get('page')) || 1));
+    const [statusFilter] = useState('all');
 
     // Form states
     const [createForm, setCreateForm] = useState({
@@ -163,39 +165,47 @@ const PasswordGroups = () => {
         };
     }, [mobileMenuOpen]);
 
+    const applyStatusFilter = (data, status) => {
+        if (status === 'all') return data;
+        return (data || []).filter((group) => group.status === status);
+    };
+
     // Initial data load
     useEffect(() => {
-        fetchGroupsData();
-    }, [pagination.page, statusFilter]);
+        fetchGroupsData(searchTerm, pagination.page, pagination.limit);
+    }, [pagination.page, pagination.limit, searchTerm]);
+
+    useEffect(() => {
+        setFilteredGroups(applyStatusFilter(groups, statusFilter));
+    }, [groups, statusFilter]);
 
     // Fetch groups data from API
-    const fetchGroupsData = async () => {
+    const fetchGroupsData = async (searchValue = searchTerm, pageValue = pagination.page, limitValue = pagination.limit) => {
         setLoading(true);
 
         try {
-            const headers = await getHeaders();
-            let url = `${API_BASE_URL}/assistance/p-group/list?page=${pagination.page}&limit=${pagination.limit}`;
-
-            if (searchTerm) {
-                url += `&search=${encodeURIComponent(searchTerm)}`;
-            }
-
-            if (statusFilter !== 'all') {
-                url += `&status=${statusFilter}`;
-            }
-
-            const response = await fetch(url, { headers });
-            const result = await response.json();
+            const response = await passwordGroupService.listGroups({
+                search: searchValue,
+                page: pageValue,
+                limit: limitValue,
+            });
+            const result = response.data;
 
             if (result.success) {
-                setGroups(result.data || []);
-                setFilteredGroups(result.data || []);
+                const list = result.data || [];
+                setGroups(list);
+                setFilteredGroups(applyStatusFilter(list, statusFilter));
                 setPagination({
                     page: result.meta?.page || 1,
                     limit: result.meta?.limit || 20,
                     total: result.meta?.total || 0,
                     total_pages: result.meta?.total_pages || 1,
                     is_last_page: result.meta?.is_last_page || false
+                });
+                setSearchParams({
+                    page: String(result.meta?.page || pageValue || 1),
+                    limit: String(result.meta?.limit || limitValue || 20),
+                    ...(searchValue?.trim() ? { search: searchValue.trim() } : {}),
                 });
             } else {
                 showToast.error(result.message || 'Failed to fetch groups');
@@ -220,13 +230,10 @@ const PasswordGroups = () => {
         const loadingToast = showToast.loading('Creating group...');
 
         try {
-            const headers = await getHeaders();
-            const response = await fetch(`${API_BASE_URL}/assistance/p-group/create `, {
-                method: 'POST',
-                headers,
-                body: JSON.stringify(createForm)
+            const response = await passwordGroupService.createGroup({
+                group_name: createForm.group_name.trim(),
             });
-            const result = await response.json();
+            const result = response.data;
 
             showToast.dismiss(loadingToast);
 
@@ -257,16 +264,11 @@ const PasswordGroups = () => {
         const loadingToast = showToast.loading('Updating group...');
 
         try {
-            const headers = await getHeaders();
-            const response = await fetch(`${API_BASE_URL}/assistance/p-group/edit/${editForm.group_id}`, {
-                method: 'PUT',
-                headers,
-                body: JSON.stringify({
-                    group_name: editForm.group_name,
-                    status: editForm.status
-                })
+            const response = await passwordGroupService.editGroup(editForm.group_id, {
+                group_name: editForm.group_name.trim(),
+                status: editForm.status || undefined,
             });
-            const result = await response.json();
+            const result = response.data;
 
             showToast.dismiss(loadingToast);
 
@@ -316,12 +318,8 @@ const PasswordGroups = () => {
         const loadingToast = showToast.loading('Deleting group...');
 
         try {
-            const headers = await getHeaders();
-            const response = await fetch(`${API_BASE_URL}/assistance/p-group/delete/${selectedGroup.group_id}`, {
-                method: 'DELETE',
-                headers
-            });
-            const result = await response.json();
+            const response = await passwordGroupService.deleteGroup(selectedGroup.group_id);
+            const result = response.data;
 
             showToast.dismiss(loadingToast);
 
@@ -348,16 +346,11 @@ const PasswordGroups = () => {
         const loadingToast = showToast.loading(`Changing status...`);
 
         try {
-            const headers = await getHeaders();
-            const response = await fetch(`${API_BASE_URL}/assistance/password-group/edit-group/${group.group_id}`, {
-                method: 'PUT',
-                headers,
-                body: JSON.stringify({
-                    group_name: group.group_name,
-                    status: newStatus
-                })
+            const response = await passwordGroupService.editGroup(group.group_id, {
+                group_name: group.group_name,
+                status: newStatus,
             });
-            const result = await response.json();
+            const result = response.data;
 
             showToast.dismiss(loadingToast);
 
@@ -375,30 +368,26 @@ const PasswordGroups = () => {
     };
 
     // Handle view group firms
-    const handleViewGroup = (group) => {
+    const handleViewGroupFirms = (group) => {
         navigate(`/staff/office-assistance/password-group/${group.group_id}/firms`, {
             state: { group_name: group.group_name }
         });
     };
 
+    const handleViewDetailsClick = (group) => {
+        setSelectedGroup(group);
+        setShowViewModal(true);
+        setActiveDropdown(null);
+    };
+
     // Handle group name click
     const handleGroupNameClick = (group) => {
-        handleViewGroup(group);
+        handleViewGroupFirms(group);
     };
 
     // Handle firms count click
     const handleFirmsClick = (group) => {
-        if (group.unique_firms === 0) {
-            showToast.info(`No firms in "${group.group_name}" yet`);
-        } else {
-            handleViewGroup(group);
-        }
-    };
-
-    // Handle copy group name
-    const handleCopyGroupName = (groupName) => {
-        navigator.clipboard.writeText(groupName);
-        showToast.success('Group name copied to clipboard');
+        handleViewGroupFirms(group);
     };
 
     // Toggle dropdown
@@ -439,7 +428,6 @@ const PasswordGroups = () => {
     const handleSearch = (term) => {
         setSearchTerm(term);
         setPagination(prev => ({ ...prev, page: 1 }));
-        fetchGroupsData();
     };
 
     // Handle refresh
@@ -478,12 +466,21 @@ const PasswordGroups = () => {
         }
     };
 
-    // Calculate summary
-    const summary = {
-        totalGroups: groups.length,
-        activeGroups: groups.filter(group => group.status === 'active').length,
-        totalFirms: groups.reduce((sum, group) => sum + (group.unique_firms || 0), 0)
+    const handleJumpToPage = (e) => {
+        e.preventDefault();
+        const parsedPage = Number(jumpPageInput);
+        if (!Number.isFinite(parsedPage)) {
+            setJumpPageInput(String(pagination.page));
+            return;
+        }
+        const clampedPage = Math.min(Math.max(1, Math.floor(parsedPage)), Math.max(1, pagination.total_pages));
+        setJumpPageInput(String(clampedPage));
+        handlePageChange(clampedPage);
     };
+
+    useEffect(() => {
+        setJumpPageInput(String(pagination.page));
+    }, [pagination.page]);
 
     return (
         <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-50">
@@ -514,10 +511,10 @@ const PasswordGroups = () => {
 
             {/* Main content */}
             <div className={`pt-16 transition-all duration-300 ease-in-out ${isMinimized ? 'md:pl-20' : 'md:pl-[260px]'}`}>
-                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+                <div className="max-w-7xl mx-auto px-3 sm:px-5 lg:px-6 py-5 text-sm [&_h1]:text-2xl [&_h1]:font-bold [&_h2]:text-lg [&_h2]:font-bold [&_h3]:text-base [&_h3]:font-bold [&_label]:text-xs [&_label]:font-semibold [&_label]:text-slate-600 [&_th]:text-xs [&_th]:font-semibold [&_th]:text-slate-600 [&_td]:text-sm [&_input]:text-sm [&_input]:text-slate-700 [&_select]:text-sm [&_select]:text-slate-700 [&_textarea]:text-sm [&_textarea]:text-slate-700 [&_button]:text-sm [&_button]:font-semibold">
                     {/* Header Section with Breadcrumb */}
-                    <div className="mb-8">
-                        <nav className="flex items-center text-sm text-slate-500 mb-4">
+                    <div className="mb-5">
+                        <nav className="flex items-center text-sm text-slate-500 mb-3">
                             <span
                                 onClick={() => navigate('/dashboard')}
                                 className="hover:text-indigo-600 cursor-pointer transition-colors"
@@ -542,9 +539,6 @@ const PasswordGroups = () => {
                                 </div>
                                 <div>
                                     <h1 className="text-3xl font-bold text-slate-800">Password Groups</h1>
-                                    <p className="mt-1 text-sm text-slate-500">
-                                        Manage and organize your password groups and associated firms
-                                    </p>
                                 </div>
                             </div>
                             <div className="flex items-center gap-3">
@@ -570,66 +564,14 @@ const PasswordGroups = () => {
                         </div>
                     </div>
 
-                    {/* Stats Cards */}
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-                        {[
-                            {
-                                title: 'Total Groups',
-                                value: summary.totalGroups,
-                                icon: FiSettings,
-                                gradient: 'from-indigo-500 to-indigo-600',
-                                lightBg: 'bg-indigo-50',
-                                textColor: 'text-indigo-600',
-                                borderColor: 'border-indigo-100',
-                            },
-                            {
-                                title: 'Active Groups',
-                                value: summary.activeGroups,
-                                icon: FiCheck,
-                                gradient: 'from-green-500 to-green-600',
-                                lightBg: 'bg-green-50',
-                                textColor: 'text-green-600',
-                                borderColor: 'border-green-100',
-                            },
-                            {
-                                title: 'Total Firms',
-                                value: summary.totalFirms,
-                                icon: FiHome,
-                                gradient: 'from-blue-500 to-blue-600',
-                                lightBg: 'bg-blue-50',
-                                textColor: 'text-blue-600',
-                                borderColor: 'border-blue-100',
-                            }
-                        ].map((stat, idx) => (
-                            <motion.div
-                                key={idx}
-                                initial={{ opacity: 0, y: 20 }}
-                                animate={{ opacity: 1, y: 0 }}
-                                transition={{ delay: idx * 0.1 }}
-                                className="group relative bg-white rounded-2xl shadow-lg border border-slate-200 p-6 hover:shadow-2xl transition-all duration-300 hover:-translate-y-1 cursor-pointer"
-                            >
-                                <div className={`absolute top-0 left-0 w-full h-1 bg-gradient-to-r ${stat.gradient} rounded-t-2xl`} />
-                                <div className="relative flex items-center justify-between">
-                                    <div>
-                                        <p className="text-sm font-medium text-slate-500 mb-1">{stat.title}</p>
-                                        <p className="text-3xl font-bold text-slate-800">{stat.value}</p>
-                                    </div>
-                                    <div className={`p-4 ${stat.lightBg} rounded-xl group-hover:scale-110 transition-transform duration-300`}>
-                                        <stat.icon className={`w-6 h-6 ${stat.textColor}`} />
-                                    </div>
-                                </div>
-                            </motion.div>
-                        ))}
-                    </div>
-
                     {/* Main Card */}
                     <motion.div
                         initial={{ opacity: 0, y: 20 }}
                         animate={{ opacity: 1, y: 0 }}
-                        className="bg-white rounded-2xl shadow-xl border border-slate-200 overflow-hidden"
+                        className="bg-white rounded-xl shadow-lg border border-slate-200"
                     >
                         {/* Card Header */}
-                        <div className="border-b border-slate-200 px-6 py-5 bg-gradient-to-r from-slate-50 to-white">
+                        <div className="border-b border-slate-200 px-4 sm:px-5 py-4 bg-slate-50">
                             <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
                                 <div className="flex items-center gap-3">
                                     <div className="p-2 bg-indigo-50 rounded-lg">
@@ -639,27 +581,10 @@ const PasswordGroups = () => {
                                         <h2 className="text-lg font-semibold text-slate-800">
                                             Groups Directory
                                         </h2>
-                                        <p className="text-xs text-slate-500">
-                                            {pagination.total} groups found • Page {pagination.page} of {pagination.total_pages}
-                                        </p>
                                     </div>
                                 </div>
 
                                 <div className="flex flex-col sm:flex-row gap-3">
-                                    {/* Status Filter */}
-                                    <select
-                                        value={statusFilter}
-                                        onChange={(e) => {
-                                            setStatusFilter(e.target.value);
-                                            fetchGroupsData();
-                                        }}
-                                        className="px-4 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white shadow-sm"
-                                    >
-                                        <option value="all">All Status</option>
-                                        <option value="active">Active Only</option>
-                                        <option value="inactive">Inactive Only</option>
-                                    </select>
-
                                     {/* Search Component */}
                                     <div className="relative w-full sm:w-72">
                                         <input
@@ -669,7 +594,7 @@ const PasswordGroups = () => {
                                             onChange={(e) => handleSearch(e.target.value)}
                                             className="w-full px-4 py-2.5 pl-10 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white shadow-sm"
                                         />
-                                        <FiFilter className="absolute left-3 top-3 w-4 h-4 text-slate-400" />
+                                        <FiFilter className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                                     </div>
                                 </div>
                             </div>
@@ -680,22 +605,22 @@ const PasswordGroups = () => {
                             <table className="min-w-full divide-y divide-slate-200">
                                 <thead className="bg-slate-50">
                                     <tr>
-                                        <th scope="col" className="px-6 py-4 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">
+                                        <th scope="col" className="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">
                                             #
                                         </th>
-                                        <th scope="col" className="px-6 py-4 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">
+                                        <th scope="col" className="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">
                                             Group Details
                                         </th>
-                                        <th scope="col" className="px-6 py-4 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">
+                                        <th scope="col" className="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">
                                             Firms
                                         </th>
-                                        <th scope="col" className="px-6 py-4 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">
+                                        <th scope="col" className="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">
                                             Status
                                         </th>
-                                        <th scope="col" className="px-6 py-4 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">
+                                        <th scope="col" className="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">
                                             Created
                                         </th>
-                                        <th scope="col" className="px-6 py-4 text-right text-xs font-semibold text-slate-600 uppercase tracking-wider">
+                                        <th scope="col" className="px-4 py-3 text-right text-xs font-semibold text-slate-600 uppercase tracking-wider">
                                             Actions
                                         </th>
                                     </tr>
@@ -706,7 +631,7 @@ const PasswordGroups = () => {
                                         Array.from({ length: 5 }).map((_, index) => (
                                             <tr key={index}>
                                                 {Array.from({ length: 6 }).map((_, cellIndex) => (
-                                                    <td key={cellIndex} className="px-6 py-4">
+                                                    <td key={cellIndex} className="px-4 py-3">
                                                         <div className="h-4 bg-slate-200 rounded animate-pulse"></div>
                                                     </td>
                                                 ))}
@@ -714,18 +639,13 @@ const PasswordGroups = () => {
                                         ))
                                     ) : filteredGroups.length === 0 ? (
                                         <tr>
-                                            <td colSpan="6" className="px-6 py-16 text-center">
+                                            <td colSpan="6" className="px-4 py-12 text-center">
                                                 <div className="flex flex-col items-center">
                                                     <div className="p-4 bg-slate-100 rounded-full mb-4">
                                                         <FiSettings className="w-8 h-8 text-slate-400" />
                                                     </div>
                                                     <p className="text-slate-600 text-lg font-medium mb-2">
                                                         No password groups found
-                                                    </p>
-                                                    <p className="text-slate-400 text-sm mb-6">
-                                                        {searchTerm
-                                                            ? `No results for "${searchTerm}"`
-                                                            : 'Get started by creating your first password group'}
                                                     </p>
                                                     <button
                                                         onClick={() => setShowCreateModal(true)}
@@ -746,14 +666,14 @@ const PasswordGroups = () => {
                                                 transition={{ delay: index * 0.05 }}
                                                 className="group hover:bg-gradient-to-r hover:from-indigo-50/50 hover:to-blue-50/50 transition-all duration-300"
                                             >
-                                                <td className="px-6 py-4 whitespace-nowrap text-sm">
+                                                <td className="px-4 py-3 whitespace-nowrap text-sm">
                                                     <span className="inline-flex items-center justify-center w-7 h-7 bg-slate-100 text-slate-600 font-medium rounded-lg text-xs">
                                                         {((pagination.page - 1) * pagination.limit) + index + 1}
                                                     </span>
                                                 </td>
 
                                                 {/* Group Name - Clickable */}
-                                                <td className="px-6 py-4 whitespace-nowrap">
+                                                <td className="px-4 py-3 whitespace-nowrap">
                                                     <div className="flex items-center gap-2">
                                                         <button
                                                             onClick={() => handleGroupNameClick(group)}
@@ -763,7 +683,7 @@ const PasswordGroups = () => {
                                                                 <FiSettings className="w-4 h-4 text-indigo-600" />
                                                             </div>
                                                             <div className="text-left">
-                                                                <span className="text-sm font-semibold text-slate-800 group-hover/name:text-indigo-600 group-hover/name:underline transition-all duration-200">
+                                                                <span className="text-sm font-semibold text-slate-800 transition-colors duration-200">
                                                                     {group.group_name}
                                                                 </span>
                                                                 {group.description && (
@@ -771,50 +691,31 @@ const PasswordGroups = () => {
                                                                 )}
                                                             </div>
                                                         </button>
-
-                                                        {/* Copy button */}
-                                                        <button
-                                                            onClick={() => handleCopyGroupName(group.group_name)}
-                                                            className="p-1.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-all duration-200 opacity-0 group-hover:opacity-100"
-                                                            title="Copy group name"
-                                                        >
-                                                            <FiCopy className="w-3.5 h-3.5" />
-                                                        </button>
                                                     </div>
                                                 </td>
 
-                                                {/* Firms Count - Clickable */}
-                                                <td className="px-6 py-4 whitespace-nowrap">
+                                                {/* Firms Count - Clickable Compact Badge */}
+                                                <td className="px-4 py-3 whitespace-nowrap">
                                                     <button
                                                         onClick={() => handleFirmsClick(group)}
-                                                        className={`group/firms inline-flex items-center px-4 py-2 rounded-xl border transition-all duration-200 focus:outline-none ${group.unique_firms > 0
-                                                                ? 'bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-100 hover:border-indigo-300'
-                                                                : 'bg-slate-50 border-slate-200 hover:border-slate-300'
+                                                        className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-xs font-medium transition-all duration-200 focus:outline-none ${group.unique_firms > 0
+                                                            ? 'bg-blue-50 border-blue-200 text-blue-700 hover:bg-blue-100'
+                                                            : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100'
                                                             }`}
                                                     >
-                                                        <FiHome className={`w-4 h-4 mr-2 group-hover/firms:scale-110 transition-transform ${group.unique_firms > 0 ? 'text-blue-600' : 'text-slate-400'
+                                                        <FiHome className={`w-3.5 h-3.5 ${group.unique_firms > 0 ? 'text-blue-600' : 'text-slate-500'
                                                             }`} />
-                                                        <span className={`text-sm font-bold ${group.unique_firms > 0 ? 'text-blue-700' : 'text-slate-500'
-                                                            }`}>
-                                                            {group.unique_firms || 0}
-                                                        </span>
-                                                        <span className={`text-xs ml-1 ${group.unique_firms > 0 ? 'text-slate-600' : 'text-slate-400'
-                                                            }`}>
-                                                            firms
-                                                        </span>
-                                                        {group.unique_firms > 0 && (
-                                                            <FiEye className="w-3 h-3 ml-2 text-indigo-400 opacity-0 group-hover/firms:opacity-100 transition-opacity" />
-                                                        )}
+                                                        <span>{group.unique_firms || 0} firms</span>
                                                     </button>
                                                 </td>
 
                                                 {/* Status with Toggle */}
-                                                <td className="px-6 py-4 whitespace-nowrap">
+                                                <td className="px-4 py-3 whitespace-nowrap">
                                                     <button
                                                         onClick={() => handleStatusChange(group)}
                                                         className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium transition-all duration-200 ${group.status === 'active'
-                                                                ? 'bg-gradient-to-r from-green-100 to-emerald-100 text-green-700 hover:from-green-200 hover:to-emerald-200 border border-green-200'
-                                                                : 'bg-gradient-to-r from-slate-100 to-gray-100 text-slate-600 hover:from-slate-200 hover:to-gray-200 border border-slate-200'
+                                                            ? 'bg-gradient-to-r from-green-100 to-emerald-100 text-green-700 hover:from-green-200 hover:to-emerald-200 border border-green-200'
+                                                            : 'bg-gradient-to-r from-slate-100 to-gray-100 text-slate-600 hover:from-slate-200 hover:to-gray-200 border border-slate-200'
                                                             }`}
                                                         title={`Click to ${group.status === 'active' ? 'deactivate' : 'activate'}`}
                                                     >
@@ -824,7 +725,7 @@ const PasswordGroups = () => {
                                                 </td>
 
                                                 {/* Created Info */}
-                                                <td className="px-6 py-4 whitespace-nowrap">
+                                                <td className="px-4 py-3 whitespace-nowrap">
                                                     <div className="flex items-center gap-2">
                                                         <FiCalendar className="w-3.5 h-3.5 text-slate-400" />
                                                         <div>
@@ -842,7 +743,7 @@ const PasswordGroups = () => {
                                                 </td>
 
                                                 {/* Actions */}
-                                                <td className="px-6 py-4 whitespace-nowrap text-right">
+                                                <td className="px-4 py-3 whitespace-nowrap text-right">
                                                     <div className="relative dropdown-container">
                                                         <button
                                                             onClick={() => toggleDropdown(group.group_id)}
@@ -855,36 +756,21 @@ const PasswordGroups = () => {
                                                         <AnimatePresence>
                                                             {activeDropdown === group.group_id && (
                                                                 <motion.div
-                                                                    initial={{ opacity: 0, y: -10, scale: 0.95 }}
+                                                                    initial={{ opacity: 0, y: index >= filteredGroups.length - 2 ? 8 : -8, scale: 0.95 }}
                                                                     animate={{ opacity: 1, y: 0, scale: 1 }}
-                                                                    exit={{ opacity: 0, y: -10, scale: 0.95 }}
+                                                                    exit={{ opacity: 0, y: index >= filteredGroups.length - 2 ? 8 : -8, scale: 0.95 }}
                                                                     transition={{ duration: 0.15 }}
-                                                                    className="absolute right-0 mt-2 w-56 bg-white rounded-xl shadow-2xl border border-slate-200 z-50 overflow-hidden"
+                                                                    className={`absolute right-0 w-56 bg-white rounded-xl shadow-2xl border border-slate-200 z-[9999] overflow-hidden ${index >= filteredGroups.length - 2 ? 'bottom-full mb-2' : 'top-full mt-2'}`}
                                                                 >
                                                                     <div className="py-1">
                                                                         <button
-                                                                            onClick={() => handleViewGroup(group)}
+                                                                            onClick={() => handleViewDetailsClick(group)}
                                                                             className="flex items-center w-full px-4 py-3 text-sm text-slate-700 hover:bg-gradient-to-r hover:from-indigo-50 hover:to-blue-50 transition-all duration-200"
                                                                         >
                                                                             <div className="p-1.5 bg-indigo-100 rounded-lg mr-3">
                                                                                 <FiEye className="w-3.5 h-3.5 text-indigo-600" />
                                                                             </div>
-                                                                            <span>View Firms</span>
-                                                                            {group.unique_firms > 0 && (
-                                                                                <span className="ml-auto text-xs bg-indigo-100 text-indigo-600 px-2 py-0.5 rounded-full">
-                                                                                    {group.unique_firms}
-                                                                                </span>
-                                                                            )}
-                                                                        </button>
-
-                                                                        <button
-                                                                            onClick={() => handleCopyGroupName(group.group_name)}
-                                                                            className="flex items-center w-full px-4 py-3 text-sm text-slate-700 hover:bg-gradient-to-r hover:from-blue-50 hover:to-cyan-50 transition-all duration-200"
-                                                                        >
-                                                                            <div className="p-1.5 bg-blue-100 rounded-lg mr-3">
-                                                                                <FiCopy className="w-3.5 h-3.5 text-blue-600" />
-                                                                            </div>
-                                                                            <span>Copy Name</span>
+                                                                            <span>View Details</span>
                                                                         </button>
 
                                                                         <button
@@ -897,17 +783,15 @@ const PasswordGroups = () => {
                                                                             <span>Edit Group</span>
                                                                         </button>
 
-                                                                        {group.total_credentials === 0 && (
-                                                                            <button
-                                                                                onClick={() => handleDeleteClick(group)}
-                                                                                className="flex items-center w-full px-4 py-3 text-sm text-red-600 hover:bg-gradient-to-r hover:from-red-50 hover:to-rose-50 transition-all duration-200"
-                                                                            >
-                                                                                <div className="p-1.5 bg-red-100 rounded-lg mr-3">
-                                                                                    <FiTrash className="w-3.5 h-3.5 text-red-600" />
-                                                                                </div>
-                                                                                <span>Delete Group</span>
-                                                                            </button>
-                                                                        )}
+                                                                        <button
+                                                                            onClick={() => handleDeleteClick(group)}
+                                                                            className="flex items-center w-full px-4 py-3 text-sm text-red-600 hover:bg-gradient-to-r hover:from-red-50 hover:to-rose-50 transition-all duration-200"
+                                                                        >
+                                                                            <div className="p-1.5 bg-red-100 rounded-lg mr-3">
+                                                                                <FiTrash className="w-3.5 h-3.5 text-red-600" />
+                                                                            </div>
+                                                                            <span>Delete Group</span>
+                                                                        </button>
                                                                     </div>
                                                                 </motion.div>
                                                             )}
@@ -922,20 +806,27 @@ const PasswordGroups = () => {
                         </div>
 
                         {/* Table Footer with Pagination */}
-                        <div className="border-t border-slate-200 px-6 py-4 bg-gradient-to-r from-slate-50 to-white">
-                            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                        <div className="border-t border-slate-200 px-4 py-3 bg-slate-50">
+                            <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
                                 <div className="text-sm text-slate-500">
-                                    Showing <span className="font-medium text-slate-700">{filteredGroups.length}</span> of{' '}
-                                    <span className="font-medium text-slate-700">{pagination.total}</span> groups
+                                    Showing{' '}
+                                    <span className="font-medium text-slate-700">
+                                        {pagination.total === 0 ? 0 : ((pagination.page - 1) * pagination.limit) + 1}
+                                    </span>{' '}
+                                    to{' '}
+                                    <span className="font-medium text-slate-700">
+                                        {Math.min(pagination.page * pagination.limit, pagination.total)}
+                                    </span>{' '}
+                                    of <span className="font-medium text-slate-700">{pagination.total}</span>
                                 </div>
 
-                                <div className="flex items-center gap-2">
+                                <div className="flex flex-wrap items-center gap-2">
                                     <button
                                         onClick={handlePrevPage}
                                         disabled={pagination.page === 1}
                                         className={`inline-flex items-center px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${pagination.page === 1
-                                                ? 'text-slate-400 cursor-not-allowed'
-                                                : 'text-slate-700 hover:bg-indigo-50 hover:text-indigo-600'
+                                            ? 'text-slate-400 cursor-not-allowed'
+                                            : 'text-slate-700 hover:bg-indigo-50 hover:text-indigo-600'
                                             }`}
                                     >
                                         <FiChevronLeft className="w-4 h-4 mr-1" />
@@ -960,8 +851,8 @@ const PasswordGroups = () => {
                                                     key={i}
                                                     onClick={() => handlePageChange(pageNum)}
                                                     className={`w-8 h-8 rounded-lg text-sm font-medium transition-all duration-200 ${pagination.page === pageNum
-                                                            ? 'bg-indigo-600 text-white'
-                                                            : 'text-slate-700 hover:bg-indigo-50'
+                                                        ? 'bg-indigo-600 text-white'
+                                                        : 'text-slate-700 hover:bg-indigo-50'
                                                         }`}
                                                 >
                                                     {pageNum}
@@ -974,13 +865,31 @@ const PasswordGroups = () => {
                                         onClick={handleNextPage}
                                         disabled={pagination.is_last_page}
                                         className={`inline-flex items-center px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${pagination.is_last_page
-                                                ? 'text-slate-400 cursor-not-allowed'
-                                                : 'text-slate-700 hover:bg-indigo-50 hover:text-indigo-600'
+                                            ? 'text-slate-400 cursor-not-allowed'
+                                            : 'text-slate-700 hover:bg-indigo-50 hover:text-indigo-600'
                                             }`}
                                     >
                                         Next
                                         <FiChevronRight className="w-4 h-4 ml-1" />
                                     </button>
+
+                                    <form onSubmit={handleJumpToPage} className="flex items-center gap-1 ml-0 sm:ml-2">
+                                        <input
+                                            type="number"
+                                            min="1"
+                                            max={Math.max(1, pagination.total_pages)}
+                                            value={jumpPageInput}
+                                            onChange={(e) => setJumpPageInput(e.target.value)}
+                                            className="w-16 px-2 py-1.5 border border-slate-300 rounded-md text-sm text-center focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                            aria-label="Jump to page"
+                                        />
+                                        <button
+                                            type="submit"
+                                            className="px-2.5 py-1.5 rounded-md text-sm font-medium text-slate-700 hover:bg-indigo-50 hover:text-indigo-600 transition-colors"
+                                        >
+                                            Go
+                                        </button>
+                                    </form>
                                 </div>
                             </div>
                         </div>
@@ -1006,7 +915,6 @@ const PasswordGroups = () => {
                                     </div>
                                     <div>
                                         <h3 className="text-lg font-semibold text-white">Create New Group</h3>
-                                        <p className="text-xs text-indigo-100 mt-1">Add a new password group</p>
                                     </div>
                                 </div>
                             </div>
@@ -1025,9 +933,6 @@ const PasswordGroups = () => {
                                         required
                                         autoFocus
                                     />
-                                    <p className="mt-2 text-xs text-slate-500">
-                                        Choose a descriptive name for your password group
-                                    </p>
                                 </div>
 
                                 <div className="px-6 py-4 border-t border-slate-200 bg-slate-50/50 flex justify-end gap-3">
@@ -1079,7 +984,6 @@ const PasswordGroups = () => {
                                     </div>
                                     <div>
                                         <h3 className="text-lg font-semibold text-white">Edit Group</h3>
-                                        <p className="text-xs text-amber-100 mt-1">Update group information</p>
                                     </div>
                                 </div>
                             </div>
@@ -1139,6 +1043,67 @@ const PasswordGroups = () => {
                 )}
             </AnimatePresence>
 
+            {/* View Details Modal */}
+            <AnimatePresence>
+                {showViewModal && selectedGroup && (
+                    <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50 backdrop-blur-sm" onClick={() => setShowViewModal(false)}>
+                        <motion.div
+                            initial={{ opacity: 0, scale: 0.95, y: 12 }}
+                            animate={{ opacity: 1, scale: 1, y: 0 }}
+                            exit={{ opacity: 0, scale: 0.95, y: 12 }}
+                            className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden"
+                            onClick={(e) => e.stopPropagation()}
+                        >
+                            <div className="bg-gradient-to-r from-indigo-600 to-indigo-700 px-6 py-5">
+                                <div className="flex items-center gap-3">
+                                    <div className="p-2 bg-white/20 rounded-xl">
+                                        <FiEye className="w-5 h-5 text-white" />
+                                    </div>
+                                    <h3 className="text-lg font-semibold text-white">Group Details</h3>
+                                </div>
+                            </div>
+
+                            <div className="px-6 py-5 grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+                                    <p className="text-xs font-medium text-slate-500">Group Name</p>
+                                    <p className="mt-1 text-sm font-semibold text-slate-800">{selectedGroup.group_name || '-'}</p>
+                                </div>
+                                <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+                                    <p className="text-xs font-medium text-slate-500">Status</p>
+                                    <p className="mt-1 text-sm font-semibold text-slate-800">{selectedGroup.status || '-'}</p>
+                                </div>
+                                <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+                                    <p className="text-xs font-medium text-slate-500">Total Credentials</p>
+                                    <p className="mt-1 text-sm font-semibold text-slate-800">{selectedGroup.total_credentials ?? 0}</p>
+                                </div>
+                                <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+                                    <p className="text-xs font-medium text-slate-500">Unique Firms</p>
+                                    <p className="mt-1 text-sm font-semibold text-slate-800">{selectedGroup.unique_firms ?? 0}</p>
+                                </div>
+                                <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+                                    <p className="text-xs font-medium text-slate-500">Created By</p>
+                                    <p className="mt-1 text-sm font-semibold text-slate-800">{selectedGroup.created_by?.name || '-'}</p>
+                                </div>
+                                <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+                                    <p className="text-xs font-medium text-slate-500">Created On</p>
+                                    <p className="mt-1 text-sm font-semibold text-slate-800">{formatDate(selectedGroup.create_date)}</p>
+                                </div>
+                            </div>
+
+                            <div className="px-6 py-4 border-t border-slate-200 bg-slate-50/60 flex justify-end">
+                                <button
+                                    type="button"
+                                    onClick={() => setShowViewModal(false)}
+                                    className="px-5 py-2.5 text-sm font-medium text-slate-700 hover:bg-white hover:border-slate-300 rounded-xl border border-slate-200 transition-all duration-200"
+                                >
+                                    Close
+                                </button>
+                            </div>
+                        </motion.div>
+                    </div>
+                )}
+            </AnimatePresence>
+
             {/* Delete Modal */}
             <AnimatePresence>
                 {showDeleteModal && selectedGroup && (
@@ -1157,7 +1122,6 @@ const PasswordGroups = () => {
                                     </div>
                                     <div>
                                         <h3 className="text-lg font-semibold text-white">Delete Group</h3>
-                                        <p className="text-xs text-red-100 mt-1">This action cannot be undone</p>
                                     </div>
                                 </div>
                             </div>
@@ -1179,9 +1143,6 @@ const PasswordGroups = () => {
                                     </p>
                                 </div>
 
-                                <p className="text-center text-xs text-slate-500 mt-4">
-                                    This action is permanent and cannot be reversed.
-                                </p>
                             </div>
 
                             <div className="px-6 py-4 border-t border-slate-200 bg-slate-50/50 flex justify-end gap-3">

@@ -68,3 +68,41 @@ This section has moved here: [https://facebook.github.io/create-react-app/docs/d
 ### `npm run build` fails to minify
 
 This section has moved here: [https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify](https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify)
+
+## Password Groups Module
+
+### UI routes
+
+- `/staff/office-assistance/password-groups`
+- `/staff/office-assistance/password-group/:group_id/firms`
+
+### Implemented frontend API integration
+
+- `POST /assistance/password-group/create`
+- `GET /assistance/password-group/list?search=&page=&limit=`
+- `PUT /assistance/password-group/edit/:group_id`
+- `DELETE /assistance/password-group/delete/:group_id`
+- `POST /assistance/password-group/create-firm-credentials`
+- `GET /assistance/password-group/list-firm-credentials/:group_id?page_no=&limit=&search=`
+- `PUT /assistance/password-group/edit-firm-credentials/:credential_id`
+- `DELETE /assistance/password-group/delete-firm-credentials/:credential_id`
+
+### Frontend structure
+
+- Service layer: `src/services/passwordGroupService.js`
+- Debounce hook: `src/hooks/useDebouncedValue.js`
+- Group list page: `src/pages/office-assistance/password-group.js`
+- Group credentials page: `src/components/PasswordGroupFirms.js`
+
+### How to test quickly
+
+1. Open Password Groups route.
+2. Create a group with a non-empty trimmed name.
+3. Search groups (debounced), change page/limit, and verify URL query params update.
+4. Edit group name/status and confirm list refresh.
+5. Delete a group (confirmation modal).
+6. Open a group row to credentials page.
+7. Add credential (firm + username + password required).
+8. Edit credential fields/status and verify updates.
+9. Delete credential (confirmation modal).
+10. Verify `page_no`, `limit` (20/50/100), and `search` are sent for credentials listing.

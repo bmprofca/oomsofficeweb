@@ -15,9 +15,6 @@ export const QUICK_OPTION_CODES = {
     LF: 'lf',
 };
 
-/** Default quick row for staff loan when `quickOptionKeys` is omitted. */
-export const DEFAULT_LOAN_QUICK_KEYS = ['td', 'yd', 'tm', 'lm', 'tw', 'lw', 'fy', 'lf'];
-
 const DAYS = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'];
 const MONTHS = [
     'January', 'February', 'March', 'April', 'May', 'June',
@@ -404,7 +401,7 @@ export default function DatePicker({
         if (Array.isArray(quickOptionKeys) && quickOptionKeys.length > 0) {
             return quickOptionKeys.map((k) => String(k).toLowerCase().trim());
         }
-        if (isLoanPresets) return [...DEFAULT_LOAN_QUICK_KEYS];
+        if (isLoanPresets) return ['td', 'yd', 'tm', 'lm', 'tw', 'lw', 'fy', 'lf'];
         return null;
     }, [quickOptionKeys, isLoanPresets]);
 
@@ -534,8 +531,8 @@ export default function DatePicker({
     return (
         <div
             className={`w-full rounded-xl border border-gray-200 bg-white shadow-lg overflow-hidden font-sans max-h-[calc(100vh-6rem)] flex flex-col ${useWideQuickGrid
-                    ? 'max-w-[min(36rem,calc(100vw-1.5rem))] min-w-0'
-                    : 'max-w-[min(19rem,calc(100vw-0.5rem))]'
+                ? 'max-w-[min(36rem,calc(100vw-1.5rem))] min-w-0'
+                : 'max-w-[min(19rem,calc(100vw-0.5rem))]'
                 }`}
         >
             <div className={`relative border-b border-gray-100 px-3 py-2.5 sm:px-4 sm:py-3 ${onRequestClose ? 'pr-11 sm:pr-12' : ''}`}>

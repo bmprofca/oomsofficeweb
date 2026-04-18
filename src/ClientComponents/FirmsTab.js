@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { motion } from 'framer-motion';
-import { FiBriefcase, FiEdit, FiTrash2, FiSearch, FiPlus, FiX, FiCheck, FiAlertCircle, FiEye, FiUser, FiMail, FiPhone } from 'react-icons/fi';
+import { FiBriefcase, FiEdit, FiTrash2, FiSearch, FiPlus, FiX, FiCheck, FiAlertCircle, FiEye, FiUser, FiMail, FiPhone, FiMapPin } from 'react-icons/fi';
 import axios from 'axios';
 import API_BASE_URL from "../utils/api-controller";
 import getHeaders from "../utils/get-headers";
@@ -13,7 +13,9 @@ const FirmsTab = ({ clientUsername }) => {
     const [showViewModal, setShowViewModal] = useState(false);
     const [selectedFirm, setSelectedFirm] = useState(null);
     const [searchTerm, setSearchTerm] = useState('');
+    const [statusFilter, setStatusFilter] = useState('active');
     const [loading, setLoading] = useState(false);
+    const [statesAndDistricts, setStatesAndDistricts] = useState([]);
     const [newFirm, setNewFirm] = useState({
         name: '',
         type: 'proprietorship',
@@ -47,7 +49,7 @@ const FirmsTab = ({ clientUsername }) => {
         country: ''
     });
 
-  
+
 
     // Fetch firms from API - UPDATED with correct field mapping
     const fetchFirms = useCallback(async () => {
@@ -70,10 +72,10 @@ const FirmsTab = ({ clientUsername }) => {
             );
 
             console.log('FULL Firms API Response:', response.data);
-            
+
             if (response.data && response.data.success) {
                 const firmsData = response.data.data.firms || [];
-                
+
                 // Map the API response to our component's expected format
                 const mappedFirms = firmsData.map(firm => ({
                     ...firm,
@@ -101,7 +103,7 @@ const FirmsTab = ({ clientUsername }) => {
                     create_date: firm.create_date,
                     modify_date: firm.modify_date
                 }));
-                
+
                 console.log('Mapped firms:', mappedFirms);
                 setFirms(mappedFirms);
             } else {
@@ -132,12 +134,34 @@ const FirmsTab = ({ clientUsername }) => {
         }
     }, [clientUsername, fetchFirms]);
 
-    // Filter firms based on search
+    // Filter firms based on search + status
     const filteredFirms = firms.filter(firm =>
         firm.firm_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         firm.pan?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         firm.gst?.toLowerCase().includes(searchTerm.toLowerCase())
-    );
+    ).filter((firm) => {
+        if (statusFilter === 'all') return true;
+        if (statusFilter === 'active') return !!firm.status;
+        return !firm.status;
+    });
+
+    useEffect(() => {
+        let mounted = true;
+        const fetchStatesAndDistricts = async () => {
+            try {
+                const headers = getHeaders();
+                if (!headers) return;
+                const response = await axios.get(`${API_BASE_URL}/utils/states-and-districts`, { headers });
+                if (mounted && response.data?.success && Array.isArray(response.data.data)) {
+                    setStatesAndDistricts(response.data.data);
+                }
+            } catch (error) {
+                console.error('Error fetching states and districts:', error);
+            }
+        };
+        fetchStatesAndDistricts();
+        return () => { mounted = false; };
+    }, []);
 
     // Create new firm
     const handleAddFirm = async () => {
@@ -208,13 +232,13 @@ const FirmsTab = ({ clientUsername }) => {
             }
         } catch (error) {
             console.error('Error creating firm:', error);
-            
+
             // Detailed error logging
             if (error.response) {
                 console.error('Response status:', error.response.status);
                 console.error('Response data:', error.response.data);
                 console.error('Response headers:', error.response.headers);
-                
+
                 if (error.response.status === 400) {
                     alert(`Bad request: ${error.response.data?.message || 'Please check all required fields'}`);
                 } else if (error.response.status === 401) {
@@ -296,13 +320,13 @@ const FirmsTab = ({ clientUsername }) => {
             }
         } catch (error) {
             console.error('Error updating firm:', error);
-            
+
             // Detailed error logging
             if (error.response) {
                 console.error('Response status:', error.response.status);
                 console.error('Response data:', error.response.data);
                 console.error('Response headers:', error.response.headers);
-                
+
                 if (error.response.status === 400) {
                     alert(`Bad request: ${error.response.data?.message || 'Please check all required fields'}`);
                 } else if (error.response.status === 401) {
@@ -342,7 +366,7 @@ const FirmsTab = ({ clientUsername }) => {
         try {
             const response = await axios.delete(
                 `${API_BASE_URL}/client/details/firms/delete/${selectedFirm.firm_id}`,
-                { 
+                {
                     headers,
                     data: { username: clientUsername }
                 }
@@ -379,20 +403,20 @@ const FirmsTab = ({ clientUsername }) => {
             if (!firmToUpdate) return;
 
             const newStatus = !firmToUpdate.status;
-            
+
             const response = await axios.post(
                 `${API_BASE_URL}/client/details/firms/status`,
-                { 
+                {
                     firm_id: firmId,
                     username: clientUsername,
-                    status: newStatus 
+                    status: newStatus
                 },
                 { headers }
             );
 
             if (response.data && response.data.success) {
                 // Update local state
-                setFirms(firms.map(firm => 
+                setFirms(firms.map(firm =>
                     firm.firm_id === firmId ? { ...firm, status: newStatus } : firm
                 ));
             } else {
@@ -406,7 +430,7 @@ const FirmsTab = ({ clientUsername }) => {
 
     const openEditModal = (firm) => {
         console.log('Opening edit modal with firm data:', firm);
-        
+
         setSelectedFirm(firm);
         setEditFirmData({
             name: firm.firm_name || '',
@@ -458,6 +482,9 @@ const FirmsTab = ({ clientUsername }) => {
     const totalFirms = firms.length;
     const activeFirms = firms.filter(f => f.status).length;
     const inactiveFirms = totalFirms - activeFirms;
+    const stateOptions = statesAndDistricts.map((item) => item.name);
+    const addDistrictOptions = statesAndDistricts.find((item) => item.name === newFirm.state)?.districts || [];
+    const editDistrictOptions = statesAndDistricts.find((item) => item.name === editFirmData.state)?.districts || [];
 
     return (
         <motion.div
@@ -467,73 +494,85 @@ const FirmsTab = ({ clientUsername }) => {
             className="bg-gradient-to-br from-gray-50 to-white rounded-2xl border border-gray-100 shadow-xl p-6"
         >
             {/* Header Section */}
-            <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center mb-8 gap-6">
+            <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center mb-5 gap-4">
                 <div className="space-y-2">
-                    <h3 className="text-2xl font-bold text-gray-900 bg-gradient-to-r from-blue-600 to-indigo-700 bg-clip-text text-transparent">
+                    <h3 className="text-xl font-bold text-gray-900 bg-gradient-to-r from-blue-600 to-indigo-700 bg-clip-text text-transparent">
                         Business Firms
                     </h3>
-                    <p className="text-sm text-gray-600 font-medium">Manage and organize all client business entities in one place</p>
+                    <p className="text-xs text-gray-600 font-medium">Manage and organize all client business entities in one place</p>
                 </div>
-                <div className="flex flex-col sm:flex-row gap-4 w-full lg:w-auto">
-                    <div className="relative flex-1 sm:flex-initial">
-                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                            <FiSearch className="h-5 w-5 text-gray-400" />
+                <div className="flex flex-col sm:flex-row gap-3 w-full lg:w-auto">
+                    <div className="relative w-full sm:w-[18rem]">
+                        <div className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2">
+                            <FiSearch className="h-4 w-4 text-gray-400" />
                         </div>
                         <input
                             type="text"
                             placeholder="Search by name or PAN..."
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
-                            className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent shadow-sm transition-all duration-300"
+                            className="w-full rounded-md border border-gray-300 pl-9 pr-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 shadow-sm transition-all duration-200"
                         />
                     </div>
                     <motion.button
                         onClick={() => setShowAddModal(true)}
-                        className="flex items-center justify-center gap-2 px-6 py-3 bg-gradient-to-r from-blue-600 to-indigo-700 text-white rounded-xl hover:shadow-lg hover:shadow-blue-500/25 transition-all duration-300 font-semibold"
+                        className="flex items-center justify-center gap-2 px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-700 text-white rounded-md hover:shadow-md transition-all duration-200 text-sm font-semibold"
                         whileHover={{ scale: 1.02, y: -2 }}
                         whileTap={{ scale: 0.98 }}
                     >
-                        <FiPlus className="w-5 h-5" />
+                        <FiPlus className="w-4 h-4" />
                         Add New Firm
                     </motion.button>
                 </div>
             </div>
 
             {/* Stats Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-                <div className="bg-white p-6 rounded-2xl border border-gray-200 shadow-sm">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-5">
+                <button
+                    type="button"
+                    onClick={() => setStatusFilter('active')}
+                    className={`w-full text-left bg-white p-4 rounded-xl border shadow-sm transition-all ${statusFilter === 'active' ? 'border-emerald-300 ring-2 ring-emerald-100' : 'border-gray-200 hover:border-emerald-200'}`}
+                >
                     <div className="flex items-center justify-between">
                         <div>
-                            <p className="text-sm font-medium text-gray-600">Total Firms</p>
-                            <p className="text-3xl font-bold text-gray-900 mt-2">{totalFirms}</p>
+                            <p className="text-xs font-medium text-gray-600">Active Firms</p>
+                            <p className="text-2xl font-bold text-gray-900 mt-1">{activeFirms}</p>
                         </div>
-                        <div className="w-12 h-12 bg-gradient-to-r from-blue-100 to-indigo-100 rounded-xl flex items-center justify-center">
-                            <FiBriefcase className="w-6 h-6 text-blue-600" />
+                        <div className="w-10 h-10 bg-gradient-to-r from-green-100 to-emerald-100 rounded-lg flex items-center justify-center">
+                            <FiCheck className="w-5 h-5 text-green-600" />
                         </div>
                     </div>
-                </div>
-                <div className="bg-white p-6 rounded-2xl border border-gray-200 shadow-sm">
+                </button>
+                <button
+                    type="button"
+                    onClick={() => setStatusFilter('inactive')}
+                    className={`w-full text-left bg-white p-4 rounded-xl border shadow-sm transition-all ${statusFilter === 'inactive' ? 'border-rose-300 ring-2 ring-rose-100' : 'border-gray-200 hover:border-rose-200'}`}
+                >
                     <div className="flex items-center justify-between">
                         <div>
-                            <p className="text-sm font-medium text-gray-600">Active Firms</p>
-                            <p className="text-3xl font-bold text-gray-900 mt-2">{activeFirms}</p>
+                            <p className="text-xs font-medium text-gray-600">Inactive Firms</p>
+                            <p className="text-2xl font-bold text-gray-900 mt-1">{inactiveFirms}</p>
                         </div>
-                        <div className="w-12 h-12 bg-gradient-to-r from-green-100 to-emerald-100 rounded-xl flex items-center justify-center">
-                            <FiCheck className="w-6 h-6 text-green-600" />
+                        <div className="w-10 h-10 bg-gradient-to-r from-gray-100 to-slate-100 rounded-lg flex items-center justify-center">
+                            <FiAlertCircle className="w-5 h-5 text-gray-600" />
                         </div>
                     </div>
-                </div>
-                <div className="bg-white p-6 rounded-2xl border border-gray-200 shadow-sm">
+                </button>
+                <button
+                    type="button"
+                    onClick={() => setStatusFilter('all')}
+                    className={`w-full text-left bg-white p-4 rounded-xl border shadow-sm transition-all ${statusFilter === 'all' ? 'border-blue-300 ring-2 ring-blue-100' : 'border-gray-200 hover:border-blue-200'}`}
+                >
                     <div className="flex items-center justify-between">
                         <div>
-                            <p className="text-sm font-medium text-gray-600">Inactive Firms</p>
-                            <p className="text-3xl font-bold text-gray-900 mt-2">{inactiveFirms}</p>
+                            <p className="text-xs font-medium text-gray-600">All Firms</p>
+                            <p className="text-2xl font-bold text-gray-900 mt-1">{totalFirms}</p>
                         </div>
-                        <div className="w-12 h-12 bg-gradient-to-r from-gray-100 to-slate-100 rounded-xl flex items-center justify-center">
-                            <FiAlertCircle className="w-6 h-6 text-gray-600" />
+                        <div className="w-10 h-10 bg-gradient-to-r from-blue-100 to-indigo-100 rounded-lg flex items-center justify-center">
+                            <FiBriefcase className="w-5 h-5 text-blue-600" />
                         </div>
                     </div>
-                </div>
+                </button>
             </div>
 
             {/* Loading State */}
@@ -547,7 +586,7 @@ const FirmsTab = ({ clientUsername }) => {
                 </div>
             ) : (
                 /* Firms List */
-                <div className="space-y-4">
+                <div className="space-y-3">
                     {filteredFirms.length === 0 ? (
                         <div className="text-center py-12">
                             <div className="w-20 h-20 mx-auto bg-gradient-to-r from-gray-100 to-gray-200 rounded-full flex items-center justify-center mb-4">
@@ -567,43 +606,39 @@ const FirmsTab = ({ clientUsername }) => {
                                 initial={{ opacity: 0, y: 20 }}
                                 animate={{ opacity: 1, y: 0 }}
                                 transition={{ delay: index * 0.05 }}
-                                className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm hover:shadow-md transition-all duration-300 group"
+                                className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm hover:shadow-md transition-all duration-200 group"
                             >
-                                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                                    <div className="flex items-start gap-4">
-                                        <div className="w-14 h-14 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl flex items-center justify-center group-hover:scale-105 transition-transform duration-300">
-                                            <FiBriefcase className="w-7 h-7 text-blue-600" />
+                                <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
+                                    <div className="min-w-0 flex items-start gap-3">
+                                        <div className="w-11 h-11 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg flex items-center justify-center group-hover:scale-105 transition-transform duration-200">
+                                            <FiBriefcase className="w-5 h-5 text-blue-600" />
                                         </div>
-                                        <div className="space-y-2">
-                                            <div className="flex items-center gap-3">
-                                                <h4 className="text-lg font-semibold text-gray-900">{firm.firm_name || 'Unnamed Firm'}</h4>
-                                                <span className={`px-3 py-1 rounded-full text-xs font-semibold ${firm.status ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'}`}>
+                                        <div className="min-w-0 space-y-2">
+                                            <div className="flex flex-wrap items-center gap-2">
+                                                <h4 className="text-sm font-semibold text-gray-900 truncate">{firm.firm_name || 'Unnamed Firm'}</h4>
+                                                <span className={`px-2 py-0.5 rounded-full text-[11px] font-semibold ${firm.status ? 'bg-emerald-100 text-emerald-800' : 'bg-gray-100 text-gray-700'}`}>
                                                     {firm.status ? 'Active' : 'Inactive'}
                                                 </span>
                                             </div>
-                                            <div className="flex flex-wrap gap-4">
-                                                <div className="flex items-center gap-2">
-                                                    <span className="text-sm font-medium text-gray-600">Type:</span>
-                                                    <span className="text-sm text-gray-900 font-semibold capitalize">
+                                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-1.5 text-xs">
+                                                <div className="rounded-md bg-slate-50 border border-slate-200 px-2 py-1">
+                                                    <span className="font-medium text-slate-500">Type: </span>
+                                                    <span className="text-slate-900 font-semibold capitalize">
                                                         {firm.firm_type || 'N/A'}
                                                     </span>
                                                 </div>
-                                                {firm.pan && (
-                                                    <div className="flex items-center gap-2">
-                                                        <span className="text-sm font-medium text-gray-600">PAN:</span>
-                                                        <span className="text-sm text-gray-900 font-semibold">{firm.pan}</span>
-                                                    </div>
-                                                )}
-                                                {firm.gst && (
-                                                    <div className="flex items-center gap-2">
-                                                        <span className="text-sm font-medium text-gray-600">GST:</span>
-                                                        <span className="text-sm text-gray-900 font-semibold">{firm.gst}</span>
-                                                    </div>
-                                                )}
+                                                <div className="rounded-md bg-slate-50 border border-slate-200 px-2 py-1">
+                                                    <span className="font-medium text-slate-500">PAN: </span>
+                                                    <span className="text-slate-900 font-semibold">{firm.pan || 'N/A'}</span>
+                                                </div>
+                                                <div className="rounded-md bg-slate-50 border border-slate-200 px-2 py-1">
+                                                    <span className="font-medium text-slate-500">GST: </span>
+                                                    <span className="text-slate-900 font-semibold">{firm.gst || 'N/A'}</span>
+                                                </div>
                                             </div>
                                             {firm.address && (
-                                                <div className="text-sm text-gray-600">
-                                                    <span className="font-medium">Address: </span>
+                                                <div className="inline-flex items-center gap-1.5 text-xs text-gray-600 rounded-md border border-slate-200 bg-slate-50 px-2 py-1">
+                                                    <FiMapPin className="h-3.5 w-3.5 text-slate-500 shrink-0" />
                                                     {[firm.address.address_line_1, firm.address.address_line_2, firm.address.city, firm.address.state, firm.address.pincode]
                                                         .filter(Boolean)
                                                         .join(', ')}
@@ -611,7 +646,7 @@ const FirmsTab = ({ clientUsername }) => {
                                             )}
                                         </div>
                                     </div>
-                                    <div className="flex items-center gap-3">
+                                    <div className="flex items-center gap-2">
                                         {/* <motion.button
                                             onClick={() => toggleStatus(firm.firm_id)}
                                             className={`px-4 py-2 rounded-xl font-medium text-sm transition-all duration-300 ${firm.status
@@ -625,7 +660,7 @@ const FirmsTab = ({ clientUsername }) => {
                                         </motion.button> */}
                                         <motion.button
                                             onClick={() => openViewModal(firm)}
-                                            className="p-3 bg-gradient-to-r from-green-50 to-emerald-50 text-green-600 hover:shadow-md rounded-xl transition-all duration-300"
+                                            className="p-2.5 bg-gradient-to-r from-emerald-50 to-green-50 text-emerald-700 hover:shadow-sm rounded-lg transition-all duration-200"
                                             whileHover={{ scale: 1.1, rotate: 5 }}
                                             whileTap={{ scale: 0.9 }}
                                         >
@@ -633,7 +668,7 @@ const FirmsTab = ({ clientUsername }) => {
                                         </motion.button>
                                         <motion.button
                                             onClick={() => openEditModal(firm)}
-                                            className="p-3 bg-gradient-to-r from-blue-50 to-indigo-50 text-blue-600 hover:shadow-md rounded-xl transition-all duration-300"
+                                            className="p-2.5 bg-gradient-to-r from-blue-50 to-indigo-50 text-blue-700 hover:shadow-sm rounded-lg transition-all duration-200"
                                             whileHover={{ scale: 1.1, rotate: 5 }}
                                             whileTap={{ scale: 0.9 }}
                                         >
@@ -641,7 +676,7 @@ const FirmsTab = ({ clientUsername }) => {
                                         </motion.button>
                                         <motion.button
                                             onClick={() => openDeleteModal(firm)}
-                                            className="p-3 bg-gradient-to-r from-red-50 to-pink-50 text-red-600 hover:shadow-md rounded-xl transition-all duration-300"
+                                            className="p-2.5 bg-gradient-to-r from-red-50 to-rose-50 text-red-700 hover:shadow-sm rounded-lg transition-all duration-200"
                                             whileHover={{ scale: 1.1, rotate: -5 }}
                                             whileTap={{ scale: 0.9 }}
                                         >
@@ -665,9 +700,9 @@ const FirmsTab = ({ clientUsername }) => {
                     <motion.div
                         initial={{ scale: 0.9, opacity: 0 }}
                         animate={{ scale: 1, opacity: 1 }}
-                        className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl overflow-hidden max-h-[90vh] overflow-y-auto"
+                        className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl overflow-hidden max-h-[90vh] flex flex-col"
                     >
-                        <div className="bg-gradient-to-r from-blue-600 to-indigo-700 text-white px-8 py-6">
+                        <div className="bg-gradient-to-r from-blue-600 to-indigo-700 text-white px-6 py-4 shrink-0">
                             <div className="flex justify-between items-center">
                                 <div>
                                     <h2 className="text-2xl font-bold">Add New Firm</h2>
@@ -683,14 +718,15 @@ const FirmsTab = ({ clientUsername }) => {
                                 </motion.button>
                             </div>
                         </div>
-                        <div className="p-8 space-y-6">
+                        <div className="min-h-0 flex-1 overflow-y-auto [&::-webkit-scrollbar]:hidden" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
+                        <div className="p-6 space-y-5">
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                 <div className="space-y-2">
                                     <label className="block text-sm font-semibold text-gray-700">Firm Name *</label>
                                     <input
                                         type="text"
                                         value={newFirm.name}
-                                        onChange={(e) => setNewFirm({...newFirm, name: e.target.value})}
+                                        onChange={(e) => setNewFirm({ ...newFirm, name: e.target.value })}
                                         className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent shadow-sm transition-all duration-300"
                                         placeholder="Enter firm name"
                                     />
@@ -699,7 +735,7 @@ const FirmsTab = ({ clientUsername }) => {
                                     <label className="block text-sm font-semibold text-gray-700">Business Type *</label>
                                     <select
                                         value={newFirm.type}
-                                        onChange={(e) => setNewFirm({...newFirm, type: e.target.value})}
+                                        onChange={(e) => setNewFirm({ ...newFirm, type: e.target.value })}
                                         className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent shadow-sm transition-all duration-300"
                                     >
                                         <option value="proprietorship">Proprietorship</option>
@@ -717,7 +753,7 @@ const FirmsTab = ({ clientUsername }) => {
                                     <input
                                         type="text"
                                         value={newFirm.pan}
-                                        onChange={(e) => setNewFirm({...newFirm, pan: e.target.value})}
+                                        onChange={(e) => setNewFirm({ ...newFirm, pan: e.target.value })}
                                         className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent shadow-sm transition-all duration-300"
                                         placeholder="Enter PAN number"
                                     />
@@ -727,7 +763,7 @@ const FirmsTab = ({ clientUsername }) => {
                                     <input
                                         type="text"
                                         value={newFirm.gst}
-                                        onChange={(e) => setNewFirm({...newFirm, gst: e.target.value})}
+                                        onChange={(e) => setNewFirm({ ...newFirm, gst: e.target.value })}
                                         className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent shadow-sm transition-all duration-300"
                                         placeholder="Enter GST number"
                                     />
@@ -740,7 +776,7 @@ const FirmsTab = ({ clientUsername }) => {
                                     <input
                                         type="text"
                                         value={newFirm.file_no}
-                                        onChange={(e) => setNewFirm({...newFirm, file_no: e.target.value})}
+                                        onChange={(e) => setNewFirm({ ...newFirm, file_no: e.target.value })}
                                         className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent shadow-sm transition-all duration-300"
                                         placeholder="Enter file number"
                                     />
@@ -750,7 +786,7 @@ const FirmsTab = ({ clientUsername }) => {
                                     <input
                                         type="text"
                                         value={newFirm.tan}
-                                        onChange={(e) => setNewFirm({...newFirm, tan: e.target.value})}
+                                        onChange={(e) => setNewFirm({ ...newFirm, tan: e.target.value })}
                                         className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent shadow-sm transition-all duration-300"
                                         placeholder="Enter TAN number"
                                     />
@@ -760,7 +796,7 @@ const FirmsTab = ({ clientUsername }) => {
                                     <input
                                         type="text"
                                         value={newFirm.cin}
-                                        onChange={(e) => setNewFirm({...newFirm, cin: e.target.value})}
+                                        onChange={(e) => setNewFirm({ ...newFirm, cin: e.target.value })}
                                         className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent shadow-sm transition-all duration-300"
                                         placeholder="Enter CIN number"
                                     />
@@ -772,7 +808,7 @@ const FirmsTab = ({ clientUsername }) => {
                                 <input
                                     type="text"
                                     value={newFirm.address_line_1}
-                                    onChange={(e) => setNewFirm({...newFirm, address_line_1: e.target.value})}
+                                    onChange={(e) => setNewFirm({ ...newFirm, address_line_1: e.target.value })}
                                     className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent shadow-sm transition-all duration-300"
                                     placeholder="Enter address line 1"
                                 />
@@ -783,7 +819,7 @@ const FirmsTab = ({ clientUsername }) => {
                                 <input
                                     type="text"
                                     value={newFirm.address_line_2}
-                                    onChange={(e) => setNewFirm({...newFirm, address_line_2: e.target.value})}
+                                    onChange={(e) => setNewFirm({ ...newFirm, address_line_2: e.target.value })}
                                     className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent shadow-sm transition-all duration-300"
                                     placeholder="Enter address line 2"
                                 />
@@ -791,38 +827,46 @@ const FirmsTab = ({ clientUsername }) => {
 
                             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                                 <div className="space-y-2">
-                                    <label className="block text-sm font-semibold text-gray-700">City</label>
-                                    <input
-                                        type="text"
-                                        value={newFirm.city}
-                                        onChange={(e) => setNewFirm({...newFirm, city: e.target.value})}
+                                    <label className="block text-sm font-semibold text-gray-700">State</label>
+                                    <select
+                                        value={newFirm.state}
+                                        onChange={(e) => setNewFirm({ ...newFirm, state: e.target.value, city: '' })}
                                         className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent shadow-sm transition-all duration-300"
-                                        placeholder="Enter city"
-                                    />
+                                    >
+                                        <option value="">Select state</option>
+                                        {stateOptions.map((stateName) => (
+                                            <option key={stateName} value={stateName}>{stateName}</option>
+                                        ))}
+                                    </select>
                                 </div>
                                 <div className="space-y-2">
-                                    <label className="block text-sm font-semibold text-gray-700">State</label>
-                                    <input
-                                        type="text"
-                                        value={newFirm.state}
-                                        onChange={(e) => setNewFirm({...newFirm, state: e.target.value})}
+                                    <label className="block text-sm font-semibold text-gray-700">District</label>
+                                    <select
+                                        value={newFirm.city}
+                                        onChange={(e) => setNewFirm({ ...newFirm, city: e.target.value })}
                                         className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent shadow-sm transition-all duration-300"
-                                        placeholder="Enter state"
-                                    />
+                                        disabled={!newFirm.state}
+                                    >
+                                        <option value="">{newFirm.state ? 'Select district' : 'Select state first'}</option>
+                                        {addDistrictOptions.map((district) => (
+                                            <option key={district} value={district}>{district}</option>
+                                        ))}
+                                    </select>
                                 </div>
                                 <div className="space-y-2">
                                     <label className="block text-sm font-semibold text-gray-700">Pincode</label>
                                     <input
                                         type="text"
                                         value={newFirm.pincode}
-                                        onChange={(e) => setNewFirm({...newFirm, pincode: e.target.value})}
+                                        onChange={(e) => setNewFirm({ ...newFirm, pincode: e.target.value })}
                                         className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent shadow-sm transition-all duration-300"
                                         placeholder="Enter pincode"
                                     />
                                 </div>
                             </div>
                         </div>
-                        <div className="border-t px-8 py-6 bg-gray-50 flex justify-end gap-4">
+                        </div>
+                        <div className="border-t px-6 py-4 bg-gray-50 flex justify-end gap-3 shrink-0">
                             <motion.button
                                 onClick={() => setShowAddModal(false)}
                                 className="px-6 py-3 text-gray-600 hover:bg-gray-200 rounded-xl font-medium transition-colors"
@@ -854,9 +898,9 @@ const FirmsTab = ({ clientUsername }) => {
                     <motion.div
                         initial={{ scale: 0.9, opacity: 0 }}
                         animate={{ scale: 1, opacity: 1 }}
-                        className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl overflow-hidden max-h-[90vh] overflow-y-auto"
+                        className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl overflow-hidden max-h-[90vh] flex flex-col"
                     >
-                        <div className="bg-gradient-to-r from-blue-600 to-indigo-700 text-white px-8 py-6">
+                        <div className="bg-gradient-to-r from-blue-600 to-indigo-700 text-white px-6 py-4 shrink-0">
                             <div className="flex justify-between items-center">
                                 <div>
                                     <h2 className="text-2xl font-bold">Edit Firm Details</h2>
@@ -872,14 +916,15 @@ const FirmsTab = ({ clientUsername }) => {
                                 </motion.button>
                             </div>
                         </div>
-                        <div className="p-8 space-y-6">
+                        <div className="min-h-0 flex-1 overflow-y-auto [&::-webkit-scrollbar]:hidden" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
+                        <div className="p-6 space-y-5">
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                 <div className="space-y-2">
                                     <label className="block text-sm font-semibold text-gray-700">Firm Name</label>
                                     <input
                                         type="text"
                                         value={editFirmData.name}
-                                        onChange={(e) => setEditFirmData({...editFirmData, name: e.target.value})}
+                                        onChange={(e) => setEditFirmData({ ...editFirmData, name: e.target.value })}
                                         className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent shadow-sm"
                                     />
                                 </div>
@@ -887,7 +932,7 @@ const FirmsTab = ({ clientUsername }) => {
                                     <label className="block text-sm font-semibold text-gray-700">Business Type</label>
                                     <select
                                         value={editFirmData.type}
-                                        onChange={(e) => setEditFirmData({...editFirmData, type: e.target.value})}
+                                        onChange={(e) => setEditFirmData({ ...editFirmData, type: e.target.value })}
                                         className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent shadow-sm"
                                     >
                                         <option value="proprietorship">Proprietorship</option>
@@ -905,7 +950,7 @@ const FirmsTab = ({ clientUsername }) => {
                                     <input
                                         type="text"
                                         value={editFirmData.pan}
-                                        onChange={(e) => setEditFirmData({...editFirmData, pan: e.target.value})}
+                                        onChange={(e) => setEditFirmData({ ...editFirmData, pan: e.target.value })}
                                         className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent shadow-sm"
                                     />
                                 </div>
@@ -914,7 +959,7 @@ const FirmsTab = ({ clientUsername }) => {
                                     <input
                                         type="text"
                                         value={editFirmData.gst}
-                                        onChange={(e) => setEditFirmData({...editFirmData, gst: e.target.value})}
+                                        onChange={(e) => setEditFirmData({ ...editFirmData, gst: e.target.value })}
                                         className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent shadow-sm"
                                     />
                                 </div>
@@ -926,7 +971,7 @@ const FirmsTab = ({ clientUsername }) => {
                                     <input
                                         type="text"
                                         value={editFirmData.file_no}
-                                        onChange={(e) => setEditFirmData({...editFirmData, file_no: e.target.value})}
+                                        onChange={(e) => setEditFirmData({ ...editFirmData, file_no: e.target.value })}
                                         className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent shadow-sm"
                                     />
                                 </div>
@@ -935,7 +980,7 @@ const FirmsTab = ({ clientUsername }) => {
                                     <input
                                         type="text"
                                         value={editFirmData.tan}
-                                        onChange={(e) => setEditFirmData({...editFirmData, tan: e.target.value})}
+                                        onChange={(e) => setEditFirmData({ ...editFirmData, tan: e.target.value })}
                                         className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent shadow-sm"
                                     />
                                 </div>
@@ -944,7 +989,7 @@ const FirmsTab = ({ clientUsername }) => {
                                     <input
                                         type="text"
                                         value={editFirmData.cin}
-                                        onChange={(e) => setEditFirmData({...editFirmData, cin: e.target.value})}
+                                        onChange={(e) => setEditFirmData({ ...editFirmData, cin: e.target.value })}
                                         className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent shadow-sm"
                                     />
                                 </div>
@@ -955,7 +1000,7 @@ const FirmsTab = ({ clientUsername }) => {
                                 <input
                                     type="text"
                                     value={editFirmData.address_line_1}
-                                    onChange={(e) => setEditFirmData({...editFirmData, address_line_1: e.target.value})}
+                                    onChange={(e) => setEditFirmData({ ...editFirmData, address_line_1: e.target.value })}
                                     className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent shadow-sm"
                                 />
                             </div>
@@ -965,42 +1010,52 @@ const FirmsTab = ({ clientUsername }) => {
                                 <input
                                     type="text"
                                     value={editFirmData.address_line_2}
-                                    onChange={(e) => setEditFirmData({...editFirmData, address_line_2: e.target.value})}
+                                    onChange={(e) => setEditFirmData({ ...editFirmData, address_line_2: e.target.value })}
                                     className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent shadow-sm"
                                 />
                             </div>
 
                             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                                 <div className="space-y-2">
-                                    <label className="block text-sm font-semibold text-gray-700">City</label>
-                                    <input
-                                        type="text"
-                                        value={editFirmData.city}
-                                        onChange={(e) => setEditFirmData({...editFirmData, city: e.target.value})}
+                                    <label className="block text-sm font-semibold text-gray-700">State</label>
+                                    <select
+                                        value={editFirmData.state}
+                                        onChange={(e) => setEditFirmData({ ...editFirmData, state: e.target.value, city: '' })}
                                         className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent shadow-sm"
-                                    />
+                                    >
+                                        <option value="">Select state</option>
+                                        {stateOptions.map((stateName) => (
+                                            <option key={stateName} value={stateName}>{stateName}</option>
+                                        ))}
+                                    </select>
                                 </div>
                                 <div className="space-y-2">
-                                    <label className="block text-sm font-semibold text-gray-700">State</label>
-                                    <input
-                                        type="text"
-                                        value={editFirmData.state}
-                                        onChange={(e) => setEditFirmData({...editFirmData, state: e.target.value})}
+                                    <label className="block text-sm font-semibold text-gray-700">District</label>
+                                    <select
+                                        value={editFirmData.city}
+                                        onChange={(e) => setEditFirmData({ ...editFirmData, city: e.target.value })}
                                         className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent shadow-sm"
-                                    />
+                                        disabled={!editFirmData.state}
+                                    >
+                                        <option value="">{editFirmData.state ? 'Select district' : 'Select state first'}</option>
+                                        {editDistrictOptions.map((district) => (
+                                            <option key={district} value={district}>{district}</option>
+                                        ))}
+                                    </select>
                                 </div>
                                 <div className="space-y-2">
                                     <label className="block text-sm font-semibold text-gray-700">Pincode</label>
                                     <input
                                         type="text"
                                         value={editFirmData.pincode}
-                                        onChange={(e) => setEditFirmData({...editFirmData, pincode: e.target.value})}
+                                        onChange={(e) => setEditFirmData({ ...editFirmData, pincode: e.target.value })}
                                         className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent shadow-sm"
                                     />
                                 </div>
                             </div>
                         </div>
-                        <div className="border-t px-8 py-6 bg-gray-50 flex justify-end gap-4">
+                        </div>
+                        <div className="border-t px-6 py-4 bg-gray-50 flex justify-end gap-3 shrink-0">
                             <motion.button
                                 onClick={() => setShowEditModal(false)}
                                 className="px-6 py-3 text-gray-600 hover:bg-gray-200 rounded-xl font-medium"
@@ -1032,9 +1087,9 @@ const FirmsTab = ({ clientUsername }) => {
                     <motion.div
                         initial={{ scale: 0.9, opacity: 0 }}
                         animate={{ scale: 1, opacity: 1 }}
-                        className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl overflow-hidden max-h-[90vh] overflow-y-auto"
+                        className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl overflow-hidden max-h-[90vh] flex flex-col"
                     >
-                        <div className="bg-gradient-to-r from-blue-600 to-indigo-700 text-white px-8 py-6">
+                        <div className="bg-gradient-to-r from-blue-600 to-indigo-700 text-white px-6 py-4 shrink-0">
                             <div className="flex justify-between items-center">
                                 <div>
                                     <h2 className="text-2xl font-bold">Firm Details</h2>
@@ -1050,7 +1105,8 @@ const FirmsTab = ({ clientUsername }) => {
                                 </motion.button>
                             </div>
                         </div>
-                        <div className="p-8 space-y-8">
+                        <div className="min-h-0 flex-1 overflow-y-auto [&::-webkit-scrollbar]:hidden" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
+                        <div className="p-6 space-y-6">
                             {/* Firm Overview */}
                             <div className="space-y-4">
                                 <h3 className="text-lg font-semibold text-gray-900 border-b pb-2">Firm Overview</h3>
@@ -1219,7 +1275,8 @@ const FirmsTab = ({ clientUsername }) => {
                                 </div>
                             </div>
                         </div>
-                        <div className="border-t px-8 py-6 bg-gray-50 flex justify-end gap-4">
+                        </div>
+                        <div className="border-t px-6 py-4 bg-gray-50 flex justify-end gap-3 shrink-0">
                             <motion.button
                                 onClick={() => setShowViewModal(false)}
                                 className="px-6 py-3 bg-gradient-to-r from-blue-600 to-indigo-700 text-white rounded-xl font-semibold hover:shadow-lg hover:shadow-blue-500/25 transition-all duration-300"

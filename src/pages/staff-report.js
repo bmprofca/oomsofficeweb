@@ -52,7 +52,7 @@ const StaffReport = () => {
     // Transform API data to table format
     const transformApiData = (apiData) => {
         if (!apiData || !Array.isArray(apiData)) return [];
-        
+
         return apiData.map(item => ({
             username: item.staff?.username || '',
             name: item.staff?.name || '',
@@ -73,18 +73,18 @@ const StaffReport = () => {
     const fetchTeamReport = async (staffUsername = 'all', serviceId = 'all', search = null) => {
         setLoading(true);
         setApiError(null);
-        
+
         try {
             const headers = await getHeaders();
             const url = `${API_BASE_URL}/report/team-report`;
-            
+
             const params = new URLSearchParams();
             if (staffUsername && staffUsername !== 'all') params.append('staff_username', staffUsername);
             if (serviceId && serviceId !== 'all') params.append('service_id', serviceId);
             if (search) params.append('search', search);
-            
+
             const finalUrl = params.toString() ? `${url}?${params.toString()}` : url;
-            
+
             const response = await fetch(finalUrl, {
                 method: 'GET',
                 headers: {
@@ -92,13 +92,13 @@ const StaffReport = () => {
                     'Content-Type': 'application/json'
                 }
             });
-            
+
             if (!response.ok) {
                 throw new Error(`HTTP error! status: ${response.status}`);
             }
-            
+
             const result = await response.json();
-            
+
             if (result.success) {
                 const transformedData = transformApiData(result.data);
                 setTaskData(transformedData);
@@ -132,7 +132,7 @@ const StaffReport = () => {
                     'Content-Type': 'application/json'
                 }
             });
-            
+
             if (response.ok) {
                 const result = await response.json();
                 if (result.success && result.data) {
@@ -188,9 +188,9 @@ const StaffReport = () => {
         if (count === 0) {
             return 'text-slate-300 cursor-not-allowed';
         }
-        
+
         const baseClasses = 'font-mono font-semibold text-sm cursor-pointer transition-all hover:scale-105 inline-flex items-center justify-center';
-        
+
         switch (type) {
             case 'OD':
                 return `${baseClasses} text-red-600 hover:text-red-700`;
