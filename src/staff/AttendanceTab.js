@@ -6,17 +6,26 @@ import getHeaders from "../utils/get-headers";
 
 const AttendanceTab = ({ attendance, setAttendance, variants }) => {
     const location = useLocation();
-    const [selectedMonth, setSelectedMonth] = useState('March');
-    const [selectedYear, setSelectedYear] = useState(2026);
+    const currentDate = new Date();
+    const [selectedMonth, setSelectedMonth] = useState(currentDate.getMonth() + 1);
+    const [selectedYear, setSelectedYear] = useState(currentDate.getFullYear());
     const [loading, setLoading] = useState(false);
     const [calendarLoading, setCalendarLoading] = useState(false);
     const [punchLoading, setPunchLoading] = useState(false);
+    const [payslipLoading, setPayslipLoading] = useState(false);
+    const [detailedPayslipLoading, setDetailedPayslipLoading] = useState(false);
     const [error, setError] = useState(null);
     const [monthlySummary, setMonthlySummary] = useState(null);
     const [calendarData, setCalendarData] = useState(null);
     const [staffInfo, setStaffInfo] = useState(null);
     const [period, setPeriod] = useState(null);
     const [selectedDayDetails, setSelectedDayDetails] = useState(null);
+    const [showPayslipModal, setShowPayslipModal] = useState(false);
+    const [payslipMonth, setPayslipMonth] = useState(currentDate.getMonth() + 1);
+    const [payslipYear, setPayslipYear] = useState(currentDate.getFullYear());
+    const [payslipType, setPayslipType] = useState('standard'); // 'standard' or 'detailed'
+    const [payslipData, setPayslipData] = useState(null);
+    const [detailedPayslipData, setDetailedPayslipData] = useState(null);
 
     const weekDays = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
     
@@ -25,7 +34,7 @@ const AttendanceTab = ({ attendance, setAttendance, variants }) => {
         'July', 'August', 'September', 'October', 'November', 'December'
     ];
 
-    const years = [2023, 2024, 2025, 2026];
+    const years = Array.from({ length: 5 }, (_, i) => currentDate.getFullYear() - 2 + i);
 
     // Get username from URL
     const getUsernameFromUrl = () => {
@@ -51,10 +60,8 @@ const AttendanceTab = ({ attendance, setAttendance, variants }) => {
             setLoading(true);
             setError(null);
             
-            const monthIndex = months.indexOf(selectedMonth) + 1;
-            
             const response = await fetch(
-                `${API_BASE_URL}/attendance/staff-monthly-summary/${username}?month=${monthIndex}&year=${selectedYear}`,
+                `${API_BASE_URL}/attendance/staff-monthly-summary/${username}?month=${selectedMonth}&year=${selectedYear}`,
                 {
                     method: 'GET',
                     headers: getHeaders()
@@ -86,10 +93,8 @@ const AttendanceTab = ({ attendance, setAttendance, variants }) => {
         try {
             setCalendarLoading(true);
             
-            const monthIndex = months.indexOf(selectedMonth) + 1;
-            
             const response = await fetch(
-                `${API_BASE_URL}/attendance/attendance-calendar/${username}?month=${monthIndex}&year=${selectedYear}`,
+                `${API_BASE_URL}/attendance/attendance-calendar/${username}?month=${selectedMonth}&year=${selectedYear}`,
                 {
                     method: 'GET',
                     headers: getHeaders()
@@ -225,35 +230,305 @@ const AttendanceTab = ({ attendance, setAttendance, variants }) => {
         );
     };
 
+    // Generate Standard Payslip
+  // Generate Standard Payslip
+const generatePayslip = async () => {
+    const username = getUsernameFromUrl();
+    if (!username) {
+        alert('No username found');
+        return;
+    }
+
+    setPayslipLoading(true);
+    try {
+        const requestBody = {
+            username: username,
+            month: payslipMonth,
+            year: payslipYear
+        };
+        
+        const response = await fetch(
+            `${API_BASE_URL}/attendance/generate-payslip`,
+            {
+                method: 'POST',
+                headers: getHeaders(),
+                body: JSON.stringify(requestBody)
+            }
+        );
+
+        if (!response.ok) {
+            // Try to get error message as JSON if possible
+            const contentType = response.headers.get("content-type");
+            if (contentType && contentType.includes("application/json")) {
+                const errorData = await response.json();
+                throw new Error(errorData.message || 'Failed to generate payslip');
+            } else {
+                const errorText = await response.text();
+                throw new Error(`Server error ${response.status}: ${errorText.substring(0, 100)}`);
+            }
+        }
+
+        // Get the PDF blob directly
+        const blob = await response.blob();
+        
+        // Create download link
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        
+        // Get filename from Content-Disposition header or create default
+        const contentDisposition = response.headers.get('Content-Disposition');
+        let filename = `payslip_${username}_${payslipMonth}_${payslipYear}.pdf`;
+        
+        if (contentDisposition) {
+            const filenameMatch = contentDisposition.match(/filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/);
+            if (filenameMatch && filenameMatch[1]) {
+                filename = filenameMatch[1].replace(/['"]/g, '');
+            }
+        }
+        
+        link.download = filename;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+        
+        alert('Payslip downloaded successfully!');
+        
+    } catch (err) {
+        console.error('Error generating payslip:', err);
+        alert('Failed to generate payslip: ' + err.message);
+    } finally {
+        setPayslipLoading(false);
+    }
+};
+
+// // Generate Detailed Payslip
+// const generateDetailedPayslip = async () => {
+//     const username = getUsernameFromUrl();
+//     if (!username) {
+//         alert('No username found');
+//         return;
+//     }
+
+//     setDetailedPayslipLoading(true);
+//     try {
+//         const requestBody = {
+//             username: username,
+//             month: payslipMonth,
+//             year: payslipYear,
+//             include_verification_details: true
+//         };
+        
+//         const response = await fetch(
+//             `${API_BASE_URL}/attendance/detailed-payslip`,
+//             {
+//                 method: 'POST',
+//                 headers: getHeaders(),
+//                 body: JSON.stringify(requestBody)
+//             }
+//         );
+
+//         if (!response.ok) {
+//             const errorData = await response.json();
+//             throw new Error(errorData.message || 'Failed to generate detailed payslip');
+//         }
+
+//         const data = await response.json();
+        
+//         if (data.success) {
+//             // Display detailed payslip data in a modal or console
+//             console.log('Detailed Payslip Data:', data.data);
+            
+//             // You can show this data in a modal or format it nicely
+//             alert(`Detailed payslip generated for ${data.data.employee.name}\nNet Salary: ₹${data.data.summary.net_salary}\nCheck console for full details`);
+            
+//             // Optional: Create a printable version
+//             const printWindow = window.open('', '_blank');
+//             printWindow.document.write(`
+//                 <html>
+//                 <head>
+//                     <title>Detailed Payslip - ${data.data.employee.name}</title>
+//                     <style>
+//                         body { font-family: Arial, sans-serif; margin: 40px; }
+//                         .header { text-align: center; margin-bottom: 30px; }
+//                         .company-name { font-size: 24px; font-weight: bold; }
+//                         .section { margin-bottom: 20px; }
+//                         .section-title { font-size: 18px; font-weight: bold; background: #f0f0f0; padding: 8px; }
+//                         table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+//                         th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+//                         th { background: #f5f5f5; }
+//                         .amount { text-align: right; }
+//                         .total { font-weight: bold; background: #e8f5e9; }
+//                     </style>
+//                 </head>
+//                 <body>
+//                     <div class="header">
+//                         <div class="company-name">${data.data.company?.name || 'Company Name'}</div>
+//                         <div>${data.data.company?.address || ''}</div>
+//                         <div>${data.data.company?.mobile || ''}</div>
+//                         <h2>Detailed Salary Slip</h2>
+//                     </div>
+                    
+//                     <div class="section">
+//                         <div class="section-title">Employee Details</div>
+//                         <p><strong>Name:</strong> ${data.data.employee.name}</p>
+//                         <p><strong>Designation:</strong> ${data.data.employee.designation}</p>
+//                         <p><strong>Period:</strong> ${data.data.salary_period.month_year}</p>
+//                     </div>
+                    
+//                     <div class="section">
+//                         <div class="section-title">Salary Summary</div>
+//                         <table>
+//                             <tr><th>Earnings</th><th class="amount">Amount (₹)</th></tr>
+//                             <tr><td>Present Days</td><td class="amount">${data.data.summary.earnings.present_amount}</td></tr>
+//                             <tr><td>Half Day</td><td class="amount">${data.data.summary.earnings.half_day_amount}</td></tr>
+//                             <tr><td>Paid Leave</td><td class="amount">${data.data.summary.earnings.paid_leave_amount}</td></tr>
+//                             <tr><td>Overtime</td><td class="amount">${data.data.summary.earnings.overtime_amount}</td></tr>
+//                             <tr class="total"><td>Total Earnings</td><td class="amount">${data.data.summary.earnings.total_earnings}</td></tr>
+//                             <tr class="total"><td>Net Salary</td><td class="amount">${data.data.summary.net_salary}</td></tr>
+//                         </table>
+//                     </div>
+                    
+//                     <div class="section">
+//                         <div class="section-title">Attendance Summary</div>
+//                         <table>
+//                             <tr><td>Present Days</td><td>${data.data.attendance_summary.present}</td></tr>
+//                             <tr><td>Absent Days</td><td>${data.data.attendance_summary.absent}</td></tr>
+//                             <tr><td>Half Days</td><td>${data.data.attendance_summary.half_day}</td></tr>
+//                             <tr><td>Paid Leave</td><td>${data.data.attendance_summary.paid_leave}</td></tr>
+//                             <tr><td>Overtime Days</td><td>${data.data.attendance_summary.overtime_days}</td></tr>
+//                         </table>
+//                     </div>
+                    
+//                     <div class="section">
+//                         <div class="section-title">Amount in Words</div>
+//                         <p>${data.data.summary.amount_in_words}</p>
+//                     </div>
+                    
+//                     <hr />
+//                     <p style="text-align: center; font-size: 12px; color: #999;">
+//                         Generated on: ${new Date().toLocaleString()}
+//                     </p>
+//                 </body>
+//                 </html>
+//             `);
+//             printWindow.document.close();
+//             printWindow.print();
+            
+//         } else {
+//             alert(data.message || 'Failed to generate detailed payslip');
+//         }
+//     } catch (err) {
+//         console.error('Error generating detailed payslip:', err);
+//         alert('Failed to generate detailed payslip: ' + err.message);
+//     } finally {
+//         setDetailedPayslipLoading(false);
+//     }
+// };
+
+    // Generate Detailed Payslip
+    const generateDetailedPayslip = async () => {
+        const username = getUsernameFromUrl();
+        if (!username) {
+            alert('No username found');
+            return;
+        }
+
+        setDetailedPayslipLoading(true);
+        try {
+            const response = await fetch(
+                `${API_BASE_URL}/attendance/generate-detailed-payslip`,
+                {
+                    method: 'POST',
+                    headers: getHeaders(),
+                    body: JSON.stringify({
+                        username: username,
+                        month: payslipMonth,
+                        year: payslipYear
+                    })
+                }
+            );
+
+            if (!response.ok) {
+                throw new Error('Failed to generate detailed payslip');
+            }
+
+            const data = await response.json();
+            if (data.success) {
+                setDetailedPayslipData(data.data);
+                // Download PDF from base64 (if returned as base64 in pdf object)
+                if (data.pdf && data.pdf.base64) {
+                    const byteCharacters = atob(data.pdf.base64);
+                    const byteNumbers = new Array(byteCharacters.length);
+                    for (let i = 0; i < byteCharacters.length; i++) {
+                        byteNumbers[i] = byteCharacters.charCodeAt(i);
+                    }
+                    const byteArray = new Uint8Array(byteNumbers);
+                    const blob = new Blob([byteArray], { type: 'application/pdf' });
+                    const url = URL.createObjectURL(blob);
+                    const link = document.createElement('a');
+                    link.href = url;
+                    link.download = data.pdf.filename || `detailed_payslip_${username}_${payslipMonth}_${payslipYear}.pdf`;
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                    URL.revokeObjectURL(url);
+                    alert('Detailed payslip downloaded successfully!');
+                }
+            } else {
+                alert(data.message || 'Failed to generate detailed payslip');
+            }
+        } catch (err) {
+            console.error('Error generating detailed payslip:', err);
+            alert('Failed to generate detailed payslip: ' + err.message);
+        } finally {
+            setDetailedPayslipLoading(false);
+        }
+    };
+
+    const openPayslipModal = () => {
+        setPayslipMonth(selectedMonth);
+        setPayslipYear(selectedYear);
+        setPayslipType('standard');
+        setPayslipData(null);
+        setDetailedPayslipData(null);
+        setShowPayslipModal(true);
+    };
+
+    const handleGeneratePayslip = () => {
+        if (payslipType === 'standard') {
+            generatePayslip();
+        } else {
+            generateDetailedPayslip();
+        }
+    };
+
     // Handle month navigation
     const handlePreviousMonth = () => {
-        const monthIndex = months.indexOf(selectedMonth);
-        
-        if (monthIndex === 0) {
+        if (selectedMonth === 1) {
             setSelectedYear(prev => prev - 1);
-            setSelectedMonth('December');
+            setSelectedMonth(12);
         } else {
-            setSelectedMonth(months[monthIndex - 1]);
+            setSelectedMonth(prev => prev - 1);
         }
     };
 
     const handleNextMonth = () => {
-        const monthIndex = months.indexOf(selectedMonth);
-        
-        if (monthIndex === 11) {
+        if (selectedMonth === 12) {
             setSelectedYear(prev => prev + 1);
-            setSelectedMonth('January');
+            setSelectedMonth(1);
         } else {
-            setSelectedMonth(months[monthIndex + 1]);
+            setSelectedMonth(prev => prev + 1);
         }
     };
 
     const handleMonthSelect = (month) => {
-        setSelectedMonth(month);
+        setSelectedMonth(parseInt(month));
     };
 
     const handleYearSelect = (year) => {
-        setSelectedYear(year);
+        setSelectedYear(parseInt(year));
     };
 
     const handleDayClick = (dayData) => {
@@ -289,6 +564,17 @@ const AttendanceTab = ({ attendance, setAttendance, variants }) => {
             return `${hour12.toString().padStart(2, '0')}:${minutes} ${ampm}`;
         }
         return '—';
+    };
+
+    // Format currency
+    const formatCurrency = (amount) => {
+        if (!amount) return '₹0.00';
+        return new Intl.NumberFormat('en-IN', {
+            style: 'currency',
+            currency: 'INR',
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2
+        }).format(parseFloat(amount));
     };
 
     // Get professional status color for calendar
@@ -328,7 +614,7 @@ const AttendanceTab = ({ attendance, setAttendance, variants }) => {
         return badges[status?.toLowerCase()] || { label: status || '—', color: 'bg-gray-100 text-gray-700' };
     };
 
-    // SVG Icons - Professional outline icons
+    // SVG Icons
     const CalendarIcon = ({ className = "w-5 h-5" }) => (
         <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
@@ -377,16 +663,9 @@ const AttendanceTab = ({ attendance, setAttendance, variants }) => {
         </svg>
     );
 
-    const LocationIcon = ({ className = "w-4 h-4" }) => (
+    const DocumentIcon = ({ className = "w-5 h-5" }) => (
         <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-        </svg>
-    );
-
-    const BriefcaseIcon = ({ className = "w-4 h-4" }) => (
-        <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
         </svg>
     );
 
@@ -417,8 +696,20 @@ const AttendanceTab = ({ attendance, setAttendance, variants }) => {
                             )}
                         </div>
                         
-                        {/* Punch In/Out Buttons */}
                         <div className="flex items-center gap-3">
+                            {/* Payslip Button */}
+                            <motion.button
+                                whileHover={{ scale: 1.02 }}
+                                whileTap={{ scale: 0.98 }}
+                                onClick={openPayslipModal}
+                                disabled={!username}
+                                className="px-4 py-2 bg-purple-600 text-white text-sm font-medium rounded-lg hover:bg-purple-700 transition-colors flex items-center gap-2 shadow-sm"
+                            >
+                                <DocumentIcon className="w-4 h-4" />
+                                Generate Payslip
+                            </motion.button>
+                            
+                            {/* Punch In Button */}
                             <motion.button
                                 whileHover={{ scale: 1.02 }}
                                 whileTap={{ scale: 0.98 }}
@@ -430,6 +721,7 @@ const AttendanceTab = ({ attendance, setAttendance, variants }) => {
                                 {punchLoading ? 'Processing...' : 'Punch In'}
                             </motion.button>
                             
+                            {/* Punch Out Button */}
                             <motion.button
                                 whileHover={{ scale: 1.02 }}
                                 whileTap={{ scale: 0.98 }}
@@ -454,8 +746,8 @@ const AttendanceTab = ({ attendance, setAttendance, variants }) => {
                                 onChange={(e) => handleMonthSelect(e.target.value)}
                                 className="appearance-none bg-gray-50 border border-gray-300 rounded-lg px-4 py-2 pr-8 text-sm font-medium text-gray-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 cursor-pointer min-w-[140px]"
                             >
-                                {months.map(month => (
-                                    <option key={month} value={month}>{month}</option>
+                                {months.map((month, index) => (
+                                    <option key={month} value={index + 1}>{month}</option>
                                 ))}
                             </select>
                             <div className="absolute right-2 top-1/2 transform -translate-y-1/2 pointer-events-none">
@@ -489,7 +781,7 @@ const AttendanceTab = ({ attendance, setAttendance, variants }) => {
                                 <ChevronLeftIcon className="w-4 h-4 text-gray-600" />
                             </button>
                             <span className="px-4 py-1 text-sm font-medium text-indigo-600 min-w-[140px] text-center">
-                                {selectedMonth} {selectedYear}
+                                {months[selectedMonth - 1]} {selectedYear}
                             </span>
                             <button 
                                 onClick={handleNextMonth}
@@ -513,7 +805,7 @@ const AttendanceTab = ({ attendance, setAttendance, variants }) => {
                 {/* Month Summary Badge */}
                 <div className="flex items-center gap-2">
                     <span className="px-3 py-1 bg-indigo-50 text-indigo-700 text-sm font-medium rounded-full">
-                        {selectedMonth} {selectedYear} Summary
+                        {months[selectedMonth - 1]} {selectedYear} Summary
                     </span>
                     {monthlySummary && (
                         <span className="text-sm text-gray-500">
@@ -611,7 +903,7 @@ const AttendanceTab = ({ attendance, setAttendance, variants }) => {
                                 </div>
                                 <div>
                                     <h3 className="text-base font-semibold text-gray-900">
-                                        {selectedMonth} {selectedYear} Attendance Calendar
+                                        {months[selectedMonth - 1]} {selectedYear} Attendance Calendar
                                     </h3>
                                     <p className="text-xs text-gray-500 mt-0.5">
                                         Click on a day to view details
@@ -733,54 +1025,6 @@ const AttendanceTab = ({ attendance, setAttendance, variants }) => {
                     )}
                 </div>
 
-                {/* Staff Info Section */}
-                {staffInfo && (
-                    <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-                        <div className="px-6 py-4 border-b border-gray-200 bg-gray-50">
-                            <h3 className="text-sm font-semibold text-gray-900">Staff Information</h3>
-                        </div>
-                        <div className="p-6">
-                            <div className="flex items-start gap-4">
-                                {staffInfo.image ? (
-                                    <img 
-                                        src={staffInfo.image} 
-                                        alt={staffInfo.name}
-                                        className="w-16 h-16 rounded-full object-cover border-2 border-gray-200"
-                                    />
-                                ) : (
-                                    <div className="w-16 h-16 rounded-full bg-indigo-50 flex items-center justify-center">
-                                        <UserIcon className="w-8 h-8 text-indigo-600" />
-                                    </div>
-                                )}
-                                <div className="flex-1">
-                                    <h4 className="text-lg font-semibold text-gray-900">{staffInfo.name}</h4>
-                                    <p className="text-sm text-gray-600 mb-3">{staffInfo.designation}</p>
-                                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                                        <div>
-                                            <span className="text-xs text-gray-500">Email</span>
-                                            <p className="text-sm font-medium text-gray-900">{staffInfo.email}</p>
-                                        </div>
-                                        <div>
-                                            <span className="text-xs text-gray-500">Mobile</span>
-                                            <p className="text-sm font-medium text-gray-900">{staffInfo.mobile}</p>
-                                        </div>
-                                        <div>
-                                            <span className="text-xs text-gray-500">Guardian</span>
-                                            <p className="text-sm font-medium text-gray-900">
-                                                {staffInfo.guardian_name} ({staffInfo.care_of})
-                                            </p>
-                                        </div>
-                                        <div>
-                                            <span className="text-xs text-gray-500">Date of Birth</span>
-                                            <p className="text-sm font-medium text-gray-900">{formatDate(staffInfo.date_of_birth)}</p>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                )}
-
                 {/* Day Details Modal */}
                 {selectedDayDetails && (
                     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
@@ -845,7 +1089,7 @@ const AttendanceTab = ({ attendance, setAttendance, variants }) => {
                                                 <div className="p-3 border border-gray-200 rounded-lg">
                                                     <span className="text-xs text-gray-500">Amount</span>
                                                     <p className="font-medium text-gray-900">
-                                                        ₹{selectedDayDetails.details.calculated_amount}
+                                                        {formatCurrency(selectedDayDetails.details.calculated_amount)}
                                                     </p>
                                                 </div>
                                             )}
@@ -858,6 +1102,150 @@ const AttendanceTab = ({ attendance, setAttendance, variants }) => {
                                             Verified Attendance
                                         </div>
                                     )}
+                                </div>
+                            </div>
+                        </motion.div>
+                    </div>
+                )}
+
+                {/* Payslip Generation Modal */}
+                {showPayslipModal && (
+                    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+                        <motion.div
+                            initial={{ opacity: 0, scale: 0.95 }}
+                            animate={{ opacity: 1, scale: 1 }}
+                            className="bg-white rounded-xl shadow-xl max-w-lg w-full"
+                        >
+                            <div className="p-6">
+                                <div className="flex items-center justify-between mb-4">
+                                    <h3 className="text-lg font-semibold text-gray-900">Generate Payslip</h3>
+                                    <button
+                                        onClick={() => setShowPayslipModal(false)}
+                                        className="text-gray-400 hover:text-gray-600"
+                                    >
+                                        ✕
+                                    </button>
+                                </div>
+
+                                <div className="space-y-4">
+                                    {/* Staff Info */}
+                                    {staffInfo && (
+                                        <div className="p-3 bg-gray-50 rounded-lg">
+                                            <p className="text-sm font-medium text-gray-900">{staffInfo.name}</p>
+                                            <p className="text-xs text-gray-500">{staffInfo.designation}</p>
+                                            <p className="text-xs text-gray-500">{staffInfo.email}</p>
+                                        </div>
+                                    )}
+
+                                    {/* Payslip Type Selection */}
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                                            Payslip Type
+                                        </label>
+                                        <div className="grid grid-cols-2 gap-3">
+                                            <button
+                                                onClick={() => setPayslipType('standard')}
+                                                className={`px-4 py-2 text-sm font-medium rounded-lg border transition-all ${
+                                                    payslipType === 'standard'
+                                                        ? 'bg-purple-600 text-white border-purple-600'
+                                                        : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
+                                                }`}
+                                            >
+                                                Standard Payslip
+                                            </button>
+                                            <button
+                                                onClick={() => setPayslipType('detailed')}
+                                                className={`px-4 py-2 text-sm font-medium rounded-lg border transition-all ${
+                                                    payslipType === 'detailed'
+                                                        ? 'bg-purple-600 text-white border-purple-600'
+                                                        : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
+                                                }`}
+                                            >
+                                                Detailed Payslip
+                                            </button>
+                                        </div>
+                                        <p className="text-xs text-gray-500 mt-2">
+                                            {payslipType === 'standard' 
+                                                ? 'Standard payslip with summary of earnings and deductions'
+                                                : 'Detailed payslip with day-wise breakdown and complete salary calculation'}
+                                        </p>
+                                    </div>
+
+                                    {/* Month Selection */}
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                                            Select Month
+                                        </label>
+                                        <div className="relative">
+                                            <select
+                                                value={payslipMonth}
+                                                onChange={(e) => setPayslipMonth(parseInt(e.target.value))}
+                                                className="w-full appearance-none bg-gray-50 border border-gray-300 rounded-lg px-4 py-2 pr-8 text-sm font-medium text-gray-700 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 cursor-pointer"
+                                            >
+                                                {months.map((month, index) => (
+                                                    <option key={month} value={index + 1}>{month}</option>
+                                                ))}
+                                            </select>
+                                            <div className="absolute right-2 top-1/2 transform -translate-y-1/2 pointer-events-none">
+                                                <ChevronDownIcon className="w-4 h-4 text-gray-500" />
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {/* Year Selection */}
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                                            Select Year
+                                        </label>
+                                        <div className="relative">
+                                            <select
+                                                value={payslipYear}
+                                                onChange={(e) => setPayslipYear(parseInt(e.target.value))}
+                                                className="w-full appearance-none bg-gray-50 border border-gray-300 rounded-lg px-4 py-2 pr-8 text-sm font-medium text-gray-700 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 cursor-pointer"
+                                            >
+                                                {years.map(year => (
+                                                    <option key={year} value={year}>{year}</option>
+                                                ))}
+                                            </select>
+                                            <div className="absolute right-2 top-1/2 transform -translate-y-1/2 pointer-events-none">
+                                                <ChevronDownIcon className="w-4 h-4 text-gray-500" />
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {/* Preview Info */}
+                                    <div className="p-3 bg-purple-50 rounded-lg border border-purple-200">
+                                        <p className="text-sm text-purple-800 flex items-center gap-2">
+                                            <CalendarIcon className="w-4 h-4" />
+                                            Generating payslip for {months[payslipMonth - 1]} {payslipYear}
+                                        </p>
+                                    </div>
+                                </div>
+
+                                <div className="flex justify-end gap-3 mt-6">
+                                    <button
+                                        onClick={() => setShowPayslipModal(false)}
+                                        className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+                                    >
+                                        Cancel
+                                    </button>
+                                    <button
+                                        onClick={handleGeneratePayslip}
+                                        disabled={payslipLoading || detailedPayslipLoading}
+                                        className="px-4 py-2 text-sm font-medium text-white bg-gradient-to-r from-purple-600 to-purple-700 rounded-lg hover:from-purple-700 hover:to-purple-800 transition-colors disabled:opacity-50 flex items-center gap-2"
+                                    >
+                                        {(payslipLoading || detailedPayslipLoading) ? (
+                                            <>
+                                                <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
+                                                Generating...
+                                            </>
+                                        ) : (
+                                            <>
+                                                <DocumentIcon className="w-4 h-4" />
+                                                Generate & Download
+                                            </>
+                                        )}
+                                    </button>
                                 </div>
                             </div>
                         </motion.div>
