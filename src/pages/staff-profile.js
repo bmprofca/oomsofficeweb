@@ -38,6 +38,7 @@ import LoanTab from '../staff/LoanTab';
 import PerformanceTab from '../staff/PerformanceTab';
 import EntryReportTab from '../staff/EntryReportTab';
 import TaskTab from '../staff/StaffTaskTab'; // Import the new TaskTab component
+import StaffPayslip from '../staff/StaffPayslip'; // Import the new StaffPayslip component
 
 // TabLink Component
 const TabLink = ({ to, icon: Icon, label, isActive, onClick }) => {
@@ -551,7 +552,8 @@ const StaffProfile = () => {
         { id: 'loan', name: 'Loan', icon: FiDollarSign },
         { id: 'performance', name: 'Performance', icon: FiTrendingUp },
         { id: 'entry-report', name: 'Entry Report', icon: FiFileText },
-        { id: 'task', name: 'Task', icon: FiCheckSquare } // New Task tab
+        { id: 'task', name: 'Task', icon: FiCheckSquare }, // New Task tab
+        { id: 'payslip', name: 'Payslip', icon: FiFileText }
     ];
 
     // Handle tab change with navigation
@@ -615,7 +617,9 @@ const StaffProfile = () => {
                 return <EntryReportTab key="entry-report" entryReport={entryReport} setEntryReport={setEntryReport} username={username} {...props} />;
             case 'task':
                 return <TaskTab key="task" tasks={tasks} setTasks={setTasks} username={username} {...props} />;
-            default:
+             case 'payslip': // Add this case
+            return <StaffPayslip key="payslip" username={username} variants={tabContentVariants} {...props} />;
+                default:
                 return null;
         }
     };
