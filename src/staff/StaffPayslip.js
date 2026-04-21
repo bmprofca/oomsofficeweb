@@ -247,6 +247,68 @@ const StaffPayslip = ({ username, variants }) => {
         }
     };
 
+    // Download Detailed Payslip as PDF (Direct PDF endpoint)
+    const downloadDetailedPayslipPDFDirect = async (month, year) => {
+        if (!isMonthCompleted(month, year)) {
+            alert(`Detailed payslip for ${months[month - 1]} ${year} is not available yet. Month is not completed.`);
+            return;
+        }
+        
+        setGeneratingDetailed(true);
+        
+        try {
+            const response = await fetch(
+                `${API_BASE_URL}/attendance/detailed-payslip-pdf`,
+                {
+                    method: 'POST',
+                    headers: getHeaders(),
+                    body: JSON.stringify({
+                        username: username,
+                        month: month,
+                        year: year
+                    })
+                }
+            );
+
+            if (!response.ok) {
+                const contentType = response.headers.get("content-type");
+                if (contentType && contentType.includes("application/json")) {
+                    const errorData = await response.json();
+                    throw new Error(errorData.message || 'Failed to generate detailed payslip PDF');
+                } else {
+                    throw new Error(`Server error ${response.status}`);
+                }
+            }
+
+            const blob = await response.blob();
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            
+            const contentDisposition = response.headers.get('Content-Disposition');
+            let filename = `detailed_payslip_${username}_${months[month - 1]}_${year}.pdf`;
+            
+            if (contentDisposition) {
+                const filenameMatch = contentDisposition.match(/filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/);
+                if (filenameMatch && filenameMatch[1]) {
+                    filename = filenameMatch[1].replace(/['"]/g, '');
+                }
+            }
+            
+            link.download = filename;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(url);
+            
+        } catch (err) {
+            console.error('Error downloading detailed payslip PDF:', err);
+            alert('Failed to download detailed payslip: ' + err.message);
+        } finally {
+            setGeneratingDetailed(false);
+        }
+    };
+
     // Generate Detailed Payslip and show modal
     const generateDetailedPayslip = async (month, year) => {
         if (!isMonthCompleted(month, year)) {
@@ -292,7 +354,7 @@ const StaffPayslip = ({ username, variants }) => {
         }
     };
 
-    // Download detailed payslip as PDF
+    // Download detailed payslip as PDF (from JSON response)
     const downloadDetailedPayslipPDF = async (month, year) => {
         setGeneratingDetailed(true);
         
@@ -593,14 +655,14 @@ const StaffPayslip = ({ username, variants }) => {
                                                             <motion.button
                                                                 whileHover={{ scale: isLocked ? 1 : 1.05 }}
                                                                 whileTap={{ scale: isLocked ? 1 : 0.95 }}
-                                                                onClick={() => !isLocked && generateDetailedPayslip(payslip.month, payslip.year)}
+                                                                onClick={() => !isLocked && downloadDetailedPayslipPDFDirect(payslip.month, payslip.year)}
                                                                 disabled={isLocked || !payslip.hasPayslip || generatingDetailed}
                                                                 className={`p-2 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
                                                                     isLocked 
                                                                         ? 'text-gray-300 cursor-not-allowed' 
                                                                         : 'text-indigo-600 hover:bg-indigo-50'
                                                                 }`}
-                                                                title={isLocked ? statusMessage || 'Month not completed' : 'View Detailed Payslip'}
+                                                                title={isLocked ? statusMessage || 'Month not completed' : 'Download Detailed Payslip PDF'}
                                                             >
                                                                 <FiFileText className="w-4 h-4" />
                                                             </motion.button>
