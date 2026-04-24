@@ -23,7 +23,8 @@ import {
     FiMaximize2,
     FiMinimize2,
     FiAlertCircle,
-    FiCheckSquare // Added for Task tab
+    FiCheckSquare,
+    FiCoffee // Added for break icon
 } from 'react-icons/fi';
 import  API_BASE_URL  from '../utils/api-controller';
 import  getHeaders  from '../utils/get-headers';
@@ -37,8 +38,8 @@ import LedgerTab from '../staff/LedgerTab';
 import LoanTab from '../staff/LoanTab';
 import PerformanceTab from '../staff/PerformanceTab';
 import EntryReportTab from '../staff/EntryReportTab';
-import TaskTab from '../staff/StaffTaskTab'; // Import the new TaskTab component
-import StaffPayslip from '../staff/StaffPayslip'; // Import the new StaffPayslip component
+import TaskTab from '../staff/StaffTaskTab';
+import StaffPayslip from '../staff/StaffPayslip';
 
 // TabLink Component
 const TabLink = ({ to, icon: Icon, label, isActive, onClick }) => {
@@ -85,14 +86,124 @@ const CompactTabIcon = ({ to, icon: Icon, label, isActive, onClick }) => {
     );
 };
 
+// Break Status Popup Component
+const BreakStatusPopup = ({ isOpen, onClose, breakStartTime, onBreakEnd, staffName }) => {
+    const [elapsedTime, setElapsedTime] = useState('00:00:00');
+
+    useEffect(() => {
+        if (!isOpen || !breakStartTime) return;
+
+        const breakStartDate = new Date(breakStartTime);
+        
+        const updateElapsedTime = () => {
+            const now = new Date();
+            const diff = Math.floor((now - breakStartDate) / 1000); // Difference in seconds
+            
+            const hours = Math.floor(diff / 3600);
+            const minutes = Math.floor((diff % 3600) / 60);
+            const seconds = diff % 60;
+            
+            setElapsedTime(`${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`);
+        };
+
+        updateElapsedTime(); // Initial update
+        const interval = setInterval(updateElapsedTime, 1000);
+
+        return () => clearInterval(interval);
+    }, [isOpen, breakStartTime]);
+
+    if (!isOpen) return null;
+
+    return (
+        <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4"
+            onClick={onClose}
+        >
+            <motion.div
+                initial={{ scale: 0.9, y: 20 }}
+                animate={{ scale: 1, y: 0 }}
+                exit={{ scale: 0.9, y: 20 }}
+                className="bg-white rounded-xl shadow-2xl max-w-md w-full p-6"
+                onClick={(e) => e.stopPropagation()}
+            >
+                <div className="flex items-center justify-between mb-4">
+                    <div className="flex items-center gap-3">
+                        <div className="w-12 h-12 bg-amber-100 rounded-full flex items-center justify-center">
+                            <FiCoffee className="w-6 h-6 text-amber-600" />
+                        </div>
+                        <h2 className="text-xl font-bold text-gray-900">On Break</h2>
+                    </div>
+                    <button
+                        onClick={onClose}
+                        className="p-1 hover:bg-gray-100 rounded-lg transition-colors"
+                    >
+                        <FiX className="w-5 h-5 text-gray-500" />
+                    </button>
+                </div>
+
+                <div className="space-y-4">
+                    <p className="text-gray-700">
+                        <span className="font-semibold">{staffName || 'Staff member'}</span> is currently on break.
+                    </p>
+                    
+                    <div className="bg-amber-50 rounded-lg p-4 border border-amber-200">
+                        <p className="text-sm font-medium text-amber-800 mb-2">Break Details</p>
+                        <div className="space-y-1 text-sm">
+                            <div className="flex justify-between">
+                                <span className="text-gray-600">Started at:</span>
+                                <span className="font-medium text-gray-900">
+                                    {new Date(breakStartTime).toLocaleTimeString()}
+                                </span>
+                            </div>
+                            <div className="flex justify-between">
+                                <span className="text-gray-600">Duration:</span>
+                                <span className="font-mono font-medium text-amber-700">{elapsedTime}</span>
+                            </div>
+                            <div className="flex justify-between">
+                                <span className="text-gray-600">Date:</span>
+                                <span className="font-medium text-gray-900">
+                                    {new Date(breakStartTime).toLocaleDateString()}
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="bg-blue-50 rounded-lg p-3 border border-blue-200">
+                        <p className="text-sm text-blue-800 flex items-start gap-2">
+                            <FiAlertCircle className="w-4 h-4 mt-0.5 flex-shrink-0" />
+                            <span>Actions are restricted while on break. Please end the break before performing any operations.</span>
+                        </p>
+                    </div>
+
+                    <div className="flex gap-3 pt-2">
+                        <button
+                            onClick={onBreakEnd}
+                            className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700 transition-colors"
+                        >
+                            End Break
+                        </button>
+                        <button
+                            onClick={onClose}
+                            className="flex-1 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg font-medium hover:bg-gray-200 transition-colors"
+                        >
+                            Close
+                        </button>
+                    </div>
+                </div>
+            </motion.div>
+        </motion.div>
+    );
+};
+
 const StaffProfile = () => {
     const navigate = useNavigate();
     const { tab } = useParams();
     const location = useLocation();
 
-    // Get username from URL query parameters
     const [username, setUsername] = useState(null);
-
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
     const [isMinimized, setIsMinimized] = useState(() => {
         const saved = localStorage.getItem('sidebarMinimized');
@@ -100,7 +211,7 @@ const StaffProfile = () => {
     });
     const [tabsMinimized, setTabsMinimized] = useState(() => {
         const saved = localStorage.getItem('staffTabsMinimized');
-        return saved ? JSON.parse(saved) : true; // Default to minimized
+        return saved ? JSON.parse(saved) : true;
     });
     const [activeTab, setActiveTab] = useState(tab || 'profile');
     const [showSettings, setShowSettings] = useState(false);
@@ -110,6 +221,13 @@ const StaffProfile = () => {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const [isAccepted, setIsAccepted] = useState(false);
+
+    // Break status states
+    const [showBreakPopup, setShowBreakPopup] = useState(false);
+    const [breakStatus, setBreakStatus] = useState({
+        onBreak: false,
+        breakStartTime: null
+    });
 
     // Staff data state
     const [staffData, setStaffData] = useState({
@@ -133,7 +251,7 @@ const StaffProfile = () => {
         }
     });
 
-    // Sample data for tabs (will be populated from API later)
+    // Sample data for tabs
     const [attendance, setAttendance] = useState({
         month: new Date().toLocaleDateString('en-US', { month: 'short', year: 'numeric' }),
         summary: {
@@ -177,8 +295,6 @@ const StaffProfile = () => {
         month: new Date().toLocaleDateString('en-US', { month: 'short', year: 'numeric' }),
         entries: []
     });
-    
-    // New state for tasks
     const [tasks, setTasks] = useState([]);
 
     // Extract username from URL query params on component mount
@@ -190,7 +306,6 @@ const StaffProfile = () => {
             setUsername(usernameParam);
             console.log('Username from URL:', usernameParam);
         } else {
-            // If no username in URL, try to get from localStorage or use default
             const savedUsername = localStorage.getItem('selectedStaffUsername');
             if (savedUsername) {
                 setUsername(savedUsername);
@@ -235,10 +350,100 @@ const StaffProfile = () => {
     useEffect(() => {
         if (username) {
             fetchStaffProfile();
-            // Save username to localStorage for persistence
+            fetchBreakStatus(); // Fetch break status when page opens
             localStorage.setItem('selectedStaffUsername', username);
         }
     }, [username]);
+
+    // Function to fetch break status
+    const fetchBreakStatus = async () => {
+        if (!username) return;
+
+        try {
+            const headers = await getHeaders();
+            if (!headers) {
+                console.error('Authentication failed');
+                return;
+            }
+
+            console.log(`Fetching break status for username: ${username}`);
+            
+            const response = await fetch(
+                `${API_BASE_URL}/attendance/break/status?username=${username}`,
+                {
+                    method: 'GET',
+                    headers: headers
+                }
+            );
+
+            if (!response.ok) {
+                throw new Error(`Failed to fetch break status: ${response.status}`);
+            }
+
+            const data = await response.json();
+            console.log('Break status response:', data);
+
+            if (data.success) {
+                setBreakStatus({
+                    onBreak: data.onBreak,
+                    breakStartTime: data.breakStartTime || null
+                });
+
+                // Show popup if staff is on break
+                if (data.onBreak && data.onBreak === true) {
+                    setShowBreakPopup(true);
+                }
+            }
+        } catch (error) {
+            console.error('Error fetching break status:', error);
+        }
+    };
+
+   // Function to handle ending the break
+const handleEndBreak = async () => {
+    try {
+        const headers = await getHeaders();
+        if (!headers) {
+            throw new Error('Authentication failed');
+        }
+
+        // Call API to end break - passing username in body
+        const response = await fetch(
+            `${API_BASE_URL}/attendance/break/end`,
+            {
+                method: 'POST',
+                headers: {
+                    ...headers,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ username: username }) // Pass username in body
+            }
+        );
+
+        if (!response.ok) {
+            throw new Error('Failed to end break');
+        }
+
+        const data = await response.json();
+        
+        if (data.success) {
+            // Update break status
+            setBreakStatus({
+                onBreak: false,
+                breakStartTime: null
+            });
+            setShowBreakPopup(false);
+            
+            // Optional: Show success message
+            console.log('Break ended successfully');
+        } else {
+            throw new Error(data.message || 'Failed to end break');
+        }
+    } catch (error) {
+        console.error('Error ending break:', error);
+        alert('Failed to end break. Please try again.');
+    }
+};
 
     // Function to fetch staff profile from API
     const fetchStaffProfile = async () => {
@@ -253,7 +458,6 @@ const StaffProfile = () => {
 
             console.log(`Fetching staff profile for username: ${username}`);
 
-            // Use the correct endpoint with username in URL path
             const response = await fetch(
                 `${API_BASE_URL}/settings/staff/profile/${username}`,
                 {
@@ -277,23 +481,16 @@ const StaffProfile = () => {
             const responseData = await response.json();
             console.log('Staff profile response:', responseData);
 
-            // Check if the response has data array and it's not empty
             if (responseData.success && responseData.data && responseData.data.length > 0) {
-                const staffMember = responseData.data[0]; // Get the first item from data array
-
-                // Check if staff is accepted (from the response)
+                const staffMember = responseData.data[0];
                 const isAcceptedStaff = staffMember.is_accepted === true;
                 setIsAccepted(isAcceptedStaff);
-
-                // Get branch info from response
                 const branchInfo = staffMember.branch || {};
 
-                // Format phone number with country code
                 const formattedPhone = staffMember.mobile
                     ? `${staffMember.country_code ? '+' + staffMember.country_code : ''} ${staffMember.mobile}`.trim()
                     : '';
 
-                // Transform API response to match component's data structure
                 const transformedData = {
                     firstName: staffMember.name?.split(' ')[0] || '',
                     lastName: staffMember.name?.split(' ').slice(1).join(' ') || '',
@@ -301,16 +498,14 @@ const StaffProfile = () => {
                     email: staffMember.email || '',
                     phone: formattedPhone,
                     joinDate: staffMember.create_date ? formatDate(staffMember.create_date) : '',
-                    balance: "0.00", // You might need to fetch this from another endpoint
-                    designation: staffMember.designation || 'Not Assigned', // From branch_mapping
+                    balance: "0.00",
+                    designation: staffMember.designation || 'Not Assigned',
                     dateOfBirth: staffMember.date_of_birth ? formatDate(staffMember.date_of_birth) : '',
                     gender: staffMember.gender || '',
                     username: staffMember.username || username,
-                    status: staffMember.status === true, // Profile status
-                    userStatus: staffMember.user_status === true, // User account status
+                    status: staffMember.status === true,
+                    userStatus: staffMember.user_status === true,
                     is_accepted: staffMember.is_accepted === true,
-
-                    // Address from profile
                     address: {
                         state: staffMember.state || '',
                         district: staffMember.district || '',
@@ -320,8 +515,6 @@ const StaffProfile = () => {
                         pincode: staffMember.pincode || '',
                         country: staffMember.country || ''
                     },
-
-                    // Branch information
                     branch: {
                         id: branchInfo.id,
                         db_id: branchInfo.db_id,
@@ -340,8 +533,6 @@ const StaffProfile = () => {
                             gst: ""
                         }
                     },
-
-                    // Additional fields that might be useful
                     profile_id: staffMember.profile_id,
                     care_of: staffMember.care_of,
                     guardian_name: staffMember.guardian_name,
@@ -354,7 +545,6 @@ const StaffProfile = () => {
                 setStaffData(transformedData);
                 console.log('Transformed staff data:', transformedData);
 
-                // After profile is loaded, fetch other tab data
                 fetchAttendanceData();
                 fetchExpensesData();
                 fetchBonusFineData();
@@ -363,7 +553,7 @@ const StaffProfile = () => {
                 fetchLoanData();
                 fetchPerformanceData();
                 fetchEntryReportData();
-                fetchTasksData(); // Fetch tasks data
+                fetchTasksData();
 
             } else {
                 throw new Error('No staff data found');
@@ -403,10 +593,9 @@ const StaffProfile = () => {
         return days;
     };
 
-    // API calls for other tabs (to be implemented)
+    // API calls for other tabs
     const fetchAttendanceData = async () => {
         try {
-            // This would be implemented with actual API calls
             setAttendance(prev => ({
                 ...prev,
                 calendar: generateCalendarData()
@@ -417,22 +606,18 @@ const StaffProfile = () => {
     };
 
     const fetchExpensesData = async () => {
-        // Implement API call for expenses
         setExpenses([]);
     };
 
     const fetchBonusFineData = async () => {
-        // Implement API call for bonus/fine
         setBonusFine([]);
     };
 
     const fetchSalaryData = async () => {
-        // Implement API call for salary
         setSalary({ list: [] });
     };
 
     const fetchLedgerData = async () => {
-        // Implement API call for ledger
         const today = new Date();
         const firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
         const lastDay = new Date(today.getFullYear(), today.getMonth() + 1, 0);
@@ -448,7 +633,6 @@ const StaffProfile = () => {
     };
 
     const fetchLoanData = async () => {
-        // Implement API call for loan
         const today = new Date();
         const startDate = formatDate(today);
         const endDate = new Date(today.getFullYear() + 10, today.getMonth(), today.getDate());
@@ -464,7 +648,6 @@ const StaffProfile = () => {
     };
 
     const fetchPerformanceData = async () => {
-        // Implement API call for performance
         const today = new Date();
         const startDate = formatDate(today);
         const endDate = new Date(today.getFullYear() + 10, today.getMonth(), today.getDate());
@@ -477,18 +660,14 @@ const StaffProfile = () => {
     };
 
     const fetchEntryReportData = async () => {
-        // Implement API call for entry report
         setEntryReport({
             month: new Date().toLocaleDateString('en-US', { month: 'short', year: 'numeric' }),
             entries: []
         });
     };
 
-    // New function to fetch tasks data
     const fetchTasksData = async () => {
         try {
-            // This would be implemented with actual API calls
-            // For now, using sample data
             setTasks(generateTaskData());
         } catch (error) {
             console.error('Error fetching tasks:', error);
@@ -496,7 +675,6 @@ const StaffProfile = () => {
         }
     };
 
-    // Helper function to generate sample task data
     const generateTaskData = () => {
         return [
             {
@@ -541,7 +719,6 @@ const StaffProfile = () => {
         ];
     };
 
-    // Profile tabs with paths - Added 'task' tab
     const profileTabs = [
         { id: 'profile', name: 'Profile', icon: FiUser },
         { id: 'attendance', name: 'Attendance', icon: FiClock },
@@ -552,48 +729,44 @@ const StaffProfile = () => {
         { id: 'loan', name: 'Loan', icon: FiDollarSign },
         { id: 'performance', name: 'Performance', icon: FiTrendingUp },
         { id: 'entry-report', name: 'Entry Report', icon: FiFileText },
-        { id: 'task', name: 'Task', icon: FiCheckSquare }, // New Task tab
+        { id: 'task', name: 'Task', icon: FiCheckSquare },
         { id: 'payslip', name: 'Payslip', icon: FiFileText }
     ];
 
-    // Handle tab change with navigation
     const handleTabChange = (tabId) => {
         setActiveTab(tabId);
         navigate(`/staff/view/profile/${tabId}?username=${username}`);
         setShowSettings(false);
     };
 
-    // Toggle tabs minimized state
     const toggleTabsMinimized = () => {
         setTabsMinimized(!tabsMinimized);
     };
 
-    // Handle refresh data
     const handleRefresh = () => {
         if (username) {
             fetchStaffProfile();
+            fetchBreakStatus(); // Also refresh break status
         }
     };
 
-    // Go back to staff list
     const handleGoBack = () => {
         navigate('/staff/view');
     };
 
-    // Animation variants
     const tabContentVariants = {
         initial: { opacity: 0, y: 20 },
         animate: { opacity: 1, y: 0, transition: { duration: 0.3 } },
         exit: { opacity: 0, y: -20, transition: { duration: 0.2 } }
     };
 
-    // Render content based on active tab
     const renderTabContent = () => {
         const props = {
             variants: tabContentVariants,
             staffData,
             username,
-            isAccepted
+            isAccepted,
+            isOnBreak: breakStatus.onBreak // Pass break status to tabs
         };
 
         switch (activeTab) {
@@ -617,9 +790,9 @@ const StaffProfile = () => {
                 return <EntryReportTab key="entry-report" entryReport={entryReport} setEntryReport={setEntryReport} username={username} {...props} />;
             case 'task':
                 return <TaskTab key="task" tasks={tasks} setTasks={setTasks} username={username} {...props} />;
-             case 'payslip': // Add this case
-            return <StaffPayslip key="payslip" username={username} variants={tabContentVariants} {...props} />;
-                default:
+            case 'payslip':
+                return <StaffPayslip key="payslip" username={username} variants={tabContentVariants} {...props} />;
+            default:
                 return null;
         }
     };
@@ -643,14 +816,11 @@ const StaffProfile = () => {
             <div className={`pt-16 transition-all duration-300 ease-in-out ${isMinimized ? 'md:pl-20' : 'md:pl-[260px]'}`}>
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 md:px-8 py-6">
                     <div className="animate-pulse">
-                        {/* Breadcrumb skeleton */}
                         <div className="flex items-center gap-2 mb-4">
                             <div className="h-4 bg-gray-200 rounded w-16"></div>
                             <div className="h-4 bg-gray-200 rounded w-4"></div>
                             <div className="h-4 bg-gray-200 rounded w-32"></div>
                         </div>
-
-                        {/* Header card skeleton */}
                         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-5 mb-6">
                             <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-5">
                                 <div className="flex items-center gap-4">
@@ -663,8 +833,6 @@ const StaffProfile = () => {
                                 <div className="h-10 bg-gray-200 rounded w-32"></div>
                             </div>
                         </div>
-
-                        {/* Tabs skeleton */}
                         <div className="bg-white rounded-lg border border-gray-200 shadow-sm mb-6 p-3">
                             <div className="grid grid-cols-5 gap-2">
                                 {[...Array(5)].map((_, i) => (
@@ -672,8 +840,6 @@ const StaffProfile = () => {
                                 ))}
                             </div>
                         </div>
-
-                        {/* Content skeleton */}
                         <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-5">
                             <div className="space-y-4">
                                 <div className="h-8 bg-gray-200 rounded w-48"></div>
@@ -765,6 +931,15 @@ const StaffProfile = () => {
                 setIsMinimized={setIsMinimized}
             />
 
+            {/* Break Status Popup */}
+            <BreakStatusPopup
+                isOpen={showBreakPopup}
+                onClose={() => setShowBreakPopup(false)}
+                breakStartTime={breakStatus.breakStartTime}
+                onBreakEnd={handleEndBreak}
+                staffName={staffData.fullName}
+            />
+
             {/* Main content */}
             <div className={`pt-16 transition-all duration-300 ease-in-out ${isMinimized ? 'md:pl-20' : 'md:pl-[260px]'}`}>
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 md:px-8 py-6">
@@ -787,10 +962,22 @@ const StaffProfile = () => {
                             <FiChevronRight className="w-4 h-4" />
                             <span className="capitalize">{activeTab.replace('-', ' ')}</span>
 
+                            {/* Break Status Indicator */}
+                            {breakStatus.onBreak && (
+                                <motion.div
+                                    initial={{ scale: 0 }}
+                                    animate={{ scale: 1 }}
+                                    className="ml-auto flex items-center gap-2 px-3 py-1.5 bg-amber-100 rounded-lg"
+                                >
+                                    <FiCoffee className="w-4 h-4 text-amber-600" />
+                                    <span className="text-sm font-medium text-amber-700">On Break</span>
+                                </motion.div>
+                            )}
+
                             {/* Refresh button */}
                             <motion.button
                                 onClick={handleRefresh}
-                                className="ml-auto p-2 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                                className="ml-2 p-2 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
                                 whileHover={{ rotate: 180 }}
                                 transition={{ duration: 0.3 }}
                                 title="Refresh data"
@@ -819,6 +1006,11 @@ const StaffProfile = () => {
                                             </div>
                                             {isAccepted && (
                                                 <div className="absolute -bottom-1 -right-1 w-5 h-5 bg-green-400 rounded-full border-2 border-white"></div>
+                                            )}
+                                            {breakStatus.onBreak && (
+                                                <div className="absolute -top-1 -right-1 w-6 h-6 bg-amber-500 rounded-full border-2 border-white flex items-center justify-center">
+                                                    <FiCoffee className="w-3 h-3 text-white" />
+                                                </div>
                                             )}
                                         </motion.div>
                                         <div className="flex-1 min-w-0">
@@ -900,7 +1092,6 @@ const StaffProfile = () => {
                         >
                             <div className="p-3 flex items-center justify-between">
                                 {tabsMinimized ? (
-                                    // Minimized view - icons with labels in one line
                                     <>
                                         <div className="flex items-center justify-center gap-1 flex-1 flex-wrap">
                                             {profileTabs.map((tabItem) => {
@@ -929,7 +1120,6 @@ const StaffProfile = () => {
                                         </motion.button>
                                     </>
                                 ) : (
-                                    // Expanded view - grid layout with minimize button
                                     <>
                                         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2 flex-1">
                                             {profileTabs.map((tabItem) => {
@@ -961,7 +1151,7 @@ const StaffProfile = () => {
                             </div>
                         </motion.div>
 
-                        {/* Tab content — no outer card; each tab owns its own layout */}
+                        {/* Tab content */}
                         <AnimatePresence mode="wait">
                             <motion.div
                                 key={activeTab}
