@@ -1,5 +1,5 @@
 // staff/StaffPayslip.js
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
     FiCalendar,
@@ -15,7 +15,9 @@ import {
     FiXCircle,
     FiTrendingUp,
     FiInfo,
-    FiLock
+    FiLock,
+    FiSearch,
+    FiX
 } from 'react-icons/fi';
 import API_BASE_URL from '../utils/api-controller';
 import getHeaders from '../utils/get-headers';
@@ -36,6 +38,7 @@ const StaffPayslip = ({ username, variants }) => {
     const [expandedMonth, setExpandedMonth] = useState(null);
     const [error, setError] = useState(null);
     const [completedMonths, setCompletedMonths] = useState([]);
+    const [monthFilter, setMonthFilter] = useState('all'); // 'all' or specific month number
 
     const months = [
         'January', 'February', 'March', 'April', 'May', 'June',
@@ -84,10 +87,11 @@ const StaffPayslip = ({ username, variants }) => {
             const payslipData = [];
             const completed = [];
             
-            // Only fetch for months that are completed
+            // Only fetch for months that are completed (show ONLY completed months)
             for (let month = 1; month <= 12; month++) {
                 const isCompleted = isMonthCompleted(month, selectedYear);
                 
+                // Only include completed months - no locked/unavailable months
                 if (isCompleted) {
                     completed.push(month);
                     
@@ -156,17 +160,8 @@ const StaffPayslip = ({ username, variants }) => {
                             isCompleted: true
                         });
                     }
-                } else {
-                    // Month is not completed yet - show as locked
-                    payslipData.push({
-                        month: month,
-                        monthName: months[month - 1],
-                        year: selectedYear,
-                        hasPayslip: false,
-                        isCompleted: false,
-                        isLocked: true
-                    });
                 }
+                // DO NOT add locked/uncompleted months - they are completely hidden
             }
             
             setCompletedMonths(completed);
@@ -174,8 +169,14 @@ const StaffPayslip = ({ username, variants }) => {
             
             // Auto-expand the last completed month
             const lastCompleted = getLastCompletedMonth();
-            if (lastCompleted && selectedYear === currentYear) {
+            if (lastCompleted && selectedYear === currentYear && payslipData.some(p => p.month === lastCompleted)) {
                 setExpandedMonth(lastCompleted);
+            } else if (payslipData.length > 0 && !expandedMonth) {
+                // If no last completed found (e.g., previous year), expand the most recent (highest month)
+                const mostRecent = [...payslipData].sort((a, b) => b.month - a.month)[0];
+                if (mostRecent) {
+                    setExpandedMonth(mostRecent.month);
+                }
             }
         } catch (err) {
             console.error('Error fetching payslips:', err);
@@ -184,6 +185,14 @@ const StaffPayslip = ({ username, variants }) => {
             setLoading(false);
         }
     };
+
+    // Filter payslips based on month filter
+    const filteredPayslips = useMemo(() => {
+        if (monthFilter === 'all') {
+            return payslips;
+        }
+        return payslips.filter(p => p.month === parseInt(monthFilter));
+    }, [payslips, monthFilter]);
 
     // Generate Standard Payslip (PDF Download)
     const generatePayslip = async (month, year) => {
@@ -440,37 +449,16 @@ const StaffPayslip = ({ username, variants }) => {
         }
     };
 
-    // Get month status message
-    const getMonthStatusMessage = (month, year) => {
-        if (year > currentYear) return "Future year - Not available";
-        if (year === currentYear && month > currentMonth) return "Future month - Not available";
-        if (year === currentYear && month === currentMonth) {
-            const lastDayOfMonth = new Date(year, month, 0).getDate();
-            if (currentDay <= lastDayOfMonth) {
-                return `Month in progress - Available after ${months[month - 1]} ${lastDayOfMonth}`;
-            }
-        }
-        return null;
+    // Clear month filter
+    const clearMonthFilter = () => {
+        setMonthFilter('all');
     };
 
-    // Icons
-    const CalendarIcon = ({ className = "w-5 h-5" }) => (
-        <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-        </svg>
-    );
-
-    const ChevronDownIcon = ({ className = "w-4 h-4" }) => (
-        <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 9l-7 7-7-7" />
-        </svg>
-    );
-
-    const ChevronUpIcon = ({ className = "w-4 h-4" }) => (
-        <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M5 15l7-7 7 7" />
-        </svg>
-    );
+    // Get available months for filter dropdown (only completed months)
+    const availableFilterMonths = useMemo(() => {
+        const sorted = [...payslips].sort((a, b) => b.month - a.month);
+        return sorted.map(p => ({ value: p.month, label: p.monthName }));
+    }, [payslips]);
 
     return (
         <motion.div
@@ -497,36 +485,86 @@ const StaffPayslip = ({ username, variants }) => {
                             )}
                         </div>
                         
-                        {/* Year Selector */}
-                        <div className="relative">
-                            <select
-                                value={selectedYear}
-                                onChange={(e) => setSelectedYear(parseInt(e.target.value))}
-                                className="appearance-none bg-gray-50 border border-gray-300 rounded-lg px-4 py-2 pr-8 text-sm font-medium text-gray-700 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 cursor-pointer min-w-[120px]"
-                            >
-                                {years.map(year => (
-                                    <option key={year} value={year}>{year}</option>
-                                ))}
-                            </select>
-                            <div className="absolute right-2 top-1/2 transform -translate-y-1/2 pointer-events-none">
-                                <ChevronDownIcon className="w-4 h-4 text-gray-500" />
+                        <div className="flex items-center gap-3">
+                            {/* Month Filter Dropdown */}
+                            {availableFilterMonths.length > 1 && (
+                                <div className="relative">
+                                    <div className="relative">
+                                        <select
+                                            value={monthFilter}
+                                            onChange={(e) => setMonthFilter(e.target.value)}
+                                            className="appearance-none bg-gray-50 border border-gray-300 rounded-lg px-4 py-2 pr-8 text-sm font-medium text-gray-700 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 cursor-pointer min-w-[140px]"
+                                        >
+                                            <option value="all">All Months</option>
+                                            {availableFilterMonths.map(month => (
+                                                <option key={month.value} value={month.value}>
+                                                    {month.label}
+                                                </option>
+                                            ))}
+                                        </select>
+                                        <div className="absolute right-2 top-1/2 transform -translate-y-1/2 pointer-events-none">
+                                            <FiChevronDown className="w-4 h-4 text-gray-500" />
+                                        </div>
+                                    </div>
+                                    {monthFilter !== 'all' && (
+                                        <button
+                                            onClick={clearMonthFilter}
+                                            className="absolute -right-2 -top-2 p-1 bg-gray-200 hover:bg-gray-300 rounded-full transition-colors"
+                                            title="Clear filter"
+                                        >
+                                            <FiX className="w-3 h-3 text-gray-600" />
+                                        </button>
+                                    )}
+                                </div>
+                            )}
+                            
+                            {/* Year Selector */}
+                            <div className="relative">
+                                <select
+                                    value={selectedYear}
+                                    onChange={(e) => {
+                                        setSelectedYear(parseInt(e.target.value));
+                                        setMonthFilter('all'); // Reset month filter on year change
+                                    }}
+                                    className="appearance-none bg-gray-50 border border-gray-300 rounded-lg px-4 py-2 pr-8 text-sm font-medium text-gray-700 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 cursor-pointer min-w-[120px]"
+                                >
+                                    {years.map(year => (
+                                        <option key={year} value={year}>{year}</option>
+                                    ))}
+                                </select>
+                                <div className="absolute right-2 top-1/2 transform -translate-y-1/2 pointer-events-none">
+                                    <FiChevronDown className="w-4 h-4 text-gray-500" />
+                                </div>
                             </div>
                         </div>
                     </div>
+                    
+                    {/* Active filter indicator */}
+                    {monthFilter !== 'all' && (
+                        <div className="mt-3 flex items-center gap-2">
+                            <span className="text-xs text-purple-600 bg-purple-50 px-2 py-1 rounded-full flex items-center gap-1">
+                                <FiSearch className="w-3 h-3" />
+                                Showing: {months[parseInt(monthFilter) - 1]}
+                                <button onClick={clearMonthFilter} className="ml-1 hover:text-purple-800">
+                                    <FiX className="w-3 h-3" />
+                                </button>
+                            </span>
+                        </div>
+                    )}
                 </div>
 
-                {/* Info Banner for Current Month */}
-                {selectedYear === currentYear && !isMonthCompleted(currentMonth, currentYear) && (
+                {/* Info Banner - Only show if there are no completed months */}
+                {selectedYear === currentYear && completedMonths.length === 0 && (
                     <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 mb-6">
                         <div className="flex items-start gap-3">
                             <div className="w-8 h-8 bg-amber-100 rounded-full flex items-center justify-center flex-shrink-0">
                                 <FiClock className="w-4 h-4 text-amber-600" />
                             </div>
                             <div>
-                                <h4 className="text-sm font-semibold text-amber-800">Current Month ({months[currentMonth - 1]} {currentYear})</h4>
+                                <h4 className="text-sm font-semibold text-amber-800">No Completed Months Yet</h4>
                                 <p className="text-xs text-amber-700 mt-1">
-                                    Payslip for the current month will be available after the month ends. 
-                                    You can download payslips for all completed months.
+                                    Payslips will be available after each month ends. 
+                                    The current month ({months[currentMonth - 1]} {currentYear}) will be available on the last day of the month.
                                 </p>
                             </div>
                         </div>
@@ -551,8 +589,8 @@ const StaffPayslip = ({ username, variants }) => {
                     </div>
                 )}
 
-                {/* Payslips Table */}
-                {!loading && !error && (
+                {/* Payslips Table - Only show if there are payslips after filtering */}
+                {!loading && !error && filteredPayslips.length > 0 && (
                     <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
                         <div className="overflow-x-auto">
                             <table className="min-w-full divide-y divide-gray-200">
@@ -579,38 +617,28 @@ const StaffPayslip = ({ username, variants }) => {
                                     </tr>
                                 </thead>
                                 <tbody className="bg-white divide-y divide-gray-200">
-                                    {payslips.map((payslip) => {
+                                    {filteredPayslips.map((payslip) => {
                                         const daysInMonth = new Date(selectedYear, payslip.month, 0).getDate();
                                         const isExpanded = expandedMonth === payslip.month;
-                                        const isLocked = !payslip.isCompleted;
-                                        const statusMessage = getMonthStatusMessage(payslip.month, selectedYear);
-                                        const isCurrentMonth = selectedYear === currentYear && payslip.month === currentMonth;
                                         
                                         return (
                                             <React.Fragment key={payslip.month}>
-                                                <tr className={`transition-colors ${isLocked ? 'bg-gray-50 opacity-75' : 'hover:bg-gray-50'}`}>
+                                                <tr className="transition-colors hover:bg-gray-50">
                                                     <td className="px-6 py-4 whitespace-nowrap">
                                                         <div className="flex items-center gap-3">
-                                                            <div className={`p-2 rounded-lg ${isLocked ? 'bg-gray-100' : 'bg-purple-100'}`}>
-                                                                {isLocked ? (
-                                                                    <FiLock className={`w-4 h-4 ${isLocked ? 'text-gray-400' : 'text-purple-600'}`} />
-                                                                ) : (
-                                                                    <FiCalendar className="w-4 h-4 text-purple-600" />
-                                                                )}
+                                                            <div className="p-2 rounded-lg bg-purple-100">
+                                                                <FiCalendar className="w-4 h-4 text-purple-600" />
                                                             </div>
-                                                            <span className={`font-semibold ${isLocked ? 'text-gray-400' : 'text-gray-900'}`}>
+                                                            <span className="font-semibold text-gray-900">
                                                                 {payslip.monthName} {payslip.year}
-                                                                {isCurrentMonth && !isLocked && (
-                                                                    <span className="ml-2 text-xs font-normal text-amber-500">(Current)</span>
-                                                                )}
                                                             </span>
                                                         </div>
                                                     </td>
                                                     <td className="px-6 py-4 whitespace-nowrap">
-                                                        <span className={isLocked ? 'text-gray-400' : 'text-gray-600'}>{daysInMonth} days</span>
+                                                        <span className="text-gray-600">{daysInMonth} days</span>
                                                     </td>
                                                     <td className="px-6 py-4 whitespace-nowrap">
-                                                        {!isLocked && payslip.hasPayslip && payslip.data?.summary?.net_salary ? (
+                                                        {payslip.hasPayslip && payslip.data?.summary?.net_salary ? (
                                                             <span className="text-lg font-bold text-emerald-600">
                                                                 {formatCurrency(payslip.data.summary.net_salary)}
                                                             </span>
@@ -619,12 +647,7 @@ const StaffPayslip = ({ username, variants }) => {
                                                         )}
                                                     </td>
                                                     <td className="px-6 py-4 whitespace-nowrap">
-                                                        {isLocked ? (
-                                                            <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-500">
-                                                                <FiLock className="w-3 h-3 mr-1" />
-                                                                {isCurrentMonth ? 'Month in Progress' : 'Not Available'}
-                                                            </span>
-                                                        ) : payslip.hasPayslip ? (
+                                                        {payslip.hasPayslip ? (
                                                             <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-emerald-100 text-emerald-800">
                                                                 <FiCheckCircle className="w-3 h-3 mr-1" />
                                                                 Generated
@@ -639,60 +662,54 @@ const StaffPayslip = ({ username, variants }) => {
                                                     <td className="px-6 py-4 whitespace-nowrap text-center">
                                                         <div className="flex items-center justify-center gap-2">
                                                             <motion.button
-                                                                whileHover={{ scale: isLocked ? 1 : 1.05 }}
-                                                                whileTap={{ scale: isLocked ? 1 : 0.95 }}
-                                                                onClick={() => !isLocked && generatePayslip(payslip.month, payslip.year)}
-                                                                disabled={isLocked || !payslip.hasPayslip || generatingPayslip}
+                                                                whileHover={{ scale: 1.05 }}
+                                                                whileTap={{ scale: 0.95 }}
+                                                                onClick={() => generatePayslip(payslip.month, payslip.year)}
+                                                                disabled={!payslip.hasPayslip || generatingPayslip}
                                                                 className={`p-2 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
-                                                                    isLocked 
+                                                                    !payslip.hasPayslip 
                                                                         ? 'text-gray-300 cursor-not-allowed' 
                                                                         : 'text-purple-600 hover:bg-purple-50'
                                                                 }`}
-                                                                title={isLocked ? statusMessage || 'Month not completed' : 'Download Payslip'}
+                                                                title="Download Payslip"
                                                             >
                                                                 <FiDownload className="w-4 h-4" />
                                                             </motion.button>
                                                             <motion.button
-                                                                whileHover={{ scale: isLocked ? 1 : 1.05 }}
-                                                                whileTap={{ scale: isLocked ? 1 : 0.95 }}
-                                                                onClick={() => !isLocked && downloadDetailedPayslipPDFDirect(payslip.month, payslip.year)}
-                                                                disabled={isLocked || !payslip.hasPayslip || generatingDetailed}
+                                                                whileHover={{ scale: 1.05 }}
+                                                                whileTap={{ scale: 0.95 }}
+                                                                onClick={() => downloadDetailedPayslipPDFDirect(payslip.month, payslip.year)}
+                                                                disabled={!payslip.hasPayslip || generatingDetailed}
                                                                 className={`p-2 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
-                                                                    isLocked 
+                                                                    !payslip.hasPayslip 
                                                                         ? 'text-gray-300 cursor-not-allowed' 
                                                                         : 'text-indigo-600 hover:bg-indigo-50'
                                                                 }`}
-                                                                title={isLocked ? statusMessage || 'Month not completed' : 'Download Detailed Payslip PDF'}
+                                                                title="Download Detailed Payslip PDF"
                                                             >
                                                                 <FiFileText className="w-4 h-4" />
                                                             </motion.button>
                                                         </div>
-                                                        {isLocked && statusMessage && (
-                                                            <p className="text-[10px] text-gray-400 mt-1">{statusMessage}</p>
-                                                        )}
                                                     </td>
                                                     <td className="px-6 py-4 whitespace-nowrap text-center">
-                                                        {!isLocked && payslip.hasPayslip && (
+                                                        {payslip.hasPayslip && (
                                                             <motion.button
                                                                 whileHover={{ scale: 1.05 }}
                                                                 whileTap={{ scale: 0.95 }}
                                                                 onClick={() => toggleExpand(payslip.month)}
                                                                 className="p-2 text-gray-500 hover:bg-gray-100 rounded-lg transition-colors"
                                                             >
-                                                                {isExpanded ? <ChevronUpIcon className="w-4 h-4" /> : <ChevronDownIcon className="w-4 h-4" />}
+                                                                {isExpanded ? <FiChevronUp className="w-4 h-4" /> : <FiChevronDown className="w-4 h-4" />}
                                                             </motion.button>
                                                         )}
-                                                        {(!isLocked && !payslip.hasPayslip) && (
+                                                        {!payslip.hasPayslip && (
                                                             <span className="text-gray-300 text-xs">No data</span>
-                                                        )}
-                                                        {isLocked && (
-                                                            <span className="text-gray-300">—</span>
                                                         )}
                                                     </td>
                                                 </tr>
                                                 
-                                                {/* Expanded Row - Attendance Summary (only for completed months with data) */}
-                                                {isExpanded && !isLocked && payslip.hasPayslip && payslip.data && (
+                                                {/* Expanded Row - Attendance Summary */}
+                                                {isExpanded && payslip.hasPayslip && payslip.data && (
                                                     <tr className="bg-gray-50">
                                                         <td colSpan="6" className="px-6 py-4">
                                                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -805,7 +822,7 @@ const StaffPayslip = ({ username, variants }) => {
                                                     </tr>
                                                 )}
                                                 
-                                                {isExpanded && !isLocked && !payslip.hasPayslip && (
+                                                {isExpanded && !payslip.hasPayslip && (
                                                     <tr className="bg-gray-50">
                                                         <td colSpan="6" className="px-6 py-8 text-center text-gray-500">
                                                             <FiInfo className="w-8 h-8 mx-auto mb-2 text-gray-300" />
@@ -819,15 +836,37 @@ const StaffPayslip = ({ username, variants }) => {
                                 </tbody>
                             </table>
                         </div>
-                        
-                        {/* No completed months message */}
-                        {payslips.filter(p => p.isCompleted).length === 0 && selectedYear === currentYear && (
-                            <div className="text-center py-12">
-                                <FiInfo className="w-12 h-12 mx-auto text-gray-300 mb-3" />
-                                <p className="text-gray-500">No completed months yet this year.</p>
-                                <p className="text-sm text-gray-400 mt-1">Payslips will be available after each month ends.</p>
-                            </div>
-                        )}
+                    </div>
+                )}
+
+                {/* No results message after filtering */}
+                {!loading && !error && filteredPayslips.length === 0 && payslips.length > 0 && (
+                    <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-12 text-center">
+                        <FiSearch className="w-12 h-12 mx-auto text-gray-300 mb-3" />
+                        <p className="text-gray-500">No payslip found for selected filter.</p>
+                        <button
+                            onClick={clearMonthFilter}
+                            className="mt-3 text-sm text-purple-600 hover:text-purple-700 font-medium"
+                        >
+                            Clear filter to see all months
+                        </button>
+                    </div>
+                )}
+
+                {/* No completed months message */}
+                {!loading && !error && payslips.length === 0 && selectedYear === currentYear && (
+                    <div className="bg-white rounded-xl shadow-sm border border-gray-200 text-center py-12">
+                        <FiInfo className="w-12 h-12 mx-auto text-gray-300 mb-3" />
+                        <p className="text-gray-500">No completed months yet this year.</p>
+                        <p className="text-sm text-gray-400 mt-1">Payslips will be available after each month ends.</p>
+                    </div>
+                )}
+
+                {/* No payslips for previous year */}
+                {!loading && !error && payslips.length === 0 && selectedYear !== currentYear && (
+                    <div className="bg-white rounded-xl shadow-sm border border-gray-200 text-center py-12">
+                        <FiInfo className="w-12 h-12 mx-auto text-gray-300 mb-3" />
+                        <p className="text-gray-500">No payslips found for {selectedYear}.</p>
                     </div>
                 )}
 
