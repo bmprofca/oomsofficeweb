@@ -74,10 +74,11 @@ const QuickStats = ({
             if (result.success && result.data) {
                 // Transform API data to include both count and amount
                 const transformedStats = {
-                    pending_billing: {
-                        count: result.data.pending_billing?.count || 0,
-                        amount: 0
-                    },
+                  pending_billing: {
+        // Use ?? to ensure 0 is treated as a valid number, not "falsy"
+        count: result.data.pending_billing?.count ?? 0, 
+        amount: 0
+    },
                     creditor: {
                         count: result.data.creditors?.count || 0,
                         amount: result.data.creditors?.total_amount || 0
@@ -205,18 +206,23 @@ const QuickStats = ({
                          localCards.every(card => collapsedCards[card.id] === true);
 
     // Combine stats from API and props (API takes precedence)
-    const getStatValue = (statKey) => {
-        const apiStat = apiStats[statKey];
-        if (apiStat) {
-            return apiStat;
-        }
-        // Fallback to prop stats
-        const propValue = propStats[statKey];
-        if (typeof propValue === 'object') {
-            return propValue;
-        }
-        return { count: 0, amount: propValue || 0 };
-    };
+  const getStatValue = (statKey) => {
+    const apiStat = apiStats[statKey];
+    
+    // Check if the object exists, even if count/amount are 0
+    if (apiStat !== undefined) {
+        return apiStat;
+    }
+    
+    // Fallback to prop stats if API hasn't loaded yet
+    const propValue = propStats[statKey];
+    if (propValue && typeof propValue === 'object') {
+        return propValue;
+    }
+    
+    // Ultimate fallback to prevent "undefined" errors
+    return { count: 0, amount: 0 };
+};
 
     // Individual Card Component - Compact Version
     const CardComponent = React.memo(({ card, index }) => {

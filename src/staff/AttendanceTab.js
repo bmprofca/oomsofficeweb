@@ -12,12 +12,15 @@ const AttendanceTab = ({ attendance, setAttendance, variants }) => {
     const [loading, setLoading] = useState(false);
     const [calendarLoading, setCalendarLoading] = useState(false);
     const [punchLoading, setPunchLoading] = useState(false);
+    const [breakLoading, setBreakLoading] = useState(false);
     const [error, setError] = useState(null);
     const [monthlySummary, setMonthlySummary] = useState(null);
     const [calendarData, setCalendarData] = useState(null);
     const [staffInfo, setStaffInfo] = useState(null);
     const [period, setPeriod] = useState(null);
     const [selectedDayDetails, setSelectedDayDetails] = useState(null);
+    const [breakStatus, setBreakStatus] = useState(null);
+    const [showBreakDropdown, setShowBreakDropdown] = useState(false);
 
     const weekDays = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
     
@@ -34,6 +37,17 @@ const AttendanceTab = ({ attendance, setAttendance, variants }) => {
         return params.get('username');
     };
 
+    // Format duration from minutes to readable format
+    const formatDuration = (minutes) => {
+        if (!minutes || minutes === 0) return '0m';
+        const hours = Math.floor(minutes / 60);
+        const mins = minutes % 60;
+        if (hours > 0) {
+            return `${hours}h ${mins}m`;
+        }
+        return `${mins}m`;
+    };
+
     // Fetch monthly summary when month/year changes
     useEffect(() => {
         fetchMonthlySummary();
@@ -43,6 +57,11 @@ const AttendanceTab = ({ attendance, setAttendance, variants }) => {
     useEffect(() => {
         fetchCalendarData();
     }, [selectedMonth, selectedYear, location.search]);
+
+    // Check break status on component mount
+    useEffect(() => {
+        checkBreakStatus();
+    }, [location.search]);
 
     const fetchMonthlySummary = async () => {
         const username = getUsernameFromUrl();
@@ -105,6 +124,116 @@ const AttendanceTab = ({ attendance, setAttendance, variants }) => {
             console.error('Error fetching calendar data:', err);
         } finally {
             setCalendarLoading(false);
+        }
+    };
+
+    const checkBreakStatus = async () => {
+        const username = getUsernameFromUrl();
+        if (!username) return;
+
+        try {
+            const response = await fetch(
+                `${API_BASE_URL}/attendance/break/status/${username}`,
+                {
+                    method: 'GET',
+                    headers: getHeaders()
+                }
+            );
+            
+            if (response.ok) {
+                const data = await response.json();
+                if (data.success) {
+                    setBreakStatus(data.data);
+                }
+            }
+        } catch (err) {
+            console.error('Error checking break status:', err);
+        }
+    };
+
+    const handleBreakStart = async () => {
+        const username = getUsernameFromUrl();
+        if (!username) {
+            alert('No username found in URL');
+            return;
+        }
+
+        setBreakLoading(true);
+        setError(null);
+        setShowBreakDropdown(false);
+
+        try {
+            const response = await fetch(
+                `${API_BASE_URL}/attendance/break/start`,
+                {
+                    method: 'POST',
+                    headers: getHeaders(),
+                    body: JSON.stringify({ username: username })
+                }
+            );
+
+            if (!response.ok) {
+                throw new Error('Failed to start break');
+            }
+
+            const data = await response.json();
+            if (data.success) {
+                alert('Break started successfully!');
+                await checkBreakStatus();
+                fetchMonthlySummary();
+                fetchCalendarData();
+            } else {
+                alert(data.message || 'Failed to start break');
+            }
+        } catch (err) {
+            setError(err.message);
+            console.error('Error starting break:', err);
+            alert('Failed to start break: ' + err.message);
+        } finally {
+            setBreakLoading(false);
+        }
+    };
+
+    const handleBreakEnd = async () => {
+        const username = getUsernameFromUrl();
+        if (!username) {
+            alert('No username found in URL');
+            return;
+        }
+
+        setBreakLoading(true);
+        setError(null);
+        setShowBreakDropdown(false);
+
+        try {
+            const response = await fetch(
+                `${API_BASE_URL}/attendance/break/end`,
+                {
+                    method: 'POST',
+                    headers: getHeaders(),
+                    body: JSON.stringify({ username: username })
+                }
+            );
+
+            if (!response.ok) {
+                throw new Error('Failed to end break');
+            }
+
+            const data = await response.json();
+            if (data.success) {
+                alert(`Break ended! Duration: ${data.data.current_break.break_duration_minutes} minutes`);
+                await checkBreakStatus();
+                fetchMonthlySummary();
+                fetchCalendarData();
+            } else {
+                alert(data.message || 'Failed to end break');
+            }
+        } catch (err) {
+            setError(err.message);
+            console.error('Error ending break:', err);
+            alert('Failed to end break: ' + err.message);
+        } finally {
+            setBreakLoading(false);
         }
     };
 
@@ -369,6 +498,18 @@ const AttendanceTab = ({ attendance, setAttendance, variants }) => {
         </svg>
     );
 
+    const BreakIcon = ({ className = "w-4 h-4" }) => (
+        <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+        </svg>
+    );
+
+    const CoffeeIcon = ({ className = "w-4 h-4" }) => (
+        <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M5 3h14M7 3v5a5 5 0 0010 0V3M6 21h12M8 21v-4a4 4 0 018 0v4" />
+        </svg>
+    );
+
     const username = getUsernameFromUrl();
 
     return (
@@ -397,6 +538,50 @@ const AttendanceTab = ({ attendance, setAttendance, variants }) => {
                         </div>
                         
                         <div className="flex items-center gap-3">
+                            {/* Break Status Indicator */}
+                            {breakStatus?.has_ongoing_break && (
+                                <div className="px-3 py-1 bg-amber-100 text-amber-700 text-sm rounded-full flex items-center gap-2">
+                                    <div className="w-2 h-2 bg-amber-500 rounded-full animate-pulse"></div>
+                                    Break in progress ({formatDuration(breakStatus.break_duration_minutes || 0)})
+                                </div>
+                            )}
+                            
+                            {/* Break Dropdown Button - Always clickable, no fade */}
+                            <div className="relative">
+                                <motion.button
+                                    whileHover={{ scale: 1.02 }}
+                                    whileTap={{ scale: 0.98 }}
+                                    onClick={() => setShowBreakDropdown(!showBreakDropdown)}
+                                    className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2 shadow-sm"
+                                >
+                                    <CoffeeIcon className="w-4 h-4" />
+                                    Break Options
+                                    <ChevronDownIcon className="w-4 h-4" />
+                                </motion.button>
+                                
+                                {/* Dropdown Menu - Both options always enabled */}
+                                {showBreakDropdown && (
+                                    <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 z-10">
+                                        <button
+                                            onClick={handleBreakStart}
+                                            disabled={breakLoading}
+                                            className="w-full px-4 py-2 text-left text-sm rounded-t-lg flex items-center gap-2 hover:bg-gray-50 text-gray-700 disabled:opacity-50"
+                                        >
+                                            <BreakIcon className="w-4 h-4" />
+                                            {breakLoading ? 'Processing...' : 'Start Break'}
+                                        </button>
+                                        <button
+                                            onClick={handleBreakEnd}
+                                            disabled={breakLoading}
+                                            className="w-full px-4 py-2 text-left text-sm rounded-b-lg flex items-center gap-2 border-t border-gray-100 hover:bg-gray-50 text-gray-700 disabled:opacity-50"
+                                        >
+                                            <LogoutIcon className="w-4 h-4" />
+                                            {breakLoading ? 'Processing...' : 'End Break'}
+                                        </button>
+                                    </div>
+                                )}
+                            </div>
+
                             {/* Punch In Button */}
                             <motion.button
                                 whileHover={{ scale: 1.02 }}
@@ -778,6 +963,22 @@ const AttendanceTab = ({ attendance, setAttendance, variants }) => {
                                                     <span className="text-xs text-gray-500">Amount</span>
                                                     <p className="font-medium text-gray-900">
                                                         {formatCurrency(selectedDayDetails.details.calculated_amount)}
+                                                    </p>
+                                                </div>
+                                            )}
+                                            {selectedDayDetails.details.total_break_minutes > 0 && (
+                                                <div className="p-3 border border-gray-200 rounded-lg">
+                                                    <span className="text-xs text-gray-500">Total Break Time</span>
+                                                    <p className="font-medium text-gray-900">
+                                                        {formatDuration(selectedDayDetails.details.total_break_minutes)}
+                                                    </p>
+                                                </div>
+                                            )}
+                                            {selectedDayDetails.details.excess_break_minutes > 0 && (
+                                                <div className="p-3 border border-orange-200 bg-orange-50 rounded-lg">
+                                                    <span className="text-xs text-orange-600">Excess Break Time</span>
+                                                    <p className="font-medium text-orange-700">
+                                                        {formatDuration(selectedDayDetails.details.excess_break_minutes)}
                                                     </p>
                                                 </div>
                                             )}

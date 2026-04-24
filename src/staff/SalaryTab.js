@@ -25,7 +25,14 @@ const SalaryTab = ({ salary, setSalary, variants }) => {
         overtime_rate_type: 'daily',
         fine_rate_type: 'daily',
         overtime_enabled: false,
-        fine_enabled: false
+        fine_enabled: false,
+        allowed_break_minutes: '30',
+        break_excess_penalty_type: 'fixed',
+        break_excess_penalty_value: '0',
+        travel_allowance_type: 'fixed',
+        travel_allowance_value: '0',
+        other_deduction_type: 'percentage',
+        other_deduction_value: '0'
     });
     
     const location = useLocation();
@@ -90,43 +97,66 @@ const SalaryTab = ({ salary, setSalary, variants }) => {
                 throw new Error('Failed to fetch salary history');
             }
             
-            const data = await response.json();
-            if (data.success) {
-                setSalaryData(data.data);
+            const result = await response.json();
+            if (result.success) {
+                setSalaryData(result.data);
                 
                 // Format all salaries for display in single table
                 const allSalaries = [];
                 
                 // Add current salary (active)
-                if (data.data.current) {
+                if (result.data.current) {
                     allSalaries.push({
-                        ...data.data.current,
+                        id: result.data.current.id,
+                        salary_id: result.data.current.salary_id,
+                        monthly_salary: result.data.current.monthly_salary,
+                        effective_from: result.data.current.effective_from,
+                        effective_to: result.data.current.effective_to,
                         status: 'active',
                         status_display: 'Active',
-                        status_color: 'green'
+                        status_color: 'green',
+                        effective_from_display: new Date(result.data.current.effective_from).toLocaleDateString('en-IN'),
+                        // Working hours
+                        working_hours: result.data.current.working_hours,
+                        // Overtime settings
+                        overtime_settings: result.data.current.overtime_settings,
+                        // Fine settings
+                        fine_settings: result.data.current.fine_settings,
+                        // Break settings
+                        break_settings: result.data.current.break_settings,
+                        // Travel allowance
+                        travel_allowance: result.data.current.travel_allowance,
+                        // Other deductions
+                        other_deductions: result.data.current.other_deductions,
+                        // Staff info
+                        staff_name: result.data.current.staff_name,
+                        designation: result.data.current.designation
                     });
                 }
                 
                 // Add scheduled salaries
-                if (data.data.scheduled && data.data.scheduled.length > 0) {
-                    data.data.scheduled.forEach(s => {
+                if (result.data.scheduled && result.data.scheduled.length > 0) {
+                    result.data.scheduled.forEach(s => {
                         allSalaries.push({
                             ...s,
                             status: 'scheduled',
                             status_display: 'Scheduled',
-                            status_color: 'blue'
+                            status_color: 'blue',
+                            effective_from_display: s.effective_from ? new Date(s.effective_from).toLocaleDateString('en-IN') : '-'
                         });
                     });
                 }
                 
                 // Add history salaries
-                if (data.data.history && data.data.history.length > 0) {
-                    data.data.history.forEach(s => {
+                if (result.data.history && result.data.history.length > 0) {
+                    result.data.history.forEach(s => {
                         allSalaries.push({
                             ...s,
                             status: 'expired',
                             status_display: 'Expired',
-                            status_color: 'gray'
+                            status_color: 'gray',
+                            effective_from_display: s.effective_from ? new Date(s.effective_from).toLocaleDateString('en-IN') : '-',
+                            effective_to_display: s.effective_to ? new Date(s.effective_to).toLocaleDateString('en-IN') : '-'
                         });
                     });
                 }
@@ -147,7 +177,7 @@ const SalaryTab = ({ salary, setSalary, variants }) => {
     const handleAddNewSalary = async () => {
         const username = getUsernameFromUrl();
         if (!username || !newSalary.monthly_salary || !newSalary.effective_from) {
-            toast.warning('Please fill in all fields');
+            toast.warning('Please fill in all required fields');
             return;
         }
 
@@ -157,16 +187,9 @@ const SalaryTab = ({ salary, setSalary, variants }) => {
             setLoading(true);
             setError(null);
             
-            // FIX: Explicitly convert checkbox values to boolean
+            // Convert values properly
             const overtimeEnabledValue = newSalary.overtime_enabled === true ? true : false;
             const fineEnabledValue = newSalary.fine_enabled === true ? true : false;
-            
-            console.log('Sending values:', {
-                overtime_enabled: overtimeEnabledValue,
-                fine_enabled: fineEnabledValue,
-                overtime_checkbox: newSalary.overtime_enabled,
-                fine_checkbox: newSalary.fine_enabled
-            });
             
             const requestData = {
                 username: username,
@@ -179,7 +202,14 @@ const SalaryTab = ({ salary, setSalary, variants }) => {
                 overtime_rate_type: newSalary.overtime_rate_type,
                 fine_rate_type: newSalary.fine_rate_type,
                 overtime_enabled: overtimeEnabledValue,
-                fine_enabled: fineEnabledValue
+                fine_enabled: fineEnabledValue,
+                allowed_break_minutes: parseInt(newSalary.allowed_break_minutes),
+                break_excess_penalty_type: newSalary.break_excess_penalty_type,
+                break_excess_penalty_value: parseFloat(newSalary.break_excess_penalty_value),
+                travel_allowance_type: newSalary.travel_allowance_type,
+                travel_allowance_value: parseFloat(newSalary.travel_allowance_value),
+                other_deduction_type: newSalary.other_deduction_type,
+                other_deduction_value: parseFloat(newSalary.other_deduction_value)
             };
             
             const response = await fetch(
@@ -199,7 +229,7 @@ const SalaryTab = ({ salary, setSalary, variants }) => {
             const data = await response.json();
             if (data.success) {
                 toast.update(loadingToast, {
-                    render: data.data.is_active ? 'Salary added successfully!' : 'Salary scheduled for future date!',
+                    render: data.data.is_active ? 'Salary structure added successfully!' : 'Salary structure scheduled for future date!',
                     type: 'success',
                     isLoading: false,
                     autoClose: 3000
@@ -216,7 +246,14 @@ const SalaryTab = ({ salary, setSalary, variants }) => {
                     overtime_rate_type: 'daily',
                     fine_rate_type: 'daily',
                     overtime_enabled: false,
-                    fine_enabled: false
+                    fine_enabled: false,
+                    allowed_break_minutes: '30',
+                    break_excess_penalty_type: 'fixed',
+                    break_excess_penalty_value: '0',
+                    travel_allowance_type: 'fixed',
+                    travel_allowance_value: '0',
+                    other_deduction_type: 'percentage',
+                    other_deduction_value: '0'
                 });
                 fetchSalaryHistory(username);
             }
@@ -610,6 +647,121 @@ const SalaryTab = ({ salary, setSalary, variants }) => {
                             </label>
                         </div>
                     </div>
+
+                    {/* Break Settings Section */}
+                    <div className="mt-6 pt-4 border-t border-gray-200">
+                        <h4 className="text-md font-semibold text-gray-800 mb-4">Break Settings</h4>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Allowed Break Minutes</label>
+                                <input
+                                    type="number"
+                                    value={newSalary.allowed_break_minutes}
+                                    onChange={(e) => setNewSalary({...newSalary, allowed_break_minutes: e.target.value})}
+                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                    placeholder="30"
+                                    min="0"
+                                    step="5"
+                                />
+                                <p className="text-xs text-gray-500 mt-1">Default break time allowed per day</p>
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Break Excess Penalty Type</label>
+                                <select
+                                    value={newSalary.break_excess_penalty_type}
+                                    onChange={(e) => setNewSalary({...newSalary, break_excess_penalty_type: e.target.value})}
+                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                >
+                                    <option value="fixed">Fixed Amount (₹ per minute)</option>
+                                    <option value="percentage">Percentage of Per-Minute Salary</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">
+                                    {newSalary.break_excess_penalty_type === 'fixed' ? 'Penalty Amount (₹/minute)' : 'Penalty Percentage (%)'}
+                                </label>
+                                <input
+                                    type="number"
+                                    value={newSalary.break_excess_penalty_value}
+                                    onChange={(e) => setNewSalary({...newSalary, break_excess_penalty_value: e.target.value})}
+                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                    placeholder={newSalary.break_excess_penalty_type === 'fixed' ? 'e.g., 10' : 'e.g., 50'}
+                                    min="0"
+                                    step={newSalary.break_excess_penalty_type === 'fixed' ? "1" : "1"}
+                                />
+                                <p className="text-xs text-gray-500 mt-1">
+                                    {newSalary.break_excess_penalty_type === 'fixed' 
+                                        ? 'Fixed amount deducted per excess minute' 
+                                        : 'Percentage of per-minute salary deducted per excess minute'}
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Travel Allowance Section */}
+                    <div className="mt-6 pt-4 border-t border-gray-200">
+                        <h4 className="text-md font-semibold text-gray-800 mb-4">Travel Allowance</h4>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Travel Allowance Type</label>
+                                <select
+                                    value={newSalary.travel_allowance_type}
+                                    onChange={(e) => setNewSalary({...newSalary, travel_allowance_type: e.target.value})}
+                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                >
+                                    <option value="fixed">Fixed Amount (₹)</option>
+                                    <option value="percentage">Percentage of Base Salary</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">
+                                    {newSalary.travel_allowance_type === 'fixed' ? 'Travel Allowance (₹)' : 'Travel Allowance (%)'}
+                                </label>
+                                <input
+                                    type="number"
+                                    value={newSalary.travel_allowance_value}
+                                    onChange={(e) => setNewSalary({...newSalary, travel_allowance_value: e.target.value})}
+                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                    placeholder={newSalary.travel_allowance_type === 'fixed' ? 'e.g., 500' : 'e.g., 5'}
+                                    min="0"
+                                    step={newSalary.travel_allowance_type === 'fixed' ? "1" : "0.5"}
+                                />
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Other Deductions Section */}
+                    <div className="mt-6 pt-4 border-t border-gray-200">
+                        <h4 className="text-md font-semibold text-gray-800 mb-4">Other Deductions</h4>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Other Deduction Type</label>
+                                <select
+                                    value={newSalary.other_deduction_type}
+                                    onChange={(e) => setNewSalary({...newSalary, other_deduction_type: e.target.value})}
+                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                >
+                                    <option value="fixed">Fixed Amount (₹)</option>
+                                    <option value="percentage">Percentage of Base Salary</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">
+                                    {newSalary.other_deduction_type === 'fixed' ? 'Deduction Amount (₹)' : 'Deduction Percentage (%)'}
+                                </label>
+                                <input
+                                    type="number"
+                                    value={newSalary.other_deduction_value}
+                                    onChange={(e) => setNewSalary({...newSalary, other_deduction_value: e.target.value})}
+                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                    placeholder={newSalary.other_deduction_type === 'fixed' ? 'e.g., 1000' : 'e.g., 5'}
+                                    min="0"
+                                    step={newSalary.other_deduction_type === 'fixed' ? "1" : "0.5"}
+                                />
+                            </div>
+                        </div>
+                    </div>
+
                     <div className="mt-4 flex justify-end gap-2">
                         <button
                             onClick={() => setShowAddForm(false)}
@@ -754,6 +906,9 @@ const SalaryTab = ({ salary, setSalary, variants }) => {
                                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Fine</th>
                                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">OT Rate</th>
                                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Fine Rate</th>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Break Penalty</th>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Travel Allowance</th>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Other Deductions</th>
                                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Effective From</th>
                                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Effective To</th>
                                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
@@ -805,29 +960,32 @@ const SalaryTab = ({ salary, setSalary, variants }) => {
                                                     <td className="px-6 py-4 whitespace-nowrap">
                                                         <div className="flex items-center gap-1 text-sm">
                                                             <ClockIcon />
-                                                            <span>{item.working_hours ? formatTimeTo12Hour(item.working_hours.start) : (item.officeTime || '09:00 AM')}</span>
+                                                            <span>{item.working_hours ? formatTimeTo12Hour(item.working_hours.start) : '09:00 AM'}</span>
                                                         </div>
-                                                    </td>
+                                                        <div className="text-xs text-gray-500">
+                                                            to {item.working_hours ? formatTimeTo12Hour(item.working_hours.end) : '06:00 PM'}
+                                                        </div>
+                                                     </td>
                                                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                                                        {item.working_hours ? `${item.working_hours.expected_hours} Hours` : (item.workingHour || '8 Hours')}
-                                                    </td>
+                                                        {item.working_hours ? `${item.working_hours.expected_hours} Hours` : '8 Hours'}
+                                                     </td>
                                                     <td className="px-6 py-4 whitespace-nowrap text-sm">
-                                                        {item.working_hours ? `${item.working_hours.grace_period_minutes} mins` : (item.graceTime || '15 mins')}
-                                                    </td>
+                                                        {item.working_hours ? `${item.working_hours.grace_period_minutes} mins` : '15 mins'}
+                                                     </td>
                                                     <td className="px-6 py-4 whitespace-nowrap">
                                                         <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${
                                                             item.overtime_settings?.enabled ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'
                                                         }`}>
                                                             {item.overtime_settings?.enabled ? 'Enabled' : 'Disabled'}
                                                         </span>
-                                                    </td>
+                                                     </td>
                                                     <td className="px-6 py-4 whitespace-nowrap">
                                                         <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${
                                                             item.fine_settings?.enabled ? 'bg-orange-100 text-orange-700' : 'bg-gray-100 text-gray-500'
                                                         }`}>
                                                             {item.fine_settings?.enabled ? 'Enabled' : 'Disabled'}
                                                         </span>
-                                                    </td>
+                                                     </td>
                                                     <td className="px-6 py-4 whitespace-nowrap">
                                                         <span className={`px-2 py-1 text-xs font-medium rounded ${
                                                             item.overtime_settings?.rate_type === 'daily' 
@@ -836,7 +994,7 @@ const SalaryTab = ({ salary, setSalary, variants }) => {
                                                         }`}>
                                                             {item.overtime_settings?.rate_type === 'daily' ? 'Daily' : 'Monthly'}
                                                         </span>
-                                                    </td>
+                                                     </td>
                                                     <td className="px-6 py-4 whitespace-nowrap">
                                                         <span className={`px-2 py-1 text-xs font-medium rounded ${
                                                             item.fine_settings?.rate_type === 'daily' 
@@ -845,17 +1003,88 @@ const SalaryTab = ({ salary, setSalary, variants }) => {
                                                         }`}>
                                                             {item.fine_settings?.rate_type === 'daily' ? 'Daily' : 'Monthly'}
                                                         </span>
-                                                    </td>
+                                                     </td>
+
+                                                    {/* Break Penalty */}
+                                                    <td className="px-6 py-4 whitespace-nowrap">
+                                                        {item.break_settings && item.break_settings.excess_penalty_value > 0 ? (
+                                                            <div className="flex flex-col gap-1">
+                                                                <span className={`px-2 py-1 text-xs font-medium rounded ${
+                                                                    item.break_settings.excess_penalty_type === 'fixed' 
+                                                                        ? 'bg-red-50 text-red-700' 
+                                                                        : 'bg-orange-50 text-orange-700'
+                                                                }`}>
+                                                                    {item.break_settings.excess_penalty_type === 'fixed' 
+                                                                        ? `₹${item.break_settings.excess_penalty_value}/min` 
+                                                                        : `${item.break_settings.excess_penalty_value}%`}
+                                                                </span>
+                                                                <span className="text-xs text-gray-500">
+                                                                    Allowed: {item.break_settings.allowed_break_minutes} min
+                                                                </span>
+                                                            </div>
+                                                        ) : (
+                                                            <span className="text-xs text-gray-400">Not set</span>
+                                                        )}
+                                                     </td>
+
+                                                    {/* Travel Allowance */}
+                                                    <td className="px-6 py-4 whitespace-nowrap">
+                                                        {item.travel_allowance && item.travel_allowance.value > 0 ? (
+                                                            <div className="flex flex-col gap-1">
+                                                                <span className={`px-2 py-1 text-xs font-medium rounded ${
+                                                                    item.travel_allowance.type === 'fixed' 
+                                                                        ? 'bg-green-50 text-green-700' 
+                                                                        : 'bg-blue-50 text-blue-700'
+                                                                }`}>
+                                                                    {item.travel_allowance.type === 'fixed' 
+                                                                        ? `₹${item.travel_allowance.value}` 
+                                                                        : `${item.travel_allowance.value}%`}
+                                                                </span>
+                                                                {item.travel_allowance.amount_per_day && (
+                                                                    <span className="text-xs text-gray-500">
+                                                                        ₹{item.travel_allowance.amount_per_day}/day
+                                                                    </span>
+                                                                )}
+                                                            </div>
+                                                        ) : (
+                                                            <span className="text-xs text-gray-400">Not set</span>
+                                                        )}
+                                                     </td>
+
+                                                    {/* Other Deductions */}
+                                                    <td className="px-6 py-4 whitespace-nowrap">
+                                                        {item.other_deductions && item.other_deductions.value > 0 ? (
+                                                            <div className="flex flex-col gap-1">
+                                                                <span className={`px-2 py-1 text-xs font-medium rounded ${
+                                                                    item.other_deductions.type === 'fixed' 
+                                                                        ? 'bg-red-50 text-red-700' 
+                                                                        : 'bg-orange-50 text-orange-700'
+                                                                }`}>
+                                                                    {item.other_deductions.type === 'fixed' 
+                                                                        ? `₹${item.other_deductions.value}` 
+                                                                        : `${item.other_deductions.value}%`}
+                                                                </span>
+                                                                {item.other_deductions.amount_per_day && (
+                                                                    <span className="text-xs text-gray-500">
+                                                                        ₹{item.other_deductions.amount_per_day}/day
+                                                                    </span>
+                                                                )}
+                                                            </div>
+                                                        ) : (
+                                                            <span className="text-xs text-gray-400">Not set</span>
+                                                        )}
+                                                     </td>
+
                                                     <td className="px-6 py-4 whitespace-nowrap">
                                                         <span className="px-2 py-1 bg-gray-100 text-gray-700 text-xs font-medium rounded">
-                                                            {item.effective_from_display || item.effectiveFrom}
+                                                            {item.effective_from_display || (item.effective_from ? new Date(item.effective_from).toLocaleDateString('en-IN') : '-')}
                                                         </span>
-                                                    </td>
+                                                     </td>
                                                     <td className="px-6 py-4 whitespace-nowrap">
                                                         <span className="px-2 py-1 bg-gray-100 text-gray-700 text-xs font-medium rounded">
                                                             {item.effective_to ? new Date(item.effective_to).toLocaleDateString('en-IN') : (item.status === 'active' ? 'Current' : (item.status === 'scheduled' ? 'Upcoming' : 'Expired'))}
                                                         </span>
-                                                    </td>
+                                                     </td>
                                                     <td className="px-6 py-4 whitespace-nowrap">
                                                         <div className="flex items-center gap-2">
                                                             <motion.button
@@ -877,13 +1106,13 @@ const SalaryTab = ({ salary, setSalary, variants }) => {
                                                                 <DeleteIcon />
                                                             </motion.button>
                                                         </div>
-                                                    </td>
+                                                     </td>
                                                 </motion.tr>
                                             );
                                         })
                                     ) : (
                                         <tr>
-                                            <td colSpan="13" className="px-6 py-8 text-center text-gray-500">
+                                            <td colSpan="16" className="px-6 py-8 text-center text-gray-500">
                                                 {username ? (
                                                     <>
                                                         No salary structures found for user {username}. 
@@ -892,7 +1121,7 @@ const SalaryTab = ({ salary, setSalary, variants }) => {
                                                 ) : (
                                                     'No username provided in URL. Please select a staff member.'
                                                 )}
-                                            </td>
+                                              </td>
                                         </tr>
                                     )}
                                 </tbody>
@@ -1028,7 +1257,7 @@ const SalaryTab = ({ salary, setSalary, variants }) => {
                 <SummaryCard
                     title="Active Salary"
                     value={salaryData?.current ? `₹${salaryData.current.monthly_salary.toLocaleString('en-IN')}` : 'Not Set'}
-                    subtitle={salaryData?.current ? `Active from ${salaryData.current.effective_from_display}` : 'No active salary'}
+                    subtitle={salaryData?.current ? `Active from ${new Date(salaryData.current.effective_from).toLocaleDateString('en-IN')}` : 'No active salary'}
                     color="purple"
                 />
             </div>
