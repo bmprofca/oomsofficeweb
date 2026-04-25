@@ -6,17 +6,32 @@ import getHeaders from "../utils/get-headers";
 
 const AttendanceTab = ({ attendance, setAttendance, variants }) => {
     const location = useLocation();
-    const [selectedMonth, setSelectedMonth] = useState('March');
-    const [selectedYear, setSelectedYear] = useState(2026);
+    const currentDate = new Date();
+    const [selectedMonth, setSelectedMonth] = useState(currentDate.getMonth() + 1);
+    const [selectedYear, setSelectedYear] = useState(currentDate.getFullYear());
     const [loading, setLoading] = useState(false);
     const [calendarLoading, setCalendarLoading] = useState(false);
     const [punchLoading, setPunchLoading] = useState(false);
+    const [breakLoading, setBreakLoading] = useState(false);
+    const [verifyLoading, setVerifyLoading] = useState(false);
     const [error, setError] = useState(null);
     const [monthlySummary, setMonthlySummary] = useState(null);
     const [calendarData, setCalendarData] = useState(null);
     const [staffInfo, setStaffInfo] = useState(null);
     const [period, setPeriod] = useState(null);
     const [selectedDayDetails, setSelectedDayDetails] = useState(null);
+    const [breakStatus, setBreakStatus] = useState(null);
+    const [showBreakDropdown, setShowBreakDropdown] = useState(false);
+    const [showVerifyModal, setShowVerifyModal] = useState(false);
+    const [verifyFormData, setVerifyFormData] = useState({
+        verify_status: 'present',
+        consider_break: true,
+        admin_remarks: '',
+        manual_punch_in: '',
+        manual_punch_out: '',
+        apply_travel_allowance: true,
+        apply_other_deductions: true
+    });
 
     const weekDays = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
     
@@ -25,12 +40,23 @@ const AttendanceTab = ({ attendance, setAttendance, variants }) => {
         'July', 'August', 'September', 'October', 'November', 'December'
     ];
 
-    const years = [2023, 2024, 2025, 2026];
+    const years = Array.from({ length: 5 }, (_, i) => currentDate.getFullYear() - 2 + i);
 
     // Get username from URL
     const getUsernameFromUrl = () => {
         const params = new URLSearchParams(location.search);
         return params.get('username');
+    };
+
+    // Format duration from minutes to readable format
+    const formatDuration = (minutes) => {
+        if (!minutes || minutes === 0) return '0m';
+        const hours = Math.floor(minutes / 60);
+        const mins = minutes % 60;
+        if (hours > 0) {
+            return `${hours}h ${mins}m`;
+        }
+        return `${mins}m`;
     };
 
     // Fetch monthly summary when month/year changes
@@ -43,6 +69,11 @@ const AttendanceTab = ({ attendance, setAttendance, variants }) => {
         fetchCalendarData();
     }, [selectedMonth, selectedYear, location.search]);
 
+    // Check break status on component mount
+    useEffect(() => {
+        checkBreakStatus();
+    }, [location.search]);
+
     const fetchMonthlySummary = async () => {
         const username = getUsernameFromUrl();
         if (!username) return;
@@ -51,10 +82,8 @@ const AttendanceTab = ({ attendance, setAttendance, variants }) => {
             setLoading(true);
             setError(null);
             
-            const monthIndex = months.indexOf(selectedMonth) + 1;
-            
             const response = await fetch(
-                `${API_BASE_URL}/attendance/staff-monthly-summary/${username}?month=${monthIndex}&year=${selectedYear}`,
+                `${API_BASE_URL}/attendance/staff-monthly-summary/${username}?month=${selectedMonth}&year=${selectedYear}`,
                 {
                     method: 'GET',
                     headers: getHeaders()
@@ -86,10 +115,8 @@ const AttendanceTab = ({ attendance, setAttendance, variants }) => {
         try {
             setCalendarLoading(true);
             
-            const monthIndex = months.indexOf(selectedMonth) + 1;
-            
             const response = await fetch(
-                `${API_BASE_URL}/attendance/attendance-calendar/${username}?month=${monthIndex}&year=${selectedYear}`,
+                `${API_BASE_URL}/attendance/attendance-calendar/${username}?month=${selectedMonth}&year=${selectedYear}`,
                 {
                     method: 'GET',
                     headers: getHeaders()
@@ -108,6 +135,117 @@ const AttendanceTab = ({ attendance, setAttendance, variants }) => {
             console.error('Error fetching calendar data:', err);
         } finally {
             setCalendarLoading(false);
+        }
+    };
+
+    const checkBreakStatus = async () => {
+        const username = getUsernameFromUrl();
+        if (!username) return;
+
+        try {
+            const response = await fetch(
+                `${API_BASE_URL}/attendance/break/status/${username}`,
+                {
+                    method: 'GET',
+                    headers: getHeaders()
+                }
+            );
+            
+            if (response.ok) {
+                const data = await response.json();
+                if (data.success) {
+                    setBreakStatus(data.data);
+                }
+            }
+        } catch (err) {
+            console.error('Error checking break status:', err);
+        }
+    };
+
+    const handleBreakStart = async () => {
+        const username = getUsernameFromUrl();
+        if (!username) {
+            alert('No username found in URL');
+            return;
+        }
+
+        setBreakLoading(true);
+        setError(null);
+        setShowBreakDropdown(false);
+
+        try {
+            const response = await fetch(
+                `${API_BASE_URL}/attendance/break/start`,
+                {
+                    method: 'POST',
+                    headers: getHeaders(),
+                    body: JSON.stringify({ username: username })
+                }
+            );
+
+            if (!response.ok) {
+                throw new Error('Failed to start break');
+            }
+
+            const data = await response.json();
+            if (data.success) {
+                alert('Break started successfully!');
+                await checkBreakStatus();
+                fetchMonthlySummary();
+                fetchCalendarData();
+                
+            } else {
+                alert(data.message || 'Failed to start break');
+            }
+        } catch (err) {
+            setError(err.message);
+            console.error('Error starting break:', err);
+            alert('Failed to start break: ' + err.message);
+        } finally {
+            setBreakLoading(false);
+        }
+    };
+
+    const handleBreakEnd = async () => {
+        const username = getUsernameFromUrl();
+        if (!username) {
+            alert('No username found in URL');
+            return;
+        }
+
+        setBreakLoading(true);
+        setError(null);
+        setShowBreakDropdown(false);
+
+        try {
+            const response = await fetch(
+                `${API_BASE_URL}/attendance/break/end`,
+                {
+                    method: 'POST',
+                    headers: getHeaders(),
+                    body: JSON.stringify({ username: username })
+                }
+            );
+
+            if (!response.ok) {
+                throw new Error('Failed to end break');
+            }
+
+            const data = await response.json();
+            if (data.success) {
+                alert(`Break ended! Duration: ${data.data.current_break.break_duration_minutes} minutes`);
+                await checkBreakStatus();
+                fetchMonthlySummary();
+                fetchCalendarData();
+            } else {
+                alert(data.message || 'Failed to end break');
+            }
+        } catch (err) {
+            setError(err.message);
+            console.error('Error ending break:', err);
+            alert('Failed to end break: ' + err.message);
+        } finally {
+            setBreakLoading(false);
         }
     };
 
@@ -225,39 +363,130 @@ const AttendanceTab = ({ attendance, setAttendance, variants }) => {
         );
     };
 
+    // Handle admin verification
+    const handleVerifyAttendance = async () => {
+        if (!selectedDayDetails || !selectedDayDetails.attendance_id) {
+            alert('No attendance record found for this day.');
+            return;
+        }
+
+        setVerifyLoading(true);
+
+        // Prepare payload based on the API specifications
+        const payload = {
+            attendance_id: selectedDayDetails.attendance_id,
+            verify_status: verifyFormData.verify_status,
+            consider_break: verifyFormData.consider_break,
+            admin_remarks: verifyFormData.admin_remarks,
+            apply_travel_allowance: verifyFormData.apply_travel_allowance,
+            apply_other_deductions: verifyFormData.apply_other_deductions
+        };
+
+        // Add manual times if provided
+        if (verifyFormData.manual_punch_in) {
+            payload.manual_punch_in = verifyFormData.manual_punch_in;
+        }
+        if (verifyFormData.manual_punch_out) {
+            payload.manual_punch_out = verifyFormData.manual_punch_out;
+        }
+
+        console.log('Verification Payload:', payload);
+
+        try {
+            const response = await fetch(
+                `${API_BASE_URL}/attendance/admin/verify-v2`,
+                {
+                    method: 'POST',
+                    headers: getHeaders(),
+                    body: JSON.stringify(payload)
+                }
+            );
+
+            if (!response.ok) {
+                throw new Error('Failed to verify attendance');
+            }
+
+            const data = await response.json();
+            if (data.success) {
+                alert('Attendance verified successfully!');
+                setShowVerifyModal(false);
+                setSelectedDayDetails(null);
+                // Refresh data
+                await fetchCalendarData();
+                await fetchMonthlySummary();
+                // Reset form
+                setVerifyFormData({
+                    verify_status: 'present',
+                    consider_break: true,
+                    admin_remarks: '',
+                    manual_punch_in: '',
+                    manual_punch_out: '',
+                    apply_travel_allowance: true,
+                    apply_other_deductions: true
+                });
+            } else {
+                alert(data.message || 'Failed to verify attendance');
+            }
+        } catch (err) {
+            setError(err.message);
+            console.error('Error verifying attendance:', err);
+            alert('Failed to verify attendance: ' + err.message);
+        } finally {
+            setVerifyLoading(false);
+        }
+    };
+
     // Handle month navigation
     const handlePreviousMonth = () => {
-        const monthIndex = months.indexOf(selectedMonth);
-        
-        if (monthIndex === 0) {
+        if (selectedMonth === 1) {
             setSelectedYear(prev => prev - 1);
-            setSelectedMonth('December');
+            setSelectedMonth(12);
         } else {
-            setSelectedMonth(months[monthIndex - 1]);
+            setSelectedMonth(prev => prev - 1);
         }
     };
 
     const handleNextMonth = () => {
-        const monthIndex = months.indexOf(selectedMonth);
-        
-        if (monthIndex === 11) {
+        if (selectedMonth === 12) {
             setSelectedYear(prev => prev + 1);
-            setSelectedMonth('January');
+            setSelectedMonth(1);
         } else {
-            setSelectedMonth(months[monthIndex + 1]);
+            setSelectedMonth(prev => prev + 1);
         }
     };
 
     const handleMonthSelect = (month) => {
-        setSelectedMonth(month);
+        setSelectedMonth(parseInt(month));
     };
 
     const handleYearSelect = (year) => {
-        setSelectedYear(year);
+        setSelectedYear(parseInt(year));
     };
 
     const handleDayClick = (dayData) => {
+        // Use the attendance_id directly from the calendar data
         setSelectedDayDetails(dayData);
+    };
+
+    const openVerifyModal = () => {
+        if (!selectedDayDetails || !selectedDayDetails.attendance_id) {
+            alert('No attendance record found for this day.');
+            return;
+        }
+        
+        // Pre-populate form with existing details if available
+        setVerifyFormData({
+            verify_status: selectedDayDetails.status || 'present',
+            consider_break: true,
+            admin_remarks: selectedDayDetails.details?.admin_remarks || '',
+            manual_punch_in: selectedDayDetails.details?.punch_in ? 
+                `${selectedDayDetails.date}T${selectedDayDetails.details.punch_in}` : '',
+            manual_punch_out: selectedDayDetails.details?.punch_out ? 
+                `${selectedDayDetails.date}T${selectedDayDetails.details.punch_out}` : '',
+            apply_travel_allowance: true,
+            apply_other_deductions: true
+        });
+        setShowVerifyModal(true);
     };
 
     // Format date for display
@@ -289,6 +518,17 @@ const AttendanceTab = ({ attendance, setAttendance, variants }) => {
             return `${hour12.toString().padStart(2, '0')}:${minutes} ${ampm}`;
         }
         return '—';
+    };
+
+    // Format currency
+    const formatCurrency = (amount) => {
+        if (!amount) return '₹0.00';
+        return new Intl.NumberFormat('en-IN', {
+            style: 'currency',
+            currency: 'INR',
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2
+        }).format(parseFloat(amount));
     };
 
     // Get professional status color for calendar
@@ -328,7 +568,7 @@ const AttendanceTab = ({ attendance, setAttendance, variants }) => {
         return badges[status?.toLowerCase()] || { label: status || '—', color: 'bg-gray-100 text-gray-700' };
     };
 
-    // SVG Icons - Professional outline icons
+    // SVG Icons
     const CalendarIcon = ({ className = "w-5 h-5" }) => (
         <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
@@ -353,12 +593,6 @@ const AttendanceTab = ({ attendance, setAttendance, variants }) => {
         </svg>
     );
 
-    const UserIcon = ({ className = "w-5 h-5" }) => (
-        <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-        </svg>
-    );
-
     const LoginIcon = ({ className = "w-4 h-4" }) => (
         <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1" />
@@ -371,22 +605,15 @@ const AttendanceTab = ({ attendance, setAttendance, variants }) => {
         </svg>
     );
 
-    const ClockIcon = ({ className = "w-4 h-4" }) => (
+    const BreakIcon = ({ className = "w-4 h-4" }) => (
         <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
         </svg>
     );
 
-    const LocationIcon = ({ className = "w-4 h-4" }) => (
+    const CoffeeIcon = ({ className = "w-4 h-4" }) => (
         <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-        </svg>
-    );
-
-    const BriefcaseIcon = ({ className = "w-4 h-4" }) => (
-        <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M5 3h14M7 3v5a5 5 0 0010 0V3M6 21h12M8 21v-4a4 4 0 018 0v4" />
         </svg>
     );
 
@@ -417,8 +644,52 @@ const AttendanceTab = ({ attendance, setAttendance, variants }) => {
                             )}
                         </div>
                         
-                        {/* Punch In/Out Buttons */}
                         <div className="flex items-center gap-3">
+                            {/* Break Status Indicator */}
+                            {breakStatus?.has_ongoing_break && (
+                                <div className="px-3 py-1 bg-amber-100 text-amber-700 text-sm rounded-full flex items-center gap-2">
+                                    <div className="w-2 h-2 bg-amber-500 rounded-full animate-pulse"></div>
+                                    Break in progress ({formatDuration(breakStatus.break_duration_minutes || 0)})
+                                </div>
+                            )}
+                            
+                            {/* Break Dropdown Button */}
+                            <div className="relative">
+                                <motion.button
+                                    whileHover={{ scale: 1.02 }}
+                                    whileTap={{ scale: 0.98 }}
+                                    onClick={() => setShowBreakDropdown(!showBreakDropdown)}
+                                    className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2 shadow-sm"
+                                >
+                                    <CoffeeIcon className="w-4 h-4" />
+                                    Break Options
+                                    <ChevronDownIcon className="w-4 h-4" />
+                                </motion.button>
+                                
+                                {/* Dropdown Menu */}
+                                {showBreakDropdown && (
+                                    <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 z-10">
+                                        <button
+                                            onClick={handleBreakStart}
+                                            disabled={breakLoading}
+                                            className="w-full px-4 py-2 text-left text-sm rounded-t-lg flex items-center gap-2 hover:bg-gray-50 text-gray-700 disabled:opacity-50"
+                                        >
+                                            <BreakIcon className="w-4 h-4" />
+                                            {breakLoading ? 'Processing...' : 'Start Break'}
+                                        </button>
+                                        <button
+                                            onClick={handleBreakEnd}
+                                            disabled={breakLoading}
+                                            className="w-full px-4 py-2 text-left text-sm rounded-b-lg flex items-center gap-2 border-t border-gray-100 hover:bg-gray-50 text-gray-700 disabled:opacity-50"
+                                        >
+                                            <LogoutIcon className="w-4 h-4" />
+                                            {breakLoading ? 'Processing...' : 'End Break'}
+                                        </button>
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* Punch In Button */}
                             <motion.button
                                 whileHover={{ scale: 1.02 }}
                                 whileTap={{ scale: 0.98 }}
@@ -430,6 +701,7 @@ const AttendanceTab = ({ attendance, setAttendance, variants }) => {
                                 {punchLoading ? 'Processing...' : 'Punch In'}
                             </motion.button>
                             
+                            {/* Punch Out Button */}
                             <motion.button
                                 whileHover={{ scale: 1.02 }}
                                 whileTap={{ scale: 0.98 }}
@@ -454,8 +726,8 @@ const AttendanceTab = ({ attendance, setAttendance, variants }) => {
                                 onChange={(e) => handleMonthSelect(e.target.value)}
                                 className="appearance-none bg-gray-50 border border-gray-300 rounded-lg px-4 py-2 pr-8 text-sm font-medium text-gray-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 cursor-pointer min-w-[140px]"
                             >
-                                {months.map(month => (
-                                    <option key={month} value={month}>{month}</option>
+                                {months.map((month, index) => (
+                                    <option key={month} value={index + 1}>{month}</option>
                                 ))}
                             </select>
                             <div className="absolute right-2 top-1/2 transform -translate-y-1/2 pointer-events-none">
@@ -489,7 +761,7 @@ const AttendanceTab = ({ attendance, setAttendance, variants }) => {
                                 <ChevronLeftIcon className="w-4 h-4 text-gray-600" />
                             </button>
                             <span className="px-4 py-1 text-sm font-medium text-indigo-600 min-w-[140px] text-center">
-                                {selectedMonth} {selectedYear}
+                                {months[selectedMonth - 1]} {selectedYear}
                             </span>
                             <button 
                                 onClick={handleNextMonth}
@@ -513,7 +785,7 @@ const AttendanceTab = ({ attendance, setAttendance, variants }) => {
                 {/* Month Summary Badge */}
                 <div className="flex items-center gap-2">
                     <span className="px-3 py-1 bg-indigo-50 text-indigo-700 text-sm font-medium rounded-full">
-                        {selectedMonth} {selectedYear} Summary
+                        {months[selectedMonth - 1]} {selectedYear} Summary
                     </span>
                     {monthlySummary && (
                         <span className="text-sm text-gray-500">
@@ -611,10 +883,10 @@ const AttendanceTab = ({ attendance, setAttendance, variants }) => {
                                 </div>
                                 <div>
                                     <h3 className="text-base font-semibold text-gray-900">
-                                        {selectedMonth} {selectedYear} Attendance Calendar
+                                        {months[selectedMonth - 1]} {selectedYear} Attendance Calendar
                                     </h3>
                                     <p className="text-xs text-gray-500 mt-0.5">
-                                        Click on a day to view details
+                                        Click on a day to view details and verify attendance
                                     </p>
                                 </div>
                             </div>
@@ -733,56 +1005,8 @@ const AttendanceTab = ({ attendance, setAttendance, variants }) => {
                     )}
                 </div>
 
-                {/* Staff Info Section */}
-                {staffInfo && (
-                    <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-                        <div className="px-6 py-4 border-b border-gray-200 bg-gray-50">
-                            <h3 className="text-sm font-semibold text-gray-900">Staff Information</h3>
-                        </div>
-                        <div className="p-6">
-                            <div className="flex items-start gap-4">
-                                {staffInfo.image ? (
-                                    <img 
-                                        src={staffInfo.image} 
-                                        alt={staffInfo.name}
-                                        className="w-16 h-16 rounded-full object-cover border-2 border-gray-200"
-                                    />
-                                ) : (
-                                    <div className="w-16 h-16 rounded-full bg-indigo-50 flex items-center justify-center">
-                                        <UserIcon className="w-8 h-8 text-indigo-600" />
-                                    </div>
-                                )}
-                                <div className="flex-1">
-                                    <h4 className="text-lg font-semibold text-gray-900">{staffInfo.name}</h4>
-                                    <p className="text-sm text-gray-600 mb-3">{staffInfo.designation}</p>
-                                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                                        <div>
-                                            <span className="text-xs text-gray-500">Email</span>
-                                            <p className="text-sm font-medium text-gray-900">{staffInfo.email}</p>
-                                        </div>
-                                        <div>
-                                            <span className="text-xs text-gray-500">Mobile</span>
-                                            <p className="text-sm font-medium text-gray-900">{staffInfo.mobile}</p>
-                                        </div>
-                                        <div>
-                                            <span className="text-xs text-gray-500">Guardian</span>
-                                            <p className="text-sm font-medium text-gray-900">
-                                                {staffInfo.guardian_name} ({staffInfo.care_of})
-                                            </p>
-                                        </div>
-                                        <div>
-                                            <span className="text-xs text-gray-500">Date of Birth</span>
-                                            <p className="text-sm font-medium text-gray-900">{formatDate(staffInfo.date_of_birth)}</p>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                )}
-
                 {/* Day Details Modal */}
-                {selectedDayDetails && (
+                {selectedDayDetails && !showVerifyModal && (
                     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
                         <motion.div
                             initial={{ opacity: 0, scale: 0.95 }}
@@ -792,7 +1016,7 @@ const AttendanceTab = ({ attendance, setAttendance, variants }) => {
                             <div className="p-6">
                                 <div className="flex items-center justify-between mb-4">
                                     <h3 className="text-lg font-semibold text-gray-900">
-                                        {formatDate(selectedDayDetails.date)}
+                                        Attendance Details - {formatDate(selectedDayDetails.date)}
                                     </h3>
                                     <button
                                         onClick={() => setSelectedDayDetails(null)}
@@ -812,6 +1036,11 @@ const AttendanceTab = ({ attendance, setAttendance, variants }) => {
                                             <p className="text-sm text-gray-500">
                                                 {selectedDayDetails.day_of_week}, {selectedDayDetails.date}
                                             </p>
+                                            {selectedDayDetails.attendance_id && (
+                                                <p className="text-xs text-gray-400 mt-1 font-mono">
+                                                    ID: {selectedDayDetails.attendance_id}
+                                                </p>
+                                            )}
                                         </div>
                                     </div>
 
@@ -845,7 +1074,23 @@ const AttendanceTab = ({ attendance, setAttendance, variants }) => {
                                                 <div className="p-3 border border-gray-200 rounded-lg">
                                                     <span className="text-xs text-gray-500">Amount</span>
                                                     <p className="font-medium text-gray-900">
-                                                        ₹{selectedDayDetails.details.calculated_amount}
+                                                        {formatCurrency(selectedDayDetails.details.calculated_amount)}
+                                                    </p>
+                                                </div>
+                                            )}
+                                            {selectedDayDetails.details.total_break_minutes > 0 && (
+                                                <div className="p-3 border border-gray-200 rounded-lg">
+                                                    <span className="text-xs text-gray-500">Total Break Time</span>
+                                                    <p className="font-medium text-gray-900">
+                                                        {formatDuration(selectedDayDetails.details.total_break_minutes)}
+                                                    </p>
+                                                </div>
+                                            )}
+                                            {selectedDayDetails.details.excess_break_minutes > 0 && (
+                                                <div className="p-3 border border-orange-200 bg-orange-50 rounded-lg">
+                                                    <span className="text-xs text-orange-600">Excess Break Time</span>
+                                                    <p className="font-medium text-orange-700">
+                                                        {formatDuration(selectedDayDetails.details.excess_break_minutes)}
                                                     </p>
                                                 </div>
                                             )}
@@ -858,6 +1103,199 @@ const AttendanceTab = ({ attendance, setAttendance, variants }) => {
                                             Verified Attendance
                                         </div>
                                     )}
+
+                                    {/* Admin Verify Button - Only show if attendance_id exists */}
+                                    {selectedDayDetails.attendance_id ? (
+                                        <motion.button
+                                            whileHover={{ scale: 1.02 }}
+                                            whileTap={{ scale: 0.98 }}
+                                            onClick={openVerifyModal}
+                                            className="w-full mt-4 px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 transition-colors flex items-center justify-center gap-2"
+                                        >
+                                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                            </svg>
+                                            Admin Verify Attendance
+                                        </motion.button>
+                                    ) : (
+                                        <div className="w-full mt-4 px-4 py-2 bg-gray-100 text-gray-500 text-sm font-medium rounded-lg text-center">
+                                            Cannot Verify - No Attendance Record Found
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        </motion.div>
+                    </div>
+                )}
+
+                {/* Admin Verify Attendance Modal */}
+                {showVerifyModal && selectedDayDetails && (
+                    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+                        <motion.div
+                            initial={{ opacity: 0, scale: 0.95 }}
+                            animate={{ opacity: 1, scale: 1 }}
+                            className="bg-white rounded-xl shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto"
+                        >
+                            <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4">
+                                <div className="flex items-center justify-between">
+                                    <div>
+                                        <h3 className="text-lg font-semibold text-gray-900">
+                                            Admin Verify Attendance
+                                        </h3>
+                                        <p className="text-sm text-gray-500">
+                                            {formatDate(selectedDayDetails.date)} - {selectedDayDetails.day_of_week}
+                                        </p>
+                                        <p className="text-xs text-gray-400 mt-1 font-mono">
+                                            Attendance ID: {selectedDayDetails.attendance_id}
+                                        </p>
+                                    </div>
+                                    <button
+                                        onClick={() => setShowVerifyModal(false)}
+                                        className="text-gray-400 hover:text-gray-600"
+                                    >
+                                        ✕
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div className="p-6 space-y-4">
+                                {/* Current Status Display */}
+                                <div className="bg-gray-50 rounded-lg p-3 mb-4">
+                                    <p className="text-xs text-gray-500 mb-1">Current Status</p>
+                                    <p className={`inline-flex px-2 py-1 text-sm font-medium rounded-full ${getStatusBadge(selectedDayDetails.status).color}`}>
+                                        {getStatusBadge(selectedDayDetails.status).label}
+                                    </p>
+                                </div>
+
+                                {/* Verify Status */}
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                                        Verification Status *
+                                    </label>
+                                    <select
+                                        value={verifyFormData.verify_status}
+                                        onChange={(e) => setVerifyFormData({...verifyFormData, verify_status: e.target.value})}
+                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                    >
+                                        <option value="present">Present</option>
+                                        <option value="absent">Absent</option>
+                                        <option value="half_day">Half Day</option>
+                                        <option value="paid_leave">Paid Leave</option>
+                                        <option value="bonus">Bonus (Overtime)</option>
+                                        <option value="fine">Fine</option>
+                                    </select>
+                                </div>
+
+                                {/* Consider Break */}
+                                <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
+                                    <input
+                                        type="checkbox"
+                                        id="consider_break"
+                                        checked={verifyFormData.consider_break}
+                                        onChange={(e) => setVerifyFormData({...verifyFormData, consider_break: e.target.checked})}
+                                        className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                                    />
+                                    <label htmlFor="consider_break" className="text-sm text-gray-700">
+                                        Consider Break Time (Deduct excess break minutes from working hours)
+                                    </label>
+                                </div>
+
+                                {/* Manual Time Correction Section */}
+                                <div className="border-t border-gray-200 pt-4 mt-2">
+                                    <h4 className="text-sm font-medium text-gray-900 mb-3">Manual Time Correction (Optional)</h4>
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                        <div>
+                                            <label className="block text-xs font-medium text-gray-700 mb-1">
+                                                Manual Punch In
+                                            </label>
+                                            <input
+                                                type="datetime-local"
+                                                value={verifyFormData.manual_punch_in}
+                                                onChange={(e) => setVerifyFormData({...verifyFormData, manual_punch_in: e.target.value})}
+                                                className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="block text-xs font-medium text-gray-700 mb-1">
+                                                Manual Punch Out
+                                            </label>
+                                            <input
+                                                type="datetime-local"
+                                                value={verifyFormData.manual_punch_out}
+                                                onChange={(e) => setVerifyFormData({...verifyFormData, manual_punch_out: e.target.value})}
+                                                className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                            />
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Allowances & Deductions */}
+                                <div className="border-t border-gray-200 pt-4 mt-2">
+                                    <h4 className="text-sm font-medium text-gray-900 mb-3">Allowances & Deductions</h4>
+                                    <div className="space-y-2">
+                                        <div className="flex items-center gap-3">
+                                            <input
+                                                type="checkbox"
+                                                id="travel_allowance"
+                                                checked={verifyFormData.apply_travel_allowance}
+                                                onChange={(e) => setVerifyFormData({...verifyFormData, apply_travel_allowance: e.target.checked})}
+                                                className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                                            />
+                                            <label htmlFor="travel_allowance" className="text-sm text-gray-700">
+                                                Apply Travel Allowance
+                                            </label>
+                                        </div>
+                                        <div className="flex items-center gap-3">
+                                            <input
+                                                type="checkbox"
+                                                id="other_deductions"
+                                                checked={verifyFormData.apply_other_deductions}
+                                                onChange={(e) => setVerifyFormData({...verifyFormData, apply_other_deductions: e.target.checked})}
+                                                className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                                            />
+                                            <label htmlFor="other_deductions" className="text-sm text-gray-700">
+                                                Apply Other Deductions
+                                            </label>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Admin Remarks */}
+                                <div className="border-t border-gray-200 pt-4 mt-2">
+                                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                                        Admin Remarks
+                                    </label>
+                                    <textarea
+                                        rows="3"
+                                        value={verifyFormData.admin_remarks}
+                                        onChange={(e) => setVerifyFormData({...verifyFormData, admin_remarks: e.target.value})}
+                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                        placeholder="Add verification remarks..."
+                                    />
+                                </div>
+
+                                {/* Action Buttons */}
+                                <div className="flex gap-3 pt-4 border-t border-gray-200 mt-4">
+                                    <button
+                                        onClick={() => setShowVerifyModal(false)}
+                                        className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 text-sm font-medium rounded-lg hover:bg-gray-50 transition-colors"
+                                    >
+                                        Cancel
+                                    </button>
+                                    <button
+                                        onClick={handleVerifyAttendance}
+                                        disabled={verifyLoading}
+                                        className="flex-1 px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                                    >
+                                        {verifyLoading ? (
+                                            <>
+                                                <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
+                                                Verifying...
+                                            </>
+                                        ) : (
+                                            'Submit Verification'
+                                        )}
+                                    </button>
                                 </div>
                             </div>
                         </motion.div>

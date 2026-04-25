@@ -33,7 +33,8 @@ import {
     FiList,
     FiCheckCircle as FiBulkVerify,
     FiBriefcase,
-    FiMail
+    FiMail,
+    FiCoffee
 } from 'react-icons/fi';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Header, Sidebar } from '../components/header';
@@ -77,6 +78,9 @@ const ManageAttendance = () => {
     const [bulkVerifyData, setBulkVerifyData] = useState([]);
     const [selectedStatus, setSelectedStatus] = useState('');
     const [commonRemarks, setCommonRemarks] = useState('');
+    const [applyTravelAllowance, setApplyTravelAllowance] = useState(true);
+    const [applyOtherDeductions, setApplyOtherDeductions] = useState(true);
+    const [considerBreakBulk, setConsiderBreakBulk] = useState(true);
 
     // Modal state for manual verification
     const [showVerifyModal, setShowVerifyModal] = useState(false);
@@ -86,8 +90,12 @@ const ManageAttendance = () => {
         manual_punch_in: '',
         manual_punch_out: '',
         admin_remarks: '',
-        isManual: false
+        isManual: false,
+        consider_break: true,
+        apply_travel_allowance: true,
+        apply_other_deductions: true
     });
+    const [calculationPreview, setCalculationPreview] = useState(null);
 
     // Modal state for salary calculation
     const [showSalaryModal, setShowSalaryModal] = useState(false);
@@ -321,7 +329,6 @@ const ManageAttendance = () => {
                     image: item.profile.image,
                     designation: item.profile.designation,
                     department: item.profile.designation || 'General',
-                    // Duty time from salary settings
                     duty_time: {
                         start: item.duty_time?.expected?.start_time || '09:00',
                         end: item.duty_time?.expected?.end_time || '18:00',
@@ -341,6 +348,8 @@ const ManageAttendance = () => {
                     is_manual: item.is_manual,
                     manual_reason: item.manual_reason,
                     salary: item.salary,
+                    break_summary: item.break_summary,
+                    adjustments: item.adjustments,
                     available_options: getAvailableStatusOptions(item.feature_status, item.status.code)
                 }));
 
@@ -365,6 +374,8 @@ const ManageAttendance = () => {
                     out_time: '00:00',
                     is_verified: false,
                     salary: item.salary,
+                    break_summary: null,
+                    adjustments: null,
                     available_options: getAvailableStatusOptions(item.feature_status, 'absent')
                 }));
 
@@ -419,7 +430,7 @@ const ManageAttendance = () => {
         fetchSalaryCalculation(staff.username, selectedMonth, selectedYear);
     };
 
-    // Verify attendance
+    // Verify attendance using V2 API
     const verifyAttendance = async () => {
         if (!selectedAttendance) return;
 
@@ -429,7 +440,10 @@ const ManageAttendance = () => {
             const payload = {
                 attendance_id: selectedAttendance.attendance_id,
                 verify_status: verifyForm.verify_status,
-                admin_remarks: verifyForm.admin_remarks || `Verified as ${verifyForm.verify_status}`
+                admin_remarks: verifyForm.admin_remarks || `Verified as ${verifyForm.verify_status}`,
+                consider_break: verifyForm.consider_break,
+                apply_travel_allowance: verifyForm.apply_travel_allowance,
+                apply_other_deductions: verifyForm.apply_other_deductions
             };
 
             if (verifyForm.manual_punch_in) {
@@ -440,7 +454,7 @@ const ManageAttendance = () => {
             }
 
             const response = await fetch(
-                `${API_BASE_URL}/attendance/admin/verify`,
+                `${API_BASE_URL}/attendance/admin/verify-v2`,
                 {
                     method: 'POST',
                     headers: getHeaders(),
@@ -455,7 +469,16 @@ const ManageAttendance = () => {
             const result = await response.json();
             
             if (result.success) {
-                toast.success('Attendance verified successfully');
+                const calc = result.data.salary_breakdown;
+                toast.success(
+                    `✅ Verified: ${result.data.status}\n` +
+                    `💰 Amount: ${formatCurrency(calc.final_amount)}\n` +
+                    `📊 ${calc.base_amount > 0 ? `Base: ${formatCurrency(calc.base_amount)} ` : ''}` +
+                    `${calc.overtime_amount > 0 ? `+OT: ${formatCurrency(calc.overtime_amount)} ` : ''}` +
+                    `${calc.break_penalty > 0 ? `-Break: ${formatCurrency(calc.break_penalty)} ` : ''}`,
+                    { duration: 5000 }
+                );
+                
                 setShowVerifyModal(false);
                 setSelectedAttendance(null);
                 setVerifyForm({
@@ -463,15 +486,67 @@ const ManageAttendance = () => {
                     manual_punch_in: '',
                     manual_punch_out: '',
                     admin_remarks: '',
-                    isManual: false
+                    isManual: false,
+                    consider_break: true,
+                    apply_travel_allowance: true,
+                    apply_other_deductions: true
                 });
+                setCalculationPreview(null);
                 fetchAttendanceData();
+            } else {
+                toast.error(result.message || 'Failed to verify attendance');
             }
         } catch (error) {
             console.error('Error verifying attendance:', error);
             toast.error('Failed to verify attendance');
         } finally {
             setVerifyLoading(prev => ({ ...prev, [selectedAttendance.attendance_id]: false }));
+        }
+    };
+
+    // Preview calculation before verification
+    const previewCalculation = async () => {
+        if (!selectedAttendance) return;
+        
+        try {
+            const payload = {
+                attendance_id: selectedAttendance.attendance_id,
+                verify_status: verifyForm.verify_status,
+                admin_remarks: verifyForm.admin_remarks || `Preview calculation`,
+                consider_break: verifyForm.consider_break,
+                apply_travel_allowance: verifyForm.apply_travel_allowance,
+                apply_other_deductions: verifyForm.apply_other_deductions
+            };
+
+            if (verifyForm.manual_punch_in) {
+                payload.manual_punch_in = verifyForm.manual_punch_in;
+            }
+            if (verifyForm.manual_punch_out) {
+                payload.manual_punch_out = verifyForm.manual_punch_out;
+            }
+
+            const response = await fetch(
+                `${API_BASE_URL}/attendance/admin/verify-v2`,
+                {
+                    method: 'POST',
+                    headers: getHeaders(),
+                    body: JSON.stringify(payload)
+                }
+            );
+
+            if (!response.ok) {
+                throw new Error('Failed to preview calculation');
+            }
+
+            const result = await response.json();
+            
+            if (result.success) {
+                setCalculationPreview(result.data);
+                toast.info('Calculation preview ready');
+            }
+        } catch (error) {
+            console.error('Error previewing calculation:', error);
+            toast.error('Failed to preview calculation');
         }
     };
 
@@ -485,8 +560,12 @@ const ManageAttendance = () => {
             manual_punch_out: attendance.out_datetime ? 
                 new Date(attendance.out_datetime).toISOString().slice(0, 16) : '',
             admin_remarks: attendance.status?.remarks || '',
-            isManual: false
+            isManual: false,
+            consider_break: true,
+            apply_travel_allowance: true,
+            apply_other_deductions: true
         });
+        setCalculationPreview(null);
         setShowVerifyModal(true);
     };
 
@@ -501,7 +580,6 @@ const ManageAttendance = () => {
             return;
         }
         
-        // Prepare bulk verify data with actual times
         const bulkData = selectedStaffList.map(staff => {
             let workingHours = null;
             let actualStatus = 'pending';
@@ -558,10 +636,13 @@ const ManageAttendance = () => {
         setBulkVerifyData(bulkData);
         setSelectedStatus('');
         setCommonRemarks('');
+        setApplyTravelAllowance(true);
+        setApplyOtherDeductions(true);
+        setConsiderBreakBulk(true);
         setShowBulkVerifyModal(true);
     };
 
-    // Handle Bulk Verification
+    // Handle Bulk Verification using V2 API
     const handleBulkVerify = async () => {
         setBulkVerifyLoading(true);
         
@@ -574,34 +655,52 @@ const ManageAttendance = () => {
                 return;
             }
             
-            const payload = {
-                attendance_ids: attendanceIds,
-                ...(selectedStatus && { verify_status: selectedStatus }),
-                admin_remarks: commonRemarks || `Bulk verified`
-            };
+            let successCount = 0;
+            let failCount = 0;
             
-            const response = await fetch(
-                `${API_BASE_URL}/attendance/admin/bulk-verify`,
-                {
-                    method: 'POST',
-                    headers: getHeaders(),
-                    body: JSON.stringify(payload)
+            for (const attendanceId of attendanceIds) {
+                try {
+                    const payload = {
+                        attendance_id: attendanceId,
+                        ...(selectedStatus && { verify_status: selectedStatus }),
+                        admin_remarks: commonRemarks || `Bulk verified`,
+                        consider_break: considerBreakBulk,
+                        apply_travel_allowance: applyTravelAllowance,
+                        apply_other_deductions: applyOtherDeductions
+                    };
+                    
+                    const response = await fetch(
+                        `${API_BASE_URL}/attendance/admin/verify-v2`,
+                        {
+                            method: 'POST',
+                            headers: getHeaders(),
+                            body: JSON.stringify(payload)
+                        }
+                    );
+                    
+                    if (response.ok) {
+                        const result = await response.json();
+                        if (result.success) {
+                            successCount++;
+                        } else {
+                            failCount++;
+                        }
+                    } else {
+                        failCount++;
+                    }
+                } catch (err) {
+                    failCount++;
+                    console.error(`Error verifying ${attendanceId}:`, err);
                 }
-            );
-            
-            if (!response.ok) {
-                throw new Error('Failed to bulk verify attendance');
             }
             
-            const result = await response.json();
-            
-            if (result.success) {
-                toast.success(result.message);
+            if (successCount > 0) {
+                toast.success(`Bulk verification completed: ${successCount} verified, ${failCount} failed`);
                 setShowBulkVerifyModal(false);
                 setSelectedStaff(new Set());
                 fetchAttendanceData();
             } else {
-                toast.error(result.message || 'Failed to bulk verify');
+                toast.error('Bulk verification failed');
             }
         } catch (error) {
             console.error('Error in bulk verification:', error);
@@ -721,6 +820,33 @@ const ManageAttendance = () => {
         </>
     );
 
+    // Toggle Switch Component
+    const ToggleSwitch = ({ enabled, onChange, label, description }) => (
+        <div className="flex items-center justify-between p-3 rounded-lg hover:bg-white transition-colors cursor-pointer">
+            <div>
+                <div className="flex items-center gap-2">
+                    {label}
+                    <p className="text-sm text-gray-700">{label}</p>
+                </div>
+                {description && (
+                    <p className="text-xs text-gray-500 mt-1">{description}</p>
+                )}
+            </div>
+            <div
+                onClick={onChange}
+                className={`relative inline-flex items-center h-6 rounded-full w-11 cursor-pointer transition-all duration-200 ${
+                    enabled ? 'bg-gradient-to-r from-indigo-600 to-indigo-700' : 'bg-gray-300'
+                }`}
+            >
+                <div
+                    className={`inline-block w-4 h-4 transform bg-white rounded-full transition-all duration-200 ${
+                        enabled ? 'translate-x-6' : 'translate-x-1'
+                    }`}
+                />
+            </div>
+        </div>
+    );
+
     return (
         <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
             <Header
@@ -820,7 +946,7 @@ const ManageAttendance = () => {
                                     </h2>
                                 </div>
                                 <p className="text-gray-500 text-xs font-medium">
-                                    Verify and manage staff attendance
+                                    Verify and manage staff attendance with automatic salary calculation
                                 </p>
                             </div>
 
@@ -949,7 +1075,7 @@ const ManageAttendance = () => {
                                             className="px-4 py-1.5 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white font-medium text-xs rounded-lg transition-all duration-200 flex items-center gap-2 shadow-sm hover:shadow disabled:opacity-50"
                                         >
                                             <FiBulkVerify className="w-3 h-3" />
-                                            Bulk Verify (Actual Time)
+                                            Bulk Verify (V2)
                                         </button>
                                     </div>
                                 </div>
@@ -984,6 +1110,9 @@ const ManageAttendance = () => {
                                             TIME & DURATION
                                         </th>
                                         <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                                            BREAK INFO
+                                        </th>
+                                        <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
                                             ACTIONS
                                         </th>
                                         <th className="w-12 px-6 py-4 text-left">
@@ -1006,7 +1135,7 @@ const ManageAttendance = () => {
                                         <TableSkeleton />
                                     ) : filteredData.length === 0 ? (
                                         <tr>
-                                            <td colSpan="7" className="px-6 py-8 text-center">
+                                            <td colSpan="8" className="px-6 py-8 text-center">
                                                 <div className="flex flex-col items-center justify-center">
                                                     <div className="p-3 bg-gray-100 rounded-full mb-3">
                                                         <FiUser className="w-8 h-8 text-gray-400" />
@@ -1058,7 +1187,6 @@ const ManageAttendance = () => {
                                                         )}
                                                     </div>
                                                 </td>
-
                                                 <td className="px-6 py-4 align-middle">
                                                     <div className="flex flex-col gap-1">
                                                         <div className="text-sm font-medium text-gray-900 flex items-center gap-2">
@@ -1084,7 +1212,6 @@ const ManageAttendance = () => {
                                                                 ✓ Verified
                                                             </span>
                                                         )}
-                                                        {/* Show OT/Fine status badges */}
                                                         {staff.feature_status && (
                                                             <div className="flex gap-1 mt-1">
                                                                 {!staff.feature_status.overtime?.enabled && (
@@ -1149,13 +1276,36 @@ const ManageAttendance = () => {
                                                 </td>
 
                                                 <td className="px-6 py-4 align-middle">
+                                                    {staff.break_summary ? (
+                                                        <div className="space-y-1">
+                                                            <div className="flex items-center gap-2 text-xs">
+                                                                <FiCoffee className="w-3 h-3 text-gray-500" />
+                                                                <span className="text-gray-600">Break: {staff.break_summary.total_break_minutes || 0} min</span>
+                                                            </div>
+                                                            {staff.break_summary.excess_break_minutes > 0 && (
+                                                                <div className="text-xs text-orange-600">
+                                                                    Excess: {staff.break_summary.excess_break_minutes} min
+                                                                    {staff.break_summary.break_penalty_amount > 0 && (
+                                                                        <span className="ml-1">
+                                                                            (Penalty: {formatCurrency(staff.break_summary.break_penalty_amount)})
+                                                                        </span>
+                                                                    )}
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    ) : (
+                                                        <span className="text-xs text-gray-400">No breaks</span>
+                                                    )}
+                                                </td>
+
+                                                <td className="px-6 py-4 align-middle">
                                                     <div className="flex items-center gap-2">
                                                         {staff.status?.code !== 'absent' && (
                                                             <button
                                                                 onClick={() => openVerifyModal(staff)}
                                                                 disabled={verifyLoading[staff.attendance_id]}
                                                                 className="px-3 py-1.5 bg-gradient-to-r from-blue-100 to-blue-50 text-blue-700 text-xs font-medium rounded-lg border border-blue-200 hover:from-blue-200 hover:to-blue-100 transition-all duration-200 hover:scale-105 disabled:opacity-50 shadow-sm flex items-center gap-1"
-                                                                title="Verify Attendance"
+                                                                title="Verify Attendance (V2)"
                                                             >
                                                                 <FiCheckSquare className="w-3 h-3" />
                                                                 {staff.status?.is_verified ? 'Re-verify' : 'Verify'}
@@ -1222,7 +1372,7 @@ const ManageAttendance = () => {
                 </div>
             </div>
 
-            {/* Individual Verification Modal with Conditional OT/Fine Options */}
+            {/* Individual Verification Modal with V2 API */}
             <AnimatePresence>
                 {showVerifyModal && selectedAttendance && (
                     <motion.div
@@ -1236,29 +1386,35 @@ const ManageAttendance = () => {
                             initial={{ scale: 0.9, opacity: 0 }}
                             animate={{ scale: 1, opacity: 1 }}
                             exit={{ scale: 0.9, opacity: 0 }}
-                            className="bg-white rounded-xl shadow-xl max-w-lg w-full max-h-[90vh] overflow-y-auto"
+                            className="bg-white rounded-xl shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto"
                             onClick={(e) => e.stopPropagation()}
                         >
-                            <div className="p-6">
-                                <h3 className="text-lg font-bold text-gray-900 mb-4">
-                                    Verify Attendance
-                                </h3>
-                                
-                                <div className="mb-4 p-3 bg-gray-50 rounded-lg">
-                                    <p className="text-sm font-medium text-gray-700">{selectedAttendance.name}</p>
-                                    <p className="text-xs text-gray-500">{selectedAttendance.designation}</p>
-                                    <p className="text-xs text-gray-500 mt-1">
-                                        Duty Time: {selectedAttendance.duty_time?.schedule || '09:00 to 18:00'}
-                                    </p>
+                            <div className="sticky top-0 bg-gradient-to-r from-blue-600 to-purple-600 text-white p-6 rounded-t-xl">
+                                <div className="flex justify-between items-start">
+                                    <div>
+                                        <h3 className="text-xl font-bold">Verify Attendance (V2)</h3>
+                                        <p className="text-blue-100 text-sm mt-1">
+                                            {selectedAttendance.name} • {selectedAttendance.designation}
+                                        </p>
+                                    </div>
+                                    <button
+                                        onClick={() => setShowVerifyModal(false)}
+                                        className="text-white hover:bg-white/20 rounded-lg p-2 transition-colors"
+                                    >
+                                        <FiXCircle className="w-5 h-5" />
+                                    </button>
                                 </div>
+                            </div>
 
+                            <div className="p-6">
+                                {/* Current Punch Times */}
                                 {selectedAttendance.in_time !== '00:00' && (
-                                    <div className="mb-4 p-3 bg-blue-50 rounded-lg border border-blue-200">
-                                        <h4 className="text-xs font-semibold text-blue-800 mb-2 flex items-center gap-1">
-                                            <FiClock className="w-3 h-3" />
-                                            CURRENT PUNCH TIMES
+                                    <div className="mb-6 p-4 bg-blue-50 rounded-lg border border-blue-200">
+                                        <h4 className="text-sm font-semibold text-blue-800 mb-3 flex items-center gap-2">
+                                            <FiClock className="w-4 h-4" />
+                                            Current Punch Times
                                         </h4>
-                                        <div className="grid grid-cols-2 gap-3">
+                                        <div className="grid grid-cols-2 gap-4">
                                             <div>
                                                 <p className="text-xs text-blue-600">Punch In</p>
                                                 <p className="text-sm font-medium text-blue-900">
@@ -1285,100 +1441,250 @@ const ManageAttendance = () => {
                                             </div>
                                         </div>
                                         {selectedAttendance.working_hours && (
+                                            <div className="mt-3 pt-3 border-t border-blue-200">
+                                                <div className="flex justify-between items-center">
+                                                    <p className="text-xs text-blue-600">Total Working Hours</p>
+                                                    <p className="text-sm font-semibold text-blue-900">
+                                                        {selectedAttendance.working_hours.formatted}
+                                                    </p>
+                                                </div>
+                                            </div>
+                                        )}
+                                        {selectedAttendance.break_summary && selectedAttendance.break_summary.total_break_minutes > 0 && (
                                             <div className="mt-2 pt-2 border-t border-blue-200">
-                                                <p className="text-xs text-blue-600">Total Working Hours</p>
-                                                <p className="text-sm font-medium text-blue-900">
-                                                    {selectedAttendance.working_hours.formatted}
-                                                    {selectedAttendance.working_hours.extra_minutes > 0 && selectedAttendance.feature_status?.overtime?.enabled && (
-                                                        <span className="text-green-600 ml-2 text-xs">
-                                                            (+{Math.floor(selectedAttendance.working_hours.extra_minutes/60)}h {selectedAttendance.working_hours.extra_minutes % 60}m extra)
-                                                        </span>
-                                                    )}
-                                                    {selectedAttendance.working_hours.less_minutes > 0 && selectedAttendance.feature_status?.fine?.enabled && (
-                                                        <span className="text-orange-600 ml-2 text-xs">
-                                                            (-{Math.floor(selectedAttendance.working_hours.less_minutes/60)}h {selectedAttendance.working_hours.less_minutes % 60}m less)
-                                                        </span>
-                                                    )}
-                                                </p>
+                                                <div className="flex justify-between items-center">
+                                                    <p className="text-xs text-blue-600 flex items-center gap-1">
+                                                        <FiCoffee className="w-3 h-3" />
+                                                        Break Time
+                                                    </p>
+                                                    <p className="text-sm text-orange-600">
+                                                        {selectedAttendance.break_summary.total_break_minutes} min
+                                                        {selectedAttendance.break_summary.excess_break_minutes > 0 && (
+                                                            <span className="ml-2 text-red-600">
+                                                                (Excess: {selectedAttendance.break_summary.excess_break_minutes} min)
+                                                            </span>
+                                                        )}
+                                                    </p>
+                                                </div>
                                             </div>
                                         )}
                                     </div>
                                 )}
 
-                                <div className="space-y-4">
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                                            Verification Status
-                                        </label>
-                                        <div className="space-y-2">
-                                            {selectedAttendance.available_options?.map((option) => (
-                                                <label
-                                                    key={option.value}
-                                                    className={`flex items-center p-3 rounded-lg border transition-all cursor-pointer ${
-                                                        verifyForm.verify_status === option.value
-                                                            ? 'border-blue-500 bg-blue-50'
-                                                            : 'border-gray-200 hover:border-gray-300'
-                                                    } ${!option.enabled ? 'opacity-50 cursor-not-allowed bg-gray-50' : ''}`}
-                                                >
-                                                    <input
-                                                        type="radio"
-                                                        name="verify_status"
-                                                        value={option.value}
-                                                        checked={verifyForm.verify_status === option.value}
-                                                        onChange={(e) => {
-                                                            if (option.enabled) {
-                                                                setVerifyForm({...verifyForm, verify_status: e.target.value});
-                                                                if (option.value === 'bonus' && selectedAttendance.working_hours?.extra_minutes === 0) {
-                                                                    toast('No extra hours detected. Please verify working hours.', {
-                                                                        icon: '⚠️'
-                                                                    });
-                                                                }
-                                                                if (option.value === 'fine' && selectedAttendance.working_hours?.less_minutes === 0) {
-                                                                    toast('No less hours detected. Please verify working hours.', {
-                                                                        icon: '⚠️'
-                                                                    });
-                                                                }
-                                                            }
-                                                        }}
-                                                        disabled={!option.enabled}
-                                                        className="mr-3"
-                                                    />
-                                                    <div className="flex-1">
-                                                        <span className={`font-medium ${verifyForm.verify_status === option.value ? 'text-blue-700' : 'text-gray-700'}`}>
-                                                            {option.label}
-                                                        </span>
-                                                        {!option.enabled && option.disabled_reason && (
-                                                            <p className="text-xs text-gray-400 mt-1">
-                                                                {option.disabled_reason}
-                                                            </p>
-                                                        )}
-                                                    </div>
-                                                    {option.value === 'bonus' && (
-                                                        <FiAward className={`w-4 h-4 ${verifyForm.verify_status === option.value ? 'text-purple-500' : 'text-gray-300'}`} />
+                                {/* Verification Status Selection */}
+                                <div className="mb-6">
+                                    <label className="block text-sm font-medium text-gray-700 mb-3">
+                                        Verification Status
+                                    </label>
+                                    <div className="grid grid-cols-2 gap-3">
+                                        {selectedAttendance.available_options?.map((option) => (
+                                            <label
+                                                key={option.value}
+                                                className={`flex items-center p-3 rounded-lg border transition-all cursor-pointer ${
+                                                    verifyForm.verify_status === option.value
+                                                        ? 'border-blue-500 bg-blue-50'
+                                                        : 'border-gray-200 hover:border-gray-300'
+                                                } ${!option.enabled ? 'opacity-50 cursor-not-allowed bg-gray-50' : ''}`}
+                                            >
+                                                <input
+                                                    type="radio"
+                                                    name="verify_status"
+                                                    value={option.value}
+                                                    checked={verifyForm.verify_status === option.value}
+                                                    onChange={(e) => {
+                                                        if (option.enabled) {
+                                                            setVerifyForm({...verifyForm, verify_status: e.target.value});
+                                                        }
+                                                    }}
+                                                    disabled={!option.enabled}
+                                                    className="mr-3"
+                                                />
+                                                <div className="flex-1">
+                                                    <span className={`font-medium ${verifyForm.verify_status === option.value ? 'text-blue-700' : 'text-gray-700'}`}>
+                                                        {option.label}
+                                                    </span>
+                                                    {!option.enabled && option.disabled_reason && (
+                                                        <p className="text-xs text-gray-400 mt-1">
+                                                            {option.disabled_reason}
+                                                        </p>
                                                     )}
-                                                    {option.value === 'fine' && (
-                                                        <FiMinusCircle className={`w-4 h-4 ${verifyForm.verify_status === option.value ? 'text-orange-500' : 'text-gray-300'}`} />
-                                                    )}
-                                                </label>
-                                            ))}
-                                        </div>
-                                    </div>
-
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                                            Admin Remarks
-                                        </label>
-                                        <textarea
-                                            value={verifyForm.admin_remarks}
-                                            onChange={(e) => setVerifyForm({...verifyForm, admin_remarks: e.target.value})}
-                                            rows="3"
-                                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
-                                            placeholder="Enter verification remarks..."
-                                        />
+                                                </div>
+                                                {option.value === 'bonus' && (
+                                                    <FiAward className={`w-4 h-4 ${verifyForm.verify_status === option.value ? 'text-purple-500' : 'text-gray-300'}`} />
+                                                )}
+                                                {option.value === 'fine' && (
+                                                    <FiMinusCircle className={`w-4 h-4 ${verifyForm.verify_status === option.value ? 'text-orange-500' : 'text-gray-300'}`} />
+                                                )}
+                                            </label>
+                                        ))}
                                     </div>
                                 </div>
 
-                                <div className="flex justify-end gap-3 mt-6">
+                                {/* Admin Remarks */}
+                                <div className="mb-6">
+                                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                                        Admin Remarks
+                                    </label>
+                                    <textarea
+                                        value={verifyForm.admin_remarks}
+                                        onChange={(e) => setVerifyForm({...verifyForm, admin_remarks: e.target.value})}
+                                        rows="3"
+                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+                                        placeholder="Enter verification remarks..."
+                                    />
+                                </div>
+
+                                {/* Break Consideration Toggle */}
+                                <div className="mb-6 p-4 bg-orange-50 rounded-lg border border-orange-200">
+                                    <h4 className="text-sm font-semibold text-orange-800 mb-3 flex items-center gap-2">
+                                        <FiCoffee className="w-4 h-4" />
+                                        Break Settings
+                                    </h4>
+                                    
+                                    <div className="flex items-center justify-between p-3 rounded-lg bg-white hover:bg-orange-50 transition-colors cursor-pointer">
+                                        <div>
+                                            <div className="flex items-center gap-2">
+                                                <span className="text-sm font-medium text-gray-700">Consider Break Time</span>
+                                            </div>
+                                            <p className="text-xs text-gray-500 mt-1">
+                                                {verifyForm.consider_break 
+                                                    ? "Break time will be deducted from working hours and excess break penalty will be applied" 
+                                                    : "Break time will NOT be deducted - no penalty for excess break minutes"}
+                                            </p>
+                                        </div>
+                                        <div
+                                            onClick={() => setVerifyForm(prev => ({ ...prev, consider_break: !prev.consider_break }))}
+                                            className={`relative inline-flex items-center h-6 rounded-full w-11 cursor-pointer transition-all duration-200 ${
+                                                verifyForm.consider_break ? 'bg-gradient-to-r from-orange-600 to-red-600' : 'bg-gray-300'
+                                            }`}
+                                        >
+                                            <div className={`inline-block w-4 h-4 transform bg-white rounded-full transition-all duration-200 ${
+                                                verifyForm.consider_break ? 'translate-x-6' : 'translate-x-1'
+                                            }`} />
+                                        </div>
+                                    </div>
+
+                                    {/* Show break info if available */}
+                                    {selectedAttendance?.break_summary && selectedAttendance.break_summary.total_break_minutes > 0 && (
+                                        <div className="mt-3 p-2 bg-blue-50 rounded border border-blue-200">
+                                            <div className="flex justify-between text-xs">
+                                                <span className="text-blue-700">Total Break Time:</span>
+                                                <span className="font-medium text-blue-900">{selectedAttendance.break_summary.total_break_minutes} minutes</span>
+                                            </div>
+                                            {selectedAttendance.break_summary.excess_break_minutes > 0 && (
+                                                <div className="flex justify-between text-xs mt-1">
+                                                    <span className="text-red-600">Excess Break Time:</span>
+                                                    <span className="font-medium text-red-700">
+                                                        {selectedAttendance.break_summary.excess_break_minutes} minutes
+                                                        {verifyForm.consider_break && selectedAttendance.break_summary.break_penalty_amount > 0 && (
+                                                            <span className="ml-2">
+                                                                (Penalty: {formatCurrency(selectedAttendance.break_summary.break_penalty_amount)})
+                                                            </span>
+                                                        )}
+                                                    </span>
+                                                </div>
+                                            )}
+                                            {!verifyForm.consider_break && selectedAttendance.break_summary.excess_break_minutes > 0 && (
+                                                <p className="text-xs text-green-600 mt-2">
+                                                    ✓ No penalty will be applied for excess break time
+                                                </p>
+                                            )}
+                                        </div>
+                                    )}
+                                </div>
+
+                                {/* Travel Allowance & Other Deductions Toggles */}
+                                <div className="mb-6 p-4 bg-gray-50 rounded-lg border border-gray-200">
+                                    <h4 className="text-sm font-semibold text-gray-700 mb-3">Salary Adjustments</h4>
+                                    
+                                    <div className="flex items-center justify-between p-3 rounded-lg hover:bg-white transition-colors cursor-pointer">
+                                        <div>
+                                            <div className="flex items-center gap-2">
+                                                <FiPlusCircle className="w-4 h-4 text-green-600" />
+                                                <span className="text-sm text-gray-700">Apply Travel Allowance</span>
+                                            </div>
+                                        </div>
+                                        <div
+                                            onClick={() => setVerifyForm(prev => ({ ...prev, apply_travel_allowance: !prev.apply_travel_allowance }))}
+                                            className={`relative inline-flex items-center h-6 rounded-full w-11 cursor-pointer transition-all duration-200 ${
+                                                verifyForm.apply_travel_allowance ? 'bg-gradient-to-r from-green-600 to-green-700' : 'bg-gray-300'
+                                            }`}
+                                        >
+                                            <div className={`inline-block w-4 h-4 transform bg-white rounded-full transition-all duration-200 ${
+                                                verifyForm.apply_travel_allowance ? 'translate-x-6' : 'translate-x-1'
+                                            }`} />
+                                        </div>
+                                    </div>
+                                    
+                                    <div className="flex items-center justify-between p-3 rounded-lg hover:bg-white transition-colors cursor-pointer mt-2">
+                                        <div>
+                                            <div className="flex items-center gap-2">
+                                                <FiMinusCircle className="w-4 h-4 text-red-600" />
+                                                <span className="text-sm text-gray-700">Apply Other Deductions</span>
+                                            </div>
+                                        </div>
+                                        <div
+                                            onClick={() => setVerifyForm(prev => ({ ...prev, apply_other_deductions: !prev.apply_other_deductions }))}
+                                            className={`relative inline-flex items-center h-6 rounded-full w-11 cursor-pointer transition-all duration-200 ${
+                                                verifyForm.apply_other_deductions ? 'bg-gradient-to-r from-green-600 to-green-700' : 'bg-gray-300'
+                                            }`}
+                                        >
+                                            <div className={`inline-block w-4 h-4 transform bg-white rounded-full transition-all duration-200 ${
+                                                verifyForm.apply_other_deductions ? 'translate-x-6' : 'translate-x-1'
+                                            }`} />
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Calculation Preview */}
+                                {calculationPreview && (
+                                    <div className="mb-6 p-4 bg-gradient-to-r from-blue-50 to-purple-50 rounded-lg border border-blue-200">
+                                        <h4 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
+                                            <FiDollarSign className="w-4 h-4 text-blue-600" />
+                                            Salary Calculation Preview
+                                        </h4>
+                                        <div className="space-y-2 text-sm">
+                                            <div className="flex justify-between">
+                                                <span className="text-gray-600">Base Amount:</span>
+                                                <span className="font-medium">{formatCurrency(calculationPreview.salary_breakdown?.base_amount || 0)}</span>
+                                            </div>
+                                            <div className="flex justify-between text-green-600">
+                                                <span>+ Overtime:</span>
+                                                <span>{formatCurrency(calculationPreview.salary_breakdown?.overtime_amount || 0)}</span>
+                                            </div>
+                                            <div className="flex justify-between text-orange-600">
+                                                <span>- Fine:</span>
+                                                <span>{formatCurrency(calculationPreview.salary_breakdown?.fine_amount || 0)}</span>
+                                            </div>
+                                            <div className="flex justify-between text-red-600">
+                                                <span>- Break Penalty:</span>
+                                                <span>{formatCurrency(Math.abs(calculationPreview.salary_breakdown?.break_penalty || 0))}</span>
+                                            </div>
+                                            <div className="flex justify-between text-green-600">
+                                                <span>+ Travel Allowance:</span>
+                                                <span>{formatCurrency(calculationPreview.salary_breakdown?.travel_allowance || 0)}</span>
+                                            </div>
+                                            <div className="flex justify-between text-red-600">
+                                                <span>- Other Deductions:</span>
+                                                <span>{formatCurrency(Math.abs(calculationPreview.salary_breakdown?.other_deductions || 0))}</span>
+                                            </div>
+                                            <div className="border-t border-gray-200 pt-2 mt-2">
+                                                <div className="flex justify-between font-bold">
+                                                    <span>Final Amount:</span>
+                                                    <span className="text-blue-600">{formatCurrency(calculationPreview.salary_breakdown?.final_amount || 0)}</span>
+                                                </div>
+                                            </div>
+                                            {calculationPreview.break_summary?.message && (
+                                                <div className="mt-2 text-xs text-orange-600 bg-orange-50 p-2 rounded">
+                                                    {calculationPreview.break_summary.message}
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* Action Buttons */}
+                                <div className="flex justify-end gap-3">
                                     <button
                                         onClick={() => setShowVerifyModal(false)}
                                         className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
@@ -1386,9 +1692,16 @@ const ManageAttendance = () => {
                                         Cancel
                                     </button>
                                     <button
+                                        onClick={previewCalculation}
+                                        className="px-4 py-2 text-sm font-medium text-white bg-gradient-to-r from-gray-600 to-gray-700 rounded-lg hover:from-gray-700 hover:to-gray-800 transition-colors flex items-center gap-2"
+                                    >
+                                        <FiEye className="w-4 h-4" />
+                                        Preview
+                                    </button>
+                                    <button
                                         onClick={verifyAttendance}
                                         disabled={verifyLoading[selectedAttendance.attendance_id]}
-                                        className="px-4 py-2 text-sm font-medium text-white bg-gradient-to-r from-blue-600 to-blue-700 rounded-lg hover:from-blue-700 hover:to-blue-800 transition-colors disabled:opacity-50 flex items-center gap-2"
+                                        className="px-4 py-2 text-sm font-medium text-white bg-gradient-to-r from-blue-600 to-purple-600 rounded-lg hover:from-blue-700 hover:to-purple-700 transition-colors disabled:opacity-50 flex items-center gap-2"
                                     >
                                         {verifyLoading[selectedAttendance.attendance_id] ? (
                                             <>
@@ -1398,7 +1711,7 @@ const ManageAttendance = () => {
                                         ) : (
                                             <>
                                                 <FiCheck className="w-4 h-4" />
-                                                Verify
+                                                Verify & Calculate
                                             </>
                                         )}
                                     </button>
@@ -1409,7 +1722,7 @@ const ManageAttendance = () => {
                 )}
             </AnimatePresence>
 
-            {/* Bulk Verify Modal with Conditional OT/Fine Options */}
+            {/* Bulk Verify Modal with V2 API */}
             <AnimatePresence>
                 {showBulkVerifyModal && (
                     <motion.div
@@ -1429,9 +1742,9 @@ const ManageAttendance = () => {
                             <div className="sticky top-0 bg-gradient-to-r from-indigo-600 to-purple-600 text-white p-6 rounded-t-xl z-10">
                                 <div className="flex justify-between items-start">
                                     <div>
-                                        <h3 className="text-xl font-bold">Bulk Verify Attendance</h3>
+                                        <h3 className="text-xl font-bold">Bulk Verify Attendance (V2)</h3>
                                         <p className="text-indigo-100 text-sm mt-1">
-                                            Based on actual punch times and salary settings
+                                            With automatic break penalty, OT, and fine calculation
                                         </p>
                                     </div>
                                     <button
@@ -1460,17 +1773,11 @@ const ManageAttendance = () => {
                                         <p className="text-lg font-bold text-purple-700">
                                             {bulkVerifyData.filter(d => d.actual_status === 'bonus').length}
                                         </p>
-                                        <p className="text-xs text-purple-500 mt-1">
-                                            (Only for OT enabled staff)
-                                        </p>
                                     </div>
                                     <div className="bg-orange-50 p-3 rounded-lg border border-orange-200">
                                         <p className="text-xs text-orange-600">Will be Fine</p>
                                         <p className="text-lg font-bold text-orange-700">
                                             {bulkVerifyData.filter(d => d.actual_status === 'fine').length}
-                                        </p>
-                                        <p className="text-xs text-orange-500 mt-1">
-                                            (Only for Fine enabled staff)
                                         </p>
                                     </div>
                                 </div>
@@ -1496,9 +1803,78 @@ const ManageAttendance = () => {
                                             <option value="fine">Fine (Less Hours)</option>
                                         )}
                                     </select>
-                                    <p className="text-xs text-gray-500 mt-2">
-                                        * If not selected, status will be auto-calculated based on actual punch times and salary settings
-                                    </p>
+                                </div>
+
+                                {/* Bulk Break Consideration Toggle */}
+                                <div className="mb-6 p-4 bg-orange-50 rounded-lg border border-orange-200">
+                                    <h4 className="text-sm font-semibold text-orange-800 mb-3 flex items-center gap-2">
+                                        <FiCoffee className="w-4 h-4" />
+                                        Break Settings for All
+                                    </h4>
+                                    <div className="flex items-center justify-between p-3 rounded-lg bg-white hover:bg-orange-50 transition-colors cursor-pointer">
+                                        <div>
+                                            <div className="flex items-center gap-2">
+                                                <span className="text-sm font-medium text-gray-700">Consider Break Time</span>
+                                            </div>
+                                            <p className="text-xs text-gray-500 mt-1">
+                                                {considerBreakBulk 
+                                                    ? "Break time will be deducted from working hours and excess break penalty will be applied" 
+                                                    : "Break time will NOT be deducted - no penalty for excess break minutes"}
+                                            </p>
+                                        </div>
+                                        <div
+                                            onClick={() => setConsiderBreakBulk(!considerBreakBulk)}
+                                            className={`relative inline-flex items-center h-6 rounded-full w-11 cursor-pointer transition-all duration-200 ${
+                                                considerBreakBulk ? 'bg-gradient-to-r from-orange-600 to-red-600' : 'bg-gray-300'
+                                            }`}
+                                        >
+                                            <div className={`inline-block w-4 h-4 transform bg-white rounded-full transition-all duration-200 ${
+                                                considerBreakBulk ? 'translate-x-6' : 'translate-x-1'
+                                            }`} />
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div className="mb-6 p-4 bg-gray-50 rounded-lg border border-gray-200">
+                                    <h4 className="text-sm font-semibold text-gray-700 mb-3">Salary Adjustments for All</h4>
+                                    
+                                    <div className="flex items-center justify-between p-3 rounded-lg hover:bg-white transition-colors cursor-pointer">
+                                        <div>
+                                            <div className="flex items-center gap-2">
+                                                <FiPlusCircle className="w-4 h-4 text-green-600" />
+                                                <span className="text-sm text-gray-700">Apply Travel Allowance for all</span>
+                                            </div>
+                                        </div>
+                                        <div
+                                            onClick={() => setApplyTravelAllowance(!applyTravelAllowance)}
+                                            className={`relative inline-flex items-center h-6 rounded-full w-11 cursor-pointer transition-all duration-200 ${
+                                                applyTravelAllowance ? 'bg-gradient-to-r from-green-600 to-green-700' : 'bg-gray-300'
+                                            }`}
+                                        >
+                                            <div className={`inline-block w-4 h-4 transform bg-white rounded-full transition-all duration-200 ${
+                                                applyTravelAllowance ? 'translate-x-6' : 'translate-x-1'
+                                            }`} />
+                                        </div>
+                                    </div>
+                                    
+                                    <div className="flex items-center justify-between p-3 rounded-lg hover:bg-white transition-colors cursor-pointer mt-2">
+                                        <div>
+                                            <div className="flex items-center gap-2">
+                                                <FiMinusCircle className="w-4 h-4 text-red-600" />
+                                                <span className="text-sm text-gray-700">Apply Other Deductions for all</span>
+                                            </div>
+                                        </div>
+                                        <div
+                                            onClick={() => setApplyOtherDeductions(!applyOtherDeductions)}
+                                            className={`relative inline-flex items-center h-6 rounded-full w-11 cursor-pointer transition-all duration-200 ${
+                                                applyOtherDeductions ? 'bg-gradient-to-r from-green-600 to-green-700' : 'bg-gray-300'
+                                            }`}
+                                        >
+                                            <div className={`inline-block w-4 h-4 transform bg-white rounded-full transition-all duration-200 ${
+                                                applyOtherDeductions ? 'translate-x-6' : 'translate-x-1'
+                                            }`} />
+                                        </div>
+                                    </div>
                                 </div>
 
                                 <div className="mb-6">
@@ -1517,7 +1893,7 @@ const ManageAttendance = () => {
                                 <div className="mb-6">
                                     <h4 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
                                         <FiList className="w-4 h-4 text-indigo-600" />
-                                        Selected Staff with Actual Time Calculation
+                                        Selected Staff with Auto-calculation
                                     </h4>
                                     <div className="border border-gray-200 rounded-lg overflow-hidden max-h-96 overflow-y-auto">
                                         <table className="w-full text-sm">
@@ -1528,7 +1904,7 @@ const ManageAttendance = () => {
                                                     <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600">Punch In</th>
                                                     <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600">Punch Out</th>
                                                     <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600">Total Hours</th>
-                                                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600">Actual Status</th>
+                                                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600">Auto Status</th>
                                                     <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600">Features</th>
                                                 </tr>
                                             </thead>
@@ -1620,6 +1996,7 @@ const ManageAttendance = () => {
                 )}
             </AnimatePresence>
 
+            {/* Salary Calculation Modal */}
             <AnimatePresence>
                 {showSalaryModal && salaryData && (
                     <motion.div
@@ -1865,6 +2242,27 @@ const ManageAttendance = () => {
                                                                     <span>Half Day Deduction</span>
                                                                     <span>-{formatCurrency(Math.abs(parseFloat(salaryData.monthly_summary?.salary_calculation?.half_day_adjustment || salaryData.salary_calculation?.half_day_adjustment || 0)))}</span>
                                                                 </div>
+                                                                <div className="flex justify-between text-sm text-red-600">
+                                                                    <span className="flex items-center gap-1">
+                                                                        <FiCoffee className="w-3 h-3" />
+                                                                        Break Penalty
+                                                                    </span>
+                                                                    <span>-{formatCurrency(Math.abs(parseFloat(salaryData.monthly_summary?.salary_calculation?.break_penalty_adjustment || salaryData.salary_calculation?.break_penalty_adjustment || 0)))}</span>
+                                                                </div>
+                                                                <div className="flex justify-between text-sm text-blue-600">
+                                                                    <span className="flex items-center gap-1">
+                                                                        <FiPlusCircle className="w-3 h-3" />
+                                                                        Travel Allowance
+                                                                    </span>
+                                                                    <span>+{formatCurrency(Math.abs(parseFloat(salaryData.monthly_summary?.salary_calculation?.travel_allowance_amount || salaryData.salary_calculation?.travel_allowance_amount || 0)))}</span>
+                                                                </div>
+                                                                <div className="flex justify-between text-sm text-red-600">
+                                                                    <span className="flex items-center gap-1">
+                                                                        <FiMinusCircle className="w-3 h-3" />
+                                                                        Other Deductions
+                                                                    </span>
+                                                                    <span>-{formatCurrency(Math.abs(parseFloat(salaryData.monthly_summary?.salary_calculation?.other_deduction_amount || salaryData.salary_calculation?.other_deduction_amount || 0)))}</span>
+                                                                </div>
                                                             </div>
                                                         </div>
                                                     </div>
@@ -1878,19 +2276,8 @@ const ManageAttendance = () => {
                                                         <p className="text-lg font-bold text-gray-900">{formatCurrency(parseFloat(salaryData.monthly_summary?.salary_calculation?.base_salary_earned || salaryData.salary_calculation?.base_salary_earned || 0))}</p>
                                                     </div>
                                                     <div>
-                                                        <p className="text-xs text-gray-600">Adjustments</p>
-                                                        <div className="flex justify-between text-sm">
-                                                            <span className="text-green-600">+ Bonus</span>
-                                                            <span>{formatCurrency(Math.abs(parseFloat(salaryData.monthly_summary?.salary_calculation?.bonus_adjustment || salaryData.salary_calculation?.bonus_adjustment || 0)))}</span>
-                                                        </div>
-                                                        <div className="flex justify-between text-sm">
-                                                            <span className="text-orange-600">- Fine</span>
-                                                            <span>{formatCurrency(Math.abs(parseFloat(salaryData.monthly_summary?.salary_calculation?.fine_adjustment || salaryData.salary_calculation?.fine_adjustment || 0)))}</span>
-                                                        </div>
-                                                        <div className="flex justify-between text-sm">
-                                                            <span className="text-yellow-600">- Half Day</span>
-                                                            <span>{formatCurrency(Math.abs(parseFloat(salaryData.monthly_summary?.salary_calculation?.half_day_adjustment || salaryData.salary_calculation?.half_day_adjustment || 0)))}</span>
-                                                        </div>
+                                                        <p className="text-xs text-gray-600">Total Adjustments</p>
+                                                        <p className="text-lg font-bold text-purple-600">{formatCurrency(parseFloat(salaryData.monthly_summary?.salary_calculation?.total_adjustments || salaryData.salary_calculation?.total_adjustments || 0))}</p>
                                                     </div>
                                                 </div>
                                                 <div className="mt-3 pt-3 border-t border-blue-200">
@@ -2033,6 +2420,14 @@ const ManageAttendance = () => {
                                                                 <span>- Half Day Adjustment</span>
                                                                 <span>{formatCurrency(Math.abs(parseFloat(salaryData.till_date_summary.salary_calculation?.half_day_adjustment || 0)))}</span>
                                                             </div>
+                                                            <div className="flex justify-between text-sm text-red-600">
+                                                                <span>- Break Penalty</span>
+                                                                <span>{formatCurrency(Math.abs(parseFloat(salaryData.till_date_summary.salary_calculation?.break_penalty_adjustment || 0)))}</span>
+                                                            </div>
+                                                            <div className="flex justify-between text-sm text-blue-600">
+                                                                <span>+ Travel Allowance</span>
+                                                                <span>{formatCurrency(Math.abs(parseFloat(salaryData.till_date_summary.salary_calculation?.travel_allowance_amount || 0)))}</span>
+                                                            </div>
                                                         </div>
                                                     </div>
                                                 </div>
@@ -2086,6 +2481,8 @@ const ManageAttendance = () => {
                                                         <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600">Date</th>
                                                         <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600">Day</th>
                                                         <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600">Status</th>
+                                                        <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600">In Time</th>
+                                                        <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600">Out Time</th>
                                                         <th className="px-4 py-3 text-right text-xs font-semibold text-gray-600">Amount</th>
                                                         <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600">Remarks</th>
                                                     </tr>
@@ -2106,11 +2503,18 @@ const ManageAttendance = () => {
                                                                     {day.status_display || getStatusDisplay(day.status)}
                                                                 </span>
                                                             </td>
+                                                                                                                        <td className="px-4 py-2 text-sm text-gray-600">
+                                                                {day.punch_in_time ? formatDateTime(day.punch_in_time) : '-'}
+                                                            </td>
+                                                            <td className="px-4 py-2 text-sm text-gray-600">
+                                                                {day.punch_out_time ? formatDateTime(day.punch_out_time) : '-'}
+                                                            </td>
                                                             <td className="px-4 py-2 text-right font-medium text-gray-700">
                                                                 {day.calculated_amount > 0 ? formatCurrency(day.calculated_amount) : '-'}
                                                             </td>
                                                             <td className="px-4 py-2 text-xs text-gray-500 max-w-xs truncate">
                                                                 {day.remarks || (day.extra_minutes > 0 ? `${day.extra_hours}h extra` : day.less_minutes > 0 ? `${day.less_hours}h less` : '-')}
+                                                                {day.break_penalty_amount > 0 && ` | Break penalty: ${formatCurrency(day.break_penalty_amount)}`}
                                                             </td>
                                                         </tr>
                                                     ))}

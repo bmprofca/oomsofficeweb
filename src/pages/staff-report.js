@@ -469,21 +469,24 @@ const StaffReport = () => {
                                                     transition={{ delay: idx * 0.03 }} 
                                                     className="hover:bg-slate-50/80 transition-colors group"
                                                 >
-                                                    <td className="px-4 py-3">
-                                                        <div className="flex items-center gap-3">
-                                                            <div className="w-9 h-9 bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg flex items-center justify-center shadow-sm">
-                                                                <span className="text-white font-semibold text-sm">
-                                                                    {staff.name?.charAt(0).toUpperCase() || 'S'}
-                                                                </span>
-                                                            </div>
-                                                            <div>
-                                                                <div className="font-medium text-slate-800 text-sm">{staff.name}</div>
-                                                                {staff.designation && (
-                                                                    <div className="text-slate-400 text-xs">{staff.designation}</div>
-                                                                )}
-                                                            </div>
-                                                        </div>
-                                                    </td>
+                                                   <td className="px-4 py-3">
+    <div 
+        className="flex items-center gap-3 cursor-pointer hover:opacity-80 transition-opacity" 
+        onClick={() => navigate(`/staff/view/profile/task?username=${staff.username}`)}
+    >
+        <div className="w-9 h-9 bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg flex items-center justify-center shadow-sm">
+            <span className="text-white font-semibold text-sm">
+                {staff.name?.charAt(0).toUpperCase() || 'S'}
+            </span>
+        </div>
+        <div>
+            <div className="font-medium text-slate-800 text-sm hover:text-blue-600">{staff.name}</div>
+            {staff.designation && (
+                <div className="text-slate-400 text-xs">{staff.designation}</div>
+            )}
+        </div>
+    </div>
+</td>
                                                     <td className="px-4 py-3">
                                                         <div className="text-slate-600 text-xs space-y-0.5">
                                                             <div className="flex items-center gap-1.5">
