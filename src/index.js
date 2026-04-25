@@ -74,7 +74,7 @@ import LedgerGroup from './finance/ledger-group';
 import ExpenseDetails from './pages/expense-details';
 import DiscountVoucherDetails from './pages/discount';
 import MyProfile from './components/myProfile';
-import PasswordGroupFirms from './staff/PasswordGroupFirms';
+import PasswordGroupFirms from './pages/office-assistance/PasswordGroupFirms';
 import TransactionHistory from './finance/bank/transaction-history';
 //Dashboard Components
 import TaskDetailedPage from './DashboardComponents/TaskDetailedPage';
@@ -170,8 +170,8 @@ root.render(
           <TaskProfile />
         </ProtectedRoute>
       } />
-      
- <Route path="/task/detailed" element={
+
+      <Route path="/task/detailed" element={
         <ProtectedRoute>
           <TaskDetailedPage />
         </ProtectedRoute>
@@ -563,7 +563,7 @@ root.render(
         </ProtectedRoute>
       } />
 
-<Route path="/service-sales-details" element={
+      <Route path="/service-sales-details" element={
         <ProtectedRoute>
           <ServiceWiseSales />
         </ProtectedRoute>
@@ -575,13 +575,13 @@ root.render(
         </ProtectedRoute>
       } />
 
-       <Route path="/clients/top" element={
+      <Route path="/clients/top" element={
         <ProtectedRoute>
           <TopClientsViewAll />
         </ProtectedRoute>
       } />
 
-         <Route path="/staff/team-report-details" element={
+      <Route path="/staff/team-report-details" element={
         <ProtectedRoute>
           <TaskDetailsPage />
         </ProtectedRoute>

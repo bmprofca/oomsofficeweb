@@ -1,112 +1,63 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import {
-    FiPlus, FiEdit, FiTrash, FiSettings, FiCheck, FiX,
-    FiMoreVertical, FiEye, FiHome, FiAlertCircle, FiFilter,
-    FiChevronLeft, FiChevronRight, FiCalendar, FiUser, FiGrid,
-    FiDownload, FiRefreshCw, FiShare2
+    FiPlus, FiEdit, FiTrash, FiKey, FiX,
+    FiMoreVertical, FiEye, FiBriefcase, FiAlertCircle,
+    FiCalendar, FiUser,
+    FiSearch, FiRefreshCw, FiFolder,
 } from 'react-icons/fi';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Header, Sidebar } from '../../components/header';
+import TablePagination from '../../components/TablePagination';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { toast, Toaster } from 'react-hot-toast';
+import { toast } from 'react-hot-toast';
 import { passwordGroupService } from '../../services/passwordGroupService';
+import { ViewportTooltip } from '../../components/ViewportTooltip';
 
-// Professional Toast Configuration
-const toastConfig = {
-    duration: 4000,
-    position: 'top-right',
-    style: {
-        borderRadius: '8px',
-        background: '#fff',
-        color: '#1e293b',
-        fontSize: '14px',
-        fontWeight: '500',
-        padding: '12px 16px',
-        boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
-        border: '1px solid #e2e8f0',
-        maxWidth: '380px',
-    },
-    success: {
-        style: {
-            background: '#fff',
-            color: '#059669',
-            border: '1px solid #d1fae5',
-        },
-        icon: '✓',
-    },
-    error: {
-        style: {
-            background: '#fff',
-            color: '#dc2626',
-            border: '1px solid #fee2e2',
-        },
-        icon: '✕',
-    },
-    loading: {
-        style: {
-            background: '#fff',
-            color: '#3b82f6',
-            border: '1px solid #dbeafe',
-        },
-        icon: '●',
-    },
+/** GET list may return `data` as an array or a legacy wrapped shape. */
+const normalizePasswordGroupList = (raw) => {
+    if (Array.isArray(raw)) return raw;
+    if (raw && Array.isArray(raw.groups)) return raw.groups;
+    if (raw && Array.isArray(raw.items)) return raw.items;
+    return [];
 };
 
-// Custom toast functions
-const showToast = {
-    success: (message, options = {}) => {
-        toast.success(message, {
-            ...toastConfig,
-            ...options,
-            icon: '✓',
-            style: {
-                ...toastConfig.style,
-                ...toastConfig.success.style,
-                ...options.style,
-            },
-        });
-    },
-    error: (message, options = {}) => {
-        toast.error(message, {
-            ...toastConfig,
-            ...options,
-            icon: '✕',
-            style: {
-                ...toastConfig.style,
-                ...toastConfig.error.style,
-                ...options.style,
-            },
-        });
-    },
-    loading: (message, options = {}) => {
-        return toast.loading(message, {
-            ...toastConfig,
-            ...options,
-            icon: '●',
-            style: {
-                ...toastConfig.style,
-                ...toastConfig.loading.style,
-                ...options.style,
-            },
-        });
-    },
-    info: (message, options = {}) => {
-        toast(message, {
-            ...toastConfig,
-            ...options,
-            icon: 'ℹ️',
-            style: {
-                ...toastConfig.style,
-                ...options.style,
-            },
-        });
-    },
-    dismiss: (toastId) => {
-        toast.dismiss(toastId);
-    },
-    dismissAll: () => {
-        toast.dismiss();
-    },
+/** `true` = active, `false` = inactive. Supports legacy `'active'` / `'inactive'`. */
+const isPasswordGroupActive = (status) =>
+    status === true ||
+    status === 'true' ||
+    String(status || '').toLowerCase() === 'active';
+
+const passwordGroupStatusLabel = (status) =>
+    isPasswordGroupActive(status) ? 'Active' : 'Inactive';
+
+const ACTIONS_MENU_WIDTH = 224;
+const ACTIONS_MENU_HEIGHT = 220;
+const MENU_EDGE_GAP = 4;
+
+const computeActionsMenuCoords = (buttonEl) => {
+    const rect = buttonEl.getBoundingClientRect();
+    const spaceBelow = window.innerHeight - rect.bottom;
+    const spaceRight = window.innerWidth - rect.right;
+    const alignRight = spaceRight < ACTIONS_MENU_WIDTH;
+
+    let left = alignRight ? rect.right - ACTIONS_MENU_WIDTH : rect.left;
+    left = Math.max(8, Math.min(left, window.innerWidth - ACTIONS_MENU_WIDTH - 8));
+
+    const topIfDown = rect.bottom + MENU_EDGE_GAP;
+    const wouldOverflowBottom = topIfDown + ACTIONS_MENU_HEIGHT > window.innerHeight - 8;
+    const openUp =
+        spaceBelow < ACTIONS_MENU_HEIGHT || (wouldOverflowBottom && spaceBelow < rect.top);
+
+    if (!openUp) {
+        return { placement: 'down', left, top: topIfDown };
+    }
+
+    return {
+        placement: 'up',
+        left,
+        bottom: window.innerHeight - rect.top + MENU_EDGE_GAP,
+    };
 };
 
 const PasswordGroups = () => {
@@ -126,15 +77,16 @@ const PasswordGroups = () => {
     const [showViewModal, setShowViewModal] = useState(false);
     const [selectedGroup, setSelectedGroup] = useState(null);
     const [activeDropdown, setActiveDropdown] = useState(null);
+    const [dropdownCoords, setDropdownCoords] = useState(null);
+    const dropdownAnchorRef = useRef(null);
     const [searchTerm, setSearchTerm] = useState(searchParams.get('search') || '');
     const [pagination, setPagination] = useState({
-        page: Number(searchParams.get('page')) || 1,
-        limit: Number(searchParams.get('limit')) || 20,
+        page: 1,
+        limit: 20,
         total: 0,
         total_pages: 1,
         is_last_page: false
     });
-    const [jumpPageInput, setJumpPageInput] = useState(String(Number(searchParams.get('page')) || 1));
     const [statusFilter] = useState('all');
 
     // Form states
@@ -165,8 +117,29 @@ const PasswordGroups = () => {
         };
     }, [mobileMenuOpen]);
 
+    // Drop legacy `page` / `limit` query keys so bookmarks do not keep them in the URL
+    useEffect(() => {
+        const next = new URLSearchParams(searchParams);
+        if (!next.has('page') && !next.has('limit')) return;
+        next.delete('page');
+        next.delete('limit');
+        setSearchParams(next, { replace: true });
+    }, [searchParams, setSearchParams]);
+
+    const closeActionsMenu = useCallback(() => {
+        setActiveDropdown(null);
+        setDropdownCoords(null);
+        dropdownAnchorRef.current = null;
+    }, []);
+
     const applyStatusFilter = (data, status) => {
         if (status === 'all') return data;
+        if (status === 'active') {
+            return (data || []).filter((group) => isPasswordGroupActive(group.status));
+        }
+        if (status === 'inactive') {
+            return (data || []).filter((group) => !isPasswordGroupActive(group.status));
+        }
         return (data || []).filter((group) => group.status === status);
     };
 
@@ -192,7 +165,7 @@ const PasswordGroups = () => {
             const result = response.data;
 
             if (result.success) {
-                const list = result.data || [];
+                const list = normalizePasswordGroupList(result.data);
                 setGroups(list);
                 setFilteredGroups(applyStatusFilter(list, statusFilter));
                 setPagination({
@@ -202,17 +175,17 @@ const PasswordGroups = () => {
                     total_pages: result.meta?.total_pages || 1,
                     is_last_page: result.meta?.is_last_page || false
                 });
-                setSearchParams({
-                    page: String(result.meta?.page || pageValue || 1),
-                    limit: String(result.meta?.limit || limitValue || 20),
-                    ...(searchValue?.trim() ? { search: searchValue.trim() } : {}),
-                });
+                if (searchValue?.trim()) {
+                    setSearchParams({ search: searchValue.trim() }, { replace: true });
+                } else {
+                    setSearchParams({}, { replace: true });
+                }
             } else {
-                showToast.error(result.message || 'Failed to fetch groups');
+                toast.error(result.message || 'Failed to fetch groups');
             }
         } catch (error) {
             console.error('Error fetching groups:', error);
-            showToast.error('Network error. Please check your connection.');
+            toast.error('Network error. Please check your connection.');
         } finally {
             setLoading(false);
         }
@@ -223,11 +196,11 @@ const PasswordGroups = () => {
         e.preventDefault();
 
         if (!createForm.group_name.trim()) {
-            showToast.error('Please enter a group name');
+            toast.error('Please enter a group name');
             return;
         }
 
-        const loadingToast = showToast.loading('Creating group...');
+        const loadingToast = toast.loading('Creating group...');
 
         try {
             const response = await passwordGroupService.createGroup({
@@ -235,20 +208,20 @@ const PasswordGroups = () => {
             });
             const result = response.data;
 
-            showToast.dismiss(loadingToast);
+            toast.dismiss(loadingToast);
 
             if (result.success) {
-                showToast.success(`Group "${createForm.group_name}" created successfully`);
+                toast.success(`Group "${createForm.group_name}" created successfully`);
                 await fetchGroupsData();
                 setShowCreateModal(false);
                 setCreateForm({ group_name: '' });
             } else {
-                showToast.error(result.message || 'Failed to create group');
+                toast.error(result.message || 'Failed to create group');
             }
         } catch (error) {
             console.error('Error creating group:', error);
-            showToast.dismiss(loadingToast);
-            showToast.error('Network error. Please check your connection.');
+            toast.dismiss(loadingToast);
+            toast.error('Network error. Please check your connection.');
         }
     };
 
@@ -257,34 +230,34 @@ const PasswordGroups = () => {
         e.preventDefault();
 
         if (!editForm.group_name.trim()) {
-            showToast.error('Please enter a group name');
+            toast.error('Please enter a group name');
             return;
         }
 
-        const loadingToast = showToast.loading('Updating group...');
+        const loadingToast = toast.loading('Updating group...');
 
         try {
             const response = await passwordGroupService.editGroup(editForm.group_id, {
                 group_name: editForm.group_name.trim(),
-                status: editForm.status || undefined,
+                status: editForm.status === 'active',
             });
             const result = response.data;
 
-            showToast.dismiss(loadingToast);
+            toast.dismiss(loadingToast);
 
             if (result.success) {
-                showToast.success(`Group "${editForm.group_name}" updated successfully`);
+                toast.success(`Group "${editForm.group_name}" updated successfully`);
                 await fetchGroupsData();
                 setShowEditModal(false);
                 setSelectedGroup(null);
                 setEditForm({ group_id: '', group_name: '', status: '' });
             } else {
-                showToast.error(result.message || 'Failed to update group');
+                toast.error(result.message || 'Failed to update group');
             }
         } catch (error) {
             console.error('Error editing group:', error);
-            showToast.dismiss(loadingToast);
-            showToast.error('Network error. Please check your connection.');
+            toast.dismiss(loadingToast);
+            toast.error('Network error. Please check your connection.');
         }
     };
 
@@ -294,76 +267,44 @@ const PasswordGroups = () => {
         setEditForm({
             group_id: group.group_id,
             group_name: group.group_name,
-            status: group.status
+            status: isPasswordGroupActive(group.status) ? 'active' : 'inactive',
         });
         setShowEditModal(true);
-        setActiveDropdown(null);
+        closeActionsMenu();
     };
 
-    // Handle delete button click
+    // Handle delete button click (UI also disables when firms are linked)
     const handleDeleteClick = (group) => {
-        if (group.total_credentials > 0) {
-            showToast.error('Cannot delete group with firms. Please remove all firms first.');
-            return;
-        }
+        if ((group.unique_firms ?? 0) > 0) return;
         setSelectedGroup(group);
         setShowDeleteModal(true);
-        setActiveDropdown(null);
+        closeActionsMenu();
     };
 
     // Handle delete confirm
     const handleDeleteConfirm = async () => {
         if (!selectedGroup) return;
 
-        const loadingToast = showToast.loading('Deleting group...');
+        const loadingToast = toast.loading('Deleting group...');
 
         try {
             const response = await passwordGroupService.deleteGroup(selectedGroup.group_id);
             const result = response.data;
 
-            showToast.dismiss(loadingToast);
+            toast.dismiss(loadingToast);
 
             if (result.success) {
-                showToast.success(`Group "${selectedGroup.group_name}" deleted successfully`);
+                toast.success(`Group "${selectedGroup.group_name}" deleted successfully`);
                 await fetchGroupsData();
                 setShowDeleteModal(false);
                 setSelectedGroup(null);
             } else {
-                showToast.error(result.message || 'Failed to delete group');
+                toast.error(result.message || 'Failed to delete group');
             }
         } catch (error) {
             console.error('Error deleting group:', error);
-            showToast.dismiss(loadingToast);
-            showToast.error('Network error. Please check your connection.');
-        }
-    };
-
-    // Handle status change
-    const handleStatusChange = async (group) => {
-        const newStatus = group.status === 'active' ? 'inactive' : 'active';
-        const action = newStatus === 'active' ? 'activated' : 'deactivated';
-
-        const loadingToast = showToast.loading(`Changing status...`);
-
-        try {
-            const response = await passwordGroupService.editGroup(group.group_id, {
-                group_name: group.group_name,
-                status: newStatus,
-            });
-            const result = response.data;
-
-            showToast.dismiss(loadingToast);
-
-            if (result.success) {
-                await fetchGroupsData();
-                showToast.success(`Group "${group.group_name}" ${action} successfully`);
-            } else {
-                showToast.error(result.message || 'Failed to change status');
-            }
-        } catch (error) {
-            console.error('Error changing status:', error);
-            showToast.dismiss(loadingToast);
-            showToast.error('Failed to change status');
+            toast.dismiss(loadingToast);
+            toast.error('Network error. Please check your connection.');
         }
     };
 
@@ -377,7 +318,7 @@ const PasswordGroups = () => {
     const handleViewDetailsClick = (group) => {
         setSelectedGroup(group);
         setShowViewModal(true);
-        setActiveDropdown(null);
+        closeActionsMenu();
     };
 
     // Handle group name click
@@ -390,24 +331,56 @@ const PasswordGroups = () => {
         handleViewGroupFirms(group);
     };
 
-    // Toggle dropdown
-    const toggleDropdown = (groupId) => {
-        setActiveDropdown(activeDropdown === groupId ? null : groupId);
+    const toggleDropdown = (groupId, buttonElement) => {
+        if (activeDropdown === groupId) {
+            closeActionsMenu();
+            return;
+        }
+        dropdownAnchorRef.current = buttonElement || null;
+        if (buttonElement) {
+            setDropdownCoords(computeActionsMenuCoords(buttonElement));
+        } else {
+            setDropdownCoords(null);
+        }
+        setActiveDropdown(groupId);
     };
 
-    // Close dropdown when clicking outside
+    useEffect(() => {
+        if (!activeDropdown || !dropdownAnchorRef.current) return;
+        const el = dropdownAnchorRef.current;
+        const update = () => setDropdownCoords(computeActionsMenuCoords(el));
+        update();
+        window.addEventListener('resize', update);
+        window.addEventListener('scroll', update, true);
+        return () => {
+            window.removeEventListener('resize', update);
+            window.removeEventListener('scroll', update, true);
+        };
+    }, [activeDropdown]);
+
     useEffect(() => {
         const handleClickOutside = (event) => {
-            if (!event.target.closest('.dropdown-container')) {
-                setActiveDropdown(null);
+            if (
+                event.target.closest('.dropdown-container') ||
+                event.target.closest('[data-password-groups-list-actions-menu]')
+            ) {
+                return;
             }
+            closeActionsMenu();
         };
 
         document.addEventListener('mousedown', handleClickOutside);
         return () => {
             document.removeEventListener('mousedown', handleClickOutside);
         };
-    }, []);
+    }, [closeActionsMenu]);
+
+    useEffect(() => {
+        if (!activeDropdown) return;
+        if (!filteredGroups.some((g) => g.group_id === activeDropdown)) {
+            closeActionsMenu();
+        }
+    }, [filteredGroups, activeDropdown, closeActionsMenu]);
 
     // Handle form changes
     const handleCreateChange = (field, value) => {
@@ -446,56 +419,13 @@ const PasswordGroups = () => {
         });
     };
 
-    // Handle pagination
-    const handleNextPage = () => {
-        if (!pagination.is_last_page) {
-            setPagination(prev => ({ ...prev, page: prev.page + 1 }));
-        }
-    };
-
-    const handlePrevPage = () => {
-        if (pagination.page > 1) {
-            setPagination(prev => ({ ...prev, page: prev.page - 1 }));
-        }
-    };
-
-    // Handle page change
-    const handlePageChange = (pageNum) => {
-        if (pageNum !== pagination.page) {
-            setPagination(prev => ({ ...prev, page: pageNum }));
-        }
-    };
-
-    const handleJumpToPage = (e) => {
-        e.preventDefault();
-        const parsedPage = Number(jumpPageInput);
-        if (!Number.isFinite(parsedPage)) {
-            setJumpPageInput(String(pagination.page));
-            return;
-        }
-        const clampedPage = Math.min(Math.max(1, Math.floor(parsedPage)), Math.max(1, pagination.total_pages));
-        setJumpPageInput(String(clampedPage));
-        handlePageChange(clampedPage);
-    };
-
-    useEffect(() => {
-        setJumpPageInput(String(pagination.page));
-    }, [pagination.page]);
+    const activeActionsGroup =
+        activeDropdown == null
+            ? null
+            : filteredGroups.find((g) => g.group_id === activeDropdown) ?? null;
 
     return (
         <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-50">
-            {/* Toaster Component for Toast Notifications */}
-            <Toaster
-                position="top-right"
-                toastOptions={{
-                    ...toastConfig,
-                    className: '',
-                    style: toastConfig.style,
-                    success: toastConfig.success,
-                    error: toastConfig.error,
-                }}
-            />
-
             <Header
                 mobileMenuOpen={mobileMenuOpen}
                 setMobileMenuOpen={setMobileMenuOpen}
@@ -512,89 +442,65 @@ const PasswordGroups = () => {
             {/* Main content */}
             <div className={`pt-16 transition-all duration-300 ease-in-out ${isMinimized ? 'md:pl-20' : 'md:pl-[260px]'}`}>
                 <div className="max-w-7xl mx-auto px-3 sm:px-5 lg:px-6 py-5 text-sm [&_h1]:text-2xl [&_h1]:font-bold [&_h2]:text-lg [&_h2]:font-bold [&_h3]:text-base [&_h3]:font-bold [&_label]:text-xs [&_label]:font-semibold [&_label]:text-slate-600 [&_th]:text-xs [&_th]:font-semibold [&_th]:text-slate-600 [&_td]:text-sm [&_input]:text-sm [&_input]:text-slate-700 [&_select]:text-sm [&_select]:text-slate-700 [&_textarea]:text-sm [&_textarea]:text-slate-700 [&_button]:text-sm [&_button]:font-semibold">
-                    {/* Header Section with Breadcrumb */}
-                    <div className="mb-5">
-                        <nav className="flex items-center text-sm text-slate-500 mb-3">
-                            <span
-                                onClick={() => navigate('/dashboard')}
-                                className="hover:text-indigo-600 cursor-pointer transition-colors"
-                            >
-                                Dashboard
-                            </span>
-                            <FiChevronRight className="w-4 h-4 mx-2" />
-                            <span
-                                onClick={() => navigate('/staff/office-assistance')}
-                                className="hover:text-indigo-600 cursor-pointer transition-colors"
-                            >
-                                Office Assistance
-                            </span>
-                            <FiChevronRight className="w-4 h-4 mx-2" />
-                            <span className="text-indigo-600 font-medium">Password Groups</span>
-                        </nav>
-
-                        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-                            <div className="flex items-center gap-3">
-                                <div className="p-3 bg-indigo-100 rounded-xl">
-                                    <FiGrid className="w-6 h-6 text-indigo-600" />
-                                </div>
-                                <div>
-                                    <h1 className="text-3xl font-bold text-slate-800">Password Groups</h1>
-                                </div>
-                            </div>
-                            <div className="flex items-center gap-3">
-                                <motion.button
-                                    whileHover={{ scale: 1.02 }}
-                                    whileTap={{ scale: 0.98 }}
-                                    onClick={handleRefresh}
-                                    className="p-2.5 text-slate-600 hover:text-indigo-600 bg-white hover:bg-indigo-50 rounded-xl border border-slate-200 transition-all duration-200"
-                                    title="Refresh data"
-                                >
-                                    <FiRefreshCw className="w-4 h-4" />
-                                </motion.button>
-                                <motion.button
-                                    whileHover={{ scale: 1.02 }}
-                                    whileTap={{ scale: 0.98 }}
-                                    onClick={() => setShowCreateModal(true)}
-                                    className="inline-flex items-center px-5 py-2.5 bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-700 hover:to-indigo-800 text-white text-sm font-medium rounded-xl shadow-lg shadow-indigo-200 hover:shadow-xl transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-                                >
-                                    <FiPlus className="w-4 h-4 mr-2" />
-                                    Create New Group
-                                </motion.button>
-                            </div>
-                        </div>
-                    </div>
-
                     {/* Main Card */}
                     <motion.div
                         initial={{ opacity: 0, y: 20 }}
                         animate={{ opacity: 1, y: 0 }}
-                        className="bg-white rounded-xl shadow-lg border border-slate-200"
+                        className="bg-white rounded-2xl shadow-xl border border-slate-200/80 overflow-hidden"
                     >
-                        {/* Card Header */}
-                        <div className="border-b border-slate-200 px-4 sm:px-5 py-4 bg-slate-50">
-                            <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
-                                <div className="flex items-center gap-3">
-                                    <div className="p-2 bg-indigo-50 rounded-lg">
-                                        <FiGrid className="w-5 h-5 text-indigo-600" />
+                        {/* Table toolbar: title, search, refresh, create */}
+                        <div className="border-b border-slate-200 px-4 sm:px-5 py-4 bg-gradient-to-r from-slate-50 to-white">
+                            <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+                                <div className="flex items-center gap-3 min-w-0">
+                                    <div className="p-2.5 bg-indigo-100 rounded-xl shrink-0">
+                                        <FiKey className="w-5 h-5 text-indigo-600" aria-hidden />
                                     </div>
-                                    <div>
-                                        <h2 className="text-lg font-semibold text-slate-800">
-                                            Groups Directory
+                                    <div className="min-w-0">
+                                        <h2 className="text-lg font-semibold text-slate-800 leading-tight">
+                                            Password Groups
                                         </h2>
+                                        <p className="text-xs text-slate-500 mt-0.5">
+                                            Credential groups for your office
+                                        </p>
                                     </div>
                                 </div>
 
-                                <div className="flex flex-col sm:flex-row gap-3">
-                                    {/* Search Component */}
-                                    <div className="relative w-full sm:w-72">
+                                <div className="flex flex-col sm:flex-row sm:items-stretch gap-2 sm:gap-3 w-full lg:w-auto lg:min-w-0 lg:flex-1 lg:justify-end">
+                                    <div className="relative w-full sm:flex-1 sm:max-w-xs lg:max-w-sm">
+                                        <span className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3 text-slate-400">
+                                            <FiSearch className="w-4 h-4 shrink-0" aria-hidden />
+                                        </span>
                                         <input
-                                            type="text"
-                                            placeholder="Search groups by name..."
+                                            type="search"
+                                            placeholder="Search by group name…"
                                             value={searchTerm}
                                             onChange={(e) => handleSearch(e.target.value)}
-                                            className="w-full px-4 py-2.5 pl-10 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white shadow-sm"
+                                            className="w-full py-2.5 pl-10 pr-3 border border-slate-200 rounded-xl text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-white shadow-sm"
+                                            aria-label="Search password groups"
                                         />
-                                        <FiFilter className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                                    </div>
+                                    <div className="flex items-center justify-end gap-2 shrink-0">
+                                        <motion.button
+                                            type="button"
+                                            whileHover={{ scale: 1.03 }}
+                                            whileTap={{ scale: 0.97 }}
+                                            onClick={handleRefresh}
+                                            disabled={loading}
+                                            className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-600 shadow-sm transition-colors hover:border-indigo-200 hover:bg-indigo-50 hover:text-indigo-600 disabled:opacity-50 disabled:pointer-events-none"
+                                            aria-label="Refresh list"
+                                        >
+                                            <FiRefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+                                        </motion.button>
+                                        <motion.button
+                                            type="button"
+                                            whileHover={{ scale: 1.02 }}
+                                            whileTap={{ scale: 0.98 }}
+                                            onClick={() => setShowCreateModal(true)}
+                                            className="inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-indigo-600 to-indigo-700 px-4 text-sm font-semibold text-white shadow-md shadow-indigo-200/60 transition-all hover:from-indigo-700 hover:to-indigo-800 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
+                                        >
+                                            <FiPlus className="w-4 h-4 shrink-0" aria-hidden />
+                                            <span>New group</span>
+                                        </motion.button>
                                     </div>
                                 </div>
                             </div>
@@ -603,24 +509,24 @@ const PasswordGroups = () => {
                         {/* Table */}
                         <div className="overflow-x-auto">
                             <table className="min-w-full divide-y divide-slate-200">
-                                <thead className="bg-slate-50">
+                                <thead className="bg-slate-100/90 border-b border-slate-200">
                                     <tr>
-                                        <th scope="col" className="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">
+                                        <th scope="col" className="px-3 py-2 text-left text-xs font-semibold text-slate-700 uppercase tracking-wide">
                                             #
                                         </th>
-                                        <th scope="col" className="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">
+                                        <th scope="col" className="px-3 py-2 text-left text-xs font-semibold text-slate-700 uppercase tracking-wide">
                                             Group Details
                                         </th>
-                                        <th scope="col" className="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">
+                                        <th scope="col" className="px-3 py-2 text-left text-xs font-semibold text-slate-700 uppercase tracking-wide">
                                             Firms
                                         </th>
-                                        <th scope="col" className="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">
+                                        <th scope="col" className="px-3 py-2 text-left text-xs font-semibold text-slate-700 uppercase tracking-wide">
                                             Status
                                         </th>
-                                        <th scope="col" className="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">
+                                        <th scope="col" className="px-3 py-2 text-left text-xs font-semibold text-slate-700 uppercase tracking-wide">
                                             Created
                                         </th>
-                                        <th scope="col" className="px-4 py-3 text-right text-xs font-semibold text-slate-600 uppercase tracking-wider">
+                                        <th scope="col" className="px-3 py-2 text-right text-xs font-semibold text-slate-700 uppercase tracking-wide">
                                             Actions
                                         </th>
                                     </tr>
@@ -631,8 +537,8 @@ const PasswordGroups = () => {
                                         Array.from({ length: 5 }).map((_, index) => (
                                             <tr key={index}>
                                                 {Array.from({ length: 6 }).map((_, cellIndex) => (
-                                                    <td key={cellIndex} className="px-4 py-3">
-                                                        <div className="h-4 bg-slate-200 rounded animate-pulse"></div>
+                                                    <td key={cellIndex} className="px-3 py-2">
+                                                        <div className="h-3.5 bg-slate-200 rounded animate-pulse" />
                                                     </td>
                                                 ))}
                                             </tr>
@@ -642,7 +548,7 @@ const PasswordGroups = () => {
                                             <td colSpan="6" className="px-4 py-12 text-center">
                                                 <div className="flex flex-col items-center">
                                                     <div className="p-4 bg-slate-100 rounded-full mb-4">
-                                                        <FiSettings className="w-8 h-8 text-slate-400" />
+                                                        <FiFolder className="w-8 h-8 text-slate-400" />
                                                     </div>
                                                     <p className="text-slate-600 text-lg font-medium mb-2">
                                                         No password groups found
@@ -664,30 +570,31 @@ const PasswordGroups = () => {
                                                 initial={{ opacity: 0 }}
                                                 animate={{ opacity: 1 }}
                                                 transition={{ delay: index * 0.05 }}
-                                                className="group hover:bg-gradient-to-r hover:from-indigo-50/50 hover:to-blue-50/50 transition-all duration-300"
+                                                className="group hover:bg-slate-50/90 transition-colors duration-150"
                                             >
-                                                <td className="px-4 py-3 whitespace-nowrap text-sm">
+                                                <td className="px-3 py-2 whitespace-nowrap text-sm">
                                                     <span className="inline-flex items-center justify-center w-7 h-7 bg-slate-100 text-slate-600 font-medium rounded-lg text-xs">
                                                         {((pagination.page - 1) * pagination.limit) + index + 1}
                                                     </span>
                                                 </td>
 
                                                 {/* Group Name - Clickable */}
-                                                <td className="px-4 py-3 whitespace-nowrap">
+                                                <td className="px-3 py-2 whitespace-nowrap">
                                                     <div className="flex items-center gap-2">
                                                         <button
+                                                            type="button"
                                                             onClick={() => handleGroupNameClick(group)}
-                                                            className="group/name flex items-center gap-2 focus:outline-none flex-1"
+                                                            className="group/name flex min-w-0 max-w-full flex-1 items-center gap-2 text-left focus:outline-none"
                                                         >
-                                                            <div className="p-2 bg-gradient-to-br from-indigo-50 to-blue-50 rounded-lg group-hover/name:scale-110 transition-transform duration-200">
-                                                                <FiSettings className="w-4 h-4 text-indigo-600" />
+                                                            <div className="rounded-lg bg-gradient-to-br from-indigo-50 to-blue-50 p-2 transition-transform duration-200 group-hover/name:scale-110">
+                                                                <FiFolder className="h-4 w-4 text-indigo-600" />
                                                             </div>
                                                             <div className="text-left">
                                                                 <span className="text-sm font-semibold text-slate-800 transition-colors duration-200">
                                                                     {group.group_name}
                                                                 </span>
                                                                 {group.description && (
-                                                                    <p className="text-xs text-slate-500 mt-0.5">{group.description}</p>
+                                                                    <p className="mt-0.5 text-xs text-slate-500">{group.description}</p>
                                                                 )}
                                                             </div>
                                                         </button>
@@ -695,37 +602,36 @@ const PasswordGroups = () => {
                                                 </td>
 
                                                 {/* Firms Count - Clickable Compact Badge */}
-                                                <td className="px-4 py-3 whitespace-nowrap">
+                                                <td className="px-3 py-2 whitespace-nowrap">
                                                     <button
+                                                        type="button"
                                                         onClick={() => handleFirmsClick(group)}
-                                                        className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-xs font-medium transition-all duration-200 focus:outline-none ${group.unique_firms > 0
-                                                            ? 'bg-blue-50 border-blue-200 text-blue-700 hover:bg-blue-100'
-                                                            : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100'
+                                                        className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium transition-all duration-200 focus:outline-none ${group.unique_firms > 0
+                                                            ? 'border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100'
+                                                            : 'border-slate-200 bg-slate-50 text-slate-600 hover:bg-slate-100'
                                                             }`}
                                                     >
-                                                        <FiHome className={`w-3.5 h-3.5 ${group.unique_firms > 0 ? 'text-blue-600' : 'text-slate-500'
-                                                            }`} />
+                                                        <FiBriefcase className={`h-3.5 w-3.5 ${group.unique_firms > 0 ? 'text-blue-600' : 'text-slate-500'}`} />
                                                         <span>{group.unique_firms || 0} firms</span>
                                                     </button>
                                                 </td>
 
-                                                {/* Status with Toggle */}
-                                                <td className="px-4 py-3 whitespace-nowrap">
-                                                    <button
-                                                        onClick={() => handleStatusChange(group)}
-                                                        className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium transition-all duration-200 ${group.status === 'active'
-                                                            ? 'bg-gradient-to-r from-green-100 to-emerald-100 text-green-700 hover:from-green-200 hover:to-emerald-200 border border-green-200'
-                                                            : 'bg-gradient-to-r from-slate-100 to-gray-100 text-slate-600 hover:from-slate-200 hover:to-gray-200 border border-slate-200'
+                                                {/* Status (read-only; change via Edit) */}
+                                                <td className="px-3 py-2 whitespace-nowrap">
+                                                    <div
+                                                        role="status"
+                                                        className={`inline-flex items-center gap-2 rounded-full border px-2.5 py-1 text-xs font-medium ${isPasswordGroupActive(group.status)
+                                                            ? 'border-green-200 bg-gradient-to-r from-green-100 to-emerald-100 text-green-700'
+                                                            : 'border-slate-200 bg-gradient-to-r from-slate-100 to-gray-100 text-slate-600'
                                                             }`}
-                                                        title={`Click to ${group.status === 'active' ? 'deactivate' : 'activate'}`}
                                                     >
-                                                        <span className={`w-2 h-2 rounded-full ${group.status === 'active' ? 'bg-green-500 animate-pulse' : 'bg-slate-400'}`} />
-                                                        {group.status === 'active' ? 'Active' : 'Inactive'}
-                                                    </button>
+                                                        <span className={`h-2 w-2 shrink-0 rounded-full ${isPasswordGroupActive(group.status) ? 'bg-green-500' : 'bg-slate-400'}`} />
+                                                        {passwordGroupStatusLabel(group.status)}
+                                                    </div>
                                                 </td>
 
                                                 {/* Created Info */}
-                                                <td className="px-4 py-3 whitespace-nowrap">
+                                                <td className="px-3 py-2 whitespace-nowrap">
                                                     <div className="flex items-center gap-2">
                                                         <FiCalendar className="w-3.5 h-3.5 text-slate-400" />
                                                         <div>
@@ -743,59 +649,17 @@ const PasswordGroups = () => {
                                                 </td>
 
                                                 {/* Actions */}
-                                                <td className="px-4 py-3 whitespace-nowrap text-right">
-                                                    <div className="relative dropdown-container">
+                                                <td className="px-3 py-2 whitespace-nowrap text-right">
+                                                    <div className="relative dropdown-container inline-block">
                                                         <button
-                                                            onClick={() => toggleDropdown(group.group_id)}
-                                                            className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-all duration-200"
-                                                            title="More actions"
+                                                            type="button"
+                                                            onClick={(e) => toggleDropdown(group.group_id, e.currentTarget)}
+                                                            className="rounded-lg p-1.5 text-slate-400 transition-colors duration-150 hover:bg-indigo-50 hover:text-indigo-600"
+                                                            aria-label="More actions"
+                                                            aria-expanded={activeDropdown === group.group_id}
                                                         >
-                                                            <FiMoreVertical className="w-5 h-5" />
+                                                            <FiMoreVertical className="h-5 w-5" />
                                                         </button>
-
-                                                        <AnimatePresence>
-                                                            {activeDropdown === group.group_id && (
-                                                                <motion.div
-                                                                    initial={{ opacity: 0, y: index >= filteredGroups.length - 2 ? 8 : -8, scale: 0.95 }}
-                                                                    animate={{ opacity: 1, y: 0, scale: 1 }}
-                                                                    exit={{ opacity: 0, y: index >= filteredGroups.length - 2 ? 8 : -8, scale: 0.95 }}
-                                                                    transition={{ duration: 0.15 }}
-                                                                    className={`absolute right-0 w-56 bg-white rounded-xl shadow-2xl border border-slate-200 z-[9999] overflow-hidden ${index >= filteredGroups.length - 2 ? 'bottom-full mb-2' : 'top-full mt-2'}`}
-                                                                >
-                                                                    <div className="py-1">
-                                                                        <button
-                                                                            onClick={() => handleViewDetailsClick(group)}
-                                                                            className="flex items-center w-full px-4 py-3 text-sm text-slate-700 hover:bg-gradient-to-r hover:from-indigo-50 hover:to-blue-50 transition-all duration-200"
-                                                                        >
-                                                                            <div className="p-1.5 bg-indigo-100 rounded-lg mr-3">
-                                                                                <FiEye className="w-3.5 h-3.5 text-indigo-600" />
-                                                                            </div>
-                                                                            <span>View Details</span>
-                                                                        </button>
-
-                                                                        <button
-                                                                            onClick={() => handleEditClick(group)}
-                                                                            className="flex items-center w-full px-4 py-3 text-sm text-slate-700 hover:bg-gradient-to-r hover:from-amber-50 hover:to-yellow-50 transition-all duration-200"
-                                                                        >
-                                                                            <div className="p-1.5 bg-amber-100 rounded-lg mr-3">
-                                                                                <FiEdit className="w-3.5 h-3.5 text-amber-600" />
-                                                                            </div>
-                                                                            <span>Edit Group</span>
-                                                                        </button>
-
-                                                                        <button
-                                                                            onClick={() => handleDeleteClick(group)}
-                                                                            className="flex items-center w-full px-4 py-3 text-sm text-red-600 hover:bg-gradient-to-r hover:from-red-50 hover:to-rose-50 transition-all duration-200"
-                                                                        >
-                                                                            <div className="p-1.5 bg-red-100 rounded-lg mr-3">
-                                                                                <FiTrash className="w-3.5 h-3.5 text-red-600" />
-                                                                            </div>
-                                                                            <span>Delete Group</span>
-                                                                        </button>
-                                                                    </div>
-                                                                </motion.div>
-                                                            )}
-                                                        </AnimatePresence>
                                                     </div>
                                                 </td>
                                             </motion.tr>
@@ -805,159 +669,109 @@ const PasswordGroups = () => {
                             </table>
                         </div>
 
-                        {/* Table Footer with Pagination */}
-                        <div className="border-t border-slate-200 px-4 py-3 bg-slate-50">
-                            <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
-                                <div className="text-sm text-slate-500">
-                                    Showing{' '}
-                                    <span className="font-medium text-slate-700">
-                                        {pagination.total === 0 ? 0 : ((pagination.page - 1) * pagination.limit) + 1}
-                                    </span>{' '}
-                                    to{' '}
-                                    <span className="font-medium text-slate-700">
-                                        {Math.min(pagination.page * pagination.limit, pagination.total)}
-                                    </span>{' '}
-                                    of <span className="font-medium text-slate-700">{pagination.total}</span>
-                                </div>
-
-                                <div className="flex flex-wrap items-center gap-2">
-                                    <button
-                                        onClick={handlePrevPage}
-                                        disabled={pagination.page === 1}
-                                        className={`inline-flex items-center px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${pagination.page === 1
-                                            ? 'text-slate-400 cursor-not-allowed'
-                                            : 'text-slate-700 hover:bg-indigo-50 hover:text-indigo-600'
-                                            }`}
-                                    >
-                                        <FiChevronLeft className="w-4 h-4 mr-1" />
-                                        Previous
-                                    </button>
-
-                                    <div className="flex items-center gap-1">
-                                        {Array.from({ length: Math.min(5, pagination.total_pages) }, (_, i) => {
-                                            let pageNum = pagination.page;
-                                            if (pagination.total_pages <= 5) {
-                                                pageNum = i + 1;
-                                            } else if (pagination.page <= 3) {
-                                                pageNum = i + 1;
-                                            } else if (pagination.page >= pagination.total_pages - 2) {
-                                                pageNum = pagination.total_pages - 4 + i;
-                                            } else {
-                                                pageNum = pagination.page - 2 + i;
-                                            }
-
-                                            return (
-                                                <button
-                                                    key={i}
-                                                    onClick={() => handlePageChange(pageNum)}
-                                                    className={`w-8 h-8 rounded-lg text-sm font-medium transition-all duration-200 ${pagination.page === pageNum
-                                                        ? 'bg-indigo-600 text-white'
-                                                        : 'text-slate-700 hover:bg-indigo-50'
-                                                        }`}
-                                                >
-                                                    {pageNum}
-                                                </button>
-                                            );
-                                        })}
-                                    </div>
-
-                                    <button
-                                        onClick={handleNextPage}
-                                        disabled={pagination.is_last_page}
-                                        className={`inline-flex items-center px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${pagination.is_last_page
-                                            ? 'text-slate-400 cursor-not-allowed'
-                                            : 'text-slate-700 hover:bg-indigo-50 hover:text-indigo-600'
-                                            }`}
-                                    >
-                                        Next
-                                        <FiChevronRight className="w-4 h-4 ml-1" />
-                                    </button>
-
-                                    <form onSubmit={handleJumpToPage} className="flex items-center gap-1 ml-0 sm:ml-2">
-                                        <input
-                                            type="number"
-                                            min="1"
-                                            max={Math.max(1, pagination.total_pages)}
-                                            value={jumpPageInput}
-                                            onChange={(e) => setJumpPageInput(e.target.value)}
-                                            className="w-16 px-2 py-1.5 border border-slate-300 rounded-md text-sm text-center focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                                            aria-label="Jump to page"
-                                        />
-                                        <button
-                                            type="submit"
-                                            className="px-2.5 py-1.5 rounded-md text-sm font-medium text-slate-700 hover:bg-indigo-50 hover:text-indigo-600 transition-colors"
-                                        >
-                                            Go
-                                        </button>
-                                    </form>
-                                </div>
-                            </div>
-                        </div>
+                        <TablePagination
+                            showRange
+                            showRows
+                            rowOptions={[5, 10, 20, 50, 100]}
+                            defaultRows={20}
+                            showJump
+                            showFirstLast
+                            page={pagination.page}
+                            limit={pagination.limit}
+                            total={pagination.total}
+                            totalPages={pagination.total_pages}
+                            isLastPage={pagination.is_last_page}
+                            onPageChange={(nextPage) =>
+                                setPagination((prev) => ({ ...prev, page: nextPage }))
+                            }
+                            onLimitChange={(nextLimit) => {
+                                const safe = Math.min(100, Math.max(1, Number(nextLimit) || 20));
+                                setPagination((prev) => ({ ...prev, page: 1, limit: safe }));
+                            }}
+                        />
                     </motion.div>
                 </div>
             </div>
 
-            {/* Create Modal */}
+            {/* Create Modal — layout per context/modal.md */}
             <AnimatePresence>
                 {showCreateModal && (
-                    <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50 backdrop-blur-sm" onClick={() => setShowCreateModal(false)}>
+                    <div
+                        className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black/50 p-3 backdrop-blur-sm sm:p-4"
+                        onClick={() => setShowCreateModal(false)}
+                    >
                         <motion.div
-                            initial={{ opacity: 0, scale: 0.9, y: 20 }}
+                            initial={{ opacity: 0, scale: 0.96, y: 16 }}
                             animate={{ opacity: 1, scale: 1, y: 0 }}
-                            exit={{ opacity: 0, scale: 0.9, y: 20 }}
-                            className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden"
+                            exit={{ opacity: 0, scale: 0.96, y: 16 }}
+                            transition={{ duration: 0.2 }}
+                            className="flex min-h-0 w-full max-w-md flex-col overflow-hidden rounded-2xl bg-white shadow-2xl max-h-[calc(100vh-1.5rem)] sm:max-h-[calc(100vh-2rem)]"
                             onClick={(e) => e.stopPropagation()}
                         >
-                            <div className="bg-gradient-to-r from-indigo-600 to-indigo-700 px-6 py-5">
-                                <div className="flex items-center gap-3">
-                                    <div className="p-2 bg-white/20 rounded-xl">
-                                        <FiPlus className="w-5 h-5 text-white" />
+                            <div className="shrink-0 bg-gradient-to-r from-indigo-600 to-indigo-700 px-5 py-3.5">
+                                <div className="flex items-center justify-between gap-3">
+                                    <div className="flex min-w-0 items-center gap-3">
+                                        <div className="shrink-0 rounded-xl bg-white/20 p-2">
+                                            <FiPlus className="h-5 w-5 text-white" />
+                                        </div>
+                                        <h3 className="truncate text-lg font-semibold text-white">Create New Group</h3>
                                     </div>
-                                    <div>
-                                        <h3 className="text-lg font-semibold text-white">Create New Group</h3>
-                                    </div>
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowCreateModal(false)}
+                                        className="shrink-0 rounded-lg p-2 transition-colors hover:bg-white/10"
+                                        aria-label="Close"
+                                    >
+                                        <FiX className="h-5 w-5 text-white" />
+                                    </button>
                                 </div>
                             </div>
 
-                            <form onSubmit={handleCreateSubmit}>
-                                <div className="px-6 py-6">
-                                    <label className="block text-sm font-semibold text-slate-700 mb-2">
+                            <form onSubmit={handleCreateSubmit} className="flex min-h-0 flex-1 flex-col overflow-hidden">
+                                <div
+                                    className="min-h-0 flex-1 overflow-y-auto px-5 py-4 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden"
+                                    style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+                                >
+                                    <label className="mb-2 block text-sm font-semibold text-slate-700" htmlFor="pg-create-name">
                                         Group Name <span className="text-red-500">*</span>
                                     </label>
                                     <input
+                                        id="pg-create-name"
                                         type="text"
                                         value={createForm.group_name}
                                         onChange={(e) => handleCreateChange('group_name', e.target.value)}
-                                        className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-white shadow-sm transition-all duration-200"
+                                        className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm transition-all duration-200 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500"
                                         placeholder="Enter group name (e.g., Banking Portals)"
                                         required
                                         autoFocus
                                     />
                                 </div>
 
-                                <div className="px-6 py-4 border-t border-slate-200 bg-slate-50/50 flex justify-end gap-3">
+                                <div className="flex shrink-0 justify-end gap-3 border-t border-slate-200 bg-slate-50/50 px-5 py-3">
                                     <button
                                         type="button"
                                         onClick={() => setShowCreateModal(false)}
-                                        className="px-5 py-2.5 text-sm font-medium text-slate-700 hover:bg-white hover:border-slate-300 rounded-xl border border-slate-200 transition-all duration-200"
+                                        className="rounded-xl border border-slate-200 px-5 py-2.5 text-sm font-medium text-slate-700 transition-all duration-200 hover:border-slate-300 hover:bg-white"
                                         disabled={loading}
                                     >
                                         Cancel
                                     </button>
                                     <button
                                         type="submit"
-                                        className="px-5 py-2.5 bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-700 hover:to-indigo-800 text-white text-sm font-medium rounded-xl shadow-lg shadow-indigo-200 hover:shadow-xl transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
-                                        disabled={loading}
+                                        className="rounded-xl bg-gradient-to-r from-indigo-600 to-indigo-700 px-5 py-2.5 text-sm font-medium text-white shadow-lg shadow-indigo-200 transition-all duration-200 hover:from-indigo-700 hover:to-indigo-800 disabled:cursor-not-allowed disabled:opacity-50"
+                                        disabled={loading || !createForm.group_name.trim()}
                                     >
                                         {loading ? (
                                             <span className="flex items-center gap-2">
-                                                <svg className="animate-spin h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                                                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                                                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                                <svg className="h-4 w-4 animate-spin text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                                                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
                                                 </svg>
-                                                Creating...
+                                                Creating…
                                             </span>
-                                        ) : 'Create Group'}
+                                        ) : (
+                                            'Create Group'
+                                        )}
                                     </button>
                                 </div>
                             </form>
@@ -966,75 +780,111 @@ const PasswordGroups = () => {
                 )}
             </AnimatePresence>
 
-            {/* Edit Modal */}
+            {/* Edit Modal — layout per context/modal.md */}
             <AnimatePresence>
                 {showEditModal && selectedGroup && (
-                    <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50 backdrop-blur-sm" onClick={() => setShowEditModal(false)}>
+                    <div
+                        className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black/50 p-3 backdrop-blur-sm sm:p-4"
+                        onClick={() => setShowEditModal(false)}
+                    >
                         <motion.div
-                            initial={{ opacity: 0, scale: 0.9, y: 20 }}
+                            initial={{ opacity: 0, scale: 0.96, y: 16 }}
                             animate={{ opacity: 1, scale: 1, y: 0 }}
-                            exit={{ opacity: 0, scale: 0.9, y: 20 }}
-                            className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden"
+                            exit={{ opacity: 0, scale: 0.96, y: 16 }}
+                            transition={{ duration: 0.2 }}
+                            className="flex min-h-0 w-full max-w-md flex-col overflow-hidden rounded-2xl bg-white shadow-2xl max-h-[calc(100vh-1.5rem)] sm:max-h-[calc(100vh-2rem)]"
                             onClick={(e) => e.stopPropagation()}
                         >
-                            <div className="bg-gradient-to-r from-amber-600 to-amber-700 px-6 py-5">
-                                <div className="flex items-center gap-3">
-                                    <div className="p-2 bg-white/20 rounded-xl">
-                                        <FiEdit className="w-5 h-5 text-white" />
+                            <div className="shrink-0 bg-gradient-to-r from-amber-600 to-amber-700 px-5 py-3.5">
+                                <div className="flex items-center justify-between gap-3">
+                                    <div className="flex min-w-0 items-center gap-3">
+                                        <div className="shrink-0 rounded-xl bg-white/20 p-2">
+                                            <FiEdit className="h-5 w-5 text-white" />
+                                        </div>
+                                        <h3 className="truncate text-lg font-semibold text-white">Edit Group</h3>
                                     </div>
-                                    <div>
-                                        <h3 className="text-lg font-semibold text-white">Edit Group</h3>
-                                    </div>
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowEditModal(false)}
+                                        className="shrink-0 rounded-lg p-2 transition-colors hover:bg-white/10"
+                                        aria-label="Close"
+                                    >
+                                        <FiX className="h-5 w-5 text-white" />
+                                    </button>
                                 </div>
                             </div>
 
-                            <form onSubmit={handleEditSubmit}>
-                                <div className="px-6 py-6 space-y-5">
+                            <form onSubmit={handleEditSubmit} className="flex min-h-0 flex-1 flex-col overflow-hidden">
+                                <div
+                                    className="min-h-0 flex-1 space-y-5 overflow-y-auto px-5 py-4 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden"
+                                    style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+                                >
                                     <div>
-                                        <label className="block text-sm font-semibold text-slate-700 mb-2">
+                                        <label className="mb-2 block text-sm font-semibold text-slate-700" htmlFor="pg-edit-name">
                                             Group Name <span className="text-red-500">*</span>
                                         </label>
                                         <input
+                                            id="pg-edit-name"
                                             type="text"
                                             value={editForm.group_name}
                                             onChange={(e) => handleEditChange('group_name', e.target.value)}
-                                            className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-amber-500 bg-white shadow-sm transition-all duration-200"
+                                            className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm transition-all duration-200 focus:border-amber-500 focus:outline-none focus:ring-2 focus:ring-amber-500"
                                             placeholder="Enter group name"
                                             required
                                             autoFocus
                                         />
                                     </div>
 
-                                    <div>
-                                        <label className="block text-sm font-semibold text-slate-700 mb-2">
-                                            Status
-                                        </label>
-                                        <select
-                                            value={editForm.status}
-                                            onChange={(e) => handleEditChange('status', e.target.value)}
-                                            className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-amber-500 bg-white shadow-sm transition-all duration-200"
-                                        >
-                                            <option value="active">Active</option>
-                                            <option value="inactive">Inactive</option>
-                                        </select>
+                                    <div className="rounded-xl border border-slate-200 bg-slate-50/90 px-4 py-3.5">
+                                        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                                            <p className="text-sm font-semibold text-slate-800">Status</p>
+                                            <div className="flex items-center gap-3 sm:shrink-0">
+                                                <span
+                                                    className={`min-w-[4.25rem] text-right text-sm font-semibold tabular-nums ${editForm.status === 'active' ? 'text-emerald-700' : 'text-slate-600'}`}
+                                                >
+                                                    {editForm.status === 'active' ? 'Active' : 'Inactive'}
+                                                </span>
+                                                <button
+                                                    type="button"
+                                                    role="switch"
+                                                    aria-checked={editForm.status === 'active'}
+                                                    aria-label={editForm.status === 'active' ? 'Set inactive' : 'Set active'}
+                                                    onClick={() =>
+                                                        handleEditChange('status', editForm.status === 'active' ? 'inactive' : 'active')
+                                                    }
+                                                    className={`relative h-8 w-12 shrink-0 rounded-full p-0.5 shadow-inner transition-colors duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 focus-visible:ring-offset-2 ${
+                                                        editForm.status === 'active'
+                                                            ? 'bg-emerald-500 ring-1 ring-emerald-600/30'
+                                                            : 'bg-slate-300 ring-1 ring-slate-400/25'
+                                                    }`}
+                                                >
+                                                    <motion.span
+                                                        initial={false}
+                                                        transition={{ type: 'spring', stiffness: 480, damping: 32 }}
+                                                        className="block h-6 w-6 rounded-full bg-white shadow-[0_1px_3px_rgba(0,0,0,0.18)] ring-1 ring-slate-900/[0.06]"
+                                                        animate={{ x: editForm.status === 'active' ? 20 : 0 }}
+                                                    />
+                                                </button>
+                                            </div>
+                                        </div>
                                     </div>
                                 </div>
 
-                                <div className="px-6 py-4 border-t border-slate-200 bg-slate-50/50 flex justify-end gap-3">
+                                <div className="flex shrink-0 justify-end gap-3 border-t border-slate-200 bg-slate-50/50 px-5 py-3">
                                     <button
                                         type="button"
                                         onClick={() => setShowEditModal(false)}
-                                        className="px-5 py-2.5 text-sm font-medium text-slate-700 hover:bg-white hover:border-slate-300 rounded-xl border border-slate-200 transition-all duration-200"
+                                        className="rounded-xl border border-slate-200 px-5 py-2.5 text-sm font-medium text-slate-700 transition-all duration-200 hover:border-slate-300 hover:bg-white"
                                         disabled={loading}
                                     >
                                         Cancel
                                     </button>
                                     <button
                                         type="submit"
-                                        className="px-5 py-2.5 bg-gradient-to-r from-amber-600 to-amber-700 hover:from-amber-700 hover:to-amber-800 text-white text-sm font-medium rounded-xl shadow-lg shadow-amber-200 hover:shadow-xl transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
-                                        disabled={loading}
+                                        className="rounded-xl bg-gradient-to-r from-amber-600 to-amber-700 px-5 py-2.5 text-sm font-medium text-white shadow-lg shadow-amber-200 transition-all duration-200 hover:from-amber-700 hover:to-amber-800 disabled:cursor-not-allowed disabled:opacity-50"
+                                        disabled={loading || !editForm.group_name.trim()}
                                     >
-                                        {loading ? 'Updating...' : 'Update Group'}
+                                        {loading ? 'Updating…' : 'Update Group'}
                                     </button>
                                 </div>
                             </form>
@@ -1043,54 +893,75 @@ const PasswordGroups = () => {
                 )}
             </AnimatePresence>
 
-            {/* View Details Modal */}
+            {/* View Details Modal — layout per context/modal.md */}
             <AnimatePresence>
                 {showViewModal && selectedGroup && (
-                    <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50 backdrop-blur-sm" onClick={() => setShowViewModal(false)}>
+                    <div
+                        className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black/50 p-3 backdrop-blur-sm sm:p-4"
+                        onClick={() => setShowViewModal(false)}
+                    >
                         <motion.div
-                            initial={{ opacity: 0, scale: 0.95, y: 12 }}
+                            initial={{ opacity: 0, scale: 0.96, y: 16 }}
                             animate={{ opacity: 1, scale: 1, y: 0 }}
-                            exit={{ opacity: 0, scale: 0.95, y: 12 }}
-                            className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden"
+                            exit={{ opacity: 0, scale: 0.96, y: 16 }}
+                            transition={{ duration: 0.2 }}
+                            className="flex min-h-0 w-full max-w-2xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl max-h-[calc(100vh-1.5rem)] sm:max-h-[calc(100vh-2rem)]"
                             onClick={(e) => e.stopPropagation()}
                         >
-                            <div className="bg-gradient-to-r from-indigo-600 to-indigo-700 px-6 py-5">
-                                <div className="flex items-center gap-3">
-                                    <div className="p-2 bg-white/20 rounded-xl">
-                                        <FiEye className="w-5 h-5 text-white" />
+                            <div className="bg-gradient-to-r from-indigo-600 to-indigo-700 px-5 py-3.5 shrink-0">
+                                <div className="flex items-center justify-between gap-3">
+                                    <div className="flex items-center gap-3 min-w-0">
+                                        <div className="p-2 bg-white/20 rounded-xl shrink-0">
+                                            <FiEye className="w-5 h-5 text-white" />
+                                        </div>
+                                        <h3 className="text-lg font-semibold text-white truncate">Group Details</h3>
                                     </div>
-                                    <h3 className="text-lg font-semibold text-white">Group Details</h3>
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowViewModal(false)}
+                                        className="p-2 hover:bg-white/10 rounded-lg transition-colors shrink-0"
+                                        aria-label="Close"
+                                    >
+                                        <FiX className="w-5 h-5 text-white" />
+                                    </button>
                                 </div>
                             </div>
 
-                            <div className="px-6 py-5 grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
-                                    <p className="text-xs font-medium text-slate-500">Group Name</p>
-                                    <p className="mt-1 text-sm font-semibold text-slate-800">{selectedGroup.group_name || '-'}</p>
-                                </div>
-                                <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
-                                    <p className="text-xs font-medium text-slate-500">Status</p>
-                                    <p className="mt-1 text-sm font-semibold text-slate-800">{selectedGroup.status || '-'}</p>
-                                </div>
-                                <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
-                                    <p className="text-xs font-medium text-slate-500">Total Credentials</p>
-                                    <p className="mt-1 text-sm font-semibold text-slate-800">{selectedGroup.total_credentials ?? 0}</p>
-                                </div>
-                                <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
-                                    <p className="text-xs font-medium text-slate-500">Unique Firms</p>
-                                    <p className="mt-1 text-sm font-semibold text-slate-800">{selectedGroup.unique_firms ?? 0}</p>
-                                </div>
-                                <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
-                                    <p className="text-xs font-medium text-slate-500">Created By</p>
-                                    <p className="mt-1 text-sm font-semibold text-slate-800">{selectedGroup.created_by?.name || '-'}</p>
-                                </div>
-                                <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
-                                    <p className="text-xs font-medium text-slate-500">Created On</p>
-                                    <p className="mt-1 text-sm font-semibold text-slate-800">{formatDate(selectedGroup.create_date)}</p>
+                            <div
+                                className="px-5 py-4 overflow-y-auto flex-1 min-h-0 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden"
+                                style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+                            >
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                    <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+                                        <p className="text-xs font-medium text-slate-500">Group Name</p>
+                                        <p className="mt-1 text-sm font-semibold text-slate-800">{selectedGroup.group_name || '-'}</p>
+                                    </div>
+                                    <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+                                        <p className="text-xs font-medium text-slate-500">Status</p>
+                                        <p className="mt-1 text-sm font-semibold text-slate-800">
+                                            {passwordGroupStatusLabel(selectedGroup.status)}
+                                        </p>
+                                    </div>
+                                    <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+                                        <p className="text-xs font-medium text-slate-500">Total Credentials</p>
+                                        <p className="mt-1 text-sm font-semibold text-slate-800">{selectedGroup.total_credentials ?? 0}</p>
+                                    </div>
+                                    <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+                                        <p className="text-xs font-medium text-slate-500">Unique Firms</p>
+                                        <p className="mt-1 text-sm font-semibold text-slate-800">{selectedGroup.unique_firms ?? 0}</p>
+                                    </div>
+                                    <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+                                        <p className="text-xs font-medium text-slate-500">Created By</p>
+                                        <p className="mt-1 text-sm font-semibold text-slate-800">{selectedGroup.created_by?.name || '-'}</p>
+                                    </div>
+                                    <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+                                        <p className="text-xs font-medium text-slate-500">Created On</p>
+                                        <p className="mt-1 text-sm font-semibold text-slate-800">{formatDate(selectedGroup.create_date)}</p>
+                                    </div>
                                 </div>
                             </div>
 
-                            <div className="px-6 py-4 border-t border-slate-200 bg-slate-50/60 flex justify-end">
+                            <div className="px-5 py-3 border-t border-slate-200 bg-slate-50/60 flex justify-end shrink-0">
                                 <button
                                     type="button"
                                     onClick={() => setShowViewModal(false)}
@@ -1104,67 +975,167 @@ const PasswordGroups = () => {
                 )}
             </AnimatePresence>
 
-            {/* Delete Modal */}
+            {/* Delete Modal — layout per context/modal.md */}
             <AnimatePresence>
                 {showDeleteModal && selectedGroup && (
-                    <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50 backdrop-blur-sm" onClick={() => setShowDeleteModal(false)}>
+                    <div
+                        className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black/50 p-3 backdrop-blur-sm sm:p-4"
+                        onClick={() => setShowDeleteModal(false)}
+                    >
                         <motion.div
-                            initial={{ opacity: 0, scale: 0.9, y: 20 }}
+                            initial={{ opacity: 0, scale: 0.96, y: 16 }}
                             animate={{ opacity: 1, scale: 1, y: 0 }}
-                            exit={{ opacity: 0, scale: 0.9, y: 20 }}
-                            className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden"
+                            exit={{ opacity: 0, scale: 0.96, y: 16 }}
+                            transition={{ duration: 0.2 }}
+                            className="flex min-h-0 w-full max-w-md flex-col overflow-hidden rounded-2xl bg-white shadow-2xl max-h-[calc(100vh-1.5rem)] sm:max-h-[calc(100vh-2rem)]"
                             onClick={(e) => e.stopPropagation()}
                         >
-                            <div className="bg-gradient-to-r from-red-600 to-red-700 px-6 py-5">
-                                <div className="flex items-center gap-3">
-                                    <div className="p-2 bg-white/20 rounded-xl">
-                                        <FiAlertCircle className="w-5 h-5 text-white" />
+                            <div className="shrink-0 bg-gradient-to-r from-red-600 to-red-700 px-5 py-3.5">
+                                <div className="flex items-center justify-between gap-3">
+                                    <div className="flex min-w-0 items-center gap-3">
+                                        <div className="shrink-0 rounded-xl bg-white/20 p-2">
+                                            <FiAlertCircle className="h-5 w-5 text-white" />
+                                        </div>
+                                        <h3 className="truncate text-lg font-semibold text-white">Delete Group</h3>
                                     </div>
-                                    <div>
-                                        <h3 className="text-lg font-semibold text-white">Delete Group</h3>
-                                    </div>
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowDeleteModal(false)}
+                                        className="shrink-0 rounded-lg p-2 transition-colors hover:bg-white/10"
+                                        aria-label="Close"
+                                    >
+                                        <FiX className="h-5 w-5 text-white" />
+                                    </button>
                                 </div>
                             </div>
 
-                            <div className="px-6 py-6">
-                                <div className="flex items-center justify-center mb-6">
-                                    <div className="p-4 bg-red-100 rounded-full">
-                                        <FiAlertCircle className="w-8 h-8 text-red-600" />
+                            <div
+                                className="min-h-0 flex-1 overflow-y-auto px-5 py-4 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden"
+                                style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+                            >
+                                <div className="mb-5 flex justify-center">
+                                    <div className="rounded-full bg-red-100 p-4">
+                                        <FiAlertCircle className="h-8 w-8 text-red-600" />
                                     </div>
                                 </div>
-
-                                <p className="text-center text-slate-700 mb-3">
+                                <p className="mb-3 text-center text-sm text-slate-700">
                                     Are you sure you want to delete this group?
                                 </p>
-
-                                <div className="bg-slate-50 rounded-xl p-4 border border-slate-200">
-                                    <p className="text-sm text-slate-600 text-center">
+                                <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+                                    <p className="text-center text-sm text-slate-600">
                                         <span className="font-semibold text-slate-800">{selectedGroup.group_name}</span>
                                     </p>
                                 </div>
-
                             </div>
 
-                            <div className="px-6 py-4 border-t border-slate-200 bg-slate-50/50 flex justify-end gap-3">
+                            <div className="flex shrink-0 justify-end gap-3 border-t border-slate-200 bg-slate-50/50 px-5 py-3">
                                 <button
+                                    type="button"
                                     onClick={() => setShowDeleteModal(false)}
-                                    className="px-5 py-2.5 text-sm font-medium text-slate-700 hover:bg-white hover:border-slate-300 rounded-xl border border-slate-200 transition-all duration-200"
+                                    className="rounded-xl border border-slate-200 px-5 py-2.5 text-sm font-medium text-slate-700 transition-all duration-200 hover:border-slate-300 hover:bg-white"
                                     disabled={loading}
                                 >
                                     Cancel
                                 </button>
                                 <button
+                                    type="button"
                                     onClick={handleDeleteConfirm}
-                                    className="px-5 py-2.5 bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 text-white text-sm font-medium rounded-xl shadow-lg shadow-red-200 hover:shadow-xl transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                                    className="rounded-xl bg-gradient-to-r from-red-600 to-red-700 px-5 py-2.5 text-sm font-medium text-white shadow-lg shadow-red-200 transition-all duration-200 hover:from-red-700 hover:to-red-800 disabled:cursor-not-allowed disabled:opacity-50"
                                     disabled={loading}
                                 >
-                                    {loading ? 'Deleting...' : 'Delete Group'}
+                                    {loading ? 'Deleting…' : 'Delete Group'}
                                 </button>
                             </div>
                         </motion.div>
                     </div>
                 )}
             </AnimatePresence>
+
+            {typeof document !== 'undefined' &&
+                createPortal(
+                    <AnimatePresence>
+                        {activeDropdown && dropdownCoords && activeActionsGroup && (
+                            <motion.div
+                                key={activeDropdown}
+                                role="menu"
+                                data-password-groups-list-actions-menu
+                                initial={{ opacity: 0, y: -8, scale: 0.96 }}
+                                animate={{ opacity: 1, y: 0, scale: 1 }}
+                                exit={{ opacity: 0, y: -8, scale: 0.96 }}
+                                transition={{ duration: 0.15 }}
+                                style={{
+                                    position: 'fixed',
+                                    ...(dropdownCoords.placement === 'up'
+                                        ? {
+                                              bottom: dropdownCoords.bottom,
+                                              left: dropdownCoords.left,
+                                          }
+                                        : {
+                                              top: dropdownCoords.top,
+                                              left: dropdownCoords.left,
+                                          }),
+                                    width: ACTIONS_MENU_WIDTH,
+                                    zIndex: 2147483647,
+                                }}
+                                className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-2xl"
+                            >
+                                <div className="py-1">
+                                    <button
+                                        type="button"
+                                        onClick={() => handleViewDetailsClick(activeActionsGroup)}
+                                        className="flex w-full items-center px-4 py-3 text-sm text-slate-700 transition-all duration-200 hover:bg-gradient-to-r hover:from-indigo-50 hover:to-blue-50"
+                                    >
+                                        <div className="mr-3 rounded-lg bg-indigo-100 p-1.5">
+                                            <FiEye className="h-3.5 w-3.5 text-indigo-600" />
+                                        </div>
+                                        <span>View Details</span>
+                                    </button>
+
+                                    <button
+                                        type="button"
+                                        onClick={() => handleEditClick(activeActionsGroup)}
+                                        className="flex w-full items-center px-4 py-3 text-sm text-slate-700 transition-all duration-200 hover:bg-gradient-to-r hover:from-amber-50 hover:to-yellow-50"
+                                    >
+                                        <div className="mr-3 rounded-lg bg-amber-100 p-1.5">
+                                            <FiEdit className="h-3.5 w-3.5 text-amber-600" />
+                                        </div>
+                                        <span>Edit Group</span>
+                                    </button>
+
+                                    {(activeActionsGroup.unique_firms ?? 0) > 0 ? (
+                                        <ViewportTooltip
+                                            fullWidth
+                                            label="Remove all linked firms before you can delete this group"
+                                        >
+                                            <button
+                                                type="button"
+                                                disabled
+                                                className="flex w-full min-w-0 cursor-not-allowed items-center px-4 py-3 text-left text-sm text-slate-400 transition-all duration-200"
+                                            >
+                                                <div className="mr-3 shrink-0 rounded-lg bg-slate-100 p-1.5">
+                                                    <FiTrash className="h-3.5 w-3.5 text-slate-400" />
+                                                </div>
+                                                <span className="min-w-0">Delete Group</span>
+                                            </button>
+                                        </ViewportTooltip>
+                                    ) : (
+                                        <button
+                                            type="button"
+                                            onClick={() => handleDeleteClick(activeActionsGroup)}
+                                            className="flex w-full items-center px-4 py-3 text-sm text-slate-700 transition-all duration-200 hover:bg-gradient-to-r hover:from-indigo-50 hover:to-blue-50"
+                                        >
+                                            <div className="mr-3 rounded-lg bg-red-100 p-1.5">
+                                                <FiTrash className="h-3.5 w-3.5 text-red-600" />
+                                            </div>
+                                            <span>Delete Group</span>
+                                        </button>
+                                    )}
+                                </div>
+                            </motion.div>
+                        )}
+                    </AnimatePresence>,
+                    document.body
+                )}
         </div>
     );
 };

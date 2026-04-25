@@ -52,11 +52,12 @@ export const passwordGroupService = {
         );
     },
 
-    async deleteFirmCredential(credentialId) {
-        return axios.delete(
-            `${API_BASE_URL}/assistance/password-group/delete-firm-credentials/${credentialId}`,
-            await withHeaders()
-        );
+    async deleteFirmCredentials(credentialIds) {
+        const ids = Array.isArray(credentialIds) ? credentialIds.filter(Boolean) : [];
+        return axios.delete(`${API_BASE_URL}/assistance/password-group/delete-firm-credentials`, {
+            ...(await withHeaders()),
+            data: { credential_ids: ids },
+        });
     },
 };
 

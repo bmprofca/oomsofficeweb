@@ -21,5 +21,9 @@
   - range summary (`Showing X to Y of Z`)
   - per-page selector (common options: 5/10/20/50/100, default: `20`)
   - pagination controls, in this order: first, prev, (active page number), next, last
-  - jump-to-page input
+  - jump-to-page input:
+    - The input should have no prefilled value (starts empty); user can type a page number and search.
+    - To the right of the input, show an Enter icon with a blue background (button), which user can click to jump to the typed page.
+    - Keyboard Enter is also supported.
+    - Use the "enter" icon from React Icons (e.g., `FiCornerDownLeft` from `react-icons/fi`).
 - Changing filters or limit should reset page to `1`
