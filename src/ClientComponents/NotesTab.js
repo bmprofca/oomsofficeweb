@@ -1,19 +1,18 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { 
-  FiPlus, FiEdit, FiTrash2, FiX, FiMessageSquare, FiUser, FiCalendar, 
-  FiTag, FiFilter, FiSearch, FiBook, FiCheckCircle, FiEye, FiChevronLeft, 
-  FiChevronRight, FiClock, FiPaperclip, FiBell, FiDownload, FiUpload,
-  FiClock as FiReminderClock, FiAlertCircle, FiFile, FiType, FiCheck,
-  FiAlertTriangle, FiInfo, FiMic, FiMicOff, FiVolume2
+import {
+    FiPlus, FiEdit, FiTrash2, FiX, FiMessageSquare, FiUser, FiCalendar,
+    FiTag, FiSearch, FiCheckCircle, FiEye,
+    FiClock, FiPaperclip, FiBell, FiDownload, FiUpload,
+    FiAlertCircle, FiFile, FiType, FiCheck,
+    FiAlertTriangle, FiInfo, FiMic, FiVolume2, FiFolder
 } from 'react-icons/fi';
-import { MdAttachFile, MdOutlineEventNote } from 'react-icons/md';
-import { RiAttachment2 } from 'react-icons/ri';
 import axios from 'axios';
-import DatePicker from 'react-datepicker';
-import "react-datepicker/dist/react-datepicker.css";
+import { toast } from 'react-hot-toast';
 import getHeaders from "../utils/get-headers";
 import API_BASE_URL from "../utils/api-controller";
+import TablePagination from "../components/TablePagination";
+import SelectInput from "../components/SelectInput";
 
 const NotesTab = ({ clientUsername }) => {
     const [notes, setNotes] = useState([]);
@@ -26,19 +25,18 @@ const NotesTab = ({ clientUsername }) => {
         total_pages: 1,
         is_last_page: true
     });
-    const [meta, setMeta] = useState({
-        total: 0,
-        priority: { high: 0, medium: 0, low: 0 }
-    });
-    
+
     const [showDeleteModal, setShowDeleteModal] = useState(false);
     const [showAddModal, setShowAddModal] = useState(false);
     const [showEditModal, setShowEditModal] = useState(false);
     const [showViewModal, setShowViewModal] = useState(false);
     const [selectedNote, setSelectedNote] = useState(null);
     const [searchTerm, setSearchTerm] = useState('');
-    const [priorityFilter, setPriorityFilter] = useState('All');
-    
+    const [activeFilter, setActiveFilter] = useState('all');
+    const [statusFilter, setStatusFilter] = useState('all');
+    const [priorityListFilter, setPriorityListFilter] = useState('all');
+    const [createNoteType, setCreateNoteType] = useState('text');
+
     // Updated newNote state - removed attachments
     const [newNote, setNewNote] = useState({
         subject: '',
@@ -49,7 +47,7 @@ const NotesTab = ({ clientUsername }) => {
         type: 'text', // text, file, or voice
         file: null // For file/voice upload
     });
-    
+
     // Voice recording states
     const [isRecording, setIsRecording] = useState(false);
     const [recordingTime, setRecordingTime] = useState(0);
@@ -58,81 +56,29 @@ const NotesTab = ({ clientUsername }) => {
     const mediaRecorderRef = useRef(null);
     const chunksRef = useRef([]);
     const timerRef = useRef(null);
-    
+    const recordingCancelledRef = useRef(false);
+
     // Audio playback tracking
     const [currentlyPlaying, setCurrentlyPlaying] = useState(null);
     const audioRefs = useRef({});
-    
+
     const [uploadingAttachment, setUploadingAttachment] = useState(false);
     const [uploadProgress, setUploadProgress] = useState({});
     const fileInputRef = useRef(null);
-    
-    // Download attachment (for backward compatibility with existing notes)
-    const downloadAttachment = (attachment) => {
-        if (attachment.url) {
-            window.open(attachment.url, '_blank');
-        } else if (attachment.file) {
-            const link = document.createElement('a');
-            link.href = URL.createObjectURL(attachment.file);
-            link.download = attachment.name || 'attachment';
-            link.click();
-        }
-    };
-    
-    // // Get headers from localStorage
-    // const getHeaders = () => {
-    //     try {
-    //         const userDataStr = localStorage.getItem('user');
-    //         let userName = '';
-    //         let token = '';
-    //         let branchId = '';
+    const attachmentInputRefs = useRef({});
+    const [creatingNote, setCreatingNote] = useState(false);
+    const [createValidationErrors, setCreateValidationErrors] = useState({});
+    const [createForm, setCreateForm] = useState({
+        textNotes: [''],
+        attachments: [],
+        voiceNotes: [],
+        priority: 'low',
+        status: 'pending',
+    });
 
-    //         if (userDataStr) {
-    //             try {
-    //                 const userData = JSON.parse(userDataStr);
-    //                 userName = userData.username || userData.userName || '';
-    //                 token = userData.token || '';
-    //                 branchId = userData.branch || userData.branchId || '';
-    //             } catch (e) {
-    //                 console.error('Error parsing user data:', e);
-    //             }
-    //         }
 
-    //         // Fallback to individual localStorage items
-    //         if (!userName) {
-    //             userName = localStorage.getItem('userName') || localStorage.getItem('user_username') || '';
-    //         }
-    //         if (!token) {
-    //             token = localStorage.getItem('token') || localStorage.getItem('user_token') || '';
-    //         }
-    //         if (!branchId) {
-    //             branchId = localStorage.getItem('branchId') || localStorage.getItem('branch_id') || '';
-    //         }
-            
-    //         console.log('Headers from localStorage:', { userName, token: token ? '***' + token.slice(-4) : 'empty', branchId });
-            
-    //         if (!userName || !token || !branchId) {
-    //             console.error('Missing authentication data in localStorage');
-    //             return null;
-    //         }
-            
-    //         return {
-    //             'Content-Type': 'application/json',
-    //             'username': userName,
-    //             'token': token,
-    //             'branch': branchId
-    //         };
-    //     } catch (error) {
-    //         console.error('Error getting headers from localStorage:', error);
-    //         return null;
-    //     }
-    // };
-    
-    const fetchNotes = async (page = 1, search = '') => {
-        console.log('fetchNotes called with:', { clientUsername, page, search });
-        
+    const fetchNotes = async (page = 1, search = '', limit = null) => {
         if (!clientUsername) {
-            console.error('Client username is required');
             setError('Client username is required');
             setLoading(false);
             return;
@@ -140,126 +86,76 @@ const NotesTab = ({ clientUsername }) => {
 
         setLoading(true);
         try {
-            // Get headers
             const headers = getHeaders();
             if (!headers) {
                 throw new Error('Missing authentication headers. Please login again.');
             }
-            
-            // Construct API URL with query parameters
+
             const apiUrl = `${API_BASE_URL}/client/details/notes/list`;
-            
-            // Prepare query parameters as shown in your example
+            const pageLimit = limit ?? pagination.limit;
             const params = {
                 username: clientUsername,
                 page_no: page,
-                limit: 20,
+                limit: pageLimit,
                 search: search
             };
-            
-            console.log('Making API call to:', apiUrl);
-            console.log('With params:', params);
-            console.log('With headers:', {
-                ...headers,
-                token: headers.token ? '***' + headers.token.slice(-4) : 'empty'
-            });
-            
+
             const response = await axios.get(apiUrl, {
-                params: params,
-                headers: headers,
-                timeout: 10000 // 10 second timeout
+                params,
+                headers,
+                timeout: 15000
             });
-            
-            console.log('API Response:', response.data);
-            
+
             if (response.data && response.data.success) {
+                const fmt = (d) => d ? new Date(d).toLocaleDateString('en-US', {
+                    year: 'numeric', month: 'short', day: 'numeric',
+                    hour: '2-digit', minute: '2-digit'
+                }) : null;
+
                 const apiNotes = response.data.data.map(note => ({
                     id: note.note_id,
-                    date: new Date(note.create_date).toISOString().split('T')[0],
-                    note: note.note,
-                    subject: note.subject,
+                    note: note.note || '',
+                    subject: note.subject || '',
                     author: note.create_by?.name || 'Unknown',
-                    category: note.subject || 'General',
-                    priority: note.priority ? note.priority.charAt(0).toUpperCase() + note.priority.slice(1) : 'Medium',
-                    status: note.status ? note.status.charAt(0).toUpperCase() + note.status.slice(1) : 'Pending',
+                    priority: note.priority || 'low',
+                    status: note.status || 'pending',
                     create_date: note.create_date,
                     modify_date: note.modify_date,
-                    create_by: note.create_by,
-                    modify_by: note.modify_by,
-                    reminder_date: note.reminder_date ? new Date(note.reminder_date) : null,
                     type: note.type || 'text',
                     file: note.file || note.voice || null,
                     attachments: note.attachments || [],
-                    formatted_create_date: new Date(note.create_date).toLocaleDateString('en-US', {
-                        year: 'numeric',
-                        month: 'short',
-                        day: 'numeric',
-                        hour: '2-digit',
-                        minute: '2-digit'
-                    }),
-                    formatted_modify_date: note.modify_date ? new Date(note.modify_date).toLocaleDateString('en-US', {
-                        year: 'numeric',
-                        month: 'short',
-                        day: 'numeric',
-                        hour: '2-digit',
-                        minute: '2-digit'
-                    }) : null,
-                    formatted_reminder_date: note.reminder_date ? new Date(note.reminder_date).toLocaleDateString('en-US', {
-                        year: 'numeric',
-                        month: 'short',
-                        day: 'numeric',
-                        hour: '2-digit',
-                        minute: '2-digit'
-                    }) : null,
+                    formatted_create_date: fmt(note.create_date),
+                    formatted_modify_date: fmt(note.modify_date),
                     created_by_name: note.create_by?.name || 'Unknown',
                     modified_by_name: note.modify_by?.name || null,
-                    truncated_note: note.note.length > 120 ? note.note.substring(0, 120) + '...' : note.note
                 }));
-                
+
                 setNotes(apiNotes);
                 setPagination(response.data.pagination || {
-                    page: page,
-                    limit: 20,
-                    total: response.data.data.length,
+                    page,
+                    limit: pageLimit,
+                    total: apiNotes.length,
                     total_pages: 1,
                     is_last_page: true
                 });
-                setMeta(response.data.meta || {
-                    total: response.data.data.length,
-                    priority: { high: 0, medium: 0, low: 0 }
-                });
                 setError(null);
-                console.log('Notes set successfully:', apiNotes.length, 'notes loaded');
             } else {
                 throw new Error(response.data?.message || 'Failed to fetch notes');
             }
         } catch (err) {
             console.error('Error fetching notes:', err);
-            
-            // Detailed error logging
-            if (err.response) {
-                console.error('Response status:', err.response.status);
-                console.error('Response data:', err.response.data);
-                console.error('Response headers:', err.response.headers);
-                
-                if (err.response.status === 401) {
-                    setError('Authentication failed. Please login again.');
-                } else if (err.response.status === 404) {
-                    setError('API endpoint not found.');
-                } else if (err.response.status === 500) {
-                    setError('Server error. Please try again later.');
-                } else {
-                    setError(err.response.data?.message || `Error ${err.response.status}: Failed to fetch notes`);
-                }
-            } else if (err.request) {
-                console.error('No response received:', err.request);
-                setError('No response from server. Please check your internet connection.');
+            if (err.response?.status === 401) {
+                setError('Authentication failed. Please login again.');
+            } else if (err.response?.status === 404) {
+                setError('API endpoint not found.');
+            } else if (err.response?.status === 500) {
+                setError('Server error. Please try again later.');
             } else if (err.code === 'ECONNABORTED') {
                 setError('Request timeout. Please try again.');
             } else {
-                setError(err.message || 'Error loading notes. Please try again.');
+                setError(err.response?.data?.message || err.message || 'Error loading notes. Please try again.');
             }
-            
+
             setNotes([]);
             setPagination({
                 page: 1,
@@ -273,9 +169,7 @@ const NotesTab = ({ clientUsername }) => {
         }
     };
 
-    // Initial fetch
     useEffect(() => {
-        console.log('Initial useEffect triggered, clientUsername:', clientUsername);
         if (clientUsername) {
             fetchNotes(1, '');
         } else {
@@ -284,15 +178,10 @@ const NotesTab = ({ clientUsername }) => {
         }
     }, [clientUsername]);
 
-    // Handle search with debounce
     useEffect(() => {
         if (!clientUsername) return;
-        
-        const delayDebounceFn = setTimeout(() => {
-            fetchNotes(1, searchTerm);
-        }, 500);
-
-        return () => clearTimeout(delayDebounceFn);
+        const timer = setTimeout(() => fetchNotes(1, searchTerm), searchTerm ? 400 : 0);
+        return () => clearTimeout(timer);
     }, [searchTerm, clientUsername]);
 
     // Open View Modal
@@ -304,11 +193,11 @@ const NotesTab = ({ clientUsername }) => {
     // Open Edit Modal
     const openEditModal = (note) => {
         setSelectedNote(note);
-        
+
         // Map the displayed status to API status values
         let apiStatus = 'pending';
         const displayStatus = note.status.toLowerCase();
-        
+
         if (displayStatus === 'complete' || displayStatus === 'completed') {
             apiStatus = 'complete';
         } else if (displayStatus === 'cancel' || displayStatus === 'cancelled') {
@@ -318,7 +207,7 @@ const NotesTab = ({ clientUsername }) => {
         } else {
             apiStatus = displayStatus;
         }
-        
+
         setNewNote({
             subject: note.subject || '',
             note: note.note || '',
@@ -333,41 +222,37 @@ const NotesTab = ({ clientUsername }) => {
 
     const uploadFileToServer = async (file) => {
         if (!file) return null;
-        
+
         const headers = getHeaders();
         if (!headers) {
-            alert('Missing authentication headers');
+            toast.error('Missing authentication headers');
             return null;
         }
-        
+
         try {
             const formData = new FormData();
-            
+
             // Ensure WAV files are properly named
             let uploadFile = file;
-            
+
             // If it's a WAV file, ensure it has correct extension
             if (file.type === 'audio/wav' && !file.name.toLowerCase().endsWith('.wav')) {
-                const wavFile = new File([file], `${file.name.replace(/\.[^/.]+$/, "")}.wav`, { 
-                    type: 'audio/wav' 
+                const wavFile = new File([file], `${file.name.replace(/\.[^/.]+$/, "")}.wav`, {
+                    type: 'audio/wav'
                 });
                 uploadFile = wavFile;
             }
-            
+
             formData.append('file', uploadFile);
-            
-            // Add metadata for server - explicitly state it's audio
-            formData.append('file_type', 'voice_note');
-            formData.append('note_type', 'voice');
-            formData.append('mime_type', 'audio/wav');
-            
-            console.log('Uploading file to server:', {
-                name: uploadFile.name,
-                type: uploadFile.type,
-                size: uploadFile.size,
-                extension: uploadFile.name.split('.').pop()
-            });
-            
+
+            // Add metadata based on selected file type
+            const isAudio = String(uploadFile.type || '').startsWith('audio/');
+            formData.append('file_type', isAudio ? 'voice_note' : 'attachment');
+            formData.append('note_type', isAudio ? 'voice' : 'file');
+            if (uploadFile.type) {
+                formData.append('mime_type', uploadFile.type);
+            }
+
             const response = await axios.post(
                 'https://api.ooms.in/api/v1/upload',
                 formData,
@@ -383,43 +268,18 @@ const NotesTab = ({ clientUsername }) => {
                     timeout: 60000 // 60 second timeout for audio files
                 }
             );
-            
-            console.log('Upload response:', response.data);
-            
+
             if (response.data && response.data.success) {
                 return response.data.url || response.data.data?.url;
             } else {
                 throw new Error(response.data?.message || 'Upload failed');
             }
-            
+
         } catch (error) {
             console.error('Error uploading file:', error);
-            
-            // Detailed error handling
-            if (error.response) {
-                const { status, data } = error.response;
-                
-                if (status === 400) {
-                    if (data?.message?.includes('MIME type')) {
-                        alert(`Server rejected file type: ${file.type}. The system is now converting recordings to WAV format which should be accepted.`);
-                    } else if (data?.message?.includes('audio')) {
-                        alert(`Audio file error: ${data.message}. Please try recording again.`);
-                    } else {
-                        alert(`Upload failed: ${data?.message || 'Bad request'}`);
-                    }
-                } else if (status === 413) {
-                    alert('File too large. Maximum size is 10MB.');
-                } else if (status === 415) {
-                    alert('Unsupported media type. The system is converting to WAV format. Please try again.');
-                } else if (status >= 500) {
-                    alert('Server error. Please try again later.');
-                }
-            } else if (error.request) {
-                alert('No response from server. Check your internet connection.');
-            } else {
-                alert(`Upload error: ${error.message}`);
-            }
-            
+            const msg = error.response?.data?.message || error.message || 'Upload failed';
+            toast.error(msg);
+
             return null;
         } finally {
             // Clear progress after delay
@@ -437,20 +297,20 @@ const NotesTab = ({ clientUsername }) => {
     const handleFileSelect = async (e) => {
         const file = e.target.files[0];
         if (!file) return;
-        
+
         // Check file size (10MB limit)
         const maxSize = 10 * 1024 * 1024; // 10MB in bytes
-        
+
         if (file.size > maxSize) {
-            alert(`File exceeds the 10MB limit. Please upload a smaller file.`);
+            toast.error('File exceeds the 10MB limit. Please upload a smaller file.');
             return;
         }
-        
+
         setUploadingAttachment(true);
-        
+
         // Upload file to server
         const fileUrl = await uploadFileToServer(file);
-        
+
         if (fileUrl) {
             setNewNote(prev => ({
                 ...prev,
@@ -460,9 +320,9 @@ const NotesTab = ({ clientUsername }) => {
                 subject: prev.subject || file.name
             }));
         }
-        
+
         setUploadingAttachment(false);
-        
+
         // Reset file input
         if (fileInputRef.current) {
             fileInputRef.current.value = '';
@@ -472,7 +332,7 @@ const NotesTab = ({ clientUsername }) => {
     // Voice recording functions - FIXED TO CONVERT TO WAV FORMAT
     const startRecording = async () => {
         try {
-            const stream = await navigator.mediaDevices.getUserMedia({ 
+            const stream = await navigator.mediaDevices.getUserMedia({
                 audio: {
                     channelCount: 1,
                     sampleRate: 44100,
@@ -480,48 +340,42 @@ const NotesTab = ({ clientUsername }) => {
                     noiseSuppression: true
                 }
             });
-            
+
             // Use audio/webm for recording (most compatible with browsers)
             const mimeType = 'audio/webm';
             const mediaRecorder = new MediaRecorder(stream, { mimeType });
-            
+
             mediaRecorderRef.current = mediaRecorder;
             chunksRef.current = [];
-            
+
             mediaRecorder.ondataavailable = (e) => {
                 if (e.data.size > 0) {
                     chunksRef.current.push(e.data);
                 }
             };
-            
+
             mediaRecorder.onstop = async () => {
                 // Create WebM blob from recorded chunks
                 const webmBlob = new Blob(chunksRef.current, { type: 'audio/webm' });
-                
+
                 // Convert WebM to WAV format for server compatibility
                 const wavBlob = await convertWebMToWav(webmBlob);
-                
+
                 // Create audio file with correct WAV format
                 const timestamp = new Date().getTime();
-                const audioFile = new File([wavBlob], `voice-note-${timestamp}.wav`, { 
-                    type: 'audio/wav' 
+                const audioFile = new File([wavBlob], `voice-note-${timestamp}.wav`, {
+                    type: 'audio/wav'
                 });
-                
-                console.log('Final audio file:', {
-                    name: audioFile.name,
-                    type: audioFile.type,
-                    size: audioFile.size
-                });
-                
+
                 // Update audio preview (still use original for playback)
                 setAudioBlob(webmBlob); // Keep original for preview
                 const audioUrl = URL.createObjectURL(webmBlob);
                 setAudioURL(audioUrl);
-                
+
                 // Upload the WAV file (server will accept this)
                 setUploadingAttachment(true);
                 const fileUrl = await uploadFileToServer(audioFile);
-                
+
                 if (fileUrl) {
                     setNewNote(prev => ({
                         ...prev,
@@ -530,29 +384,29 @@ const NotesTab = ({ clientUsername }) => {
                         note: `Voice note (${formatRecordingTime(recordingTime)})`,
                         subject: prev.subject || 'Voice Note'
                     }));
-                    alert('Voice note uploaded successfully!');
+                    toast.success('Voice note uploaded successfully!');
                 } else {
-                    alert('Failed to upload voice note. Please try again.');
+                    toast.error('Failed to upload voice note. Please try again.');
                 }
-                
+
                 setUploadingAttachment(false);
-                
+
                 // Stop all tracks
                 stream.getTracks().forEach(track => track.stop());
             };
-            
+
             mediaRecorder.start();
             setIsRecording(true);
             setRecordingTime(0);
-            
+
             // Start timer
             timerRef.current = setInterval(() => {
                 setRecordingTime(prev => prev + 1);
             }, 1000);
-            
+
         } catch (error) {
             console.error('Error starting recording:', error);
-            alert('Error accessing microphone. Please check permissions.');
+            toast.error('Error accessing microphone. Please check permissions.');
         }
     };
 
@@ -561,25 +415,25 @@ const NotesTab = ({ clientUsername }) => {
         try {
             // Create an audio context to process the audio
             const audioContext = new (window.AudioContext || window.webkitAudioContext)();
-            
+
             // Convert blob to array buffer
             const arrayBuffer = await webmBlob.arrayBuffer();
-            
+
             // Decode the WebM audio data
             const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
-            
+
             // Get audio parameters
             const numberOfChannels = audioBuffer.numberOfChannels;
             const sampleRate = audioBuffer.sampleRate;
             const length = audioBuffer.length;
-            
+
             // Calculate WAV file size
             const wavSize = 44 + length * numberOfChannels * 2; // 44 bytes header + PCM data
-            
+
             // Create array buffer for WAV file
             const wavBuffer = new ArrayBuffer(wavSize);
             const view = new DataView(wavBuffer);
-            
+
             // Write WAV header
             // RIFF identifier
             writeString(view, 0, 'RIFF');
@@ -607,7 +461,7 @@ const NotesTab = ({ clientUsername }) => {
             writeString(view, 36, 'data');
             // Data chunk length
             view.setUint32(40, length * numberOfChannels * 2, true);
-            
+
             // Write PCM audio data
             let offset = 44;
             for (let i = 0; i < length; i++) {
@@ -619,17 +473,14 @@ const NotesTab = ({ clientUsername }) => {
                     offset += 2;
                 }
             }
-            
+
             // Create WAV blob
             const wavBlob = new Blob([wavBuffer], { type: 'audio/wav' });
-            
+
             return wavBlob;
-            
+
         } catch (error) {
             console.error('Error converting WebM to WAV:', error);
-            // Fallback: use original blob but rename as WAV
-            // This is less ideal but better than nothing
-            console.log('Falling back to WebM with .wav extension');
             return new Blob([webmBlob], { type: 'audio/wav' });
         }
     };
@@ -662,7 +513,7 @@ const NotesTab = ({ clientUsername }) => {
                 clearInterval(timerRef.current);
                 timerRef.current = null;
             }
-            
+
             // Reset note type to text
             setNewNote(prev => ({
                 ...prev,
@@ -692,166 +543,323 @@ const NotesTab = ({ clientUsername }) => {
         setAudioURL('');
     };
 
+    const resetCreateForm = () => {
+        setCreateForm({ textNotes: [''], attachments: [], voiceNotes: [], priority: 'low', status: 'pending' });
+        setCreateNoteType('text');
+        setCreateValidationErrors({});
+        attachmentInputRefs.current = {};
+    };
+
+    const openAddModal = () => {
+        resetCreateForm();
+        setShowAddModal(true);
+    };
+
+    const closeAddModal = () => {
+        if (creatingNote) return;
+        setShowAddModal(false);
+        resetCreateForm();
+    };
+
+    const updateTextNote = (index, value) => {
+        setCreateForm((prev) => {
+            const next = [...prev.textNotes];
+            next[index] = value;
+            return { ...prev, textNotes: next };
+        });
+    };
+
+    const addTextNoteRow = () => {
+        setCreateForm((prev) => ({ ...prev, textNotes: [...prev.textNotes, ''] }));
+    };
+
+    const removeTextNoteRow = (index) => {
+        setCreateForm((prev) => {
+            const next = prev.textNotes.filter((_, idx) => idx !== index);
+            return { ...prev, textNotes: next.length ? next : [''] };
+        });
+    };
+
+    const addAttachmentRow = () => {
+        setCreateForm((prev) => ({
+            ...prev,
+            attachments: [...prev.attachments, { name: '', remark: '', file: null, url: '', previewName: '' }],
+        }));
+    };
+
+    const updateAttachmentRow = (index, patch) => {
+        setCreateForm((prev) => {
+            const next = [...prev.attachments];
+            next[index] = { ...next[index], ...patch };
+            return { ...prev, attachments: next };
+        });
+    };
+
+    const removeAttachmentRow = (index) => {
+        setCreateForm((prev) => ({
+            ...prev,
+            attachments: prev.attachments.filter((_, idx) => idx !== index),
+        }));
+        delete attachmentInputRefs.current[index];
+    };
+
+    const removeVoiceRow = (index) => {
+        setCreateForm((prev) => ({
+            ...prev,
+            voiceNotes: prev.voiceNotes.filter((_, idx) => idx !== index),
+        }));
+    };
+
+    const startCreateRecording = async () => {
+        try {
+            const stream = await navigator.mediaDevices.getUserMedia({
+                audio: { channelCount: 1, sampleRate: 44100, echoCancellation: true, noiseSuppression: true }
+            });
+            const mediaRecorder = new MediaRecorder(stream, { mimeType: 'audio/webm' });
+            mediaRecorderRef.current = mediaRecorder;
+            chunksRef.current = [];
+            recordingCancelledRef.current = false;
+
+            mediaRecorder.ondataavailable = (e) => {
+                if (e.data.size > 0) chunksRef.current.push(e.data);
+            };
+
+            mediaRecorder.onstop = async () => {
+                stream.getTracks().forEach(track => track.stop());
+
+                if (recordingCancelledRef.current) {
+                    chunksRef.current = [];
+                    return;
+                }
+
+                const webmBlob = new Blob(chunksRef.current, { type: 'audio/webm' });
+                const previewUrl = URL.createObjectURL(webmBlob);
+                setAudioURL(previewUrl);
+                setAudioBlob(webmBlob);
+
+                try {
+                    setUploadingAttachment(true);
+                    const wavBlob = await convertWebMToWav(webmBlob);
+                    const timestamp = Date.now();
+                    const audioFile = new File([wavBlob], `voice-note-${timestamp}.wav`, { type: 'audio/wav' });
+                    const fileUrl = await uploadFileToServer(audioFile);
+                    if (fileUrl) {
+                        setCreateForm(prev => ({
+                            ...prev,
+                            voiceNotes: [...prev.voiceNotes, { url: fileUrl }],
+                        }));
+                    } else {
+                        toast.error('Failed to upload voice note. Please try again.');
+                    }
+                } catch (err) {
+                    console.error('Error processing audio:', err);
+                    toast.error('Failed to process audio. Please try again.');
+                } finally {
+                    setUploadingAttachment(false);
+                }
+            };
+
+            mediaRecorder.start();
+            setIsRecording(true);
+            setRecordingTime(0);
+            timerRef.current = setInterval(() => setRecordingTime(prev => prev + 1), 1000);
+        } catch (error) {
+            console.error('Error starting recording:', error);
+            toast.error('Error accessing microphone. Please check permissions.');
+        }
+    };
+
+    const cancelCreateRecording = () => {
+        if (mediaRecorderRef.current && isRecording) {
+            recordingCancelledRef.current = true;
+            mediaRecorderRef.current.stop();
+            setIsRecording(false);
+            setAudioBlob(null);
+            setAudioURL('');
+            if (timerRef.current) {
+                clearInterval(timerRef.current);
+                timerRef.current = null;
+            }
+        }
+    };
+
+    const handleAttachmentFileSelect = (index, event) => {
+        const file = event.target.files?.[0];
+        if (!file) return;
+        const maxSize = 10 * 1024 * 1024;
+        if (file.size > maxSize) {
+            toast.error('Attachment exceeds 10MB limit');
+            return;
+        }
+        updateAttachmentRow(index, {
+            file,
+            previewName: file.name,
+            name: createForm.attachments[index]?.name || file.name,
+            url: '',
+        });
+    };
+
+
     // Create new note
     const handleAddNote = async () => {
         if (!clientUsername) {
-            alert('Client username is required');
+            toast.error('Client username is required');
             return;
         }
 
         const headers = getHeaders();
         if (!headers) {
-            alert('Missing authentication headers');
+            toast.error('Missing authentication headers');
             return;
         }
 
-        // Validation
-        if (!newNote.subject.trim()) {
-            alert('Please enter a subject for the note');
-            return;
-        }
-        
-        if (newNote.type === 'text' && !newNote.note.trim()) {
-            alert('Please enter note content');
-            return;
+        const payload = {
+            username: clientUsername,
+            priority: createForm.priority || 'low',
+            status: createForm.status || 'pending',
+            notes: { text: [], attachments: [], voice: [] },
+        };
+
+        if (createNoteType === 'text') {
+            payload.notes.text = createForm.textNotes.filter(t => t.trim());
+            if (!payload.notes.text.length) {
+                setCreateValidationErrors({ general: 'Enter at least one text note.' });
+                return;
+            }
+        } else if (createNoteType === 'file') {
+            const hasCandidate = createForm.attachments.some(a => a.file || String(a.url || '').trim());
+            if (!hasCandidate) {
+                setCreateValidationErrors({ general: 'Upload or link at least one file.' });
+                return;
+            }
+        } else if (createNoteType === 'voice') {
+            const hasCandidate = createForm.voiceNotes.some(v => v.file || String(v.url || '').trim());
+            if (!hasCandidate) {
+                setCreateValidationErrors({ general: 'Upload or link at least one voice note.' });
+                return;
+            }
         }
 
         try {
-            // Prepare request body based on note type
-            let requestBody = {
-                username: clientUsername,
-                subject: newNote.subject,
-                priority: newNote.priority,
-                status: newNote.status,
-                type: newNote.type,
-                reminder_date: newNote.reminder_date ? newNote.reminder_date.toISOString() : null
-            };
+            setCreatingNote(true);
+            setCreateValidationErrors({});
 
-            // Add note content or file based on type
-            if (newNote.type === 'text') {
-                requestBody.note = newNote.note;
-            } else if (newNote.type === 'file' || newNote.type === 'voice') {
-                requestBody.note = newNote.note;
-                requestBody.file = newNote.file;
-                // Add file_type for voice notes to help server identify
-                if (newNote.type === 'voice') {
-                    requestBody.file_type = 'voice';
+            if (createNoteType === 'file') {
+                for (const row of createForm.attachments) {
+                    const remark = String(row.remark || '').trim();
+                    const displayName = String(row.name || row.previewName || '').trim();
+                    let url = String(row.url || '').trim();
+                    if (!url && row.file) {
+                        setUploadingAttachment(true);
+                        const uploadedUrl = await uploadFileToServer(row.file);
+                        setUploadingAttachment(false);
+                        if (!uploadedUrl) throw new Error(`Failed to upload: ${row.file.name}`);
+                        url = uploadedUrl;
+                    }
+                    if (url) payload.notes.attachments.push({ name: displayName || 'Attachment', remark, url });
+                }
+                if (!payload.notes.attachments.length) {
+                    setCreateValidationErrors({ general: 'No valid attachments to submit.' });
+                    return;
                 }
             }
 
-            console.log('Creating note with data:', requestBody);
-            
+            if (createNoteType === 'voice') {
+                for (const row of createForm.voiceNotes) {
+                    let url = String(row.url || '').trim();
+                    if (!url && row.file) {
+                        setUploadingAttachment(true);
+                        const uploadedUrl = await uploadFileToServer(row.file);
+                        setUploadingAttachment(false);
+                        if (!uploadedUrl) throw new Error(`Failed to upload: ${row.file.name}`);
+                        url = uploadedUrl;
+                    }
+                    if (url) payload.notes.voice.push(url);
+                }
+                if (!payload.notes.voice.length) {
+                    setCreateValidationErrors({ general: 'No valid voice notes to submit.' });
+                    return;
+                }
+            }
+
             const response = await axios.post(
                 `${API_BASE_URL}/client/details/notes/create`,
-                requestBody,
+                payload,
                 { headers }
             );
 
             if (response.data && response.data.success) {
-                // Refresh notes list
-                fetchNotes(1, searchTerm);
+                await fetchNotes(1, searchTerm);
                 setShowAddModal(false);
-                // Reset form
-                setNewNote({
-                    subject: '',
-                    note: '',
-                    priority: 'high',
-                    status: 'pending',
-                    reminder_date: null,
-                    type: 'text',
-                    file: null
-                });
-                // Reset voice recording
-                setAudioBlob(null);
-                setAudioURL('');
-                alert('Note created successfully!');
+                resetCreateForm();
+                toast.success(response.data?.message || 'Notes created successfully');
             } else {
-                alert(`Failed to create note: ${response.data?.message || 'Unknown error'}`);
+                throw new Error(response.data?.message || 'Failed to create notes');
             }
         } catch (error) {
             console.error('Error creating note:', error);
-            if (error.response) {
-                alert(`Error ${error.response.status}: ${error.response.data?.message || 'Failed to create note'}`);
-            } else {
-                alert('Error creating note. Please try again.');
-            }
+            toast.error(error.response?.data?.message || error.message || 'Error creating notes');
+        } finally {
+            setCreatingNote(false);
+            setUploadingAttachment(false);
         }
     };
 
     // Edit note
     const handleEditNote = async () => {
         if (!selectedNote?.id || !clientUsername) {
-            alert('No note selected for editing');
+            toast.error('No note selected for editing');
             return;
         }
 
         const headers = getHeaders();
         if (!headers) {
-            alert('Missing authentication headers');
+            toast.error('Missing authentication headers');
             return;
         }
 
-        // Validation
         if (!newNote.subject.trim()) {
-            alert('Please enter a subject for the note');
+            toast.error('Please enter a subject for the note');
             return;
         }
-        
+
         if (newNote.type === 'text' && !newNote.note.trim()) {
-            alert('Please enter note content');
+            toast.error('Please enter note content');
             return;
         }
 
         try {
-            // Prepare request body based on note type
-            let requestBody = {
+            const requestBody = {
                 username: clientUsername,
                 note_id: selectedNote.id,
                 subject: newNote.subject,
                 priority: newNote.priority,
                 status: newNote.status,
                 type: newNote.type,
-                reminder_date: newNote.reminder_date ? newNote.reminder_date.toISOString() : null
+                reminder_date: newNote.reminder_date ? new Date(newNote.reminder_date).toISOString() : null,
+                note: newNote.note,
+                ...(newNote.type !== 'text' && { file: newNote.file }),
+                ...(newNote.type === 'voice' && { file_type: 'voice' }),
             };
 
-            // Add note content or file based on type
-            if (newNote.type === 'text') {
-                requestBody.note = newNote.note;
-            } else if (newNote.type === 'file' || newNote.type === 'voice') {
-                requestBody.note = newNote.note;
-                requestBody.file = newNote.file;
-                // Add file_type for voice notes to help server identify
-                if (newNote.type === 'voice') {
-                    requestBody.file_type = 'voice';
-                }
-            }
-
-            console.log('Updating note with data:', requestBody);
-            
             const response = await axios.post(
                 `${API_BASE_URL}/client/details/notes/edit`,
                 requestBody,
                 { headers }
             );
 
-            if (response.data && response.data.success) {
-                // Refresh notes list
+            if (response.data?.success) {
                 fetchNotes(1, searchTerm);
                 setShowEditModal(false);
-                // Reset voice recording
                 setAudioBlob(null);
                 setAudioURL('');
-                alert('Note updated successfully!');
+                toast.success(response.data?.message || 'Note updated successfully');
             } else {
-                alert(`Failed to update note: ${response.data?.message || 'Unknown error'}`);
+                toast.error(response.data?.message || 'Failed to update note');
             }
         } catch (error) {
             console.error('Error updating note:', error);
-            if (error.response) {
-                alert(`Error ${error.response.status}: ${error.response.data?.message || 'Failed to update note'}`);
-            } else {
-                alert('Error updating note. Please try again.');
-            }
+            toast.error(error.response?.data?.message || error.message || 'Error updating note');
         }
     };
 
@@ -861,95 +869,44 @@ const NotesTab = ({ clientUsername }) => {
         }
     };
 
-    // Generate pagination numbers
-    const generatePaginationNumbers = () => {
-        const totalPages = pagination.total_pages;
-        const currentPage = pagination.page;
-        const pages = [];
-        
-        if (totalPages <= 5) {
-            // Show all pages
-            for (let i = 1; i <= totalPages; i++) {
-                pages.push(i);
-            }
-        } else {
-            // Always show first page
-            pages.push(1);
-            
-            // Calculate start and end
-            let start = Math.max(2, currentPage - 1);
-            let end = Math.min(totalPages - 1, currentPage + 1);
-            
-            // Adjust if at the beginning
-            if (currentPage <= 3) {
-                end = 4;
-            }
-            
-            // Adjust if at the end
-            if (currentPage >= totalPages - 2) {
-                start = totalPages - 3;
-            }
-            
-            // Add ellipsis after first page if needed
-            if (start > 2) {
-                pages.push('...');
-            }
-            
-            // Add middle pages
-            for (let i = start; i <= end; i++) {
-                pages.push(i);
-            }
-            
-            // Add ellipsis before last page if needed
-            if (end < totalPages - 1) {
-                pages.push('...');
-            }
-            
-            // Always show last page if not already included
-            if (end < totalPages) {
-                pages.push(totalPages);
-            }
-        }
-        
-        return pages;
+    const handleLimitChange = (newLimit) => {
+        setPagination(prev => ({ ...prev, limit: newLimit, page: 1 }));
+        fetchNotes(1, searchTerm, newLimit);
     };
 
-    // Filter notes based on priority filter
+
     const filteredNotes = notes.filter(note => {
-        if (priorityFilter === 'All') return true;
-        return note.priority === priorityFilter;
+        if (activeFilter !== 'all' && note.type !== activeFilter) return false;
+        if (statusFilter !== 'all' && note.status?.toLowerCase() !== statusFilter) return false;
+        if (priorityListFilter !== 'all' && note.priority?.toLowerCase() !== priorityListFilter) return false;
+        return true;
     });
 
     const deleteNote = async () => {
         if (!selectedNote) return;
-        
+
         const headers = getHeaders();
         if (!headers) {
-            alert('Missing authentication headers');
+            toast.error('Missing authentication headers');
             return;
         }
-        
+
         try {
-            // API call to delete note
             const response = await axios.delete(
                 `${API_BASE_URL}/client/details/notes/delete/${selectedNote.id}`,
-                {
-                    headers: headers,
-                    data: { username: clientUsername }
-                }
+                { headers, data: { username: clientUsername } }
             );
-            
-            if (response.data && response.data.success) {
-                // Remove from local state
+
+            if (response.data?.success) {
                 setNotes(notes.filter(note => note.id !== selectedNote.id));
                 setShowDeleteModal(false);
-                alert('Note deleted successfully!');
+                toast.success(response.data?.message || 'Note deleted successfully');
             } else {
-                alert(`Failed to delete note: ${response.data?.message || 'Unknown error'}`);
+                toast.error(response.data?.message || 'Failed to delete note');
             }
         } catch (error) {
             console.error('Error deleting note:', error);
-            alert('Error deleting note. Please try again.');
+            toast.error(error.response?.data?.message || error.message || 'Error deleting note');
         }
     };
 
@@ -958,32 +915,16 @@ const NotesTab = ({ clientUsername }) => {
         setShowDeleteModal(true);
     };
 
-    const getCategoryColor = (category) => {
-        switch (category) {
-            case 'Compliance': 
-                return 'bg-gradient-to-r from-blue-50 to-indigo-50 text-blue-700 border border-blue-200';
-            case 'Advisory': 
-                return 'bg-gradient-to-r from-purple-50 to-pink-50 text-purple-700 border border-purple-200';
-            case 'Registration': 
-                return 'bg-gradient-to-r from-green-50 to-emerald-50 text-green-700 border border-green-200';
-            case 'Audit': 
-                return 'bg-gradient-to-r from-yellow-50 to-amber-50 text-yellow-700 border border-yellow-200';
-            case 'Consultation': 
-                return 'bg-gradient-to-r from-red-50 to-orange-50 text-red-700 border border-red-200';
-            default: 
-                return 'bg-gradient-to-r from-gray-50 to-slate-50 text-gray-700 border border-gray-200';
-        }
-    };
 
     const getPriorityColor = (priority) => {
         switch (priority) {
-            case 'High': 
+            case 'High':
                 return 'bg-gradient-to-r from-red-100 to-pink-100 text-red-800 border border-red-200';
-            case 'Medium': 
+            case 'Medium':
                 return 'bg-gradient-to-r from-yellow-100 to-amber-100 text-yellow-800 border border-yellow-200';
-            case 'Low': 
+            case 'Low':
                 return 'bg-gradient-to-r from-green-100 to-emerald-100 text-green-800 border border-green-200';
-            default: 
+            default:
                 return 'bg-gradient-to-r from-gray-100 to-slate-100 text-gray-800 border border-gray-200';
         }
     };
@@ -991,28 +932,28 @@ const NotesTab = ({ clientUsername }) => {
     const getStatusColor = (status) => {
         const statusLower = status.toLowerCase();
         switch (statusLower) {
-            case 'complete': 
-            case 'completed': 
+            case 'complete':
+            case 'completed':
                 return 'bg-gradient-to-r from-green-100 to-emerald-100 text-green-800 border border-green-200';
-            case 'active': 
-            case 'pending': 
+            case 'active':
+            case 'pending':
                 return 'bg-gradient-to-r from-yellow-100 to-amber-100 text-yellow-800 border border-yellow-200';
-            case 'cancel': 
-            case 'cancelled': 
+            case 'cancel':
+            case 'cancelled':
                 return 'bg-gradient-to-r from-red-100 to-pink-100 text-red-800 border border-red-200';
-            default: 
+            default:
                 return 'bg-gradient-to-r from-gray-100 to-slate-100 text-gray-800 border border-gray-200';
         }
     };
 
     const getReminderStatus = (reminderDate) => {
         if (!reminderDate) return null;
-        
+
         const now = new Date();
         const reminder = new Date(reminderDate);
         const diffTime = reminder - now;
         const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-        
+
         if (diffTime < 0) {
             return { color: 'text-red-600 bg-red-50 border-red-200', text: 'Overdue', icon: FiAlertTriangle };
         } else if (diffDays <= 1) {
@@ -1024,25 +965,24 @@ const NotesTab = ({ clientUsername }) => {
         }
     };
 
-    const calculateNoteStats = () => {
-        const total = meta.total || notes.length;
-        const active = notes.filter(n => {
-            const status = n.status.toLowerCase();
-            return status === 'active' || status === 'pending';
-        }).length;
-        const completed = notes.filter(n => {
-            const status = n.status.toLowerCase();
-            return status === 'complete' || status === 'completed';
-        }).length;
-        const cancelled = notes.filter(n => {
-            const status = n.status.toLowerCase();
-            return status === 'cancel' || status === 'cancelled';
-        }).length;
-        
-        return { total, active, completed, cancelled };
+
+    const getNoteTitle = (note) => {
+        if (note.subject && note.subject !== 'Untitled Note') return note.subject;
+        switch (note.type) {
+            case 'file': return 'File Attachment';
+            case 'voice': return 'Voice Recording';
+            default: return 'Text Note';
+        }
     };
 
-    const stats = calculateNoteStats();
+    const getNoteDescription = (note) => {
+        if (note.note && note.note.trim()) return note.note;
+        switch (note.type) {
+            case 'file': return note.file_name || 'Attached file';
+            case 'voice': return 'Voice recording';
+            default: return 'No content';
+        }
+    };
 
     // Get file icon based on file type
     const getFileIcon = (fileName) => {
@@ -1071,40 +1011,18 @@ const NotesTab = ({ clientUsername }) => {
         }
     };
 
-    // Format file size
-    const formatFileSize = (bytes) => {
-        if (bytes === 0) return '0 Bytes';
-        const k = 1024;
-        const sizes = ['Bytes', 'KB', 'MB', 'GB'];
-        const i = Math.floor(Math.log(bytes) / Math.log(k));
-        return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
-    };
-
-    // Custom DatePicker styles
-    const CustomDatePickerInput = ({ value, onClick }) => (
-        <button
-            type="button"
-            className="w-full px-4 py-3 text-left border border-gray-300 rounded-xl bg-white hover:border-blue-500 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-300 flex items-center justify-between"
-            onClick={onClick}
-        >
-            <span className={value ? 'text-gray-900' : 'text-gray-400'}>
-                {value || 'Select date and time'}
-            </span>
-            <FiCalendar className="w-4 h-4 text-gray-400" />
-        </button>
-    );
 
     // Get note type badge color
     const getTypeBadgeColor = (type) => {
         switch (type) {
             case 'text':
-                return 'bg-gradient-to-r from-blue-100 to-indigo-100 text-blue-800 border border-blue-200';
+                return 'bg-blue-50 text-blue-700 border border-blue-100';
             case 'file':
-                return 'bg-gradient-to-r from-green-100 to-emerald-100 text-green-800 border border-green-200';
+                return 'bg-green-50 text-green-700 border border-green-100';
             case 'voice':
-                return 'bg-gradient-to-r from-purple-100 to-pink-100 text-purple-800 border border-purple-200';
+                return 'bg-purple-50 text-purple-700 border border-purple-100';
             default:
-                return 'bg-gradient-to-r from-gray-100 to-slate-100 text-gray-800 border border-gray-200';
+                return 'bg-gray-50 text-gray-700 border border-gray-100';
         }
     };
 
@@ -1135,7 +1053,7 @@ const NotesTab = ({ clientUsername }) => {
             if (currentlyPlaying && audioRefs.current[currentlyPlaying]) {
                 audioRefs.current[currentlyPlaying].pause();
             }
-            
+
             // Play new audio
             if (audioRefs.current[noteId]) {
                 audioRefs.current[noteId].play()
@@ -1164,545 +1082,314 @@ const NotesTab = ({ clientUsername }) => {
         };
     }, [audioURL]);
 
+    const isCreateFormValid = useMemo(() => {
+        if (createNoteType === 'text') {
+            return createForm.textNotes.length > 0 &&
+                createForm.textNotes.every(t => t.trim() !== '');
+        }
+        if (createNoteType === 'file') {
+            return createForm.attachments.length > 0 &&
+                createForm.attachments.every(a => a.file || String(a.url || '').trim());
+        }
+        if (createNoteType === 'voice') {
+            return !isRecording && !uploadingAttachment &&
+                createForm.voiceNotes.length > 0 &&
+                createForm.voiceNotes.every(v => String(v.url || '').trim() !== '');
+        }
+        return false;
+    }, [createNoteType, createForm]);
+
     return (
         <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -20 }}
-            className="bg-gradient-to-br from-gray-50 to-white rounded-2xl border border-gray-100 shadow-xl p-6"
+            className="bg-white rounded-xl border border-gray-200 shadow-sm"
         >
             {/* Header Section */}
-            <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center mb-8 gap-6">
-                <div className="space-y-2">
-                    <h3 className="text-2xl font-bold text-gray-900 bg-gradient-to-r from-blue-600 to-indigo-700 bg-clip-text text-transparent">
-                        Client Notes & Communication
-                    </h3>
-                    <p className="text-sm text-gray-600 font-medium">Track important conversations, instructions, and client communications</p>
-                </div>
+            <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                    <motion.button
-                        onClick={() => setShowAddModal(true)}
-                        className="flex items-center justify-center gap-2 px-6 py-3 bg-gradient-to-r from-blue-600 to-indigo-700 text-white rounded-xl hover:shadow-lg hover:shadow-blue-500/25 transition-all duration-300 font-semibold"
-                        whileHover={{ scale: 1.02, y: -2 }}
-                        whileTap={{ scale: 0.98 }}
-                    >
-                        <FiPlus className="w-5 h-5" />
-                        Add New Note
-                    </motion.button>
-                </div>
-            </div>
-
-            {/* Loading State */}
-            {loading && (
-                <div className="text-center py-12">
-                    <div className="w-20 h-20 mx-auto bg-gradient-to-r from-blue-100 to-indigo-100 rounded-full flex items-center justify-center mb-4 animate-pulse">
-                        <FiBook className="w-10 h-10 text-blue-600" />
+                    <div className="w-8 h-8 bg-blue-50 rounded-lg flex items-center justify-center">
+                        <FiMessageSquare className="w-4 h-4 text-blue-600" />
                     </div>
-                    <h3 className="text-lg font-semibold text-gray-900 mb-2">Loading notes...</h3>
-                    <p className="text-gray-600">Please wait while we fetch your notes</p>
+                    <h3 className="text-base font-semibold text-gray-900">Client Notes & Communication</h3>
                 </div>
-            )}
+                <button
+                    onClick={openAddModal}
+                    className="inline-flex items-center gap-2 px-3 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors shadow-sm hover:shadow"
+                >
+                    <FiPlus className="w-4 h-4" />
+                    Add Note
+                </button>
+            </div>
 
             {/* Error State */}
             {error && !loading && (
-                <div className="text-center py-12">
-                    <div className="w-20 h-20 mx-auto bg-gradient-to-r from-red-100 to-pink-100 rounded-full flex items-center justify-center mb-4">
-                        <FiMessageSquare className="w-10 h-10 text-red-600" />
+                <div className="p-12 text-center">
+                    <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-red-100 mb-4">
+                        <FiAlertCircle className="w-5 h-5 text-red-600" />
                     </div>
-                    <h3 className="text-lg font-semibold text-gray-900 mb-2">{error}</h3>
-                    {!clientUsername && (
-                        <p className="text-gray-600">Please select a client to view notes</p>
+                    <p className="text-sm text-red-600 mb-2">{error}</p>
+                    {clientUsername ? (
+                        <button onClick={() => fetchNotes(1, '')} className="text-sm text-blue-600 hover:text-blue-700 font-medium">Try again</button>
+                    ) : (
+                        <p className="text-sm text-gray-500">Please select a client to view notes</p>
                     )}
                 </div>
             )}
 
-            {/* Stats Dashboard - UPDATED with only Total, Pending, Complete, Cancel */}
-            {!loading && !error && clientUsername && (
-                <>
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-                        <motion.div 
-                            whileHover={{ scale: 1.02, y: -2 }}
-                            className="bg-white p-6 rounded-2xl border border-gray-200 shadow-sm hover:shadow-md transition-all duration-300 relative overflow-hidden"
-                        >
-                            <div className="absolute top-0 right-0 w-24 h-24 bg-gradient-to-br from-blue-500/10 to-indigo-500/10 rounded-full -mr-8 -mt-8"></div>
-                            <div className="relative">
-                                <div className="flex items-center justify-between">
-                                    <div>
-                                        <p className="text-sm font-medium text-gray-600">Total Notes</p>
-                                        <p className="text-3xl font-bold text-gray-900 mt-2">{stats.total}</p>
-                                    </div>
-                                    <div className="w-14 h-14 bg-gradient-to-r from-blue-600 to-indigo-700 rounded-xl flex items-center justify-center shadow-lg shadow-blue-500/20">
-                                        <FiBook className="w-6 h-6 text-white" />
-                                    </div>
-                                </div>
-                                <div className="mt-4 flex items-center text-xs text-gray-500">
-                                    <span className="flex items-center gap-1">
-                                        <span className="w-2 h-2 bg-blue-600 rounded-full"></span>
-                                        All notes
-                                    </span>
-                                </div>
-                            </div>
-                        </motion.div>
-                        
-                        <motion.div 
-                            whileHover={{ scale: 1.02, y: -2 }}
-                            className="bg-white p-6 rounded-2xl border border-gray-200 shadow-sm hover:shadow-md transition-all duration-300 relative overflow-hidden"
-                        >
-                            <div className="absolute top-0 right-0 w-24 h-24 bg-gradient-to-br from-yellow-500/10 to-amber-500/10 rounded-full -mr-8 -mt-8"></div>
-                            <div className="relative">
-                                <div className="flex items-center justify-between">
-                                    <div>
-                                        <p className="text-sm font-medium text-gray-600">Pending</p>
-                                        <p className="text-3xl font-bold text-gray-900 mt-2">{stats.active}</p>
-                                    </div>
-                                    <div className="w-14 h-14 bg-gradient-to-r from-yellow-500 to-amber-600 rounded-xl flex items-center justify-center shadow-lg shadow-yellow-500/20">
-                                        <FiClock className="w-6 h-6 text-white" />
-                                    </div>
-                                </div>
-                                <div className="mt-4 flex items-center text-xs text-gray-500">
-                                    <span className="flex items-center gap-1">
-                                        <span className="w-2 h-2 bg-yellow-500 rounded-full"></span>
-                                        Active notes
-                                    </span>
-                                </div>
-                            </div>
-                        </motion.div>
-                        
-                        <motion.div 
-                            whileHover={{ scale: 1.02, y: -2 }}
-                            className="bg-white p-6 rounded-2xl border border-gray-200 shadow-sm hover:shadow-md transition-all duration-300 relative overflow-hidden"
-                        >
-                            <div className="absolute top-0 right-0 w-24 h-24 bg-gradient-to-br from-green-500/10 to-emerald-500/10 rounded-full -mr-8 -mt-8"></div>
-                            <div className="relative">
-                                <div className="flex items-center justify-between">
-                                    <div>
-                                        <p className="text-sm font-medium text-gray-600">Completed</p>
-                                        <p className="text-3xl font-bold text-gray-900 mt-2">{stats.completed}</p>
-                                    </div>
-                                    <div className="w-14 h-14 bg-gradient-to-r from-green-500 to-emerald-600 rounded-xl flex items-center justify-center shadow-lg shadow-green-500/20">
-                                        <FiCheckCircle className="w-6 h-6 text-white" />
-                                    </div>
-                                </div>
-                                <div className="mt-4 flex items-center text-xs text-gray-500">
-                                    <span className="flex items-center gap-1">
-                                        <span className="w-2 h-2 bg-green-500 rounded-full"></span>
-                                        Finished notes
-                                    </span>
-                                </div>
-                            </div>
-                        </motion.div>
-                        
-                        <motion.div 
-                            whileHover={{ scale: 1.02, y: -2 }}
-                            className="bg-white p-6 rounded-2xl border border-gray-200 shadow-sm hover:shadow-md transition-all duration-300 relative overflow-hidden"
-                        >
-                            <div className="absolute top-0 right-0 w-24 h-24 bg-gradient-to-br from-red-500/10 to-pink-500/10 rounded-full -mr-8 -mt-8"></div>
-                            <div className="relative">
-                                <div className="flex items-center justify-between">
-                                    <div>
-                                        <p className="text-sm font-medium text-gray-600">Cancelled</p>
-                                        <p className="text-3xl font-bold text-gray-900 mt-2">{stats.cancelled}</p>
-                                    </div>
-                                    <div className="w-14 h-14 bg-gradient-to-r from-red-500 to-pink-600 rounded-xl flex items-center justify-center shadow-lg shadow-red-500/20">
-                                        <FiX className="w-6 h-6 text-white" />
-                                    </div>
-                                </div>
-                                <div className="mt-4 flex items-center text-xs text-gray-500">
-                                    <span className="flex items-center gap-1">
-                                        <span className="w-2 h-2 bg-red-500 rounded-full"></span>
-                                    Cancelled notes
-                                    </span>
-                                </div>
-                            </div>
-                        </motion.div>
+            {/* Search + Filters */}
+            <div className="px-4 pt-4 pb-3 border-b border-gray-100 space-y-3">
+                {/* Search */}
+                <div className="relative">
+                    <input
+                        type="text"
+                        placeholder="Search notes by content, author, or date…"
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                        className="w-full pl-10 pr-4 py-2 text-sm border border-gray-200 rounded-lg bg-gray-50 focus:bg-white focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none placeholder:text-gray-400 transition-colors"
+                    />
+                    {loading && searchTerm && (
+                        <span className="absolute inset-y-0 right-3 flex items-center">
+                            <span className="w-4 h-4 border-2 border-blue-400 border-t-transparent rounded-full animate-spin" />
+                        </span>
+                    )}
+                </div>
+
+                {/* Type tabs + Status/Priority on the same row */}
+                <div className="flex items-center justify-between gap-3 flex-wrap">
+                    {/* Type tabs */}
+                    <div className="flex items-center gap-1 p-1 bg-gray-100 rounded-lg">
+                        {[
+                            { value: 'all', label: 'All', icon: FiFolder },
+                            { value: 'text', label: 'Text', icon: FiMessageSquare },
+                            { value: 'file', label: 'Files', icon: FiFile },
+                            { value: 'voice', label: 'Voice', icon: FiVolume2 },
+                        ].map((f) => (
+                            <button
+                                key={f.value}
+                                onClick={() => setActiveFilter(f.value)}
+                                className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md transition-all ${activeFilter === f.value
+                                    ? 'bg-white text-gray-900 shadow-sm'
+                                    : 'text-gray-500 hover:text-gray-800'
+                                    }`}
+                            >
+                                <f.icon className="w-3.5 h-3.5" />
+                                {f.label}
+                            </button>
+                        ))}
                     </div>
 
-                    {/* Search and Filter Bar */}
-                    <div className="flex flex-col md:flex-row gap-4 mb-6">
-                        <div className="flex-1 relative">
-                            <FiSearch className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
-                            <input
-                                type="text"
-                                placeholder="Search notes, subjects or authors..."
-                                value={searchTerm}
-                                onChange={(e) => setSearchTerm(e.target.value)}
-                                className="w-full pl-12 pr-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent shadow-sm transition-all duration-300"
+                    {/* Status + Priority selects */}
+                    <div className="flex items-center gap-2">
+                        <div style={{ width: 148 }}>
+                            <SelectInput
+                                options={[
+                                    { value: 'all', label: 'All Status' },
+                                    { value: 'pending', label: 'Pending' },
+                                    { value: 'complete', label: 'Complete' },
+                                    { value: 'cancel', label: 'Cancel' },
+                                ]}
+                                value={statusFilter}
+                                onChange={(v) => setStatusFilter(v ?? 'all')}
+                                placeholder="All Status"
+                                searchPlaceholder="Search status…"
+                                clearable={false}
                             />
                         </div>
-                        <div className="flex gap-3">
-                            <select
-                                value={priorityFilter}
-                                onChange={(e) => setPriorityFilter(e.target.value)}
-                                className="px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent shadow-sm bg-white"
-                            >
-                                <option value="All">All Priorities</option>
-                                <option value="High">High</option>
-                                <option value="Medium">Medium</option>
-                                <option value="Low">Low</option>
-                            </select>
+                        <div style={{ width: 148 }}>
+                            <SelectInput
+                                options={[
+                                    { value: 'all', label: 'All Priority' },
+                                    { value: 'high', label: 'High' },
+                                    { value: 'medium', label: 'Medium' },
+                                    { value: 'low', label: 'Low' },
+                                ]}
+                                value={priorityListFilter}
+                                onChange={(v) => setPriorityListFilter(v ?? 'all')}
+                                placeholder="All Priority"
+                                searchPlaceholder="Search priority…"
+                                clearable={false}
+                            />
                         </div>
-                    </div>
-
-                    {/* Notes List - UPDATED WITH VOICE PLAYBACK */}
-                    <div className="space-y-4 mb-8">
-                        {filteredNotes.length === 0 ? (
-                            <div className="text-center py-12">
-                                <div className="w-20 h-20 mx-auto bg-gradient-to-r from-gray-100 to-gray-200 rounded-full flex items-center justify-center mb-4">
-                                    <FiMessageSquare className="w-10 h-10 text-gray-400" />
-                                </div>
-                                <h3 className="text-lg font-semibold text-gray-900 mb-2">
-                                    {notes.length === 0 ? 'No notes found' : 'No matching notes'}
-                                </h3>
-                                <p className="text-gray-600">
-                                    {notes.length === 0 ? 'Add a new note to get started' : 'Try adjusting your search or filter'}
-                                </p>
-                            </div>
-                        ) : (
-                            filteredNotes.map((note, index) => {
-                                const reminderStatus = getReminderStatus(note.reminder_date);
-                                
-                                return (
-                                    <motion.div
-                                        key={note.id}
-                                        initial={{ opacity: 0, y: 20 }}
-                                        animate={{ opacity: 1, y: 0 }}
-                                        transition={{ delay: index * 0.05 }}
-                                        className="bg-white p-6 rounded-2xl border border-gray-200 shadow-sm hover:shadow-md transition-all duration-300 group"
-                                    >
-                                        <div className="flex flex-col lg:flex-row lg:items-start justify-between gap-6">
-                                            <div className="flex-1">
-                                                <div className="flex items-start gap-4">
-                                                    <div className={`w-14 h-14 rounded-xl flex items-center justify-center text-white ${
-                                                        note.type === 'text' ? 'bg-gradient-to-r from-blue-600 to-indigo-700' :
-                                                        note.type === 'file' ? 'bg-gradient-to-r from-green-600 to-emerald-700' :
-                                                        'bg-gradient-to-r from-purple-600 to-pink-700'
-                                                    }`}>
-                                                        {getTypeIcon(note.type)}
-                                                    </div>
-                                                    <div className="space-y-3 flex-1">
-                                                        {note.subject && (
-                                                            <div className="flex items-start justify-between">
-                                                                <h4 className="font-semibold text-gray-900">{note.subject}</h4>
-                                                                <div className="flex items-center gap-2">
-                                                                    {reminderStatus && (
-                                                                        <div className={`px-3 py-1 rounded-full text-xs font-semibold flex items-center gap-1 ${reminderStatus.color}`}>
-                                                                            <reminderStatus.icon className="w-3 h-3" />
-                                                                            {reminderStatus.text}
-                                                                        </div>
-                                                                    )}
-                                                                    <span className={`px-3 py-1 rounded-full text-xs font-semibold flex items-center gap-1 ${getTypeBadgeColor(note.type)}`}>
-                                                                        {getTypeIcon(note.type)}
-                                                                        {note.type === 'text' ? 'Text' : note.type === 'file' ? 'File' : 'Voice'}
-                                                                    </span>
-                                                                </div>
-                                                            </div>
-                                                        )}
-                                                        
-                                                        {/* Note Content with Voice Playback */}
-                                                        {note.type === 'voice' ? (
-                                                            <div className="space-y-3">
-                                                                <div className="flex items-center gap-2 text-gray-700">
-                                                                    <FiVolume2 className="w-4 h-4 text-purple-600" />
-                                                                    <span className="text-sm text-gray-600">{note.note}</span>
-                                                                </div>
-                                                                {note.file && (
-                                                                    <div className="flex items-center gap-3">
-                                                                        <audio 
-                                                                            ref={el => audioRefs.current[note.id] = el}
-                                                                            src={note.file}
-                                                                            preload="metadata"
-                                                                            onEnded={() => setCurrentlyPlaying(null)}
-                                                                            className="hidden"
-                                                                        />
-                                                                        <motion.button
-                                                                            onClick={() => handlePlayAudio(note.id)}
-                                                                            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
-                                                                                currentlyPlaying === note.id
-                                                                                    ? 'bg-gradient-to-r from-red-600 to-pink-700 text-white'
-                                                                                    : 'bg-gradient-to-r from-purple-100 to-pink-100 text-purple-700 hover:from-purple-200 hover:to-pink-200'
-                                                                            }`}
-                                                                            whileHover={{ scale: 1.05 }}
-                                                                            whileTap={{ scale: 0.95 }}
-                                                                        >
-                                                                            <FiVolume2 className="w-4 h-4" />
-                                                                            {currentlyPlaying === note.id ? 'Playing...' : 'Play Voice Note'}
-                                                                        </motion.button>
-                                                                        <span className="text-xs text-gray-500">
-                                                                            Click to preview
-                                                                        </span>
-                                                                    </div>
-                                                                )}
-                                                            </div>
-                                                        ) : note.type === 'file' ? (
-                                                            <div className="flex items-center gap-2 text-gray-700">
-                                                                <FiFile className="w-4 h-4 text-green-600" />
-                                                                <span>{note.note}</span>
-                                                            </div>
-                                                        ) : (
-                                                            <p className="text-gray-700 leading-relaxed">
-                                                                {note.note.length > 120 ? note.truncated_note : note.note}
-                                                                {note.note.length > 120 && (
-                                                                    <button 
-                                                                        onClick={() => openViewModal(note)}
-                                                                        className="ml-2 text-blue-600 hover:text-blue-800 font-medium text-sm"
-                                                                    >
-                                                                        Read more
-                                                                    </button>
-                                                                )}
-                                                            </p>
-                                                        )}
-                                                        
-                                                        <div className="flex flex-wrap items-center gap-3">
-                                                            <div className="flex items-center gap-2 text-gray-600">
-                                                                <FiUser className="w-4 h-4" />
-                                                                <span className="font-medium">{note.author}</span>
-                                                            </div>
-                                                            <div className="flex items-center gap-2 text-gray-600">
-                                                                <FiCalendar className="w-4 h-4" />
-                                                                <span className="font-medium">{note.date}</span>
-                                                            </div>
-                                                            {note.reminder_date && (
-                                                                <div className="flex items-center gap-2 text-gray-600">
-                                                                    <FiBell className="w-4 h-4" />
-                                                                    <span className="font-medium text-sm">
-                                                                        {note.formatted_reminder_date}
-                                                                    </span>
-                                                                </div>
-                                                            )}
-                                                        </div>
-                                                        
-                                                        <div className="flex flex-wrap gap-2">
-                                                            <span className={`px-3 py-1.5 rounded-full text-xs font-semibold ${getPriorityColor(note.priority)}`}>
-                                                                {note.priority} Priority
-                                                            </span>
-                                                            <span className={`px-3 py-1.5 rounded-full text-xs font-semibold ${getStatusColor(note.status)}`}>
-                                                                {note.status}
-                                                            </span>
-                                                            {note.file && (
-                                                                <span className="px-3 py-1.5 rounded-full text-xs font-semibold bg-gradient-to-r from-indigo-100 to-purple-100 text-indigo-800 border border-indigo-200 flex items-center gap-1">
-                                                                    <FiPaperclip className="w-3 h-3" />
-                                                                    {note.type === 'voice' ? 'Audio file' : 'File attached'}
-                                                                </span>
-                                                            )}
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                            
-                                            <div className="flex items-center gap-2">
-                                                <motion.button
-                                                    onClick={() => openViewModal(note)}
-                                                    className="p-3 bg-gradient-to-r from-blue-50 to-indigo-50 text-blue-600 hover:shadow-md rounded-xl transition-all duration-200"
-                                                    whileHover={{ scale: 1.1, rotate: 5 }}
-                                                    whileTap={{ scale: 0.9 }}
-                                                    title="View full note"
-                                                >
-                                                    <FiEye className="w-4 h-4" />
-                                                </motion.button>
-                                                <motion.button
-                                                    onClick={() => openEditModal(note)}
-                                                    className="p-3 bg-gradient-to-r from-green-50 to-emerald-50 text-green-600 hover:shadow-md rounded-xl transition-all duration-200"
-                                                    whileHover={{ scale: 1.1, rotate: -5 }}
-                                                    whileTap={{ scale: 0.9 }}
-                                                    title="Edit note"
-                                                >
-                                                    <FiEdit className="w-4 h-4" />
-                                                </motion.button>
-                                                <motion.button
-                                                    onClick={() => openDeleteModal(note)}
-                                                    className="p-3 bg-gradient-to-r from-red-50 to-pink-50 text-red-600 hover:shadow-md rounded-xl transition-all duration-200"
-                                                    whileHover={{ scale: 1.1, rotate: -5 }}
-                                                    whileTap={{ scale: 0.9 }}
-                                                    title="Delete note"
-                                                >
-                                                    <FiTrash2 className="w-4 h-4" />
-                                                </motion.button>
-                                            </div>
-                                        </div>
-                                    </motion.div>
-                                );
-                            })
+                        {(statusFilter !== 'all' || priorityListFilter !== 'all' || activeFilter !== 'all') && (
+                            <button
+                                onClick={() => { setStatusFilter('all'); setPriorityListFilter('all'); setActiveFilter('all'); }}
+                                className="px-2.5 text-xs text-gray-500 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors border border-gray-200 h-10 whitespace-nowrap"
+                            >
+                                Clear filters
+                            </button>
                         )}
                     </div>
+                </div>
+            </div>
 
-                    {/* Pagination */}
-                    {pagination.total_pages > 1 && (
-                        <div className="flex flex-col md:flex-row justify-between items-center gap-4 mb-8">
-                            <div className="text-sm text-gray-600">
-                                Showing page {pagination.page} of {pagination.total_pages} • 
-                                Total {pagination.total} notes
+            {/* Skeleton Loading */}
+            {loading && (
+                <div className="divide-y divide-gray-100">
+                    {[...Array(5)].map((_, i) => (
+                        <div key={i} className="p-4 animate-pulse">
+                            <div className="flex items-start gap-3">
+                                <div className="flex-shrink-0 w-10 h-10 rounded-lg bg-gray-200" />
+                                <div className="flex-1 space-y-2 min-w-0">
+                                    <div className="flex items-center gap-2">
+                                        <div className="h-3.5 bg-gray-200 rounded-full w-40" />
+                                        <div className="h-3.5 bg-gray-200 rounded-full w-14" />
+                                        <div className="h-3.5 bg-gray-200 rounded-full w-14" />
+                                    </div>
+                                    <div className="h-3 bg-gray-200 rounded-full w-3/4" />
+                                    <div className="flex items-center gap-3">
+                                        <div className="h-3 bg-gray-200 rounded-full w-20" />
+                                        <div className="h-3 bg-gray-200 rounded-full w-28" />
+                                    </div>
+                                </div>
                             </div>
-                            
-                            <div className="flex items-center gap-2">
-                                {/* Previous Button */}
-                                <motion.button
-                                    onClick={() => handlePageChange(pagination.page - 1)}
-                                    disabled={pagination.page === 1}
-                                    className={`flex items-center gap-2 px-4 py-2 rounded-xl font-medium ${
-                                        pagination.page === 1 
-                                            ? 'text-gray-400 cursor-not-allowed' 
-                                            : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
-                                    }`}
-                                    whileHover={{ scale: 1.05 }}
-                                    whileTap={{ scale: 0.95 }}
+                        </div>
+                    ))}
+                </div>
+            )}
+
+            {/* Notes List */}
+            {!loading && !error && (
+                <div className="divide-y divide-gray-100">
+                    {filteredNotes.length === 0 ? (
+                        <div className="p-12 text-center">
+                            <div className="inline-flex items-center justify-center w-14 h-14 rounded-full bg-blue-50 mb-4">
+                                <FiMessageSquare className="w-6 h-6 text-blue-400" />
+                            </div>
+                            <p className="text-sm font-medium text-gray-700 mb-1">No notes found</p>
+                            <p className="text-xs text-gray-400 mb-4">
+                                {notes.length === 0 ? 'Get started by creating your first note.' : 'Try adjusting your filters.'}
+                            </p>
+                            {notes.length === 0 && (
+                                <button
+                                    onClick={openAddModal}
+                                    className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors shadow-sm"
                                 >
-                                    <FiChevronLeft className="w-4 h-4" />
-                                    Previous
-                                </motion.button>
-                                
-                                {/* Page Numbers */}
-                                <div className="flex items-center gap-1">
-                                    {generatePaginationNumbers().map((pageNum, index) => (
-                                        pageNum === '...' ? (
-                                            <span key={`ellipsis-${index}`} className="px-2 text-gray-400">
-                                                ...
+                                    <FiPlus className="w-4 h-4" />
+                                    Add first note
+                                </button>
+                            )}
+                        </div>
+                    ) : (
+                        filteredNotes.map((note, index) => {
+                            const p = note.priority?.toLowerCase();
+                            const s = note.status?.toLowerCase();
+                            return (
+                                <motion.div
+                                    key={note.id}
+                                    initial={{ opacity: 0, y: 12 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    transition={{ delay: index * 0.04 }}
+                                    className="group relative p-4 hover:bg-slate-50 transition-colors cursor-pointer"
+                                    onClick={() => openViewModal(note)}
+                                >
+                                    <div className="flex items-start gap-3">
+                                        {/* Type icon tile */}
+                                        <div className={`flex-shrink-0 w-10 h-10 rounded-xl flex items-center justify-center shadow-sm ${note.type === 'text' ? 'bg-blue-50 ring-1 ring-blue-100' :
+                                            note.type === 'file' ? 'bg-emerald-50 ring-1 ring-emerald-100' :
+                                                'bg-violet-50 ring-1 ring-violet-100'
+                                            }`}>
+                                            <span className={
+                                                note.type === 'text' ? 'text-blue-500' :
+                                                    note.type === 'file' ? 'text-emerald-500' : 'text-violet-500'
+                                            }>
+                                                {getTypeIcon(note.type)}
                                             </span>
-                                        ) : (
-                                            <motion.button
-                                                key={pageNum}
-                                                onClick={() => handlePageChange(pageNum)}
-                                                className={`w-10 h-10 flex items-center justify-center rounded-xl font-medium ${
-                                                    pagination.page === pageNum
-                                                        ? 'bg-gradient-to-r from-blue-600 to-indigo-700 text-white shadow-md'
-                                                        : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
-                                                }`}
-                                                whileHover={{ scale: 1.1 }}
-                                                whileTap={{ scale: 0.9 }}
-                                            >
-                                                {pageNum}
-                                            </motion.button>
-                                        )
-                                    ))}
-                                </div>
-                                
-                                {/* Next Button */}
-                                <motion.button
-                                    onClick={() => handlePageChange(pagination.page + 1)}
-                                    disabled={pagination.is_last_page}
-                                    className={`flex items-center gap-2 px-4 py-2 rounded-xl font-medium ${
-                                        pagination.is_last_page 
-                                            ? 'text-gray-400 cursor-not-allowed' 
-                                            : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
-                                    }`}
-                                    whileHover={{ scale: 1.05 }}
-                                    whileTap={{ scale: 0.95 }}
-                                >
-                                    Next
-                                    <FiChevronRight className="w-4 h-4" />
-                                </motion.button>
-                            </div>
-                            
-                            <div className="text-sm text-gray-600 hidden md:block">
-                                {pagination.limit} notes per page
-                            </div>
-                        </div>
-                    )}
-
-                    {/* Quick Actions */}
-                    <div className="mt-8 p-6 bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-2xl">
-                        <div className="flex flex-col md:flex-row justify-between items-center gap-6">
-                            <div className="flex items-start gap-4">
-                                <div className="w-12 h-12 bg-gradient-to-r from-blue-600 to-indigo-700 rounded-xl flex items-center justify-center">
-                                    <FiBook className="w-6 h-6 text-white" />
-                                </div>
-                                <div>
-                                    <h4 className="font-semibold text-gray-900 mb-2">Note Management Tips</h4>
-                                    <p className="text-sm text-gray-600">
-                                        • Create text notes for quick messages • Upload files for documents • 
-                                        Record voice notes for verbal instructions • Set reminders for important follow-ups
-                                    </p>
-                                </div>
-                            </div>
-                            <div className="flex gap-3">
-                                <motion.button
-                                    className="px-5 py-2.5 bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-xl hover:shadow-lg hover:shadow-green-500/25 transition-all duration-300 font-semibold"
-                                    whileHover={{ scale: 1.05, y: -2 }}
-                                    whileTap={{ scale: 0.95 }}
-                                >
-                                    Bulk Actions
-                                </motion.button>
-                                <motion.button
-                                    className="px-5 py-2.5 bg-gradient-to-r from-blue-600 to-indigo-700 text-white rounded-xl hover:shadow-lg hover:shadow-blue-500/25 transition-all duration-300 font-semibold"
-                                    whileHover={{ scale: 1.05, y: -2 }}
-                                    whileTap={{ scale: 0.95 }}
-                                >
-                                    Export Notes
-                                </motion.button>
-                            </div>
-                        </div>
-                    </div>
-
-                    {/* Recent Authors */}
-                    <div className="mt-6 grid grid-cols-1 lg:grid-cols-2 gap-6">
-                        <div className="p-6 bg-white border border-gray-200 rounded-2xl shadow-sm">
-                            <h4 className="font-semibold text-gray-900 mb-4 flex items-center gap-2">
-                                <FiUser className="w-5 h-5 text-blue-600" />
-                                Recent Authors
-                            </h4>
-                            <div className="space-y-3">
-                                {Array.from(new Set(notes.map(n => n.author))).slice(0, 4).map((author, index) => {
-                                    const authorNotes = notes.filter(n => n.author === author);
-                                    const activeNotes = authorNotes.filter(n => {
-                                        const status = n.status.toLowerCase();
-                                        return status === 'active' || status === 'pending';
-                                    }).length;
-                                    
-                                    return (
-                                        <div key={index} className="flex items-center justify-between p-3 hover:bg-gray-50 rounded-xl transition-colors">
-                                            <div className="flex items-center gap-3">
-                                                <div className="w-10 h-10 bg-gradient-to-r from-blue-100 to-indigo-100 rounded-full flex items-center justify-center">
-                                                    <FiUser className="w-5 h-5 text-blue-600" />
-                                                </div>
-                                                <div>
-                                                    <div className="font-medium text-gray-900">{author}</div>
-                                                    <div className="text-sm text-gray-600">{authorNotes.length} notes</div>
-                                                </div>
-                                            </div>
-                                            <div className="text-sm px-3 py-1 bg-gradient-to-r from-green-100 to-emerald-100 text-green-800 rounded-full">
-                                                {activeNotes} active
-                                            </div>
                                         </div>
-                                    );
-                                })}
-                            </div>
-                        </div>
-                        
-                        <div className="p-6 bg-white border border-gray-200 rounded-2xl shadow-sm">
-                            <h4 className="font-semibold text-gray-900 mb-4 flex items-center gap-2">
-                                <FiBell className="w-5 h-5 text-orange-600" />
-                                Upcoming Reminders
-                            </h4>
-                            <div className="space-y-3">
-                                {notes
-                                    .filter(note => note.reminder_date && new Date(note.reminder_date) > new Date())
-                                    .sort((a, b) => new Date(a.reminder_date) - new Date(b.reminder_date))
-                                    .slice(0, 3)
-                                    .map((note, index) => {
-                                        const reminderStatus = getReminderStatus(note.reminder_date);
-                                        return (
-                                            <div key={index} className="p-3 hover:bg-gray-50 rounded-xl transition-colors cursor-pointer" onClick={() => openViewModal(note)}>
-                                                <div className="flex items-center justify-between mb-2">
-                                                    <div className="font-medium text-gray-900 truncate">{note.subject || 'Untitled Note'}</div>
-                                                    <div className={`px-2 py-1 text-xs rounded-full ${reminderStatus?.color}`}>
-                                                        {reminderStatus?.text}
+
+                                        <div className="flex-1 min-w-0">
+                                            <div className="flex items-start justify-between gap-2">
+                                                <div className="min-w-0 flex-1">
+                                                    {/* Title */}
+                                                    <h4 className="text-sm font-semibold text-gray-800 truncate mb-0.5">
+                                                        {getNoteTitle(note)}
+                                                    </h4>
+                                                    {/* Description */}
+                                                    <p className="text-xs text-gray-500 line-clamp-1 mb-2">
+                                                        {getNoteDescription(note)}
+                                                    </p>
+                                                    {/* Badges row */}
+                                                    <div className="flex items-center gap-1.5 mb-1.5">
+                                                        <span className={`inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-md border ${p === 'high' ? 'bg-red-50 text-red-600 border-red-200' :
+                                                                p === 'medium' ? 'bg-amber-50 text-amber-600 border-amber-200' :
+                                                                    'bg-emerald-50 text-emerald-600 border-emerald-200'
+                                                            }`}>
+                                                            <span className="w-1.5 h-1.5 rounded-full bg-current" />
+                                                            {p ? p.charAt(0).toUpperCase() + p.slice(1) : '—'}
+                                                        </span>
+                                                        <span className={`inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-md border ${s === 'complete' ? 'bg-green-50 text-green-700 border-green-200' :
+                                                                s === 'cancel' ? 'bg-rose-50 text-rose-600 border-rose-200' :
+                                                                    'bg-yellow-50 text-yellow-700 border-yellow-200'
+                                                            }`}>
+                                                            <span className="w-1.5 h-1.5 rounded-full bg-current" />
+                                                            {s ? s.charAt(0).toUpperCase() + s.slice(1) : '—'}
+                                                        </span>
+                                                    </div>
+                                                    {/* Meta */}
+                                                    <div className="flex items-center gap-3 flex-wrap">
+                                                        <span className="flex items-center gap-1 text-xs text-gray-400">
+                                                            <FiUser className="w-3 h-3" />
+                                                            {note.author}
+                                                        </span>
+                                                        <span className="flex items-center gap-1 text-xs text-gray-400">
+                                                            <FiCalendar className="w-3 h-3" />
+                                                            {note.formatted_create_date}
+                                                        </span>
                                                     </div>
                                                 </div>
-                                                <div className="text-sm text-gray-600 flex items-center gap-2">
-                                                    <FiBell className="w-3 h-3" />
-                                                    {note.formatted_reminder_date}
+
+                                                {/* Action buttons (hover reveal) */}
+                                                <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+                                                    <button
+                                                        onClick={(e) => { e.stopPropagation(); openViewModal(note); }}
+                                                        className="p-1.5 rounded-lg text-gray-400 hover:text-blue-600 hover:bg-blue-50 transition-colors"
+                                                        title="View"
+                                                    >
+                                                        <FiEye className="w-3.5 h-3.5" />
+                                                    </button>
+                                                    <button
+                                                        onClick={(e) => { e.stopPropagation(); openEditModal(note); }}
+                                                        className="p-1.5 rounded-lg text-gray-400 hover:text-emerald-600 hover:bg-emerald-50 transition-colors"
+                                                        title="Edit"
+                                                    >
+                                                        <FiEdit className="w-3.5 h-3.5" />
+                                                    </button>
+                                                    <button
+                                                        onClick={(e) => { e.stopPropagation(); openDeleteModal(note); }}
+                                                        className="p-1.5 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors"
+                                                        title="Delete"
+                                                    >
+                                                        <FiTrash2 className="w-3.5 h-3.5" />
+                                                    </button>
                                                 </div>
                                             </div>
-                                        );
-                                    })}
-                                {notes.filter(note => note.reminder_date && new Date(note.reminder_date) > new Date()).length === 0 && (
-                                    <div className="text-center py-4 text-gray-500">
-                                        No upcoming reminders
+                                        </div>
                                     </div>
-                                )}
-                            </div>
-                        </div>
-                    </div>
-                </>
+                                </motion.div>
+                            );
+                        })
+                    )}
+                </div>
+            )}
+
+            {/* TablePagination */}
+            {!loading && !error && pagination.total > 0 && (
+                <TablePagination
+                    page={pagination.page}
+                    limit={pagination.limit}
+                    total={pagination.total}
+                    totalPages={pagination.total_pages}
+                    isLastPage={pagination.is_last_page}
+                    onPageChange={handlePageChange}
+                    onLimitChange={handleLimitChange}
+                    showRange
+                    showRows
+                    showJump
+                    showFirstLast
+                    rowOptions={[5, 10, 20, 50, 100]}
+                    defaultRows={20}
+                />
             )}
 
             {/* Professional View Note Modal - UPDATED FOR VOICE PLAYBACK */}
@@ -1712,7 +1399,7 @@ const NotesTab = ({ clientUsername }) => {
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}
                         exit={{ opacity: 0 }}
-                        className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
+                        className="fixed inset-0 bg-black/50 flex items-start justify-center p-3 sm:p-4 z-50 backdrop-blur-sm overflow-y-auto"
                         onClick={(e) => e.target === e.currentTarget && setShowViewModal(false)}
                     >
                         <motion.div
@@ -1720,41 +1407,33 @@ const NotesTab = ({ clientUsername }) => {
                             animate={{ scale: 1, opacity: 1, y: 0 }}
                             exit={{ scale: 0.95, opacity: 0, y: 20 }}
                             transition={{ type: "spring", damping: 25, stiffness: 300 }}
-                            className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl overflow-hidden max-h-[90vh] flex flex-col"
+                            className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl my-2 sm:my-4 max-h-[calc(100vh-1.5rem)] sm:max-h-[calc(100vh-2rem)] overflow-hidden flex flex-col"
                         >
                             {/* Modal Header */}
-                            <div className={`px-8 py-6 ${
-                                selectedNote.type === 'text' ? 'bg-gradient-to-r from-blue-600 to-indigo-700' :
+                            <div className={`shrink-0 px-5 py-3.5 ${selectedNote.type === 'text' ? 'bg-gradient-to-r from-blue-600 to-indigo-700' :
                                 selectedNote.type === 'file' ? 'bg-gradient-to-r from-green-600 to-emerald-700' :
-                                'bg-gradient-to-r from-purple-600 to-pink-700'
-                            } text-white`}>
+                                    'bg-gradient-to-r from-purple-600 to-pink-700'
+                                } text-white`}>
                                 <div className="flex items-center justify-between">
                                     <div className="flex items-center gap-3">
-                                        <div className="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center">
+                                        <div className="w-9 h-9 bg-white/20 rounded-lg flex items-center justify-center">
                                             {getTypeIcon(selectedNote.type)}
                                         </div>
-                                        <div>
-                                            <h2 className="text-2xl font-bold text-white">Note Details</h2>
-                                            <p className="text-opacity-90 text-sm mt-1">
-                                                {selectedNote.type === 'text' ? 'Text Note' : 
-                                                 selectedNote.type === 'file' ? 'File Attachment' : 
-                                                 'Voice Note'}
-                                            </p>
-                                        </div>
+                                        <h2 className="text-base font-semibold text-white">Note Details</h2>
                                     </div>
                                     <motion.button
                                         onClick={() => setShowViewModal(false)}
-                                        className="p-2 hover:bg-white/10 rounded-xl transition-colors"
+                                        className="p-1.5 hover:bg-white/10 rounded-lg transition-colors"
                                         whileHover={{ scale: 1.1, rotate: 90 }}
                                         whileTap={{ scale: 0.9 }}
                                     >
-                                        <FiX className="w-6 h-6 text-white" />
+                                        <FiX className="w-5 h-5 text-white" />
                                     </motion.button>
                                 </div>
                             </div>
 
                             {/* Modal Content */}
-                            <div className="flex-1 overflow-y-auto p-8">
+                            <div className="flex-1 overflow-y-auto px-5 py-4 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
                                 <div className="space-y-8">
                                     {/* Note Header Info */}
                                     <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -1782,26 +1461,25 @@ const NotesTab = ({ clientUsername }) => {
                                     <div className="bg-gradient-to-r from-gray-50 to-slate-50 border border-gray-200 rounded-xl p-6">
                                         <div className="flex items-center justify-between">
                                             <div className="flex items-center gap-3">
-                                                <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${
-                                                    selectedNote.type === 'text' ? 'bg-gradient-to-r from-blue-100 to-indigo-100' :
+                                                <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${selectedNote.type === 'text' ? 'bg-gradient-to-r from-blue-100 to-indigo-100' :
                                                     selectedNote.type === 'file' ? 'bg-gradient-to-r from-green-100 to-emerald-100' :
-                                                    'bg-gradient-to-r from-purple-100 to-pink-100'
-                                                }`}>
+                                                        'bg-gradient-to-r from-purple-100 to-pink-100'
+                                                    }`}>
                                                     {getTypeIcon(selectedNote.type)}
                                                 </div>
                                                 <div>
                                                     <h3 className="font-semibold text-gray-900">Note Type</h3>
                                                     <p className="text-sm text-gray-600">
-                                                        {selectedNote.type === 'text' ? 'Text Note' : 
-                                                         selectedNote.type === 'file' ? 'File Attachment' : 
-                                                         'Voice Recording'}
+                                                        {selectedNote.type === 'text' ? 'Text Note' :
+                                                            selectedNote.type === 'file' ? 'File Attachment' :
+                                                                'Voice Recording'}
                                                     </p>
                                                 </div>
                                             </div>
                                             <div className={`px-4 py-2 rounded-lg font-medium ${getTypeBadgeColor(selectedNote.type)}`}>
-                                                {selectedNote.type === 'text' ? 'TEXT' : 
-                                                 selectedNote.type === 'file' ? 'FILE' : 
-                                                 'VOICE'}
+                                                {selectedNote.type === 'text' ? 'TEXT' :
+                                                    selectedNote.type === 'file' ? 'FILE' :
+                                                        'VOICE'}
                                             </div>
                                         </div>
                                     </div>
@@ -1843,9 +1521,9 @@ const NotesTab = ({ clientUsername }) => {
                                                     </div>
                                                     {selectedNote.file && (
                                                         <div className="mt-4 space-y-4">
-                                                            <audio 
-                                                                controls 
-                                                                className="w-full" 
+                                                            <audio
+                                                                controls
+                                                                className="w-full"
                                                                 preload="metadata"
                                                                 onPlay={() => setCurrentlyPlaying(selectedNote.id)}
                                                                 onPause={() => setCurrentlyPlaying(null)}
@@ -1934,7 +1612,7 @@ const NotesTab = ({ clientUsername }) => {
                                                 </div>
                                             </div>
                                         </div>
-                                        
+
                                         {selectedNote.modified_by_name && (
                                             <div className="space-y-4">
                                                 <h4 className="font-semibold text-gray-900 flex items-center gap-2">
@@ -1957,10 +1635,10 @@ const NotesTab = ({ clientUsername }) => {
                             </div>
 
                             {/* Modal Footer */}
-                            <div className="border-t px-8 py-6 bg-gray-50 flex justify-end gap-4">
+                            <div className="shrink-0 border-t px-5 py-3 bg-gray-50 flex justify-end gap-3">
                                 <motion.button
                                     onClick={() => setShowViewModal(false)}
-                                    className="px-6 py-3 border border-gray-300 text-gray-700 hover:bg-gray-100 rounded-xl font-medium transition-all duration-300 flex items-center gap-2"
+                                    className="px-4 py-2 border border-gray-300 text-gray-700 hover:bg-gray-100 rounded-lg text-sm font-medium transition-all duration-300 flex items-center gap-2"
                                     whileHover={{ scale: 1.05, y: -2 }}
                                     whileTap={{ scale: 0.95 }}
                                 >
@@ -1972,7 +1650,7 @@ const NotesTab = ({ clientUsername }) => {
                                         setShowViewModal(false);
                                         openEditModal(selectedNote);
                                     }}
-                                    className="px-6 py-3 bg-gradient-to-r from-blue-600 to-indigo-700 text-white rounded-xl font-semibold hover:shadow-lg hover:shadow-blue-500/25 transition-all duration-300 flex items-center gap-2"
+                                    className="px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-700 text-white rounded-lg text-sm font-semibold hover:shadow-lg hover:shadow-blue-500/25 transition-all duration-300 flex items-center gap-2"
                                     whileHover={{ scale: 1.05, y: -2 }}
                                     whileTap={{ scale: 0.95 }}
                                 >
@@ -1985,581 +1663,351 @@ const NotesTab = ({ clientUsername }) => {
                 )}
             </AnimatePresence>
 
-            {/* Professional Add Note Modal - REMOVED ADDITIONAL ATTACHMENTS */}
+            {/* Add Note Modal */}
             <AnimatePresence>
                 {showAddModal && (
                     <motion.div
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}
                         exit={{ opacity: 0 }}
-                        className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
-                        onClick={(e) => e.target === e.currentTarget && setShowAddModal(false)}
+                        className="fixed inset-0 bg-black/50 flex items-start justify-center p-3 sm:p-4 z-50 backdrop-blur-sm overflow-y-auto"
+                        onClick={(e) => e.target === e.currentTarget && closeAddModal()}
                     >
                         <motion.div
-                            initial={{ scale: 0.95, opacity: 0, y: 20 }}
-                            animate={{ scale: 1, opacity: 1, y: 0 }}
-                            exit={{ scale: 0.95, opacity: 0, y: 20 }}
-                            transition={{ type: "spring", damping: 25, stiffness: 300 }}
-                            className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl overflow-hidden max-h-[90vh] flex flex-col"
+                            initial={{ scale: 0.95, opacity: 0 }}
+                            animate={{ scale: 1, opacity: 1 }}
+                            exit={{ scale: 0.95, opacity: 0 }}
+                            transition={{ type: 'spring', damping: 25, stiffness: 300 }}
+                            className="bg-white rounded-xl shadow-xl w-full max-w-2xl my-2 sm:my-4 max-h-[calc(100vh-1.5rem)] sm:max-h-[calc(100vh-2rem)] overflow-hidden flex flex-col"
                         >
-                            {/* Modal Header */}
-                            <div className="bg-gradient-to-r from-blue-600 to-indigo-700 px-8 py-6">
-                                <div className="flex items-center justify-between">
-                                    <div className="flex items-center gap-3">
-                                        <div className="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center">
-                                            <FiPlus className="w-6 h-6 text-white" />
-                                        </div>
-                                        <div>
-                                            <h2 className="text-2xl font-bold text-white">Create New Note</h2>
-                                            <p className="text-blue-100 text-sm mt-1">Add a new note with text, file, or voice</p>
-                                        </div>
+                            {/* Header */}
+                            <div className="shrink-0 px-5 py-3.5 flex items-center justify-between bg-gradient-to-r from-blue-600 to-indigo-600">
+                                <div className="flex items-center gap-3">
+                                    <div className="w-8 h-8 bg-white/20 rounded-lg flex items-center justify-center">
+                                        <FiPlus className="w-4 h-4 text-white" />
                                     </div>
-                                    <motion.button
-                                        onClick={() => {
-                                            setShowAddModal(false);
-                                            setNewNote({
-                                                subject: '',
-                                                note: '',
-                                                priority: 'high',
-                                                status: 'pending',
-                                                reminder_date: null,
-                                                type: 'text',
-                                                file: null
-                                            });
-                                            // Stop recording if in progress
-                                            if (isRecording) {
-                                                stopRecording();
-                                            }
-                                            setAudioBlob(null);
-                                            setAudioURL('');
-                                        }}
-                                        className="p-2 hover:bg-white/10 rounded-xl transition-colors"
-                                        whileHover={{ scale: 1.1, rotate: 90 }}
-                                        whileTap={{ scale: 0.9 }}
-                                    >
-                                        <FiX className="w-6 h-6 text-white" />
-                                    </motion.button>
+                                    <h3 className="text-base font-semibold text-white">Add New Note</h3>
                                 </div>
+                                <button
+                                    onClick={closeAddModal}
+                                    className="p-1.5 text-white/70 hover:text-white hover:bg-white/10 rounded-lg transition-colors"
+                                >
+                                    <FiX className="w-4 h-4" />
+                                </button>
                             </div>
 
-                            {/* Modal Content */}
-                            <div className="flex-1 overflow-y-auto p-8">
-                                <div className="space-y-8">
-                                    {/* Note Type Selection */}
+                            {/* Content */}
+                            <div className="flex-1 overflow-y-auto px-5 py-4 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
+                                {createValidationErrors.general && (
+                                    <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-600">
+                                        {createValidationErrors.general}
+                                    </div>
+                                )}
+
+                                {/* Note Type Selection */}
+                                <div className="grid grid-cols-3 gap-3 mb-5">
+                                    {[
+                                        { type: 'text', label: 'Text Note', icon: FiMessageSquare, color: 'blue' },
+                                        { type: 'file', label: 'File Attachment', icon: FiFile, color: 'green' },
+                                        { type: 'voice', label: 'Voice Note', icon: FiVolume2, color: 'purple' },
+                                    ].map((item) => (
+                                        <button
+                                            key={item.type}
+                                            onClick={() => setCreateNoteType(item.type)}
+                                            className={`flex flex-col items-center gap-2 p-4 rounded-lg border-2 transition-all ${createNoteType === item.type
+                                                ? item.color === 'blue' ? 'border-blue-500 bg-blue-50'
+                                                    : item.color === 'green' ? 'border-green-500 bg-green-50'
+                                                        : 'border-purple-500 bg-purple-50'
+                                                : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
+                                                }`}
+                                        >
+                                            <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${createNoteType === item.type
+                                                ? item.color === 'blue' ? 'bg-blue-100'
+                                                    : item.color === 'green' ? 'bg-green-100'
+                                                        : 'bg-purple-100'
+                                                : 'bg-gray-100'
+                                                }`}>
+                                                <item.icon className={`w-5 h-5 ${createNoteType === item.type
+                                                    ? item.color === 'blue' ? 'text-blue-600'
+                                                        : item.color === 'green' ? 'text-green-600'
+                                                            : 'text-purple-600'
+                                                    : 'text-gray-600'
+                                                    }`} />
+                                            </div>
+                                            <span className={`text-xs font-medium ${createNoteType === item.type
+                                                ? item.color === 'blue' ? 'text-blue-600'
+                                                    : item.color === 'green' ? 'text-green-600'
+                                                        : 'text-purple-600'
+                                                : 'text-gray-600'
+                                                }`}>
+                                                {item.label}
+                                            </span>
+                                        </button>
+                                    ))}
+                                </div>
+
+                                {/* Priority + Status */}
+                                <div className="grid grid-cols-2 gap-3 mb-5">
+                                    <div>
+                                        <SelectInput
+                                            label="Priority"
+                                            options={[
+                                                { value: 'low', label: 'Low' },
+                                                { value: 'medium', label: 'Medium' },
+                                                { value: 'high', label: 'High' },
+                                            ]}
+                                            value={createForm.priority}
+                                            onChange={(v) => setCreateForm(prev => ({ ...prev, priority: v ?? 'low' }))}
+                                            placeholder="Select priority…"
+                                            clearable={false}
+                                        />
+                                    </div>
+                                    <div>
+                                        <SelectInput
+                                            label="Status"
+                                            options={[
+                                                { value: 'pending', label: 'Pending' },
+                                                { value: 'complete', label: 'Complete' },
+                                                { value: 'cancel', label: 'Cancel' },
+                                            ]}
+                                            value={createForm.status}
+                                            onChange={(v) => setCreateForm(prev => ({ ...prev, status: v ?? 'pending' }))}
+                                            placeholder="Select status…"
+                                            clearable={false}
+                                        />
+                                    </div>
+                                </div>
+
+                                {/* Text Notes */}
+                                {createNoteType === 'text' && (
                                     <div className="space-y-3">
-                                        <label className="text-sm font-semibold text-gray-700 flex items-center gap-2">
-                                            <FiType className="w-4 h-4" />
-                                            Note Type *
-                                        </label>
-                                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                            <motion.button
-                                                type="button"
-                                                onClick={() => setNewNote(prev => ({ ...prev, type: 'text', file: null }))}
-                                                className={`p-6 rounded-2xl border-2 transition-all duration-300 flex flex-col items-center justify-center space-y-3 ${
-                                                    newNote.type === 'text' 
-                                                        ? 'border-blue-500 bg-gradient-to-r from-blue-50 to-indigo-50 shadow-md' 
-                                                        : 'border-gray-200 bg-white hover:border-blue-300 hover:bg-blue-50'
-                                                }`}
-                                                whileHover={{ scale: 1.02, y: -2 }}
-                                                whileTap={{ scale: 0.98 }}
-                                            >
-                                                <div className={`w-16 h-16 rounded-xl flex items-center justify-center ${
-                                                    newNote.type === 'text' 
-                                                        ? 'bg-gradient-to-r from-blue-600 to-indigo-700' 
-                                                        : 'bg-gradient-to-r from-blue-100 to-indigo-100'
-                                                }`}>
-                                                    <FiMessageSquare className={`w-8 h-8 ${newNote.type === 'text' ? 'text-white' : 'text-blue-600'}`} />
-                                                </div>
-                                                <div className="text-center">
-                                                    <h4 className="font-semibold text-gray-900">Text Note</h4>
-                                                    <p className="text-sm text-gray-600 mt-1">Write a text note</p>
-                                                </div>
-                                                {newNote.type === 'text' && (
-                                                    <div className="w-6 h-6 bg-blue-600 rounded-full flex items-center justify-center">
-                                                        <FiCheck className="w-4 h-4 text-white" />
-                                                    </div>
-                                                )}
-                                            </motion.button>
-
-                                            <motion.button
-                                                type="button"
-                                                onClick={() => setNewNote(prev => ({ ...prev, type: 'file', file: null }))}
-                                                className={`p-6 rounded-2xl border-2 transition-all duration-300 flex flex-col items-center justify-center space-y-3 ${
-                                                    newNote.type === 'file' 
-                                                        ? 'border-green-500 bg-gradient-to-r from-green-50 to-emerald-50 shadow-md' 
-                                                        : 'border-gray-200 bg-white hover:border-green-300 hover:bg-green-50'
-                                                }`}
-                                                whileHover={{ scale: 1.02, y: -2 }}
-                                                whileTap={{ scale: 0.98 }}
-                                            >
-                                                <div className={`w-16 h-16 rounded-xl flex items-center justify-center ${
-                                                    newNote.type === 'file' 
-                                                        ? 'bg-gradient-to-r from-green-600 to-emerald-700' 
-                                                        : 'bg-gradient-to-r from-green-100 to-emerald-100'
-                                                }`}>
-                                                    <FiFile className={`w-8 h-8 ${newNote.type === 'file' ? 'text-white' : 'text-green-600'}`} />
-                                                </div>
-                                                <div className="text-center">
-                                                    <h4 className="font-semibold text-gray-900">File Note</h4>
-                                                    <p className="text-sm text-gray-600 mt-1">Upload a document/file</p>
-                                                </div>
-                                                {newNote.type === 'file' && (
-                                                    <div className="w-6 h-6 bg-green-600 rounded-full flex items-center justify-center">
-                                                        <FiCheck className="w-4 h-4 text-white" />
-                                                    </div>
-                                                )}
-                                            </motion.button>
-
-                                            <motion.button
-                                                type="button"
-                                                onClick={() => setNewNote(prev => ({ ...prev, type: 'voice', file: null }))}
-                                                className={`p-6 rounded-2xl border-2 transition-all duration-300 flex flex-col items-center justify-center space-y-3 ${
-                                                    newNote.type === 'voice' 
-                                                        ? 'border-purple-500 bg-gradient-to-r from-purple-50 to-pink-50 shadow-md' 
-                                                        : 'border-gray-200 bg-white hover:border-purple-300 hover:bg-purple-50'
-                                                }`}
-                                                whileHover={{ scale: 1.02, y: -2 }}
-                                                whileTap={{ scale: 0.98 }}
-                                            >
-                                                <div className={`w-16 h-16 rounded-xl flex items-center justify-center ${
-                                                    newNote.type === 'voice' 
-                                                        ? 'bg-gradient-to-r from-purple-600 to-pink-700' 
-                                                        : 'bg-gradient-to-r from-purple-100 to-pink-100'
-                                                }`}>
-                                                    <FiMic className={`w-8 h-8 ${newNote.type === 'voice' ? 'text-white' : 'text-purple-600'}`} />
-                                                </div>
-                                                <div className="text-center">
-                                                    <h4 className="font-semibold text-gray-900">Voice Note</h4>
-                                                    <p className="text-sm text-gray-600 mt-1">Record a voice message</p>
-                                                </div>
-                                                {newNote.type === 'voice' && (
-                                                    <div className="w-6 h-6 bg-purple-600 rounded-full flex items-center justify-center">
-                                                        <FiCheck className="w-4 h-4 text-white" />
-                                                    </div>
-                                                )}
-                                            </motion.button>
-                                        </div>
-                                    </div>
-
-                                    {/* Basic Information */}
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                        <div className="space-y-3">
-                                            <label className="text-sm font-semibold text-gray-700 flex items-center gap-2">
-                                                <FiType className="w-4 h-4" />
-                                                Subject *
-                                            </label>
-                                            <input
-                                                type="text"
-                                                value={newNote.subject}
-                                                onChange={(e) => setNewNote({...newNote, subject: e.target.value})}
-                                                className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent shadow-sm transition-all duration-300"
-                                                placeholder="Enter note subject"
-                                            />
-                                            {!newNote.subject && (
-                                                <p className="text-xs text-red-500 flex items-center gap-1">
-                                                    <FiAlertCircle className="w-3 h-3" />
-                                                    Subject is required
-                                                </p>
-                                            )}
-                                        </div>
-                                        
-                                        <div className="space-y-3">
-                                            <label className="text-sm font-semibold text-gray-700 flex items-center gap-2">
-                                                <FiTag className="w-4 h-4" />
-                                                Priority *
-                                            </label>
-                                            <select
-                                                value={newNote.priority}
-                                                onChange={(e) => setNewNote({...newNote, priority: e.target.value})}
-                                                className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent shadow-sm transition-all duration-300"
-                                            >
-                                                <option value="high">High Priority</option>
-                                                <option value="medium">Medium Priority</option>
-                                                <option value="low">Low Priority</option>
-                                            </select>
-                                        </div>
-                                    </div>
-
-                                    {/* Status and Reminder */}
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                        <div className="space-y-3">
-                                            <label className="text-sm font-semibold text-gray-700 flex items-center gap-2">
-                                                <FiCheckCircle className="w-4 h-4" />
-                                                Status *
-                                            </label>
-                                            <select
-                                                value={newNote.status}
-                                                onChange={(e) => setNewNote({...newNote, status: e.target.value})}
-                                                className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent shadow-sm transition-all duration-300"
-                                            >
-                                                <option value="pending">Pending</option>
-                                                <option value="complete">Complete</option>
-                                                <option value="cancel">Cancel</option>
-                                            </select>
-                                        </div>
-                                        
-                                        <div className="space-y-3">
-                                            <label className="text-sm font-semibold text-gray-700 flex items-center gap-2">
-                                                <FiBell className="w-4 h-4" />
-                                                Set Reminder
-                                            </label>
-                                            <div className="relative">
-                                                <DatePicker
-                                                    selected={newNote.reminder_date}
-                                                    onChange={(date) => setNewNote({...newNote, reminder_date: date})}
-                                                    showTimeSelect
-                                                    timeFormat="HH:mm"
-                                                    timeIntervals={15}
-                                                    dateFormat="MMMM d, yyyy h:mm aa"
-                                                    placeholderText="Select date and time"
-                                                    minDate={new Date()}
-                                                    popperClassName="z-50"
-                                                    popperPlacement="bottom-start"
-                                                    customInput={<CustomDatePickerInput />}
+                                        {createForm.textNotes.map((text, i) => (
+                                            <div key={i} className="flex gap-2">
+                                                <textarea
+                                                    value={text}
+                                                    onChange={(e) => updateTextNote(i, e.target.value)}
+                                                    className="flex-1 p-3 text-sm border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none min-h-[120px] resize-none"
+                                                    placeholder="Write your note here..."
                                                 />
-                                                {newNote.reminder_date && (
-                                                    <motion.button
-                                                        initial={{ opacity: 0 }}
-                                                        animate={{ opacity: 1 }}
-                                                        onClick={() => setNewNote({...newNote, reminder_date: null})}
-                                                        className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-red-500"
-                                                        whileHover={{ scale: 1.2 }}
-                                                        whileTap={{ scale: 0.9 }}
+                                                {createForm.textNotes.length > 1 && (
+                                                    <button
+                                                        onClick={() => removeTextNoteRow(i)}
+                                                        className="p-2 text-red-500 hover:bg-red-50 rounded-lg h-fit transition-colors"
                                                     >
                                                         <FiX className="w-4 h-4" />
-                                                    </motion.button>
+                                                    </button>
                                                 )}
                                             </div>
-                                            <p className="text-xs text-gray-500">Optional: Set a reminder for follow-up</p>
-                                        </div>
+                                        ))}
+                                        <button
+                                            onClick={addTextNoteRow}
+                                            className="text-sm text-blue-600 hover:text-blue-700 font-medium inline-flex items-center gap-1"
+                                        >
+                                            <FiPlus className="w-4 h-4" />
+                                            Add another note
+                                        </button>
                                     </div>
+                                )}
 
-                                    {/* Content based on type */}
-                                    {newNote.type === 'text' && (
-                                        <div className="space-y-3">
-                                            <label className="text-sm font-semibold text-gray-700 flex items-center gap-2">
-                                                <FiMessageSquare className="w-4 h-4" />
-                                                Note Content *
-                                            </label>
-                                            <textarea
-                                                value={newNote.note}
-                                                onChange={(e) => setNewNote({...newNote, note: e.target.value})}
-                                                className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent shadow-sm transition-all duration-300 min-h-[200px] resize-none"
-                                                placeholder="Enter your note content here..."
-                                            />
-                                            {!newNote.note && (
-                                                <p className="text-xs text-red-500 flex items-center gap-1">
-                                                    <FiAlertCircle className="w-3 h-3" />
-                                                    Note content is required
-                                                </p>
-                                            )}
-                                        </div>
-                                    )}
-
-                                    {newNote.type === 'file' && (
-                                        <div className="space-y-4">
-                                            <div className="flex items-center justify-between">
-                                                <label className="text-sm font-semibold text-gray-700 flex items-center gap-2">
-                                                    <FiFile className="w-4 h-4" />
-                                                    File Upload *
-                                                </label>
-                                                <span className="text-xs text-gray-500">
-                                                    Max 10MB per file
-                                                </span>
-                                            </div>
-                                            
-                                            {/* File Upload Area */}
-                                            {!newNote.file ? (
-                                                <div className="border-2 border-dashed border-gray-300 rounded-2xl p-8 text-center hover:border-green-500 transition-colors cursor-pointer"
-                                                    onClick={() => fileInputRef.current?.click()}>
+                                {/* File Attachments */}
+                                {createNoteType === 'file' && (
+                                    <div className="space-y-4">
+                                        {createForm.attachments.map((att, i) => (
+                                            <div key={i} className="border border-gray-200 rounded-lg p-4 space-y-3">
+                                                <div className="flex justify-between items-center">
+                                                    <span className="text-sm font-medium text-gray-700">Attachment {i + 1}</span>
+                                                    <button
+                                                        onClick={() => removeAttachmentRow(i)}
+                                                        className="p-1.5 text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                                                    >
+                                                        <FiX className="w-4 h-4" />
+                                                    </button>
+                                                </div>
+                                                <div className="relative">
                                                     <input
+                                                        ref={(el) => { attachmentInputRefs.current[i] = el; }}
                                                         type="file"
-                                                        ref={fileInputRef}
-                                                        onChange={handleFileSelect}
                                                         className="hidden"
                                                         accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png,.txt,.zip,.rar"
+                                                        onChange={(e) => handleAttachmentFileSelect(i, e)}
                                                     />
-                                                    <div className="w-16 h-16 mx-auto mb-4 bg-gradient-to-r from-green-50 to-emerald-50 rounded-xl flex items-center justify-center">
-                                                        <FiUpload className="w-8 h-8 text-green-600" />
-                                                    </div>
-                                                    <h4 className="font-semibold text-gray-900 mb-2">Click to upload file</h4>
-                                                    <p className="text-sm text-gray-600">Supports PDF, Word, Excel, Images, and Text files</p>
-                                                    {uploadingAttachment && (
-                                                        <div className="mt-4">
-                                                            <div className="w-full bg-gray-200 rounded-full h-2">
-                                                                <div 
-                                                                    className="bg-gradient-to-r from-green-600 to-emerald-700 h-2 rounded-full transition-all duration-300"
-                                                                    style={{ width: `${Object.values(uploadProgress)[0] || 0}%` }}
-                                                                />
-                                                            </div>
-                                                            <p className="text-xs text-gray-500 mt-2">
-                                                                Uploading... {Object.values(uploadProgress)[0] || 0}%
-                                                            </p>
-                                                        </div>
-                                                    )}
-                                                </div>
-                                            ) : (
-                                                <div className="bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 rounded-2xl p-6">
-                                                    <div className="flex items-center justify-between">
-                                                        <div className="flex items-center gap-4">
-                                                            <div className="w-16 h-16 bg-gradient-to-r from-green-100 to-emerald-100 rounded-xl flex items-center justify-center">
-                                                                <FiFile className="w-8 h-8 text-green-600" />
-                                                            </div>
-                                                            <div>
-                                                                <h4 className="font-semibold text-gray-900">File Selected</h4>
-                                                                <p className="text-sm text-gray-600">
-                                                                    {newNote.file.split('/').pop() || 'Uploaded file'}
-                                                                </p>
-                                                            </div>
-                                                        </div>
-                                                        <div className="flex items-center gap-2">
-                                                            <motion.button
-                                                                onClick={() => window.open(newNote.file, '_blank')}
-                                                                className="p-2 text-green-600 hover:bg-green-100 rounded-lg transition-colors"
-                                                                whileHover={{ scale: 1.1 }}
-                                                                whileTap={{ scale: 0.9 }}
-                                                                title="Preview"
-                                                            >
-                                                                <FiEye className="w-4 h-4" />
-                                                            </motion.button>
-                                                            <motion.button
-                                                                onClick={removeFile}
-                                                                className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition-colors"
-                                                                whileHover={{ scale: 1.1 }}
-                                                                whileTap={{ scale: 0.9 }}
-                                                                title="Remove"
-                                                            >
-                                                                <FiX className="w-4 h-4" />
-                                                            </motion.button>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            )}
-                                            
-                                            {/* Note Description */}
-                                            <div className="space-y-3">
-                                                <label className="text-sm font-semibold text-gray-700 flex items-center gap-2">
-                                                    <FiMessageSquare className="w-4 h-4" />
-                                                    Description
-                                                </label>
-                                                <textarea
-                                                    value={newNote.note}
-                                                    onChange={(e) => setNewNote({...newNote, note: e.target.value})}
-                                                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent shadow-sm transition-all duration-300 min-h-[100px] resize-none"
-                                                    placeholder="Add a description for this file..."
-                                                />
-                                            </div>
-                                        </div>
-                                    )}
-
-                                    {newNote.type === 'voice' && (
-                                        <div className="space-y-4">
-                                            <div className="flex items-center justify-between">
-                                                <label className="text-sm font-semibold text-gray-700 flex items-center gap-2">
-                                                    <FiMic className="w-4 h-4" />
-                                                    Voice Recording *
-                                                </label>
-                                            </div>
-                                            
-                                            {/* Voice Recording Area */}
-                                            {!isRecording && !audioURL && !newNote.file ? (
-                                                <div className="border-2 border-dashed border-gray-300 rounded-2xl p-8 text-center hover:border-purple-500 transition-colors">
-                                                    <div className="w-16 h-16 mx-auto mb-4 bg-gradient-to-r from-purple-50 to-pink-50 rounded-xl flex items-center justify-center">
-                                                        <FiMic className="w-8 h-8 text-purple-600" />
-                                                    </div>
-                                                    <h4 className="font-semibold text-gray-900 mb-2">Record a voice note</h4>
-                                                    <p className="text-sm text-gray-600 mb-4">Click the record button to start recording</p>
-                                                    <motion.button
-                                                        onClick={startRecording}
-                                                        className="px-8 py-3 bg-gradient-to-r from-purple-600 to-pink-700 text-white rounded-xl font-semibold hover:shadow-lg hover:shadow-purple-500/25 transition-all duration-300 flex items-center gap-2 mx-auto"
-                                                        whileHover={{ scale: 1.05, y: -2 }}
-                                                        whileTap={{ scale: 0.95 }}
+                                                    <div
+                                                        className="border-2 border-dashed border-gray-200 rounded-lg p-4 text-center hover:border-blue-500 transition-colors cursor-pointer"
+                                                        onClick={() => attachmentInputRefs.current[i]?.click()}
                                                     >
-                                                        <FiMic className="w-5 h-5" />
-                                                        Start Recording
-                                                    </motion.button>
-                                                    <p className="text-xs text-gray-500 mt-4">
-                                                        Note: You'll need to allow microphone access
-                                                    </p>
-                                                </div>
-                                            ) : isRecording ? (
-                                                <div className="bg-gradient-to-r from-red-50 to-pink-50 border border-red-200 rounded-2xl p-8 text-center">
-                                                    <div className="w-20 h-20 mx-auto mb-4 bg-gradient-to-r from-red-600 to-pink-700 rounded-full flex items-center justify-center animate-pulse">
-                                                        <FiMic className="w-10 h-10 text-white" />
-                                                    </div>
-                                                    <h4 className="font-semibold text-gray-900 mb-2">Recording in progress...</h4>
-                                                    <div className="text-2xl font-bold text-red-600 mb-6">
-                                                        {formatRecordingTime(recordingTime)}
-                                                    </div>
-                                                    <div className="flex justify-center gap-4">
-                                                        <motion.button
-                                                            onClick={stopRecording}
-                                                            className="px-6 py-3 bg-gradient-to-r from-red-600 to-pink-700 text-white rounded-xl font-semibold hover:shadow-lg hover:shadow-red-500/25 transition-all duration-300 flex items-center gap-2"
-                                                            whileHover={{ scale: 1.05, y: -2 }}
-                                                            whileTap={{ scale: 0.95 }}
-                                                        >
-                                                            <FiCheck className="w-5 h-5" />
-                                                            Stop Recording
-                                                        </motion.button>
-                                                        <motion.button
-                                                            onClick={cancelRecording}
-                                                            className="px-6 py-3 border border-gray-300 text-gray-700 hover:bg-gray-100 rounded-xl font-medium transition-all duration-300"
-                                                            whileHover={{ scale: 1.05, y: -2 }}
-                                                            whileTap={{ scale: 0.95 }}
-                                                        >
-                                                            Cancel
-                                                        </motion.button>
+                                                        <FiUpload className="w-6 h-6 mx-auto mb-2 text-gray-400" />
+                                                        <p className="text-sm text-gray-600">
+                                                            {att.previewName ? att.previewName : 'Click to upload or drag and drop'}
+                                                        </p>
+                                                        <p className="text-xs text-gray-400 mt-1">Maximum file size: 10MB</p>
                                                     </div>
                                                 </div>
-                                            ) : (
-                                                <div className="bg-gradient-to-r from-purple-50 to-pink-50 border border-purple-200 rounded-2xl p-6">
-                                                    <div className="flex items-center justify-between mb-4">
-                                                        <div className="flex items-center gap-4">
-                                                            <div className="w-16 h-16 bg-gradient-to-r from-purple-100 to-pink-100 rounded-xl flex items-center justify-center">
-                                                                <FiVolume2 className="w-8 h-8 text-purple-600" />
-                                                            </div>
-                                                            <div>
-                                                                <h4 className="font-semibold text-gray-900">Recording Complete</h4>
-                                                                <p className="text-sm text-gray-600">
-                                                                    Duration: {formatRecordingTime(recordingTime)}
-                                                                </p>
-                                                            </div>
-                                                        </div>
-                                                        <div className="flex items-center gap-2">
-                                                            {audioURL && (
-                                                                <audio controls className="w-48">
-                                                                    <source src={audioURL} type="audio/mpeg" />
-                                                                    Your browser does not support the audio element.
-                                                                </audio>
-                                                            )}
-                                                            <motion.button
-                                                                onClick={removeFile}
-                                                                className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition-colors ml-2"
-                                                                whileHover={{ scale: 1.1 }}
-                                                                whileTap={{ scale: 0.9 }}
-                                                                title="Re-record"
-                                                            >
-                                                                <FiX className="w-4 h-4" />
-                                                            </motion.button>
-                                                        </div>
-                                                    </div>
-                                                    {uploadingAttachment && (
-                                                        <div className="mt-4">
-                                                            <div className="w-full bg-gray-200 rounded-full h-2">
-                                                                <div 
-                                                                    className="bg-gradient-to-r from-purple-600 to-pink-700 h-2 rounded-full transition-all duration-300"
-                                                                    style={{ width: `${Object.values(uploadProgress)[0] || 0}%` }}
-                                                                />
-                                                            </div>
-                                                            <p className="text-xs text-gray-500 mt-2 text-center">
-                                                                Uploading audio... {Object.values(uploadProgress)[0] || 0}%
-                                                            </p>
-                                                        </div>
-                                                    )}
-                                                </div>
-                                            )}
-                                            
-                                            {/* Note Description */}
-                                            <div className="space-y-3">
-                                                <label className="text-sm font-semibold text-gray-700 flex items-center gap-2">
-                                                    <FiMessageSquare className="w-4 h-4" />
-                                                    Description
-                                                </label>
-                                                <textarea
-                                                    value={newNote.note}
-                                                    onChange={(e) => setNewNote({...newNote, note: e.target.value})}
-                                                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent shadow-sm transition-all duration-300 min-h-[100px] resize-none"
-                                                    placeholder="Add a description for this voice note..."
+                                                <input
+                                                    type="text"
+                                                    value={att.name}
+                                                    onChange={(e) => updateAttachmentRow(i, { name: e.target.value })}
+                                                    placeholder="File name (optional)"
+                                                    className="w-full p-2 text-sm border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
                                                 />
+                                                <input
+                                                    type="text"
+                                                    value={att.remark}
+                                                    onChange={(e) => updateAttachmentRow(i, { remark: e.target.value })}
+                                                    placeholder="Add a remark or description..."
+                                                    className="w-full p-2 text-sm border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+                                                />
+                                                {att.url && (
+                                                    <a href={att.url} target="_blank" rel="noreferrer" className="text-xs text-blue-600 hover:underline">
+                                                        Preview uploaded file
+                                                    </a>
+                                                )}
+                                                {uploadProgress[att.file?.name] && (
+                                                    <div className="space-y-1">
+                                                        <div className="flex justify-between text-xs">
+                                                            <span className="text-gray-600">Uploading...</span>
+                                                            <span className="text-blue-600 font-medium">{uploadProgress[att.file.name]}%</span>
+                                                        </div>
+                                                        <div className="w-full bg-gray-200 rounded-full h-1.5">
+                                                            <div
+                                                                className="bg-blue-600 h-1.5 rounded-full transition-all duration-300"
+                                                                style={{ width: `${uploadProgress[att.file.name]}%` }}
+                                                            />
+                                                        </div>
+                                                    </div>
+                                                )}
                                             </div>
-                                        </div>
-                                    )}
-                                </div>
+                                        ))}
+                                        <button
+                                            onClick={addAttachmentRow}
+                                            className="text-sm text-blue-600 hover:text-blue-700 font-medium inline-flex items-center gap-1"
+                                        >
+                                            <FiPlus className="w-4 h-4" />
+                                            Add another attachment
+                                        </button>
+                                    </div>
+                                )}
+
+                                {/* Voice Notes */}
+                                {createNoteType === 'voice' && (
+                                    <div id="voice-recording-area" className="space-y-4">
+                                        {/* Idle — no recordings yet, not recording */}
+                                        {!isRecording && createForm.voiceNotes.length === 0 && (
+                                            <div className="border-2 border-dashed border-gray-200 rounded-lg p-8 text-center hover:border-purple-400 transition-colors">
+                                                <div className="w-16 h-16 mx-auto mb-4 bg-purple-50 rounded-full flex items-center justify-center">
+                                                    <FiMic className="w-6 h-6 text-purple-600" />
+                                                </div>
+                                                <h4 className="text-sm font-medium text-gray-900 mb-1">Record a voice note</h4>
+                                                <p className="text-xs text-gray-500 mb-4">Click the button below to start recording</p>
+                                                <button
+                                                    onClick={startCreateRecording}
+                                                    className="inline-flex items-center gap-2 px-4 py-2 bg-purple-600 text-white text-sm font-medium rounded-lg hover:bg-purple-700 transition-colors"
+                                                >
+                                                    <FiMic className="w-4 h-4" />
+                                                    Start Recording
+                                                </button>
+                                            </div>
+                                        )}
+
+                                        {/* Recording in progress */}
+                                        {isRecording && (
+                                            <div className="bg-red-50 border border-red-200 rounded-lg p-6 text-center">
+                                                <div className="w-16 h-16 mx-auto mb-4 bg-red-600 rounded-full flex items-center justify-center animate-pulse">
+                                                    <FiMic className="w-6 h-6 text-white" />
+                                                </div>
+                                                <p className="text-sm font-medium text-red-600 mb-3">
+                                                    Recording… {formatRecordingTime(recordingTime)}
+                                                </p>
+                                                <div className="flex justify-center gap-3">
+                                                    <button
+                                                        onClick={stopRecording}
+                                                        className="px-4 py-2 bg-red-600 text-white text-sm font-medium rounded-lg hover:bg-red-700 transition-colors"
+                                                    >
+                                                        Stop Recording
+                                                    </button>
+                                                    <button
+                                                        onClick={cancelCreateRecording}
+                                                        className="px-4 py-2 border border-gray-200 text-gray-600 text-sm rounded-lg hover:bg-gray-50 transition-colors"
+                                                    >
+                                                        Cancel
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        )}
+
+                                        {/* Processing spinner */}
+                                        {uploadingAttachment && !isRecording && (
+                                            <div className="text-sm text-purple-600 text-center py-2">
+                                                <div className="inline-flex items-center gap-2">
+                                                    <div className="w-4 h-4 border-2 border-purple-600 border-t-transparent rounded-full animate-spin" />
+                                                    Processing audio…
+                                                </div>
+                                            </div>
+                                        )}
+
+                                        {/* Saved recordings list */}
+                                        {createForm.voiceNotes.map((row, i) => (
+                                            <div key={i} className="border border-gray-200 rounded-lg p-4">
+                                                <div className="flex items-center gap-3">
+                                                    <audio controls src={row.url} className="flex-1" />
+                                                    <button
+                                                        onClick={() => removeVoiceRow(i)}
+                                                        className="p-1.5 text-red-500 hover:bg-red-50 rounded-lg transition-colors flex-shrink-0"
+                                                    >
+                                                        <FiX className="w-4 h-4" />
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        ))}
+
+                                        {/* Add another recording */}
+                                        {!isRecording && !uploadingAttachment && createForm.voiceNotes.length > 0 && (
+                                            <button
+                                                onClick={startCreateRecording}
+                                                className="text-sm text-purple-600 hover:text-purple-700 font-medium inline-flex items-center gap-1"
+                                            >
+                                                <FiPlus className="w-4 h-4" />
+                                                Add another recording
+                                            </button>
+                                        )}
+                                    </div>
+                                )}
                             </div>
 
-                            {/* Modal Footer */}
-                            <div className="border-t px-8 py-6 bg-gray-50 flex justify-between items-center">
-                                <div className="text-sm text-gray-600">
-                                    <div className="flex items-center gap-2">
-                                        <FiInfo className="w-4 h-4" />
-                                        Fields marked with * are required
-                                    </div>
-                                </div>
-                                <div className="flex gap-3">
-                                    <motion.button
-                                        onClick={() => {
-                                            setShowAddModal(false);
-                                            setNewNote({
-                                                subject: '',
-                                                note: '',
-                                                priority: 'high',
-                                                status: 'pending',
-                                                reminder_date: null,
-                                                type: 'text',
-                                                file: null
-                                            });
-                                            // Stop recording if in progress
-                                            if (isRecording) {
-                                                stopRecording();
-                                            }
-                                            setAudioBlob(null);
-                                            setAudioURL('');
-                                        }}
-                                        className="px-6 py-3 border border-gray-300 text-gray-700 hover:bg-gray-100 rounded-xl font-medium transition-all duration-300"
-                                        whileHover={{ scale: 1.05, y: -2 }}
-                                        whileTap={{ scale: 0.95 }}
-                                    >
-                                        Cancel
-                                    </motion.button>
-                                    <motion.button
-                                        onClick={handleAddNote}
-                                        disabled={!newNote.subject || 
-                                                 (newNote.type === 'text' && !newNote.note) || 
-                                                 (newNote.type === 'file' && !newNote.file) ||
-                                                 (newNote.type === 'voice' && !newNote.file) ||
-                                                 uploadingAttachment ||
-                                                 isRecording}
-                                        className={`px-6 py-3 rounded-xl font-semibold transition-all duration-300 flex items-center gap-2 ${
-                                            !newNote.subject || 
-                                            (newNote.type === 'text' && !newNote.note) || 
-                                            (newNote.type === 'file' && !newNote.file) ||
-                                            (newNote.type === 'voice' && !newNote.file) ||
-                                            uploadingAttachment ||
-                                            isRecording
-                                                ? 'bg-gray-400 text-gray-200 cursor-not-allowed'
-                                                : 'bg-gradient-to-r from-blue-600 to-indigo-700 text-white hover:shadow-lg hover:shadow-blue-500/25'
-                                        }`}
-                                        whileHover={!newNote.subject || 
-                                                   (newNote.type === 'text' && !newNote.note) || 
-                                                   (newNote.type === 'file' && !newNote.file) ||
-                                                   (newNote.type === 'voice' && !newNote.file) ||
-                                                   uploadingAttachment ||
-                                                   isRecording ? {} : { scale: 1.05, y: -2 }}
-                                        whileTap={!newNote.subject || 
-                                                 (newNote.type === 'text' && !newNote.note) || 
-                                                 (newNote.type === 'file' && !newNote.file) ||
-                                                 (newNote.type === 'voice' && !newNote.file) ||
-                                                 uploadingAttachment ||
-                                                 isRecording ? {} : { scale: 0.95 }}
-                                    >
-                                        <FiCheck className="w-4 h-4" />
-                                        {uploadingAttachment ? 'Uploading...' : isRecording ? 'Recording...' : 'Create Note'}
-                                    </motion.button>
-                                </div>
+                            {/* Footer */}
+                            <div className="shrink-0 px-5 py-3 border-t border-blue-100 bg-blue-50/60 flex justify-end gap-3">
+                                <button
+                                    onClick={closeAddModal}
+                                    disabled={creatingNote}
+                                    className="px-4 py-2 text-sm text-gray-600 hover:text-gray-900 font-medium disabled:opacity-50"
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    onClick={handleAddNote}
+                                    disabled={creatingNote || uploadingAttachment || !isCreateFormValid}
+                                    className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors inline-flex items-center gap-2"
+                                >
+                                    {creatingNote ? (
+                                        <>
+                                            <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                                            Creating...
+                                        </>
+                                    ) : uploadingAttachment ? 'Processing...' : 'Create Note'}
+                                </button>
                             </div>
                         </motion.div>
                     </motion.div>
                 )}
             </AnimatePresence>
 
-            {/* Professional Edit Note Modal - REMOVED ADDITIONAL ATTACHMENTS */}
+            {/* Professional Edit Note Modal */}
             <AnimatePresence>
                 {showEditModal && selectedNote && (
                     <motion.div
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}
                         exit={{ opacity: 0 }}
-                        className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
+                        className="fixed inset-0 bg-black/50 flex items-start justify-center p-3 sm:p-4 z-50 backdrop-blur-sm overflow-y-auto"
                         onClick={(e) => e.target === e.currentTarget && setShowEditModal(false)}
                     >
                         <motion.div
@@ -2567,41 +2015,37 @@ const NotesTab = ({ clientUsername }) => {
                             animate={{ scale: 1, opacity: 1, y: 0 }}
                             exit={{ scale: 0.95, opacity: 0, y: 20 }}
                             transition={{ type: "spring", damping: 25, stiffness: 300 }}
-                            className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl overflow-hidden max-h-[90vh] flex flex-col"
+                            className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl my-2 sm:my-4 max-h-[calc(100vh-1.5rem)] sm:max-h-[calc(100vh-2rem)] overflow-hidden flex flex-col"
                         >
                             {/* Modal Header */}
-                            <div className="bg-gradient-to-r from-blue-600 to-indigo-700 px-8 py-6">
+                            <div className="shrink-0 bg-gradient-to-r from-blue-600 to-indigo-700 px-5 py-3.5">
                                 <div className="flex items-center justify-between">
                                     <div className="flex items-center gap-3">
-                                        <div className="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center">
-                                            <FiEdit className="w-6 h-6 text-white" />
+                                        <div className="w-9 h-9 bg-white/20 rounded-lg flex items-center justify-center">
+                                            <FiEdit className="w-5 h-5 text-white" />
                                         </div>
-                                        <div>
-                                            <h2 className="text-2xl font-bold text-white">Edit Note</h2>
-                                            <p className="text-blue-100 text-sm mt-1">Update note information</p>
-                                        </div>
+                                        <h2 className="text-base font-semibold text-white">Edit Note</h2>
                                     </div>
                                     <motion.button
                                         onClick={() => {
                                             setShowEditModal(false);
-                                            // Stop recording if in progress
                                             if (isRecording) {
                                                 stopRecording();
                                             }
                                             setAudioBlob(null);
                                             setAudioURL('');
                                         }}
-                                        className="p-2 hover:bg-white/10 rounded-xl transition-colors"
+                                        className="p-1.5 hover:bg-white/10 rounded-lg transition-colors"
                                         whileHover={{ scale: 1.1, rotate: 90 }}
                                         whileTap={{ scale: 0.9 }}
                                     >
-                                        <FiX className="w-6 h-6 text-white" />
+                                        <FiX className="w-5 h-5 text-white" />
                                     </motion.button>
                                 </div>
                             </div>
 
                             {/* Modal Content */}
-                            <div className="flex-1 overflow-y-auto p-8">
+                            <div className="flex-1 overflow-y-auto px-5 py-4 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
                                 <div className="space-y-8">
                                     {/* Note Type Selection */}
                                     <div className="space-y-3">
@@ -2613,19 +2057,17 @@ const NotesTab = ({ clientUsername }) => {
                                             <motion.button
                                                 type="button"
                                                 onClick={() => setNewNote(prev => ({ ...prev, type: 'text', file: null }))}
-                                                className={`p-6 rounded-2xl border-2 transition-all duration-300 flex flex-col items-center justify-center space-y-3 ${
-                                                    newNote.type === 'text' 
-                                                        ? 'border-blue-500 bg-gradient-to-r from-blue-50 to-indigo-50 shadow-md' 
-                                                        : 'border-gray-200 bg-white hover:border-blue-300 hover:bg-blue-50'
-                                                }`}
+                                                className={`p-6 rounded-2xl border-2 transition-all duration-300 flex flex-col items-center justify-center space-y-3 ${newNote.type === 'text'
+                                                    ? 'border-blue-500 bg-gradient-to-r from-blue-50 to-indigo-50 shadow-md'
+                                                    : 'border-gray-200 bg-white hover:border-blue-300 hover:bg-blue-50'
+                                                    }`}
                                                 whileHover={{ scale: 1.02, y: -2 }}
                                                 whileTap={{ scale: 0.98 }}
                                             >
-                                                <div className={`w-16 h-16 rounded-xl flex items-center justify-center ${
-                                                    newNote.type === 'text' 
-                                                        ? 'bg-gradient-to-r from-blue-600 to-indigo-700' 
-                                                        : 'bg-gradient-to-r from-blue-100 to-indigo-100'
-                                                }`}>
+                                                <div className={`w-16 h-16 rounded-xl flex items-center justify-center ${newNote.type === 'text'
+                                                    ? 'bg-gradient-to-r from-blue-600 to-indigo-700'
+                                                    : 'bg-gradient-to-r from-blue-100 to-indigo-100'
+                                                    }`}>
                                                     <FiMessageSquare className={`w-8 h-8 ${newNote.type === 'text' ? 'text-white' : 'text-blue-600'}`} />
                                                 </div>
                                                 <div className="text-center">
@@ -2642,19 +2084,17 @@ const NotesTab = ({ clientUsername }) => {
                                             <motion.button
                                                 type="button"
                                                 onClick={() => setNewNote(prev => ({ ...prev, type: 'file', file: null }))}
-                                                className={`p-6 rounded-2xl border-2 transition-all duration-300 flex flex-col items-center justify-center space-y-3 ${
-                                                    newNote.type === 'file' 
-                                                        ? 'border-green-500 bg-gradient-to-r from-green-50 to-emerald-50 shadow-md' 
-                                                        : 'border-gray-200 bg-white hover:border-green-300 hover:bg-green-50'
-                                                }`}
+                                                className={`p-6 rounded-2xl border-2 transition-all duration-300 flex flex-col items-center justify-center space-y-3 ${newNote.type === 'file'
+                                                    ? 'border-green-500 bg-gradient-to-r from-green-50 to-emerald-50 shadow-md'
+                                                    : 'border-gray-200 bg-white hover:border-green-300 hover:bg-green-50'
+                                                    }`}
                                                 whileHover={{ scale: 1.02, y: -2 }}
                                                 whileTap={{ scale: 0.98 }}
                                             >
-                                                <div className={`w-16 h-16 rounded-xl flex items-center justify-center ${
-                                                    newNote.type === 'file' 
-                                                        ? 'bg-gradient-to-r from-green-600 to-emerald-700' 
-                                                        : 'bg-gradient-to-r from-green-100 to-emerald-100'
-                                                }`}>
+                                                <div className={`w-16 h-16 rounded-xl flex items-center justify-center ${newNote.type === 'file'
+                                                    ? 'bg-gradient-to-r from-green-600 to-emerald-700'
+                                                    : 'bg-gradient-to-r from-green-100 to-emerald-100'
+                                                    }`}>
                                                     <FiFile className={`w-8 h-8 ${newNote.type === 'file' ? 'text-white' : 'text-green-600'}`} />
                                                 </div>
                                                 <div className="text-center">
@@ -2671,19 +2111,17 @@ const NotesTab = ({ clientUsername }) => {
                                             <motion.button
                                                 type="button"
                                                 onClick={() => setNewNote(prev => ({ ...prev, type: 'voice', file: null }))}
-                                                className={`p-6 rounded-2xl border-2 transition-all duration-300 flex flex-col items-center justify-center space-y-3 ${
-                                                    newNote.type === 'voice' 
-                                                        ? 'border-purple-500 bg-gradient-to-r from-purple-50 to-pink-50 shadow-md' 
-                                                        : 'border-gray-200 bg-white hover:border-purple-300 hover:bg-purple-50'
-                                                }`}
+                                                className={`p-6 rounded-2xl border-2 transition-all duration-300 flex flex-col items-center justify-center space-y-3 ${newNote.type === 'voice'
+                                                    ? 'border-purple-500 bg-gradient-to-r from-purple-50 to-pink-50 shadow-md'
+                                                    : 'border-gray-200 bg-white hover:border-purple-300 hover:bg-purple-50'
+                                                    }`}
                                                 whileHover={{ scale: 1.02, y: -2 }}
                                                 whileTap={{ scale: 0.98 }}
                                             >
-                                                <div className={`w-16 h-16 rounded-xl flex items-center justify-center ${
-                                                    newNote.type === 'voice' 
-                                                        ? 'bg-gradient-to-r from-purple-600 to-pink-700' 
-                                                        : 'bg-gradient-to-r from-purple-100 to-pink-100'
-                                                }`}>
+                                                <div className={`w-16 h-16 rounded-xl flex items-center justify-center ${newNote.type === 'voice'
+                                                    ? 'bg-gradient-to-r from-purple-600 to-pink-700'
+                                                    : 'bg-gradient-to-r from-purple-100 to-pink-100'
+                                                    }`}>
                                                     <FiMic className={`w-8 h-8 ${newNote.type === 'voice' ? 'text-white' : 'text-purple-600'}`} />
                                                 </div>
                                                 <div className="text-center">
@@ -2700,8 +2138,8 @@ const NotesTab = ({ clientUsername }) => {
                                     </div>
 
                                     {/* Basic Information */}
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                        <div className="space-y-3">
+                                    <div className="space-y-4">
+                                        <div className="space-y-2">
                                             <label className="text-sm font-semibold text-gray-700 flex items-center gap-2">
                                                 <FiType className="w-4 h-4" />
                                                 Subject *
@@ -2709,7 +2147,7 @@ const NotesTab = ({ clientUsername }) => {
                                             <input
                                                 type="text"
                                                 value={newNote.subject}
-                                                onChange={(e) => setNewNote({...newNote, subject: e.target.value})}
+                                                onChange={(e) => setNewNote({ ...newNote, subject: e.target.value })}
                                                 className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent shadow-sm transition-all duration-300"
                                                 placeholder="Enter note subject"
                                             />
@@ -2720,75 +2158,29 @@ const NotesTab = ({ clientUsername }) => {
                                                 </p>
                                             )}
                                         </div>
-                                        
-                                        <div className="space-y-3">
-                                            <label className="text-sm font-semibold text-gray-700 flex items-center gap-2">
-                                                <FiTag className="w-4 h-4" />
-                                                Priority *
-                                            </label>
-                                            <select
+                                        <div className="grid grid-cols-2 gap-4">
+                                            <SelectInput
+                                                label="Priority *"
+                                                options={[
+                                                    { value: 'high', label: 'High Priority' },
+                                                    { value: 'medium', label: 'Medium Priority' },
+                                                    { value: 'low', label: 'Low Priority' },
+                                                ]}
                                                 value={newNote.priority}
-                                                onChange={(e) => setNewNote({...newNote, priority: e.target.value})}
-                                                className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent shadow-sm transition-all duration-300"
-                                            >
-                                                <option value="high">High Priority</option>
-                                                <option value="medium">Medium Priority</option>
-                                                <option value="low">Low Priority</option>
-                                            </select>
-                                        </div>
-                                    </div>
-
-                                    {/* Status and Reminder */}
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                        <div className="space-y-3">
-                                            <label className="text-sm font-semibold text-gray-700 flex items-center gap-2">
-                                                <FiCheckCircle className="w-4 h-4" />
-                                                Status *
-                                            </label>
-                                            <select
+                                                onChange={(v) => setNewNote({ ...newNote, priority: v ?? 'high' })}
+                                                clearable={false}
+                                            />
+                                            <SelectInput
+                                                label="Status *"
+                                                options={[
+                                                    { value: 'pending', label: 'Pending' },
+                                                    { value: 'complete', label: 'Complete' },
+                                                    { value: 'cancel', label: 'Cancel' },
+                                                ]}
                                                 value={newNote.status}
-                                                onChange={(e) => setNewNote({...newNote, status: e.target.value})}
-                                                className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent shadow-sm transition-all duration-300"
-                                            >
-                                                <option value="pending">Pending</option>
-                                                <option value="complete">Complete</option>
-                                                <option value="cancel">Cancel</option>
-                                            </select>
-                                        </div>
-                                        
-                                        <div className="space-y-3">
-                                            <label className="text-sm font-semibold text-gray-700 flex items-center gap-2">
-                                                <FiBell className="w-4 h-4" />
-                                                Set Reminder
-                                            </label>
-                                            <div className="relative">
-                                                <DatePicker
-                                                    selected={newNote.reminder_date}
-                                                    onChange={(date) => setNewNote({...newNote, reminder_date: date})}
-                                                    showTimeSelect
-                                                    timeFormat="HH:mm"
-                                                    timeIntervals={15}
-                                                    dateFormat="MMMM d, yyyy h:mm aa"
-                                                    placeholderText="Select date and time"
-                                                    minDate={new Date()}
-                                                    popperClassName="z-50"
-                                                    popperPlacement="bottom-start"
-                                                    customInput={<CustomDatePickerInput />}
-                                                />
-                                                {newNote.reminder_date && (
-                                                    <motion.button
-                                                        initial={{ opacity: 0 }}
-                                                        animate={{ opacity: 1 }}
-                                                        onClick={() => setNewNote({...newNote, reminder_date: null})}
-                                                        className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-red-500"
-                                                        whileHover={{ scale: 1.2 }}
-                                                        whileTap={{ scale: 0.9 }}
-                                                    >
-                                                        <FiX className="w-4 h-4" />
-                                                    </motion.button>
-                                                )}
-                                            </div>
-                                            <p className="text-xs text-gray-500">Optional: Set a reminder for follow-up</p>
+                                                onChange={(v) => setNewNote({ ...newNote, status: v ?? 'pending' })}
+                                                clearable={false}
+                                            />
                                         </div>
                                     </div>
 
@@ -2801,7 +2193,7 @@ const NotesTab = ({ clientUsername }) => {
                                             </label>
                                             <textarea
                                                 value={newNote.note}
-                                                onChange={(e) => setNewNote({...newNote, note: e.target.value})}
+                                                onChange={(e) => setNewNote({ ...newNote, note: e.target.value })}
                                                 className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent shadow-sm transition-all duration-300 min-h-[200px] resize-none"
                                                 placeholder="Enter your note content here..."
                                             />
@@ -2825,7 +2217,7 @@ const NotesTab = ({ clientUsername }) => {
                                                     Max 10MB per file
                                                 </span>
                                             </div>
-                                            
+
                                             {/* File Upload Area */}
                                             {!newNote.file ? (
                                                 <div className="border-2 border-dashed border-gray-300 rounded-2xl p-8 text-center hover:border-green-500 transition-colors cursor-pointer"
@@ -2845,7 +2237,7 @@ const NotesTab = ({ clientUsername }) => {
                                                     {uploadingAttachment && (
                                                         <div className="mt-4">
                                                             <div className="w-full bg-gray-200 rounded-full h-2">
-                                                                <div 
+                                                                <div
                                                                     className="bg-gradient-to-r from-green-600 to-emerald-700 h-2 rounded-full transition-all duration-300"
                                                                     style={{ width: `${Object.values(uploadProgress)[0] || 0}%` }}
                                                                 />
@@ -2893,7 +2285,7 @@ const NotesTab = ({ clientUsername }) => {
                                                     </div>
                                                 </div>
                                             )}
-                                            
+
                                             {/* Note Description */}
                                             <div className="space-y-3">
                                                 <label className="text-sm font-semibold text-gray-700 flex items-center gap-2">
@@ -2902,7 +2294,7 @@ const NotesTab = ({ clientUsername }) => {
                                                 </label>
                                                 <textarea
                                                     value={newNote.note}
-                                                    onChange={(e) => setNewNote({...newNote, note: e.target.value})}
+                                                    onChange={(e) => setNewNote({ ...newNote, note: e.target.value })}
                                                     className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent shadow-sm transition-all duration-300 min-h-[100px] resize-none"
                                                     placeholder="Add a description for this file..."
                                                 />
@@ -2918,7 +2310,7 @@ const NotesTab = ({ clientUsername }) => {
                                                     Voice Recording *
                                                 </label>
                                             </div>
-                                            
+
                                             {/* Voice Recording Area */}
                                             {!isRecording && !audioURL && !newNote.file ? (
                                                 <div className="border-2 border-dashed border-gray-300 rounded-2xl p-8 text-center hover:border-purple-500 transition-colors">
@@ -3004,7 +2396,7 @@ const NotesTab = ({ clientUsername }) => {
                                                     {uploadingAttachment && (
                                                         <div className="mt-4">
                                                             <div className="w-full bg-gray-200 rounded-full h-2">
-                                                                <div 
+                                                                <div
                                                                     className="bg-gradient-to-r from-purple-600 to-pink-700 h-2 rounded-full transition-all duration-300"
                                                                     style={{ width: `${Object.values(uploadProgress)[0] || 0}%` }}
                                                                 />
@@ -3016,7 +2408,7 @@ const NotesTab = ({ clientUsername }) => {
                                                     )}
                                                 </div>
                                             )}
-                                            
+
                                             {/* Note Description */}
                                             <div className="space-y-3">
                                                 <label className="text-sm font-semibold text-gray-700 flex items-center gap-2">
@@ -3025,7 +2417,7 @@ const NotesTab = ({ clientUsername }) => {
                                                 </label>
                                                 <textarea
                                                     value={newNote.note}
-                                                    onChange={(e) => setNewNote({...newNote, note: e.target.value})}
+                                                    onChange={(e) => setNewNote({ ...newNote, note: e.target.value })}
                                                     className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent shadow-sm transition-all duration-300 min-h-[100px] resize-none"
                                                     placeholder="Add a description for this voice note..."
                                                 />
@@ -3036,7 +2428,7 @@ const NotesTab = ({ clientUsername }) => {
                             </div>
 
                             {/* Modal Footer */}
-                            <div className="border-t px-8 py-6 bg-gray-50 flex justify-between items-center">
+                            <div className="shrink-0 border-t px-5 py-3 bg-gray-50 flex justify-between items-center">
                                 <div className="text-sm text-gray-600">
                                     <div className="flex items-center gap-2">
                                         <FiInfo className="w-4 h-4" />
@@ -3060,40 +2452,28 @@ const NotesTab = ({ clientUsername }) => {
                                     >
                                         Cancel
                                     </motion.button>
-                                    <motion.button
-                                        onClick={handleEditNote}
-                                        disabled={!newNote.subject || 
-                                                 (newNote.type === 'text' && !newNote.note) || 
-                                                 (newNote.type === 'file' && !newNote.file) ||
-                                                 (newNote.type === 'voice' && !newNote.file) ||
-                                                 uploadingAttachment ||
-                                                 isRecording}
-                                        className={`px-6 py-3 rounded-xl font-semibold transition-all duration-300 flex items-center gap-2 ${
-                                            !newNote.subject || 
-                                            (newNote.type === 'text' && !newNote.note) || 
+                                    {(() => {
+                                        const isEditDisabled = !newNote.subject ||
+                                            (newNote.type === 'text' && !newNote.note) ||
                                             (newNote.type === 'file' && !newNote.file) ||
                                             (newNote.type === 'voice' && !newNote.file) ||
-                                            uploadingAttachment ||
-                                            isRecording
-                                                ? 'bg-gray-400 text-gray-200 cursor-not-allowed'
-                                                : 'bg-gradient-to-r from-blue-600 to-indigo-700 text-white hover:shadow-lg hover:shadow-blue-500/25'
-                                        }`}
-                                        whileHover={!newNote.subject || 
-                                                   (newNote.type === 'text' && !newNote.note) || 
-                                                   (newNote.type === 'file' && !newNote.file) ||
-                                                   (newNote.type === 'voice' && !newNote.file) ||
-                                                   uploadingAttachment ||
-                                                   isRecording ? {} : { scale: 1.05, y: -2 }}
-                                        whileTap={!newNote.subject || 
-                                                 (newNote.type === 'text' && !newNote.note) || 
-                                                 (newNote.type === 'file' && !newNote.file) ||
-                                                 (newNote.type === 'voice' && !newNote.file) ||
-                                                 uploadingAttachment ||
-                                                 isRecording ? {} : { scale: 0.95 }}
-                                    >
-                                        <FiCheck className="w-4 h-4" />
-                                        {uploadingAttachment ? 'Uploading...' : isRecording ? 'Recording...' : 'Update Note'}
-                                    </motion.button>
+                                            uploadingAttachment || isRecording;
+                                        return (
+                                            <motion.button
+                                                onClick={handleEditNote}
+                                                disabled={isEditDisabled}
+                                                className={`px-6 py-3 rounded-xl font-semibold transition-all duration-300 flex items-center gap-2 ${isEditDisabled
+                                                    ? 'bg-gray-400 text-gray-200 cursor-not-allowed'
+                                                    : 'bg-gradient-to-r from-blue-600 to-indigo-700 text-white hover:shadow-lg hover:shadow-blue-500/25'
+                                                    }`}
+                                                whileHover={isEditDisabled ? {} : { scale: 1.05, y: -2 }}
+                                                whileTap={isEditDisabled ? {} : { scale: 0.95 }}
+                                            >
+                                                <FiCheck className="w-4 h-4" />
+                                                {uploadingAttachment ? 'Uploading...' : isRecording ? 'Recording...' : 'Update Note'}
+                                            </motion.button>
+                                        );
+                                    })()}
                                 </div>
                             </div>
                         </motion.div>
