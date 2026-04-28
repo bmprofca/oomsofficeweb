@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { createPortal } from 'react-dom';
-import { FaCheck, FaUndo } from 'react-icons/fa';
+import { FaCheck } from 'react-icons/fa';
 import { FiX } from 'react-icons/fi';
 
 /** Short codes for configurable quick presets (order = display order when passed in `quickOptionKeys`). */
@@ -427,6 +427,10 @@ export default function DatePicker({
     onRequestClose,
     minCalendarYear = 1900,
     maxCalendarYear = 2100,
+    showRangeHint = true,
+    showResetButton = true,
+    /** When true, hides the tab bar so only the active tab's calendar is shown. */
+    hideTabs = false,
 }) {
     const isLoanPresets = presetSource === 'loan';
 
@@ -465,7 +469,7 @@ export default function DatePicker({
         }
         return [
             { key: 'quick', label: 'Quick select' },
-            { key: 'single', label: 'Single date' },
+            ...(mode === 'range' ? [] : [{ key: 'single', label: 'Single date' }]),
             ...(mode === 'single' ? [] : [{ key: 'range', label: 'Date range' }]),
         ];
     }, [isLoanPresets, mode]);
@@ -500,11 +504,17 @@ export default function DatePicker({
     function applyQuickPreset(preset) {
         if (!preset) return;
         if (preset.single) {
-            onApply?.({ type: 'single', date: preset.single });
+            onApply?.({ type: 'single', date: preset.single, sourceTab: 'quick', quickKey: preset.key });
             return;
         }
         if (preset.range) {
-            onApply?.({ type: 'range', start: preset.range[0], end: preset.range[1] });
+            onApply?.({
+                type: 'range',
+                start: preset.range[0],
+                end: preset.range[1],
+                sourceTab: 'quick',
+                quickKey: preset.key,
+            });
         }
     }
 
@@ -513,9 +523,9 @@ export default function DatePicker({
         if (tab === 'quick') {
             const p = presets.find((p0) => p0.key === quickKey);
             if (p?.single) {
-                result = { type: 'single', date: p.single };
+                result = { type: 'single', date: p.single, sourceTab: 'quick', quickKey };
             } else if (p?.range) {
-                result = { type: 'range', start: p.range[0], end: p.range[1] };
+                result = { type: 'range', start: p.range[0], end: p.range[1], sourceTab: 'quick', quickKey };
             }
         } else if (tab === 'single') {
             if (!selectedSingle) {
@@ -523,14 +533,14 @@ export default function DatePicker({
                 setTimeout(() => setFeedback(''), 2000);
                 return;
             }
-            result = { type: 'single', date: selectedSingle };
+            result = { type: 'single', date: selectedSingle, sourceTab: 'single' };
         } else if (isRangePickerTab) {
             if (!rangeStart || !rangeEnd) {
                 setFeedback('Please select a date range.');
                 setTimeout(() => setFeedback(''), 2000);
                 return;
             }
-            result = { type: 'range', start: rangeStart, end: rangeEnd };
+            result = { type: 'range', start: rangeStart, end: rangeEnd, sourceTab: tab };
         }
         if (!result) {
             setFeedback('Nothing to apply.');
@@ -596,21 +606,23 @@ export default function DatePicker({
                 </p>
             </div>
 
-            <div className="flex flex-wrap border-b border-gray-100">
-                {tabs.map((t) => (
-                    <button
-                        key={t.key}
-                        type="button"
-                        onClick={() => setTab(t.key)}
-                        className={`min-w-0 flex-1 py-2 text-[10px] sm:text-[11px] font-medium transition-colors border-b-2 ${tab === t.key
-                            ? 'border-blue-500 text-blue-600'
-                            : 'border-transparent text-gray-400 hover:text-gray-600'
-                            }`}
-                    >
-                        {t.label}
-                    </button>
-                ))}
-            </div>
+            {!hideTabs && (
+                <div className="flex flex-wrap border-b border-gray-100">
+                    {tabs.map((t) => (
+                        <button
+                            key={t.key}
+                            type="button"
+                            onClick={() => setTab(t.key)}
+                            className={`min-w-0 flex-1 py-2 text-[10px] sm:text-[11px] font-medium transition-colors border-b-2 ${tab === t.key
+                                ? 'border-blue-500 text-blue-600'
+                                : 'border-transparent text-gray-400 hover:text-gray-600'
+                                }`}
+                        >
+                            {t.label}
+                        </button>
+                    ))}
+                </div>
+            )}
 
             <div className="px-3 sm:px-4 py-3.5 overflow-y-auto">
                 {tab === 'quick' && (
@@ -659,11 +671,13 @@ export default function DatePicker({
 
                 {isRangePickerTab && (
                     <div>
-                        <p className="text-[10px] text-center text-gray-400 mb-2 min-h-4 px-1">
-                            {!rangeStart ? 'Click to set start date (from)'
-                                : !rangeEnd ? 'Click to set end date (to)'
-                                    : `${fmt(rangeStart)} → ${fmt(rangeEnd)}`}
-                        </p>
+                        {showRangeHint && (
+                            <p className="text-[10px] text-center text-gray-400 mb-2 min-h-4 px-1">
+                                {!rangeStart ? 'Click to set start date (from)'
+                                    : !rangeEnd ? 'Click to set end date (to)'
+                                        : `${fmt(rangeStart)} → ${fmt(rangeEnd)}`}
+                            </p>
+                        )}
                         <Calendar
                             mode="range"
                             viewDate={viewDate}
@@ -679,15 +693,17 @@ export default function DatePicker({
             </div>
 
             <div className="px-3 sm:px-4 py-2.5 border-t border-gray-100 flex flex-col-reverse sm:flex-row justify-end gap-1.5">
-                <button
-                    type="button"
-                    onClick={handleReset}
-                    className="inline-flex items-center justify-center gap-1.5 px-3 py-2 text-gray-500 border border-gray-200 rounded-md hover:bg-gray-50 transition-colors w-full sm:w-auto"
-                    title="Reset"
-                    aria-label="Reset"
-                >
-                    <FaUndo className="text-[11px]" />
-                </button>
+                {showResetButton && (
+                    <button
+                        type="button"
+                        onClick={handleReset}
+                        className="inline-flex items-center justify-center px-3 py-2 text-gray-500 border border-gray-200 rounded-md hover:bg-gray-50 transition-colors w-full sm:w-auto"
+                        title="Reset"
+                        aria-label="Reset"
+                    >
+                        Reset
+                    </button>
+                )}
                 <button
                     type="button"
                     onClick={handleApply}
@@ -716,6 +732,8 @@ export function DatePickerField({
     initialQuickKey,
     minCalendarYear,
     maxCalendarYear,
+    hideTabs = false,
+    showResetButton = true,
 }) {
     const [open, setOpen] = useState(false);
     const selectedDate = parseDateValue(value);
@@ -759,6 +777,8 @@ export function DatePickerField({
                                 initialSingle={selectedDate}
                                 minCalendarYear={minCalendarYear}
                                 maxCalendarYear={maxCalendarYear}
+                                hideTabs={hideTabs}
+                                showResetButton={showResetButton}
                                 onRequestClose={() => setOpen(false)}
                                 onApply={(result) => {
                                     if (result?.type === 'single') {
@@ -795,8 +815,13 @@ export function DateRangePickerField({
     quickOptionKeys,
     minCalendarYear,
     maxCalendarYear,
+    mode = 'both',
+    showRangeHint = true,
+    showResetButton = true,
 }) {
     const [open, setOpen] = useState(false);
+    const [lastUsedTab, setLastUsedTab] = useState(initialTab);
+    const [lastQuickKey, setLastQuickKey] = useState(defaultQuickKey || initialQuickKey);
     const startValue = value?.start || value?.start_date || value?.from || '';
     const endValue = value?.end || value?.end_date || value?.to || '';
     const startDate = parseDateValue(startValue);
@@ -841,18 +866,26 @@ export function DateRangePickerField({
                             aria-modal="true"
                         >
                             <DatePicker
-                                mode="both"
+                                mode={mode}
                                 presetSource={presetSource}
                                 quickOptionKeys={quickOptionKeys}
-                                defaultQuickKey={defaultQuickKey}
-                                initialQuickKey={initialQuickKey}
-                                initialTab={initialTab}
+                                defaultQuickKey={lastQuickKey || defaultQuickKey}
+                                initialQuickKey={lastQuickKey || initialQuickKey}
+                                initialTab={lastUsedTab}
                                 initialRangeStart={startDate}
                                 initialRangeEnd={endDate}
                                 minCalendarYear={minCalendarYear}
                                 maxCalendarYear={maxCalendarYear}
+                                showRangeHint={showRangeHint}
+                                showResetButton={showResetButton}
                                 onRequestClose={() => setOpen(false)}
                                 onApply={(result) => {
+                                    if (result?.sourceTab) {
+                                        setLastUsedTab(result.sourceTab === 'custom' ? 'custom' : result.sourceTab);
+                                    }
+                                    if (result?.sourceTab === 'quick' && result?.quickKey) {
+                                        setLastQuickKey(result.quickKey);
+                                    }
                                     if (result?.type === 'range') {
                                         onChange?.({
                                             start: toIsoDate(result.start),

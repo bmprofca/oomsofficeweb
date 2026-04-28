@@ -60,6 +60,20 @@ Based on `src/components/PortalDatePicker.js` in the `DateRangePickerField` sect
   - Type: string[]  
   - Ordered quick preset keys to render.
 
+- `mode` (default: `'both'`)  
+  - Type: string (`'single' | 'range' | 'both'`)  
+  - For range-only flows (like ledger), use `mode='range'` to hide the `Single date` tab.
+
+- `showRangeHint` (default: `true`)  
+  - Type: boolean  
+  - Controls helper text shown above the calendar in range tab (`Click to set start/end date`).
+  - Set `false` when parent header already shows selected range.
+
+- `showResetButton` (default: `true`)  
+  - Type: boolean  
+  - Controls visibility of Reset button in modal footer.
+  - Reset button is text-only (`Reset`) without icon.
+
 - `minCalendarYear`  
   - Type: number  
   - Minimum year available in calendar.
@@ -89,6 +103,8 @@ Use the datepicker to capture a date range (`fromDate`, `toDate`) for:
 - Supports quick preset selections.
 - Parent screen controls what happens after selection (API calls, pagination reset, export behavior).
 - Selected range should stay visible and drive all date-dependent UI consistently.
+- `DateRangePickerField` remembers last selected tab (quick/date range) while mounted.
+- If user selects from quick presets, reopening keeps quick tab and preselects the same preset.
 
 ## Quick preset short codes
 
@@ -103,3 +119,15 @@ Use the datepicker to capture a date range (`fromDate`, `toDate`) for:
 - `lw` = Last week
 - `fy` = This financial year
 - `lf` = Last financial year
+
+## Ledger-specific pattern
+
+Use these settings for ledger UI:
+
+- `mode='range'` (tabs: Quick select + Date range only)
+- `quickOptionKeys={['tw','lw','lm','tm','lf','fy']}`
+- `defaultQuickKey='tw'`
+- `showRangeHint={false}`
+- `showResetButton={false}`
+
+This gives ledger-friendly presets and removes redundant hints/actions from the modal.

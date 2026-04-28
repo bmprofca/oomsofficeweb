@@ -1,12 +1,9 @@
-// pages/client/ClientLedger.jsx
-import React, { useState, useEffect, useCallback, forwardRef, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import { createPortal } from 'react-dom';
 import {
-    FiArrowLeft,
-    FiCalendar,
     FiRepeat,
     FiDownload,
-    FiPrinter,
     FiX,
     FiRefreshCw,
     FiPlus,
@@ -33,228 +30,9 @@ import API_BASE_URL from '../utils/api-controller';
 import getHeaders from '../utils/get-headers';
 import axios from 'axios';
 import { TransactionModalManager } from '../finance/bank/client-transaction-modal';
-import DatePicker from 'react-datepicker';
-import { Calendar, X, ChevronDown } from 'lucide-react';
-import "react-datepicker/dist/react-datepicker.css";
+import { DateRangePickerField } from '../components/PortalDatePicker';
+import TablePagination from '../components/TablePagination';
 
-// DateRangePicker Component - Professional design with inline dual calendar
-const DateRangePicker = ({
-    startDate,
-    endDate,
-    onStartDateChange,
-    onEndDateChange,
-    minDate,
-    maxDate
-}) => {
-    const [isOpen, setIsOpen] = useState(false);
-    const [localStartDate, setLocalStartDate] = useState(startDate ? new Date(startDate + 'T12:00:00') : null);
-    const [localEndDate, setLocalEndDate] = useState(endDate ? new Date(endDate + 'T12:00:00') : null);
-    const dropdownRef = useRef(null);
-
-    const quickDateFilters = [
-        { label: '7 Days', type: 'last7Days' },
-        { label: 'Current Month', type: 'currentMonth' },
-        { label: 'Last Month', type: 'lastMonth' },
-        { label: '3 Months', type: 'last3Months' },
-        { label: '6 Months', type: 'last6Months' },
-        { label: '1 Year', type: 'lastYear' },
-    ];
-
-    useEffect(() => {
-        const handleClickOutside = (event) => {
-            const isCalendarPopper = event.target.closest('.react-datepicker-popper');
-            if (dropdownRef.current && !dropdownRef.current.contains(event.target) && !isCalendarPopper) {
-                setIsOpen(false);
-            }
-        };
-        document.addEventListener('mousedown', handleClickOutside);
-        return () => document.removeEventListener('mousedown', handleClickOutside);
-    }, []);
-
-    useEffect(() => {
-        setLocalStartDate(startDate ? new Date(startDate + 'T12:00:00') : null);
-        setLocalEndDate(endDate ? new Date(endDate + 'T12:00:00') : null);
-    }, [startDate, endDate]);
-
-    const formatRangeDisplay = () => {
-        if (!startDate && !endDate) return 'Select date range';
-        const format = (dateStr) => {
-            if (!dateStr) return '';
-            const d = new Date(dateStr + 'T12:00:00');
-            const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-            return `${months[d.getMonth()]} ${d.getDate()}, ${d.getFullYear()}`;
-        };
-        return startDate && endDate ? `${format(startDate)} – ${format(endDate)}` : 'Select date range';
-    };
-
-    const handleQuickFilter = (filter) => {
-        const today = new Date();
-        today.setHours(12, 0, 0, 0);
-        let start = new Date(today);
-        let end = new Date(today);
-
-        switch (filter.type) {
-            case 'currentMonth':
-                start = new Date(today.getFullYear(), today.getMonth(), 1);
-                break;
-            case 'last7Days':
-                start.setDate(today.getDate() - 7);
-                break;
-            case 'lastMonth':
-                start = new Date(today.getFullYear(), today.getMonth() - 1, 1);
-                end = new Date(today.getFullYear(), today.getMonth(), 0);
-                break;
-            case 'last3Months':
-                start.setMonth(today.getMonth() - 3);
-                break;
-            case 'last6Months':
-                start.setMonth(today.getMonth() - 6);
-                break;
-            case 'lastYear':
-                start.setMonth(today.getMonth() - 12);
-                break;
-            default:
-                break;
-        }
-
-        const toISO = (d) => d.toISOString().split('T')[0];
-        setLocalStartDate(start);
-        setLocalEndDate(end);
-        onStartDateChange(toISO(start));
-        onEndDateChange(toISO(end));
-        setIsOpen(false);
-    };
-
-    const handleRangeChange = (update) => {
-        if (Array.isArray(update)) {
-            const [start, end] = update;
-            setLocalStartDate(start);
-            setLocalEndDate(end ?? start);
-            if (start) onStartDateChange(start.toISOString().split('T')[0]);
-            if (end) onEndDateChange(end.toISOString().split('T')[0]);
-        }
-    };
-
-    const handleApply = () => {
-        if (localStartDate && localEndDate) {
-            const [s, e] = [localStartDate, localEndDate].sort((a, b) => a - b);
-            onStartDateChange(s.toISOString().split('T')[0]);
-            onEndDateChange(e.toISOString().split('T')[0]);
-            setIsOpen(false);
-        }
-    };
-
-    const clearDates = (e) => {
-        e?.stopPropagation();
-        setLocalStartDate(null);
-        setLocalEndDate(null);
-        onStartDateChange('');
-        onEndDateChange('');
-        setIsOpen(false);
-    };
-
-    return (
-        <div className="relative" ref={dropdownRef}>
-            <style>{`
-                .daterange-picker .react-datepicker { font-family: inherit; border: none; }
-                .daterange-picker .react-datepicker__month-container { padding: 0.5rem; }
-                .daterange-picker .react-datepicker__header { background: transparent; border: none; padding: 0.5rem 0.5rem 0.75rem; }
-                .daterange-picker .react-datepicker__current-month { color: #1e293b; font-weight: 600; font-size: 0.875rem; }
-                .daterange-picker .react-datepicker__day-names { margin: 0.5rem 0 0; }
-                .daterange-picker .react-datepicker__day-name { color: #64748b; font-weight: 600; font-size: 0.7rem; width: 2.25rem; line-height: 2rem; }
-                .daterange-picker .react-datepicker__day { width: 2.25rem; height: 2.25rem; line-height: 2.25rem; margin: 0.125rem; border-radius: 0.5rem; font-size: 0.8rem; font-weight: 500; }
-                .daterange-picker .react-datepicker__day:hover { background: #eef2ff; color: #4f46e5; }
-                .daterange-picker .react-datepicker__day--in-range { background: #c7d2fe !important; color: #312e81 !important; }
-                .daterange-picker .react-datepicker__day--range-start,
-                .daterange-picker .react-datepicker__day--range-end { background: #4f46e5 !important; color: white !important; }
-                .daterange-picker .react-datepicker__day--today { font-weight: 700; color: #4f46e5; background: #eef2ff; }
-                .daterange-picker .react-datepicker__day--outside-month { color: #cbd5e1; }
-                .daterange-picker .react-datepicker__day--disabled { color: #e2e8f0; cursor: not-allowed; }
-                .daterange-picker .react-datepicker__navigation { top: 0.6rem; }
-                .daterange-picker .react-datepicker__navigation-icon::before { border-color: #64748b; border-width: 2px 2px 0 0; }
-            `}</style>
-
-            {/* Trigger Button */}
-            <button
-                type="button"
-                onClick={() => setIsOpen(!isOpen)}
-                className="flex items-center justify-between w-full min-w-[280px] px-4 py-3 bg-white border border-slate-200 rounded-xl shadow-sm hover:border-indigo-300 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-200"
-            >
-                <div className="flex items-center gap-3">
-                    <div className="p-2 bg-gradient-to-br from-indigo-500 to-indigo-600 rounded-lg shadow-sm">
-                        <Calendar className="h-5 w-5 text-white" />
-                    </div>
-                    <div className="text-left">
-                        <p className="text-xs font-medium text-slate-500 uppercase tracking-wider">Date range</p>
-                        <p className="text-sm font-semibold text-slate-800">{formatRangeDisplay()}</p>
-                    </div>
-                </div>
-                <div className="flex items-center gap-1">
-                    {(startDate || endDate) && (
-                        <button type="button" onClick={clearDates} className="p-1.5 rounded-lg text-slate-400 hover:text-red-500 hover:bg-red-50 transition-colors" title="Clear">
-                            <X className="h-4 w-4" />
-                        </button>
-                    )}
-                    <ChevronDown className={`h-5 w-5 text-slate-400 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`} />
-                </div>
-            </button>
-
-            {/* Dropdown Panel */}
-            {isOpen && (
-                <div className="absolute left-0 mt-2 w-[min(420px,95vw)] bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden z-[9999]">
-                    {/* Quick filters */}
-                    <div className="p-4 bg-gradient-to-r from-slate-50 to-indigo-50/30 border-b border-slate-100">
-                        <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3">Quick select</p>
-                        <div className="flex flex-wrap gap-2">
-                            {quickDateFilters.map((f) => (
-                                <button
-                                    key={f.type}
-                                    type="button"
-                                    onClick={() => handleQuickFilter(f)}
-                                    className="px-3 py-1.5 text-xs font-medium text-slate-600 bg-white border border-slate-200 rounded-lg hover:bg-indigo-500 hover:text-white hover:border-indigo-500 transition-all duration-150 shadow-sm"
-                                >
-                                    {f.label}
-                                </button>
-                            ))}
-                        </div>
-                    </div>
-
-                    {/* Inline dual calendar */}
-                    <div className="p-4 daterange-picker">
-                        <DatePicker
-                            inline
-                            selectsRange
-                            monthsShown={2}
-                            startDate={localStartDate}
-                            endDate={localEndDate}
-                            onChange={handleRangeChange}
-                            minDate={minDate ? new Date(minDate) : undefined}
-                            maxDate={maxDate ? new Date(maxDate) : new Date()}
-                            dateFormat="dd/MM/yyyy"
-                        />
-                    </div>
-
-                    {/* Footer */}
-                    <div className="flex items-center justify-between px-4 py-3 bg-slate-50 border-t border-slate-200">
-                        <span className="text-xs text-slate-500">
-                            {localStartDate && localEndDate
-                                ? `${localStartDate.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })} – ${localEndDate.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}`
-                                : 'Select start and end dates'}
-                        </span>
-                        <button
-                            type="button"
-                            onClick={handleApply}
-                            disabled={!localStartDate || !localEndDate}
-                            className="px-4 py-2 text-sm font-semibold text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                        >
-                            Apply
-                        </button>
-                    </div>
-                </div>
-            )}
-        </div>
-    );
-};
 
 const ClientLedger = () => {
     const { username } = useParams();
@@ -266,7 +44,7 @@ const ClientLedger = () => {
     const [fetchingTransactions, setFetchingTransactions] = useState(false);
     const [fromDate, setFromDate] = useState(() => {
         const date = new Date();
-        date.setMonth(date.getMonth() - 1);
+        date.setDate(1);
         return date.toISOString().split('T')[0];
     });
     const [toDate, setToDate] = useState(() => {
@@ -276,8 +54,6 @@ const ClientLedger = () => {
     const [totalPages, setTotalPages] = useState(1);
     const [totalItems, setTotalItems] = useState(0);
     const [itemsPerPage, setItemsPerPage] = useState(20);
-    const LIMIT_OPTIONS = [5, 10, 20, 50, 100];
-    const [pageJumpInput, setPageJumpInput] = useState('');
     const [openingBalance, setOpeningBalance] = useState({ debit: 0, credit: 0, balance: 0 });
     const [summary, setSummary] = useState({
         totalCredit: 0,
@@ -287,6 +63,9 @@ const ClientLedger = () => {
     const [showTransactionModal, setShowTransactionModal] = useState(false);
     const [transactionType, setTransactionType] = useState('');
     const [showActionMenu, setShowActionMenu] = useState(null);
+    const [actionMenuPosition, setActionMenuPosition] = useState(null);
+    const actionAnchorRef = useRef(null);
+    const [showAddMenu, setShowAddMenu] = useState(false);
     const [selectedBank, setSelectedBank] = useState(null);
     const [detailsTransaction, setDetailsTransaction] = useState(null);
     const [showOpeningBalanceModal, setShowOpeningBalanceModal] = useState(false);
@@ -327,10 +106,104 @@ const ClientLedger = () => {
     useEffect(() => {
         const handleClickOutside = () => {
             setShowActionMenu(null);
+            actionAnchorRef.current = null;
+            setActionMenuPosition(null);
+            setShowAddMenu(false);
         };
         document.addEventListener('click', handleClickOutside);
         return () => document.removeEventListener('click', handleClickOutside);
     }, []);
+
+    const computeActionMenuPosition = useCallback((anchorEl) => {
+        if (!anchorEl) return null;
+
+        const rect = anchorEl.getBoundingClientRect();
+        const menuWidth = 160;
+        const menuHeight = 120;
+        const gap = 8;
+        const margin = 8;
+        const vw = window.innerWidth;
+        const vh = window.innerHeight;
+
+        const space = {
+            top: rect.top - margin,
+            bottom: vh - rect.bottom - margin,
+            right: vw - rect.right - margin,
+            left: rect.left - margin,
+        };
+
+        const fits = {
+            top: space.top >= menuHeight + gap,
+            bottom: space.bottom >= menuHeight + gap,
+            right: space.right >= menuWidth + gap,
+            left: space.left >= menuWidth + gap,
+        };
+
+        const preferred = ['top', 'bottom', 'right', 'left'];
+        let placement = preferred.find((p) => fits[p]);
+
+        if (!placement) {
+            placement = preferred.reduce((best, p) => (space[p] > space[best] ? p : best), 'bottom');
+        }
+
+        let top = 0;
+        let left = 0;
+
+        if (placement === 'top') {
+            top = rect.top - menuHeight - gap;
+            left = rect.left + rect.width / 2 - menuWidth / 2;
+        } else if (placement === 'bottom') {
+            top = rect.bottom + gap;
+            left = rect.left + rect.width / 2 - menuWidth / 2;
+        } else if (placement === 'right') {
+            top = rect.top + rect.height / 2 - menuHeight / 2;
+            left = rect.right + gap;
+        } else {
+            top = rect.top + rect.height / 2 - menuHeight / 2;
+            left = rect.left - menuWidth - gap;
+        }
+
+        const clampedLeft = Math.max(margin, Math.min(left, vw - menuWidth - margin));
+        const clampedTop = Math.max(margin, Math.min(top, vh - menuHeight - margin));
+
+        const anchorCenterX = rect.left + rect.width / 2;
+        const anchorCenterY = rect.top + rect.height / 2;
+
+        return {
+            top: clampedTop,
+            left: clampedLeft,
+            placement,
+            arrowX: Math.max(12, Math.min(menuWidth - 12, anchorCenterX - clampedLeft)),
+            arrowY: Math.max(12, Math.min(menuHeight - 12, anchorCenterY - clampedTop)),
+        };
+    }, []);
+
+    useEffect(() => {
+        if (!showActionMenu || !actionAnchorRef.current) return undefined;
+
+        const updatePosition = () => {
+            setActionMenuPosition(computeActionMenuPosition(actionAnchorRef.current));
+        };
+
+        const handleEscape = (e) => {
+            if (e.key === 'Escape') {
+                setShowActionMenu(null);
+                actionAnchorRef.current = null;
+                setActionMenuPosition(null);
+            }
+        };
+
+        updatePosition();
+        window.addEventListener('resize', updatePosition);
+        window.addEventListener('scroll', updatePosition, true);
+        document.addEventListener('keydown', handleEscape);
+
+        return () => {
+            window.removeEventListener('resize', updatePosition);
+            window.removeEventListener('scroll', updatePosition, true);
+            document.removeEventListener('keydown', handleEscape);
+        };
+    }, [showActionMenu, computeActionMenuPosition]);
 
     // Fetch client profile details
     const fetchClientProfile = async () => {
@@ -418,11 +291,6 @@ const ClientLedger = () => {
         };
     };
 
-    // Handle search
-    const handleSearch = useCallback(() => {
-        setCurrentPage(1);
-        fetchTransactions();
-    }, [fromDate, toDate]);
 
     // Handle refresh
     const handleRefresh = useCallback(() => {
@@ -520,17 +388,13 @@ const ClientLedger = () => {
         toast.success(`${type.toUpperCase()} export started...`);
     }, []);
 
-    // Handle print
-    const handlePrint = useCallback(() => {
-        window.print();
-    }, []);
-
     // Handle transaction type click - MODIFIED
-   const handleTransactionTypeClick = (type) => {
-    // Don't check for selectedBank - let the modal handle bank selection
-    setTransactionType(type);
-    setShowTransactionModal(true);
-};
+    const handleTransactionTypeClick = (type) => {
+        // Don't check for selectedBank - let the modal handle bank selection
+        setTransactionType(type);
+        setShowTransactionModal(true);
+        setShowAddMenu(false);
+    };
     // Handle create transaction
     const handleCreateTransaction = async (type, formData) => {
         try {
@@ -549,7 +413,16 @@ const ClientLedger = () => {
     // Handle action click
     const handleActionClick = (e, transactionId) => {
         e.stopPropagation();
-        setShowActionMenu(showActionMenu === transactionId ? null : transactionId);
+        const willOpen = showActionMenu !== transactionId;
+        if (willOpen) {
+            actionAnchorRef.current = e.currentTarget;
+            setShowActionMenu(transactionId);
+            setActionMenuPosition(computeActionMenuPosition(e.currentTarget));
+            return;
+        }
+        actionAnchorRef.current = null;
+        setShowActionMenu(null);
+        setActionMenuPosition(null);
     };
 
     // Handle edit
@@ -557,6 +430,8 @@ const ClientLedger = () => {
         console.log('Edit transaction:', transaction);
         toast.success('Edit functionality coming soon');
         setShowActionMenu(null);
+        actionAnchorRef.current = null;
+        setActionMenuPosition(null);
     };
 
     // Handle view invoice
@@ -564,13 +439,22 @@ const ClientLedger = () => {
         console.log('View invoice:', transaction);
         toast.success('View invoice functionality coming soon');
         setShowActionMenu(null);
+        actionAnchorRef.current = null;
+        setActionMenuPosition(null);
     };
 
     // Handle view details
     const handleViewDetails = (transaction) => {
         setDetailsTransaction(transaction);
         setShowActionMenu(null);
+        actionAnchorRef.current = null;
+        setActionMenuPosition(null);
     };
+
+    const selectedActionTransaction = useMemo(
+        () => transactions.find((t) => t.transaction_id === showActionMenu),
+        [transactions, showActionMenu]
+    );
 
     // Format currency
     const formatCurrency = (amount) => {
@@ -607,43 +491,25 @@ const ClientLedger = () => {
 
     // Get payment mode icon
     const getPaymentModeIcon = (mode) => {
-        switch(mode?.toLowerCase()) {
-            case 'cash': 
+        switch (mode?.toLowerCase()) {
+            case 'cash':
                 return <FiDollarSign className="w-4 h-4 text-green-600" />;
-            case 'bank': 
+            case 'bank':
                 return <FiHome className="w-4 h-4 text-blue-600" />;
-            case 'cheque': 
+            case 'cheque':
                 return <FiFileText className="w-4 h-4 text-purple-600" />;
-            case 'online': 
+            case 'online':
                 return <FiGlobe className="w-4 h-4 text-indigo-600" />;
-            case 'card': 
+            case 'card':
                 return <FiCreditCard className="w-4 h-4 text-orange-600" />;
-            default: 
+            default:
                 return <FiDollarSign className="w-4 h-4 text-slate-600" />;
-        }
-    };
-
-    // Handle page change
-    const handlePageChange = (newPage) => {
-        const page = Math.max(1, Math.min(totalPages, Math.floor(newPage)));
-        if (page >= 1 && page <= totalPages) {
-            setCurrentPage(page);
-            setPageJumpInput('');
-        }
-    };
-
-    // Handle page jump
-    const handlePageJump = (e) => {
-        e.preventDefault();
-        const page = parseInt(pageJumpInput, 10);
-        if (!isNaN(page)) {
-            handlePageChange(page);
         }
     };
 
     // Get transaction type icon
     const getTransactionTypeIcon = (type) => {
-        switch(type) {
+        switch (type) {
             case 'RECEIVE': return <FiUser className="w-5 h-5" />;
             case 'PAYMENT': return <FiDollarSign className="w-5 h-5" />;
             case 'SALE': return <FiShoppingBag className="w-5 h-5" />;
@@ -654,18 +520,46 @@ const ClientLedger = () => {
         }
     };
 
-// Get particulars display (new API: particular.type + particular.details + particular.remark, fallback to transaction_type + remark)
-const getParticularsDisplay = (transaction) => {
-    const particular = transaction.particular;
-    const remark = particular?.remark;
-    if (particular?.type === 'bank' && particular?.details) {
-        const d = particular.details;
+    // Get particulars display (new API: particular.type + particular.details + particular.remark, fallback to transaction_type + remark)
+    const getParticularsDisplay = (transaction) => {
+        const particular = transaction.particular;
+        const remark = particular?.remark;
+        if (particular?.type === 'bank' && particular?.details) {
+            const d = particular.details;
+            return (
+                <div className="flex flex-col min-w-0">
+                    <div className="font-medium text-slate-800">{d.bank || 'Bank'}</div>
+                    <div className="text-xs text-slate-500">
+                        {[d.account_no, d.holder, d.ifsc, d.branch].filter(Boolean).join(' • ')}
+                    </div>
+                    {remark && (
+                        <div className="text-xs text-slate-600 mt-1 truncate max-w-[200px]" title={remark}>
+                            {remark}
+                        </div>
+                    )}
+                </div>
+            );
+        }
+        if (transaction.create_by && particular?.type) {
+            return (
+                <div className="flex flex-col min-w-0">
+                    <div className="font-medium text-slate-800">{transaction.create_by.name || 'Company'}</div>
+                    <div className="text-xs text-slate-500">{transaction.create_by.email || ''}</div>
+                    {remark && (
+                        <div className="text-xs text-slate-600 mt-1 truncate max-w-[200px]" title={remark}>
+                            {remark}
+                        </div>
+                    )}
+                </div>
+            );
+        }
+        // No particulars (e.g. opening balance) – show transaction type + remark
+        const txType = (transaction.transaction_type || '')
+            .replace(/_/g, ' ')
+            .replace(/\b\w/g, (c) => c.toUpperCase());
         return (
             <div className="flex flex-col min-w-0">
-                <div className="font-medium text-slate-800">{d.bank || 'Bank'}</div>
-                <div className="text-xs text-slate-500">
-                    {[d.account_no, d.holder, d.ifsc, d.branch].filter(Boolean).join(' • ')}
-                </div>
+                <div className="font-medium text-slate-800">{txType || 'N/A'}</div>
                 {remark && (
                     <div className="text-xs text-slate-600 mt-1 truncate max-w-[200px]" title={remark}>
                         {remark}
@@ -673,39 +567,6 @@ const getParticularsDisplay = (transaction) => {
                 )}
             </div>
         );
-    }
-    if (transaction.create_by && particular?.type) {
-        return (
-            <div className="flex flex-col min-w-0">
-                <div className="font-medium text-slate-800">{transaction.create_by.name || 'Company'}</div>
-                <div className="text-xs text-slate-500">{transaction.create_by.email || ''}</div>
-                {remark && (
-                    <div className="text-xs text-slate-600 mt-1 truncate max-w-[200px]" title={remark}>
-                        {remark}
-                    </div>
-                )}
-            </div>
-        );
-    }
-    // No particulars (e.g. opening balance) – show transaction type + remark
-    const txType = (transaction.transaction_type || '')
-        .replace(/_/g, ' ')
-        .replace(/\b\w/g, (c) => c.toUpperCase());
-    return (
-        <div className="flex flex-col min-w-0">
-            <div className="font-medium text-slate-800">{txType || 'N/A'}</div>
-            {remark && (
-                <div className="text-xs text-slate-600 mt-1 truncate max-w-[200px]" title={remark}>
-                    {remark}
-                </div>
-            )}
-        </div>
-    );
-};
-
-    // Navigate to client profile
-    const goToClientProfile = () => {
-        navigate(`/client/profile/${username}`);
     };
 
     // Loading skeleton
@@ -725,213 +586,109 @@ const getParticularsDisplay = (transaction) => {
 
     return (
         <div className="w-full">
-            {/* Header with Back Button */}
-            <div className="mb-6 flex items-center justify-between">
-                <div className="flex items-center gap-4">
-                    <motion.button
-                        onClick={() => navigate(-1)}
-                        className="p-2 bg-white rounded-xl shadow-md hover:shadow-lg transition-all duration-200 border border-slate-200"
-                        whileHover={{ scale: 1.05 }}
-                        whileTap={{ scale: 0.95 }}
-                    >
-                        <FiArrowLeft className="w-5 h-5 text-slate-600" />
-                    </motion.button>
-                    <div>
-                        <h1 className="text-2xl font-bold text-slate-800">Client Ledger</h1>
+            <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.1 }}
+                className="bg-white rounded-2xl shadow-sm border border-slate-200 px-5 py-4 mb-6"
+            >
+                <div className="flex flex-wrap items-start justify-between gap-4">
+                    <div className="min-w-0">
+                        <h1 className="text-xl sm:text-2xl font-bold text-slate-800">Client Ledger</h1>
                         {clientProfile && (
-                            <p className="text-sm text-slate-500 mt-1">
-                                {clientProfile.name} - {clientProfile.email} {clientProfile.mobile && `(+${clientProfile.country_code || '91'} ${clientProfile.mobile})`}
+                            <p className="text-sm text-slate-500 mt-1 truncate">
+                                {clientProfile.name} &middot; {clientProfile.email}
+                                {clientProfile.mobile && ` · +${clientProfile.country_code || '91'} ${clientProfile.mobile}`}
                             </p>
                         )}
                     </div>
-                </div>
 
-                {/* Action Buttons */}
-                <div className="flex gap-2">
-                    <motion.button
-                        onClick={handleRefresh}
-                        className="p-2 bg-white rounded-xl shadow-md hover:shadow-lg transition-all duration-200 border border-slate-200"
-                        whileHover={{ scale: 1.05 }}
-                        whileTap={{ scale: 0.95 }}
-                        title="Refresh"
-                    >
-                        <FiRefreshCw className="w-5 h-5 text-slate-600" />
-                    </motion.button>
-                    <motion.button
-                        onClick={() => handleExport('pdf')}
-                        className="p-2 bg-white rounded-xl shadow-md hover:shadow-lg transition-all duration-200 border border-slate-200"
-                        whileHover={{ scale: 1.05 }}
-                        whileTap={{ scale: 0.95 }}
-                        title="Export PDF"
-                    >
-                        <FiDownload className="w-5 h-5 text-slate-600" />
-                    </motion.button>
-                    <motion.button
-                        onClick={handlePrint}
-                        className="p-2 bg-white rounded-xl shadow-md hover:shadow-lg transition-all duration-200 border border-slate-200"
-                        whileHover={{ scale: 1.05 }}
-                        whileTap={{ scale: 0.95 }}
-                        title="Print"
-                    >
-                        <FiPrinter className="w-5 h-5 text-slate-600" />
-                    </motion.button>
-                    <div className="relative group">
-                        <motion.button
-                            className="p-2 bg-gradient-to-r from-blue-600 to-blue-700 rounded-xl shadow-md hover:shadow-lg transition-all duration-200 text-white"
-                            whileHover={{ scale: 1.05 }}
-                            whileTap={{ scale: 0.95 }}
-                            title="Add Transaction"
-                        >
-                            <FiPlus className="w-5 h-5" />
-                        </motion.button>
-                        
-                        {/* Dropdown Menu */}
-                        <div className="absolute right-0 mt-2 w-48 bg-white rounded-xl shadow-xl border border-slate-200 py-2 hidden group-hover:block z-50">
-                            {['RECEIVE', 'PAYMENT', 'SALE', 'PURCHASE', 'EXPENSE', 'JOURNAL'].map((type) => (
-                                <button
-                                    key={type}
-                                    onClick={() => handleTransactionTypeClick(type)}
-                                    className="w-full px-4 py-2 text-left text-sm text-slate-700 hover:bg-blue-50 flex items-center gap-3 transition-colors"
-                                >
-                                    <span className="text-blue-600">{getTransactionTypeIcon(type)}</span>
-                                    {type.charAt(0) + type.slice(1).toLowerCase()}
-                                </button>
-                            ))}
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            {/* Summary Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-                <motion.div 
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.1 }}
-                    className="bg-white rounded-xl p-4 shadow-lg border border-slate-200"
-                >
-                    <p className="text-sm text-slate-500 mb-1">Opening</p>
-                    <p className={`text-xl font-bold ${(openingBalance.balance ?? 0) >= 0 ? 'text-blue-600' : 'text-orange-600'}`}>
-                        ₹{formatCurrency(openingBalance.balance ?? 0)}
-                        {(openingBalance.balance ?? 0) >= 0 ? 
-                            <span className="text-xs ml-1 text-blue-600">(Receivable)</span> : 
-                            <span className="text-xs ml-1 text-orange-600">(Payable)</span>
-                        }
-                    </p>
-                </motion.div>
-
-                <motion.div 
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.2 }}
-                    className="bg-white rounded-xl p-4 shadow-lg border border-slate-200"
-                >
-                    <p className="text-sm text-slate-500 mb-1">Paid to Client</p>
-                    <p className="text-xl font-bold text-blue-600">
-                        ₹{formatCurrency(summary.totalDebit)}
-                    </p>
-                </motion.div>
-
-                <motion.div 
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.3 }}
-                    className="bg-white rounded-xl p-4 shadow-lg border border-slate-200"
-                >
-                    <p className="text-sm text-slate-500 mb-1">Received from Client</p>
-                    <p className="text-xl font-bold text-orange-600">
-                        ₹{formatCurrency(summary.totalCredit)}
-                    </p>
-                </motion.div>
-
-                <motion.div 
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.4 }}
-                    className="bg-white rounded-xl p-4 shadow-lg border border-slate-200"
-                >
-                    <p className="text-sm text-slate-500 mb-1">Closing</p>
-                    <p className={`text-xl font-bold ${summary.closingBalance >= 0 ? 'text-blue-600' : 'text-orange-600'}`}>
-                        ₹{formatCurrency(summary.closingBalance)}
-                        {summary.closingBalance >= 0 ? 
-                            <span className="text-xs ml-1 text-blue-600">(Receivable)</span> : 
-                            <span className="text-xs ml-1 text-orange-600">(Payable)</span>
-                        }
-                    </p>
-                </motion.div>
-            </div>
-
-            {/* Date Filter Card - Compact Version */}
-            <motion.div 
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.5 }}
-                className="bg-white rounded-xl shadow-lg border border-slate-200 p-3 mb-6"
-            >
-                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
-                    <div className="flex items-center gap-2">
-                        <FiCalendar className="text-blue-600 w-4 h-4" />
-                        <span className="text-xs font-medium text-slate-700">Date Range:</span>
-                    </div>
-                    <div className="flex flex-wrap items-center gap-2">
-                        {/* Opening Balance Icon - opens modal */}
+                    <div className="flex flex-wrap items-center justify-end gap-2">
                         <button
                             type="button"
                             onClick={handleOpenOpeningBalanceModal}
-                            className="p-2.5 rounded-xl border border-slate-200 bg-white hover:border-indigo-300 hover:bg-indigo-50/50 transition-all shadow-sm"
-                            title="Set Opening Balance"
+                            className="flex items-center gap-1.5 px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm font-medium text-slate-600 hover:border-indigo-400 hover:text-indigo-600 hover:bg-indigo-50 transition-all shadow-sm whitespace-nowrap shrink-0"
+                            title="Set / Edit Opening Balance"
                         >
-                            <FiBarChart2 className="w-5 h-5 text-indigo-600" />
+                            <FiBarChart2 className="w-4 h-4" />
+                            <span>Opening Balance</span>
                         </button>
-                        {/* DateRangePicker Component */}
-                        <div className="min-w-[280px] flex-1 max-w-md">
-                            <DateRangePicker
-                                startDate={fromDate}
-                                endDate={toDate}
-                                onStartDateChange={setFromDate}
-                                onEndDateChange={setToDate}
+                        <div className="shrink-0 w-56">
+                            <DateRangePickerField
+                                value={{ start: fromDate, end: toDate }}
+                                onChange={(range) => {
+                                    setFromDate(range?.start || '');
+                                    setToDate(range?.end || '');
+                                }}
+                                placeholder="Select date range"
+                                mode="range"
+                                initialTab="quick"
+                                defaultQuickKey="tm"
+                                quickOptionKeys={['tw', 'lw', 'lm', 'tm', 'lf', 'fy']}
+                                showRangeHint={false}
+                                showResetButton={false}
+                                buttonClassName="w-full px-3.5 py-2 bg-white border border-slate-200 rounded-lg text-sm text-slate-600 hover:border-indigo-400 focus:outline-none transition-all"
+                                wrapperClassName="w-full"
                             />
                         </div>
-                        <button
-                            onClick={handleSearch}
-                            disabled={fetchingTransactions}
-                            className="px-4 py-2 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-lg text-xs font-medium hover:from-blue-700 hover:to-blue-800 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 transition-all duration-200 flex items-center gap-1"
+                        <motion.button
+                            onClick={handleRefresh}
+                            className="p-2 bg-white rounded-lg shadow-sm hover:shadow transition-all duration-200 border border-slate-200"
+                            whileHover={{ scale: 1.05 }}
+                            whileTap={{ scale: 0.95 }}
+                            title="Refresh"
                         >
-                            {fetchingTransactions ? (
-                                <>
-                                    <svg className="animate-spin h-3 w-3 text-white" fill="none" viewBox="0 0 24 24">
-                                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                                    </svg>
-                                    <span>Loading...</span>
-                                </>
-                            ) : (
-                                'Apply'
-                            )}
-                        </button>
-                        {(fromDate || toDate) && (
-                            <button
-                                onClick={() => {
-                                    const date = new Date();
-                                    date.setMonth(date.getMonth() - 1);
-                                    setFromDate(date.toISOString().split('T')[0]);
-                                    setToDate(new Date().toISOString().split('T')[0]);
+                            <FiRefreshCw className="w-5 h-5 text-slate-600" />
+                        </motion.button>
+                        <motion.button
+                            onClick={() => handleExport('pdf')}
+                            className="p-2 bg-white rounded-lg shadow-sm hover:shadow transition-all duration-200 border border-slate-200"
+                            whileHover={{ scale: 1.05 }}
+                            whileTap={{ scale: 0.95 }}
+                            title="Export PDF"
+                        >
+                            <FiDownload className="w-5 h-5 text-slate-600" />
+                        </motion.button>
+                        <div className="relative">
+                            <motion.button
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    setShowAddMenu((prev) => !prev);
                                 }}
-                                className="p-2 text-slate-500 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition-colors"
-                                title="Clear filter"
+                                className="p-2 bg-gradient-to-r from-blue-600 to-blue-700 rounded-lg shadow-sm hover:shadow transition-all duration-200 text-white"
+                                whileHover={{ scale: 1.05 }}
+                                whileTap={{ scale: 0.95 }}
+                                title="Add Transaction"
                             >
-                                <FiX className="w-5 h-5" />
-                            </button>
-                        )}
+                                <FiPlus className="w-5 h-5" />
+                            </motion.button>
+                            {showAddMenu && (
+                                <div
+                                    className="absolute right-0 mt-2 w-48 bg-white rounded-xl shadow-xl border border-slate-200 py-2 z-50"
+                                    onClick={(e) => e.stopPropagation()}
+                                >
+                                    {['RECEIVE', 'PAYMENT', 'SALE', 'PURCHASE', 'EXPENSE', 'JOURNAL'].map((type) => (
+                                        <button
+                                            key={type}
+                                            onClick={() => handleTransactionTypeClick(type)}
+                                            className="w-full px-4 py-2 text-left text-sm text-slate-700 hover:bg-blue-50 flex items-center gap-3 transition-colors"
+                                        >
+                                            <span className="text-blue-600">{getTransactionTypeIcon(type)}</span>
+                                            {type.charAt(0) + type.slice(1).toLowerCase()}
+                                        </button>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
                     </div>
                 </div>
             </motion.div>
 
             {/* Transactions Table Card */}
-            <motion.div 
+            <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.6 }}
+                transition={{ delay: 0.2 }}
                 className="bg-white rounded-xl shadow-lg border border-slate-200 overflow-hidden"
             >
                 <div className="overflow-x-auto">
@@ -951,7 +708,7 @@ const getParticularsDisplay = (transaction) => {
                         </thead>
                         <tbody className="divide-y divide-slate-100">
                             {/* Opening Balance Row - Always Show debit, credit, balance */}
-                            <tr className="bg-blue-50/50 font-medium">
+                            <tr className="bg-slate-100 font-medium">
                                 <td className="p-4 text-slate-600"></td>
                                 <td className="p-4 text-slate-800" colSpan="2">Opening Balance</td>
                                 <td className="p-4"></td>
@@ -1043,40 +800,14 @@ const getParticularsDisplay = (transaction) => {
                                                 ₹{formatCurrency(getTransactionAmounts(transaction).balance ?? 0)}
                                             </span>
                                         </td>
-                                        <td className="p-4 text-center relative">
+                                        <td className="p-4 text-center">
                                             <button
                                                 onClick={(e) => handleActionClick(e, transaction.transaction_id)}
                                                 className="p-2 hover:bg-slate-100 rounded-lg transition-colors"
                                             >
                                                 <FiMoreVertical className="w-5 h-5 text-slate-600" />
                                             </button>
-                                            
-                                            {/* Action Menu */}
-                                            {showActionMenu === transaction.transaction_id && (
-                                                <div className="absolute right-0 mt-2 w-40 bg-white rounded-lg shadow-xl border border-slate-200 py-1 z-50">
-                                                    <button
-                                                        onClick={() => handleViewDetails(transaction)}
-                                                        className="w-full px-4 py-2 text-left text-sm text-slate-700 hover:bg-indigo-50 flex items-center gap-2 transition-colors"
-                                                    >
-                                                        <FiEye className="w-4 h-4 text-indigo-600" />
-                                                        Details
-                                                    </button>
-                                                    <button
-                                                        onClick={() => handleEdit(transaction)}
-                                                        className="w-full px-4 py-2 text-left text-sm text-slate-700 hover:bg-blue-50 flex items-center gap-2 transition-colors"
-                                                    >
-                                                        <FiEdit2 className="w-4 h-4 text-blue-600" />
-                                                        Edit
-                                                    </button>
-                                                    <button
-                                                        onClick={() => handleViewInvoice(transaction)}
-                                                        className="w-full px-4 py-2 text-left text-sm text-slate-700 hover:bg-blue-50 flex items-center gap-2 transition-colors"
-                                                    >
-                                                        <FiFile className="w-4 h-4 text-green-600" />
-                                                        Invoice
-                                                    </button>
-                                                </div>
-                                            )}
+
                                         </td>
                                     </motion.tr>
                                 ))
@@ -1097,91 +828,31 @@ const getParticularsDisplay = (transaction) => {
                 </div>
 
                 {/* Pagination */}
-                {!loading && !fetchingTransactions && (transactions.length > 0 || totalItems > 0) && totalPages > 0 && (
-                    <div className="border-t border-slate-200 px-6 py-4 bg-white">
-                        <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
-                            <div className="flex flex-wrap items-center gap-4">
-                                <div className="text-sm text-slate-600">
-                                    Showing {totalItems === 0 ? 0 : (currentPage - 1) * itemsPerPage + 1} to {Math.min(currentPage * itemsPerPage, totalItems)} of {totalItems} entries
-                                </div>
-                                <div className="flex items-center gap-2">
-                                    <label htmlFor="limit-select" className="text-sm text-slate-500">Show</label>
-                                    <select
-                                        id="limit-select"
-                                        value={itemsPerPage}
-                                        onChange={(e) => setItemsPerPage(Number(e.target.value))}
-                                        className="px-2 py-1.5 text-sm border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-white text-slate-700"
-                                    >
-                                        {LIMIT_OPTIONS.map((n) => (
-                                            <option key={n} value={n}>{n}</option>
-                                        ))}
-                                    </select>
-                                    <span className="text-sm text-slate-500">per page</span>
-                                </div>
-                            </div>
-                            <div className="flex flex-wrap items-center gap-3">
-                                <div className="flex items-center gap-1">
-                                    <button
-                                        type="button"
-                                        onClick={(e) => { e.stopPropagation(); handlePageChange(currentPage - 1); }}
-                                        disabled={currentPage <= 1}
-                                        className="px-3 py-2 text-sm font-medium text-slate-700 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 hover:border-slate-300 transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-white"
-                                    >
-                                        Previous
-                                    </button>
-                                    <span className="px-3 py-2 text-sm font-medium text-white bg-indigo-600 rounded-lg min-w-[2.5rem] text-center">
-                                        {currentPage}
-                                    </span>
-                                    <span className="text-slate-400 text-sm px-1">/</span>
-                                    <span className="px-2 py-2 text-sm font-medium text-slate-600">
-                                        {totalPages}
-                                    </span>
-                                    <button
-                                        type="button"
-                                        onClick={(e) => { e.stopPropagation(); handlePageChange(currentPage + 1); }}
-                                        disabled={currentPage >= totalPages}
-                                        className="px-3 py-2 text-sm font-medium text-slate-700 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 hover:border-slate-300 transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-white"
-                                    >
-                                        Next
-                                    </button>
-                                </div>
-                                <form onSubmit={handlePageJump} className="flex items-center gap-2">
-                                    <span className="text-sm text-slate-500">Go to</span>
-                                    <input
-                                        type="number"
-                                        min={1}
-                                        max={totalPages}
-                                        value={pageJumpInput}
-                                        onChange={(e) => setPageJumpInput(e.target.value)}
-                                        placeholder={String(currentPage)}
-                                        className="w-14 px-2 py-1.5 text-sm text-center border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                                    />
-                                    <button
-                                        type="submit"
-                                        className="px-2 py-1.5 text-sm font-medium text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50 rounded-lg transition-colors"
-                                    >
-                                        Go
-                                    </button>
-                                </form>
-                            </div>
-                        </div>
-                    </div>
-                )}
+                <TablePagination
+                    page={currentPage}
+                    limit={itemsPerPage}
+                    total={totalItems}
+                    totalPages={totalPages}
+                    rowOptions={[5, 10, 20, 50, 100]}
+                    defaultRows={20}
+                    onPageChange={setCurrentPage}
+                    onLimitChange={setItemsPerPage}
+                />
             </motion.div>
 
             {/* Opening Balance Modal */}
             {showOpeningBalanceModal && (
                 <div
-                    className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
+                    className="fixed inset-0 z-[100] bg-black/50 flex items-start justify-center p-3 sm:p-4 backdrop-blur-sm overflow-y-auto"
                     onClick={() => !openingBalanceSubmitting && setShowOpeningBalanceModal(false)}
                 >
                     <motion.div
                         initial={{ opacity: 0, scale: 0.95 }}
                         animate={{ opacity: 1, scale: 1 }}
-                        className="relative w-full max-w-md bg-white rounded-2xl shadow-2xl overflow-hidden"
+                        className="relative w-full max-w-md my-2 sm:my-4 max-h-[calc(100vh-1.5rem)] sm:max-h-[calc(100vh-2rem)] bg-white rounded-2xl shadow-2xl overflow-hidden flex flex-col"
                         onClick={(e) => e.stopPropagation()}
                     >
-                        <div className="bg-gradient-to-r from-indigo-600 via-indigo-700 to-indigo-800 px-6 py-5">
+                        <div className="bg-gradient-to-r from-indigo-600 via-indigo-700 to-indigo-800 px-5 py-3.5 shrink-0">
                             <div className="flex items-center justify-between">
                                 <div className="flex items-center gap-3">
                                     <div className="p-2 bg-white/20 rounded-xl">
@@ -1206,16 +877,18 @@ const getParticularsDisplay = (transaction) => {
                             </div>
                         </div>
 
-                        <div className="p-6">
-                            {openingBalanceLoading ? (
+                        {openingBalanceLoading ? (
+                            <div className="px-5 py-4 flex-1 overflow-y-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
                                 <div className="py-12 flex justify-center">
                                     <svg className="animate-spin h-10 w-10 text-indigo-600" fill="none" viewBox="0 0 24 24">
                                         <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                                         <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
                                     </svg>
                                 </div>
-                            ) : (
-                                <form onSubmit={handleSetOpeningBalance} className="space-y-4">
+                            </div>
+                        ) : (
+                            <form onSubmit={handleSetOpeningBalance} className="flex flex-1 flex-col min-h-0">
+                                <div className="px-5 py-4 space-y-4 flex-1 overflow-y-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
                                     <div>
                                         <label className="block text-sm font-medium text-slate-700 mb-1">Amount (₹) *</label>
                                         <input
@@ -1270,8 +943,9 @@ const getParticularsDisplay = (transaction) => {
                                             {openingBalanceData.invoice_no && ` • ${openingBalanceData.invoice_no}`}
                                         </p>
                                     )}
-
-                                    <div className="flex gap-3 pt-2">
+                                </div>
+                                <div className="px-5 py-3 border-t border-slate-200 bg-slate-50 shrink-0">
+                                    <div className="flex gap-3">
                                         <button
                                             type="button"
                                             onClick={() => !openingBalanceSubmitting && setShowOpeningBalanceModal(false)}
@@ -1297,9 +971,9 @@ const getParticularsDisplay = (transaction) => {
                                             )}
                                         </button>
                                     </div>
-                                </form>
-                            )}
-                        </div>
+                                </div>
+                            </form>
+                        )}
                     </motion.div>
                 </div>
             )}
@@ -1307,18 +981,18 @@ const getParticularsDisplay = (transaction) => {
             {/* Transaction Details Modal */}
             {detailsTransaction && (
                 <div
-                    className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
+                    className="fixed inset-0 z-[100] bg-black/50 flex items-start justify-center p-3 sm:p-4 backdrop-blur-sm overflow-y-auto"
                     onClick={() => setDetailsTransaction(null)}
                 >
                     <motion.div
                         initial={{ opacity: 0, scale: 0.95 }}
                         animate={{ opacity: 1, scale: 1 }}
                         exit={{ opacity: 0, scale: 0.95 }}
-                        className="relative w-full max-w-2xl max-h-[90vh] overflow-hidden bg-white rounded-2xl shadow-2xl"
+                        className="relative w-full max-w-2xl my-2 sm:my-4 max-h-[calc(100vh-1.5rem)] sm:max-h-[calc(100vh-2rem)] overflow-hidden bg-white rounded-2xl shadow-2xl flex flex-col"
                         onClick={(e) => e.stopPropagation()}
                     >
                         {/* Modal Header */}
-                        <div className="sticky top-0 z-10 bg-gradient-to-r from-indigo-600 via-indigo-700 to-indigo-800 px-6 py-5">
+                        <div className="bg-gradient-to-r from-indigo-600 via-indigo-700 to-indigo-800 px-5 py-3.5 shrink-0">
                             <div className="flex items-center justify-between">
                                 <div className="flex items-center gap-3">
                                     <div className="p-2 bg-white/20 rounded-xl">
@@ -1343,7 +1017,7 @@ const getParticularsDisplay = (transaction) => {
                         </div>
 
                         {/* Modal Body */}
-                        <div className="overflow-y-auto p-6 space-y-6 max-h-[calc(90vh-180px)]">
+                        <div className="px-5 py-4 overflow-y-auto flex-1 space-y-6 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
                             {/* Basic Info */}
                             <div className="bg-slate-50 rounded-xl p-4 border border-slate-100">
                                 <h3 className="text-sm font-semibold text-slate-500 uppercase tracking-wider mb-3">Transaction Info</h3>
@@ -1472,7 +1146,7 @@ const getParticularsDisplay = (transaction) => {
                         </div>
 
                         {/* Modal Footer */}
-                        <div className="sticky bottom-0 border-t border-slate-200 bg-slate-50 px-6 py-4">
+                        <div className="border-t border-slate-200 bg-slate-50 px-5 py-3 shrink-0">
                             <button
                                 onClick={() => setDetailsTransaction(null)}
                                 className="w-full py-2.5 px-4 bg-indigo-600 hover:bg-indigo-700 text-white font-medium rounded-xl transition-colors"
@@ -1491,14 +1165,67 @@ const getParticularsDisplay = (transaction) => {
                 onClose={() => {
                     setShowTransactionModal(false);
                 }}
-                clientId={username} // Pass the username from params
-                clientName={clientProfile?.name} // Pass the client name
+                clientId={username}
+                clientName={clientProfile?.name}
                 bankDetails={selectedBank}
                 bankId={selectedBank?.bank_id}
+                showClient={false}
+                showBank={true}
+                showSummary={false}
                 onSubmit={handleCreateTransaction}
                 formatCurrency={formatCurrency}
                 summary={summary}
             />
+
+            {/* Viewport-aware Action Menu Popover */}
+            {showActionMenu && selectedActionTransaction && actionMenuPosition && createPortal(
+                <motion.div
+                    initial={{ opacity: 0, scale: 0.96 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    exit={{ opacity: 0, scale: 0.96 }}
+                    className="fixed w-40 bg-white rounded-lg shadow-xl border border-slate-200 py-1 z-[99999]"
+                    style={{ top: actionMenuPosition.top, left: actionMenuPosition.left }}
+                    onClick={(e) => e.stopPropagation()}
+                >
+                    <span
+                        className="absolute w-2.5 h-2.5 bg-white border-slate-200 rotate-45"
+                        style={{
+                            left: actionMenuPosition.placement === 'left' || actionMenuPosition.placement === 'right'
+                                ? undefined
+                                : `${actionMenuPosition.arrowX - 5}px`,
+                            top: actionMenuPosition.placement === 'bottom' ? '-5px' : actionMenuPosition.placement === 'top' ? undefined : `${actionMenuPosition.arrowY - 5}px`,
+                            bottom: actionMenuPosition.placement === 'top' ? '-5px' : undefined,
+                            right: actionMenuPosition.placement === 'left' ? '-5px' : undefined,
+                            borderTopWidth: actionMenuPosition.placement === 'bottom' ? '1px' : '0',
+                            borderLeftWidth: actionMenuPosition.placement === 'bottom' ? '1px' : '0',
+                            borderBottomWidth: actionMenuPosition.placement === 'top' ? '1px' : '0',
+                            borderRightWidth: actionMenuPosition.placement === 'left' ? '1px' : actionMenuPosition.placement === 'right' ? '1px' : '0',
+                        }}
+                    />
+                    <button
+                        onClick={() => handleViewDetails(selectedActionTransaction)}
+                        className="w-full px-4 py-2 text-left text-sm text-slate-700 hover:bg-indigo-50 flex items-center gap-2 transition-colors"
+                    >
+                        <FiEye className="w-4 h-4 text-indigo-600" />
+                        Details
+                    </button>
+                    <button
+                        onClick={() => handleEdit(selectedActionTransaction)}
+                        className="w-full px-4 py-2 text-left text-sm text-slate-700 hover:bg-blue-50 flex items-center gap-2 transition-colors"
+                    >
+                        <FiEdit2 className="w-4 h-4 text-blue-600" />
+                        Edit
+                    </button>
+                    <button
+                        onClick={() => handleViewInvoice(selectedActionTransaction)}
+                        className="w-full px-4 py-2 text-left text-sm text-slate-700 hover:bg-blue-50 flex items-center gap-2 transition-colors"
+                    >
+                        <FiFile className="w-4 h-4 text-green-600" />
+                        Invoice
+                    </button>
+                </motion.div>,
+                document.body
+            )}
         </div>
     );
 };
