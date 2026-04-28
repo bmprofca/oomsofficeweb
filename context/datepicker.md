@@ -93,6 +93,9 @@ Use the datepicker to capture a date range (`fromDate`, `toDate`) for:
 ## Quick preset short codes
 
 - `td` = Today
+- `tom` = Tomorrow
+- `n7` = Next 7th day (7th date; if current day is after 7th, picks 7th of next month)
+- `eom` = Last day of this month
 - `yd` = Yesterday
 - `tm` = This month
 - `lm` = Last month

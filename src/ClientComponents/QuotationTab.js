@@ -267,11 +267,11 @@ const QuotationItemsModal = ({ quotation, onClose }) => {
                     <div>
                         <h3 className="text-lg font-semibold">Quotation Services</h3>
                         <p className="text-xs text-blue-100 mt-1">Created: {formatDateTime(createdAt)}</p>
-                    </div>
+                </div>
                     <button type="button" onClick={onClose} className="p-2 rounded-lg hover:bg-white/10">
                         <FiX className="w-5 h-5" />
                     </button>
-                </div>
+            </div>
 
                 <div
                     className="px-5 py-4 overflow-y-auto flex-1 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden"
@@ -283,11 +283,11 @@ const QuotationItemsModal = ({ quotation, onClose }) => {
                             <p><span className="text-indigo-700/80">Tax:</span> <span className="text-indigo-900 font-medium">{formatMoney(quoteAmount.tax)}</span></p>
                             <p><span className="text-indigo-700/80">Total:</span> <span className="text-indigo-900 font-semibold">{formatMoney(quoteAmount.total)}</span></p>
                         </div>
-                    </div>
+                        </div>
                     {items.length === 0 ? (
                         <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-6 text-center text-sm text-slate-500">
                             No quotation services found for this quotation.
-                        </div>
+                    </div>
                     ) : (
                         <div className="overflow-x-auto rounded-xl border border-slate-200">
                             <table className="w-full min-w-[34rem]">
@@ -341,7 +341,7 @@ const QuotationItemsModal = ({ quotation, onClose }) => {
                         </div>
                     )}
                 </div>
-
+                
                 <div className="px-5 py-3 border-t border-slate-200 bg-slate-50/50 flex justify-end shrink-0">
                     <button type="button" onClick={onClose} className="px-5 py-2.5 rounded-xl bg-slate-700 text-white text-sm font-medium hover:bg-slate-800">
                         Close
@@ -376,16 +376,16 @@ const QuotationDetailsModal = ({ quotation, onClose }) => {
                 onClick={(e) => e.stopPropagation()}
             >
                 <div className="bg-gradient-to-r from-indigo-600 via-blue-600 to-cyan-600 px-5 py-3.5 text-white flex items-center justify-between shrink-0">
-                    <div>
+                        <div>
                         <h3 className="text-lg font-semibold">Quotation Details</h3>
                         <p className="text-xs text-blue-100 mt-1">
                             Created: {formatDateTime(quotation?.create_date)}
                         </p>
-                    </div>
+                        </div>
                     <button type="button" onClick={onClose} className="p-2 rounded-lg hover:bg-white/10">
                         <FiX className="w-5 h-5" />
                     </button>
-                </div>
+                        </div>
 
                 <div
                     className="px-5 py-4 overflow-y-auto flex-1 space-y-5 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden"
@@ -399,9 +399,9 @@ const QuotationDetailsModal = ({ quotation, onClose }) => {
                                 <p><span className="text-slate-500">Email:</span> <span className="text-slate-800">{client?.email || 'N/A'}</span></p>
                                 <p><span className="text-slate-500">Mobile:</span> <span className="text-slate-800">{client?.mobile || 'N/A'}</span></p>
                                 <p><span className="text-slate-500">PAN:</span> <span className="text-slate-800">{client?.pan_number || 'N/A'}</span></p>
-                            </div>
-                        </div>
-
+                    </div>
+                </div>
+                
                         <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
                             <h4 className="text-sm font-semibold text-slate-700 mb-3">Firm Information</h4>
                             <div className="space-y-2 text-sm">
@@ -414,7 +414,7 @@ const QuotationDetailsModal = ({ quotation, onClose }) => {
                                         {labelStatus(quotation?.status)}
                                     </span>
                                 </p>
-                            </div>
+                        </div>
                         </div>
                     </div>
 
@@ -425,9 +425,9 @@ const QuotationDetailsModal = ({ quotation, onClose }) => {
                                 <p><span className="text-indigo-700/80">Fees:</span> <span className="text-indigo-900 font-medium">{formatMoney(amount.fees)}</span></p>
                                 <p><span className="text-indigo-700/80">Tax:</span> <span className="text-indigo-900 font-medium">{formatMoney(amount.tax)}</span></p>
                                 <p className="pt-1 border-t border-indigo-200"><span className="text-indigo-700/80">Total:</span> <span className="text-indigo-900 font-semibold">{formatMoney(amount.total)}</span></p>
-                            </div>
-                        </div>
-
+                    </div>
+                </div>
+                
                         <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
                             <h4 className="text-sm font-semibold text-slate-700 mb-3">Audit Details</h4>
                             <div className="space-y-2 text-sm">
@@ -435,7 +435,7 @@ const QuotationDetailsModal = ({ quotation, onClose }) => {
                                 <p><span className="text-slate-500">Created by:</span> <span className="text-slate-800">{createdBy?.name || 'N/A'}</span></p>
                                 <p><span className="text-slate-500">Updated at:</span> <span className="text-slate-800">{formatDateTime(quotation?.modify_date)}</span></p>
                                 <p><span className="text-slate-500">Updated by:</span> <span className="text-slate-800">{modifiedBy?.name || 'N/A'}</span></p>
-                            </div>
+                        </div>
                         </div>
                     </div>
 
@@ -503,8 +503,8 @@ const QuotationDetailsModal = ({ quotation, onClose }) => {
                                 </tbody>
                             </table>
                         </div>
-                    </div>
                 </div>
+            </div>
 
                 <div className="px-5 py-3 border-t border-slate-200 bg-slate-50/50 flex justify-end shrink-0">
                     <button
@@ -607,9 +607,9 @@ const SearchableServiceSelect = ({ services, value, onChange, loading }) => {
 
     return (
         <div ref={rootRef} className="relative">
-            <input
+                    <input
                 ref={inputRef}
-                type="text"
+                        type="text"
                 value={query}
                 onFocus={() => setOpen(true)}
                 onChange={(e) => {
@@ -671,7 +671,7 @@ const SearchableServiceSelect = ({ services, value, onChange, loading }) => {
                     </div>,
                     document.body
                 )}
-        </div>
+                </div>
     );
 };
 
@@ -1487,7 +1487,7 @@ const QuotationTab = ({ clientUsername }) => {
                             />
                         </div>
 
-                        <select
+                    <select
                             value={status}
                             onChange={(e) => setStatus(e.target.value)}
                             className="h-10 w-full rounded-lg border border-slate-200 px-3 text-sm md:w-[9.5rem] lg:w-[10rem] focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/30"
@@ -1497,7 +1497,7 @@ const QuotationTab = ({ clientUsername }) => {
                                     {opt.label}
                                 </option>
                             ))}
-                        </select>
+                    </select>
 
                         <select
                             value={firmIdFilter}
@@ -1537,8 +1537,8 @@ const QuotationTab = ({ clientUsername }) => {
                             <FiPlus className="h-4 w-4" />
                             Create
                         </button>
-                    </div>
                 </div>
+            </div>
 
                 {error && (
                     <div className="mx-4 mt-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 flex items-start gap-2 sm:mx-5">
@@ -1666,7 +1666,7 @@ const QuotationTab = ({ clientUsername }) => {
                                                     >
                                                         <FiMoreVertical className="h-4 w-4" />
                                                     </button>
-                                                </div>
+                                                    </div>
                                             </td>
                                         </tr>
                                     );
@@ -1674,7 +1674,7 @@ const QuotationTab = ({ clientUsername }) => {
                             )}
                         </tbody>
                     </table>
-                </div>
+                                                        </div>
 
                 <TablePagination
                     showRange
@@ -1690,7 +1690,7 @@ const QuotationTab = ({ clientUsername }) => {
                     onPageChange={(nextPage) => setPagination((prev) => ({ ...prev, page_no: nextPage }))}
                     onLimitChange={(nextLimit) => setPagination((prev) => ({ ...prev, page_no: 1, limit: nextLimit }))}
                 />
-            </div>
+                                                    </div>
 
             <RowActionMenu
                 open={Boolean(activeMenuId && activeMenuRow && activeMenuAnchorEl)}
@@ -1736,7 +1736,7 @@ const QuotationTab = ({ clientUsername }) => {
                         >
                             <div className="px-5 py-4 border-b border-slate-200 bg-slate-50">
                                 <h3 className="text-lg font-semibold text-slate-800">Confirm Status Change</h3>
-                            </div>
+                                                </div>
                             <div className="px-5 py-4 space-y-3">
                                 <p className="text-sm text-slate-700">
                                     Are you sure you want to{' '}
@@ -1745,7 +1745,7 @@ const QuotationTab = ({ clientUsername }) => {
                                     </span>{' '}
                                     this quotation?
                                 </p>
-                            </div>
+                                            </div>
                             <div className="px-5 py-3 border-t border-slate-200 bg-slate-50/60 flex justify-end gap-2">
                                 <button
                                     type="button"
@@ -1771,7 +1771,7 @@ const QuotationTab = ({ clientUsername }) => {
                                             ? 'Confirm Approve'
                                             : 'Confirm Reject'}
                                 </button>
-                            </div>
+                                            </div>
                         </motion.div>
                     </motion.div>
                 )}
@@ -1796,7 +1796,7 @@ const QuotationTab = ({ clientUsername }) => {
                             <div className="bg-gradient-to-r from-indigo-600 via-blue-600 to-cyan-600 px-5 py-3.5 text-white flex items-center justify-between shrink-0">
                                 <div>
                                     <h3 className="text-lg font-semibold">Create Quotation</h3>
-                                </div>
+                                                </div>
                                 <button
                                     type="button"
                                     onClick={() => {
@@ -1814,12 +1814,12 @@ const QuotationTab = ({ clientUsername }) => {
                                     className="px-5 py-4 overflow-y-auto flex-1 space-y-4 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden"
                                     style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
                                 >
-                                    <div>
+                                                <div>
                                         <label className="block text-sm font-semibold text-slate-700 mb-1">Firm *</label>
                                         {firms.length === 1 ? (
                                             <div className="h-10 rounded-lg border border-slate-200 bg-slate-50 px-3 text-sm text-slate-700 flex items-center">
                                                 {getFirmOptionLabel(firms[0])}
-                                            </div>
+                                                </div>
                                         ) : (
                                             <SearchableFirmSelect
                                                 firms={firms}
@@ -1828,7 +1828,7 @@ const QuotationTab = ({ clientUsername }) => {
                                                 onChange={(val) => setCreateForm((prev) => ({ ...prev, firm_id: val }))}
                                             />
                                         )}
-                                    </div>
+                                            </div>
 
                                     <div className="rounded-xl border border-slate-200 overflow-hidden">
                                         <div className="flex items-center justify-between bg-slate-50 border-b border-slate-200 px-4 py-3">
@@ -1841,7 +1841,7 @@ const QuotationTab = ({ clientUsername }) => {
                                                 <FiPlus className="h-3.5 w-3.5" />
                                                 Add row
                                             </button>
-                                        </div>
+                                            </div>
 
                                         <div className="overflow-x-auto">
                                             <table className="w-full min-w-[42rem]">
@@ -1865,7 +1865,7 @@ const QuotationTab = ({ clientUsername }) => {
                                                                     loading={servicesLoading}
                                                                     onChange={(val) => handleCreateItemFieldChange(idx, 'service_id', val)}
                                                                 />
-                                                            </td>
+                                        </td>
                                                             <td className="px-3 py-2.5">
                                                                 <input
                                                                     type="number"
@@ -1901,14 +1901,14 @@ const QuotationTab = ({ clientUsername }) => {
                                                                 >
                                                                     <FiTrash2 className="h-4 w-4" />
                                                                 </button>
-                                                            </td>
+                                        </td>
                                                         </tr>
                                                     ))}
-                                                </tbody>
-                                            </table>
+                        </tbody>
+                    </table>
                                         </div>
                                     </div>
-                                </div>
+                </div>
 
                                 <div className="px-5 py-3 border-t border-slate-200 bg-slate-50/50 flex justify-end gap-3 shrink-0">
                                     <div className="mr-auto rounded-xl border border-indigo-200 bg-indigo-50 px-3 py-1.5">
@@ -1916,7 +1916,7 @@ const QuotationTab = ({ clientUsername }) => {
                                             <div className="flex items-center gap-1">
                                                 <span className="text-indigo-700/80">Fees:</span>
                                                 <span className="text-indigo-900 font-medium">{formatMoney(createTotals.fees)}</span>
-                                            </div>
+                            </div>
                                             <div className="flex items-center gap-1">
                                                 <span className="text-indigo-700/80">Tax:</span>
                                                 <span className="text-indigo-900 font-medium">{formatMoney(createTotals.tax)}</span>
@@ -1971,7 +1971,7 @@ const QuotationTab = ({ clientUsername }) => {
                             <div className="bg-gradient-to-r from-indigo-600 via-blue-600 to-cyan-600 px-5 py-3.5 text-white flex items-center justify-between shrink-0">
                                 <div>
                                     <h3 className="text-lg font-semibold">Edit Quotation</h3>
-                                </div>
+                            </div>
                                 <button
                                     type="button"
                                     onClick={() => {
@@ -1983,7 +1983,7 @@ const QuotationTab = ({ clientUsername }) => {
                                 >
                                     <FiX className="w-5 h-5" />
                                 </button>
-                            </div>
+                        </div>
 
                             <form onSubmit={handleUpdateQuotation} className="flex flex-col flex-1 overflow-hidden">
                                 <div
@@ -1998,7 +1998,7 @@ const QuotationTab = ({ clientUsername }) => {
                                             loading={firmsLoading}
                                             onChange={(val) => setEditForm((prev) => ({ ...prev, firm_id: val }))}
                                         />
-                                    </div>
+                    </div>
 
                                     <div className="rounded-xl border border-slate-200 overflow-hidden">
                                         <div className="flex items-center justify-between bg-slate-50 border-b border-slate-200 px-4 py-3">
@@ -2095,7 +2095,7 @@ const QuotationTab = ({ clientUsername }) => {
                                             </table>
                                         </div>
                                     </div>
-                                </div>
+            </div>
 
                                 <div className="px-5 py-3 border-t border-slate-200 bg-slate-50/50 flex justify-end gap-3 shrink-0">
                                     <div className="mr-auto rounded-xl border border-indigo-200 bg-indigo-50 px-3 py-1.5">
@@ -2103,7 +2103,7 @@ const QuotationTab = ({ clientUsername }) => {
                                             <div className="flex items-center gap-1">
                                                 <span className="text-indigo-700/80">Fees:</span>
                                                 <span className="text-indigo-900 font-medium">{formatMoney(editTotals.fees)}</span>
-                                            </div>
+                        </div>
                                             <div className="flex items-center gap-1">
                                                 <span className="text-indigo-700/80">Tax:</span>
                                                 <span className="text-indigo-900 font-medium">{formatMoney(editTotals.tax)}</span>
@@ -2175,9 +2175,9 @@ const QuotationTab = ({ clientUsername }) => {
                             onClick={(e) => e.stopPropagation()}
                         >
                             <div className="bg-gradient-to-r from-violet-600 to-indigo-600 px-5 py-3.5 text-white flex items-center justify-between shrink-0">
-                                <div>
+                        <div>
                                     <h3 className="text-lg font-semibold">Share Quotation</h3>
-                                </div>
+                        </div>
                                 <button
                                     type="button"
                                     onClick={() => {
@@ -2189,7 +2189,7 @@ const QuotationTab = ({ clientUsername }) => {
                                 >
                                     <FiX className="w-5 h-5" />
                                 </button>
-                            </div>
+                    </div>
                             <div className="px-5 py-4 space-y-4">
                                 <div>
                                     <p className="text-sm font-semibold text-slate-700">Sharing options</p>
@@ -2221,8 +2221,8 @@ const QuotationTab = ({ clientUsername }) => {
                                                 <div>
                                                     <p className="text-sm font-semibold">WhatsApp</p>
                                                     <p className="text-[11px]">Coming soon</p>
-                                                </div>
-                                            </div>
+                    </div>
+                </div>
                                         </button>
                                         <button
                                             type="button"
@@ -2264,7 +2264,7 @@ const QuotationTab = ({ clientUsername }) => {
                                 >
                                     Close
                                 </button>
-                            </div>
+            </div>
                         </motion.div>
                     </motion.div>
                 )}

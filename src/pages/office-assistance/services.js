@@ -24,6 +24,16 @@ const calcGST = (fees, rate) => {
     return (f * r / 100).toFixed(2);
 };
 const isValidAmountInput = (value) => /^\d*(\.\d{0,2})?$/.test(value);
+const isApiSuccess = (payload) => {
+    const statusValue = String(payload?.status ?? '').toLowerCase();
+    return (
+        payload?.success === true ||
+        statusValue === 'success' ||
+        statusValue === 'true' ||
+        statusValue === '200'
+    );
+};
+const apiMessage = (payload, fallback) => payload?.message || fallback;
 
 const GST_RATE_OPTIONS = [
     { value: 0, label: '0%' },
@@ -51,13 +61,6 @@ const typeBadge = (type) => {
         </span>
     );
 };
-const ayFyBadges = (has_ay, has_fy) => (
-    <div className="flex gap-1 flex-wrap">
-        {has_ay && <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-indigo-50 text-indigo-600 border border-indigo-200">AY</span>}
-        {has_fy && <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-emerald-50 text-emerald-600 border border-emerald-200">FY</span>}
-        {!has_ay && !has_fy && <span className="text-slate-400 text-[10px]">—</span>}
-    </div>
-);
 
 /* ─── skeleton row ──────────────────────────────────────────────── */
 const SkeletonRow = ({ cols }) => (
@@ -342,7 +345,6 @@ const ViewModal = ({ svc, onClose, isBranch }) => {
                     {svc.sac_code && (
                         <span className="text-[11px] font-mono text-indigo-600 bg-indigo-100 px-1.5 py-0.5 rounded">{svc.sac_code}</span>
                     )}
-                    {ayFyBadges(svc.has_ay, svc.has_fy)}
                     {svc.added_to_branch !== undefined && (
                         svc.added_to_branch
                             ? <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-100 text-emerald-700 border border-emerald-200">
@@ -534,9 +536,14 @@ const Services = () => {
             const res = await axios.put(`${API_BASE_URL}/service/edit`,
                 { service_id: editTarget.service_id, fees, gst_rate, remark: editForm.remark },
                 { headers: getHeaders() });
-            if (res.data?.success) { toast.success(res.data.message || 'Service updated'); setEditTarget(null); fetchBranch(branchSearch, branchPage, branchLimit); }
-            else toast.error(res.data?.message || 'Update failed');
-        } catch (err) { toast.error(err.response?.data?.message || 'Error updating service'); }
+            if (isApiSuccess(res.data)) {
+                toast.success(apiMessage(res.data, 'Service updated'));
+                setEditTarget(null);
+                fetchBranch(branchSearch, branchPage, branchLimit);
+            } else {
+                toast.error(apiMessage(res.data, 'Update failed'));
+            }
+        } catch (err) { toast.error(apiMessage(err.response?.data, 'Error updating service')); }
         finally { setEditLoading(false); }
     };
 
@@ -547,13 +554,13 @@ const Services = () => {
         try {
             const res = await axios.delete(`${API_BASE_URL}/service/remove`,
                 { headers: getHeaders(), data: { service_id: removeTarget.service_id } });
-            if (res.data?.success) {
-                toast.success(res.data.message || 'Service removed from branch');
+            if (isApiSuccess(res.data)) {
+                toast.success(apiMessage(res.data, 'Service removed from branch'));
                 setRemoveTarget(null);
                 fetchBranch(branchSearch, branchPage, branchLimit);
                 fetchAll(allSearch, allPage, allLimit);
-            } else toast.error(res.data?.message || 'Remove failed');
-        } catch (err) { toast.error(err.response?.data?.message || 'Error removing service'); }
+            } else toast.error(apiMessage(res.data, 'Remove failed'));
+        } catch (err) { toast.error(apiMessage(err.response?.data, 'Error removing service')); }
         finally { setRemoveLoading(false); }
     };
 
@@ -569,15 +576,23 @@ const Services = () => {
             const res = await axios.post(`${API_BASE_URL}/service/add`,
                 { service_id: addTarget.service_id, fees, gst_rate, remark: addForm.remark },
                 { headers: getHeaders() });
-            if (res.data?.success) {
-                toast.success(res.data.message || 'Service added to branch');
+            if (isApiSuccess(res.data)) {
+                toast.success(apiMessage(res.data, 'Service added to branch'));
                 setAddTarget(null);
                 fetchAll(allSearch, allPage, allLimit);
                 fetchBranch(branchSearch, branchPage, branchLimit);
-            } else toast.error(res.data?.message || 'Add failed');
-        } catch (err) { toast.error(err.response?.data?.message || 'Error adding service'); }
+            } else toast.error(apiMessage(res.data, 'Add failed'));
+        } catch (err) { toast.error(apiMessage(err.response?.data, 'Error adding service')); }
         finally { setAddLoading(false); }
     };
+    const parsedAddFees = parseFloat(addForm.fees);
+    const isAddFormValid =
+        !!addTarget &&
+        addForm.gst_rate !== null &&
+        addForm.fees !== '' &&
+        isValidAmountInput(addForm.fees) &&
+        !isNaN(parsedAddFees) &&
+        parsedAddFees >= 0;
 
     /* ═════════════════════════════════════════════════════════════════ */
     return (
@@ -642,14 +657,14 @@ const Services = () => {
                                     <table className="w-full text-sm">
                                         <thead>
                                             <tr className="bg-gray-50 border-b border-gray-100">
-                                                {['#', 'Service', 'Type', 'Fees', 'GST', 'AY / FY', ''].map((h) => (
+                                                {['#', 'Service', 'Type', 'Fees', 'GST', ''].map((h) => (
                                                     <th key={h} className="px-4 py-2.5 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider whitespace-nowrap">{h}</th>
                                                 ))}
                                             </tr>
                                         </thead>
                                         <tbody className="divide-y divide-gray-50">
                                             {branchLoading
-                                                ? Array.from({ length: 6 }).map((_, i) => <SkeletonRow key={i} cols={7} />)
+                                                ? Array.from({ length: 6 }).map((_, i) => <SkeletonRow key={i} cols={6} />)
                                                 : branchList.length === 0
                                                     ? <EmptyState icon={<FiLayers className="w-5 h-5 text-slate-400" />} title="No branch services" desc={branchSearch ? 'No match found.' : 'Go to "Add Services" to enable services.'} />
                                                     : branchList.map((svc, idx) => (
@@ -674,7 +689,6 @@ const Services = () => {
                                                                 <p className="text-xs text-slate-600">{svc.gst_rate ?? 0}%</p>
                                                                 <p className="text-[11px] text-slate-400">₹{fmt(svc.gst_value)}</p>
                                                             </td>
-                                                            <td className="px-4 py-3">{ayFyBadges(svc.has_ay, svc.has_fy)}</td>
                                                             <td className="px-4 py-3">
                                                                 <ActionMenu items={[
                                                                     { label: 'View', icon: <FiEye className="w-3.5 h-3.5" />, onClick: () => setViewTarget({ svc, isBranch: true }) },
@@ -727,14 +741,14 @@ const Services = () => {
                                     <table className="w-full text-sm">
                                         <thead>
                                             <tr className="bg-gray-50 border-b border-gray-100">
-                                                {['#', 'Service', 'Type', 'AY / FY', 'Status', ''].map((h) => (
+                                                {['#', 'Service', 'Type', 'Status', ''].map((h) => (
                                                     <th key={h} className="px-4 py-2.5 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider whitespace-nowrap">{h}</th>
                                                 ))}
                                             </tr>
                                         </thead>
                                         <tbody className="divide-y divide-gray-50">
                                             {allLoading
-                                                ? Array.from({ length: 6 }).map((_, i) => <SkeletonRow key={i} cols={6} />)
+                                                ? Array.from({ length: 6 }).map((_, i) => <SkeletonRow key={i} cols={5} />)
                                                 : allList.length === 0
                                                     ? <EmptyState icon={<FiFileText className="w-5 h-5 text-slate-400" />} title="No services found" desc="Try a different search term." />
                                                     : allList.map((svc, idx) => (
@@ -752,7 +766,6 @@ const Services = () => {
                                                                 )}
                                                             </td>
                                                             <td className="px-4 py-3">{typeBadge(svc.type)}</td>
-                                                            <td className="px-4 py-3">{ayFyBadges(svc.has_ay, svc.has_fy)}</td>
                                                             <td className="px-4 py-3">
                                                                 {svc.added_to_branch
                                                                     ? <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-100 text-emerald-700 border border-emerald-200">
@@ -826,7 +839,6 @@ const Services = () => {
                             <div className="flex items-center gap-2 mt-1.5 flex-wrap">
                                 {typeBadge(editTarget.type)}
                                 {editTarget.sac_code && <span className="text-[11px] font-mono text-slate-500 bg-gray-100 px-1.5 py-0.5 rounded">{editTarget.sac_code}</span>}
-                                {ayFyBadges(editTarget.has_ay, editTarget.has_fy)}
                             </div>
                         </div>
                         <FeeForm form={editForm} onChange={(k, v) => setEditForm(f => ({ ...f, [k]: v }))} loading={editLoading} />
@@ -845,7 +857,7 @@ const Services = () => {
                                     className="px-4 py-2 text-sm font-medium text-slate-600 border border-gray-200 rounded-lg hover:bg-gray-100 disabled:opacity-50 transition-colors">
                                     Cancel
                                 </button>
-                                <button onClick={handleAdd} disabled={addLoading}
+                                <button onClick={handleAdd} disabled={addLoading || !isAddFormValid}
                                     className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg disabled:opacity-50 transition-colors inline-flex items-center gap-1.5">
                                     {addLoading && <span className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />}
                                     <FiPlus className="w-3.5 h-3.5" />
@@ -859,7 +871,6 @@ const Services = () => {
                             <div className="flex items-center gap-2 mt-1.5 flex-wrap">
                                 {typeBadge(addTarget.type)}
                                 {addTarget.sac_code && <span className="text-[11px] font-mono text-indigo-600 bg-indigo-100 px-1.5 py-0.5 rounded">{addTarget.sac_code}</span>}
-                                {ayFyBadges(addTarget.has_ay, addTarget.has_fy)}
                             </div>
                         </div>
                         <FeeForm form={addForm} onChange={(k, v) => setAddForm(f => ({ ...f, [k]: v }))} loading={addLoading} />

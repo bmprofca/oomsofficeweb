@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from "react";
+import { createPortal } from "react-dom";
 
 /*
   SearchableSelect — Single-item searchable select component.
@@ -43,7 +44,8 @@ import { useState, useRef, useEffect, useCallback } from "react";
 const CSS = `
   @import url('https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600&display=swap');
 
-  .ssx {
+  /* Variables on :root so the portaled dropdown (rendered in body) can inherit them */
+  :root {
     --ssx-font:               'Geist', system-ui, sans-serif;
     --ssx-radius:             8px;
     --ssx-radius-opt:         5px;
@@ -63,6 +65,9 @@ const CSS = `
     --ssx-divider:            #eff1f7;
     --ssx-error:              #dc2626;
     --ssx-error-ring:         rgba(220,38,38,0.12);
+  }
+
+  .ssx {
     font-family: var(--ssx-font);
     position: relative;
     width: 100%;
@@ -151,23 +156,28 @@ const CSS = `
   .ssx-icon-btn--chevron svg { transition: transform 0.2s cubic-bezier(0.4,0,0.2,1); }
   .ssx-trigger--open .ssx-icon-btn--chevron svg { transform: rotate(180deg); }
 
-  /* Dropdown */
+  /* Dropdown — rendered via portal, coords set via inline style */
   .ssx-dropdown {
-    position: absolute;
-    top: calc(100% + 5px);
-    left: 0;
-    right: 0;
+    position: fixed;
     background: var(--ssx-bg);
     border: 1.5px solid var(--ssx-border);
     border-radius: var(--ssx-radius);
     box-shadow: var(--ssx-shadow);
-    z-index: 9999;
+    z-index: 99999;
     overflow: hidden;
     animation: ssx-pop 0.15s cubic-bezier(0.4,0,0.2,1);
     transform-origin: top center;
   }
+  .ssx-dropdown--flip {
+    transform-origin: bottom center;
+    animation: ssx-pop-up 0.15s cubic-bezier(0.4,0,0.2,1);
+  }
   @keyframes ssx-pop {
     from { opacity: 0; transform: scaleY(0.93) translateY(-5px); }
+    to   { opacity: 1; transform: scaleY(1)    translateY(0); }
+  }
+  @keyframes ssx-pop-up {
+    from { opacity: 0; transform: scaleY(0.93) translateY(5px); }
     to   { opacity: 1; transform: scaleY(1)    translateY(0); }
   }
 
@@ -197,11 +207,10 @@ const CSS = `
     max-height: 210px;
     overflow-y: auto;
     padding: 4px;
-    scrollbar-width: thin;
-    scrollbar-color: var(--ssx-border) transparent;
+    scrollbar-width: none;
+    scrollbar-gutter: stable;
   }
-  .ssx-list::-webkit-scrollbar { width: 4px; }
-  .ssx-list::-webkit-scrollbar-thumb { background: var(--ssx-border); border-radius: 4px; }
+  .ssx-list::-webkit-scrollbar { display: none; }
 
   /* Option */
   .ssx-option {
@@ -224,9 +233,6 @@ const CSS = `
     font-weight: 500;
   }
   .ssx-option-check { flex-shrink: 0; color: var(--ssx-accent); display: flex; }
-
-  /* Highlight match */
-  .ssx-hl { color: var(--ssx-accent); font-weight: 600; }
 
   /* Empty */
   .ssx-empty {
@@ -274,20 +280,6 @@ const IconCheck = () => (
   </svg>
 );
 
-/* ── Highlight matching text ── */
-function Highlight({ text, query }) {
-  if (!query.trim()) return <>{text}</>;
-  const i = text.toLowerCase().indexOf(query.toLowerCase());
-  if (i === -1) return <>{text}</>;
-  return (
-    <>
-      {text.slice(0, i)}
-      <span className="ssx-hl">{text.slice(i, i + query.length)}</span>
-      {text.slice(i + query.length)}
-    </>
-  );
-}
-
 /* ══════════════════════════════════════════
    SelectInput
 ═══════════════════════════════════════════ */
@@ -306,29 +298,73 @@ export default function SelectInput({
   className = "",
   style = {},
 }) {
-  const [open, setOpen]          = useState(false);
-  const [query, setQuery]        = useState("");
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState("");
   const [focusedIdx, setFocused] = useState(-1);
+  const [dropdownPos, setDropdownPos] = useState({ top: 0, left: 0, width: 0, flipUp: false });
 
-  const rootRef    = useRef(null);
-  const triggerRef = useRef(null);
-  const searchRef  = useRef(null);
-  const listRef    = useRef(null);
+  const rootRef     = useRef(null);
+  const triggerRef  = useRef(null);
+  const searchRef   = useRef(null);
+  const listRef     = useRef(null);
+  const dropdownRef = useRef(null);
+
+  /* Recalculate fixed portal position from the trigger's bounding rect.
+     For below: anchor via `top`. For above (flip): anchor via `bottom` so the
+     dropdown grows upward from the trigger — actual height drives the placement,
+     no hard-coded maxH needed. */
+  const updatePos = useCallback(() => {
+    if (!rootRef.current) return;
+    const r = rootRef.current.getBoundingClientRect();
+    const spaceBelow = window.innerHeight - r.bottom;
+    const spaceAbove = r.top;
+    const flipUp = spaceBelow < 200 && spaceAbove > spaceBelow;
+    if (flipUp) {
+      setDropdownPos({
+        bottom: window.innerHeight - r.top + 5,
+        left: r.left,
+        width: r.width,
+        flipUp: true,
+      });
+    } else {
+      setDropdownPos({
+        top: r.bottom + 5,
+        left: r.left,
+        width: r.width,
+        flipUp: false,
+      });
+    }
+  }, []);
+
+  /* Keep position in sync when the page scrolls or the window resizes */
+  useEffect(() => {
+    if (!open) return;
+    window.addEventListener("scroll", updatePos, true);
+    window.addEventListener("resize", updatePos);
+    return () => {
+      window.removeEventListener("scroll", updatePos, true);
+      window.removeEventListener("resize", updatePos);
+    };
+  }, [open, updatePos]);
 
   const selectedOpt = options.find((o) => o.value === value) ?? null;
 
-  const filtered = options.filter(
-    (o) => !query.trim() || o.label.toLowerCase().includes(query.toLowerCase())
-  );
+  const normalizedQuery = query.trim().toLowerCase();
+  const filtered = options.filter((o) => {
+    if (!normalizedQuery) return true;
+    const candidate = String(o.searchText ?? o.label ?? "").toLowerCase();
+    return candidate.includes(normalizedQuery);
+  });
 
   /* Open */
   const openDropdown = useCallback(() => {
     if (disabled) return;
+    updatePos(); // compute position before the render so there is no (0,0) flash
     setOpen(true);
     setQuery("");
     setFocused(-1);
     requestAnimationFrame(() => searchRef.current?.focus());
-  }, [disabled]);
+  }, [disabled, updatePos]);
 
   /* Close */
   const closeDropdown = useCallback(() => {
@@ -337,10 +373,12 @@ export default function SelectInput({
     setFocused(-1);
   }, []);
 
-  /* Click outside */
+  /* Click outside — check both the trigger root and the portaled dropdown */
   useEffect(() => {
     const fn = (e) => {
-      if (rootRef.current && !rootRef.current.contains(e.target)) closeDropdown();
+      const inRoot     = rootRef.current?.contains(e.target);
+      const inDropdown = dropdownRef.current?.contains(e.target);
+      if (!inRoot && !inDropdown) closeDropdown();
     };
     document.addEventListener("mousedown", fn);
     return () => document.removeEventListener("mousedown", fn);
@@ -354,7 +392,7 @@ export default function SelectInput({
 
   /* Select */
   const select = (opt) => {
-    onChange?.(opt.value === value ? null : opt.value);
+    if (opt.value !== value) onChange?.(opt.value);
     closeDropdown();
     triggerRef.current?.focus();
   };
@@ -378,7 +416,7 @@ export default function SelectInput({
   const onSearchKey = (e) => {
     if (e.key === "Escape") { closeDropdown(); triggerRef.current?.focus(); return; }
     if (e.key === "ArrowDown") { e.preventDefault(); setFocused((i) => Math.min(i + 1, filtered.length - 1)); }
-    if (e.key === "ArrowUp")   { e.preventDefault(); setFocused((i) => Math.max(i - 1, 0)); }
+    if (e.key === "ArrowUp") { e.preventDefault(); setFocused((i) => Math.max(i - 1, 0)); }
     if (e.key === "Enter" && focusedIdx >= 0 && filtered[focusedIdx]) {
       e.preventDefault();
       select(filtered[focusedIdx]);
@@ -387,8 +425,8 @@ export default function SelectInput({
 
   const triggerCls = [
     "ssx-trigger",
-    open     ? "ssx-trigger--open"     : "",
-    error    ? "ssx-trigger--error"    : "",
+    open ? "ssx-trigger--open" : "",
+    error ? "ssx-trigger--error" : "",
     disabled ? "ssx-trigger--disabled" : "",
   ].filter(Boolean).join(" ");
 
@@ -433,9 +471,17 @@ export default function SelectInput({
           </span>
         </div>
 
-        {/* ── Dropdown ── */}
-        {open && (
-          <div className="ssx-dropdown" role="listbox">
+        {/* ── Dropdown — rendered into body via portal so overflow:hidden parents can't clip it ── */}
+        {open && createPortal(
+          <div
+            ref={dropdownRef}
+            className={`ssx-dropdown${dropdownPos.flipUp ? " ssx-dropdown--flip" : ""}`}
+            style={dropdownPos.flipUp
+              ? { bottom: dropdownPos.bottom, left: dropdownPos.left, width: dropdownPos.width }
+              : { top: dropdownPos.top,    left: dropdownPos.left, width: dropdownPos.width }
+            }
+            role="listbox"
+          >
 
             {/* Search */}
             <div className="ssx-search">
@@ -474,14 +520,14 @@ export default function SelectInput({
                     className={[
                       "ssx-option",
                       opt.value === value ? "ssx-option--selected" : "",
-                      focusedIdx === i   ? "ssx-option--focused"  : "",
+                      focusedIdx === i ? "ssx-option--focused" : "",
                     ].filter(Boolean).join(" ")}
                     role="option"
                     aria-selected={opt.value === value}
                     onMouseDown={(e) => { e.preventDefault(); select(opt); }}
                     onMouseEnter={() => setFocused(i)}
                   >
-                    <Highlight text={opt.label} query={query} />
+                    {opt.label}
                     {opt.value === value && (
                       <span className="ssx-option-check"><IconCheck /></span>
                     )}
@@ -489,7 +535,8 @@ export default function SelectInput({
                 ))
               )}
             </div>
-          </div>
+          </div>,
+          document.body
         )}
 
         {/* Hint / Error */}

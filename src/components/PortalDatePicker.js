@@ -6,6 +6,9 @@ import { FiX } from 'react-icons/fi';
 /** Short codes for configurable quick presets (order = display order when passed in `quickOptionKeys`). */
 export const QUICK_OPTION_CODES = {
     TD: 'td',
+    TOM: 'tom',
+    N7: 'n7',
+    EOM: 'eom',
     YD: 'yd',
     TM: 'tm',
     LM: 'lm',
@@ -59,6 +62,14 @@ function startOfDay(d) {
 function getPresets() {
     const t = startOfDay(new Date());
     const yesterday = new Date(t); yesterday.setDate(t.getDate() - 1);
+    const tomorrow = new Date(t); tomorrow.setDate(t.getDate() + 1);
+    const next7thDay = (() => {
+        const year = t.getFullYear();
+        const month = t.getMonth();
+        if (t.getDate() <= 7) return startOfDay(new Date(year, month, 7));
+        return startOfDay(new Date(year, month + 1, 7));
+    })();
+    const endOfThisMonth = new Date(t.getFullYear(), t.getMonth() + 1, 0);
     const last7start = new Date(t); last7start.setDate(t.getDate() - 6);
     const last30start = new Date(t); last30start.setDate(t.getDate() - 29);
     const thisMonthStart = new Date(t.getFullYear(), t.getMonth(), 1);
@@ -68,6 +79,9 @@ function getPresets() {
 
     return [
         { key: 'today', label: 'Today', sub: fmt(t), single: t },
+        { key: 'tomorrow', label: 'Tomorrow', sub: fmt(tomorrow), single: tomorrow },
+        { key: 'n7', label: 'Next 7th day', sub: fmt(next7thDay), single: next7thDay },
+        { key: 'eom', label: 'Last day of this month', sub: fmt(endOfThisMonth), single: endOfThisMonth },
         { key: 'yesterday', label: 'Yesterday', sub: fmt(yesterday), single: yesterday },
         { key: 'last7', label: 'Last 7 days', sub: `${fmt(last7start)} – ${fmt(t)}`, range: [last7start, t] },
         { key: 'last30', label: 'Last 30 days', sub: `${fmt(last30start)} – ${fmt(t)}`, range: [last30start, t] },
@@ -105,19 +119,38 @@ function getIndianFinancialYearEnd(t) {
     return startOfDay(new Date(start.getFullYear() + 1, 2, 31));
 }
 
-/** Build one quick preset by short code (`td`, `yd`, `tm`, `lm`, `tw`, `lw`, `fy`, `lf`). All are `range` for apply. */
+/** Build one quick preset by short code (`td`, `tom`, `n7`, `eom`, `yd`, `tm`, `lm`, `tw`, `lw`, `fy`, `lf`). */
 export function buildQuickPresetEntry(code) {
     const t = startOfDay(new Date());
     const c = String(code).toLowerCase().trim();
 
     if (c === 'td') {
-        return { key: 'td', label: 'Today', sub: fmt(t), range: [t, t] };
+        return { key: 'td', label: 'Today', sub: fmt(t), single: t, range: [t, t] };
+    }
+    if (c === 'tom') {
+        const tomorrow = new Date(t);
+        tomorrow.setDate(t.getDate() + 1);
+        const d = startOfDay(tomorrow);
+        return { key: 'tom', label: 'Tomorrow', sub: fmt(d), single: d, range: [d, d] };
+    }
+    if (c === 'n7') {
+        const d = (() => {
+            const year = t.getFullYear();
+            const month = t.getMonth();
+            if (t.getDate() <= 7) return startOfDay(new Date(year, month, 7));
+            return startOfDay(new Date(year, month + 1, 7));
+        })();
+        return { key: 'n7', label: 'Next 7th day', sub: fmt(d), single: d, range: [d, d] };
+    }
+    if (c === 'eom') {
+        const d = startOfDay(new Date(t.getFullYear(), t.getMonth() + 1, 0));
+        return { key: 'eom', label: 'Last day of this month', sub: fmt(d), single: d, range: [d, d] };
     }
     if (c === 'yd') {
         const yd = new Date(t);
         yd.setDate(t.getDate() - 1);
         const y0 = startOfDay(yd);
-        return { key: 'yd', label: 'Yesterday', sub: fmt(y0), range: [y0, y0] };
+        return { key: 'yd', label: 'Yesterday', sub: fmt(y0), single: y0, range: [y0, y0] };
     }
     if (c === 'tm') {
         const thisMonthStart = startOfDay(new Date(t.getFullYear(), t.getMonth(), 1));
@@ -384,7 +417,7 @@ export default function DatePicker({
     /** @deprecated use `defaultQuickKey` */
     initialQuickKey,
     defaultQuickKey,
-    /** Ordered short codes: `td`, `yd`, `tm`, `lm`, `tw`, `lw`, `fy`, `lf`. When set, only these quick options appear (2-column grid). */
+    /** Ordered short codes: `td`, `tom`, `n7`, `eom`, `yd`, `tm`, `lm`, `tw`, `lw`, `fy`, `lf`. When set, only these quick options appear (2-column grid). */
     quickOptionKeys,
     initialSingle = null,
     initialRangeStart = null,
@@ -464,6 +497,17 @@ export default function DatePicker({
         return '';
     }
 
+    function applyQuickPreset(preset) {
+        if (!preset) return;
+        if (preset.single) {
+            onApply?.({ type: 'single', date: preset.single });
+            return;
+        }
+        if (preset.range) {
+            onApply?.({ type: 'range', start: preset.range[0], end: preset.range[1] });
+        }
+    }
+
     function handleApply() {
         let result = null;
         if (tab === 'quick') {
@@ -531,7 +575,7 @@ export default function DatePicker({
     return (
         <div
             className={`w-full rounded-xl border border-gray-200 bg-white shadow-lg overflow-hidden font-sans max-h-[calc(100vh-6rem)] flex flex-col ${useWideQuickGrid
-                ? 'max-w-[min(36rem,calc(100vw-1.5rem))] min-w-0'
+                ? 'max-w-[min(21rem,calc(100vw-1.5rem))] min-w-0'
                 : 'max-w-[min(19rem,calc(100vw-0.5rem))]'
                 }`}
         >
@@ -577,7 +621,10 @@ export default function DatePicker({
                             <button
                                 key={p.key}
                                 type="button"
-                                onClick={() => setQuickKey(p.key)}
+                                onClick={() => {
+                                    setQuickKey(p.key);
+                                    applyQuickPreset(p);
+                                }}
                                 className={`flex flex-col items-start rounded-lg border px-2 py-2 text-left transition-all sm:px-2.5 sm:py-2.5 ${useWideQuickGrid ? 'min-h-[4.25rem] justify-center' : 'w-full'
                                     } ${quickKey === p.key
                                         ? 'border-blue-300 bg-blue-50'
@@ -692,13 +739,13 @@ export function DatePickerField({
                 && createPortal(
                     <div
                         data-datepicker-portal="true"
-                        className="fixed inset-0 z-[9999] flex items-center justify-center overflow-y-auto bg-black/45 px-3 py-8 sm:px-6"
+                        className="fixed inset-0 z-[9999] grid place-items-center overflow-y-auto bg-black/45 p-3 sm:p-6"
                         onClick={() => setOpen(false)}
                         onKeyDown={(e) => e.key === 'Escape' && setOpen(false)}
                         role="presentation"
                     >
                         <div
-                            className={`relative w-full max-w-[min(36rem,calc(100vw-1.5rem))] min-w-0 ${popoverClassName}`.trim()}
+                            className={`relative w-full max-w-[min(21rem,calc(100vw-1.5rem))] min-w-0 ${popoverClassName}`.trim()}
                             onClick={(e) => e.stopPropagation()}
                             role="dialog"
                             aria-modal="true"
@@ -782,13 +829,13 @@ export function DateRangePickerField({
                 && createPortal(
                     <div
                         data-datepicker-portal="true"
-                        className="fixed inset-0 z-[9999] flex items-center justify-center overflow-y-auto bg-black/45 px-3 py-8 sm:px-6"
+                        className="fixed inset-0 z-[9999] grid place-items-center overflow-y-auto bg-black/45 p-3 sm:p-6"
                         onClick={() => setOpen(false)}
                         onKeyDown={(e) => e.key === 'Escape' && setOpen(false)}
                         role="presentation"
                     >
                         <div
-                            className={`relative w-full max-w-[min(36rem,calc(100vw-1.5rem))] min-w-0 ${popoverClassName}`.trim()}
+                            className={`relative w-full max-w-[min(21rem,calc(100vw-1.5rem))] min-w-0 ${popoverClassName}`.trim()}
                             onClick={(e) => e.stopPropagation()}
                             role="dialog"
                             aria-modal="true"

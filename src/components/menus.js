@@ -294,18 +294,9 @@ export const Sidebar = ({ sidebarOpen, setSidebarOpen, sidebarCollapsed, setSide
             >
                 {/* Header */}
                 <div className={`flex items-center justify-between h-16 border-b border-slate-700 flex-shrink-0 ${sidebarCollapsed ? 'px-2' : 'px-3'}`}>
-                    {!sidebarCollapsed ? (
-                        <div className="flex items-center">
-                            <div className="w-6 h-6 p-4 bg-gradient-to-r from-blue-500 to-blue-600 rounded flex items-center justify-center">
-                                <span className="text-white font-bold text-sm">WB</span>
-                            </div>
-                            <h1 className="ml-2 text-base font-semibold text-white">WealthBank</h1>
-                        </div>
-                    ) : (
-                        <div className="w-6 h-6 p-4 bg-gradient-to-r from-blue-500 to-blue-600 rounded flex items-center justify-center mx-auto">
-                            <span className="text-white font-bold text-sm">WB</span>
-                        </div>
-                    )}
+                    <div className={`w-6 h-6 p-4 bg-gradient-to-r from-blue-500 to-blue-600 rounded flex items-center justify-center ${sidebarCollapsed ? 'mx-auto' : ''}`}>
+                        <span className="text-white font-bold text-sm">WB</span>
+                    </div>
                 </div>
 
                 {/* Menu Items */}

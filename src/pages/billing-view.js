@@ -115,6 +115,8 @@ const normalizeBillingRow = (raw) => {
         staffs,
         has_ca: raw.has_ca,
         has_agent: raw.has_agent,
+        invoice_id: raw.invoice_id || raw.invoice?.invoice_id || null,
+        invoice_type: raw.invoice_type || raw.invoice?.type || 'sale',
         _raw: raw,
     };
 };
@@ -374,6 +376,7 @@ const BillDisplay = () => {
     const [selectedItems, setSelectedItems] = useState([]);
     const [selectAll, setSelectAll] = useState(false);
     const [billingActionLoading, setBillingActionLoading] = useState(false);
+    const [downloadPdfLoading, setDownloadPdfLoading] = useState(null); // task_id being downloaded
 
     // State for dropdown menus
     const [showExportDropdown, setShowExportDropdown] = useState(false);
@@ -801,6 +804,59 @@ const BillDisplay = () => {
         });
     };
 
+    const handleDownloadPdf = async (item) => {
+        if (!item.invoice_id) {
+            showConfirm({
+                variant: 'warning',
+                title: 'No Invoice',
+                message: 'No invoice ID found for this bill.',
+                confirmText: 'OK',
+                cancelText: null,
+                onConfirm: async () => { },
+            });
+            return;
+        }
+        setDownloadPdfLoading(item.task_id);
+        try {
+            const headers = getHeaders();
+            if (!headers) throw new Error('Missing authentication.');
+            const response = await fetch(`${API_BASE_URL}/invoice/generate`, {
+                method: 'POST',
+                headers: { ...headers, 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    invoice_id: item.invoice_id,
+                    type: item.invoice_type || 'sale',
+                    response: 'pdf',
+                }),
+            });
+            if (!response.ok) {
+                const err = await response.json().catch(() => ({}));
+                throw new Error(err?.message || `Request failed (${response.status})`);
+            }
+            const blob = await response.blob();
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `invoice-${item.invoice_id}.pdf`;
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            URL.revokeObjectURL(url);
+        } catch (e) {
+            console.error('Download PDF:', e);
+            showConfirm({
+                variant: 'danger',
+                title: 'Download Failed',
+                message: e.message || 'Failed to download invoice PDF.',
+                confirmText: 'OK',
+                cancelText: null,
+                onConfirm: async () => { },
+            });
+        } finally {
+            setDownloadPdfLoading(null);
+        }
+    };
+
     const getBillTypeColor = (type) => {
         const colors = {
             pending: 'orange',
@@ -1066,6 +1122,7 @@ const BillDisplay = () => {
                                         whileHover={{ y: -2 }}
                                         whileTap={{ scale: 0.98 }}
                                         onClick={() => {
+                                            if (card.value === selectedBillType) return;
                                             setSelectedBillType(card.value);
                                             setPagination((p) => ({ ...p, page_no: 1 }));
                                             setSelectedItems([]);
@@ -1073,8 +1130,8 @@ const BillDisplay = () => {
                                             setBillingData([]);
                                         }}
                                         className={`relative cursor-pointer overflow-hidden rounded-2xl border transition-all duration-200 ${isActive
-                                                ? `border ${card.borderColor} shadow-lg shadow-${card.color}-500/10 ring-1 ring-${card.color}-200`
-                                                : 'border-gray-200 shadow-sm hover:shadow-md'
+                                            ? `border ${card.borderColor} shadow-lg shadow-${card.color}-500/10 ring-1 ring-${card.color}-200`
+                                            : 'border-gray-200 shadow-sm hover:shadow-md'
                                             } ${card.lightGradient} backdrop-blur-sm`}
                                     >
                                         <div className={`absolute inset-0 ${card.cardGradient}`}></div>
@@ -1320,14 +1377,14 @@ const BillDisplay = () => {
                                                         <td className="py-3 px-4">
                                                             <div className="flex items-start gap-3">
                                                                 <div className={`w-8 h-8 rounded-md flex items-center justify-center flex-shrink-0 ${billStatusColor === 'orange' ? 'bg-orange-100' :
-                                                                        billStatusColor === 'green' ? 'bg-emerald-100' :
-                                                                            billStatusColor === 'red' ? 'bg-rose-100' :
-                                                                                'bg-indigo-100'
+                                                                    billStatusColor === 'green' ? 'bg-emerald-100' :
+                                                                        billStatusColor === 'red' ? 'bg-rose-100' :
+                                                                            'bg-indigo-100'
                                                                     }`}>
                                                                     <Icon className={`w-4 h-4 ${billStatusColor === 'orange' ? 'text-orange-600' :
-                                                                            billStatusColor === 'green' ? 'text-emerald-600' :
-                                                                                billStatusColor === 'red' ? 'text-rose-600' :
-                                                                                    'text-indigo-600'
+                                                                        billStatusColor === 'green' ? 'text-emerald-600' :
+                                                                            billStatusColor === 'red' ? 'text-rose-600' :
+                                                                                'text-indigo-600'
                                                                         }`} />
                                                                 </div>
                                                                 <div className="min-w-0 flex-1">
@@ -1403,8 +1460,8 @@ const BillDisplay = () => {
                                                                     </p>
                                                                     <span
                                                                         className={`inline-block px-2 py-0.5 rounded text-xs font-medium ${item.completer_user_type === 'manager'
-                                                                                ? 'bg-purple-100 text-purple-800'
-                                                                                : 'bg-blue-100 text-blue-800'
+                                                                            ? 'bg-purple-100 text-purple-800'
+                                                                            : 'bg-blue-100 text-blue-800'
                                                                             }`}
                                                                     >
                                                                         {String(
@@ -1550,6 +1607,34 @@ const BillDisplay = () => {
                                             >
                                                 <TbFileInvoice className="w-4 h-4 mr-3 text-emerald-600" />
                                                 Generate Bill
+                                            </button>
+                                            <div className="border-t border-gray-100" />
+                                        </>
+                                    )}
+                                    {selectedBillType === 'generated' && (
+                                        <>
+                                            <button
+                                                className="flex items-center w-full px-4 py-2.5 text-sm text-indigo-700 hover:bg-indigo-50 transition-colors duration-150 disabled:opacity-50 disabled:cursor-not-allowed"
+                                                disabled={downloadPdfLoading === activeItem.task_id}
+                                                onClick={() => {
+                                                    setActiveRowDropdown(null);
+                                                    handleDownloadPdf(activeItem);
+                                                }}
+                                            >
+                                                {downloadPdfLoading === activeItem.task_id ? (
+                                                    <>
+                                                        <svg className="animate-spin w-4 h-4 mr-3 text-indigo-500" fill="none" viewBox="0 0 24 24">
+                                                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                                                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
+                                                        </svg>
+                                                        Downloading…
+                                                    </>
+                                                ) : (
+                                                    <>
+                                                        <PiFilePdfDuotone className="w-4 h-4 mr-3 text-indigo-500" />
+                                                        Download
+                                                    </>
+                                                )}
                                             </button>
                                             <div className="border-t border-gray-100" />
                                         </>

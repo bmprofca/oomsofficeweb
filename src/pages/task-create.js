@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import axios from 'axios';
 import { Sidebar, Header } from '../components/header';
-import SearchableSelectStatic from '../components/SearchableSelectStatic';
+import SelectInput from '../components/SelectInput';
 import getHeaders from '../utils/get-headers';
 import API_BASE_URL from '../utils/api-controller';
 import { useNavigate } from 'react-router-dom';
@@ -9,7 +9,6 @@ import {
     FiUsers,
     FiBriefcase,
     FiCalendar,
-    FiDollarSign,
     FiUserCheck,
     FiUserPlus,
     FiFileText,
@@ -26,7 +25,6 @@ import {
     FiArrowLeft,
     FiUser,
     FiCheck,
-    FiUpload,
     FiEdit,
     FiClock,
     FiLayers,
@@ -34,9 +32,8 @@ import {
 } from 'react-icons/fi';
 import { FaCheckCircle } from "react-icons/fa";
 import { motion, AnimatePresence } from 'framer-motion';
-import { DatePicker } from 'rsuite';
+import { DatePickerField } from '../components/PortalDatePicker';
 import { Toaster, toast } from 'react-hot-toast';
-import 'rsuite/dist/rsuite.min.css';
 
 const TaskCreate = () => {
     const navigate = useNavigate();
@@ -56,7 +53,6 @@ const TaskCreate = () => {
     const [formData, setFormData] = useState({
         firm_ids: [],
         group_ids: [],
-        service_category: '', // New field for service category
         service_id: '',
         has_ay: '0',   // Assessment year applicable (client-side toggle)
         has_fy: '0',   // Financial year applicable (client-side toggle)
@@ -74,36 +70,14 @@ const TaskCreate = () => {
     const [subTasks, setSubTasks] = useState([]);
     const [subTaskForm, setSubTaskForm] = useState({
         type: 'service', // 'service' or 'manual'
-        service_category: '', // New field for subtask service category
         service_id: '',
         manual_text: ''
     });
     const [showSubTaskForm, setShowSubTaskForm] = useState(false);
 
-    // Service categories (fetched from API)
-    const [serviceCategories, setServiceCategories] = useState([]);
-
-    useEffect(() => {
-        const fetchServiceCategories = async () => {
-            const headers = getHeaders();
-            if (!headers) return;
-            try {
-                const res = await axios.get(`${API_BASE_URL}/service/category/list`, { headers });
-                if (res.data?.success && Array.isArray(res.data.data)) {
-                    setServiceCategories(res.data.data);
-                }
-            } catch (err) {
-                console.error('Failed to fetch service categories:', err);
-            }
-        };
-        fetchServiceCategories();
-    }, []);
-
     // Services (fetched from API)
     const [services, setServices] = useState([]);
 
-    // Filtered services based on selected category
-    const [filteredServices, setFilteredServices] = useState([]);
 
     useEffect(() => {
         const fetchServices = async () => {
@@ -306,26 +280,34 @@ const TaskCreate = () => {
         };
     }, []);
 
-    // Filter services when category or services list changes
+    // Permanently reserve the scrollbar gutter so it never pops in/out and
+    // shifts the layout. overflowY:'scroll' keeps the gutter space constant;
+    // scrollbar-width:none / webkit display:none makes the track invisible.
     useEffect(() => {
-        if (formData.service_category) {
-            const filtered = services.filter(service => service.category_id === formData.service_category);
-            setFilteredServices(filtered);
-        } else {
-            setFilteredServices(services);
-        }
+        const html = document.documentElement;
+        const prev = {
+            overflowY:       html.style.overflowY,
+            overflowX:       html.style.overflowX,
+            scrollbarWidth:  html.style.scrollbarWidth,
+            msOverflowStyle: html.style.msOverflowStyle,
+        };
+        html.style.overflowY       = 'scroll';
+        html.style.overflowX       = 'hidden';
+        html.style.scrollbarWidth  = 'none';
+        html.style.msOverflowStyle = 'none';
+        const styleTag = document.createElement('style');
+        styleTag.id = 'task-create-hide-scrollbar';
+        styleTag.textContent = 'html::-webkit-scrollbar { display: none !important; width: 0 !important; }';
+        document.head.appendChild(styleTag);
+        return () => {
+            html.style.overflowY       = prev.overflowY;
+            html.style.overflowX       = prev.overflowX;
+            html.style.scrollbarWidth  = prev.scrollbarWidth;
+            html.style.msOverflowStyle = prev.msOverflowStyle;
+            document.getElementById('task-create-hide-scrollbar')?.remove();
+        };
+    }, []);
 
-        // Reset service_id when category changes
-        if (formData.service_id) {
-            const selectedService = services.find(service => service.service_id === formData.service_id);
-            if (selectedService && formData.service_category && selectedService.category_id !== formData.service_category) {
-                setFormData(prev => ({
-                    ...prev,
-                    service_id: ''
-                }));
-            }
-        }
-    }, [formData.service_category, formData.service_id, services]);
 
     // Step validation – returns { valid, message } for current step
     const validateStep = (step) => {
@@ -439,14 +421,6 @@ const TaskCreate = () => {
             ...prev,
             [name]: value
         }));
-
-        // Handle service category change for subtasks
-        if (name === 'service_category') {
-            setSubTaskForm(prev => ({
-                ...prev,
-                service_id: '' // Reset service when category changes
-            }));
-        }
     };
 
     const toggleStaffSelection = (staffId) => {
@@ -479,7 +453,6 @@ const TaskCreate = () => {
         setSubTasks(prev => [...prev, newSubTask]);
         setSubTaskForm({
             type: 'service',
-            service_category: '',
             service_id: '',
             manual_text: ''
         });
@@ -493,7 +466,6 @@ const TaskCreate = () => {
     const cancelSubTask = () => {
         setSubTaskForm({
             type: 'service',
-            service_category: '',
             service_id: '',
             manual_text: ''
         });
@@ -758,21 +730,12 @@ const TaskCreate = () => {
             [name]: value
         }));
 
-        if (name === 'service_category') {
-            // Reset service_id when category changes
-            setFormData(prev => ({
-                ...prev,
-                service_id: ''
-            }));
-        }
-
         if (name === 'service_id') {
             const selectedService = services.find(service => service.service_id === value);
             if (selectedService) {
                 setFormData(prev => ({
                     ...prev,
-                    fees: selectedService.fees ?? prev.fees,
-                    service_category: selectedService.category_id ?? prev.service_category
+                    fees: selectedService.fees ?? prev.fees
                 }));
             }
         }
@@ -781,16 +744,11 @@ const TaskCreate = () => {
 
     // For searchable selects: same logic as handleInputChange but with (name, value)
     const handleFormSelectChange = (name, value) => {
-        if (name === 'service_category') {
-            setFormData(prev => ({ ...prev, [name]: value, service_id: '' }));
-            return;
-        }
         if (name === 'service_id') {
             const selectedService = services.find(service => String(service.service_id) === String(value));
             setFormData(prev => {
                 const next = { ...prev, [name]: value };
                 if (selectedService) {
-                    next.service_category = selectedService.category_id;
                     next.fees = selectedService.fees ?? prev.fees;
                 }
                 return next;
@@ -800,50 +758,14 @@ const TaskCreate = () => {
         setFormData(prev => ({ ...prev, [name]: value }));
     };
 
-    // Options for searchable selects (main form): categories with "All", services with placeholder
-    const serviceCategoryOptions = [
-        { category_id: '', name: 'All Categories' },
-        ...(serviceCategories.map(c => ({ category_id: c.category_id, name: c.name })))
-    ];
-    const mainServiceOptions = [
-        { service_id: '', name: 'Select service...' },
-        ...(filteredServices.map(s => ({ service_id: s.service_id, name: `${s.name} - ₹${s.fees}` })))
-    ];
-    const subtaskTypeOptions = [
-        { value: 'service', name: 'Choose from Service' },
-        { value: 'manual', name: 'Manual Text' }
-    ];
-    const subtaskCategoryOptions = [
-        { category_id: '', name: 'All Categories' },
-        ...(serviceCategories.map(c => ({ category_id: c.category_id, name: c.name })))
-    ];
+    // Options for SelectInput
+    const mainServiceOptions = services.map((s) => ({
+        value: s.service_id,
+        label: `${s.name} - ₹${s.fees}`,
+        searchText: s.name || ''
+    }));
     const getSubtaskServiceOptions = () => {
-        const list = subTaskForm.service_category
-            ? services.filter(s => String(s.category_id) === String(subTaskForm.service_category))
-            : services;
-        return [
-            { service_id: '', name: 'Select service...' },
-            ...(list.map(s => ({ service_id: s.service_id, name: s.name })))
-        ];
-    };
-
-    // Parse "dd/MM/yyyy" (en-GB) to Date for rsuite DatePicker
-    const parseDueDate = (str) => {
-        if (!str || typeof str !== 'string') return null;
-        const parts = str.trim().split('/');
-        if (parts.length !== 3) return null;
-        const [d, m, y] = parts;
-        const day = parseInt(d, 10);
-        const month = parseInt(m, 10) - 1;
-        const year = parseInt(y, 10);
-        if (isNaN(year) || isNaN(month) || isNaN(day)) return null;
-        const date = new Date(year, month, day);
-        return isNaN(date.getTime()) ? null : date;
-    };
-
-    const formatDueDate = (date) => {
-        if (!date || !(date instanceof Date) || isNaN(date.getTime())) return '';
-        return date.toLocaleDateString('en-GB');
+        return services.map((s) => ({ value: s.service_id, label: s.name, searchText: s.name || '' }));
     };
 
     const formatCurrency = (amount) => {
@@ -855,20 +777,6 @@ const TaskCreate = () => {
         }).format(num);
     };
 
-    const handleMainDueDateChange = (date) => {
-        setFormData(prev => ({ ...prev, due_date: formatDueDate(date) }));
-    };
-
-    const handleSubTaskDueDateChange = (date) => {
-        setSubTaskForm(prev => ({ ...prev, due_date: formatDueDate(date) }));
-    };
-
-    // Calendar menu: show only "Today" (hide "Yesterday" from rsuite default ranges)
-    const dueDatePickerRanges = [
-        { label: 'Today', value: () => { const t = new Date(); t.setHours(0, 0, 0, 0); return t; } },
-    ];
-    // No-op so any leftover reference does not cause no-undef (we only hide Yesterday via ranges)
-    const shouldDisableDate = () => false;
 
     // Add/remove single firm (for two-panel UI)
     const addFirm = (option) => {
@@ -1037,16 +945,7 @@ const TaskCreate = () => {
         setSubmitting(true);
 
         const feesNum = parseFloat(String(formData.fees || '0').trim()) || 0;
-        const dueDateForPayload = (() => {
-            const raw = formData.due_date ? String(formData.due_date).trim() : '';
-            if (!raw) return '';
-            const d = parseDueDate(raw);
-            if (!d) return raw;
-            const y = d.getFullYear();
-            const m = String(d.getMonth() + 1).padStart(2, '0');
-            const day = String(d.getDate()).padStart(2, '0');
-            return `${y}-${m}-${day}`;
-        })();
+        const dueDateForPayload = formData.due_date ? String(formData.due_date).trim() : '';
 
         const payload = {
             firms: formData.firm_ids || [],
@@ -1128,7 +1027,6 @@ const TaskCreate = () => {
             setFormData({
                 firm_ids: [],
                 group_ids: [],
-                service_category: '',
                 service_id: '',
                 has_ay: '0',
                 has_fy: '0',
@@ -1185,6 +1083,16 @@ const TaskCreate = () => {
 
     return (
         <div className="min-h-screen bg-gray-50 overflow-x-hidden w-full max-w-full box-border">
+            <style>{`
+                .task-scrollbar-hide {
+                    scrollbar-width: none;
+                    scrollbar-gutter: stable;
+                    -ms-overflow-style: none;
+                }
+                .task-scrollbar-hide::-webkit-scrollbar {
+                    display: none;
+                }
+            `}</style>
             <Toaster position="top-center" toastOptions={{ duration: 4000 }} />
             <Header
                 mobileMenuOpen={mobileMenuOpen}
@@ -1204,26 +1112,15 @@ const TaskCreate = () => {
                 <div className="max-w-6xl mx-auto px-4 sm:px-6 md:px-8 py-6 min-w-0 w-full box-border">
                     {/* Page header */}
                     <div className="mb-6">
-                        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-                            <div>
-                                <h1 className="text-2xl font-bold text-gray-900 tracking-tight">Create New Task</h1>
-                                <p className="text-gray-500 text-sm mt-1">Complete the steps below to create a task for firms and groups</p>
-                            </div>
-                            <motion.button
-                                type="button"
-                                className="flex items-center gap-2 px-4 py-2.5 border border-gray-300 rounded-xl text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 transition-colors"
-                                whileHover={{ scale: 1.02 }}
-                                whileTap={{ scale: 0.98 }}
-                            >
-                                <FiUpload className="w-4 h-4" />
-                                Bulk Import
-                            </motion.button>
+                        <div>
+                            <h1 className="text-2xl font-bold text-gray-900 tracking-tight">Create New Task</h1>
+                            <p className="text-gray-500 text-sm mt-1">Complete the steps below to create a task for firms and groups</p>
                         </div>
                     </div>
 
                     {/* Main Card */}
                     <motion.div
-                        className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden min-w-0 w-full"
+                        className="bg-white rounded-2xl shadow-sm border border-gray-200 min-w-0 w-full"
                         initial={{ opacity: 0, y: 16 }}
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ duration: 0.3 }}
@@ -1267,8 +1164,6 @@ const TaskCreate = () => {
                                             : 'opacity-0 translate-x-full absolute inset-0 overflow-hidden'
                                         }`}>
                                         <div className="space-y-6">
-                                            <p className="text-sm text-gray-500">Select at least one firm and/or group for this task. Search on the left, selected items appear on the right.</p>
-
                                             {/* Firms: search left, selected right (like employees) */}
                                             <div className="space-y-2">
                                                 <label className="flex items-center gap-2 text-sm font-medium text-gray-700">
@@ -1289,14 +1184,13 @@ const TaskCreate = () => {
                                                                         className="w-full pl-9 pr-3 py-2.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
                                                                     />
                                                                 </div>
-                                                                <p className="text-xs text-gray-500 mt-1.5">Type to search, then click to add</p>
                                                             </div>
-                                                            <div className="flex-1 overflow-y-auto p-2 space-y-1.5">
+                                                            <div className="flex-1 overflow-y-auto task-scrollbar-hide p-2 space-y-1.5">
                                                                 {firmSearchLoading && (
                                                                     <div className="text-center text-gray-500 text-sm py-6">Searching...</div>
                                                                 )}
                                                                 {!firmSearchLoading && firmSearchQuery.trim().length < 3 && (
-                                                                    <div className="text-center text-gray-400 text-sm py-6">Type at least 3 characters</div>
+                                                                    <div className="text-center text-gray-400 text-sm py-6">Search firms...</div>
                                                                 )}
                                                                 {!firmSearchLoading && firmSearchQuery.trim().length >= 3 && firmSearchResults.filter(f => !selectedFirmOptions.some(s => s.value === f.value)).length === 0 && (
                                                                     <div className="text-center text-gray-400 text-sm py-6">No firms found</div>
@@ -1350,7 +1244,7 @@ const TaskCreate = () => {
                                                                 <span className="text-sm font-medium text-gray-700">Selected Firms</span>
                                                                 <span className="text-xs text-gray-500 bg-white px-2 py-1 rounded">{selectedFirmOptions.length}</span>
                                                             </div>
-                                                            <div className="flex-1 overflow-y-auto space-y-1.5">
+                                                            <div className="flex-1 overflow-y-auto task-scrollbar-hide space-y-1.5">
                                                                 {selectedFirmOptions.map((opt) => {
                                                                     const f = opt.__firm;
                                                                     const c = f?.client || {};
@@ -1389,7 +1283,7 @@ const TaskCreate = () => {
                                                                     {groupOptions.filter(g => !selectedGroupOptions.some(s => s.value === g.value)).length}
                                                                 </span>
                                                             </div>
-                                                            <div className="flex-1 overflow-y-auto space-y-1.5">
+                                                            <div className="flex-1 overflow-y-auto task-scrollbar-hide space-y-1.5">
                                                                 {groupsLoading && (
                                                                     <div className="text-center text-gray-500 text-sm py-6">Loading...</div>
                                                                 )}
@@ -1418,7 +1312,7 @@ const TaskCreate = () => {
                                                                 <span className="text-sm font-medium text-gray-700">Selected Groups</span>
                                                                 <span className="text-xs text-gray-500 bg-white px-2 py-1 rounded">{selectedGroupOptions.length}</span>
                                                             </div>
-                                                            <div className="flex-1 overflow-y-auto space-y-1.5">
+                                                            <div className="flex-1 overflow-y-auto task-scrollbar-hide space-y-1.5">
                                                                 {selectedGroupOptions.map((opt) => (
                                                                     <div
                                                                         key={opt.value}
@@ -1476,30 +1370,14 @@ const TaskCreate = () => {
                                             : 'opacity-0 translate-x-full absolute inset-0 overflow-hidden'
                                         }`}>
                                         <div className="space-y-5">
-                                            <p className="text-sm text-gray-500">Select service, set fees and due date.</p>
                                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                                <div className="space-y-2">
-                                                    <label className="block text-sm font-medium text-gray-700">Service Category</label>
-                                                    <SearchableSelectStatic
-                                                        options={serviceCategoryOptions}
-                                                        value={formData.service_category}
-                                                        onChange={(val) => handleFormSelectChange('service_category', val)}
-                                                        placeholder="All Categories"
-                                                        labelKey="name"
-                                                        valueKey="category_id"
-                                                        leftIcon={<FiLayers className="text-base" />}
-                                                    />
-                                                </div>
-                                                <div className="space-y-2">
+                                                <div className="space-y-2 md:col-span-2">
                                                     <label className="block text-sm font-medium text-gray-700">Service <span className="text-red-500">*</span></label>
-                                                    <SearchableSelectStatic
+                                                    <SelectInput
                                                         options={mainServiceOptions}
                                                         value={formData.service_id}
                                                         onChange={(val) => handleFormSelectChange('service_id', val)}
                                                         placeholder="Select service..."
-                                                        labelKey="name"
-                                                        valueKey="service_id"
-                                                        leftIcon={<FiBriefcase className="text-base" />}
                                                     />
                                                 </div>
                                             </div>
@@ -1508,7 +1386,7 @@ const TaskCreate = () => {
                                                 <div className="space-y-2">
                                                     <label className="block text-sm font-medium text-gray-700">Fees (₹) <span className="text-red-500">*</span></label>
                                                     <div className="relative">
-                                                        <FiDollarSign className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 text-base" />
+                                                        <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 text-base font-medium">₹</span>
                                                         <input
                                                             type="number"
                                                             name="fees"
@@ -1522,22 +1400,15 @@ const TaskCreate = () => {
                                                 </div>
                                                 <div className="space-y-2">
                                                     <label className="block text-sm font-medium text-gray-700">Due Date <span className="text-red-500">*</span></label>
-                                                    <div className="relative [&_.rs-picker]:w-full [&_.rs-picker-input]:w-full [&_.rs-picker-input]:pl-10 [&_.rs-picker-input]:pr-3 [&_.rs-picker-input]:py-3 [&_.rs-picker-input]:text-sm [&_.rs-picker-input]:border [&_.rs-picker-input]:border-gray-300 [&_.rs-picker-input]:rounded-xl [&_.rs-picker-input]:focus:ring-2 [&_.rs-picker-input]:focus:ring-indigo-500 [&_.rs-picker-input]:focus:border-indigo-500 [&_.rs-picker-input]:bg-white [&_.rs-picker-input]:outline-none">
-                                                        <FiCalendar className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-base z-10 pointer-events-none w-4 h-4" />
-                                                        <DatePicker
-                                                            value={parseDueDate(formData.due_date)}
-                                                            onChange={handleMainDueDateChange}
-                                                            format="dd/MM/yyyy"
-                                                            placeholder="Select due date"
-                                                            oneTap
-                                                            editable={false}
-                                                            cleanable
-                                                            ranges={dueDatePickerRanges}
-                                                            shouldDisableDate={shouldDisableDate}
-                                                            className="w-full"
-                                                            style={{ width: '100%' }}
-                                                        />
-                                                    </div>
+                                                    <DatePickerField
+                                                        value={formData.due_date}
+                                                        onChange={(val) => setFormData(prev => ({ ...prev, due_date: val || '' }))}
+                                                        placeholder="Select due date"
+                                                        mode="single"
+                                                        initialTab="single"
+                                                        quickOptionKeys={['td', 'tom', 'n7', 'eom']}
+                                                        buttonClassName="w-full pl-3 pr-3 py-3 text-sm border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-white outline-none"
+                                                    />
                                                 </div>
                                             </div>
                                             {/* Assessment Year / Financial Year toggles (client-side; API no longer returns has_ay/has_fy) */}
@@ -1556,7 +1427,6 @@ const TaskCreate = () => {
                                                         </button>
                                                         <div>
                                                             <span className="text-sm font-medium text-gray-900">Assessment Year (AY)</span>
-                                                            <p className="text-xs text-gray-500">Applicable for assessment year</p>
                                                         </div>
                                                     </div>
                                                     <div className="flex items-center gap-3">
@@ -1571,7 +1441,6 @@ const TaskCreate = () => {
                                                         </button>
                                                         <div>
                                                             <span className="text-sm font-medium text-gray-900">Financial Year (FY)</span>
-                                                            <p className="text-xs text-gray-500">Applicable for financial year</p>
                                                         </div>
                                                     </div>
                                                 </div>
@@ -1600,7 +1469,6 @@ const TaskCreate = () => {
                                                                 </motion.button>
                                                             ))}
                                                         </div>
-                                                        <div className="mt-3 text-sm text-gray-500">Selected: {formData.ay.length} year(s)</div>
                                                     </div>
                                                 </div>
                                             )}
@@ -1628,7 +1496,6 @@ const TaskCreate = () => {
                                                                 </motion.button>
                                                             ))}
                                                         </div>
-                                                        <div className="mt-3 text-sm text-gray-500">Selected: {formData.fy.length} year(s)</div>
                                                     </div>
                                                 </div>
                                             )}
@@ -1643,7 +1510,6 @@ const TaskCreate = () => {
                                             : 'opacity-0 translate-x-full absolute inset-0 overflow-hidden'
                                         }`}>
                                         <div className="space-y-4">
-                                            <p className="text-sm text-gray-500">Add sub tasks for this task (optional).</p>
                                             <div className="flex justify-between items-center">
                                                 <label className="block text-sm font-medium text-gray-700">Sub tasks</label>
                                                 <motion.button
@@ -1661,93 +1527,89 @@ const TaskCreate = () => {
                                             <AnimatePresence>
                                                 {showSubTaskForm && (
                                                     <motion.div
-                                                        className="bg-gray-50 border border-gray-200 rounded-lg p-4 space-y-4"
-                                                        initial={{ opacity: 0, height: 0 }}
-                                                        animate={{ opacity: 1, height: 'auto' }}
-                                                        exit={{ opacity: 0, height: 0 }}
-                                                        transition={{ duration: 0.3 }}
+                                                        className="rounded-2xl border border-indigo-100 bg-gradient-to-br from-indigo-50/60 to-white shadow-sm overflow-visible"
+                                                        initial={{ opacity: 0, y: -8 }}
+                                                        animate={{ opacity: 1, y: 0 }}
+                                                        exit={{ opacity: 0, y: -8 }}
+                                                        transition={{ duration: 0.2 }}
                                                     >
-                                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                                            <div className="space-y-2">
-                                                                <label className="block text-sm font-medium text-gray-700">
-                                                                    Subtask Type <span className="text-red-500">*</span>
-                                                                </label>
-                                                                <SearchableSelectStatic
-                                                                    options={subtaskTypeOptions}
-                                                                    value={subTaskForm.type}
-                                                                    onChange={(val) => setSubTaskForm(prev => ({ ...prev, type: val }))}
-                                                                    placeholder="Choose type"
-                                                                    labelKey="name"
-                                                                    valueKey="value"
-                                                                />
+                                                        {/* Type toggle tabs */}
+                                                        <div className="px-5 pt-4 pb-3 border-b border-indigo-100">
+                                                            <div className="inline-flex rounded-xl bg-white border border-gray-200 shadow-sm p-1 gap-1">
+                                                                {[
+                                                                    { id: 'service', label: 'Service', icon: <FiBriefcase className="w-3.5 h-3.5" /> },
+                                                                    { id: 'manual', label: 'Manual Text', icon: <FiEdit className="w-3.5 h-3.5" /> },
+                                                                ].map((tab) => (
+                                                                    <button
+                                                                        key={tab.id}
+                                                                        type="button"
+                                                                        onClick={() => setSubTaskForm(prev => ({ ...prev, type: tab.id, service_id: '', manual_text: '' }))}
+                                                                        className={`flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-xs font-semibold transition-all duration-150 ${
+                                                                            subTaskForm.type === tab.id
+                                                                                ? 'bg-indigo-600 text-white shadow-sm'
+                                                                                : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
+                                                                        }`}
+                                                                    >
+                                                                        {tab.icon}
+                                                                        {tab.label}
+                                                                    </button>
+                                                                ))}
                                                             </div>
-
-                                                            {subTaskForm.type === 'service' && (
-                                                                <div className="space-y-2">
-                                                                    <label className="block text-sm font-medium text-gray-700">
-                                                                        Service Category
-                                                                    </label>
-                                                                    <SearchableSelectStatic
-                                                                        options={subtaskCategoryOptions}
-                                                                        value={subTaskForm.service_category}
-                                                                        onChange={(val) => setSubTaskForm(prev => ({ ...prev, service_category: val, service_id: '' }))}
-                                                                        placeholder="All Categories"
-                                                                        labelKey="name"
-                                                                        valueKey="category_id"
-                                                                    />
-                                                                </div>
-                                                            )}
                                                         </div>
 
-                                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                                        {/* Input area */}
+                                                        <div className="px-5 py-4">
                                                             {subTaskForm.type === 'service' ? (
-                                                                <div className="space-y-2">
-                                                                    <label className="block text-sm font-medium text-gray-700">
-                                                                        Service <span className="text-red-500">*</span>
+                                                                <div className="space-y-1.5">
+                                                                    <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide">
+                                                                        Select Service <span className="text-red-400">*</span>
                                                                     </label>
-                                                                    <SearchableSelectStatic
+                                                                    <SelectInput
                                                                         options={getSubtaskServiceOptions()}
                                                                         value={subTaskForm.service_id}
                                                                         onChange={(val) => setSubTaskForm(prev => ({ ...prev, service_id: val }))}
-                                                                        placeholder="Select service..."
-                                                                        labelKey="name"
-                                                                        valueKey="service_id"
+                                                                        placeholder="Search and select a service..."
                                                                     />
                                                                 </div>
                                                             ) : (
-                                                                <div className="space-y-2">
-                                                                    <label className="block text-sm font-medium text-gray-700">
-                                                                        Manual Text <span className="text-red-500">*</span>
+                                                                <div className="space-y-1.5">
+                                                                    <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide">
+                                                                        Description <span className="text-red-400">*</span>
                                                                     </label>
                                                                     <input
                                                                         type="text"
                                                                         name="manual_text"
                                                                         value={subTaskForm.manual_text}
                                                                         onChange={handleSubTaskInputChange}
-                                                                        className="w-full px-3 py-3 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-white outline-none"
-                                                                        placeholder="Enter subtask description"
+                                                                        autoFocus
+                                                                        className="w-full px-3 py-2.5 text-sm border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-white outline-none transition-shadow"
+                                                                        placeholder="Enter subtask description..."
                                                                     />
                                                                 </div>
                                                             )}
                                                         </div>
 
-                                                        <div className="flex justify-end space-x-3">
-                                                            <motion.button
+                                                        {/* Actions */}
+                                                        <div className="px-5 pb-4 flex justify-end gap-2">
+                                                            <button
                                                                 type="button"
                                                                 onClick={cancelSubTask}
-                                                                className="px-4 py-2.5 text-sm bg-gray-600 hover:bg-gray-700 text-white rounded-lg transition-all duration-200"
-                                                                whileHover={{ scale: 1.05 }}
-                                                                whileTap={{ scale: 0.95 }}
+                                                                className="px-4 py-2 text-sm font-medium text-gray-600 bg-white border border-gray-200 hover:bg-gray-50 rounded-lg transition-colors"
                                                             >
                                                                 Cancel
-                                                            </motion.button>
+                                                            </button>
                                                             <motion.button
                                                                 type="button"
                                                                 onClick={addSubTask}
-                                                                className="px-4 py-2.5 text-sm bg-green-600 hover:bg-green-700 text-white rounded-lg transition-all duration-200"
-                                                                whileHover={{ scale: 1.05 }}
-                                                                whileTap={{ scale: 0.95 }}
+                                                                disabled={
+                                                                    subTaskForm.type === 'service'
+                                                                        ? !subTaskForm.service_id
+                                                                        : !subTaskForm.manual_text.trim()
+                                                                }
+                                                                className="flex items-center gap-1.5 px-4 py-2 text-sm font-semibold bg-indigo-600 hover:bg-indigo-700 disabled:bg-gray-300 disabled:cursor-not-allowed text-white rounded-lg transition-colors shadow-sm disabled:shadow-none"
+                                                                whileTap={{ scale: 0.97 }}
                                                             >
+                                                                <FiPlus className="w-3.5 h-3.5" />
                                                                 Add Subtask
                                                             </motion.button>
                                                         </div>
@@ -1833,7 +1695,7 @@ const TaskCreate = () => {
                                                                 className="flex-1 min-w-0 pl-9 pr-3 py-2.5 text-sm border-0 bg-transparent focus:ring-0 focus:outline-none placeholder-gray-400"
                                                             />
                                                             {caSearchQuery.trim().length >= 3 && (
-                                                                <div className="absolute z-20 left-0 right-0 top-full mt-1 bg-white border border-gray-200 rounded-xl shadow-lg max-h-56 overflow-y-auto">
+                                                                <div className="absolute z-20 left-0 right-0 top-full mt-1 bg-white border border-gray-200 rounded-xl shadow-lg max-h-56 overflow-y-auto task-scrollbar-hide">
                                                                     {caSearchLoading && <div className="p-3 text-sm text-gray-500">Searching...</div>}
                                                                     {!caSearchLoading && caSearchResults.length === 0 && <div className="p-3 text-sm text-gray-500">No results</div>}
                                                                     {!caSearchLoading && caSearchResults.map((item) => (
@@ -1848,9 +1710,6 @@ const TaskCreate = () => {
                                                                         </button>
                                                                     ))}
                                                                 </div>
-                                                            )}
-                                                            {caSearchQuery.trim().length > 0 && caSearchQuery.trim().length < 3 && (
-                                                                <p className="absolute left-9 top-full mt-0.5 text-xs text-gray-500">Type at least 3 characters</p>
                                                             )}
                                                         </>
                                                     )}
@@ -1886,7 +1745,7 @@ const TaskCreate = () => {
                                                                 className="flex-1 min-w-0 pl-9 pr-3 py-2.5 text-sm border-0 bg-transparent focus:ring-0 focus:outline-none placeholder-gray-400"
                                                             />
                                                             {agentSearchQuery.trim().length >= 3 && (
-                                                                <div className="absolute z-20 left-0 right-0 top-full mt-1 bg-white border border-gray-200 rounded-xl shadow-lg max-h-56 overflow-y-auto">
+                                                                <div className="absolute z-20 left-0 right-0 top-full mt-1 bg-white border border-gray-200 rounded-xl shadow-lg max-h-56 overflow-y-auto task-scrollbar-hide">
                                                                     {agentSearchLoading && <div className="p-3 text-sm text-gray-500">Searching...</div>}
                                                                     {!agentSearchLoading && agentSearchResults.length === 0 && <div className="p-3 text-sm text-gray-500">No results</div>}
                                                                     {!agentSearchLoading && agentSearchResults.map((item) => (
@@ -1901,9 +1760,6 @@ const TaskCreate = () => {
                                                                         </button>
                                                                     ))}
                                                                 </div>
-                                                            )}
-                                                            {agentSearchQuery.trim().length > 0 && agentSearchQuery.trim().length < 3 && (
-                                                                <p className="absolute left-9 top-full mt-0.5 text-xs text-gray-500">Type at least 3 characters</p>
                                                             )}
                                                         </>
                                                     )}
@@ -2026,8 +1882,6 @@ const TaskCreate = () => {
                                     : 'opacity-0 translate-x-full absolute inset-0 overflow-hidden'
                                     }`}>
                                     <div className="space-y-8">
-                                        <p className="text-sm text-gray-500">Add text notes, voice notes, and attachments (all optional).</p>
-
                                         {/* 1. Text notes – multiple */}
                                         <div className="rounded-2xl border border-gray-200 bg-gradient-to-br from-white to-gray-50/50 overflow-hidden shadow-sm">
                                             <div className="px-5 py-4 border-b border-gray-100 bg-white/80 flex items-center justify-between">
@@ -2037,7 +1891,6 @@ const TaskCreate = () => {
                                                     </div>
                                                     <div>
                                                         <h3 className="text-sm font-semibold text-gray-900">Text notes</h3>
-                                                        <p className="text-xs text-gray-500">Add as many as you need</p>
                                                     </div>
                                                 </div>
                                                 <motion.button
@@ -2093,7 +1946,6 @@ const TaskCreate = () => {
                                                 </div>
                                                 <div>
                                                     <h3 className="text-sm font-semibold text-gray-900">Voice notes</h3>
-                                                    <p className="text-xs text-gray-500">Record and add multiple</p>
                                                 </div>
                                             </div>
                                             <div className="p-4 space-y-4">
@@ -2118,7 +1970,6 @@ const TaskCreate = () => {
                                                             {formatTime(recordingTime)}
                                                         </div>
                                                     )}
-                                                    <p className="text-xs text-gray-500 mt-2">When you stop, the recording is added to the list below.</p>
                                                 </div>
 
                                                 {/* List of saved voice notes */}
@@ -2160,7 +2011,6 @@ const TaskCreate = () => {
                                                     </div>
                                                     <div>
                                                         <h3 className="text-sm font-semibold text-gray-900">Attachments</h3>
-                                                        <p className="text-xs text-gray-500">Files ({attachedFiles.length})</p>
                                                     </div>
                                                 </div>
                                                 <motion.button
@@ -2248,7 +2098,6 @@ const TaskCreate = () => {
                                             type="button"
                                             onClick={prevStep}
                                             className="flex items-center gap-2 px-6 py-3 bg-gray-600 hover:bg-gray-700 text-white rounded-xl text-sm font-semibold transition-all shadow-sm"
-                                            whileHover={{ scale: 1.02 }}
                                             whileTap={{ scale: 0.98 }}
                                         >
                                             <FiArrowLeft className="w-4 h-4" />
@@ -2262,8 +2111,8 @@ const TaskCreate = () => {
                                         <motion.button
                                             type="button"
                                             onClick={nextStep}
-                                            className="flex items-center space-x-2 px-6 py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-sm font-semibold transition-all shadow-lg shadow-indigo-200"
-                                            whileHover={{ scale: 1.02 }}
+                                            disabled={!validateStep(currentStep).valid || showSubTaskForm}
+                                            className="flex items-center space-x-2 px-6 py-3 bg-indigo-600 hover:bg-indigo-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white rounded-xl text-sm font-semibold transition-all shadow-lg shadow-indigo-200 disabled:shadow-none"
                                             whileTap={{ scale: 0.98 }}
                                         >
                                             <span>Next Step</span>
@@ -2272,9 +2121,8 @@ const TaskCreate = () => {
                                     ) : (
                                         <motion.button
                                             type="submit"
-                                            disabled={submitting}
+                                            disabled={submitting || !validateStep(currentStep).valid}
                                             className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-700 hover:to-green-700 disabled:from-gray-400 disabled:to-gray-500 text-white rounded-xl text-sm font-semibold transition-all shadow-lg shadow-emerald-200"
-                                            whileHover={{ scale: 1.02 }}
                                             whileTap={{ scale: 0.98 }}
                                         >
                                             {submitting ? (
