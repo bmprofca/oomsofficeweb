@@ -775,7 +775,7 @@ const handleEndBreak = async () => {
             case 'attendance':
                 return <AttendanceTab key="attendance" attendance={attendance} setAttendance={setAttendance} username={username} {...props} />;
             case 'expense':
-                return <ExpenseTab key="expense" expenses={expenses} setExpenses={setExpenses} username={username} {...props} />;
+                return <ExpenseTab key="expense" expenses={expenses} setExpenses={setExpenses} username={username} staffUsername={username}     {...props} />;
             case 'bonus-fine':
                 return <BonusFineTab key="bonus-fine" bonusFine={bonusFine} setBonusFine={setBonusFine} username={username} {...props} />;
             case 'salary':
