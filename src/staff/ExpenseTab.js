@@ -255,19 +255,56 @@ const AdminVerifyModal = ({ expense, onClose, onVerify }) => {
 
 // --- Preview Attachment Modal (supports base64) ---
 const PreviewAttachmentModal = ({ url, base64, onClose }) => {
-  const [previewUrl, setPreviewUrl] = useState(url);
-  const isImage = (previewUrl) => {
-    if (!previewUrl) return false;
-    return previewUrl.match(/\.(jpeg|jpg|gif|png|webp)$/i) || previewUrl.startsWith('data:image/');
-  };
+  const [previewUrl, setPreviewUrl] = useState(null);
+  const [fileType, setFileType] = useState('unknown');
   
   useEffect(() => {
-    if (base64 && !url) {
-      // Construct data URL from base64
-      const dataUrl = base64.startsWith('data:') ? base64 : `data:application/pdf;base64,${base64}`;
-      setPreviewUrl(dataUrl);
+    // Determine the preview URL and file type from the provided data
+    if (base64) {
+      // Base64 data is already a full data URL like "data:image/jpeg;base64,/9j/4AAQ..."
+      setPreviewUrl(base64);
+      
+      // Determine file type from base64 string
+      if (base64.startsWith('data:image/')) {
+        setFileType('image');
+      } else if (base64.startsWith('data:application/pdf')) {
+        setFileType('pdf');
+      } else {
+        // Try to detect from the base64 content
+        const mimeMatch = base64.match(/^data:([^;]+);/);
+        if (mimeMatch) {
+          const mimeType = mimeMatch[1];
+          if (mimeType.startsWith('image/')) setFileType('image');
+          else if (mimeType === 'application/pdf') setFileType('pdf');
+          else setFileType('other');
+        } else {
+          setFileType('other');
+        }
+      }
+    } else if (url) {
+      setPreviewUrl(url);
+      // Detect type from URL extension
+      if (url.match(/\.(jpeg|jpg|gif|png|webp)$/i)) {
+        setFileType('image');
+      } else if (url.match(/\.pdf$/i)) {
+        setFileType('pdf');
+      } else {
+        setFileType('other');
+      }
     }
   }, [base64, url]);
+
+  const handleDownload = () => {
+    if (previewUrl) {
+      // Create a temporary link to download the file
+      const link = document.createElement('a');
+      link.href = previewUrl;
+      link.download = 'attachment';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    }
+  };
 
   return (
     <motion.div
@@ -288,25 +325,56 @@ const PreviewAttachmentModal = ({ url, base64, onClose }) => {
           <h3 className="font-semibold text-gray-900">Attachment Preview</h3>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-2xl leading-none">&times;</button>
         </div>
-        <div className="p-4 flex justify-center">
-          {isImage(previewUrl) ? (
-            <img src={previewUrl} alt="Attachment" className="max-w-full h-auto rounded-lg" />
-          ) : previewUrl?.startsWith('data:application/pdf') || previewUrl?.endsWith('.pdf') ? (
-            <iframe src={previewUrl} className="w-full h-[70vh] rounded-lg" title="PDF Preview" />
+        <div className="p-4 flex justify-center min-h-[400px] items-center">
+          {!previewUrl ? (
+            <div className="text-center py-12 text-gray-500">
+              <FiPaperclip size={48} className="mx-auto mb-4" />
+              <p>No attachment available</p>
+            </div>
+          ) : fileType === 'image' ? (
+            <img 
+              src={previewUrl} 
+              alt="Attachment" 
+              className="max-w-full h-auto rounded-lg max-h-[70vh] object-contain" 
+            />
+          ) : fileType === 'pdf' ? (
+            <iframe 
+              src={previewUrl} 
+              className="w-full h-[70vh] rounded-lg" 
+              title="PDF Preview"
+            />
           ) : (
             <div className="text-center py-12 text-gray-500">
               <FiPaperclip size={48} className="mx-auto mb-4" />
               <p>Unable to preview this file type</p>
-              <a href={previewUrl} target="_blank" rel="noopener noreferrer" className="mt-4 inline-block px-4 py-2 bg-blue-600 text-white rounded-lg">
+              <button 
+                onClick={handleDownload}
+                className="mt-4 inline-block px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+              >
                 Download File
-              </a>
+              </button>
             </div>
           )}
         </div>
-        <div className="p-4 border-t flex justify-end">
-          <a href={previewUrl} target="_blank" rel="noopener noreferrer" className="px-4 py-2 bg-blue-600 text-white rounded-xl hover:bg-blue-700 text-sm">
-            Open in New Tab
-          </a>
+        <div className="p-4 border-t flex justify-end gap-3">
+          {previewUrl && (
+            <a 
+              href={previewUrl} 
+              target="_blank" 
+              rel="noopener noreferrer" 
+              className="px-4 py-2 bg-blue-600 text-white rounded-xl hover:bg-blue-700 text-sm"
+            >
+              Open in New Tab
+            </a>
+          )}
+          {previewUrl && fileType !== 'image' && fileType !== 'pdf' && (
+            <button 
+              onClick={handleDownload}
+              className="px-4 py-2 bg-gray-600 text-white rounded-xl hover:bg-gray-700 text-sm"
+            >
+              Download File
+            </button>
+          )}
         </div>
       </motion.div>
     </motion.div>
@@ -330,6 +398,7 @@ const ActionMenu = ({ expense, onView, onVerify, onEdit, onDelete, onPreview }) 
 
   const getAvailableActions = () => {
     const actions = [];
+    // Check for any attachment data (URL or base64)
     if (expense.attachment_url || expense.attachment_base64) actions.push({ label: 'Preview', icon: FiPaperclip, action: onPreview });
     actions.push({ label: 'View', icon: FiEye, action: onView });
     if (expense.status === 'Pending') actions.push({ label: 'Verify', icon: FiCheckCircle, action: onVerify });
@@ -378,6 +447,12 @@ const ActionMenu = ({ expense, onView, onVerify, onEdit, onDelete, onPreview }) 
 
 // --- View Expense Modal ---
 const ViewExpenseModal = ({ expense, onClose }) => {
+  const getAttachmentPreviewUrl = () => {
+    if (expense.attachment_url) return expense.attachment_url;
+    if (expense.attachment_base64) return expense.attachment_base64;
+    return null;
+  };
+
   return (
     <motion.div
       initial={{ opacity: 0 }}
@@ -442,7 +517,12 @@ const ViewExpenseModal = ({ expense, onClose }) => {
           {(expense.attachment_url || expense.attachment_base64) && (
             <div className="flex">
               <span className="w-28 text-sm font-medium text-gray-500">Attachment:</span>
-              <a href={expense.attachment_url || `data:application/pdf;base64,${expense.attachment_base64}`} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline text-sm inline-flex items-center gap-1">
+              <a 
+                href={getAttachmentPreviewUrl()} 
+                target="_blank" 
+                rel="noopener noreferrer" 
+                className="text-blue-600 hover:underline text-sm inline-flex items-center gap-1"
+              >
                 View File <FiExternalLink size={12} />
               </a>
             </div>
@@ -491,7 +571,7 @@ const ExpenseTab = ({ staffUsername, expenses: initialExpenses = [], setExpenses
   const [showAddModal, setShowAddModal] = useState(false);
   const [showVerifyModal, setShowVerifyModal] = useState(null);
   const [showViewModal, setShowViewModal] = useState(null);
-  const [showPreviewModal, setShowPreviewModal] = useState(null);
+  const [showPreviewModal, setShowPreviewModal] = useState(false);
   const [previewData, setPreviewData] = useState({ url: null, base64: null });
   const [expenses, setExpensesState] = useState(initialExpenses);
   const [ledger, setLedger] = useState({ totalApproved: 0, transactions: [] });
@@ -537,7 +617,7 @@ const ExpenseTab = ({ staffUsername, expenses: initialExpenses = [], setExpenses
           expense_date: exp.expense_date,
           attachment: exp.attachment,
           attachment_url: exp.attachment_url,
-          attachment_base64: exp.attachment_base64,
+          attachment_base64: exp.attachment_base64, // Keep the base64 data as is (already a data URL)
           status: exp.status_text === 'approved' ? 'Approved' : 
                   exp.status_text === 'rejected' ? 'Rejected' : 'Pending',
           verifiedByAdmin: exp.status_text === 'approved' || exp.status_text === 'rejected',
@@ -575,47 +655,48 @@ const ExpenseTab = ({ staffUsername, expenses: initialExpenses = [], setExpenses
       setLoading(false);
     }
   };
-const handleAddExpense = async (newExpenseData) => {
-  if (!currentStaffUsername) {
-    alert('Staff username not found');
-    return;
-  }
   
-  const formData = new FormData();
-  formData.append('title', newExpenseData.title);
-  formData.append('description', newExpenseData.description);
-  formData.append('amount', newExpenseData.amount);
-  formData.append('date', newExpenseData.date);
-  formData.append('staff_username', currentStaffUsername);
-  if (newExpenseData.attachment) {
-    formData.append('attachment', newExpenseData.attachment);
-  }
-  
-  try {
-    const headers = getHeaders();
-    // Remove Content-Type header to allow browser to set correct multipart boundary
-    delete headers['Content-Type'];
-    delete headers['content-type']; // Also check lowercase variant
-    
-    const response = await fetch(`${API_BASE_URL}/staff-expenses/create`, {
-      method: 'POST',
-      headers: headers,
-      body: formData,
-    });
-    
-    const result = await response.json();
-    
-    if (result.success) {
-      await fetchExpenses();
-      alert(result.message || 'Expense submitted successfully');
-    } else {
-      throw new Error(result.message || 'Failed to submit expense');
+  const handleAddExpense = async (newExpenseData) => {
+    if (!currentStaffUsername) {
+      alert('Staff username not found');
+      return;
     }
-  } catch (error) {
-    console.error('Error submitting expense:', error);
-    throw error;
-  }
-};
+    
+    const formData = new FormData();
+    formData.append('title', newExpenseData.title);
+    formData.append('description', newExpenseData.description);
+    formData.append('amount', newExpenseData.amount);
+    formData.append('date', newExpenseData.date);
+    formData.append('staff_username', currentStaffUsername);
+    if (newExpenseData.attachment) {
+      formData.append('attachment', newExpenseData.attachment);
+    }
+    
+    try {
+      const headers = getHeaders();
+      // Remove Content-Type header to allow browser to set correct multipart boundary
+      delete headers['Content-Type'];
+      delete headers['content-type']; // Also check lowercase variant
+      
+      const response = await fetch(`${API_BASE_URL}/staff-expenses/create`, {
+        method: 'POST',
+        headers: headers,
+        body: formData,
+      });
+      
+      const result = await response.json();
+      
+      if (result.success) {
+        await fetchExpenses();
+        alert(result.message || 'Expense submitted successfully');
+      } else {
+        throw new Error(result.message || 'Failed to submit expense');
+      }
+    } catch (error) {
+      console.error('Error submitting expense:', error);
+      throw error;
+    }
+  };
 
   // Admin verification using the new /verify endpoint
   const handleVerifyExpense = async (expenseId, action, remarks) => {
