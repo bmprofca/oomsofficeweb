@@ -24,7 +24,7 @@ import {
     FiUserCheck,
     FiBarChart2
 } from 'react-icons/fi';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import toast from 'react-hot-toast';
 import API_BASE_URL from '../utils/api-controller';
 import getHeaders from '../utils/get-headers';
@@ -32,6 +32,8 @@ import axios from 'axios';
 import { TransactionModalManager } from '../finance/bank/client-transaction-modal';
 import { DateRangePickerField } from '../components/PortalDatePicker';
 import TablePagination from '../components/TablePagination';
+import OpeningBalanceModal from '../components/OpeningBalanceModal';
+import { ViewTransactionModalManager } from '../components/ViewTransactionModal';
 
 
 const ClientLedger = () => {
@@ -68,6 +70,7 @@ const ClientLedger = () => {
     const [showAddMenu, setShowAddMenu] = useState(false);
     const [selectedBank, setSelectedBank] = useState(null);
     const [detailsTransaction, setDetailsTransaction] = useState(null);
+    const [downloadingInvoice, setDownloadingInvoice] = useState(false);
     const [showOpeningBalanceModal, setShowOpeningBalanceModal] = useState(false);
     const [openingBalanceData, setOpeningBalanceData] = useState(null);
     const [openingBalanceLoading, setOpeningBalanceLoading] = useState(false);
@@ -246,14 +249,14 @@ const ClientLedger = () => {
                 setTotalItems(total);
                 setTotalPages(Math.max(1, Math.ceil(total / limit)));
 
-                calculateSummary(response.data.data || [], openingBalObj.balance);
+                calculateSummary(response.data.data || [], openingBalObj);
             }
         } catch (error) {
             console.error('Error fetching transactions:', error);
             toast.error('Failed to fetch transactions');
             setTransactions([]);
             setOpeningBalance({ debit: 0, credit: 0, balance: 0 });
-            calculateSummary([], 0);
+            calculateSummary([], { debit: 0, credit: 0, balance: 0 });
         } finally {
             setFetchingTransactions(false);
             setLoading(false);
@@ -261,10 +264,10 @@ const ClientLedger = () => {
     };
 
     // Calculate transaction summary (supports new API: payment/sale/etc with debit/credit/balance)
-    const calculateSummary = (transactionsData, openingBal) => {
-        let totalCredit = 0;
-        let totalDebit = 0;
-        let closingBalance = openingBal;
+    const calculateSummary = (transactionsData, openingBalObj) => {
+        let totalCredit = openingBalObj?.credit ?? 0;
+        let totalDebit = openingBalObj?.debit ?? 0;
+        let closingBalance = openingBalObj?.balance ?? 0;
 
         transactionsData.forEach(transaction => {
             const amounts = getTransactionAmounts(transaction);
@@ -434,13 +437,54 @@ const ClientLedger = () => {
         setActionMenuPosition(null);
     };
 
-    // Handle view invoice
-    const handleViewInvoice = (transaction) => {
-        console.log('View invoice:', transaction);
-        toast.success('View invoice functionality coming soon');
+    // Handle invoice download — POST /invoice/generate, response is a PDF blob
+    const handleViewInvoice = async (transaction) => {
+        if (!transaction) return;
+
+        const invoiceId = transaction.invoice_id;
+        const rawType = (transaction.transaction_type || '').toLowerCase();
+        // Map ledger transaction types to invoice API type values
+        const typeMap = { sale: 'sale', sale_invoice: 'sale', purchase: 'purchase', purchase_invoice: 'purchase' };
+        const invoiceType = typeMap[rawType] ?? rawType;
+
+        if (!invoiceId) {
+            toast.error('Invoice ID not available for this transaction');
+            return;
+        }
+
         setShowActionMenu(null);
         actionAnchorRef.current = null;
         setActionMenuPosition(null);
+        setDownloadingInvoice(true);
+
+        const toastId = toast.loading('Generating invoice…');
+        try {
+            const response = await axios.post(
+                `${API_BASE_URL}/invoice/generate`,
+                { invoice_id: invoiceId, type: invoiceType, response: 'pdf' },
+                { headers: getHeaders(), responseType: 'blob' }
+            );
+
+            // Build a filename from invoice_no if available
+            const filename = `invoice-${transaction.invoice_no || invoiceId}.pdf`;
+
+            const url = window.URL.createObjectURL(new Blob([response.data], { type: 'application/pdf' }));
+            const link = document.createElement('a');
+            link.href = url;
+            link.setAttribute('download', filename);
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+            window.URL.revokeObjectURL(url);
+
+            toast.success('Invoice downloaded', { id: toastId });
+        } catch (error) {
+            console.error('Invoice download error:', error);
+            const message = error.response?.data?.message || error.message || 'Failed to download invoice';
+            toast.error(message, { id: toastId });
+        } finally {
+            setDownloadingInvoice(false);
+        }
     };
 
     // Handle view details
@@ -524,6 +568,26 @@ const ClientLedger = () => {
     const getParticularsDisplay = (transaction) => {
         const particular = transaction.particular;
         const remark = particular?.remark;
+        if ((transaction.transaction_type || '').toLowerCase() === 'sale' && Array.isArray(particular?.sale_items)) {
+            const items = particular.sale_items.filter((item) => item?.name);
+            const firstItemName = items[0]?.name || 'Sale item';
+            const itemsLabel = items.length > 1
+                ? `${firstItemName}, ... (+${items.length - 1})`
+                : firstItemName;
+
+            return (
+                <div className="flex flex-col min-w-0">
+                    <div className="font-medium text-slate-800 truncate" title={itemsLabel}>
+                        {itemsLabel}
+                    </div>
+                    {remark && (
+                        <div className="text-xs text-slate-600 mt-1 truncate max-w-[200px]" title={remark}>
+                            {remark}
+                        </div>
+                    )}
+                </div>
+            );
+        }
         if (particular?.type === 'bank' && particular?.details) {
             const d = particular.details;
             return (
@@ -715,20 +779,20 @@ const ClientLedger = () => {
                                 <td className="p-4"></td>
                                 <td className="p-4 text-right">
                                     {openingBalance.debit > 0 ? (
-                                        <span className="text-sm font-semibold text-blue-600">₹{formatCurrency(openingBalance.debit)}</span>
+                                        <span className="text-sm font-semibold text-blue-600">{formatCurrency(openingBalance.debit)}</span>
                                     ) : (
-                                        <span className="text-sm text-slate-600">₹{formatCurrency(0)}</span>
+                                        <span className="text-sm text-slate-600">{formatCurrency(0)}</span>
                                     )}
                                 </td>
                                 <td className="p-4 text-right">
                                     {openingBalance.credit > 0 ? (
-                                        <span className="text-sm font-semibold text-orange-600">₹{formatCurrency(openingBalance.credit)}</span>
+                                        <span className="text-sm font-semibold text-orange-600">{formatCurrency(openingBalance.credit)}</span>
                                     ) : (
-                                        <span className="text-sm text-slate-600">₹{formatCurrency(0)}</span>
+                                        <span className="text-sm text-slate-600">{formatCurrency(0)}</span>
                                     )}
                                 </td>
                                 <td className={`p-4 text-right font-bold ${(openingBalance.balance ?? 0) >= 0 ? 'text-blue-600' : 'text-orange-600'}`}>
-                                    ₹{formatCurrency(openingBalance.balance ?? 0)}
+                                    {formatCurrency(openingBalance.balance ?? 0)}
                                 </td>
                                 <td className="p-4"></td>
                             </tr>
@@ -779,9 +843,9 @@ const ClientLedger = () => {
                                             {(() => {
                                                 const amounts = getTransactionAmounts(transaction);
                                                 return amounts.debit > 0 ? (
-                                                    <span className="text-sm font-semibold text-blue-600">₹{formatCurrency(amounts.debit)}</span>
+                                                    <span className="text-sm font-semibold text-blue-600">{formatCurrency(amounts.debit)}</span>
                                                 ) : (
-                                                    <span className="text-sm text-slate-600">₹{formatCurrency(0)}</span>
+                                                    <span className="text-sm text-slate-600">{formatCurrency(0)}</span>
                                                 );
                                             })()}
                                         </td>
@@ -789,15 +853,15 @@ const ClientLedger = () => {
                                             {(() => {
                                                 const amounts = getTransactionAmounts(transaction);
                                                 return amounts.credit > 0 ? (
-                                                    <span className="text-sm font-semibold text-orange-600">₹{formatCurrency(amounts.credit)}</span>
+                                                    <span className="text-sm font-semibold text-orange-600">{formatCurrency(amounts.credit)}</span>
                                                 ) : (
-                                                    <span className="text-sm text-slate-600">₹{formatCurrency(0)}</span>
+                                                    <span className="text-sm text-slate-600">{formatCurrency(0)}</span>
                                                 );
                                             })()}
                                         </td>
                                         <td className="p-4 text-right">
                                             <span className={`text-sm font-bold ${((getTransactionAmounts(transaction).balance) ?? 0) >= 0 ? 'text-blue-600' : 'text-orange-600'}`}>
-                                                ₹{formatCurrency(getTransactionAmounts(transaction).balance ?? 0)}
+                                                {formatCurrency(getTransactionAmounts(transaction).balance ?? 0)}
                                             </span>
                                         </td>
                                         <td className="p-4 text-center">
@@ -816,10 +880,10 @@ const ClientLedger = () => {
                             {/* Total Row - Always Show */}
                             <tr className="bg-slate-100 font-bold border-t-2 border-slate-300">
                                 <td className="p-4 text-slate-800" colSpan="5">Total</td>
-                                <td className="p-4 text-right text-blue-600">₹{formatCurrency(summary.totalDebit)}</td>
-                                <td className="p-4 text-right text-orange-600">₹{formatCurrency(summary.totalCredit)}</td>
+                                <td className="p-4 text-right text-blue-600">{formatCurrency(summary.totalDebit)}</td>
+                                <td className="p-4 text-right text-orange-600">{formatCurrency(summary.totalCredit)}</td>
                                 <td className={`p-4 text-right ${summary.closingBalance >= 0 ? 'text-blue-600' : 'text-orange-600'}`}>
-                                    ₹{formatCurrency(summary.closingBalance)}
+                                    {formatCurrency(summary.closingBalance)}
                                 </td>
                                 <td className="p-4"></td>
                             </tr>
@@ -840,323 +904,29 @@ const ClientLedger = () => {
                 />
             </motion.div>
 
-            {/* Opening Balance Modal */}
-            {showOpeningBalanceModal && (
-                <div
-                    className="fixed inset-0 z-[100] bg-black/50 flex items-start justify-center p-3 sm:p-4 backdrop-blur-sm overflow-y-auto"
-                    onClick={() => !openingBalanceSubmitting && setShowOpeningBalanceModal(false)}
-                >
-                    <motion.div
-                        initial={{ opacity: 0, scale: 0.95 }}
-                        animate={{ opacity: 1, scale: 1 }}
-                        className="relative w-full max-w-md my-2 sm:my-4 max-h-[calc(100vh-1.5rem)] sm:max-h-[calc(100vh-2rem)] bg-white rounded-2xl shadow-2xl overflow-hidden flex flex-col"
-                        onClick={(e) => e.stopPropagation()}
-                    >
-                        <div className="bg-gradient-to-r from-indigo-600 via-indigo-700 to-indigo-800 px-5 py-3.5 shrink-0">
-                            <div className="flex items-center justify-between">
-                                <div className="flex items-center gap-3">
-                                    <div className="p-2 bg-white/20 rounded-xl">
-                                        <FiBarChart2 className="w-6 h-6 text-white" />
-                                    </div>
-                                    <div>
-                                        <h2 className="text-xl font-bold text-white">
-                                            {openingBalanceData ? 'Edit' : 'Set'} Opening Balance
-                                        </h2>
-                                        <p className="text-indigo-200 text-sm mt-0.5">
-                                            {clientProfile?.name || username}
-                                        </p>
-                                    </div>
-                                </div>
-                                <button
-                                    type="button"
-                                    onClick={() => !openingBalanceSubmitting && setShowOpeningBalanceModal(false)}
-                                    className="p-2 hover:bg-white/20 rounded-xl transition-colors"
-                                >
-                                    <FiX className="w-6 h-6 text-white" />
-                                </button>
-                            </div>
-                        </div>
+            <OpeningBalanceModal
+                isOpen={showOpeningBalanceModal}
+                onClose={() => setShowOpeningBalanceModal(false)}
+                isLoading={openingBalanceLoading}
+                isSubmitting={openingBalanceSubmitting}
+                openingBalanceData={openingBalanceData}
+                openingBalanceForm={openingBalanceForm}
+                setOpeningBalanceForm={setOpeningBalanceForm}
+                onSubmit={handleSetOpeningBalance}
+                formatCurrency={formatCurrency}
+            />
 
-                        {openingBalanceLoading ? (
-                            <div className="px-5 py-4 flex-1 overflow-y-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
-                                <div className="py-12 flex justify-center">
-                                    <svg className="animate-spin h-10 w-10 text-indigo-600" fill="none" viewBox="0 0 24 24">
-                                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                                    </svg>
-                                </div>
-                            </div>
-                        ) : (
-                            <form onSubmit={handleSetOpeningBalance} className="flex flex-1 flex-col min-h-0">
-                                <div className="px-5 py-4 space-y-4 flex-1 overflow-y-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
-                                    <div>
-                                        <label className="block text-sm font-medium text-slate-700 mb-1">Amount (₹) *</label>
-                                        <input
-                                            type="number"
-                                            step="0.01"
-                                            min="0.01"
-                                            required
-                                            value={openingBalanceForm.amount}
-                                            onChange={(e) => setOpeningBalanceForm(f => ({ ...f, amount: e.target.value }))}
-                                            className="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                                            placeholder="0.00"
-                                        />
-                                    </div>
-
-                                    <div>
-                                        <label className="block text-sm font-medium text-slate-700 mb-1">Type *</label>
-                                        <select
-                                            value={openingBalanceForm.type}
-                                            onChange={(e) => setOpeningBalanceForm(f => ({ ...f, type: e.target.value }))}
-                                            className="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                                        >
-                                            <option value="credit">Credit (Client owes you)</option>
-                                            <option value="debit">Debit (You owe client)</option>
-                                        </select>
-                                    </div>
-
-                                    <div>
-                                        <label className="block text-sm font-medium text-slate-700 mb-1">Transaction Date *</label>
-                                        <input
-                                            type="date"
-                                            required
-                                            value={openingBalanceForm.transaction_date}
-                                            onChange={(e) => setOpeningBalanceForm(f => ({ ...f, transaction_date: e.target.value }))}
-                                            className="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                                        />
-                                    </div>
-
-                                    <div>
-                                        <label className="block text-sm font-medium text-slate-700 mb-1">Remark</label>
-                                        <textarea
-                                            rows={3}
-                                            value={openingBalanceForm.remark}
-                                            onChange={(e) => setOpeningBalanceForm(f => ({ ...f, remark: e.target.value }))}
-                                            className="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 resize-none"
-                                            placeholder="Optional note..."
-                                        />
-                                    </div>
-
-                                    {openingBalanceData && (
-                                        <p className="text-xs text-slate-500">
-                                            Current: ₹{formatCurrency(openingBalanceData.amount)} ({openingBalanceData.type})
-                                            {openingBalanceData.invoice_no && ` • ${openingBalanceData.invoice_no}`}
-                                        </p>
-                                    )}
-                                </div>
-                                <div className="px-5 py-3 border-t border-slate-200 bg-slate-50 shrink-0">
-                                    <div className="flex gap-3">
-                                        <button
-                                            type="button"
-                                            onClick={() => !openingBalanceSubmitting && setShowOpeningBalanceModal(false)}
-                                            className="flex-1 px-4 py-2.5 border border-slate-200 rounded-xl text-slate-700 font-medium hover:bg-slate-50 transition-colors"
-                                        >
-                                            Cancel
-                                        </button>
-                                        <button
-                                            type="submit"
-                                            disabled={openingBalanceSubmitting || !openingBalanceForm.amount || parseFloat(openingBalanceForm.amount) <= 0}
-                                            className="flex-1 px-4 py-2.5 bg-indigo-600 text-white font-medium rounded-xl hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                                        >
-                                            {openingBalanceSubmitting ? (
-                                                <span className="flex items-center justify-center gap-2">
-                                                    <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
-                                                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                                                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                                                    </svg>
-                                                    Saving...
-                                                </span>
-                                            ) : (
-                                                openingBalanceData ? 'Update' : 'Set Opening Balance'
-                                            )}
-                                        </button>
-                                    </div>
-                                </div>
-                            </form>
-                        )}
-                    </motion.div>
-                </div>
-            )}
-
-            {/* Transaction Details Modal */}
-            {detailsTransaction && (
-                <div
-                    className="fixed inset-0 z-[100] bg-black/50 flex items-start justify-center p-3 sm:p-4 backdrop-blur-sm overflow-y-auto"
-                    onClick={() => setDetailsTransaction(null)}
-                >
-                    <motion.div
-                        initial={{ opacity: 0, scale: 0.95 }}
-                        animate={{ opacity: 1, scale: 1 }}
-                        exit={{ opacity: 0, scale: 0.95 }}
-                        className="relative w-full max-w-2xl my-2 sm:my-4 max-h-[calc(100vh-1.5rem)] sm:max-h-[calc(100vh-2rem)] overflow-hidden bg-white rounded-2xl shadow-2xl flex flex-col"
-                        onClick={(e) => e.stopPropagation()}
-                    >
-                        {/* Modal Header */}
-                        <div className="bg-gradient-to-r from-indigo-600 via-indigo-700 to-indigo-800 px-5 py-3.5 shrink-0">
-                            <div className="flex items-center justify-between">
-                                <div className="flex items-center gap-3">
-                                    <div className="p-2 bg-white/20 rounded-xl">
-                                        <FiFileText className="w-6 h-6 text-white" />
-                                    </div>
-                                    <div>
-                                        <h2 className="text-xl font-bold text-white">
-                                            Transaction Details
-                                        </h2>
-                                        <p className="text-indigo-200 text-sm mt-0.5">
-                                            {(detailsTransaction.transaction_type || '').replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())} • {detailsTransaction.invoice_no || 'N/A'}
-                                        </p>
-                                    </div>
-                                </div>
-                                <button
-                                    onClick={() => setDetailsTransaction(null)}
-                                    className="p-2 hover:bg-white/20 rounded-xl transition-colors"
-                                >
-                                    <FiX className="w-6 h-6 text-white" />
-                                </button>
-                            </div>
-                        </div>
-
-                        {/* Modal Body */}
-                        <div className="px-5 py-4 overflow-y-auto flex-1 space-y-6 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
-                            {/* Basic Info */}
-                            <div className="bg-slate-50 rounded-xl p-4 border border-slate-100">
-                                <h3 className="text-sm font-semibold text-slate-500 uppercase tracking-wider mb-3">Transaction Info</h3>
-                                <div className="grid grid-cols-2 gap-3 text-sm">
-                                    <div><span className="text-slate-500">Date</span><p className="font-medium text-slate-800">{formatDate(detailsTransaction.transaction_date)} {formatTime(detailsTransaction.transaction_date)}</p></div>
-                                    <div><span className="text-slate-500">Voucher No</span><p className="font-mono font-medium text-slate-800">{detailsTransaction.invoice_no || 'N/A'}</p></div>
-                                    <div><span className="text-slate-500">Type</span><p className="font-medium text-slate-800">{(detailsTransaction.transaction_type || 'N/A').replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}</p></div>
-                                    <div className="col-span-2"><span className="text-slate-500">Transaction ID</span><p className="font-mono text-xs text-slate-600 break-all">{detailsTransaction.transaction_id || 'N/A'}</p></div>
-                                </div>
-                            </div>
-
-                            {/* Amounts */}
-                            {(() => {
-                                const amt = getTransactionAmounts(detailsTransaction);
-                                return (
-                                    <div className="bg-slate-50 rounded-xl p-4 border border-slate-100">
-                                        <h3 className="text-sm font-semibold text-slate-500 uppercase tracking-wider mb-3">Amounts</h3>
-                                        <div className="grid grid-cols-3 gap-4">
-                                            <div className="bg-white rounded-lg p-3 border border-blue-100">
-                                                <p className="text-xs text-slate-500 mb-1">Debit</p>
-                                                <p className="text-lg font-bold text-blue-600">₹{formatCurrency(amt.debit)}</p>
-                                            </div>
-                                            <div className="bg-white rounded-lg p-3 border border-orange-100">
-                                                <p className="text-xs text-slate-500 mb-1">Credit</p>
-                                                <p className="text-lg font-bold text-orange-600">₹{formatCurrency(amt.credit)}</p>
-                                            </div>
-                                            <div className="bg-white rounded-lg p-3 border border-indigo-100">
-                                                <p className="text-xs text-slate-500 mb-1">Balance</p>
-                                                <p className={`text-lg font-bold ${(amt.balance ?? 0) >= 0 ? 'text-blue-600' : 'text-orange-600'}`}>₹{formatCurrency(amt.balance ?? 0)}</p>
-                                            </div>
-                                        </div>
-                                    </div>
-                                );
-                            })()}
-
-                            {/* Particulars - Dynamic based on type */}
-                            {detailsTransaction.particular && (
-                                <div className="bg-slate-50 rounded-xl p-4 border border-slate-100">
-                                    <h3 className="text-sm font-semibold text-slate-500 uppercase tracking-wider mb-3">
-                                        Particulars {detailsTransaction.particular.type && `(${detailsTransaction.particular.type})`}
-                                    </h3>
-                                    {detailsTransaction.particular.type === 'bank' && detailsTransaction.particular.details ? (
-                                        <div className="bg-white rounded-lg p-4 border border-indigo-100 space-y-2">
-                                            <div className="flex items-center gap-2 mb-3">
-                                                <FiHome className="w-5 h-5 text-indigo-600" />
-                                                <span className="font-semibold text-slate-800">{detailsTransaction.particular.details.bank || 'Bank'}</span>
-                                            </div>
-                                            <div className="grid grid-cols-2 gap-2 text-sm">
-                                                <div><span className="text-slate-500">Account No</span><p className="font-medium">{detailsTransaction.particular.details.account_no || '-'}</p></div>
-                                                <div><span className="text-slate-500">Account Holder</span><p className="font-medium">{detailsTransaction.particular.details.holder || '-'}</p></div>
-                                                <div><span className="text-slate-500">IFSC</span><p className="font-mono font-medium">{detailsTransaction.particular.details.ifsc || '-'}</p></div>
-                                                <div><span className="text-slate-500">Branch</span><p className="font-medium">{detailsTransaction.particular.details.branch || '-'}</p></div>
-                                                <div><span className="text-slate-500">Type</span><p className="font-medium capitalize">{detailsTransaction.particular.details.type || '-'}</p></div>
-                                            </div>
-                                            {detailsTransaction.particular.remark && (
-                                                <div className="pt-2 mt-2 border-t border-slate-100">
-                                                    <span className="text-slate-500 text-xs">Remark</span>
-                                                    <p className="text-sm text-slate-700 mt-0.5">{detailsTransaction.particular.remark}</p>
-                                                </div>
-                                            )}
-                                        </div>
-                                    ) : detailsTransaction.particular.details && typeof detailsTransaction.particular.details === 'object' ? (
-                                        <div className="bg-white rounded-lg p-4 border border-slate-200">
-                                            <div className="space-y-2">
-                                                {Object.entries(detailsTransaction.particular.details)
-                                                    .filter(([, val]) => val != null && val !== '')
-                                                    .map(([key, val]) => (
-                                                        <div key={key} className="flex justify-between text-sm">
-                                                            <span className="text-slate-500 capitalize">{key.replace(/_/g, ' ')}</span>
-                                                            <span className="font-medium text-slate-800">{typeof val === 'object' ? JSON.stringify(val) : String(val)}</span>
-                                                        </div>
-                                                    ))}
-                                            </div>
-                                            {detailsTransaction.particular.remark && (
-                                                <div className="pt-2 mt-2 border-t border-slate-100">
-                                                    <span className="text-slate-500 text-xs">Remark</span>
-                                                    <p className="text-sm text-slate-700 mt-0.5">{detailsTransaction.particular.remark}</p>
-                                                </div>
-                                            )}
-                                        </div>
-                                    ) : (
-                                        <p className="text-slate-600 text-sm">{JSON.stringify(detailsTransaction.particular)}</p>
-                                    )}
-                                </div>
-                            )}
-
-                            {/* Created By */}
-                            {detailsTransaction.create_by && (
-                                <div className="bg-slate-50 rounded-xl p-4 border border-slate-100">
-                                    <h3 className="text-sm font-semibold text-slate-500 uppercase tracking-wider mb-3">Created By</h3>
-                                    <div className="flex items-center gap-3 bg-white rounded-lg p-4 border border-slate-200">
-                                        <div className="p-2 bg-indigo-100 rounded-full">
-                                            <FiUser className="w-5 h-5 text-indigo-600" />
-                                        </div>
-                                        <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-sm">
-                                            <div><span className="text-slate-500">Name</span><p className="font-medium">{detailsTransaction.create_by.name || '-'}</p></div>
-                                            <div><span className="text-slate-500">Username</span><p className="font-mono font-medium">{detailsTransaction.create_by.username || '-'}</p></div>
-                                            {detailsTransaction.create_by.email && <div className="col-span-2 flex items-center gap-2"><FiMail className="w-4 h-4 text-slate-400" /><span className="text-slate-600">{detailsTransaction.create_by.email}</span></div>}
-                                            {detailsTransaction.create_by.mobile && <div className="col-span-2 flex items-center gap-2"><FiPhone className="w-4 h-4 text-slate-400" /><span className="text-slate-600">+{detailsTransaction.create_by.country_code || ''} {detailsTransaction.create_by.mobile}</span></div>}
-                                        </div>
-                                    </div>
-                                </div>
-                            )}
-
-                            {/* Modified By - if different from create_by */}
-                            {detailsTransaction.modify_by && JSON.stringify(detailsTransaction.modify_by) !== JSON.stringify(detailsTransaction.create_by) && (
-                                <div className="bg-slate-50 rounded-xl p-4 border border-slate-100">
-                                    <h3 className="text-sm font-semibold text-slate-500 uppercase tracking-wider mb-3">Modified By</h3>
-                                    <div className="flex items-center gap-3 bg-white rounded-lg p-4 border border-slate-200">
-                                        <div className="p-2 bg-amber-100 rounded-full">
-                                            <FiUserCheck className="w-5 h-5 text-amber-600" />
-                                        </div>
-                                        <div className="text-sm">
-                                            <p className="font-medium">{detailsTransaction.modify_by.name || '-'}</p>
-                                            <p className="text-slate-500 text-xs">{detailsTransaction.modify_by.email || detailsTransaction.modify_by.username || ''}</p>
-                                        </div>
-                                    </div>
-                                </div>
-                            )}
-
-                            {/* Timestamps */}
-                            <div className="flex gap-4 text-xs text-slate-500">
-                                {detailsTransaction.create_date && <span>Created: {formatDate(detailsTransaction.create_date)} {formatTime(detailsTransaction.create_date)}</span>}
-                                {detailsTransaction.modify_date && <span>Modified: {formatDate(detailsTransaction.modify_date)} {formatTime(detailsTransaction.modify_date)}</span>}
-                            </div>
-                        </div>
-
-                        {/* Modal Footer */}
-                        <div className="border-t border-slate-200 bg-slate-50 px-5 py-3 shrink-0">
-                            <button
-                                onClick={() => setDetailsTransaction(null)}
-                                className="w-full py-2.5 px-4 bg-indigo-600 hover:bg-indigo-700 text-white font-medium rounded-xl transition-colors"
-                            >
-                                Close
-                            </button>
-                        </div>
-                    </motion.div>
-                </div>
-            )}
+            <AnimatePresence>
+                {detailsTransaction && (
+                    <ViewTransactionModalManager
+                        transaction={detailsTransaction}
+                        onClose={() => setDetailsTransaction(null)}
+                        formatCurrency={formatCurrency}
+                        onDownload={handleViewInvoice}
+                        isDownloading={downloadingInvoice}
+                    />
+                )}
+            </AnimatePresence>
 
             {/* Transaction Modal Manager - MODIFIED */}
             <TransactionModalManager
@@ -1218,10 +988,15 @@ const ClientLedger = () => {
                     </button>
                     <button
                         onClick={() => handleViewInvoice(selectedActionTransaction)}
-                        className="w-full px-4 py-2 text-left text-sm text-slate-700 hover:bg-blue-50 flex items-center gap-2 transition-colors"
+                        disabled={downloadingInvoice}
+                        className="w-full px-4 py-2 text-left text-sm text-slate-700 hover:bg-green-50 flex items-center gap-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                        <FiFile className="w-4 h-4 text-green-600" />
-                        Invoice
+                        {downloadingInvoice ? (
+                            <div className="w-4 h-4 border-2 border-green-500 border-t-transparent rounded-full animate-spin" />
+                        ) : (
+                            <FiFile className="w-4 h-4 text-green-600" />
+                        )}
+                        {downloadingInvoice ? 'Downloading…' : 'Invoice'}
                     </button>
                 </motion.div>,
                 document.body

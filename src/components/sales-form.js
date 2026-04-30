@@ -114,7 +114,7 @@ const SaleForm = ({
             });
             const data = await response.json();
             console.log('Bank API Response:', data);
-            
+
             if (data.success && data.data) {
                 const formattedBanks = data.data.map(bank => ({
                     id: bank.bank_id || bank.id,
@@ -142,7 +142,7 @@ const SaleForm = ({
 
     const fetchUsers = async () => {
         if (!userSearchTerm) return;
-        
+
         setIsLoadingParties(true);
         try {
             const response = await fetch(`${API_BASE_URL}/client/search?search=${encodeURIComponent(userSearchTerm)}`, {
@@ -352,14 +352,14 @@ const SaleForm = ({
         }
 
         const amountAfterDiscount = Math.max(0, subtotal - discountAmount);
-        
+
         const sgst_amount = Math.round((amountAfterDiscount * (Number(formData.sgst_rate) / 100)) * 100) / 100;
         const cgst_amount = Math.round((amountAfterDiscount * (Number(formData.cgst_rate) / 100)) * 100) / 100;
-        
+
         let grand_total = amountAfterDiscount + sgst_amount + cgst_amount + (Number(formData.additional_charge) || 0);
         // Keep grand total with 2 decimal places before round off
         grand_total = Math.round(grand_total * 100) / 100;
-        
+
         let round_off = 0;
         // Only apply round off if the toggle is checked
         if (formData.apply_round_off) {
@@ -391,7 +391,7 @@ const SaleForm = ({
         setIsSubmitting(true);
         try {
             const selectedParty = getSelectedParty();
-            
+
             const basePayload = {
                 transaction_date: formData.payment_date,
                 remark: formData.notes || formData.remark,
@@ -503,17 +503,16 @@ const SaleForm = ({
                         <p className="text-indigo-100 text-xs hidden sm:block">{appSettings.company_name}</p>
                     </div>
                 </div>
-                
+
                 {/* Sale Type Toggle Buttons */}
                 <div className="flex items-center gap-2 bg-indigo-500/30 rounded-lg p-1">
                     <button
                         type="button"
                         onClick={() => handleSaleTypeChange('user')}
-                        className={`px-3 py-1.5 text-sm font-medium rounded-md transition-all duration-200 ${
-                            saleType === 'user'
-                                ? 'bg-white text-indigo-700 shadow-md'
-                                : 'text-indigo-100 hover:bg-indigo-500/50'
-                        }`}
+                        className={`px-3 py-1.5 text-sm font-medium rounded-md transition-all duration-200 ${saleType === 'user'
+                            ? 'bg-white text-indigo-700 shadow-md'
+                            : 'text-indigo-100 hover:bg-indigo-500/50'
+                            }`}
                     >
                         <div className="flex items-center gap-2">
                             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -525,11 +524,10 @@ const SaleForm = ({
                     <button
                         type="button"
                         onClick={() => handleSaleTypeChange('bank')}
-                        className={`px-3 py-1.5 text-sm font-medium rounded-md transition-all duration-200 ${
-                            saleType === 'bank'
-                                ? 'bg-white text-indigo-700 shadow-md'
-                                : 'text-indigo-100 hover:bg-indigo-500/50'
-                        }`}
+                        className={`px-3 py-1.5 text-sm font-medium rounded-md transition-all duration-200 ${saleType === 'bank'
+                            ? 'bg-white text-indigo-700 shadow-md'
+                            : 'text-indigo-100 hover:bg-indigo-500/50'
+                            }`}
                     >
                         <div className="flex items-center gap-2">
                             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -597,9 +595,9 @@ const SaleForm = ({
                                                     </svg>
                                                 </div>
                                                 <span className="font-medium truncate">
-                                                    {saleType === 'bank' && isLoadingBanks ? 'Loading banks...' : 
-                                                     saleType === 'user' && isLoadingParties ? 'Loading users...' : 
-                                                     `Click to select a ${saleType === 'user' ? 'user/client' : 'bank'}...`}
+                                                    {saleType === 'bank' && isLoadingBanks ? 'Loading banks...' :
+                                                        saleType === 'user' && isLoadingParties ? 'Loading users...' :
+                                                            `Click to select a ${saleType === 'user' ? 'user/client' : 'bank'}...`}
                                                 </span>
                                             </div>
                                             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -629,7 +627,7 @@ const SaleForm = ({
                                                 </div>
                                             </div>
                                         )}
-                                        
+
                                         <div className="py-1">
                                             {partyOptions.length === 0 && !isLoadingParties && !isLoadingBanks && saleType === 'user' && (
                                                 <div className="px-3 py-4 text-center text-gray-500 text-sm">
@@ -654,11 +652,10 @@ const SaleForm = ({
                                             {partyOptions.map(party => (
                                                 <div
                                                     key={party.id}
-                                                    className={`px-3 py-2 cursor-pointer border-l-2 transition-all duration-150 ${
-                                                        formData.party_id === party.id
-                                                            ? 'bg-indigo-50 border-indigo-500 text-indigo-700'
-                                                            : 'border-transparent hover:bg-gray-50'
-                                                    }`}
+                                                    className={`px-3 py-2 cursor-pointer border-l-2 transition-all duration-150 ${formData.party_id === party.id
+                                                        ? 'bg-indigo-50 border-indigo-500 text-indigo-700'
+                                                        : 'border-transparent hover:bg-gray-50'
+                                                        }`}
                                                     onClick={() => handlePartySelect(party.id)}
                                                 >
                                                     <div className="flex justify-between items-center">
@@ -671,11 +668,10 @@ const SaleForm = ({
                                                                 </span>
                                                                 <div className="flex items-center min-w-0">
                                                                     <span className="font-medium text-gray-900 truncate">{party.name}</span>
-                                                                    <span className={`ml-2 px-1.5 py-0.5 text-xs rounded-full font-medium ${
-                                                                        saleType === 'bank' 
-                                                                            ? 'bg-green-100 text-green-800 border border-green-200' 
-                                                                            : 'bg-blue-100 text-blue-800 border border-blue-200'
-                                                                    }`}>
+                                                                    <span className={`ml-2 px-1.5 py-0.5 text-xs rounded-full font-medium ${saleType === 'bank'
+                                                                        ? 'bg-green-100 text-green-800 border border-green-200'
+                                                                        : 'bg-blue-100 text-blue-800 border border-blue-200'
+                                                                        }`}>
                                                                         {saleType === 'bank' ? 'Bank' : 'User'}
                                                                     </span>
                                                                 </div>
