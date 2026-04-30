@@ -363,10 +363,16 @@ const AttendanceTab = ({ attendance, setAttendance, variants }) => {
         );
     };
 
-    // Handle admin verification
+    // Handle admin verification - MODIFIED to handle missing attendance records
     const handleVerifyAttendance = async () => {
-        if (!selectedDayDetails || !selectedDayDetails.attendance_id) {
-            alert('No attendance record found for this day.');
+        const username = getUsernameFromUrl();
+        if (!username) {
+            alert('No username found in URL');
+            return;
+        }
+
+        if (!selectedDayDetails) {
+            alert('No day selected for verification.');
             return;
         }
 
@@ -374,20 +380,37 @@ const AttendanceTab = ({ attendance, setAttendance, variants }) => {
 
         // Prepare payload based on the API specifications
         const payload = {
-            attendance_id: selectedDayDetails.attendance_id,
+            username: username,
+            attendance_date: selectedDayDetails.date,
             verify_status: verifyFormData.verify_status,
             consider_break: verifyFormData.consider_break,
             admin_remarks: verifyFormData.admin_remarks,
             apply_travel_allowance: verifyFormData.apply_travel_allowance,
-            apply_other_deductions: verifyFormData.apply_other_deductions
+            apply_other_deductions: verifyFormData.apply_other_deductions,
+            create_if_missing: true // Always create if missing
         };
+
+        // Add attendance_id only if it exists
+        if (selectedDayDetails.attendance_id) {
+            payload.attendance_id = selectedDayDetails.attendance_id;
+        }
 
         // Add manual times if provided
         if (verifyFormData.manual_punch_in) {
-            payload.manual_punch_in = verifyFormData.manual_punch_in;
+            // Extract time from datetime-local value or use as is
+            let punchInTime = verifyFormData.manual_punch_in;
+            if (punchInTime.includes('T')) {
+                punchInTime = punchInTime.split('T')[1];
+            }
+            payload.manual_punch_in = punchInTime;
         }
+        
         if (verifyFormData.manual_punch_out) {
-            payload.manual_punch_out = verifyFormData.manual_punch_out;
+            let punchOutTime = verifyFormData.manual_punch_out;
+            if (punchOutTime.includes('T')) {
+                punchOutTime = punchOutTime.split('T')[1];
+            }
+            payload.manual_punch_out = punchOutTime;
         }
 
         console.log('Verification Payload:', payload);
@@ -403,12 +426,13 @@ const AttendanceTab = ({ attendance, setAttendance, variants }) => {
             );
 
             if (!response.ok) {
-                throw new Error('Failed to verify attendance');
+                const errorData = await response.json();
+                throw new Error(errorData.message || 'Failed to verify attendance');
             }
 
             const data = await response.json();
             if (data.success) {
-                alert('Attendance verified successfully!');
+                alert(data.message || 'Attendance verified successfully!');
                 setShowVerifyModal(false);
                 setSelectedDayDetails(null);
                 // Refresh data
@@ -463,26 +487,61 @@ const AttendanceTab = ({ attendance, setAttendance, variants }) => {
         setSelectedYear(parseInt(year));
     };
 
+    // MODIFIED: Handle day click to properly handle missing attendance
     const handleDayClick = (dayData) => {
-        // Use the attendance_id directly from the calendar data
-        setSelectedDayDetails(dayData);
+        // If no attendance_id exists and it's a future or pending day, create a placeholder
+        if (!dayData.attendance_id && (dayData.status === 'future' || dayData.status === 'pending')) {
+            setSelectedDayDetails({
+                ...dayData,
+                attendance_id: null,
+                details: null,
+                has_attendance: false,
+                status_display: 'No Record',
+                icon: '📅',
+                is_verified: false
+            });
+        } else {
+            setSelectedDayDetails(dayData);
+        }
     };
 
+    // MODIFIED: Open verify modal to handle missing attendance
     const openVerifyModal = () => {
-        if (!selectedDayDetails || !selectedDayDetails.attendance_id) {
-            alert('No attendance record found for this day.');
+        if (!selectedDayDetails) {
+            alert('No day selected for verification.');
             return;
         }
         
         // Pre-populate form with existing details if available
+        let status = 'present';
+        let manualPunchIn = '';
+        let manualPunchOut = '';
+        
+        if (selectedDayDetails.details) {
+            status = selectedDayDetails.status || 'present';
+            
+            // Set manual times from existing details if available
+            if (selectedDayDetails.details.punch_in) {
+                manualPunchIn = `${selectedDayDetails.date}T${selectedDayDetails.details.punch_in}`;
+            }
+            if (selectedDayDetails.details.punch_out) {
+                manualPunchOut = `${selectedDayDetails.date}T${selectedDayDetails.details.punch_out}`;
+            }
+        } else if (!selectedDayDetails.attendance_id) {
+            // For new records without attendance, suggest default times
+            const defaultPunchIn = '09:00:00';
+            const defaultPunchOut = '18:00:00';
+            manualPunchIn = `${selectedDayDetails.date}T${defaultPunchIn}`;
+            manualPunchOut = `${selectedDayDetails.date}T${defaultPunchOut}`;
+            status = 'present';
+        }
+        
         setVerifyFormData({
-            verify_status: selectedDayDetails.status || 'present',
+            verify_status: status,
             consider_break: true,
             admin_remarks: selectedDayDetails.details?.admin_remarks || '',
-            manual_punch_in: selectedDayDetails.details?.punch_in ? 
-                `${selectedDayDetails.date}T${selectedDayDetails.details.punch_in}` : '',
-            manual_punch_out: selectedDayDetails.details?.punch_out ? 
-                `${selectedDayDetails.date}T${selectedDayDetails.details.punch_out}` : '',
+            manual_punch_in: manualPunchIn,
+            manual_punch_out: manualPunchOut,
             apply_travel_allowance: true,
             apply_other_deductions: true
         });
@@ -1005,7 +1064,7 @@ const AttendanceTab = ({ attendance, setAttendance, variants }) => {
                     )}
                 </div>
 
-                {/* Day Details Modal */}
+                {/* Day Details Modal - MODIFIED to show verify button even without attendance_id */}
                 {selectedDayDetails && !showVerifyModal && (
                     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
                         <motion.div
@@ -1029,16 +1088,23 @@ const AttendanceTab = ({ attendance, setAttendance, variants }) => {
                                 <div className="space-y-4">
                                     <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
                                         <div className={`w-10 h-10 rounded-full ${getStatusColor(selectedDayDetails.status)} flex items-center justify-center`}>
-                                            <span className="text-lg">{selectedDayDetails.icon}</span>
+                                            <span className="text-lg">{selectedDayDetails.icon || (selectedDayDetails.has_attendance ? '✓' : '📅')}</span>
                                         </div>
                                         <div>
-                                            <p className="font-medium text-gray-900">{selectedDayDetails.status_display}</p>
+                                            <p className="font-medium text-gray-900">
+                                                {selectedDayDetails.status_display || (selectedDayDetails.has_attendance ? getStatusBadge(selectedDayDetails.status).label : 'No Record')}
+                                            </p>
                                             <p className="text-sm text-gray-500">
                                                 {selectedDayDetails.day_of_week}, {selectedDayDetails.date}
                                             </p>
                                             {selectedDayDetails.attendance_id && (
                                                 <p className="text-xs text-gray-400 mt-1 font-mono">
                                                     ID: {selectedDayDetails.attendance_id}
+                                                </p>
+                                            )}
+                                            {!selectedDayDetails.attendance_id && selectedDayDetails.status === 'future' && (
+                                                <p className="text-xs text-amber-600 mt-1">
+                                                    No attendance record - Create one below
                                                 </p>
                                             )}
                                         </div>
@@ -1104,31 +1170,25 @@ const AttendanceTab = ({ attendance, setAttendance, variants }) => {
                                         </div>
                                     )}
 
-                                    {/* Admin Verify Button - Only show if attendance_id exists */}
-                                    {selectedDayDetails.attendance_id ? (
-                                        <motion.button
-                                            whileHover={{ scale: 1.02 }}
-                                            whileTap={{ scale: 0.98 }}
-                                            onClick={openVerifyModal}
-                                            className="w-full mt-4 px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 transition-colors flex items-center justify-center gap-2"
-                                        >
-                                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                            </svg>
-                                            Admin Verify Attendance
-                                        </motion.button>
-                                    ) : (
-                                        <div className="w-full mt-4 px-4 py-2 bg-gray-100 text-gray-500 text-sm font-medium rounded-lg text-center">
-                                            Cannot Verify - No Attendance Record Found
-                                        </div>
-                                    )}
+                                    {/* Admin Verify Button - MODIFIED to always show */}
+                                    <motion.button
+                                        whileHover={{ scale: 1.02 }}
+                                        whileTap={{ scale: 0.98 }}
+                                        onClick={openVerifyModal}
+                                        className="w-full mt-4 px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 transition-colors flex items-center justify-center gap-2"
+                                    >
+                                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                        </svg>
+                                        {selectedDayDetails.attendance_id ? 'Admin Verify Attendance' : 'Create Attendance Record'}
+                                    </motion.button>
                                 </div>
                             </div>
                         </motion.div>
                     </div>
                 )}
 
-                {/* Admin Verify Attendance Modal */}
+                {/* Admin Verify Attendance Modal - MODIFIED header text */}
                 {showVerifyModal && selectedDayDetails && (
                     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
                         <motion.div
@@ -1140,14 +1200,21 @@ const AttendanceTab = ({ attendance, setAttendance, variants }) => {
                                 <div className="flex items-center justify-between">
                                     <div>
                                         <h3 className="text-lg font-semibold text-gray-900">
-                                            Admin Verify Attendance
+                                            {selectedDayDetails.attendance_id ? 'Admin Verify Attendance' : 'Create Attendance Record'}
                                         </h3>
                                         <p className="text-sm text-gray-500">
                                             {formatDate(selectedDayDetails.date)} - {selectedDayDetails.day_of_week}
                                         </p>
-                                        <p className="text-xs text-gray-400 mt-1 font-mono">
-                                            Attendance ID: {selectedDayDetails.attendance_id}
-                                        </p>
+                                        {selectedDayDetails.attendance_id && (
+                                            <p className="text-xs text-gray-400 mt-1 font-mono">
+                                                Attendance ID: {selectedDayDetails.attendance_id}
+                                            </p>
+                                        )}
+                                        {!selectedDayDetails.attendance_id && (
+                                            <p className="text-xs text-amber-600 mt-1">
+                                                No existing record - This will create a new attendance entry
+                                            </p>
+                                        )}
                                     </div>
                                     <button
                                         onClick={() => setShowVerifyModal(false)}
@@ -1159,13 +1226,92 @@ const AttendanceTab = ({ attendance, setAttendance, variants }) => {
                             </div>
 
                             <div className="p-6 space-y-4">
-                                {/* Current Status Display */}
-                                <div className="bg-gray-50 rounded-lg p-3 mb-4">
-                                    <p className="text-xs text-gray-500 mb-1">Current Status</p>
-                                    <p className={`inline-flex px-2 py-1 text-sm font-medium rounded-full ${getStatusBadge(selectedDayDetails.status).color}`}>
-                                        {getStatusBadge(selectedDayDetails.status).label}
-                                    </p>
+                                {/* Quick Action Presets - MODIFIED to add quick actions */}
+                                <div className="bg-blue-50 rounded-lg p-3 mb-4">
+                                    <p className="text-xs font-medium text-blue-700 mb-2">Quick Actions:</p>
+                                    <div className="flex flex-wrap gap-2">
+                                        <button
+                                            onClick={() => {
+                                                setVerifyFormData({
+                                                    ...verifyFormData,
+                                                    verify_status: 'present',
+                                                    manual_punch_in: `${selectedDayDetails.date}T09:00:00`,
+                                                    manual_punch_out: `${selectedDayDetails.date}T18:00:00`,
+                                                    admin_remarks: 'Admin created - standard working hours'
+                                                });
+                                            }}
+                                            className="px-2 py-1 text-xs bg-white text-blue-700 rounded border border-blue-200 hover:bg-blue-50"
+                                        >
+                                            Mark Present (9-6)
+                                        </button>
+                                        <button
+                                            onClick={() => {
+                                                setVerifyFormData({
+                                                    ...verifyFormData,
+                                                    verify_status: 'absent',
+                                                    manual_punch_in: '',
+                                                    manual_punch_out: '',
+                                                    admin_remarks: 'Marked absent - no punch in record'
+                                                });
+                                            }}
+                                            className="px-2 py-1 text-xs bg-white text-red-700 rounded border border-red-200 hover:bg-red-50"
+                                        >
+                                            Mark Absent
+                                        </button>
+                                        <button
+                                            onClick={() => {
+                                                setVerifyFormData({
+                                                    ...verifyFormData,
+                                                    verify_status: 'half_day',
+                                                    manual_punch_in: `${selectedDayDetails.date}T14:00:00`,
+                                                    manual_punch_out: `${selectedDayDetails.date}T18:00:00`,
+                                                    admin_remarks: 'Half day - approved'
+                                                });
+                                            }}
+                                            className="px-2 py-1 text-xs bg-white text-amber-700 rounded border border-amber-200 hover:bg-amber-50"
+                                        >
+                                            Half Day (2-6)
+                                        </button>
+                                        <button
+                                            onClick={() => {
+                                                setVerifyFormData({
+                                                    ...verifyFormData,
+                                                    verify_status: 'paid_leave',
+                                                    manual_punch_in: '',
+                                                    manual_punch_out: '',
+                                                    admin_remarks: 'Paid leave approved'
+                                                });
+                                            }}
+                                            className="px-2 py-1 text-xs bg-white text-purple-700 rounded border border-purple-200 hover:bg-purple-50"
+                                        >
+                                            Paid Leave
+                                        </button>
+                                        <button
+                                            onClick={() => {
+                                                setVerifyFormData({
+                                                    ...verifyFormData,
+                                                    verify_status: 'bonus',
+                                                    manual_punch_in: `${selectedDayDetails.date}T08:00:00`,
+                                                    manual_punch_out: `${selectedDayDetails.date}T20:00:00`,
+                                                    admin_remarks: 'Overtime - project work'
+                                                });
+                                            }}
+                                            className="px-2 py-1 text-xs bg-white text-green-700 rounded border border-green-200 hover:bg-green-50"
+                                        >
+                                            Bonus/Overtime
+                                        </button>
+                                    </div>
                                 </div>
+
+                                {/* Current Status Display - Only show if details exist */}
+                                {selectedDayDetails.details && (
+                                    <div className="bg-gray-50 rounded-lg p-3 mb-4">
+                                        <p className="text-xs text-gray-500 mb-1">Current Status</p>
+                                        <p className={`inline-flex px-2 py-1 text-sm font-medium rounded-full ${getStatusBadge(selectedDayDetails.status).color}`}>
+                                            {getStatusBadge(selectedDayDetails.status).label}
+                                        </p>
+                                    </div>
+                                )}
 
                                 {/* Verify Status */}
                                 <div>
@@ -1186,84 +1332,93 @@ const AttendanceTab = ({ attendance, setAttendance, variants }) => {
                                     </select>
                                 </div>
 
-                                {/* Consider Break */}
-                                <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
-                                    <input
-                                        type="checkbox"
-                                        id="consider_break"
-                                        checked={verifyFormData.consider_break}
-                                        onChange={(e) => setVerifyFormData({...verifyFormData, consider_break: e.target.checked})}
-                                        className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
-                                    />
-                                    <label htmlFor="consider_break" className="text-sm text-gray-700">
-                                        Consider Break Time (Deduct excess break minutes from working hours)
-                                    </label>
-                                </div>
+                                {/* Consider Break - Only show for present/half_day */}
+                                {(verifyFormData.verify_status === 'present' || verifyFormData.verify_status === 'half_day') && (
+                                    <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
+                                        <input
+                                            type="checkbox"
+                                            id="consider_break"
+                                            checked={verifyFormData.consider_break}
+                                            onChange={(e) => setVerifyFormData({...verifyFormData, consider_break: e.target.checked})}
+                                            className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                                        />
+                                        <label htmlFor="consider_break" className="text-sm text-gray-700">
+                                            Consider Break Time (Deduct excess break minutes from working hours)
+                                        </label>
+                                    </div>
+                                )}
 
-                                {/* Manual Time Correction Section */}
-                                <div className="border-t border-gray-200 pt-4 mt-2">
-                                    <h4 className="text-sm font-medium text-gray-900 mb-3">Manual Time Correction (Optional)</h4>
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                                        <div>
-                                            <label className="block text-xs font-medium text-gray-700 mb-1">
-                                                Manual Punch In
-                                            </label>
-                                            <input
-                                                type="datetime-local"
-                                                value={verifyFormData.manual_punch_in}
-                                                onChange={(e) => setVerifyFormData({...verifyFormData, manual_punch_in: e.target.value})}
-                                                className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                                            />
+                                {/* Manual Time Correction Section - Only show for present/half_day */}
+                                {(verifyFormData.verify_status === 'present' || verifyFormData.verify_status === 'half_day') && (
+                                    <div className="border-t border-gray-200 pt-4 mt-2">
+                                        <h4 className="text-sm font-medium text-gray-900 mb-3">Manual Time Correction (Optional)</h4>
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                            <div>
+                                                <label className="block text-xs font-medium text-gray-700 mb-1">
+                                                    Manual Punch In
+                                                </label>
+                                                <input
+                                                    type="datetime-local"
+                                                    value={verifyFormData.manual_punch_in}
+                                                    onChange={(e) => setVerifyFormData({...verifyFormData, manual_punch_in: e.target.value})}
+                                                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                                />
+                                            </div>
+                                            <div>
+                                                <label className="block text-xs font-medium text-gray-700 mb-1">
+                                                    Manual Punch Out
+                                                </label>
+                                                <input
+                                                    type="datetime-local"
+                                                    value={verifyFormData.manual_punch_out}
+                                                    onChange={(e) => setVerifyFormData({...verifyFormData, manual_punch_out: e.target.value})}
+                                                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                                />
+                                            </div>
                                         </div>
-                                        <div>
-                                            <label className="block text-xs font-medium text-gray-700 mb-1">
-                                                Manual Punch Out
-                                            </label>
-                                            <input
-                                                type="datetime-local"
-                                                value={verifyFormData.manual_punch_out}
-                                                onChange={(e) => setVerifyFormData({...verifyFormData, manual_punch_out: e.target.value})}
-                                                className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                                            />
+                                        <p className="text-xs text-gray-500 mt-2">
+                                            Note: If no times are provided, system will use default times based on status
+                                        </p>
+                                    </div>
+                                )}
+
+                                {/* Allowances & Deductions - Only show for present/bonus */}
+                                {(verifyFormData.verify_status === 'present' || verifyFormData.verify_status === 'bonus') && (
+                                    <div className="border-t border-gray-200 pt-4 mt-2">
+                                        <h4 className="text-sm font-medium text-gray-900 mb-3">Allowances & Deductions</h4>
+                                        <div className="space-y-2">
+                                            <div className="flex items-center gap-3">
+                                                <input
+                                                    type="checkbox"
+                                                    id="travel_allowance"
+                                                    checked={verifyFormData.apply_travel_allowance}
+                                                    onChange={(e) => setVerifyFormData({...verifyFormData, apply_travel_allowance: e.target.checked})}
+                                                    className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                                                />
+                                                <label htmlFor="travel_allowance" className="text-sm text-gray-700">
+                                                    Apply Travel Allowance
+                                                </label>
+                                            </div>
+                                            <div className="flex items-center gap-3">
+                                                <input
+                                                    type="checkbox"
+                                                    id="other_deductions"
+                                                    checked={verifyFormData.apply_other_deductions}
+                                                    onChange={(e) => setVerifyFormData({...verifyFormData, apply_other_deductions: e.target.checked})}
+                                                    className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                                                />
+                                                <label htmlFor="other_deductions" className="text-sm text-gray-700">
+                                                    Apply Other Deductions
+                                                </label>
+                                            </div>
                                         </div>
                                     </div>
-                                </div>
-
-                                {/* Allowances & Deductions */}
-                                <div className="border-t border-gray-200 pt-4 mt-2">
-                                    <h4 className="text-sm font-medium text-gray-900 mb-3">Allowances & Deductions</h4>
-                                    <div className="space-y-2">
-                                        <div className="flex items-center gap-3">
-                                            <input
-                                                type="checkbox"
-                                                id="travel_allowance"
-                                                checked={verifyFormData.apply_travel_allowance}
-                                                onChange={(e) => setVerifyFormData({...verifyFormData, apply_travel_allowance: e.target.checked})}
-                                                className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
-                                            />
-                                            <label htmlFor="travel_allowance" className="text-sm text-gray-700">
-                                                Apply Travel Allowance
-                                            </label>
-                                        </div>
-                                        <div className="flex items-center gap-3">
-                                            <input
-                                                type="checkbox"
-                                                id="other_deductions"
-                                                checked={verifyFormData.apply_other_deductions}
-                                                onChange={(e) => setVerifyFormData({...verifyFormData, apply_other_deductions: e.target.checked})}
-                                                className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
-                                            />
-                                            <label htmlFor="other_deductions" className="text-sm text-gray-700">
-                                                Apply Other Deductions
-                                            </label>
-                                        </div>
-                                    </div>
-                                </div>
+                                )}
 
                                 {/* Admin Remarks */}
                                 <div className="border-t border-gray-200 pt-4 mt-2">
                                     <label className="block text-sm font-medium text-gray-700 mb-2">
-                                        Admin Remarks
+                                        Admin Remarks *
                                     </label>
                                     <textarea
                                         rows="3"
@@ -1271,10 +1426,26 @@ const AttendanceTab = ({ attendance, setAttendance, variants }) => {
                                         onChange={(e) => setVerifyFormData({...verifyFormData, admin_remarks: e.target.value})}
                                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
                                         placeholder="Add verification remarks..."
+                                        required
                                     />
                                 </div>
 
-                                {/* Action Buttons */}
+                                {/* Summary of changes - MODIFIED to show summary */}
+                                <div className="bg-gray-50 rounded-lg p-3 text-xs">
+                                    <p className="font-medium text-gray-700 mb-1">Summary:</p>
+                                    <ul className="space-y-1 text-gray-600">
+                                        <li>• Status will be set to: <span className="font-medium capitalize">{verifyFormData.verify_status}</span></li>
+                                        {!selectedDayDetails.attendance_id && <li>• New attendance record will be created</li>}
+                                        {verifyFormData.manual_punch_in && verifyFormData.manual_punch_out && (
+                                            <li>• Working hours: {verifyFormData.manual_punch_in.split('T')[1]} - {verifyFormData.manual_punch_out.split('T')[1]}</li>
+                                        )}
+                                        {verifyFormData.consider_break && (verifyFormData.verify_status === 'present' || verifyFormData.verify_status === 'half_day') && (
+                                            <li>• Break time will be considered in calculation</li>
+                                        )}
+                                    </ul>
+                                </div>
+
+                                {/* Action Buttons - MODIFIED button text */}
                                 <div className="flex gap-3 pt-4 border-t border-gray-200 mt-4">
                                     <button
                                         onClick={() => setShowVerifyModal(false)}
@@ -1290,10 +1461,10 @@ const AttendanceTab = ({ attendance, setAttendance, variants }) => {
                                         {verifyLoading ? (
                                             <>
                                                 <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
-                                                Verifying...
+                                                Processing...
                                             </>
                                         ) : (
-                                            'Submit Verification'
+                                            selectedDayDetails.attendance_id ? 'Submit Verification' : 'Create & Submit'
                                         )}
                                     </button>
                                 </div>

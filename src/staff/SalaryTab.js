@@ -14,6 +14,8 @@ const SalaryTab = ({ salary, setSalary, variants }) => {
     const [updatingDay, setUpdatingDay] = useState(null);
     const [weeklyOffData, setWeeklyOffData] = useState(null);
     const [loadingWeeklyOff, setLoadingWeeklyOff] = useState(false);
+    const [selectedSalaryDetails, setSelectedSalaryDetails] = useState(null);
+    const [showDetailsModal, setShowDetailsModal] = useState(false);
     const [newSalary, setNewSalary] = useState({
         username: '',
         monthly_salary: '',
@@ -130,7 +132,9 @@ const SalaryTab = ({ salary, setSalary, variants }) => {
                         other_deductions: result.data.current.other_deductions,
                         // Staff info
                         staff_name: result.data.current.staff_name,
-                        designation: result.data.current.designation
+                        designation: result.data.current.designation,
+                        // Full details object
+                        full_details: result.data.current
                     });
                 }
                 
@@ -142,7 +146,8 @@ const SalaryTab = ({ salary, setSalary, variants }) => {
                             status: 'scheduled',
                             status_display: 'Scheduled',
                             status_color: 'blue',
-                            effective_from_display: s.effective_from ? new Date(s.effective_from).toLocaleDateString('en-IN') : '-'
+                            effective_from_display: s.effective_from ? new Date(s.effective_from).toLocaleDateString('en-IN') : '-',
+                            full_details: s
                         });
                     });
                 }
@@ -156,7 +161,8 @@ const SalaryTab = ({ salary, setSalary, variants }) => {
                             status_display: 'Expired',
                             status_color: 'gray',
                             effective_from_display: s.effective_from ? new Date(s.effective_from).toLocaleDateString('en-IN') : '-',
-                            effective_to_display: s.effective_to ? new Date(s.effective_to).toLocaleDateString('en-IN') : '-'
+                            effective_to_display: s.effective_to ? new Date(s.effective_to).toLocaleDateString('en-IN') : '-',
+                            full_details: s
                         });
                     });
                 }
@@ -422,6 +428,11 @@ const SalaryTab = ({ salary, setSalary, variants }) => {
         }
     };
 
+    const handleViewDetails = (item) => {
+        setSelectedSalaryDetails(item);
+        setShowDetailsModal(true);
+    };
+
     const formatTimeTo12Hour = (time24) => {
         if (!time24) return '09:00 AM';
         const [hours, minutes] = time24.split(':');
@@ -444,6 +455,13 @@ const SalaryTab = ({ salary, setSalary, variants }) => {
                 }`}
             />
         </button>
+    );
+
+    const ViewIcon = () => (
+        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+        </svg>
     );
 
     const EditIcon = () => (
@@ -473,6 +491,12 @@ const SalaryTab = ({ salary, setSalary, variants }) => {
     const InfoIcon = () => (
         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+        </svg>
+    );
+
+    const CloseIcon = () => (
+        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
         </svg>
     );
 
@@ -882,7 +906,7 @@ const SalaryTab = ({ salary, setSalary, variants }) => {
                 </div>
             )}
 
-            {/* Single Table for All Salaries */}
+            {/* Single Table for All Salaries - Minimal Design */}
             <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
                 <div className="px-6 py-4 border-b border-gray-200 bg-gray-50">
                     <h3 className="text-base font-semibold text-gray-900">Salary History</h3>
@@ -896,22 +920,14 @@ const SalaryTab = ({ salary, setSalary, variants }) => {
                             <table className="min-w-full divide-y divide-gray-200">
                                 <thead className="bg-gray-50">
                                     <tr>
-                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">#</th>
-                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
-                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Office Time</th>
-                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Working Hrs</th>
-                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Grace</th>
-                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">OT</th>
-                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Fine</th>
-                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">OT Rate</th>
-                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Fine Rate</th>
-                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Break Penalty</th>
-                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Travel Allowance</th>
-                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Other Deductions</th>
-                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Effective From</th>
-                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Effective To</th>
-                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">#</th>
+                                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
+                                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Office Time</th>
+                                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Expected Hrs</th>
+                                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Effective From</th>
+                                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Effective To</th>
+                                        <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                                     </tr>
                                 </thead>
                                 <tbody className="bg-white divide-y divide-gray-200">
@@ -942,14 +958,13 @@ const SalaryTab = ({ salary, setSalary, variants }) => {
                                                     transition={{ delay: index * 0.05 }}
                                                     className={rowClass}
                                                 >
-                                                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                                                    <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900">
                                                         {index + 1}
                                                     </td>
-                                                    <td className="px-6 py-4 whitespace-nowrap">
+                                                    <td className="px-4 py-3 whitespace-nowrap">
                                                         <span className="text-sm font-semibold text-gray-900">₹{item.monthly_salary?.toLocaleString('en-IN') || item.amount}</span>
-                                                        <span className="text-xs text-gray-500 ml-1">/-</span>
                                                     </td>
-                                                    <td className="px-6 py-4 whitespace-nowrap">
+                                                    <td className="px-4 py-3 whitespace-nowrap">
                                                         <div className="flex items-center gap-2">
                                                             <div className={`w-2 h-2 rounded-full ${statusDotClass}`}></div>
                                                             <span className={`px-2 py-1 text-xs font-medium rounded-full ${statusBadgeClass}`}>
@@ -957,141 +972,42 @@ const SalaryTab = ({ salary, setSalary, variants }) => {
                                                             </span>
                                                         </div>
                                                     </td>
-                                                    <td className="px-6 py-4 whitespace-nowrap">
+                                                    <td className="px-4 py-3 whitespace-nowrap">
                                                         <div className="flex items-center gap-1 text-sm">
-                                                            <ClockIcon />
                                                             <span>{item.working_hours ? formatTimeTo12Hour(item.working_hours.start) : '09:00 AM'}</span>
+                                                            <span>-</span>
+                                                            <span>{item.working_hours ? formatTimeTo12Hour(item.working_hours.end) : '06:00 PM'}</span>
                                                         </div>
-                                                        <div className="text-xs text-gray-500">
-                                                            to {item.working_hours ? formatTimeTo12Hour(item.working_hours.end) : '06:00 PM'}
-                                                        </div>
-                                                     </td>
-                                                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                                                        {item.working_hours ? `${item.working_hours.expected_hours} Hours` : '8 Hours'}
-                                                     </td>
-                                                    <td className="px-6 py-4 whitespace-nowrap text-sm">
-                                                        {item.working_hours ? `${item.working_hours.grace_period_minutes} mins` : '15 mins'}
-                                                     </td>
-                                                    <td className="px-6 py-4 whitespace-nowrap">
-                                                        <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${
-                                                            item.overtime_settings?.enabled ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'
-                                                        }`}>
-                                                            {item.overtime_settings?.enabled ? 'Enabled' : 'Disabled'}
-                                                        </span>
-                                                     </td>
-                                                    <td className="px-6 py-4 whitespace-nowrap">
-                                                        <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${
-                                                            item.fine_settings?.enabled ? 'bg-orange-100 text-orange-700' : 'bg-gray-100 text-gray-500'
-                                                        }`}>
-                                                            {item.fine_settings?.enabled ? 'Enabled' : 'Disabled'}
-                                                        </span>
-                                                     </td>
-                                                    <td className="px-6 py-4 whitespace-nowrap">
-                                                        <span className={`px-2 py-1 text-xs font-medium rounded ${
-                                                            item.overtime_settings?.rate_type === 'daily' 
-                                                                ? 'bg-blue-50 text-blue-700' 
-                                                                : 'bg-purple-50 text-purple-700'
-                                                        }`}>
-                                                            {item.overtime_settings?.rate_type === 'daily' ? 'Daily' : 'Monthly'}
-                                                        </span>
-                                                     </td>
-                                                    <td className="px-6 py-4 whitespace-nowrap">
-                                                        <span className={`px-2 py-1 text-xs font-medium rounded ${
-                                                            item.fine_settings?.rate_type === 'daily' 
-                                                                ? 'bg-orange-50 text-orange-700' 
-                                                                : 'bg-purple-50 text-purple-700'
-                                                        }`}>
-                                                            {item.fine_settings?.rate_type === 'daily' ? 'Daily' : 'Monthly'}
-                                                        </span>
-                                                     </td>
-
-                                                    {/* Break Penalty */}
-                                                    <td className="px-6 py-4 whitespace-nowrap">
-                                                        {item.break_settings && item.break_settings.excess_penalty_value > 0 ? (
-                                                            <div className="flex flex-col gap-1">
-                                                                <span className={`px-2 py-1 text-xs font-medium rounded ${
-                                                                    item.break_settings.excess_penalty_type === 'fixed' 
-                                                                        ? 'bg-red-50 text-red-700' 
-                                                                        : 'bg-orange-50 text-orange-700'
-                                                                }`}>
-                                                                    {item.break_settings.excess_penalty_type === 'fixed' 
-                                                                        ? `₹${item.break_settings.excess_penalty_value}/min` 
-                                                                        : `${item.break_settings.excess_penalty_value}%`}
-                                                                </span>
-                                                                <span className="text-xs text-gray-500">
-                                                                    Allowed: {item.break_settings.allowed_break_minutes} min
-                                                                </span>
-                                                            </div>
-                                                        ) : (
-                                                            <span className="text-xs text-gray-400">Not set</span>
-                                                        )}
-                                                     </td>
-
-                                                    {/* Travel Allowance */}
-                                                    <td className="px-6 py-4 whitespace-nowrap">
-                                                        {item.travel_allowance && item.travel_allowance.value > 0 ? (
-                                                            <div className="flex flex-col gap-1">
-                                                                <span className={`px-2 py-1 text-xs font-medium rounded ${
-                                                                    item.travel_allowance.type === 'fixed' 
-                                                                        ? 'bg-green-50 text-green-700' 
-                                                                        : 'bg-blue-50 text-blue-700'
-                                                                }`}>
-                                                                    {item.travel_allowance.type === 'fixed' 
-                                                                        ? `₹${item.travel_allowance.value}` 
-                                                                        : `${item.travel_allowance.value}%`}
-                                                                </span>
-                                                                {item.travel_allowance.amount_per_day && (
-                                                                    <span className="text-xs text-gray-500">
-                                                                        ₹{item.travel_allowance.amount_per_day}/day
-                                                                    </span>
-                                                                )}
-                                                            </div>
-                                                        ) : (
-                                                            <span className="text-xs text-gray-400">Not set</span>
-                                                        )}
-                                                     </td>
-
-                                                    {/* Other Deductions */}
-                                                    <td className="px-6 py-4 whitespace-nowrap">
-                                                        {item.other_deductions && item.other_deductions.value > 0 ? (
-                                                            <div className="flex flex-col gap-1">
-                                                                <span className={`px-2 py-1 text-xs font-medium rounded ${
-                                                                    item.other_deductions.type === 'fixed' 
-                                                                        ? 'bg-red-50 text-red-700' 
-                                                                        : 'bg-orange-50 text-orange-700'
-                                                                }`}>
-                                                                    {item.other_deductions.type === 'fixed' 
-                                                                        ? `₹${item.other_deductions.value}` 
-                                                                        : `${item.other_deductions.value}%`}
-                                                                </span>
-                                                                {item.other_deductions.amount_per_day && (
-                                                                    <span className="text-xs text-gray-500">
-                                                                        ₹{item.other_deductions.amount_per_day}/day
-                                                                    </span>
-                                                                )}
-                                                            </div>
-                                                        ) : (
-                                                            <span className="text-xs text-gray-400">Not set</span>
-                                                        )}
-                                                     </td>
-
-                                                    <td className="px-6 py-4 whitespace-nowrap">
+                                                    </td>
+                                                    <td className="px-4 py-3 whitespace-nowrap text-sm font-medium">
+                                                        {item.working_hours ? `${item.working_hours.expected_hours}h` : '8h'}
+                                                    </td>
+                                                    <td className="px-4 py-3 whitespace-nowrap">
                                                         <span className="px-2 py-1 bg-gray-100 text-gray-700 text-xs font-medium rounded">
                                                             {item.effective_from_display || (item.effective_from ? new Date(item.effective_from).toLocaleDateString('en-IN') : '-')}
                                                         </span>
-                                                     </td>
-                                                    <td className="px-6 py-4 whitespace-nowrap">
+                                                    </td>
+                                                    <td className="px-4 py-3 whitespace-nowrap">
                                                         <span className="px-2 py-1 bg-gray-100 text-gray-700 text-xs font-medium rounded">
                                                             {item.effective_to ? new Date(item.effective_to).toLocaleDateString('en-IN') : (item.status === 'active' ? 'Current' : (item.status === 'scheduled' ? 'Upcoming' : 'Expired'))}
                                                         </span>
-                                                     </td>
-                                                    <td className="px-6 py-4 whitespace-nowrap">
-                                                        <div className="flex items-center gap-2">
+                                                    </td>
+                                                    <td className="px-4 py-3 whitespace-nowrap">
+                                                        <div className="flex items-center justify-center gap-2">
+                                                            <motion.button
+                                                                whileHover={{ scale: 1.1 }}
+                                                                whileTap={{ scale: 0.9 }}
+                                                                onClick={() => handleViewDetails(item)}
+                                                                className="p-1.5 text-indigo-600 hover:text-indigo-800 hover:bg-indigo-50 rounded"
+                                                                title="View Details"
+                                                            >
+                                                                <ViewIcon />
+                                                            </motion.button>
                                                             <motion.button
                                                                 whileHover={{ scale: 1.1 }}
                                                                 whileTap={{ scale: 0.9 }}
                                                                 onClick={() => handleEdit(item.id)}
-                                                                className="p-1 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded"
+                                                                className="p-1.5 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded"
                                                                 title="Edit"
                                                             >
                                                                 <EditIcon />
@@ -1100,19 +1016,19 @@ const SalaryTab = ({ salary, setSalary, variants }) => {
                                                                 whileHover={{ scale: 1.1 }}
                                                                 whileTap={{ scale: 0.9 }}
                                                                 onClick={() => handleDelete(item.id)}
-                                                                className="p-1 text-red-600 hover:text-red-800 hover:bg-red-50 rounded"
+                                                                className="p-1.5 text-red-600 hover:text-red-800 hover:bg-red-50 rounded"
                                                                 title="Delete"
                                                             >
                                                                 <DeleteIcon />
                                                             </motion.button>
                                                         </div>
-                                                     </td>
+                                                    </td>
                                                 </motion.tr>
                                             );
                                         })
                                     ) : (
                                         <tr>
-                                            <td colSpan="16" className="px-6 py-8 text-center text-gray-500">
+                                            <td colSpan="8" className="px-6 py-8 text-center text-gray-500">
                                                 {username ? (
                                                     <>
                                                         No salary structures found for user {username}. 
@@ -1121,7 +1037,7 @@ const SalaryTab = ({ salary, setSalary, variants }) => {
                                                 ) : (
                                                     'No username provided in URL. Please select a staff member.'
                                                 )}
-                                              </td>
+                                            </td>
                                         </tr>
                                     )}
                                 </tbody>
@@ -1160,6 +1076,214 @@ const SalaryTab = ({ salary, setSalary, variants }) => {
                     </>
                 )}
             </div>
+
+            {/* Details Modal */}
+            {showDetailsModal && selectedSalaryDetails && (
+                <div className="fixed inset-0 z-50 overflow-y-auto">
+                    <div className="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:block sm:p-0">
+                        <div className="fixed inset-0 transition-opacity" aria-hidden="true">
+                            <div className="absolute inset-0 bg-gray-500 opacity-75"></div>
+                        </div>
+
+                        <span className="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
+
+                        <div className="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-4xl sm:w-full">
+                            <div className="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
+                                <div className="flex justify-between items-center mb-4">
+                                    <h3 className="text-lg leading-6 font-semibold text-gray-900">
+                                        Salary Details - {selectedSalaryDetails.status_display}
+                                    </h3>
+                                    <button
+                                        onClick={() => setShowDetailsModal(false)}
+                                        className="text-gray-400 hover:text-gray-500"
+                                    >
+                                        <CloseIcon />
+                                    </button>
+                                </div>
+
+                                <div className="border-t border-gray-200 pt-4">
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                        {/* Basic Information */}
+                                        <div className="space-y-3">
+                                            <h4 className="text-sm font-semibold text-gray-700 border-b pb-1">Basic Information</h4>
+                                            <div>
+                                                <p className="text-xs text-gray-500">Monthly Salary</p>
+                                                <p className="text-lg font-bold text-gray-900">₹{selectedSalaryDetails.monthly_salary?.toLocaleString('en-IN')}</p>
+                                            </div>
+                                            <div>
+                                                <p className="text-xs text-gray-500">Status</p>
+                                                <p className={`text-sm font-medium ${
+                                                    selectedSalaryDetails.status === 'active' ? 'text-green-600' : 
+                                                    (selectedSalaryDetails.status === 'scheduled' ? 'text-blue-600' : 'text-gray-500')
+                                                }`}>
+                                                    {selectedSalaryDetails.status_display}
+                                                </p>
+                                            </div>
+                                            <div>
+                                                <p className="text-xs text-gray-500">Effective Period</p>
+                                                <p className="text-sm text-gray-700">
+                                                    From: {selectedSalaryDetails.effective_from_display}<br/>
+                                                    To: {selectedSalaryDetails.effective_to_display || (selectedSalaryDetails.status === 'active' ? 'Present' : (selectedSalaryDetails.status === 'scheduled' ? 'Upcoming' : 'Expired'))}
+                                                </p>
+                                            </div>
+                                        </div>
+
+                                        {/* Working Hours */}
+                                        <div className="space-y-3">
+                                            <h4 className="text-sm font-semibold text-gray-700 border-b pb-1">Working Hours</h4>
+                                            <div>
+                                                <p className="text-xs text-gray-500">Office Time</p>
+                                                <p className="text-sm text-gray-700">
+                                                    {selectedSalaryDetails.working_hours ? 
+                                                        `${formatTimeTo12Hour(selectedSalaryDetails.working_hours.start)} - ${formatTimeTo12Hour(selectedSalaryDetails.working_hours.end)}` : 
+                                                        '09:00 AM - 06:00 PM'}
+                                                </p>
+                                            </div>
+                                            <div>
+                                                <p className="text-xs text-gray-500">Expected Hours</p>
+                                                <p className="text-sm text-gray-700">{selectedSalaryDetails.working_hours?.expected_hours || 8} hours/day</p>
+                                            </div>
+                                            <div>
+                                                <p className="text-xs text-gray-500">Grace Period</p>
+                                                <p className="text-sm text-gray-700">{selectedSalaryDetails.working_hours?.grace_period_minutes || 15} minutes</p>
+                                            </div>
+                                        </div>
+
+                                        {/* Overtime & Fine Settings */}
+                                        <div className="space-y-3">
+                                            <h4 className="text-sm font-semibold text-gray-700 border-b pb-1">Overtime & Fine Settings</h4>
+                                            <div>
+                                                <p className="text-xs text-gray-500">Overtime</p>
+                                                <div className="flex items-center gap-2 mt-1">
+                                                    <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${
+                                                        selectedSalaryDetails.overtime_settings?.enabled ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'
+                                                    }`}>
+                                                        {selectedSalaryDetails.overtime_settings?.enabled ? 'Enabled' : 'Disabled'}
+                                                    </span>
+                                                    {selectedSalaryDetails.overtime_settings?.enabled && (
+                                                        <span className="text-xs text-gray-600">
+                                                            Rate: {selectedSalaryDetails.overtime_settings.rate_type === 'daily' ? 'Daily (Per Minute)' : 'Monthly (Percentage)'}
+                                                        </span>
+                                                    )}
+                                                </div>
+                                            </div>
+                                            <div>
+                                                <p className="text-xs text-gray-500">Fine/Deduction</p>
+                                                <div className="flex items-center gap-2 mt-1">
+                                                    <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${
+                                                        selectedSalaryDetails.fine_settings?.enabled ? 'bg-orange-100 text-orange-700' : 'bg-gray-100 text-gray-500'
+                                                    }`}>
+                                                        {selectedSalaryDetails.fine_settings?.enabled ? 'Enabled' : 'Disabled'}
+                                                    </span>
+                                                    {selectedSalaryDetails.fine_settings?.enabled && (
+                                                        <span className="text-xs text-gray-600">
+                                                            Rate: {selectedSalaryDetails.fine_settings.rate_type === 'daily' ? 'Daily (Per Minute)' : 'Monthly (Percentage)'}
+                                                        </span>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        {/* Break Settings */}
+                                        <div className="space-y-3">
+                                            <h4 className="text-sm font-semibold text-gray-700 border-b pb-1">Break Settings</h4>
+                                            <div>
+                                                <p className="text-xs text-gray-500">Allowed Break</p>
+                                                <p className="text-sm text-gray-700">{selectedSalaryDetails.break_settings?.allowed_break_minutes || 30} minutes/day</p>
+                                            </div>
+                                            <div>
+                                                <p className="text-xs text-gray-500">Break Excess Penalty</p>
+                                                {selectedSalaryDetails.break_settings && selectedSalaryDetails.break_settings.excess_penalty_value > 0 ? (
+                                                    <div className="mt-1">
+                                                        <span className="text-sm font-medium text-gray-700">
+                                                            {selectedSalaryDetails.break_settings.excess_penalty_type === 'fixed' 
+                                                                ? `₹${selectedSalaryDetails.break_settings.excess_penalty_value}/minute` 
+                                                                : `${selectedSalaryDetails.break_settings.excess_penalty_value}% of per-minute salary`}
+                                                        </span>
+                                                    </div>
+                                                ) : (
+                                                    <p className="text-sm text-gray-500">Not set</p>
+                                                )}
+                                            </div>
+                                        </div>
+
+                                        {/* Travel Allowance & Other Deductions */}
+                                        <div className="space-y-3">
+                                            <h4 className="text-sm font-semibold text-gray-700 border-b pb-1">Travel Allowance</h4>
+                                            {selectedSalaryDetails.travel_allowance && selectedSalaryDetails.travel_allowance.value > 0 ? (
+                                                <>
+                                                    <div>
+                                                        <p className="text-xs text-gray-500">Type</p>
+                                                        <p className="text-sm font-medium text-gray-700">
+                                                            {selectedSalaryDetails.travel_allowance.type === 'fixed' ? 'Fixed Amount' : 'Percentage of Salary'}
+                                                        </p>
+                                                    </div>
+                                                    <div>
+                                                        <p className="text-xs text-gray-500">Value</p>
+                                                        <p className="text-sm font-medium text-gray-900">
+                                                            {selectedSalaryDetails.travel_allowance.type === 'fixed' 
+                                                                ? `₹${selectedSalaryDetails.travel_allowance.value}` 
+                                                                : `${selectedSalaryDetails.travel_allowance.value}%`}
+                                                        </p>
+                                                    </div>
+                                                    {selectedSalaryDetails.travel_allowance.amount_per_day && (
+                                                        <div>
+                                                            <p className="text-xs text-gray-500">Per Day Amount</p>
+                                                            <p className="text-sm text-gray-700">₹{selectedSalaryDetails.travel_allowance.amount_per_day}</p>
+                                                        </div>
+                                                    )}
+                                                </>
+                                            ) : (
+                                                <p className="text-sm text-gray-500">No travel allowance set</p>
+                                            )}
+                                        </div>
+
+                                        <div className="space-y-3">
+                                            <h4 className="text-sm font-semibold text-gray-700 border-b pb-1">Other Deductions</h4>
+                                            {selectedSalaryDetails.other_deductions && selectedSalaryDetails.other_deductions.value > 0 ? (
+                                                <>
+                                                    <div>
+                                                        <p className="text-xs text-gray-500">Type</p>
+                                                        <p className="text-sm font-medium text-gray-700">
+                                                            {selectedSalaryDetails.other_deductions.type === 'fixed' ? 'Fixed Amount' : 'Percentage of Salary'}
+                                                        </p>
+                                                    </div>
+                                                    <div>
+                                                        <p className="text-xs text-gray-500">Value</p>
+                                                        <p className="text-sm font-medium text-gray-900">
+                                                            {selectedSalaryDetails.other_deductions.type === 'fixed' 
+                                                                ? `₹${selectedSalaryDetails.other_deductions.value}` 
+                                                                : `${selectedSalaryDetails.other_deductions.value}%`}
+                                                        </p>
+                                                    </div>
+                                                    {selectedSalaryDetails.other_deductions.amount_per_day && (
+                                                        <div>
+                                                            <p className="text-xs text-gray-500">Per Day Amount</p>
+                                                            <p className="text-sm text-gray-700">₹{selectedSalaryDetails.other_deductions.amount_per_day}</p>
+                                                        </div>
+                                                    )}
+                                                </>
+                                            ) : (
+                                                <p className="text-sm text-gray-500">No other deductions set</p>
+                                            )}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
+                                <button
+                                    type="button"
+                                    onClick={() => setShowDetailsModal(false)}
+                                    className="mt-3 w-full inline-flex justify-center rounded-lg border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm"
+                                >
+                                    Close
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {/* Weekly Off Card */}
             <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
