@@ -1023,7 +1023,13 @@ const TaskCreate = () => {
             });
             setTaskCreateResultModalOpen(true);
 
-            toast.success(res.data?.message || 'Task created successfully!');
+            const createSuccessToastId = toast.success(
+                res.data?.message || 'Task created successfully!',
+                { id: 'task-create-success', duration: 3000 }
+            );
+            setTimeout(() => {
+                toast.dismiss(createSuccessToastId);
+            }, 3200);
             setFormData({
                 firm_ids: [],
                 group_ids: [],

@@ -2,14 +2,17 @@ import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
     FiEdit, FiX, FiClipboard, FiLoader,
-    FiUser, FiUsers, FiBriefcase, FiSearch,
+    FiUser, FiUsers, FiBriefcase,
     FiCalendar, FiSave, FiDollarSign,
     FiUserCheck, FiUserPlus, FiFileText, FiAlertCircle,
-    FiLock,
+    FiLock, FiMail, FiPhone,
 } from 'react-icons/fi';
 import API_BASE_URL from "../utils/api-controller";
 import getHeaders from "../utils/get-headers";
 import { toast } from 'react-hot-toast';
+import TaskStatusChange from '../components/Modals/TaskStatusChange';
+import { DatePickerField } from '../components/PortalDatePicker';
+import SelectInput from '../components/SelectInput';
 
 const BILLING_GENERATE_BILLABLE = '/billing/generate/billable';
 const BILLING_GENERATE_NONBILLABLE = '/billing/generate/nonbillable';
@@ -99,16 +102,10 @@ const DetailsTab = ({ taskData: initialData, task_id, onTaskUpdated }) => {
 
     // ── status ────────────────────────────────
     const [isChangingStatus, setIsChangingStatus] = useState(false);
-    const [selectedStatus, setSelectedStatus] = useState('');
-    const [statusConfirm, setStatusConfirm] = useState(null); // { newStatus: string } | null
+    const [statusModalOpen, setStatusModalOpen] = useState(false);
 
     // ── supporting data ───────────────────────
     const [services, setServices] = useState([]);
-
-    // ── service searchable ────────────────────
-    const [serviceSearchQuery, setServiceSearchQuery] = useState('');
-    const [serviceDropdownOpen, setServiceDropdownOpen] = useState(false);
-    const serviceDropdownRef = useRef(null);
 
     // ── search states ─────────────────────────
     const [firmSearchQuery, setFirmSearchQuery] = useState('');
@@ -127,16 +124,19 @@ const DetailsTab = ({ taskData: initialData, task_id, onTaskUpdated }) => {
     const caAbortRef = useRef(null);
     const agentAbortRef = useRef(null);
 
-    const isComplete = selectedStatus === 'complete';
-
     /* ── init ── */
     useEffect(() => {
         if (taskData) {
-            setSelectedStatus(taskData.status || '');
             fetchServices();
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
+
+    useEffect(() => {
+        if (initialData) {
+            setTaskData(initialData);
+        }
+    }, [initialData]);
 
     const fetchServices = async () => {
         try {
@@ -149,17 +149,8 @@ const DetailsTab = ({ taskData: initialData, task_id, onTaskUpdated }) => {
     };
 
     /* ── status change ── */
-    const handleStatusChange = (newStatus) => {
-        // Require confirmation before marking complete or cancel
-        if (newStatus === 'complete' || newStatus === 'cancel') {
-            setStatusConfirm({ newStatus });
-            return;
-        }
-        executeStatusChange(newStatus);
-    };
-
-    const executeStatusChange = async (newStatus) => {
-        setStatusConfirm(null);
+    const handleStatusChange = async (_taskId, newStatus) => {
+        if (!newStatus || newStatus === taskData.status) return;
         setIsChangingStatus(true);
         try {
             const headers = getHeaders();
@@ -170,7 +161,6 @@ const DetailsTab = ({ taskData: initialData, task_id, onTaskUpdated }) => {
             });
             const data = await res.json();
             if (data.success) {
-                setSelectedStatus(newStatus);
                 setTaskData(prev => ({ ...prev, status: newStatus }));
                 toast.success(`Status updated to "${STATUS_OPTIONS.find(s => s.value === newStatus)?.label}"`);
                 if (onTaskUpdated) onTaskUpdated();
@@ -372,24 +362,6 @@ const DetailsTab = ({ taskData: initialData, task_id, onTaskUpdated }) => {
         return () => { clearTimeout(t); agentAbortRef.current?.abort(); };
     }, [agentSearchQuery]);
 
-    // Close service dropdown on outside click
-    useEffect(() => {
-        const handler = (e) => {
-            if (serviceDropdownRef.current && !serviceDropdownRef.current.contains(e.target)) {
-                setServiceDropdownOpen(false);
-            }
-        };
-        document.addEventListener('mousedown', handler);
-        return () => document.removeEventListener('mousedown', handler);
-    }, []);
-
-    // Filtered service list for searchable dropdown
-    const filteredServices = services.filter(s => {
-        const q = serviceSearchQuery.trim().toLowerCase();
-        if (!q) return true;
-        return (s.name || '').toLowerCase().includes(q);
-    });
-
     // Total amount calculation
     const fees = parseFloat(editForm.fees) || 0;
     const taxRate = parseFloat(editForm.tax_rate) || 0;
@@ -408,22 +380,23 @@ const DetailsTab = ({ taskData: initialData, task_id, onTaskUpdated }) => {
             {/* ══════════════════════════════════════════
                 View Card
             ══════════════════════════════════════════ */}
-            <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+            <div className="bg-white rounded-2xl border border-slate-200 shadow-[0_8px_24px_rgba(15,23,42,0.06)] overflow-hidden">
 
                 {/* Card header */}
-                <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+                <div className="relative flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-gradient-to-r from-indigo-600 via-indigo-600 to-violet-600">
+                    <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(255,255,255,0.22),transparent_45%)] pointer-events-none" />
                     <div className="flex items-center gap-3">
-                        <div className="w-9 h-9 bg-indigo-50 rounded-xl flex items-center justify-center">
-                            <FiClipboard className="w-4 h-4 text-indigo-600" />
+                        <div className="w-10 h-10 bg-white/20 backdrop-blur rounded-xl flex items-center justify-center shadow-sm">
+                            <FiClipboard className="w-4 h-4 text-white" />
                         </div>
                         <div>
-                            <h3 className="text-sm font-semibold text-gray-900">Task Information</h3>
-                            <p className="text-xs text-gray-400">View and manage task details</p>
+                            <h3 className="text-sm font-semibold text-white">Task Information</h3>
+                            <p className="text-xs text-indigo-100">View and manage task details</p>
                         </div>
                     </div>
                     <motion.button
                         onClick={handleEditClick}
-                        className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-xl hover:bg-indigo-700 transition-colors shadow-sm"
+                        className="relative z-10 flex items-center gap-2 px-4 py-2 bg-white text-indigo-700 text-sm font-semibold rounded-xl hover:bg-indigo-50 transition-colors shadow-sm"
                         whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
                     >
                         <FiEdit className="w-4 h-4" />
@@ -456,121 +429,142 @@ const DetailsTab = ({ taskData: initialData, task_id, onTaskUpdated }) => {
                 )}
 
                 {/* Card body */}
-                <div className="p-6 grid grid-cols-1 lg:grid-cols-2 gap-8">
-
-                    {/* ─ Left: Task Details ─ */}
-                    <div>
-                        <SectionTitle icon={FiBriefcase} title="Task Details" />
-                        <InfoPair label="Client">
-                            {taskData.client?.profile?.name || taskData.client?.name || 'N/A'}
-                        </InfoPair>
-                        <InfoPair label="Service">
-                            {taskData.service?.name || 'N/A'}
-                        </InfoPair>
-                        <InfoPair label="Service Category">
-                            {taskData.service?.category_name || 'N/A'}
-                        </InfoPair>
-                        <InfoPair label="Firm">
-                            {taskData.firm?.firm_name || 'N/A'}
-                        </InfoPair>
-                        <InfoPair label="Firm Owner">
-                            {taskData.firm?.owner_name || taskData.firm?.owner?.name || 'N/A'}
-                        </InfoPair>
-                        <InfoPair label="Fees">
-                            <span>₹{taskData.charges?.fees ?? 0}</span>
-                        </InfoPair>
-                        <InfoPair label="Tax Rate">
-                            <span>{taskData.charges?.tax_rate ?? 0}%</span>
-                        </InfoPair>
-                        <InfoPair label="Billing Status">
-                            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border capitalize ${
-                                taskData.billing_status === 'complete'
-                                    ? 'bg-green-100 text-green-700 border-green-200'
-                                    : taskData.billing_status === 'non billable'
-                                        ? 'bg-blue-100 text-blue-700 border-blue-200'
-                                        : 'bg-amber-100 text-amber-700 border-amber-200'
-                            }`}>
-                                {taskData.billing_status === 'complete'
-                                    ? 'Bill Generated'
-                                    : taskData.billing_status === 'non billable'
-                                        ? 'Non Billable'
-                                        : 'Pending'}
-                            </span>
-                        </InfoPair>
-                        {taskData.billing_status === 'complete' && taskData.invoice_no && (
-                            <InfoPair label="Invoice No">
-                                <span className="font-mono text-sm font-semibold text-indigo-700 tracking-wide">
-                                    {taskData.invoice_no}
+                <div className="p-6 bg-gradient-to-b from-white via-slate-50/30 to-slate-50/70">
+                    <div className="grid grid-cols-1 xl:grid-cols-3 gap-4 mb-5">
+                        <div className="xl:col-span-2 rounded-2xl border border-slate-200 bg-white p-4">
+                            <div className="flex items-center justify-between mb-3">
+                                <h4 className="text-sm font-semibold text-slate-800">Overview</h4>
+                                <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold border capitalize ${STATUS_COLORS[taskData.status] || 'bg-gray-100 text-gray-700 border-gray-200'}`}>
+                                    {STATUS_OPTIONS.find((statusOption) => statusOption.value === taskData.status)?.label || taskData.status || 'N/A'}
                                 </span>
-                            </InfoPair>
-                        )}
-                        <InfoPair label="Is Recurring">
-                            {taskData.is_recurring ? 'Yes' : 'No'}
-                        </InfoPair>
+                            </div>
+                            <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                                <div className="rounded-xl bg-slate-50 px-3 py-2">
+                                    <p className="text-[11px] text-slate-500">Service</p>
+                                    <p className="text-sm font-semibold text-slate-800 truncate">{taskData.service?.name || 'N/A'}</p>
+                                </div>
+                                <div className="rounded-xl bg-slate-50 px-3 py-2">
+                                    <p className="text-[11px] text-slate-500">Firm</p>
+                                    <p className="text-sm font-semibold text-slate-800 truncate">{taskData.firm?.firm_name || 'N/A'}</p>
+                                </div>
+                                <div className="rounded-xl bg-slate-50 px-3 py-2">
+                                    <p className="text-[11px] text-slate-500">Charges</p>
+                                    <div className="space-y-0.5">
+                                        <p className="text-xs text-slate-600">Fees: <span className="font-semibold text-slate-800">₹{Number(taskData.charges?.fees ?? 0).toLocaleString('en-IN')}</span></p>
+                                        <p className="text-xs text-slate-600">Tax: <span className="font-semibold text-slate-800">{taskData.charges?.tax_rate ?? 0}% (₹{Number(taskData.charges?.tax_value ?? 0).toLocaleString('en-IN')})</span></p>
+                                        <p className="text-xs text-slate-600">Total: <span className="font-semibold text-slate-900">₹{Number(taskData.charges?.total ?? (Number(taskData.charges?.fees ?? 0) + Number(taskData.charges?.tax_value ?? 0))).toLocaleString('en-IN')}</span></p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="rounded-2xl border border-slate-200 bg-white p-4">
+                            <h4 className="text-sm font-semibold text-slate-800 mb-3">Actions</h4>
+                            <div className="space-y-2">
+                                <motion.button
+                                    type="button"
+                                    onClick={() => setStatusModalOpen(true)}
+                                    disabled={isChangingStatus}
+                                    className="w-full inline-flex items-center justify-center gap-1.5 px-3 py-2.5 text-xs font-semibold text-indigo-700 bg-indigo-50 border border-indigo-200 rounded-xl hover:bg-indigo-100 disabled:opacity-50"
+                                    whileHover={{ scale: 1.01 }}
+                                    whileTap={{ scale: 0.98 }}
+                                >
+                                    {isChangingStatus ? <FiLoader className="w-3.5 h-3.5 animate-spin" /> : <FiEdit className="w-3.5 h-3.5" />}
+                                    Change Status
+                                </motion.button>
+                                <div className="rounded-xl bg-slate-50 px-3 py-2">
+                                    <p className="text-[11px] text-slate-500">Billing</p>
+                                    <div className="flex flex-wrap items-center gap-1.5 mt-1">
+                                        <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold border capitalize ${
+                                        taskData.billing_status === 'complete'
+                                            ? 'bg-green-100 text-green-700 border-green-200'
+                                            : taskData.billing_status === 'non billable'
+                                                ? 'bg-blue-100 text-blue-700 border-blue-200'
+                                                : 'bg-amber-100 text-amber-700 border-amber-200'
+                                    }`}>
+                                        {taskData.billing_status === 'complete'
+                                            ? 'Bill Generated'
+                                            : taskData.billing_status === 'non billable'
+                                                ? 'Non Billable'
+                                                : 'Pending'}
+                                        </span>
+                                        {taskData.billing_status === 'complete' && taskData.invoice_no && (
+                                            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold border bg-indigo-50 text-indigo-700 border-indigo-200">
+                                                {taskData.invoice_no}
+                                            </span>
+                                        )}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
                     </div>
 
-                    {/* ─ Right: Assignment Details ─ */}
-                    <div>
-                        <SectionTitle icon={FiUsers} title="Assignment Details" />
-
-                        {/* Status row */}
-                        <div className="py-3 border-b border-gray-100">
-                            <p className="text-xs text-gray-500 mb-1">Status</p>
-                            {isComplete ? (
-                                <div className="flex items-center gap-2">
-                                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold border ${STATUS_COLORS['complete']}`}>
-                                        Complete
-                                    </span>
-                                    <span className="text-xs text-gray-400">(Status is locked once complete)</span>
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                        <div className="rounded-2xl border border-slate-200 bg-white p-4">
+                            <SectionTitle icon={FiBriefcase} title="Task Details" />
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-3 text-sm">
+                                <div><p className="text-xs text-slate-500">Client</p><p className="font-semibold text-slate-800">{taskData.client?.profile?.name || taskData.client?.name || 'N/A'}</p></div>
+                                <div>
+                                    <p className="text-xs text-slate-500">Client Mobile</p>
+                                    <p className="text-xs text-slate-700 inline-flex items-center gap-1"><FiPhone className="w-3 h-3 text-slate-500" />{taskData.client?.profile?.mobile || 'N/A'}</p>
                                 </div>
-                            ) : (
-                                <div className="flex items-center gap-2">
-                                    <select
-                                        value={selectedStatus}
-                                        onChange={(e) => handleStatusChange(e.target.value)}
-                                        disabled={isChangingStatus}
-                                        className="text-sm border border-gray-300 rounded-lg px-3 py-1.5 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none disabled:opacity-50 bg-white"
-                                    >
-                                        {STATUS_OPTIONS.map(o => (
-                                            <option key={o.value} value={o.value}>{o.label}</option>
+                                <div>
+                                    <p className="text-xs text-slate-500">Client Email</p>
+                                    <p className="text-xs text-slate-700 inline-flex items-center gap-1"><FiMail className="w-3 h-3 text-slate-500" />{taskData.client?.profile?.email || 'N/A'}</p>
+                                </div>
+                                <div><p className="text-xs text-slate-500">Recurring</p><p className="font-semibold text-slate-800">{taskData.is_recurring ? 'Yes' : 'No'}</p></div>
+                                {taskData.billing_status === 'complete' && taskData.invoice_no && (
+                                    <div className="sm:col-span-2">
+                                        <p className="text-xs text-slate-500">Invoice No</p>
+                                        <p className="font-mono text-sm font-semibold text-indigo-700 tracking-wide">{taskData.invoice_no}</p>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+
+                        <div className="rounded-2xl border border-slate-200 bg-white p-4">
+                            <SectionTitle icon={FiUsers} title="Assignment Details" />
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-3 text-sm">
+                                <div><p className="text-xs text-slate-500">Due Date</p><p className="font-semibold text-slate-800">{formatDate(taskData.dates?.due_date)}</p></div>
+                                <div><p className="text-xs text-slate-500">Target Date</p><p className="font-semibold text-slate-800">{formatDate(taskData.dates?.target_date)}</p></div>
+                                <div><p className="text-xs text-slate-500">Created Date</p><p className="font-semibold text-slate-800">{formatDate(taskData.dates?.create_date)}</p></div>
+                                <div><p className="text-xs text-slate-500">CA</p><p className="font-semibold text-slate-800">{taskData.has_ca && taskData.ca ? (taskData.ca.name || taskData.ca.username) : 'Not assigned'}</p></div>
+                                <div><p className="text-xs text-slate-500">Agent</p><p className="font-semibold text-slate-800">{taskData.has_agent && taskData.agent ? (taskData.agent.name || taskData.agent.username) : 'Not assigned'}</p></div>
+                            </div>
+                            <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                <div className="rounded-xl bg-slate-50 border border-slate-200 px-3 py-2.5">
+                                    <p className="text-xs text-slate-500 mb-1">Created By</p>
+                                    <p className="text-sm font-semibold text-slate-800">{taskData.create_by?.name || 'N/A'}</p>
+                                    <p className="text-xs text-slate-700 inline-flex items-center gap-1 mt-1"><FiPhone className="w-3 h-3 text-slate-500" />{taskData.create_by?.mobile || 'N/A'}</p>
+                                    <p className="text-xs text-slate-700 inline-flex items-center gap-1"><FiMail className="w-3 h-3 text-slate-500" />{taskData.create_by?.email || 'N/A'}</p>
+                                </div>
+                                <div className="rounded-xl bg-slate-50 border border-slate-200 px-3 py-2.5">
+                                    <p className="text-xs text-slate-500 mb-1">Modified By</p>
+                                    <p className="text-sm font-semibold text-slate-800">{taskData.modify_by?.name || 'N/A'}</p>
+                                    <p className="text-xs text-slate-700 inline-flex items-center gap-1 mt-1"><FiPhone className="w-3 h-3 text-slate-500" />{taskData.modify_by?.mobile || 'N/A'}</p>
+                                    <p className="text-xs text-slate-700 inline-flex items-center gap-1"><FiMail className="w-3 h-3 text-slate-500" />{taskData.modify_by?.email || 'N/A'}</p>
+                                </div>
+                            </div>
+                            {Array.isArray(taskData.staffs) && taskData.staffs.length > 0 && (
+                                <div className="mt-4 pt-3 border-t border-slate-100">
+                                    <p className="text-xs text-slate-500 mb-2">Assigned Staff</p>
+                                    <div className="flex flex-wrap gap-1.5">
+                                        {taskData.staffs.map((s, i) => (
+                                            <span key={i} className="inline-flex items-center gap-1 px-2 py-0.5 bg-indigo-50 border border-indigo-100 text-indigo-700 text-xs font-medium rounded-full">
+                                                <FiUser className="w-2.5 h-2.5" />
+                                                {s.name || s.username}
+                                            </span>
                                         ))}
-                                    </select>
-                                    {isChangingStatus && <FiLoader className="w-3.5 h-3.5 animate-spin text-indigo-500" />}
+                                    </div>
+                                </div>
+                            )}
+                            {Array.isArray(taskData.staffs) && taskData.staffs.length === 0 && (
+                                <div className="mt-4 pt-3 border-t border-slate-100">
+                                    <p className="text-xs text-slate-500">Assigned Staff</p>
+                                    <p className="text-sm text-slate-400">No staff assigned</p>
                                 </div>
                             )}
                         </div>
-
-                        <InfoPair label="Due Date">{formatDate(taskData.dates?.due_date)}</InfoPair>
-                        <InfoPair label="Target Date">{formatDate(taskData.dates?.target_date)}</InfoPair>
-                        <InfoPair label="Created On">
-                            {taskData.dates?.create_date ? new Date(taskData.dates.create_date).toLocaleString() : 'N/A'}
-                        </InfoPair>
-                        <InfoPair label="Created By">{taskData.create_by?.name || 'N/A'}</InfoPair>
-                        <InfoPair label="Modified By">{taskData.modify_by?.name || 'N/A'}</InfoPair>
-                        <InfoPair label="CA">
-                            {taskData.has_ca && taskData.ca
-                                ? <span className="text-indigo-700 font-semibold">{taskData.ca.name || taskData.ca.username}</span>
-                                : <span className="text-gray-400 text-sm">Not assigned</span>
-                            }
-                        </InfoPair>
-                        <InfoPair label="Agent">
-                            {taskData.has_agent && taskData.agent
-                                ? <span className="text-indigo-700 font-semibold">{taskData.agent.name || taskData.agent.username}</span>
-                                : <span className="text-gray-400 text-sm">Not assigned</span>
-                            }
-                        </InfoPair>
-                        {Array.isArray(taskData.staffs) && taskData.staffs.length > 0 && (
-                            <InfoPair label="Assigned Staff">
-                                <div className="flex flex-wrap gap-1.5 mt-1">
-                                    {taskData.staffs.map((s, i) => (
-                                        <span key={i} className="inline-flex items-center gap-1 px-2 py-0.5 bg-indigo-50 border border-indigo-100 text-indigo-700 text-xs font-medium rounded-full">
-                                            <FiUser className="w-2.5 h-2.5" />
-                                            {s.name || s.username}
-                                        </span>
-                                    ))}
-                                </div>
-                            </InfoPair>
-                        )}
                     </div>
                 </div>
             </div>
@@ -626,7 +620,7 @@ const DetailsTab = ({ taskData: initialData, task_id, onTaskUpdated }) => {
                                         <FiLock className="w-4 h-4 text-amber-500 flex-shrink-0 mt-0.5" />
                                         <div>
                                             <p className="text-sm font-semibold text-amber-800">Bill already generated</p>
-                                            <p className="text-xs text-amber-700 mt-0.5">Only <strong>Fees</strong>, <strong>CA</strong>, and <strong>Agent</strong> can be edited. All other fields are locked.</p>
+                                            <p className="text-xs text-amber-700 mt-0.5">Only <strong>Fees</strong> and <strong>Tax Rate</strong> can be edited. All other fields are locked.</p>
                                         </div>
                                     </div>
                                 )}
@@ -722,57 +716,25 @@ const DetailsTab = ({ taskData: initialData, task_id, onTaskUpdated }) => {
                                             </div>
                                         )}
 
-                                        {/* Service — searchable */}
+                                        {/* Service */}
                                         {billGenerated ? (
                                             <LockedField label="Service" value={services.find(s => s.service_id === editForm.service_id)?.name || taskData.service?.name} />
                                         ) : (
-                                            <div className="space-y-2" ref={serviceDropdownRef}>
+                                            <div className="space-y-2">
                                                 <label className="block text-sm font-medium text-gray-700">
                                                     Service <span className="text-red-500">*</span>
                                                 </label>
-                                                <div className="relative flex items-center w-full bg-white border border-gray-300 rounded-xl overflow-visible focus-within:ring-2 focus-within:ring-indigo-500 focus-within:border-indigo-500 min-h-[46px]">
-                                                    <FiBriefcase className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 shrink-0 pointer-events-none z-10" />
-                                                    {editForm.service_id ? (
-                                                        <>
-                                                            <span className="flex-1 pl-9 pr-9 py-2.5 text-sm text-gray-900 font-medium truncate">
-                                                                {services.find(s => s.service_id === editForm.service_id)?.name || editForm.service_id}
-                                                            </span>
-                                                            <button
-                                                                type="button"
-                                                                onClick={() => { setEF({ service_id: '' }); setServiceSearchQuery(''); setServiceDropdownOpen(false); }}
-                                                                className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
-                                                            >
-                                                                <FiX className="w-4 h-4" />
-                                                            </button>
-                                                        </>
-                                                    ) : (
-                                                        <>
-                                                            <input
-                                                                type="text"
-                                                                value={serviceSearchQuery}
-                                                                onChange={(e) => { setServiceSearchQuery(e.target.value); setServiceDropdownOpen(true); }}
-                                                                onFocus={() => setServiceDropdownOpen(true)}
-                                                                placeholder="Search service..."
-                                                                className="flex-1 min-w-0 pl-9 pr-3 py-2.5 text-sm border-0 bg-transparent focus:ring-0 focus:outline-none placeholder-gray-400"
-                                                            />
-                                                            {serviceDropdownOpen && (
-                                                                <div className="absolute z-20 left-0 right-0 top-full mt-1 bg-white border border-gray-200 rounded-xl shadow-lg max-h-56 overflow-y-auto">
-                                                                    {filteredServices.length === 0 && (
-                                                                        <div className="p-3 text-sm text-gray-400 text-center">No services found</div>
-                                                                    )}
-                                                                    {filteredServices.map(s => (
-                                                                        <button key={s.service_id} type="button"
-                                                                            onClick={() => { setEF({ service_id: s.service_id }); setServiceSearchQuery(''); setServiceDropdownOpen(false); }}
-                                                                            className="w-full px-3 py-2.5 text-left text-sm hover:bg-indigo-50 border-b border-gray-100 last:border-0 font-medium text-gray-900 transition-colors"
-                                                                        >
-                                                                            {s.name}
-                                                                        </button>
-                                                                    ))}
-                                                                </div>
-                                                            )}
-                                                        </>
-                                                    )}
-                                                </div>
+                                                <SelectInput
+                                                    options={services.map((service) => ({
+                                                        value: service.service_id,
+                                                        label: service.name || 'Unnamed Service',
+                                                    }))}
+                                                    value={editForm.service_id || null}
+                                                    onChange={(nextValue) => setEF({ service_id: nextValue || '' })}
+                                                    placeholder="Select service"
+                                                    searchPlaceholder="Search service..."
+                                                    clearable={true}
+                                                />
                                             </div>
                                         )}
                                     </div>
@@ -805,27 +767,23 @@ const DetailsTab = ({ taskData: initialData, task_id, onTaskUpdated }) => {
                                                 />
                                             </div>
                                         </div>
-                                        {billGenerated ? (
-                                            <LockedField label="Tax Rate (%)" value={`${editForm.tax_rate || 0}%`} />
-                                        ) : (
-                                            <div className="space-y-2">
-                                                <label className="block text-sm font-medium text-gray-700">Tax Rate (%)</label>
-                                                <div className="relative">
-                                                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm font-medium">%</span>
-                                                    <input
-                                                        type="text"
-                                                        inputMode="decimal"
-                                                        value={editForm.tax_rate}
-                                                        onChange={(e) => {
-                                                            const val = e.target.value;
-                                                            if (val === '' || /^\d*\.?\d*$/.test(val)) setEF({ tax_rate: val });
-                                                        }}
-                                                        className="w-full pl-8 pr-3 py-3 text-sm border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-white outline-none"
-                                                        placeholder="0"
-                                                    />
-                                                </div>
+                                        <div className="space-y-2">
+                                            <label className="block text-sm font-medium text-gray-700">Tax Rate (%)</label>
+                                            <div className="relative">
+                                                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm font-medium">%</span>
+                                                <input
+                                                    type="text"
+                                                    inputMode="decimal"
+                                                    value={editForm.tax_rate}
+                                                    onChange={(e) => {
+                                                        const val = e.target.value;
+                                                        if (val === '' || /^\d*\.?\d*$/.test(val)) setEF({ tax_rate: val });
+                                                    }}
+                                                    className="w-full pl-8 pr-3 py-3 text-sm border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-white outline-none"
+                                                    placeholder="0"
+                                                />
                                             </div>
-                                        )}
+                                        </div>
                                     </div>
                                     {/* Total amount summary */}
                                     {fees > 0 && (
@@ -856,15 +814,15 @@ const DetailsTab = ({ taskData: initialData, task_id, onTaskUpdated }) => {
                                         ) : (
                                             <div className="space-y-2">
                                                 <label className="block text-sm font-medium text-gray-700">Due Date</label>
-                                                <div className="relative">
-                                                    <FiCalendar className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4 pointer-events-none z-10" />
-                                                    <input
-                                                        type="date"
-                                                        value={editForm.due_date}
-                                                        onChange={(e) => setEF({ due_date: e.target.value })}
-                                                        className="w-full pl-10 pr-3 py-3 text-sm border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-white outline-none"
-                                                    />
-                                                </div>
+                                                <DatePickerField
+                                                    value={editForm.due_date}
+                                                    onChange={(value) => setEF({ due_date: value || '' })}
+                                                    placeholder="Select due date"
+                                                    mode="single"
+                                                    initialTab="single"
+                                                    quickOptionKeys={['td', 'tom', 'n7', 'eom']}
+                                                    buttonClassName="w-full pl-3 pr-3 py-3 text-sm border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-white outline-none"
+                                                />
                                             </div>
                                         )}
                                         {billGenerated ? (
@@ -872,15 +830,15 @@ const DetailsTab = ({ taskData: initialData, task_id, onTaskUpdated }) => {
                                         ) : (
                                             <div className="space-y-2">
                                                 <label className="block text-sm font-medium text-gray-700">Target Date</label>
-                                                <div className="relative">
-                                                    <FiCalendar className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4 pointer-events-none z-10" />
-                                                    <input
-                                                        type="date"
-                                                        value={editForm.target_date}
-                                                        onChange={(e) => setEF({ target_date: e.target.value })}
-                                                        className="w-full pl-10 pr-3 py-3 text-sm border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-white outline-none"
-                                                    />
-                                                </div>
+                                                <DatePickerField
+                                                    value={editForm.target_date}
+                                                    onChange={(value) => setEF({ target_date: value || '' })}
+                                                    placeholder="Select target date"
+                                                    mode="single"
+                                                    initialTab="single"
+                                                    quickOptionKeys={['td', 'tom', 'n7', 'eom']}
+                                                    buttonClassName="w-full pl-3 pr-3 py-3 text-sm border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-white outline-none"
+                                                />
                                             </div>
                                         )}
                                     </div>
@@ -904,12 +862,13 @@ const DetailsTab = ({ taskData: initialData, task_id, onTaskUpdated }) => {
                                                     type="button"
                                                     role="switch"
                                                     aria-checked={editForm.has_ca}
+                                                    disabled={billGenerated}
                                                     onClick={() => {
                                                         const next = !editForm.has_ca;
                                                         setEF({ has_ca: next, ca_id: next ? editForm.ca_id : '', caDisplay: next ? editForm.caDisplay : null });
                                                         if (!next) { setCaSearchQuery(''); setCaSearchResults([]); }
                                                     }}
-                                                    className={`relative inline-flex h-6 w-10 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 ${editForm.has_ca ? 'bg-indigo-600' : 'bg-gray-200'}`}
+                                                    className={`relative inline-flex h-6 w-10 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed ${editForm.has_ca ? 'bg-indigo-600' : 'bg-gray-200'}`}
                                                 >
                                                     <span className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition ${editForm.has_ca ? 'translate-x-4' : 'translate-x-0'}`} />
                                                 </button>
@@ -930,8 +889,9 @@ const DetailsTab = ({ taskData: initialData, task_id, onTaskUpdated }) => {
                                                                         {editForm.caDisplay.email && <span className="text-xs text-gray-400">{editForm.caDisplay.email}</span>}
                                                                     </div>
                                                                     <button type="button"
+                                                                        disabled={billGenerated}
                                                                         onClick={() => { setEF({ ca_id: '', caDisplay: null }); setCaSearchQuery(''); setCaSearchResults([]); }}
-                                                                        className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+                                                                        className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors disabled:opacity-50"
                                                                     >
                                                                         <FiX className="w-4 h-4" />
                                                                     </button>
@@ -940,11 +900,12 @@ const DetailsTab = ({ taskData: initialData, task_id, onTaskUpdated }) => {
                                                                 <>
                                                                     <input
                                                                         type="text" value={caSearchQuery}
+                                                                        disabled={billGenerated}
                                                                         onChange={(e) => setCaSearchQuery(e.target.value)}
                                                                         placeholder="Search CA (min 3 characters)..."
-                                                                        className="flex-1 min-w-0 pl-9 pr-3 py-2.5 text-sm border-0 bg-transparent focus:ring-0 focus:outline-none placeholder-gray-400"
+                                                                        className="flex-1 min-w-0 pl-9 pr-3 py-2.5 text-sm border-0 bg-transparent focus:ring-0 focus:outline-none placeholder-gray-400 disabled:opacity-50"
                                                                     />
-                                                                    {caSearchQuery.trim().length >= 3 && (
+                                                                        {!billGenerated && caSearchQuery.trim().length >= 3 && (
                                                                         <div className="absolute z-20 left-0 right-0 top-full mt-1 bg-white border border-gray-200 rounded-xl shadow-lg max-h-56 overflow-y-auto">
                                                                             {caSearchLoading && <div className="p-3 text-sm text-gray-500">Searching...</div>}
                                                                             {!caSearchLoading && caSearchResults.length === 0 && <div className="p-3 text-sm text-gray-500">No results</div>}
@@ -981,12 +942,13 @@ const DetailsTab = ({ taskData: initialData, task_id, onTaskUpdated }) => {
                                                     type="button"
                                                     role="switch"
                                                     aria-checked={editForm.has_agent}
+                                                    disabled={billGenerated}
                                                     onClick={() => {
                                                         const next = !editForm.has_agent;
                                                         setEF({ has_agent: next, agent_id: next ? editForm.agent_id : '', agentDisplay: next ? editForm.agentDisplay : null });
                                                         if (!next) { setAgentSearchQuery(''); setAgentSearchResults([]); }
                                                     }}
-                                                    className={`relative inline-flex h-6 w-10 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 ${editForm.has_agent ? 'bg-indigo-600' : 'bg-gray-200'}`}
+                                                    className={`relative inline-flex h-6 w-10 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed ${editForm.has_agent ? 'bg-indigo-600' : 'bg-gray-200'}`}
                                                 >
                                                     <span className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition ${editForm.has_agent ? 'translate-x-4' : 'translate-x-0'}`} />
                                                 </button>
@@ -1006,8 +968,9 @@ const DetailsTab = ({ taskData: initialData, task_id, onTaskUpdated }) => {
                                                                         {editForm.agentDisplay.name}
                                                                     </span>
                                                                     <button type="button"
+                                                                        disabled={billGenerated}
                                                                         onClick={() => { setEF({ agent_id: '', agentDisplay: null }); setAgentSearchQuery(''); setAgentSearchResults([]); }}
-                                                                        className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+                                                                        className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors disabled:opacity-50"
                                                                     >
                                                                         <FiX className="w-4 h-4" />
                                                                     </button>
@@ -1016,11 +979,12 @@ const DetailsTab = ({ taskData: initialData, task_id, onTaskUpdated }) => {
                                                                 <>
                                                                     <input
                                                                         type="text" value={agentSearchQuery}
+                                                                        disabled={billGenerated}
                                                                         onChange={(e) => setAgentSearchQuery(e.target.value)}
                                                                         placeholder="Search Agent (min 3 characters)..."
-                                                                        className="flex-1 min-w-0 pl-9 pr-3 py-2.5 text-sm border-0 bg-transparent focus:ring-0 focus:outline-none placeholder-gray-400"
+                                                                        className="flex-1 min-w-0 pl-9 pr-3 py-2.5 text-sm border-0 bg-transparent focus:ring-0 focus:outline-none placeholder-gray-400 disabled:opacity-50"
                                                                     />
-                                                                    {agentSearchQuery.trim().length >= 3 && (
+                                                                    {!billGenerated && agentSearchQuery.trim().length >= 3 && (
                                                                         <div className="absolute z-20 left-0 right-0 top-full mt-1 bg-white border border-gray-200 rounded-xl shadow-lg max-h-56 overflow-y-auto">
                                                                             {agentSearchLoading && <div className="p-3 text-sm text-gray-500">Searching...</div>}
                                                                             {!agentSearchLoading && agentSearchResults.length === 0 && <div className="p-3 text-sm text-gray-500">No results</div>}
@@ -1207,76 +1171,15 @@ const DetailsTab = ({ taskData: initialData, task_id, onTaskUpdated }) => {
                 )}
             </AnimatePresence>
 
-            {/* ══════════════════════════════════════════
-                Status Change Confirmation Modal
-            ══════════════════════════════════════════ */}
-            <AnimatePresence>
-                {statusConfirm && (
-                    <motion.div
-                        key="status-confirm-overlay"
-                        initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-                        className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[60] p-4"
-                        onClick={(e) => !isChangingStatus && e.target === e.currentTarget && setStatusConfirm(null)}
-                    >
-                        <motion.div
-                            key="status-confirm-modal"
-                            initial={{ opacity: 0, scale: 0.95, y: 10 }}
-                            animate={{ opacity: 1, scale: 1, y: 0 }}
-                            exit={{ opacity: 0, scale: 0.95, y: 10 }}
-                            transition={{ type: 'spring', damping: 28, stiffness: 320 }}
-                            className="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden"
-                            onClick={(e) => e.stopPropagation()}
-                        >
-                            {/* Header */}
-                            <div className={`px-6 py-4 flex items-center gap-3 ${statusConfirm.newStatus === 'complete' ? 'bg-green-600' : 'bg-red-600'}`}>
-                                <div className="w-9 h-9 rounded-full bg-white/20 flex items-center justify-center flex-shrink-0">
-                                    <FiAlertCircle className="w-4 h-4 text-white" />
-                                </div>
-                                <div>
-                                    <h3 className="text-sm font-bold text-white">
-                                        {statusConfirm.newStatus === 'complete' ? 'Mark as Complete?' : 'Cancel this Task?'}
-                                    </h3>
-                                    <p className="text-xs text-white/70 mt-0.5">This action cannot be undone</p>
-                                </div>
-                            </div>
-
-                            {/* Body */}
-                            <div className="px-6 py-5">
-                                <p className="text-sm text-gray-600">
-                                    {statusConfirm.newStatus === 'complete'
-                                        ? 'Once marked as complete, the task status will be locked. You will not be able to change the status again.'
-                                        : 'Are you sure you want to cancel this task? The task will be marked as cancelled and no further changes to status will be possible.'
-                                    }
-                                </p>
-                            </div>
-
-                            {/* Footer */}
-                            <div className="px-6 py-4 border-t border-gray-100 bg-gray-50 flex items-center justify-end gap-3">
-                                <button
-                                    type="button"
-                                    disabled={isChangingStatus}
-                                    onClick={() => setStatusConfirm(null)}
-                                    className="px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-200 rounded-xl transition-colors disabled:opacity-50"
-                                >
-                                    Cancel
-                                </button>
-                                <motion.button
-                                    type="button"
-                                    disabled={isChangingStatus}
-                                    onClick={() => executeStatusChange(statusConfirm.newStatus)}
-                                    className={`flex items-center gap-2 px-5 py-2 text-white text-sm font-semibold rounded-xl transition-colors disabled:opacity-50 shadow-sm min-w-[110px] justify-center ${statusConfirm.newStatus === 'complete' ? 'bg-green-600 hover:bg-green-700' : 'bg-red-600 hover:bg-red-700'}`}
-                                    whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
-                                >
-                                    {isChangingStatus
-                                        ? <><FiLoader className="w-4 h-4 animate-spin" /> Updating…</>
-                                        : statusConfirm.newStatus === 'complete' ? 'Yes, Complete' : 'Yes, Cancel'
-                                    }
-                                </motion.button>
-                            </div>
-                        </motion.div>
-                    </motion.div>
-                )}
-            </AnimatePresence>
+            <TaskStatusChange
+                isOpen={statusModalOpen}
+                onClose={() => setStatusModalOpen(false)}
+                taskId={task_id}
+                taskName={taskData.service?.name || ''}
+                currentStatus={taskData.status || ''}
+                onStatusChange={handleStatusChange}
+                statusOptions={STATUS_OPTIONS.map((statusOption) => ({ value: statusOption.value, name: statusOption.label }))}
+            />
         </>
     );
 };
