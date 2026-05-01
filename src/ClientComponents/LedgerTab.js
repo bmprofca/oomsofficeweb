@@ -665,7 +665,7 @@ const ClientLedger = () => {
                                 {clientProfile.mobile && ` · +${clientProfile.country_code || '91'} ${clientProfile.mobile}`}
                             </p>
                         )}
-                    </div>
+                </div>
 
                     <div className="flex flex-wrap items-center justify-end gap-2">
                         <button
@@ -695,55 +695,55 @@ const ClientLedger = () => {
                                 wrapperClassName="w-full"
                             />
                         </div>
-                        <motion.button
-                            onClick={handleRefresh}
+                    <motion.button
+                        onClick={handleRefresh}
                             className="p-2 bg-white rounded-lg shadow-sm hover:shadow transition-all duration-200 border border-slate-200"
-                            whileHover={{ scale: 1.05 }}
-                            whileTap={{ scale: 0.95 }}
-                            title="Refresh"
-                        >
-                            <FiRefreshCw className="w-5 h-5 text-slate-600" />
-                        </motion.button>
-                        <motion.button
-                            onClick={() => handleExport('pdf')}
+                        whileHover={{ scale: 1.05 }}
+                        whileTap={{ scale: 0.95 }}
+                        title="Refresh"
+                    >
+                        <FiRefreshCw className="w-5 h-5 text-slate-600" />
+                    </motion.button>
+                    <motion.button
+                        onClick={() => handleExport('pdf')}
                             className="p-2 bg-white rounded-lg shadow-sm hover:shadow transition-all duration-200 border border-slate-200"
-                            whileHover={{ scale: 1.05 }}
-                            whileTap={{ scale: 0.95 }}
-                            title="Export PDF"
-                        >
-                            <FiDownload className="w-5 h-5 text-slate-600" />
-                        </motion.button>
+                        whileHover={{ scale: 1.05 }}
+                        whileTap={{ scale: 0.95 }}
+                        title="Export PDF"
+                    >
+                        <FiDownload className="w-5 h-5 text-slate-600" />
+                    </motion.button>
                         <div className="relative">
-                            <motion.button
+                    <motion.button
                                 onClick={(e) => {
                                     e.stopPropagation();
                                     setShowAddMenu((prev) => !prev);
                                 }}
                                 className="p-2 bg-gradient-to-r from-blue-600 to-blue-700 rounded-lg shadow-sm hover:shadow transition-all duration-200 text-white"
-                                whileHover={{ scale: 1.05 }}
-                                whileTap={{ scale: 0.95 }}
-                                title="Add Transaction"
-                            >
-                                <FiPlus className="w-5 h-5" />
-                            </motion.button>
+                            whileHover={{ scale: 1.05 }}
+                            whileTap={{ scale: 0.95 }}
+                            title="Add Transaction"
+                        >
+                            <FiPlus className="w-5 h-5" />
+                        </motion.button>
                             {showAddMenu && (
                                 <div
                                     className="absolute right-0 mt-2 w-48 bg-white rounded-xl shadow-xl border border-slate-200 py-2 z-50"
                                     onClick={(e) => e.stopPropagation()}
                                 >
-                                    {['RECEIVE', 'PAYMENT', 'SALE', 'PURCHASE', 'EXPENSE', 'JOURNAL'].map((type) => (
-                                        <button
-                                            key={type}
-                                            onClick={() => handleTransactionTypeClick(type)}
-                                            className="w-full px-4 py-2 text-left text-sm text-slate-700 hover:bg-blue-50 flex items-center gap-3 transition-colors"
-                                        >
-                                            <span className="text-blue-600">{getTransactionTypeIcon(type)}</span>
-                                            {type.charAt(0) + type.slice(1).toLowerCase()}
-                                        </button>
-                                    ))}
-                                </div>
-                            )}
+                            {['RECEIVE', 'PAYMENT', 'SALE', 'PURCHASE', 'EXPENSE', 'JOURNAL'].map((type) => (
+                                <button
+                                    key={type}
+                                    onClick={() => handleTransactionTypeClick(type)}
+                                    className="w-full px-4 py-2 text-left text-sm text-slate-700 hover:bg-blue-50 flex items-center gap-3 transition-colors"
+                                >
+                                    <span className="text-blue-600">{getTransactionTypeIcon(type)}</span>
+                                    {type.charAt(0) + type.slice(1).toLowerCase()}
+                                </button>
+                            ))}
                         </div>
+                            )}
+                    </div>
                     </div>
                 </div>
             </motion.div>

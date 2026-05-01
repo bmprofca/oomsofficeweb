@@ -1,10 +1,11 @@
 // TaskDisplay.jsx
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useLayoutEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { Sidebar, Header } from '../components/header';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-    FiUsers, FiBriefcase, FiCalendar, FiDollarSign, FiUserCheck,
+    FiUsers, FiBriefcase, FiCalendar, FiUserCheck,
     FiUserPlus, FiFileText, FiPlus, FiSearch, FiRefreshCw,
     FiPaperclip, FiX, FiMic, FiStopCircle, FiDownload, FiTrash2,
     FiArrowRight, FiArrowLeft, FiUser, FiLoader, FiCheckCircle,
@@ -16,11 +17,16 @@ import {
 import { PiExportBold, PiFilePdfDuotone, PiMicrosoftExcelLogoDuotone } from "react-icons/pi";
 import { AiOutlineMail } from "react-icons/ai";
 import { FaWhatsapp } from "react-icons/fa6";
+import toast from 'react-hot-toast';
 
 // Import components
 import TaskTable from '../TaskComponent/TaskTable';
 import TaskCards from '../TaskComponent/TaskCards';
 import SettingsModal from '../TaskComponent/SettingsModal';
+import MultiSelectInput from '../components/MultiSelectInput';
+import AssignedStaffList from '../components/Modals/AssignedStaffList';
+import TaskStatusChange from '../components/Modals/TaskStatusChange';
+import TablePagination from '../components/TablePagination';
 
 // Import other modals
 import DeleteConfirmationModal from '../components/delete-confirmation';
@@ -42,6 +48,7 @@ const statusOptions = [
     { value: 'complete', name: 'Complete' },
     { value: 'cancel', name: 'Cancel' }
 ];
+const DEFAULT_SELECTED_STATUSES = ['in process', 'pending from client', 'pending from department'];
 
 const availableFields = [
     { id: 'task_id', label: 'Task ID', type: 'text' },
@@ -189,20 +196,20 @@ const formatStatus = (status) => {
 
 const TableViewSwitch = ({ viewMode, setViewMode }) => (
     <div className="flex items-center gap-1 bg-gray-100 rounded-lg p-1">
-        <motion.button 
-            onClick={() => setViewMode('table')} 
-            className={`flex items-center gap-2 px-3 py-2 rounded-md transition-all ${viewMode === 'table' ? 'bg-white shadow-sm text-indigo-600' : 'text-gray-600'}`} 
-            whileHover={{ scale: 1.05 }} 
+        <motion.button
+            onClick={() => setViewMode('table')}
+            className={`flex items-center gap-2 px-3 py-2 rounded-md transition-all ${viewMode === 'table' ? 'bg-white shadow-sm text-indigo-600' : 'text-gray-600'}`}
+            whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
         >
             <FiList className="w-4 h-4" />
             <span className="text-xs font-medium hidden sm:inline">Table</span>
         </motion.button>
-        
-        <motion.button 
-            onClick={() => setViewMode('card')} 
-            className={`flex items-center gap-2 px-3 py-2 rounded-md transition-all ${viewMode === 'card' ? 'bg-white shadow-sm text-indigo-600' : 'text-gray-600'}`} 
-            whileHover={{ scale: 1.05 }} 
+
+        <motion.button
+            onClick={() => setViewMode('card')}
+            className={`flex items-center gap-2 px-3 py-2 rounded-md transition-all ${viewMode === 'card' ? 'bg-white shadow-sm text-indigo-600' : 'text-gray-600'}`}
+            whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
         >
             <FiGrid className="w-4 h-4" />
@@ -213,76 +220,79 @@ const TableViewSwitch = ({ viewMode, setViewMode }) => (
 
 const FilterRow = ({ filters, setFilters, serviceOptions, statusOptions, onSearch, onReset, showFilterRow, setShowFilterRow }) => {
     if (!showFilterRow) return null;
-    
+
     return (
-        <motion.div 
-            className="bg-gray-50 border-b border-gray-200 px-4 py-3" 
-            initial={{ opacity: 0, y: -10 }} 
-            animate={{ opacity: 1, y: 0 }} 
+        <motion.div
+            className="bg-gray-50 border-b border-gray-200 px-4 py-3"
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -10 }}
         >
             <div className="flex flex-wrap items-center gap-3">
-                <div className="min-w-[120px]">
-                    <select className="w-full px-3 py-2 border border-gray-300 rounded-lg text-gray-700 text-sm focus:ring-2 focus:ring-indigo-500">
-                        <option value="all">Search All</option>
-                        <option value="task">Task ID</option>
-                        <option value="client">Client Name</option>
-                    </select>
-                </div>
-                
+
                 <div className="flex-1 min-w-[200px]">
                     <div className="relative">
                         <FiSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-                        <input 
-                            type="text" 
-                            placeholder="Search..." 
-                            value={filters.search} 
-                            onChange={(e) => setFilters(prev => ({ ...prev, search: e.target.value }))} 
-                            className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg text-gray-700 text-sm focus:ring-2 focus:ring-indigo-500" 
+                        <input
+                            type="text"
+                            placeholder="Search..."
+                            value={filters.search}
+                            onChange={(e) => setFilters(prev => ({ ...prev, search: e.target.value }))}
+                            className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg text-gray-700 text-sm focus:ring-2 focus:ring-indigo-500"
                         />
                     </div>
                 </div>
-                
-                <div className="min-w-[180px]">
-                    <select 
-                        value={filters.service_id} 
-                        onChange={(e) => setFilters(prev => ({ ...prev, service_id: e.target.value }))} 
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg text-gray-700 text-sm focus:ring-2 focus:ring-indigo-500"
-                    >
-                        <option value="">All Services</option>
-                        {serviceOptions.map(service => (
-                            <option key={service.value} value={service.value}>{service.name}</option>
-                        ))}
-                    </select>
+
+                <div className="min-w-[220px]">
+                    <MultiSelectInput
+                        options={statusOptions
+                            .filter((status) => status.value !== 'unassign')
+                            .map((status) => ({ ...status, label: status.name }))}
+                        value={filters.status}
+                        onChange={(values) => setFilters((prev) => ({ ...prev, status: values }))}
+                        placeholder="Select Status"
+                        allSelectedLabel="All"
+                        treatEmptyAsAll={true}
+                        searchPlaceholder="Search status..."
+                        showSearch={true}
+                        showSelectActions={true}
+                        valueKey="value"
+                        labelKey="label"
+                        className="w-full"
+                    />
                 </div>
-                
-                <div className="min-w-[180px]">
-                    <select 
-                        value={filters.status} 
-                        onChange={(e) => setFilters(prev => ({ ...prev, status: e.target.value }))} 
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg text-gray-700 text-sm focus:ring-2 focus:ring-indigo-500"
-                    >
-                        <option value="">All Status</option>
-                        {statusOptions.map(status => (
-                            <option key={status.value} value={status.value}>{status.name}</option>
-                        ))}
-                    </select>
+
+                <div className="min-w-[220px]">
+                    <MultiSelectInput
+                        options={serviceOptions.map((service) => ({ ...service, label: service.name }))}
+                        value={filters.service_ids}
+                        onChange={(values) => setFilters((prev) => ({ ...prev, service_ids: values }))}
+                        placeholder="Select Services"
+                        allSelectedLabel="All"
+                        treatEmptyAsAll={true}
+                        searchPlaceholder="Search services..."
+                        showSearch={true}
+                        showSelectActions={true}
+                        valueKey="value"
+                        labelKey="label"
+                        className="w-full"
+                    />
                 </div>
-                
+
                 <div className="flex items-center gap-2">
-                    <motion.button 
-                        onClick={onSearch} 
-                        className="px-4 py-2 bg-indigo-600 text-white rounded-lg text-sm font-medium hover:bg-indigo-700 flex items-center gap-2" 
-                        whileHover={{ scale: 1.05 }} 
+                    <motion.button
+                        onClick={onSearch}
+                        className="px-4 py-2 bg-indigo-600 text-white rounded-lg text-sm font-medium hover:bg-indigo-700 flex items-center gap-2"
+                        whileHover={{ scale: 1.05 }}
                         whileTap={{ scale: 0.95 }}
                     >
                         <FiFilter className="w-4 h-4" /> Apply
                     </motion.button>
-                    
-                    <motion.button 
-                        onClick={onReset} 
-                        className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-100" 
-                        whileHover={{ scale: 1.05 }} 
+
+                    <motion.button
+                        onClick={onReset}
+                        className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-100"
+                        whileHover={{ scale: 1.05 }}
                         whileTap={{ scale: 0.95 }}
                     >
                         Reset
@@ -293,184 +303,54 @@ const FilterRow = ({ filters, setFilters, serviceOptions, statusOptions, onSearc
     );
 };
 
-// Status Change Modal
-const StatusChangeModal = ({ isOpen, onClose, taskId, currentStatus, onStatusChange, statusOptions }) => {
-    const [selectedStatus, setSelectedStatus] = useState(currentStatus);
-    const [loading, setLoading] = useState(false);
-    
-    if (!isOpen) return null;
-
-    const getStatusColor = (status) => ({
-        unassign: 'bg-blue-100 text-blue-700', 
-        'in process': 'bg-orange-100 text-orange-700', 
-        'pending from client': 'bg-purple-100 text-purple-700', 
-        'pending from department': 'bg-yellow-100 text-yellow-700', 
-        complete: 'bg-green-100 text-green-700', 
-        cancel: 'bg-red-100 text-red-700'
-    }[status] || 'bg-gray-100 text-gray-700');
-    
-    const getStatusIcon = (status) => ({
-        unassign: <FiClock />, 
-        'in process': <FiLoader />, 
-        'pending from client': <FiEye />, 
-        'pending from department': <FiXCircle />, 
-        complete: <FiCheckCircle />, 
-        cancel: <FiXCircle />
-    }[status] || <FiClock />);
-
-    const handleConfirm = async () => { 
-        setLoading(true); 
-        await onStatusChange(taskId, selectedStatus); 
-        setLoading(false); 
-        onClose(); 
-    };
-    
-    return (
-        <AnimatePresence>
-            {isOpen && (
-                <motion.div 
-                    className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[100] p-4" 
-                    initial={{ opacity: 0 }} 
-                    animate={{ opacity: 1 }} 
-                    exit={{ opacity: 0 }} 
-                    onClick={onClose}
-                >
-                    <motion.div 
-                        className="bg-white rounded-xl shadow-2xl w-full max-w-sm mx-auto overflow-hidden" 
-                        initial={{ scale: 0.95, opacity: 0, y: 20 }} 
-                        animate={{ scale: 1, opacity: 1, y: 0 }} 
-                        exit={{ scale: 0.95, opacity: 0, y: 20 }} 
-                        onClick={(e) => e.stopPropagation()}
-                    >
-                        <div className="bg-gradient-to-r from-indigo-600 to-indigo-700 text-white px-4 py-3">
-                            <div className="flex items-center justify-between">
-                                <div className="flex items-center gap-2">
-                                    <div className="w-8 h-8 bg-white/20 rounded-lg flex items-center justify-center">
-                                        <FiCheckCircle className="w-4 h-4" />
-                                    </div>
-                                    <div>
-                                        <h3 className="text-base font-bold">Change Status</h3>
-                                        <p className="text-indigo-100 text-xs">Update task status</p>
-                                    </div>
-                                </div>
-                                <motion.button 
-                                    onClick={onClose} 
-                                    className="text-white p-1 rounded-lg hover:bg-white/10" 
-                                    whileHover={{ scale: 1.1 }} 
-                                    whileTap={{ scale: 0.9 }}
-                                >
-                                    <FiX className="w-4 h-4" />
-                                </motion.button>
-                            </div>
-                        </div>
-                        
-                        <div className="p-4 border-b border-gray-200">
-                            <div className="mb-3">
-                                <label className="block text-xs font-semibold text-gray-600 mb-1">Current Status</label>
-                                <div className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border ${getStatusColor(currentStatus)}`}>
-                                    {getStatusIcon(currentStatus)}
-                                    <span className="font-medium text-sm">{statusOptions.find(s => s.value === currentStatus)?.name || currentStatus}</span>
-                                </div>
-                            </div>
-                            
-                            <div className="mb-2">
-                                <label className="block text-xs font-semibold text-gray-600 mb-1">Select New Status</label>
-                                <div className="space-y-1.5">
-                                    {statusOptions.map((status) => (
-                                        <motion.button 
-                                            key={status.value} 
-                                            onClick={() => setSelectedStatus(status.value)} 
-                                            className={`w-full flex items-center justify-between p-2.5 rounded-lg border transition-all ${selectedStatus === status.value ? 'ring-1 ring-indigo-500' : ''} ${getStatusColor(status.value)}`} 
-                                            whileHover={{ scale: 1.01 }} 
-                                            whileTap={{ scale: 0.99 }}
-                                        >
-                                            <div className="flex items-center gap-2">
-                                                {getStatusIcon(status.value)}
-                                                <span className="font-medium text-sm">{status.name}</span>
-                                            </div>
-                                            {selectedStatus === status.value && <FiCheckCircle className="w-4 h-4" />}
-                                        </motion.button>
-                                    ))}
-                                </div>
-                            </div>
-                        </div>
-                        
-                        <div className="px-4 py-3 bg-gray-50 flex justify-end gap-2">
-                            <motion.button 
-                                onClick={onClose} 
-                                className="px-3 py-1.5 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-100 font-medium text-sm" 
-                                whileHover={{ scale: 1.05 }} 
-                                whileTap={{ scale: 0.95 }} 
-                                disabled={loading}
-                            >
-                                Cancel
-                            </motion.button>
-                            
-                            <motion.button 
-                                onClick={handleConfirm} 
-                                className="px-3 py-1.5 bg-gradient-to-r from-indigo-600 to-indigo-700 text-white rounded-lg hover:from-indigo-700 hover:to-indigo-800 font-medium text-sm flex items-center gap-2" 
-                                whileHover={{ scale: 1.05 }} 
-                                whileTap={{ scale: 0.95 }} 
-                                disabled={loading}
-                            >
-                                {loading ? (<><FiLoader className="w-4 h-4 animate-spin" />Updating...</>) : ('Update')}
-                            </motion.button>
-                        </div>
-                    </motion.div>
-                </motion.div>
-            )}
-        </AnimatePresence>
-    );
-};
-
 // Bulk Status Change Modal
 const BulkStatusChangeModal = ({ isOpen, onClose, selectedCount, onConfirm, loading }) => {
     const [selectedStatus, setSelectedStatus] = useState('');
     const [localLoading, setLocalLoading] = useState(false);
-    
+
     if (!isOpen) return null;
-    
+
     const statusOptions = [
-        { value: 'unassign', name: 'Unassign' }, 
-        { value: 'in process', name: 'In Process' }, 
-        { value: 'pending from client', name: 'Pending from Client' }, 
-        { value: 'pending from department', name: 'Pending from Department' }, 
-        { value: 'complete', name: 'Complete' }, 
+        { value: 'unassign', name: 'Unassign' },
+        { value: 'in process', name: 'In Process' },
+        { value: 'pending from client', name: 'Pending from Client' },
+        { value: 'pending from department', name: 'Pending from Department' },
+        { value: 'complete', name: 'Complete' },
         { value: 'cancel', name: 'Cancel' }
     ];
-    
+
     const getStatusColor = (status) => ({
-        unassign: 'bg-blue-100 text-blue-700', 
-        'in process': 'bg-orange-100 text-orange-700', 
-        'pending from client': 'bg-purple-100 text-purple-700', 
-        'pending from department': 'bg-yellow-100 text-yellow-700', 
-        complete: 'bg-green-100 text-green-700', 
+        unassign: 'bg-blue-100 text-blue-700',
+        'in process': 'bg-orange-100 text-orange-700',
+        'pending from client': 'bg-purple-100 text-purple-700',
+        'pending from department': 'bg-yellow-100 text-yellow-700',
+        complete: 'bg-green-100 text-green-700',
         cancel: 'bg-red-100 text-red-700'
     }[status] || 'bg-gray-100 text-gray-700');
-    
-    const handleConfirm = async () => { 
-        if (!selectedStatus) return; 
-        setLocalLoading(true); 
-        await onConfirm(selectedStatus); 
-        setLocalLoading(false); 
-        onClose(); 
+
+    const handleConfirm = async () => {
+        if (!selectedStatus) return;
+        setLocalLoading(true);
+        await onConfirm(selectedStatus);
+        setLocalLoading(false);
+        onClose();
     };
-    
+
     return (
         <AnimatePresence>
             {isOpen && (
-                <motion.div 
-                    className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[100] p-4" 
-                    initial={{ opacity: 0 }} 
-                    animate={{ opacity: 1 }} 
-                    exit={{ opacity: 0 }} 
+                <motion.div
+                    className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[100] p-4"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
                     onClick={onClose}
                 >
-                    <motion.div 
-                        className="bg-white rounded-xl shadow-2xl w-full max-w-md mx-auto overflow-hidden" 
-                        initial={{ scale: 0.95, opacity: 0, y: 20 }} 
-                        animate={{ scale: 1, opacity: 1, y: 0 }} 
-                        exit={{ scale: 0.95, opacity: 0, y: 20 }} 
+                    <motion.div
+                        className="bg-white rounded-xl shadow-2xl w-full max-w-md mx-auto overflow-hidden"
+                        initial={{ scale: 0.95, opacity: 0, y: 20 }}
+                        animate={{ scale: 1, opacity: 1, y: 0 }}
+                        exit={{ scale: 0.95, opacity: 0, y: 20 }}
                         onClick={(e) => e.stopPropagation()}
                     >
                         <div className="bg-gradient-to-r from-indigo-600 to-indigo-700 text-white px-6 py-4">
@@ -484,27 +364,27 @@ const BulkStatusChangeModal = ({ isOpen, onClose, selectedCount, onConfirm, load
                                         <p className="text-indigo-100 text-sm">Update status for {selectedCount} selected task{selectedCount !== 1 ? 's' : ''}</p>
                                     </div>
                                 </div>
-                                <motion.button 
-                                    onClick={onClose} 
-                                    className="text-white p-2 rounded-lg hover:bg-white/10" 
-                                    whileHover={{ scale: 1.1 }} 
+                                <motion.button
+                                    onClick={onClose}
+                                    className="text-white p-2 rounded-lg hover:bg-white/10"
+                                    whileHover={{ scale: 1.1 }}
                                     whileTap={{ scale: 0.9 }}
                                 >
                                     <FiX className="w-5 h-5" />
                                 </motion.button>
                             </div>
                         </div>
-                        
+
                         <div className="p-6">
                             <div className="mb-4">
                                 <label className="block text-sm font-semibold text-gray-700 mb-3">Select New Status</label>
                                 <div className="space-y-2">
                                     {statusOptions.map((status) => (
-                                        <motion.button 
-                                            key={status.value} 
-                                            onClick={() => setSelectedStatus(status.value)} 
-                                            className={`w-full flex items-center justify-between p-3 rounded-lg border transition-all ${selectedStatus === status.value ? 'ring-2 ring-indigo-500 ring-offset-1' : ''} ${getStatusColor(status.value)}`} 
-                                            whileHover={{ scale: 1.01 }} 
+                                        <motion.button
+                                            key={status.value}
+                                            onClick={() => setSelectedStatus(status.value)}
+                                            className={`w-full flex items-center justify-between p-3 rounded-lg border transition-all ${selectedStatus === status.value ? 'ring-2 ring-indigo-500 ring-offset-1' : ''} ${getStatusColor(status.value)}`}
+                                            whileHover={{ scale: 1.01 }}
                                             whileTap={{ scale: 0.99 }}
                                         >
                                             <div className="flex items-center gap-3">
@@ -516,7 +396,7 @@ const BulkStatusChangeModal = ({ isOpen, onClose, selectedCount, onConfirm, load
                                     ))}
                                 </div>
                             </div>
-                            
+
                             <div className="mt-4 p-3 bg-yellow-50 rounded-lg border border-yellow-200">
                                 <div className="flex items-start gap-2">
                                     <FiInfo className="w-4 h-4 text-yellow-600 mt-0.5 flex-shrink-0" />
@@ -524,23 +404,23 @@ const BulkStatusChangeModal = ({ isOpen, onClose, selectedCount, onConfirm, load
                                 </div>
                             </div>
                         </div>
-                        
+
                         <div className="px-6 py-4 bg-gray-50 border-t border-gray-200 flex justify-end gap-3">
-                            <motion.button 
-                                onClick={onClose} 
-                                className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-100 font-medium text-sm" 
-                                whileHover={{ scale: 1.05 }} 
-                                whileTap={{ scale: 0.95 }} 
+                            <motion.button
+                                onClick={onClose}
+                                className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-100 font-medium text-sm"
+                                whileHover={{ scale: 1.05 }}
+                                whileTap={{ scale: 0.95 }}
                                 disabled={localLoading || loading}
                             >
                                 Cancel
                             </motion.button>
-                            
-                            <motion.button 
-                                onClick={handleConfirm} 
-                                disabled={!selectedStatus || localLoading || loading} 
-                                className={`px-4 py-2 rounded-lg font-medium text-sm flex items-center gap-2 ${!selectedStatus ? 'bg-gray-300 cursor-not-allowed' : 'bg-gradient-to-r from-indigo-600 to-indigo-700 text-white hover:from-indigo-700 hover:to-indigo-800'}`} 
-                                whileHover={selectedStatus ? { scale: 1.05 } : {}} 
+
+                            <motion.button
+                                onClick={handleConfirm}
+                                disabled={!selectedStatus || localLoading || loading}
+                                className={`px-4 py-2 rounded-lg font-medium text-sm flex items-center gap-2 ${!selectedStatus ? 'bg-gray-300 cursor-not-allowed' : 'bg-gradient-to-r from-indigo-600 to-indigo-700 text-white hover:from-indigo-700 hover:to-indigo-800'}`}
+                                whileHover={selectedStatus ? { scale: 1.05 } : {}}
                                 whileTap={selectedStatus ? { scale: 0.95 } : {}}
                             >
                                 {(localLoading || loading) ? (
@@ -557,123 +437,25 @@ const BulkStatusChangeModal = ({ isOpen, onClose, selectedCount, onConfirm, load
     );
 };
 
-// Users List Modal
-const UsersListModal = ({ isOpen, onClose, users, taskName }) => {
-    if (!isOpen) return null;
-    
-    return (
-        <AnimatePresence>
-            {isOpen && (
-                <motion.div 
-                    className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[100] p-4" 
-                    initial={{ opacity: 0 }} 
-                    animate={{ opacity: 1 }} 
-                    exit={{ opacity: 0 }} 
-                    onClick={onClose}
-                >
-                    <motion.div 
-                        className="bg-white rounded-xl shadow-2xl max-w-md w-full mx-auto overflow-hidden" 
-                        initial={{ scale: 0.95, opacity: 0, y: 20 }} 
-                        animate={{ scale: 1, opacity: 1, y: 0 }} 
-                        exit={{ scale: 0.95, opacity: 0, y: 20 }} 
-                        onClick={(e) => e.stopPropagation()}
-                    >
-                        <div className="bg-gradient-to-r from-indigo-600 to-indigo-700 text-white px-6 py-4">
-                            <div className="flex items-center justify-between">
-                                <div className="flex items-center gap-3">
-                                    <div className="w-10 h-10 bg-white/20 rounded-lg flex items-center justify-center">
-                                        <FiUsers className="w-5 h-5" />
-                                    </div>
-                                    <div>
-                                        <h3 className="text-lg font-bold">Assigned Staff</h3>
-                                        <p className="text-indigo-100 text-sm">Task: {taskName}</p>
-                                    </div>
-                                </div>
-                                <motion.button 
-                                    onClick={onClose} 
-                                    className="text-white p-2 rounded-lg hover:bg-white/10" 
-                                    whileHover={{ scale: 1.1 }} 
-                                    whileTap={{ scale: 0.9 }}
-                                >
-                                    <FiX className="w-5 h-5" />
-                                </motion.button>
-                            </div>
-                        </div>
-                        
-                        <div className="p-6 max-h-[60vh] overflow-y-auto">
-                            <div className="space-y-3">
-                                {users.map((user, index) => (
-                                    <motion.div 
-                                        key={user.username} 
-                                        className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg border border-gray-200" 
-                                        initial={{ opacity: 0, x: -10 }} 
-                                        animate={{ opacity: 1, x: 0 }} 
-                                        transition={{ delay: index * 0.05 }}
-                                    >
-                                        <div className="w-10 h-10 bg-gradient-to-br from-indigo-500 to-indigo-600 rounded-full flex items-center justify-center text-white font-bold">
-                                            {user.name?.charAt(0) || 'U'}
-                                        </div>
-                                        <div className="flex-1 min-w-0">
-                                            <h4 className="font-semibold text-gray-800 text-sm truncate">{user.name}</h4>
-                                            <p className="text-gray-600 text-xs truncate">{user.email}</p>
-                                            <p className="text-gray-500 text-xs mt-1">{user.mobile}</p>
-                                        </div>
-                                        <div className="text-xs text-gray-500">ID: {user.username}</div>
-                                    </motion.div>
-                                ))}
-                                
-                                {users.length === 0 && (
-                                    <div className="text-center py-8">
-                                        <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                                            <FiUser className="w-8 h-8 text-gray-400" />
-                                        </div>
-                                        <p className="text-gray-500 font-medium">No staff assigned</p>
-                                    </div>
-                                )}
-                            </div>
-                        </div>
-                        
-                        <div className="px-6 py-4 bg-gray-50 border-t border-gray-200">
-                            <div className="flex justify-between items-center">
-                                <div className="text-sm text-gray-600">
-                                    <span className="font-semibold">{users.length}</span> staff member{users.length !== 1 ? 's' : ''} assigned
-                                </div>
-                                <motion.button 
-                                    onClick={onClose} 
-                                    className="px-4 py-2 bg-gradient-to-r from-indigo-600 to-indigo-700 text-white rounded-lg hover:from-indigo-700 hover:to-indigo-800 font-medium text-sm" 
-                                    whileHover={{ scale: 1.05 }} 
-                                    whileTap={{ scale: 0.95 }}
-                                >
-                                    Close
-                                </motion.button>
-                            </div>
-                        </div>
-                    </motion.div>
-                </motion.div>
-            )}
-        </AnimatePresence>
-    );
-};
-
 // Client Details Modal
 const ClientDetailsModal = ({ isOpen, onClose, clientData, loading }) => {
     if (!isOpen) return null;
-    
+
     return (
         <AnimatePresence>
             {isOpen && (
-                <motion.div 
-                    className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[100] p-4" 
-                    initial={{ opacity: 0 }} 
-                    animate={{ opacity: 1 }} 
-                    exit={{ opacity: 0 }} 
+                <motion.div
+                    className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[100] p-4"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
                     onClick={onClose}
                 >
-                    <motion.div 
-                        className="bg-white rounded-xl shadow-2xl max-w-2xl w-full mx-auto overflow-hidden" 
-                        initial={{ scale: 0.95, opacity: 0, y: 20 }} 
-                        animate={{ scale: 1, opacity: 1, y: 0 }} 
-                        exit={{ scale: 0.95, opacity: 0, y: 20 }} 
+                    <motion.div
+                        className="bg-white rounded-xl shadow-2xl max-w-2xl w-full mx-auto overflow-hidden"
+                        initial={{ scale: 0.95, opacity: 0, y: 20 }}
+                        animate={{ scale: 1, opacity: 1, y: 0 }}
+                        exit={{ scale: 0.95, opacity: 0, y: 20 }}
                         onClick={(e) => e.stopPropagation()}
                     >
                         <div className="bg-gradient-to-r from-indigo-600 to-indigo-700 text-white px-6 py-4">
@@ -691,17 +473,17 @@ const ClientDetailsModal = ({ isOpen, onClose, clientData, loading }) => {
                                         <p className="text-indigo-100 text-sm">{clientData?.basic?.name || 'Client Information'}</p>
                                     </div>
                                 </div>
-                                <motion.button 
-                                    onClick={onClose} 
-                                    className="text-white p-2 rounded-lg hover:bg-white/10" 
-                                    whileHover={{ scale: 1.1 }} 
+                                <motion.button
+                                    onClick={onClose}
+                                    className="text-white p-2 rounded-lg hover:bg-white/10"
+                                    whileHover={{ scale: 1.1 }}
                                     whileTap={{ scale: 0.9 }}
                                 >
                                     <FiX className="w-5 h-5" />
                                 </motion.button>
                             </div>
                         </div>
-                        
+
                         <div className="p-6 max-h-[70vh] overflow-y-auto">
                             {loading ? (
                                 <div className="flex justify-center py-8">
@@ -746,7 +528,7 @@ const ClientDetailsModal = ({ isOpen, onClose, clientData, loading }) => {
                                             </div>
                                         </div>
                                     </div>
-                                    
+
                                     <div>
                                         <h4 className="text-lg font-semibold text-gray-800 mb-3 flex items-center gap-2">
                                             <FiMail className="w-4 h-4 text-indigo-600" />Contact Information
@@ -772,13 +554,13 @@ const ClientDetailsModal = ({ isOpen, onClose, clientData, loading }) => {
                                 </div>
                             )}
                         </div>
-                        
+
                         <div className="px-6 py-4 bg-gray-50 border-t border-gray-200">
                             <div className="flex justify-end">
-                                <motion.button 
-                                    onClick={onClose} 
-                                    className="px-4 py-2 bg-gradient-to-r from-indigo-600 to-indigo-700 text-white rounded-lg hover:from-indigo-700 hover:to-indigo-800 font-medium text-sm" 
-                                    whileHover={{ scale: 1.05 }} 
+                                <motion.button
+                                    onClick={onClose}
+                                    className="px-4 py-2 bg-gradient-to-r from-indigo-600 to-indigo-700 text-white rounded-lg hover:from-indigo-700 hover:to-indigo-800 font-medium text-sm"
+                                    whileHover={{ scale: 1.05 }}
                                     whileTap={{ scale: 0.95 }}
                                 >
                                     Close
@@ -809,15 +591,13 @@ const TaskDisplay = () => {
     const [selectedTasks, setSelectedTasks] = useState(new Set());
     const [selectAll, setSelectAll] = useState(false);
     const [activeRowDropdown, setActiveRowDropdown] = useState(null);
-    const [showExportDropdown, setShowExportDropdown] = useState(false);
     const [exportModal, setExportModal] = useState({ open: false, type: '', data: null });
     const navigate = useNavigate();
     const [deleteModal, setDeleteModal] = useState(false);
-    const [deleteOtp, setDeleteOtp] = useState('');
     const [showMoreMenu, setShowMoreMenu] = useState(false);
     const [viewMode, setViewMode] = useState('table');
     const [isMobile, setIsMobile] = useState(false);
-    const [statusModal, setStatusModal] = useState({ open: false, taskId: null, currentStatus: '' });
+    const [statusModal, setStatusModal] = useState({ open: false, taskId: null, taskName: '', currentStatus: '' });
     const [usersModal, setUsersModal] = useState({ open: false, users: [], taskName: '' });
     const [showFilterRow, setShowFilterRow] = useState(false);
     const [clientModal, setClientModal] = useState({ open: false, clientData: null, loading: false });
@@ -825,9 +605,21 @@ const TaskDisplay = () => {
     const [editModal, setEditModal] = useState({ open: false, taskData: null });
     const [tasks, setTasks] = useState([]);
     const [serviceOptions, setServiceOptions] = useState([]);
-    const [filters, setFilters] = useState({ search: '', service_id: '', status: '' });
+    const [filters, setFilters] = useState({
+        search: '',
+        username: '',
+        firm_id: '',
+        service_id: '',
+        status: DEFAULT_SELECTED_STATUSES,
+        service_ids: []
+    });
     const [pagination, setPagination] = useState({ page_no: 1, limit: 20, total: 0 });
-    
+    const taskListAbortRef = useRef(null);
+    const skipNextAutoFetchRef = useRef(false);
+    const rowMenuButtonRefs = useRef({});
+    const rowDropdownRef = useRef(null);
+    const [rowDropdownPosition, setRowDropdownPosition] = useState({ top: 8, left: 8 });
+
     // Hidden states for columns and fields
     const [hiddenColumns, setHiddenColumns] = useState({});
     const [hiddenFields, setHiddenFields] = useState({});
@@ -835,28 +627,28 @@ const TaskDisplay = () => {
     // ============================================
     // EFFECTS
     // ============================================
-    
+
     useEffect(() => {
         const savedConfig = localStorage.getItem('taskColumnConfig');
         if (savedConfig) {
             try {
                 const parsedConfig = JSON.parse(savedConfig);
-                
+
                 // Check if it's the new format (with hidden states) or old format
                 if (parsedConfig.columns) {
                     // New format with hidden states
-                    const updatedConfig = parsedConfig.columns.map(col => ({ 
-                        ...col, 
-                        fixed: col.name === 'Status' || col.name === 'Action' 
+                    const updatedConfig = parsedConfig.columns.map(col => ({
+                        ...col,
+                        fixed: col.name === 'Status' || col.name === 'Action'
                     }));
                     setColumnConfig(updatedConfig);
                     setHiddenColumns(parsedConfig.hiddenColumns || {});
                     setHiddenFields(parsedConfig.hiddenFields || {});
                 } else {
                     // Old format (just columns array)
-                    const updatedConfig = parsedConfig.map(col => ({ 
-                        ...col, 
-                        fixed: col.name === 'Status' || col.name === 'Action' 
+                    const updatedConfig = parsedConfig.map(col => ({
+                        ...col,
+                        fixed: col.name === 'Status' || col.name === 'Action'
                     }));
                     setColumnConfig(updatedConfig);
                     setHiddenColumns({});
@@ -883,9 +675,9 @@ const TaskDisplay = () => {
                 setHiddenFields(event.detail.hiddenFields || {});
             }
         };
-        
+
         window.addEventListener('columnVisibilityChanged', handleVisibilityChange);
-        
+
         return () => {
             window.removeEventListener('columnVisibilityChanged', handleVisibilityChange);
         };
@@ -896,18 +688,101 @@ const TaskDisplay = () => {
     }, [isMinimized]);
 
     useEffect(() => {
+        const handleOutsideMenuClick = (event) => {
+            const clickedInsideDropdown = event.target.closest('.dropdown-container');
+            const clickedRowMenu = event.target.closest('.task-row-action-menu');
+            const clickedRowTrigger = event.target.closest('.task-row-action-trigger');
+            if (!clickedInsideDropdown && !clickedRowMenu && !clickedRowTrigger) {
+                if (showMoreMenu) setShowMoreMenu(false);
+                if (activeRowDropdown !== null) setActiveRowDropdown(null);
+            }
+        };
+
+        document.addEventListener('mousedown', handleOutsideMenuClick);
+        return () => {
+            document.removeEventListener('mousedown', handleOutsideMenuClick);
+        };
+    }, [showMoreMenu, activeRowDropdown]);
+
+    const getRowDropdownPosition = (button, dropdownHeight = 220) => {
+        if (!button) return { top: 8, left: 8 };
+        const rect = button.getBoundingClientRect();
+        const dropdownWidth = 224;
+        const windowHeight = window.innerHeight;
+        const windowWidth = window.innerWidth;
+        const spaceBelow = windowHeight - rect.bottom;
+        const spaceAbove = rect.top;
+
+        let left = rect.right - dropdownWidth;
+        left = Math.max(8, Math.min(left, windowWidth - dropdownWidth - 8));
+
+        let top = 8;
+
+        if (spaceBelow >= dropdownHeight + 8) {
+            top = rect.bottom + 4;
+        } else if (spaceAbove >= dropdownHeight + 8) {
+            top = rect.top - dropdownHeight - 4;
+        } else {
+            top = Math.max(8, Math.min(windowHeight - dropdownHeight - 8, rect.bottom + 4));
+        }
+        return { top, left };
+    };
+
+    useLayoutEffect(() => {
+        if (!activeRowDropdown) return undefined;
+
+        const syncPosition = () => {
+            const button = rowMenuButtonRefs.current[activeRowDropdown];
+            const dropdownHeight = rowDropdownRef.current?.offsetHeight || 220;
+            if (button) {
+                setRowDropdownPosition(getRowDropdownPosition(button, dropdownHeight));
+            }
+        };
+
+        syncPosition();
+        const raf = requestAnimationFrame(syncPosition);
+        window.addEventListener('resize', syncPosition);
+        window.addEventListener('scroll', syncPosition, true);
+
+        return () => {
+            cancelAnimationFrame(raf);
+            window.removeEventListener('resize', syncPosition);
+            window.removeEventListener('scroll', syncPosition, true);
+        };
+    }, [activeRowDropdown, tasks]);
+
+    useEffect(() => {
+        if (activeRowDropdown && !tasks.some((t) => t.task_id === activeRowDropdown)) {
+            setActiveRowDropdown(null);
+        }
+    }, [tasks, activeRowDropdown]);
+
+    useEffect(() => {
         fetchServices();
-        fetchTasks();
     }, []);
+
+    useEffect(() => {
+        if (pagination.page_no !== 1) {
+            setPagination(prev => ({ ...prev, page_no: 1 }));
+        }
+    }, [filters.search, filters.username, filters.firm_id, filters.service_id, filters.status, filters.service_ids]);
+
+    useEffect(() => {
+        if (skipNextAutoFetchRef.current) {
+            skipNextAutoFetchRef.current = false;
+            return;
+        }
+        fetchTasks();
+    }, [pagination.page_no, pagination.limit, filters.search, filters.username, filters.firm_id, filters.service_id, filters.status, filters.service_ids]);
 
     // ============================================
     // HELPER FUNCTIONS
     // ============================================
-    
+
     const getVisibleColumnConfig = () => {
         // Filter out hidden columns
         const visibleColumns = columnConfig.filter(col => !hiddenColumns[col.id]);
-        
+
         // Filter out hidden fields from each column
         return visibleColumns.map(col => ({
             ...col,
@@ -918,22 +793,22 @@ const TaskDisplay = () => {
     // ============================================
     // DATA FETCHING FUNCTIONS
     // ============================================
-    
+
     const fetchServices = async () => {
         try {
             const headers = await getHeaders();
-            const response = await fetch(`${API_BASE_URL}/service/list?search=`, { 
-                method: 'GET', 
-                headers 
+            const response = await fetch(`${API_BASE_URL}/service/list?search=`, {
+                method: 'GET',
+                headers
             });
-            
+
             if (!response.ok) throw new Error('Failed to fetch services');
-            
+
             const responseData = await response.json();
             if (responseData.success && responseData.data && Array.isArray(responseData.data)) {
-                setServiceOptions(responseData.data.map(service => ({ 
-                    value: service.service_id, 
-                    name: service.name 
+                setServiceOptions(responseData.data.map(service => ({
+                    value: service.service_id,
+                    name: service.name
                 })));
             }
         } catch (error) {
@@ -941,48 +816,64 @@ const TaskDisplay = () => {
         }
     };
 
-    const fetchTasks = async () => {
+    const fetchTasks = async (overrides = {}) => {
+        const nextPageNo = overrides.page_no ?? pagination.page_no;
+        const nextLimit = overrides.limit ?? pagination.limit;
+        const nextFilters = overrides.filters ?? filters;
+
+        if (taskListAbortRef.current) {
+            taskListAbortRef.current.abort();
+        }
+        const controller = new AbortController();
+        taskListAbortRef.current = controller;
         setLoading(true);
         try {
             const headers = await getHeaders();
             const queryParams = new URLSearchParams({
-                page_no: pagination.page_no.toString(),
-                limit: pagination.limit.toString()
+                page_no: nextPageNo.toString(),
+                limit: nextLimit.toString()
             });
-            
-            if (filters.search) queryParams.append('search', filters.search);
-            if (filters.service_id) queryParams.append('service_id', filters.service_id);
-            if (filters.status) queryParams.append('status', filters.status);
-            
-            const response = await fetch(`${API_BASE_URL}/task/list?${queryParams.toString()}`, { 
-                method: 'GET', 
-                headers 
+
+            queryParams.append('search', nextFilters.search || '');
+            queryParams.append('username', nextFilters.username || '');
+            queryParams.append('firm_id', nextFilters.firm_id || '');
+            queryParams.append('service_id', nextFilters.service_id || '');
+            (nextFilters.status || []).forEach((status) => queryParams.append('status', status));
+            (nextFilters.service_ids || []).forEach((serviceId) => queryParams.append('service_ids', serviceId));
+
+            const response = await fetch(`${API_BASE_URL}/task/list?${queryParams.toString()}`, {
+                method: 'GET',
+                headers,
+                signal: controller.signal
             });
-            
+
             if (!response.ok) throw new Error('Failed to fetch tasks');
-            
+
             const responseData = await response.json();
             if (responseData.success && responseData.data && Array.isArray(responseData.data)) {
                 setTasks(responseData.data);
-                setPagination(prev => ({ 
-                    ...prev, 
-                    total: responseData.pagination?.total || responseData.data.length 
+                setPagination(prev => ({
+                    ...prev,
+                    total: responseData.pagination?.total || responseData.data.length
                 }));
             } else {
                 setTasks([]);
             }
         } catch (error) {
+            if (error.name === 'AbortError') return;
             console.error('Error fetching tasks:', error);
             setTasks([]);
         } finally {
-            setLoading(false);
+            if (taskListAbortRef.current === controller) {
+                setLoading(false);
+            }
         }
     };
 
     // ============================================
     // TASK OPERATION FUNCTIONS
     // ============================================
-    
+
     const saveColumnConfig = (config) => {
         setColumnConfig(config);
         localStorage.setItem('taskColumnConfig', JSON.stringify(config));
@@ -991,9 +882,9 @@ const TaskDisplay = () => {
     const handleBulkStatusChange = async (newStatus) => {
         const taskIds = Array.from(selectedTasks);
         if (taskIds.length === 0) return;
-        
+
         setBulkStatusModal(prev => ({ ...prev, loading: true }));
-        
+
         try {
             const headers = await getHeaders();
             const response = await fetch(`${API_BASE_URL}/task/change-status`, {
@@ -1001,14 +892,14 @@ const TaskDisplay = () => {
                 headers: { ...headers, 'Content-Type': 'application/json' },
                 body: JSON.stringify({ task_ids: taskIds, status: newStatus })
             });
-            
+
             if (!response.ok) throw new Error('Failed to update statuses');
-            
+
             const responseData = await response.json();
             if (responseData.success) {
-                setTasks(prev => prev.map(task => 
-                    selectedTasks.has(task.task_id) 
-                        ? { ...task, status: newStatus } 
+                setTasks(prev => prev.map(task =>
+                    selectedTasks.has(task.task_id)
+                        ? { ...task, status: newStatus }
                         : task
                 ));
                 setSelectedTasks(new Set());
@@ -1033,22 +924,25 @@ const TaskDisplay = () => {
                 headers: { ...headers, 'Content-Type': 'application/json' },
                 body: JSON.stringify({ task_ids: [taskId], status: newStatus })
             });
-            
+
             if (!response.ok) throw new Error('Failed to update status');
-            
+
             const responseData = await response.json();
             if (responseData.success) {
-                setTasks(prev => prev.map(task => 
-                    task.task_id === taskId 
-                        ? { ...task, status: newStatus } 
-                        : task
-                ));
+                toast.success(responseData.message || 'Task status updated successfully');
+                setTasks((prev) => {
+                    return prev.map((task) =>
+                        task.task_id === taskId
+                            ? { ...task, status: newStatus }
+                            : task
+                    );
+                });
             } else {
                 throw new Error(responseData.message || 'Failed to update status');
             }
         } catch (error) {
             console.error('Error updating status:', error);
-            alert(`Failed to update status: ${error.message}`);
+            toast.error(error.message || 'Failed to update status');
         }
     };
 
@@ -1077,29 +971,37 @@ const TaskDisplay = () => {
         setSelectAll(!selectAll);
     };
 
-    const toggleRowDropdown = (taskId) => {
-        setActiveRowDropdown(activeRowDropdown === taskId ? null : taskId);
+    const toggleRowDropdown = (taskId, buttonElement) => {
+        if (activeRowDropdown === taskId) {
+            setActiveRowDropdown(null);
+            return;
+        }
+        if (buttonElement) {
+            rowMenuButtonRefs.current[taskId] = buttonElement;
+        }
+        setActiveRowDropdown(taskId);
     };
 
-    const openStatusModal = (taskId, currentStatus) => {
-        setStatusModal({ open: true, taskId, currentStatus });
+    const openStatusModal = (taskId, currentStatus, taskName = '') => {
+        const derivedTaskName = taskName || tasks.find((task) => task.task_id === taskId)?.service?.name || '';
+        setStatusModal({ open: true, taskId, taskName: derivedTaskName, currentStatus });
     };
 
     const closeStatusModal = () => {
-        setStatusModal({ open: false, taskId: null, currentStatus: '' });
+        setStatusModal({ open: false, taskId: null, taskName: '', currentStatus: '' });
     };
 
     const openUsersModal = (staffs, taskName) => {
-        setUsersModal({ 
-            open: true, 
-            users: staffs.map(staff => ({ 
-                username: staff.username, 
-                name: staff.name, 
-                email: staff.email, 
-                mobile: staff.mobile, 
-                role: 'Staff' 
-            })), 
-            taskName 
+        setUsersModal({
+            open: true,
+            users: staffs.map(staff => ({
+                username: staff.username,
+                name: staff.name,
+                email: staff.email,
+                mobile: staff.mobile,
+                role: 'Staff'
+            })),
+            taskName
         });
     };
 
@@ -1109,18 +1011,18 @@ const TaskDisplay = () => {
 
     const openClientDetailsModal = async (username) => {
         if (!username) return;
-        
+
         setClientModal(prev => ({ ...prev, loading: true, open: true }));
-        
+
         try {
             const headers = await getHeaders();
-            const response = await fetch(`${API_BASE_URL}/client/details/profile?username=${username}`, { 
-                method: 'GET', 
-                headers 
+            const response = await fetch(`${API_BASE_URL}/client/details/profile?username=${username}`, {
+                method: 'GET',
+                headers
             });
-            
+
             if (!response.ok) throw new Error('Failed to fetch client details');
-            
+
             const responseData = await response.json();
             if (responseData.success && responseData.data) {
                 setClientModal(prev => ({ ...prev, clientData: responseData.data, loading: false }));
@@ -1147,13 +1049,23 @@ const TaskDisplay = () => {
 
     const handleSearch = () => {
         setPagination(prev => ({ ...prev, page_no: 1 }));
-        fetchTasks();
     };
 
     const handleResetFilters = () => {
-        setFilters({ search: '', service_id: '', status: '' });
+        const resetFilters = {
+            search: '',
+            username: '',
+            firm_id: '',
+            service_id: '',
+            status: DEFAULT_SELECTED_STATUSES,
+            service_ids: []
+        };
+        skipNextAutoFetchRef.current = true;
+        setFilters(resetFilters);
         setPagination(prev => ({ ...prev, page_no: 1 }));
-        setTimeout(() => fetchTasks(), 100);
+        setTimeout(() => {
+            fetchTasks({ filters: resetFilters, page_no: 1 });
+        }, 0);
     };
 
     const handleExport = (type, data = null) => {
@@ -1172,7 +1084,7 @@ const TaskDisplay = () => {
     // ============================================
     // RENDER HELPER FUNCTIONS
     // ============================================
-    
+
     const renderCellContent = (task, fieldId, handleGetInOut, navigate, openStatusModal, openUsersModal, openClientDetailsModal, handleEditTask) => {
         const daysLeft = getDaysLeft(task.dates?.due_date);
         const isOverdue = daysLeft < 0;
@@ -1223,7 +1135,7 @@ const TaskDisplay = () => {
                 const emailValue = task.client?.profile?.email || task.client?.email || '-';
                 const emailString = safeGetString(emailValue);
                 const truncatedEmail = emailString.length > 15 ? emailString.substring(0, 15) + '...' : emailString;
-                
+
                 return (
                     <div className="flex items-center gap-2 text-gray-700 font-medium text-sm">
                         <FiMail className="w-3 h-3 text-gray-400" />
@@ -1240,7 +1152,7 @@ const TaskDisplay = () => {
             case 'service_name':
                 const serviceName = task.service?.name || task.service_name || '-';
                 return (
-                    <button 
+                    <button
                         onClick={() => navigate(`/task/${task.task_id}`)}
                         className="font-semibold text-gray-800 text-sm hover:text-indigo-600 transition-colors text-left"
                     >
@@ -1251,7 +1163,6 @@ const TaskDisplay = () => {
                 const feesAmount = task.charges?.fees || task.fees || 0;
                 return (
                     <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-semibold bg-indigo-50 text-indigo-700 border border-indigo-200">
-                        <FiDollarSign className="w-3 h-3" />
                         ₹{Number(feesAmount).toLocaleString()}
                     </div>
                 );
@@ -1332,18 +1243,20 @@ const TaskDisplay = () => {
                             {staffs.slice(0, 2).map((staff, staffIndex) => {
                                 const staffName = safeGetString(staff.name || 'S');
                                 return (
-                                    <div
+                                    <button
                                         key={staff.assign_id || staffIndex}
-                                        className="w-8 h-8 bg-gradient-to-br from-indigo-500 to-indigo-600 rounded-full border-2 border-white flex items-center justify-center text-xs font-bold text-white"
+                                        onClick={() => openUsersModal(staffs, task.service?.name)}
+                                        className="w-8 h-8 bg-gradient-to-br from-indigo-500 to-indigo-600 rounded-full border-2 border-white flex items-center justify-center text-xs font-bold text-white hover:opacity-80 transition-opacity"
+                                        title={`Click to view all ${staffs.length} staff members`}
                                     >
                                         {staffName.charAt(0)}
-                                    </div>
+                                    </button>
                                 );
                             })}
                             {staffs.length > 2 && (
                                 <button
                                     onClick={() => openUsersModal(staffs, task.service?.name)}
-                                    className="w-8 h-8 bg-gray-300 rounded-full border-2 border-white flex items-center justify-center text-xs font-bold text-gray-700 hover:bg-gray-400 hover:text-gray-800 transition-colors"
+                                        className="w-8 h-8 bg-gradient-to-br from-indigo-500 to-indigo-600 rounded-full border-2 border-white flex items-center justify-center text-xs font-bold text-white"
                                     title={`Click to view all ${staffs.length} staff members`}
                                 >
                                     +{showMoreCount}
@@ -1369,158 +1282,55 @@ const TaskDisplay = () => {
                 );
             case 'status':
                 const statusColorClass = task.status === 'unassign' ? 'bg-blue-100 text-blue-700' :
-                                      task.status === 'in process' ? 'bg-orange-100 text-orange-700' :
-                                      task.status === 'pending from client' ? 'bg-purple-100 text-purple-700' :
-                                      task.status === 'pending from department' ? 'bg-yellow-100 text-yellow-700' :
-                                      task.status === 'complete' ? 'bg-green-100 text-green-700' :
-                                      task.status === 'cancel' ? 'bg-red-100 text-red-700' :
-                                      'bg-gray-100 text-gray-700';
-                
+                    task.status === 'in process' ? 'bg-orange-100 text-orange-700' :
+                        task.status === 'pending from client' ? 'bg-purple-100 text-purple-700' :
+                            task.status === 'pending from department' ? 'bg-yellow-100 text-yellow-700' :
+                                task.status === 'complete' ? 'bg-green-100 text-green-700' :
+                                    task.status === 'cancel' ? 'bg-red-100 text-red-700' :
+                                        'bg-gray-100 text-gray-700';
+
                 const statusText = task.status === 'unassign' ? 'Unassign' :
-                                 task.status === 'in process' ? 'In Process' :
-                                 task.status === 'pending from client' ? 'Pending from Client' :
-                                 task.status === 'pending from department' ? 'Pending from Department' :
-                                 task.status === 'complete' ? 'Complete' :
-                                 task.status === 'cancel' ? 'Cancel' :
-                                 task.status || '-';
-                
+                    task.status === 'in process' ? 'In Process' :
+                        task.status === 'pending from client' ? 'Pending from Client' :
+                            task.status === 'pending from department' ? 'Pending from Department' :
+                                task.status === 'complete' ? 'Complete' :
+                                    task.status === 'cancel' ? 'Cancel' :
+                                        task.status || '-';
+
                 return (
-                    <div className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-medium ${statusColorClass}`}>
+                    <button
+                        type="button"
+                        onClick={() => openStatusModal(task.task_id, task.status, task.service?.name || task.service_name || '')}
+                        className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-medium ${statusColorClass} hover:opacity-90 transition-opacity`}
+                    >
                         {safeGetString(statusText)}
+                    </button>
+                );
+            case 'menu':
+                return (
+                    <div className="relative flex items-center justify-center w-full">
+                        <motion.button
+                            type="button"
+                            ref={(el) => {
+                                // Ignore hidden/mobile instances so dropdown anchors to visible clicked trigger.
+                                if (el && el.offsetParent !== null) {
+                                    rowMenuButtonRefs.current[task.task_id] = el;
+                                }
+                            }}
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                toggleRowDropdown(task.task_id, e.currentTarget);
+                            }}
+                            className="task-row-action-trigger w-8 h-8 flex flex-col items-center justify-center rounded-full bg-gray-100 hover:bg-gray-200 transition-colors space-y-0.5"
+                            whileHover={{ scale: 1.1 }}
+                            whileTap={{ scale: 0.95 }}
+                        >
+                            <div className="w-1 h-1 rounded-full bg-gray-600" />
+                            <div className="w-1 h-1 rounded-full bg-gray-600" />
+                            <div className="w-1 h-1 rounded-full bg-gray-600" />
+                        </motion.button>
                     </div>
                 );
-           case 'menu':
-    return (
-        <div className="relative" style={{ position: 'static' }}>
-            <motion.button
-                onClick={(e) => {
-                    e.stopPropagation();
-                    toggleRowDropdown(task.task_id);
-                }}
-                className="w-8 h-8 flex flex-col items-center justify-center rounded-full bg-gray-100 hover:bg-gray-200 transition-colors space-y-0.5"
-                whileHover={{ scale: 1.1 }}
-                whileTap={{ scale: 0.95 }}
-            >
-                <div className="w-1 h-1 rounded-full bg-gray-600"></div>
-                <div className="w-1 h-1 rounded-full bg-gray-600"></div>
-                <div className="w-1 h-1 rounded-full bg-gray-600"></div>
-            </motion.button>
-
-            <AnimatePresence>
-                {activeRowDropdown === task.task_id && (
-                    <motion.div
-                        className="fixed z-[9999] bg-white rounded-lg shadow-xl border border-gray-200 w-56 overflow-hidden"
-                        initial={{ opacity: 0, scale: 0.95 }}
-                        animate={{ opacity: 1, scale: 1 }}
-                        exit={{ opacity: 0, scale: 0.95 }}
-                        transition={{ duration: 0.15 }}
-                        style={{
-                            top: 'auto',
-                            left: 'auto',
-                            right: 'auto'
-                        }}
-                        ref={(el) => {
-                            if (el && activeRowDropdown === task.task_id) {
-                                // Find the button that triggered the dropdown
-                                const button = el.previousSibling;
-                                if (button) {
-                                    const rect = button.getBoundingClientRect();
-                                    const dropdownHeight = el.offsetHeight;
-                                    const windowHeight = window.innerHeight;
-                                    const spaceBelow = windowHeight - rect.bottom;
-                                    const spaceAbove = rect.top;
-                                    
-                                    el.style.position = 'fixed';
-                                    
-                                    // Position horizontally (right-aligned)
-                                    if (rect.right + 224 > window.innerWidth) {
-                                        el.style.right = `${window.innerWidth - rect.right + 10}px`;
-                                        el.style.left = 'auto';
-                                    } else {
-                                        el.style.left = `${rect.right - 224}px`;
-                                        el.style.right = 'auto';
-                                    }
-                                    
-                                    // Position vertically (prefer below, show above if not enough space)
-                                    if (spaceBelow >= dropdownHeight) {
-                                        el.style.top = `${rect.bottom + 4}px`;
-                                        el.style.bottom = 'auto';
-                                    } else if (spaceAbove >= dropdownHeight) {
-                                        el.style.bottom = `${windowHeight - rect.top + 4}px`;
-                                        el.style.top = 'auto';
-                                    } else {
-                                        el.style.top = `${Math.max(8, rect.bottom - dropdownHeight + 40)}px`;
-                                        el.style.bottom = 'auto';
-                                    }
-                                }
-                            }
-                        }}
-                    >
-                        <div className="py-1">
-                            <button
-                                onClick={() => {
-                                    handleGetInOut(task.task_id, 'in');
-                                    setActiveRowDropdown(null);
-                                }}
-                                className="flex items-center w-full px-4 py-2.5 text-sm text-indigo-600 hover:bg-indigo-50 transition-colors"
-                            >
-                                <FiArrowLeft className="mr-2 text-indigo-600 w-4 h-4" />
-                                GET IN
-                            </button>
-
-                            <div className="border-t my-1"></div>
-                            
-                            <button
-                                onClick={() => {
-                                    openStatusModal(task.task_id, task.status);
-                                    setActiveRowDropdown(null);
-                                }}
-                                className="flex items-center w-full px-4 py-2.5 text-sm text-blue-600 hover:bg-blue-50 transition-colors"
-                            >
-                                <FiCheckCircle className="mr-2 text-blue-600 w-4 h-4" />
-                                Change Status
-                            </button>
-
-                            <button
-                                onClick={() => {
-                                    setActiveRowDropdown(null);
-                                    navigate(`/task/${task.task_id}`);
-                                }}
-                                className="flex items-center w-full px-4 py-2.5 text-sm text-gray-700 hover:bg-indigo-50 transition-colors"
-                            >
-                                <FiEye className="mr-2 text-indigo-600 w-4 h-4" />
-                                View Details
-                            </button>
-
-                            <button
-                                onClick={() => {
-                                    setActiveRowDropdown(null);
-                                    handleEditTask(task);
-                                }}
-                                className="flex items-center w-full px-4 py-2.5 text-sm text-gray-700 hover:bg-green-50 transition-colors"
-                            >
-                                <FiEdit className="mr-2 text-green-600 w-4 h-4" />
-                                Edit Task
-                            </button>
-
-                            <div className="border-t my-1"></div>
-
-                            <button
-                                onClick={() => {
-                                    setActiveRowDropdown(null);
-                                    setDeleteModal(true);
-                                }}
-                                className="flex items-center w-full px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 transition-colors"
-                            >
-                                <FiTrash2 className="mr-2 w-4 h-4" />
-                                Delete Task
-                            </button>
-                        </div>
-                    </motion.div>
-                )}
-            </AnimatePresence>
-        </div>
-    );
             default:
                 const value = task[fieldId];
                 return (
@@ -1534,29 +1344,33 @@ const TaskDisplay = () => {
     // ============================================
     // RENDER
     // ============================================
-    
+
+    const rowActionTask = activeRowDropdown
+        ? tasks.find((t) => t.task_id === activeRowDropdown)
+        : null;
+
     return (
         <div className="min-h-screen bg-gray-50">
-            <Header 
-                mobileMenuOpen={mobileMenuOpen} 
-                setMobileMenuOpen={setMobileMenuOpen} 
-                isMinimized={isMinimized} 
-                setIsMinimized={setIsMinimized} 
+            <Header
+                mobileMenuOpen={mobileMenuOpen}
+                setMobileMenuOpen={setMobileMenuOpen}
+                isMinimized={isMinimized}
+                setIsMinimized={setIsMinimized}
             />
-            
-            <Sidebar 
-                mobileMenuOpen={mobileMenuOpen} 
-                setMobileMenuOpen={setMobileMenuOpen} 
-                isMinimized={isMinimized} 
-                setIsMinimized={setIsMinimized} 
+
+            <Sidebar
+                mobileMenuOpen={mobileMenuOpen}
+                setMobileMenuOpen={setMobileMenuOpen}
+                isMinimized={isMinimized}
+                setIsMinimized={setIsMinimized}
             />
 
             <div className={`pt-16 transition-all duration-300 ease-in-out ${isMinimized ? 'md:pl-20' : 'md:pl-[260px]'}`}>
                 <div className="h-full flex flex-col">
-                    <motion.div 
-                        className="bg-white rounded-lg shadow-sm border border-gray-200 flex flex-col h-full mx-2 sm:mx-4 md:mx-8 my-3 md:my-4" 
-                        initial={{ opacity: 0, y: 20 }} 
-                        animate={{ opacity: 1, y: 0 }} 
+                    <motion.div
+                        className="bg-white rounded-lg overflow-hidden shadow-sm border border-gray-200 flex flex-col h-full mx-2 sm:mx-4 md:mx-8 my-3 md:my-4"
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
                         transition={{ duration: 0.3 }}
                     >
                         {/* Header */}
@@ -1566,7 +1380,7 @@ const TaskDisplay = () => {
                                     <h5 className="text-base md:text-lg font-bold text-gray-800">Task Management</h5>
                                     <p className="text-gray-500 text-xs">Manage your tasks efficiently with multiple view options</p>
                                 </div>
-                                
+
                                 <div className="flex flex-col lg:flex-row gap-2 w-full lg:w-auto">
                                     <div className="flex flex-col md:flex-row items-stretch md:items-center gap-2 w-full">
                                         <div className="flex items-center gap-2">
@@ -1577,57 +1391,57 @@ const TaskDisplay = () => {
                                                 <TableViewSwitch viewMode={viewMode} setViewMode={setViewMode} />
                                             </div>
                                         </div>
-                                        
+
                                         <div className="flex items-center gap-2">
                                             <div className="dropdown-container relative">
-                                                <motion.button 
-                                                    onClick={() => setShowFilterRow(!showFilterRow)} 
-                                                    className="px-3 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 text-gray-700 font-medium flex items-center gap-2 shadow-sm text-sm" 
-                                                    whileHover={{ scale: 1.05 }} 
+                                                <motion.button
+                                                    onClick={() => setShowFilterRow(!showFilterRow)}
+                                                    className="px-3 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 text-gray-700 font-medium flex items-center gap-2 shadow-sm text-sm"
+                                                    whileHover={{ scale: 1.05 }}
                                                     whileTap={{ scale: 0.95 }}
                                                 >
                                                     <FiFilter className="w-4 h-4" />
                                                     <span className="hidden sm:inline">Filter</span>
                                                 </motion.button>
                                             </div>
-                                            
-                                            <motion.button 
-                                                onClick={() => navigate('/task/create')} 
-                                                className="px-3 py-2 bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white rounded-lg text-sm font-medium flex items-center gap-2 shadow-sm" 
-                                                whileHover={{ scale: 1.05 }} 
+
+                                            <motion.button
+                                                onClick={() => navigate('/task/create')}
+                                                className="px-3 py-2 bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white rounded-lg text-sm font-medium flex items-center gap-2 shadow-sm"
+                                                whileHover={{ scale: 1.05 }}
                                                 whileTap={{ scale: 0.95 }}
                                             >
                                                 <FiPlus className="w-4 h-4" />
                                             </motion.button>
-                                            
+
                                             {selectedTasks.size > 0 && (
-                                                <motion.button 
-                                                    onClick={openBulkStatusModal} 
-                                                    className="px-3 py-2 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white rounded-lg text-sm font-medium flex items-center gap-2 shadow-sm" 
-                                                    whileHover={{ scale: 1.05 }} 
+                                                <motion.button
+                                                    onClick={openBulkStatusModal}
+                                                    className="px-3 py-2 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white rounded-lg text-sm font-medium flex items-center gap-2 shadow-sm"
+                                                    whileHover={{ scale: 1.05 }}
                                                     whileTap={{ scale: 0.95 }}
                                                 >
                                                     <FiCheckCircle className="w-4 h-4" />
                                                     <span className="hidden sm:inline">Change Status ({selectedTasks.size})</span>
                                                 </motion.button>
                                             )}
-                                            
+
                                             <div className="relative dropdown-container">
-                                                <motion.button 
-                                                    onClick={() => setShowMoreMenu(!showMoreMenu)} 
-                                                    className="w-9 h-9 flex items-center justify-center rounded-full bg-white border border-gray-300 hover:bg-gray-100 shadow-sm" 
-                                                    whileHover={{ scale: 1.08 }} 
+                                                <motion.button
+                                                    onClick={() => setShowMoreMenu(!showMoreMenu)}
+                                                    className="w-9 h-9 flex items-center justify-center rounded-full bg-white border border-gray-300 hover:bg-gray-100 shadow-sm"
+                                                    whileHover={{ scale: 1.08 }}
                                                     whileTap={{ scale: 0.95 }}
                                                 >
                                                     <FiMenu className="w-4 h-4 text-gray-700" />
                                                 </motion.button>
-                                                
+
                                                 <AnimatePresence>
                                                     {showMoreMenu && (
-                                                        <motion.div 
-                                                            className="absolute right-0 mt-2 w-52 bg-white rounded-lg shadow-xl border border-gray-200 z-50 overflow-hidden" 
-                                                            initial={{ opacity: 0, y: -8 }} 
-                                                            animate={{ opacity: 1, y: 0 }} 
+                                                        <motion.div
+                                                            className="absolute right-0 mt-2 w-52 bg-white rounded-lg shadow-xl border border-gray-200 z-50 overflow-hidden"
+                                                            initial={{ opacity: 0, y: -8 }}
+                                                            animate={{ opacity: 1, y: 0 }}
                                                             exit={{ opacity: 0, y: -8 }}
                                                         >
                                                             <div className="px-3 py-2 text-xs font-semibold text-gray-500 uppercase">Export</div>
@@ -1644,14 +1458,14 @@ const TaskDisplay = () => {
                                                                 <AiOutlineMail className="w-4 h-4 mr-2 text-blue-500" />Share via Email
                                                             </button>
                                                             <div className="h-px bg-gray-200 my-1" />
-                                                            <button 
-                                                                onClick={() => { 
-                                                                    if (viewMode === 'table') { 
-                                                                        setSettingsModalOpen(true); 
-                                                                        setShowMoreMenu(false); 
-                                                                    } 
-                                                                }} 
-                                                                className={`flex items-center w-full px-3 py-2 text-sm ${viewMode === 'table' ? 'text-gray-700 hover:bg-gray-100' : 'text-gray-400 cursor-not-allowed'}`} 
+                                                            <button
+                                                                onClick={() => {
+                                                                    if (viewMode === 'table') {
+                                                                        setSettingsModalOpen(true);
+                                                                        setShowMoreMenu(false);
+                                                                    }
+                                                                }}
+                                                                className={`flex items-center w-full px-3 py-2 text-sm ${viewMode === 'table' ? 'text-gray-700 hover:bg-gray-100' : 'text-gray-400 cursor-not-allowed'}`}
                                                                 disabled={viewMode !== 'table'}
                                                             >
                                                                 <FiSettings className="w-4 h-4 mr-2" />Settings {viewMode !== 'table' && '(Table view only)'}
@@ -1666,97 +1480,79 @@ const TaskDisplay = () => {
                             </div>
                         </div>
 
-                        <FilterRow 
-                            filters={filters} 
-                            setFilters={setFilters} 
-                            serviceOptions={serviceOptions} 
-                            statusOptions={statusOptions} 
-                            onSearch={handleSearch} 
-                            onReset={handleResetFilters} 
-                            showFilterRow={showFilterRow} 
-                            setShowFilterRow={setShowFilterRow} 
+                        <FilterRow
+                            filters={filters}
+                            setFilters={setFilters}
+                            serviceOptions={serviceOptions}
+                            statusOptions={statusOptions}
+                            onSearch={handleSearch}
+                            onReset={handleResetFilters}
+                            showFilterRow={showFilterRow}
+                            setShowFilterRow={setShowFilterRow}
                         />
 
                         <div className="flex-1 flex flex-col overflow-hidden">
                             {viewMode === 'table' ? (
-                                <TaskTable 
-                                    tasks={tasks} 
-                                    selectedTasks={selectedTasks} 
-                                    handleTaskSelect={handleTaskSelect} 
-                                    selectAll={selectAll} 
-                                    handleSelectAll={handleSelectAll} 
+                                <TaskTable
+                                    tasks={tasks}
+                                    selectedTasks={selectedTasks}
+                                    handleTaskSelect={handleTaskSelect}
+                                    selectAll={selectAll}
+                                    handleSelectAll={handleSelectAll}
                                     columnConfig={getVisibleColumnConfig()}
                                     renderCellContent={renderCellContent}
-                                    loading={loading} 
-                                    toggleRowDropdown={toggleRowDropdown} 
-                                    activeRowDropdown={activeRowDropdown} 
-                                    handleGetInOut={handleGetInOut} 
-                                    setActiveRowDropdown={setActiveRowDropdown} 
-                                    navigate={navigate} 
-                                    openStatusModal={openStatusModal} 
-                                    openUsersModal={openUsersModal} 
-                                    openClientDetailsModal={openClientDetailsModal} 
-                                    handleEditTask={handleEditTask} 
-                                    formatDate={formatDate} 
-                                    getDaysLeft={getDaysLeft} 
-                                    getStatusStyle={getStatusStyle} 
-                                    getStatusText={getStatusText} 
+                                    loading={loading}
+                                    toggleRowDropdown={toggleRowDropdown}
+                                    activeRowDropdown={activeRowDropdown}
+                                    handleGetInOut={handleGetInOut}
+                                    setActiveRowDropdown={setActiveRowDropdown}
+                                    navigate={navigate}
+                                    openStatusModal={openStatusModal}
+                                    openUsersModal={openUsersModal}
+                                    openClientDetailsModal={openClientDetailsModal}
+                                    handleEditTask={handleEditTask}
+                                    formatDate={formatDate}
+                                    getDaysLeft={getDaysLeft}
+                                    getStatusStyle={getStatusStyle}
+                                    getStatusText={getStatusText}
                                 />
                             ) : (
-                                <TaskCards 
-                                    tasks={tasks} 
-                                    selectedTasks={selectedTasks} 
-                                    handleTaskSelect={handleTaskSelect} 
+                                <TaskCards
+                                    tasks={tasks}
+                                    selectedTasks={selectedTasks}
+                                    handleTaskSelect={handleTaskSelect}
                                     columnConfig={getVisibleColumnConfig()}
                                     renderCellContent={renderCellContent}
-                                    loading={loading} 
-                                    toggleRowDropdown={toggleRowDropdown} 
-                                    activeRowDropdown={activeRowDropdown} 
-                                    handleGetInOut={handleGetInOut} 
-                                    setActiveRowDropdown={setActiveRowDropdown} 
-                                    navigate={navigate} 
-                                    openStatusModal={openStatusModal} 
-                                    openClientDetailsModal={openClientDetailsModal} 
-                                    handleEditTask={handleEditTask} 
-                                    formatDate={formatDate} 
-                                    getDaysLeft={getDaysLeft} 
-                                    getStatusColor={getStatusColor} 
-                                    formatStatus={formatStatus} 
+                                    loading={loading}
+                                    toggleRowDropdown={toggleRowDropdown}
+                                    activeRowDropdown={activeRowDropdown}
+                                    handleGetInOut={handleGetInOut}
+                                    setActiveRowDropdown={setActiveRowDropdown}
+                                    navigate={navigate}
+                                    openStatusModal={openStatusModal}
+                                    openClientDetailsModal={openClientDetailsModal}
+                                    handleEditTask={handleEditTask}
+                                    formatDate={formatDate}
+                                    getDaysLeft={getDaysLeft}
+                                    getStatusColor={getStatusColor}
+                                    formatStatus={formatStatus}
                                 />
                             )}
                         </div>
 
                         {/* Footer */}
-                        <div className="border-t border-gray-200 px-3 md:px-4 py-2 bg-gradient-to-r from-gray-50 to-gray-100">
-                            <div className="flex flex-col md:flex-row md:items-center justify-between gap-2">
-                                <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-3">
-                                    <span className="font-semibold text-gray-800 text-sm">Showing {tasks.length} of {pagination.total} tasks</span>
-                                    <div className="text-sm text-gray-600">{selectedTasks.size} task(s) selected</div>
-                                </div>
-                                
-                                <div className="flex flex-wrap gap-2">
-                                    <motion.button 
-                                        className="px-2 py-1.5 bg-gradient-to-r from-indigo-600 to-indigo-700 text-white rounded-lg text-xs font-medium flex items-center gap-1 shadow-sm disabled:opacity-50" 
-                                        disabled={selectedTasks.size === 0} 
-                                        whileHover={{ scale: 1.05 }} 
-                                        whileTap={{ scale: 0.95 }}
-                                    >
-                                        <FiMail className="w-3 h-3" />
-                                        <span className="hidden sm:inline">Send Message</span>
-                                    </motion.button>
-                                    
-                                    <motion.button 
-                                        className="px-2 py-1.5 bg-gradient-to-r from-green-600 to-green-700 text-white rounded-lg text-xs font-medium flex items-center gap-1 shadow-sm disabled:opacity-50" 
-                                        disabled={selectedTasks.size === 0} 
-                                        whileHover={{ scale: 1.05 }} 
-                                        whileTap={{ scale: 0.95 }}
-                                    >
-                                        <FiDownload className="w-3 h-3" />
-                                        <span className="hidden sm:inline">Export Selected</span>
-                                    </motion.button>
-                                </div>
-                            </div>
-                        </div>
+                        <TablePagination
+                            page={pagination.page_no}
+                            limit={pagination.limit}
+                            total={pagination.total}
+                            totalPages={Math.max(1, Math.ceil((pagination.total || 0) / (pagination.limit || 20)))}
+                            rowOptions={[5, 10, 20, 50, 100]}
+                            defaultRows={20}
+                            onPageChange={(nextPage) => setPagination((prev) => ({ ...prev, page_no: nextPage }))}
+                            onLimitChange={(nextLimit) => setPagination((prev) => ({ ...prev, limit: nextLimit, page_no: 1 }))}
+                            showJump={true}
+                            showFirstLast={true}
+                        />
                     </motion.div>
                 </div>
             </div>
@@ -1764,39 +1560,39 @@ const TaskDisplay = () => {
             {/* Floating Action Button */}
             <AnimatePresence>
                 {selectedTasks.size > 0 && (
-                    <motion.div 
-                        className="fixed bottom-4 right-4 md:bottom-6 md:right-6 z-50" 
-                        initial={{ opacity: 0, y: 20 }} 
-                        animate={{ opacity: 1, y: 0 }} 
+                    <motion.div
+                        className="fixed bottom-4 right-4 md:bottom-6 md:right-6 z-50"
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
                         exit={{ opacity: 0, y: 20 }}
                     >
                         <div className="flex flex-col md:flex-row items-center gap-2 md:gap-3">
-                            <motion.button 
-                                className="px-3 py-2.5 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-lg text-sm font-semibold flex items-center gap-2 shadow-xl" 
-                                whileHover={{ scale: 1.05 }} 
-                                whileTap={{ scale: 0.95 }} 
+                            <motion.button
+                                className="px-3 py-2.5 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-lg text-sm font-semibold flex items-center gap-2 shadow-xl"
+                                whileHover={{ scale: 1.05 }}
+                                whileTap={{ scale: 0.95 }}
                                 onClick={openBulkStatusModal}
                             >
                                 <FiCheckCircle className="w-4 h-4" />
                                 <span className="hidden sm:inline">Change Status</span>
                                 <span className="sm:hidden">({selectedTasks.size})</span>
                             </motion.button>
-                            
-                            <motion.button 
-                                className="px-3 py-2.5 bg-gradient-to-r from-indigo-600 to-indigo-700 text-white rounded-lg text-sm font-semibold flex items-center gap-2 shadow-xl" 
-                                whileHover={{ scale: 1.05 }} 
-                                whileTap={{ scale: 0.95 }} 
+
+                            <motion.button
+                                className="px-3 py-2.5 bg-gradient-to-r from-indigo-600 to-indigo-700 text-white rounded-lg text-sm font-semibold flex items-center gap-2 shadow-xl"
+                                whileHover={{ scale: 1.05 }}
+                                whileTap={{ scale: 0.95 }}
                                 onClick={() => console.log("Send message to:", [...selectedTasks])}
                             >
                                 <FiMail className="w-4 h-4" />
                                 <span className="hidden sm:inline">Send Message</span>
                                 <span className="sm:hidden">({selectedTasks.size})</span>
                             </motion.button>
-                            
-                            <motion.button 
-                                className="px-3 py-2.5 bg-gradient-to-r from-green-600 to-green-700 text-white rounded-lg text-sm font-semibold flex items-center gap-2 shadow-xl" 
-                                whileHover={{ scale: 1.05 }} 
-                                whileTap={{ scale: 0.95 }} 
+
+                            <motion.button
+                                className="px-3 py-2.5 bg-gradient-to-r from-green-600 to-green-700 text-white rounded-lg text-sm font-semibold flex items-center gap-2 shadow-xl"
+                                whileHover={{ scale: 1.05 }}
+                                whileTap={{ scale: 0.95 }}
                                 onClick={() => handleExport('selected')}
                             >
                                 <FiDownload className="w-4 h-4" />
@@ -1808,69 +1604,150 @@ const TaskDisplay = () => {
                 )}
             </AnimatePresence>
 
+            {rowActionTask &&
+                typeof document !== 'undefined' &&
+                createPortal(
+                    <div
+                        ref={rowDropdownRef}
+                        className="task-row-action-menu fixed z-[10000] w-56 rounded-lg border border-gray-200 bg-white shadow-xl overflow-hidden"
+                        style={{
+                            top: `${rowDropdownPosition.top}px`,
+                            left: `${rowDropdownPosition.left}px`,
+                        }}
+                    >
+                        <div className="py-1">
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    handleGetInOut(rowActionTask.task_id, 'in');
+                                    setActiveRowDropdown(null);
+                                }}
+                                className="flex items-center w-full px-4 py-2.5 text-sm text-indigo-600 hover:bg-indigo-50 transition-colors"
+                            >
+                                <FiArrowLeft className="mr-2 text-indigo-600 w-4 h-4" />
+                                GET IN
+                            </button>
+
+                            <div className="border-t my-1" />
+
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    openStatusModal(rowActionTask.task_id, rowActionTask.status, rowActionTask.service?.name || rowActionTask.service_name || '');
+                                    setActiveRowDropdown(null);
+                                }}
+                                className="flex items-center w-full px-4 py-2.5 text-sm text-blue-600 hover:bg-blue-50 transition-colors"
+                            >
+                                <FiCheckCircle className="mr-2 text-blue-600 w-4 h-4" />
+                                Change Status
+                            </button>
+
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    setActiveRowDropdown(null);
+                                    navigate(`/task/${rowActionTask.task_id}`);
+                                }}
+                                className="flex items-center w-full px-4 py-2.5 text-sm text-gray-700 hover:bg-indigo-50 transition-colors"
+                            >
+                                <FiEye className="mr-2 text-indigo-600 w-4 h-4" />
+                                View Details
+                            </button>
+
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    setActiveRowDropdown(null);
+                                    handleEditTask(rowActionTask);
+                                }}
+                                className="flex items-center w-full px-4 py-2.5 text-sm text-gray-700 hover:bg-green-50 transition-colors"
+                            >
+                                <FiEdit className="mr-2 text-green-600 w-4 h-4" />
+                                Edit Task
+                            </button>
+
+                            <div className="border-t my-1" />
+
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    setActiveRowDropdown(null);
+                                    setDeleteModal(true);
+                                }}
+                                className="flex items-center w-full px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 transition-colors"
+                            >
+                                <FiTrash2 className="mr-2 w-4 h-4" />
+                                Delete Task
+                            </button>
+                        </div>
+                    </div>,
+                    document.body
+                )}
+
             {/* Modals */}
-            <SettingsModal 
-                isOpen={settingsModalOpen} 
-                onClose={() => setSettingsModalOpen(false)} 
-                columnConfig={columnConfig} 
-                saveColumnConfig={saveColumnConfig} 
-                defaultColumnConfig={defaultColumnConfig} 
-                availableFields={availableFields} 
+            <SettingsModal
+                isOpen={settingsModalOpen}
+                onClose={() => setSettingsModalOpen(false)}
+                columnConfig={columnConfig}
+                saveColumnConfig={saveColumnConfig}
+                defaultColumnConfig={defaultColumnConfig}
+                availableFields={availableFields}
             />
-            
-            <StatusChangeModal 
-                isOpen={statusModal.open} 
-                onClose={closeStatusModal} 
-                taskId={statusModal.taskId} 
-                currentStatus={statusModal.currentStatus} 
-                onStatusChange={handleStatusChange} 
-                statusOptions={statusOptions} 
+
+            <TaskStatusChange
+                isOpen={statusModal.open}
+                onClose={closeStatusModal}
+                taskId={statusModal.taskId}
+                taskName={statusModal.taskName}
+                currentStatus={statusModal.currentStatus}
+                onStatusChange={handleStatusChange}
+                statusOptions={statusOptions}
             />
-            
-            <BulkStatusChangeModal 
-                isOpen={bulkStatusModal.open} 
-                onClose={() => setBulkStatusModal(prev => ({ ...prev, open: false }))} 
-                selectedCount={selectedTasks.size} 
-                onConfirm={handleBulkStatusChange} 
-                loading={bulkStatusModal.loading} 
+
+            <BulkStatusChangeModal
+                isOpen={bulkStatusModal.open}
+                onClose={() => setBulkStatusModal(prev => ({ ...prev, open: false }))}
+                selectedCount={selectedTasks.size}
+                onConfirm={handleBulkStatusChange}
+                loading={bulkStatusModal.loading}
             />
-            
-            <UsersListModal 
-                isOpen={usersModal.open} 
-                onClose={closeUsersModal} 
-                users={usersModal.users} 
-                taskName={usersModal.taskName} 
+
+            <AssignedStaffList
+                isOpen={usersModal.open}
+                onClose={closeUsersModal}
+                users={usersModal.users}
+                taskName={usersModal.taskName}
             />
-            
-            <ClientDetailsModal 
-                isOpen={clientModal.open} 
-                onClose={closeClientDetailsModal} 
-                clientData={clientModal.clientData} 
-                loading={clientModal.loading} 
+
+            <ClientDetailsModal
+                isOpen={clientModal.open}
+                onClose={closeClientDetailsModal}
+                clientData={clientModal.clientData}
+                loading={clientModal.loading}
             />
-            
-            <EditTaskModal 
-                isOpen={editModal.open} 
-                onClose={() => setEditModal({ open: false, taskData: null })} 
-                taskData={editModal.taskData} 
-                onTaskUpdated={handleTaskUpdated} 
+
+            <EditTaskModal
+                isOpen={editModal.open}
+                onClose={() => setEditModal({ open: false, taskData: null })}
+                taskData={editModal.taskData}
+                onTaskUpdated={handleTaskUpdated}
             />
-            
+
             {deleteModal && <DeleteConfirmationModal title="Task Delete" onConfirm={(res) => { setDeleteModal(false); console.log("Confirmed:", res); }} />}
 
             {/* Export Modal */}
             <AnimatePresence>
                 {exportModal.open && (
-                    <motion.div 
-                        className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4" 
-                        initial={{ opacity: 0 }} 
-                        animate={{ opacity: 1 }} 
+                    <motion.div
+                        className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
                         exit={{ opacity: 0 }}
                     >
-                        <motion.div 
-                            className="bg-white rounded-lg p-4 max-w-sm w-full mx-auto" 
-                            initial={{ scale: 0.9, opacity: 0 }} 
-                            animate={{ scale: 1, opacity: 1 }} 
+                        <motion.div
+                            className="bg-white rounded-lg p-4 max-w-sm w-full mx-auto"
+                            initial={{ scale: 0.9, opacity: 0 }}
+                            animate={{ scale: 1, opacity: 1 }}
                             exit={{ scale: 0.9, opacity: 0 }}
                         >
                             <div className="text-center">

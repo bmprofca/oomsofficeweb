@@ -3,7 +3,7 @@ import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
     FiMenu, FiArrowLeft,FiChevronDown,FiChevronUp, FiCheckCircle, FiEye, FiEdit, FiTrash2, 
-    FiCalendar, FiDollarSign, FiUser, FiPhone, FiMail, FiClock, FiLoader, FiXCircle, FiBriefcase, FiUsers 
+    FiCalendar, FiDollarSign, FiUser, FiPhone, FiMail, FiClock, FiLoader, FiXCircle, FiBriefcase, FiUsers, FiSettings
 } from 'react-icons/fi';
 
 // Professional Task Table Component - Dynamic Columns with Multiple Items - LEFT ALIGNED
@@ -53,8 +53,8 @@ const TaskTable = ({
         let baseFlex = 1;
         
         if (hasStaffs) baseFlex = 0.8;
-        if (hasStatus) baseFlex = 0.7;
-        if (hasActions) baseFlex = 0.6;
+        if (hasStatus) baseFlex = 0.9;
+        if (hasActions) baseFlex = 0.45;
         
         // Reduce width when collapsed
         if (isCollapsed) {
@@ -252,7 +252,7 @@ const TaskTable = ({
     };
 
     return (
-        <div className="flex-1 flex flex-col overflow-hidden">
+        <div className="flex-1 flex flex-col overflow-hidden border border-gray-200 bg-white">
             {/* Desktop Header - LEFT ALIGNED with Collapse Icons */}
             <div className="hidden md:block border-b border-gray-200 bg-gradient-to-r from-gray-50 to-white sticky top-0 z-10">
                 <div className="flex items-center min-w-max bg-white">
@@ -286,7 +286,11 @@ const TaskTable = ({
                                 style={{ flex: getColumnFlex(column.id, column.items, isCollapsed) }}
                             >
                                 <div className="flex items-center justify-between gap-1">
-                                    <div className="truncate flex-1">{column.name}</div>
+                                    <div className="truncate flex-1">
+                                        {column.items?.some((item) => item.id === 'menu')
+                                            ? <FiSettings className="w-4 h-4 text-gray-600 mx-auto" />
+                                            : column.name}
+                                    </div>
                                     {itemCount > 1 && (
                                         <motion.button
                                             onClick={() => toggleColumnCollapse(column.id)}
@@ -422,10 +426,10 @@ const TaskTable = ({
                 position: hasMenuItem ? 'static' : 'relative'
             }}
         >
-            <div className={`flex flex-col items-start justify-start gap-2 ${hasMenuItem ? 'relative' : ''}`}>
+            <div className={`flex flex-col items-start justify-start gap-2 ${hasMenuItem ? 'relative items-center justify-center min-h-[2rem]' : ''}`}>
                 {/* Map through items to show */}
                 {itemsToShow && itemsToShow.map((item, idx) => (
-                    <div key={item.id} className="w-full text-left">
+                    <div key={item.id} className={`w-full ${hasMenuItem ? 'flex items-center justify-center text-center' : 'text-left'}`}>
                         {renderCellContent(
                             task, 
                             item.id,
