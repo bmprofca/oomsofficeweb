@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { FaCheck } from 'react-icons/fa';
 import { FiX } from 'react-icons/fi';
@@ -46,6 +46,34 @@ export function toIsoDate(date) {
     const month = String(date.getMonth() + 1).padStart(2, '0');
     const day = String(date.getDate()).padStart(2, '0');
     return `${year}-${month}-${day}`;
+}
+
+/** True while a portaled DatePickerField / DateRangePickerField overlay is mounted (see `data-datepicker-portal`). */
+export function isDatePickerPortalOpen() {
+    if (typeof document === 'undefined') return false;
+    return Boolean(document.querySelector('[data-datepicker-portal="true"]'));
+}
+
+/**
+ * When the picker portal is open, handle Escape in the capture phase so it closes first
+ * and the event does not reach parent modals that listen on `document` (bubble phase).
+ */
+function usePickerPortalEscapeClose(open, setOpen) {
+    const close = useCallback(() => {
+        setOpen(false);
+    }, [setOpen]);
+
+    useEffect(() => {
+        if (!open) return undefined;
+        const onKey = (e) => {
+            if (e.key !== 'Escape') return;
+            e.preventDefault();
+            e.stopPropagation();
+            close();
+        };
+        document.addEventListener('keydown', onKey, true);
+        return () => document.removeEventListener('keydown', onKey, true);
+    }, [open, close]);
 }
 
 function sameDay(a, b) {
@@ -737,6 +765,7 @@ export function DatePickerField({
 }) {
     const [open, setOpen] = useState(false);
     const selectedDate = parseDateValue(value);
+    usePickerPortalEscapeClose(open, setOpen);
 
     return (
         <div className={`relative ${wrapperClassName}`.trim()}>
@@ -757,9 +786,14 @@ export function DatePickerField({
                 && createPortal(
                     <div
                         data-datepicker-portal="true"
-                        className="fixed inset-0 z-[9999] grid place-items-center overflow-y-auto bg-black/45 p-3 sm:p-6"
+                        className="fixed inset-0 z-[10200] grid place-items-center overflow-y-auto bg-black/45 p-3 sm:p-6"
                         onClick={() => setOpen(false)}
-                        onKeyDown={(e) => e.key === 'Escape' && setOpen(false)}
+                        onKeyDown={(e) => {
+                            if (e.key !== 'Escape') return;
+                            e.preventDefault();
+                            e.stopPropagation();
+                            setOpen(false);
+                        }}
                         role="presentation"
                     >
                         <div
@@ -822,6 +856,7 @@ export function DateRangePickerField({
     const [open, setOpen] = useState(false);
     const [lastUsedTab, setLastUsedTab] = useState(initialTab);
     const [lastQuickKey, setLastQuickKey] = useState(defaultQuickKey || initialQuickKey);
+    usePickerPortalEscapeClose(open, setOpen);
     const startValue = value?.start || value?.start_date || value?.from || '';
     const endValue = value?.end || value?.end_date || value?.to || '';
     const startDate = parseDateValue(startValue);
@@ -854,9 +889,14 @@ export function DateRangePickerField({
                 && createPortal(
                     <div
                         data-datepicker-portal="true"
-                        className="fixed inset-0 z-[9999] grid place-items-center overflow-y-auto bg-black/45 p-3 sm:p-6"
+                        className="fixed inset-0 z-[10200] grid place-items-center overflow-y-auto bg-black/45 p-3 sm:p-6"
                         onClick={() => setOpen(false)}
-                        onKeyDown={(e) => e.key === 'Escape' && setOpen(false)}
+                        onKeyDown={(e) => {
+                            if (e.key !== 'Escape') return;
+                            e.preventDefault();
+                            e.stopPropagation();
+                            setOpen(false);
+                        }}
                         role="presentation"
                     >
                         <div

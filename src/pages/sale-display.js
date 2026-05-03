@@ -32,7 +32,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Header, Sidebar } from '../components/header';
 import EmailSelectionModal from '../components/email-selection';
 import MobileSelectionModal from '../components/mobile-selection';
-import SaleForm from '../components/sales-form';
+import { SaleForm } from '../components/Modals/CreateTransactions';
 import DateFilter from '../components/DateFilter';
 import API_BASE_URL from '../utils/api-controller';
 import getHeaders from '../utils/get-headers';

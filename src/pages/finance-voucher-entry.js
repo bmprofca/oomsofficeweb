@@ -14,7 +14,7 @@ import {
     FiActivity
 } from 'react-icons/fi';
 import { useNavigate, useLocation } from 'react-router-dom';
-import SaleForm from '../components/sales-form';
+import { SaleForm } from '../components/Modals/CreateTransactions';
 import PurchaseForm from '../components/purchase-form';
 import PaymentReceived from '../components/payment-received';
 import PaymentSend from '../components/payment-send';

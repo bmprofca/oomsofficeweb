@@ -2,26 +2,12 @@ import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom';
 import { createPortal } from 'react-dom';
 import {
-    FiRepeat,
     FiDownload,
-    FiX,
     FiRefreshCw,
     FiPlus,
-    FiUser,
-    FiDollarSign,
-    FiFileText,
-    FiShoppingBag,
-    FiTruck,
-    FiHome,
-    FiGlobe,
-    FiCreditCard,
-    FiMoreVertical,
     FiEdit2,
     FiFile,
     FiEye,
-    FiMail,
-    FiPhone,
-    FiUserCheck,
     FiBarChart2
 } from 'react-icons/fi';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -29,11 +15,17 @@ import toast from 'react-hot-toast';
 import API_BASE_URL from '../utils/api-controller';
 import getHeaders from '../utils/get-headers';
 import axios from 'axios';
-import { TransactionModalManager } from '../finance/bank/client-transaction-modal';
+import { TransactionModalManager } from '../components/Modals/CreateTransactions';
 import { DateRangePickerField } from '../components/PortalDatePicker';
 import TablePagination from '../components/TablePagination';
 import OpeningBalanceModal from '../components/OpeningBalanceModal';
-import { ViewTransactionModalManager } from '../components/ViewTransactionModal';
+import { ViewTransactionModalManager } from '../components/Modals/ViewTransactions';
+import TransactionTable, {
+    getTransactionAmounts,
+    formatLedgerCurrency,
+    formatLedgerDate,
+    getLedgerTransactionTypeIcon,
+} from '../components/TransactionTable';
 
 
 const ClientLedger = () => {
@@ -283,18 +275,6 @@ const ClientLedger = () => {
         });
     };
 
-    // Get debit/credit/balance from transaction (new API: type-specific object e.g. payment, sale)
-    const getTransactionAmounts = (transaction) => {
-        const key = transaction.transaction_type;
-        const amounts = key && transaction[key] ? transaction[key] : transaction.payment || {};
-        return {
-            debit: amounts.debit ?? 0,
-            credit: amounts.credit ?? 0,
-            balance: amounts.balance
-        };
-    };
-
-
     // Handle refresh
     const handleRefresh = useCallback(() => {
         fetchTransactions();
@@ -500,153 +480,8 @@ const ClientLedger = () => {
         [transactions, showActionMenu]
     );
 
-    // Format currency
-    const formatCurrency = (amount) => {
-        return new Intl.NumberFormat('en-IN', {
-            minimumFractionDigits: 2,
-            maximumFractionDigits: 2
-        }).format(Math.abs(amount || 0));
-    };
-
-    // Format date
-    const formatDate = (dateString) => {
-        return new Date(dateString).toLocaleDateString('en-IN', {
-            day: '2-digit',
-            month: 'short',
-            year: 'numeric'
-        });
-    };
-
-    // Format time
-    const formatTime = (dateString) => {
-        return new Date(dateString).toLocaleTimeString('en-IN', {
-            hour: '2-digit',
-            minute: '2-digit'
-        });
-    };
-
-    // Get transaction type color (debit=blue, credit=orange)
-    const getTransactionTypeColor = (transaction) => {
-        const amounts = getTransactionAmounts(transaction);
-        if (amounts.debit > 0) return 'text-blue-600 bg-blue-50 border-blue-200';
-        if (amounts.credit > 0) return 'text-orange-600 bg-orange-50 border-orange-200';
-        return 'text-slate-600 bg-slate-50 border-slate-200';
-    };
-
-    // Get payment mode icon
-    const getPaymentModeIcon = (mode) => {
-        switch (mode?.toLowerCase()) {
-            case 'cash':
-                return <FiDollarSign className="w-4 h-4 text-green-600" />;
-            case 'bank':
-                return <FiHome className="w-4 h-4 text-blue-600" />;
-            case 'cheque':
-                return <FiFileText className="w-4 h-4 text-purple-600" />;
-            case 'online':
-                return <FiGlobe className="w-4 h-4 text-indigo-600" />;
-            case 'card':
-                return <FiCreditCard className="w-4 h-4 text-orange-600" />;
-            default:
-                return <FiDollarSign className="w-4 h-4 text-slate-600" />;
-        }
-    };
-
-    // Get transaction type icon
-    const getTransactionTypeIcon = (type) => {
-        switch (type) {
-            case 'RECEIVE': return <FiUser className="w-5 h-5" />;
-            case 'PAYMENT': return <FiDollarSign className="w-5 h-5" />;
-            case 'SALE': return <FiShoppingBag className="w-5 h-5" />;
-            case 'PURCHASE': return <FiTruck className="w-5 h-5" />;
-            case 'EXPENSE': return <FiFileText className="w-5 h-5" />;
-            case 'JOURNAL': return <FiRepeat className="w-5 h-5" />;
-            default: return <FiPlus className="w-5 h-5" />;
-        }
-    };
-
-    // Get particulars display (new API: particular.type + particular.details + particular.remark, fallback to transaction_type + remark)
-    const getParticularsDisplay = (transaction) => {
-        const particular = transaction.particular;
-        const remark = particular?.remark;
-        if ((transaction.transaction_type || '').toLowerCase() === 'sale' && Array.isArray(particular?.sale_items)) {
-            const items = particular.sale_items.filter((item) => item?.name);
-            const firstItemName = items[0]?.name || 'Sale item';
-            const itemsLabel = items.length > 1
-                ? `${firstItemName}, ... (+${items.length - 1})`
-                : firstItemName;
-
-            return (
-                <div className="flex flex-col min-w-0">
-                    <div className="font-medium text-slate-800 truncate" title={itemsLabel}>
-                        {itemsLabel}
-                    </div>
-                    {remark && (
-                        <div className="text-xs text-slate-600 mt-1 truncate max-w-[200px]" title={remark}>
-                            {remark}
-                        </div>
-                    )}
-                </div>
-            );
-        }
-        if (particular?.type === 'bank' && particular?.details) {
-            const d = particular.details;
-            return (
-                <div className="flex flex-col min-w-0">
-                    <div className="font-medium text-slate-800">{d.bank || 'Bank'}</div>
-                    <div className="text-xs text-slate-500">
-                        {[d.account_no, d.holder, d.ifsc, d.branch].filter(Boolean).join(' • ')}
-                    </div>
-                    {remark && (
-                        <div className="text-xs text-slate-600 mt-1 truncate max-w-[200px]" title={remark}>
-                            {remark}
-                        </div>
-                    )}
-                </div>
-            );
-        }
-        if (transaction.create_by && particular?.type) {
-            return (
-                <div className="flex flex-col min-w-0">
-                    <div className="font-medium text-slate-800">{transaction.create_by.name || 'Company'}</div>
-                    <div className="text-xs text-slate-500">{transaction.create_by.email || ''}</div>
-                    {remark && (
-                        <div className="text-xs text-slate-600 mt-1 truncate max-w-[200px]" title={remark}>
-                            {remark}
-                        </div>
-                    )}
-                </div>
-            );
-        }
-        // No particulars (e.g. opening balance) – show transaction type + remark
-        const txType = (transaction.transaction_type || '')
-            .replace(/_/g, ' ')
-            .replace(/\b\w/g, (c) => c.toUpperCase());
-        return (
-            <div className="flex flex-col min-w-0">
-                <div className="font-medium text-slate-800">{txType || 'N/A'}</div>
-                {remark && (
-                    <div className="text-xs text-slate-600 mt-1 truncate max-w-[200px]" title={remark}>
-                        {remark}
-                    </div>
-                )}
-            </div>
-        );
-    };
-
-    // Loading skeleton
-    const SkeletonRow = () => (
-        <tr className="border-b border-slate-100 animate-pulse">
-            <td className="p-4"><div className="h-4 bg-slate-200 rounded w-8"></div></td>
-            <td className="p-4"><div className="h-4 bg-slate-200 rounded w-24"></div></td>
-            <td className="p-4"><div className="h-4 bg-slate-200 rounded w-32"></div></td>
-            <td className="p-4"><div className="h-4 bg-slate-200 rounded w-20"></div></td>
-            <td className="p-4"><div className="h-4 bg-slate-200 rounded w-24"></div></td>
-            <td className="p-4 text-right"><div className="h-4 bg-slate-200 rounded w-20 ml-auto"></div></td>
-            <td className="p-4 text-right"><div className="h-4 bg-slate-200 rounded w-20 ml-auto"></div></td>
-            <td className="p-4 text-right"><div className="h-4 bg-slate-200 rounded w-20 ml-auto"></div></td>
-            <td className="p-4 text-center"><div className="h-8 bg-slate-200 rounded w-8 mx-auto"></div></td>
-        </tr>
-    );
+    const formatCurrency = formatLedgerCurrency;
+    const formatDate = formatLedgerDate;
 
     return (
         <div className="w-full">
@@ -658,14 +493,14 @@ const ClientLedger = () => {
             >
                 <div className="flex flex-wrap items-start justify-between gap-4">
                     <div className="min-w-0">
-                        <h1 className="text-xl sm:text-2xl font-bold text-slate-800">Client Ledger</h1>
+                        <h2 className="text-xl sm:text-2xl font-bold text-slate-800">Client Ledger</h2>
                         {clientProfile && (
                             <p className="text-sm text-slate-500 mt-1 truncate">
                                 {clientProfile.name} &middot; {clientProfile.email}
                                 {clientProfile.mobile && ` · +${clientProfile.country_code || '91'} ${clientProfile.mobile}`}
                             </p>
                         )}
-                </div>
+                    </div>
 
                     <div className="flex flex-wrap items-center justify-end gap-2">
                         <button
@@ -695,55 +530,55 @@ const ClientLedger = () => {
                                 wrapperClassName="w-full"
                             />
                         </div>
-                    <motion.button
-                        onClick={handleRefresh}
+                        <motion.button
+                            onClick={handleRefresh}
                             className="p-2 bg-white rounded-lg shadow-sm hover:shadow transition-all duration-200 border border-slate-200"
-                        whileHover={{ scale: 1.05 }}
-                        whileTap={{ scale: 0.95 }}
-                        title="Refresh"
-                    >
-                        <FiRefreshCw className="w-5 h-5 text-slate-600" />
-                    </motion.button>
-                    <motion.button
-                        onClick={() => handleExport('pdf')}
+                            whileHover={{ scale: 1.05 }}
+                            whileTap={{ scale: 0.95 }}
+                            title="Refresh"
+                        >
+                            <FiRefreshCw className="w-5 h-5 text-slate-600" />
+                        </motion.button>
+                        <motion.button
+                            onClick={() => handleExport('pdf')}
                             className="p-2 bg-white rounded-lg shadow-sm hover:shadow transition-all duration-200 border border-slate-200"
-                        whileHover={{ scale: 1.05 }}
-                        whileTap={{ scale: 0.95 }}
-                        title="Export PDF"
-                    >
-                        <FiDownload className="w-5 h-5 text-slate-600" />
-                    </motion.button>
+                            whileHover={{ scale: 1.05 }}
+                            whileTap={{ scale: 0.95 }}
+                            title="Export PDF"
+                        >
+                            <FiDownload className="w-5 h-5 text-slate-600" />
+                        </motion.button>
                         <div className="relative">
-                    <motion.button
+                            <motion.button
                                 onClick={(e) => {
                                     e.stopPropagation();
                                     setShowAddMenu((prev) => !prev);
                                 }}
                                 className="p-2 bg-gradient-to-r from-blue-600 to-blue-700 rounded-lg shadow-sm hover:shadow transition-all duration-200 text-white"
-                            whileHover={{ scale: 1.05 }}
-                            whileTap={{ scale: 0.95 }}
-                            title="Add Transaction"
-                        >
-                            <FiPlus className="w-5 h-5" />
-                        </motion.button>
+                                whileHover={{ scale: 1.05 }}
+                                whileTap={{ scale: 0.95 }}
+                                title="Add Transaction"
+                            >
+                                <FiPlus className="w-5 h-5" />
+                            </motion.button>
                             {showAddMenu && (
                                 <div
                                     className="absolute right-0 mt-2 w-48 bg-white rounded-xl shadow-xl border border-slate-200 py-2 z-50"
                                     onClick={(e) => e.stopPropagation()}
                                 >
-                            {['RECEIVE', 'PAYMENT', 'SALE', 'PURCHASE', 'EXPENSE', 'JOURNAL'].map((type) => (
-                                <button
-                                    key={type}
-                                    onClick={() => handleTransactionTypeClick(type)}
-                                    className="w-full px-4 py-2 text-left text-sm text-slate-700 hover:bg-blue-50 flex items-center gap-3 transition-colors"
-                                >
-                                    <span className="text-blue-600">{getTransactionTypeIcon(type)}</span>
-                                    {type.charAt(0) + type.slice(1).toLowerCase()}
-                                </button>
-                            ))}
-                        </div>
+                                    {['RECEIVE', 'PAYMENT', 'SALE', 'PURCHASE', 'EXPENSE', 'JOURNAL'].map((type) => (
+                                        <button
+                                            key={type}
+                                            onClick={() => handleTransactionTypeClick(type)}
+                                            className="w-full px-4 py-2 text-left text-sm text-slate-700 hover:bg-blue-50 flex items-center gap-3 transition-colors"
+                                        >
+                                            <span className="text-blue-600">{getLedgerTransactionTypeIcon(type)}</span>
+                                            {type.charAt(0) + type.slice(1).toLowerCase()}
+                                        </button>
+                                    ))}
+                                </div>
                             )}
-                    </div>
+                        </div>
                     </div>
                 </div>
             </motion.div>
@@ -755,141 +590,16 @@ const ClientLedger = () => {
                 transition={{ delay: 0.2 }}
                 className="bg-white rounded-xl shadow-lg border border-slate-200 overflow-hidden"
             >
-                <div className="overflow-x-auto">
-                    <table className="w-full text-sm">
-                        <thead>
-                            <tr className="bg-gradient-to-r from-slate-50 to-slate-100 border-y border-slate-200">
-                                <th className="text-left p-4 font-semibold text-slate-600 w-16">#</th>
-                                <th className="text-left p-4 font-semibold text-slate-600">Date</th>
-                                <th className="text-left p-4 font-semibold text-slate-600">Particulars</th>
-                                <th className="text-left p-4 font-semibold text-slate-600">Type</th>
-                                <th className="text-left p-4 font-semibold text-slate-600">Voucher No</th>
-                                <th className="text-right p-4 font-semibold text-slate-600">Debit</th>
-                                <th className="text-right p-4 font-semibold text-slate-600">Credit</th>
-                                <th className="text-right p-4 font-semibold text-slate-600">Balance</th>
-                                <th className="text-center p-4 font-semibold text-slate-600 w-20">Action</th>
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-slate-100">
-                            {/* Opening Balance Row - Always Show debit, credit, balance */}
-                            <tr className="bg-slate-100 font-medium">
-                                <td className="p-4 text-slate-600"></td>
-                                <td className="p-4 text-slate-800" colSpan="2">Opening Balance</td>
-                                <td className="p-4"></td>
-                                <td className="p-4"></td>
-                                <td className="p-4 text-right">
-                                    {openingBalance.debit > 0 ? (
-                                        <span className="text-sm font-semibold text-blue-600">{formatCurrency(openingBalance.debit)}</span>
-                                    ) : (
-                                        <span className="text-sm text-slate-600">{formatCurrency(0)}</span>
-                                    )}
-                                </td>
-                                <td className="p-4 text-right">
-                                    {openingBalance.credit > 0 ? (
-                                        <span className="text-sm font-semibold text-orange-600">{formatCurrency(openingBalance.credit)}</span>
-                                    ) : (
-                                        <span className="text-sm text-slate-600">{formatCurrency(0)}</span>
-                                    )}
-                                </td>
-                                <td className={`p-4 text-right font-bold ${(openingBalance.balance ?? 0) >= 0 ? 'text-blue-600' : 'text-orange-600'}`}>
-                                    {formatCurrency(openingBalance.balance ?? 0)}
-                                </td>
-                                <td className="p-4"></td>
-                            </tr>
-
-                            {loading || fetchingTransactions ? (
-                                [...Array(5)].map((_, index) => <SkeletonRow key={index} />)
-                            ) : transactions.length === 0 ? (
-                                <tr>
-                                    <td colSpan="9" className="text-center py-12">
-                                        <div className="flex flex-col items-center justify-center">
-                                            <div className="p-4 bg-slate-100 rounded-full mb-4">
-                                                <FiRepeat className="w-8 h-8 text-slate-400" />
-                                            </div>
-                                            <p className="text-slate-600 text-lg font-medium mb-2">No transactions found</p>
-                                            <p className="text-slate-500 text-sm">No transactions available for the selected date range</p>
-                                        </div>
-                                    </td>
-                                </tr>
-                            ) : (
-                                transactions.map((transaction, index) => (
-                                    <motion.tr
-                                        key={transaction.transaction_id || index}
-                                        initial={{ opacity: 0 }}
-                                        animate={{ opacity: 1 }}
-                                        transition={{ delay: index * 0.02 }}
-                                        className="hover:bg-blue-50/30 transition-colors duration-150"
-                                    >
-                                        <td className="p-4 text-slate-600">{(currentPage - 1) * itemsPerPage + index + 1}</td>
-                                        <td className="p-3 text-slate-600 text-sm">
-                                            {formatDate(transaction.transaction_date)}
-                                        </td>
-                                        <td className="p-4">
-                                            {getParticularsDisplay(transaction)}
-                                        </td>
-                                        <td className="p-4">
-                                            <div className="flex flex-col">
-                                                <span className={`px-3 py-1 rounded-lg text-xs font-medium border w-fit ${getTransactionTypeColor(transaction)}`}>
-                                                    {(transaction.transaction_type || 'N/A').replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}
-                                                </span>
-                                            </div>
-                                        </td>
-                                        <td className="p-4">
-                                            <span className="text-sm font-mono text-slate-600">
-                                                {transaction.invoice_no || 'N/A'}
-                                            </span>
-                                        </td>
-                                        <td className="p-4 text-right">
-                                            {(() => {
-                                                const amounts = getTransactionAmounts(transaction);
-                                                return amounts.debit > 0 ? (
-                                                    <span className="text-sm font-semibold text-blue-600">{formatCurrency(amounts.debit)}</span>
-                                                ) : (
-                                                    <span className="text-sm text-slate-600">{formatCurrency(0)}</span>
-                                                );
-                                            })()}
-                                        </td>
-                                        <td className="p-4 text-right">
-                                            {(() => {
-                                                const amounts = getTransactionAmounts(transaction);
-                                                return amounts.credit > 0 ? (
-                                                    <span className="text-sm font-semibold text-orange-600">{formatCurrency(amounts.credit)}</span>
-                                                ) : (
-                                                    <span className="text-sm text-slate-600">{formatCurrency(0)}</span>
-                                                );
-                                            })()}
-                                        </td>
-                                        <td className="p-4 text-right">
-                                            <span className={`text-sm font-bold ${((getTransactionAmounts(transaction).balance) ?? 0) >= 0 ? 'text-blue-600' : 'text-orange-600'}`}>
-                                                {formatCurrency(getTransactionAmounts(transaction).balance ?? 0)}
-                                            </span>
-                                        </td>
-                                        <td className="p-4 text-center">
-                                            <button
-                                                onClick={(e) => handleActionClick(e, transaction.transaction_id)}
-                                                className="p-2 hover:bg-slate-100 rounded-lg transition-colors"
-                                            >
-                                                <FiMoreVertical className="w-5 h-5 text-slate-600" />
-                                            </button>
-
-                                        </td>
-                                    </motion.tr>
-                                ))
-                            )}
-
-                            {/* Total Row - Always Show */}
-                            <tr className="bg-slate-100 font-bold border-t-2 border-slate-300">
-                                <td className="p-4 text-slate-800" colSpan="5">Total</td>
-                                <td className="p-4 text-right text-blue-600">{formatCurrency(summary.totalDebit)}</td>
-                                <td className="p-4 text-right text-orange-600">{formatCurrency(summary.totalCredit)}</td>
-                                <td className={`p-4 text-right ${summary.closingBalance >= 0 ? 'text-blue-600' : 'text-orange-600'}`}>
-                                    {formatCurrency(summary.closingBalance)}
-                                </td>
-                                <td className="p-4"></td>
-                            </tr>
-                        </tbody>
-                    </table>
-                </div>
+                <TransactionTable
+                    transactions={transactions}
+                    loading={loading}
+                    fetching={fetchingTransactions}
+                    openingBalance={openingBalance}
+                    summary={summary}
+                    currentPage={currentPage}
+                    itemsPerPage={itemsPerPage}
+                    onActionClick={handleActionClick}
+                />
 
                 {/* Pagination */}
                 <TablePagination
@@ -928,7 +638,7 @@ const ClientLedger = () => {
                 )}
             </AnimatePresence>
 
-            {/* Transaction Modal Manager - MODIFIED */}
+            {/* Same TransactionModalManager wiring as bank transaction-history (modals render via portal in CreateTransactions BaseModal). */}
             <TransactionModalManager
                 modalType={transactionType}
                 isOpen={showTransactionModal}
@@ -939,9 +649,10 @@ const ClientLedger = () => {
                 clientName={clientProfile?.name}
                 bankDetails={selectedBank}
                 bankId={selectedBank?.bank_id}
-                showClient={false}
+                bankPageClientLookup={false}
+                showClient={!(transactionType === 'RECEIVE' || transactionType === 'PAYMENT')}
                 showBank={true}
-                showSummary={false}
+                showSummary={!(transactionType === 'RECEIVE' || transactionType === 'PAYMENT')}
                 onSubmit={handleCreateTransaction}
                 formatCurrency={formatCurrency}
                 summary={summary}
