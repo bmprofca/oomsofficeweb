@@ -395,20 +395,25 @@ const AttendanceTab = ({ attendance, setAttendance, variants }) => {
             payload.attendance_id = selectedDayDetails.attendance_id;
         }
 
-        // Add manual times if provided
+        // Add manual times if provided (only time part)
         if (verifyFormData.manual_punch_in) {
-            // Extract time from datetime-local value or use as is
+            // Format as HH:MM:SS
             let punchInTime = verifyFormData.manual_punch_in;
-            if (punchInTime.includes('T')) {
-                punchInTime = punchInTime.split('T')[1];
+            if (punchInTime.includes(':')) {
+                // Ensure seconds are included
+                if (punchInTime.split(':').length === 2) {
+                    punchInTime = `${punchInTime}:00`;
+                }
             }
             payload.manual_punch_in = punchInTime;
         }
         
         if (verifyFormData.manual_punch_out) {
             let punchOutTime = verifyFormData.manual_punch_out;
-            if (punchOutTime.includes('T')) {
-                punchOutTime = punchOutTime.split('T')[1];
+            if (punchOutTime.includes(':')) {
+                if (punchOutTime.split(':').length === 2) {
+                    punchOutTime = `${punchOutTime}:00`;
+                }
             }
             payload.manual_punch_out = punchOutTime;
         }
@@ -505,6 +510,40 @@ const AttendanceTab = ({ attendance, setAttendance, variants }) => {
         }
     };
 
+    // Format time for display in input field (extract only time part)
+    const formatTimeForInput = (datetimeStr) => {
+        if (!datetimeStr) return '';
+        // If it contains 'T', extract the time part
+        if (datetimeStr.includes('T')) {
+            const timePart = datetimeStr.split('T')[1];
+            // Return only HH:MM (remove seconds if present)
+            if (timePart && timePart.includes(':')) {
+                const parts = timePart.split(':');
+                return `${parts[0]}:${parts[1]}`;
+            }
+            return timePart;
+        }
+        // If it's already a time string, format it to HH:MM
+        if (datetimeStr.includes(':')) {
+            const parts = datetimeStr.split(':');
+            return `${parts[0]}:${parts[1]}`;
+        }
+        return '';
+    };
+
+    // Format time for display in summary
+    const formatTimeForDisplay = (timeStr) => {
+        if (!timeStr) return '—';
+        if (typeof timeStr === 'string') {
+            const [hours, minutes] = timeStr.split(':');
+            const hour = parseInt(hours);
+            const ampm = hour >= 12 ? 'PM' : 'AM';
+            const hour12 = hour % 12 || 12;
+            return `${hour12.toString().padStart(2, '0')}:${minutes} ${ampm}`;
+        }
+        return '—';
+    };
+
     // MODIFIED: Open verify modal to handle missing attendance
     const openVerifyModal = () => {
         if (!selectedDayDetails) {
@@ -520,19 +559,19 @@ const AttendanceTab = ({ attendance, setAttendance, variants }) => {
         if (selectedDayDetails.details) {
             status = selectedDayDetails.status || 'present';
             
-            // Set manual times from existing details if available
+            // Set manual times from existing details if available (only time part)
             if (selectedDayDetails.details.punch_in) {
-                manualPunchIn = `${selectedDayDetails.date}T${selectedDayDetails.details.punch_in}`;
+                const timeOnly = selectedDayDetails.details.punch_in.split(':');
+                manualPunchIn = `${timeOnly[0]}:${timeOnly[1]}`;
             }
             if (selectedDayDetails.details.punch_out) {
-                manualPunchOut = `${selectedDayDetails.date}T${selectedDayDetails.details.punch_out}`;
+                const timeOnly = selectedDayDetails.details.punch_out.split(':');
+                manualPunchOut = `${timeOnly[0]}:${timeOnly[1]}`;
             }
         } else if (!selectedDayDetails.attendance_id) {
-            // For new records without attendance, suggest default times
-            const defaultPunchIn = '09:00:00';
-            const defaultPunchOut = '18:00:00';
-            manualPunchIn = `${selectedDayDetails.date}T${defaultPunchIn}`;
-            manualPunchOut = `${selectedDayDetails.date}T${defaultPunchOut}`;
+            // For new records without attendance, suggest default times (only time part)
+            manualPunchIn = '09:00';
+            manualPunchOut = '18:00';
             status = 'present';
         }
         
@@ -1188,7 +1227,7 @@ const AttendanceTab = ({ attendance, setAttendance, variants }) => {
                     </div>
                 )}
 
-                {/* Admin Verify Attendance Modal - MODIFIED header text */}
+                {/* Admin Verify Attendance Modal - MODIFIED header text and time inputs */}
                 {showVerifyModal && selectedDayDetails && (
                     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
                         <motion.div
@@ -1235,8 +1274,8 @@ const AttendanceTab = ({ attendance, setAttendance, variants }) => {
                                                 setVerifyFormData({
                                                     ...verifyFormData,
                                                     verify_status: 'present',
-                                                    manual_punch_in: `${selectedDayDetails.date}T09:00:00`,
-                                                    manual_punch_out: `${selectedDayDetails.date}T18:00:00`,
+                                                    manual_punch_in: '09:00',
+                                                    manual_punch_out: '18:00',
                                                     admin_remarks: 'Admin created - standard working hours'
                                                 });
                                             }}
@@ -1263,8 +1302,8 @@ const AttendanceTab = ({ attendance, setAttendance, variants }) => {
                                                 setVerifyFormData({
                                                     ...verifyFormData,
                                                     verify_status: 'half_day',
-                                                    manual_punch_in: `${selectedDayDetails.date}T14:00:00`,
-                                                    manual_punch_out: `${selectedDayDetails.date}T18:00:00`,
+                                                    manual_punch_in: '14:00',
+                                                    manual_punch_out: '18:00',
                                                     admin_remarks: 'Half day - approved'
                                                 });
                                             }}
@@ -1291,8 +1330,8 @@ const AttendanceTab = ({ attendance, setAttendance, variants }) => {
                                                 setVerifyFormData({
                                                     ...verifyFormData,
                                                     verify_status: 'bonus',
-                                                    manual_punch_in: `${selectedDayDetails.date}T08:00:00`,
-                                                    manual_punch_out: `${selectedDayDetails.date}T20:00:00`,
+                                                    manual_punch_in: '08:00',
+                                                    manual_punch_out: '20:00',
                                                     admin_remarks: 'Overtime - project work'
                                                 });
                                             }}
@@ -1348,32 +1387,36 @@ const AttendanceTab = ({ attendance, setAttendance, variants }) => {
                                     </div>
                                 )}
 
-                                {/* Manual Time Correction Section - Only show for present/half_day */}
-                                {(verifyFormData.verify_status === 'present' || verifyFormData.verify_status === 'half_day') && (
+                                {/* Manual Time Correction Section - Only show for present/half_day/bonus */}
+                                {(verifyFormData.verify_status === 'present' || verifyFormData.verify_status === 'half_day' || verifyFormData.verify_status === 'bonus') && (
                                     <div className="border-t border-gray-200 pt-4 mt-2">
                                         <h4 className="text-sm font-medium text-gray-900 mb-3">Manual Time Correction (Optional)</h4>
                                         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                                             <div>
                                                 <label className="block text-xs font-medium text-gray-700 mb-1">
-                                                    Manual Punch In
+                                                    Manual Punch In (Time only)
                                                 </label>
                                                 <input
-                                                    type="datetime-local"
-                                                    value={verifyFormData.manual_punch_in}
+                                                    type="time"
+                                                    value={formatTimeForInput(verifyFormData.manual_punch_in)}
                                                     onChange={(e) => setVerifyFormData({...verifyFormData, manual_punch_in: e.target.value})}
                                                     className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                                    step="60"
                                                 />
+                                                <p className="text-xs text-gray-400 mt-1">Format: HH:MM (24-hour)</p>
                                             </div>
                                             <div>
                                                 <label className="block text-xs font-medium text-gray-700 mb-1">
-                                                    Manual Punch Out
+                                                    Manual Punch Out (Time only)
                                                 </label>
                                                 <input
-                                                    type="datetime-local"
-                                                    value={verifyFormData.manual_punch_out}
+                                                    type="time"
+                                                    value={formatTimeForInput(verifyFormData.manual_punch_out)}
                                                     onChange={(e) => setVerifyFormData({...verifyFormData, manual_punch_out: e.target.value})}
                                                     className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                                    step="60"
                                                 />
+                                                <p className="text-xs text-gray-400 mt-1">Format: HH:MM (24-hour)</p>
                                             </div>
                                         </div>
                                         <p className="text-xs text-gray-500 mt-2">
@@ -1437,7 +1480,7 @@ const AttendanceTab = ({ attendance, setAttendance, variants }) => {
                                         <li>• Status will be set to: <span className="font-medium capitalize">{verifyFormData.verify_status}</span></li>
                                         {!selectedDayDetails.attendance_id && <li>• New attendance record will be created</li>}
                                         {verifyFormData.manual_punch_in && verifyFormData.manual_punch_out && (
-                                            <li>• Working hours: {verifyFormData.manual_punch_in.split('T')[1]} - {verifyFormData.manual_punch_out.split('T')[1]}</li>
+                                            <li>• Working hours: {formatTimeForDisplay(verifyFormData.manual_punch_in)} - {formatTimeForDisplay(verifyFormData.manual_punch_out)}</li>
                                         )}
                                         {verifyFormData.consider_break && (verifyFormData.verify_status === 'present' || verifyFormData.verify_status === 'half_day') && (
                                             <li>• Break time will be considered in calculation</li>
