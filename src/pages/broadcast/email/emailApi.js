@@ -46,6 +46,7 @@ export const emailApi = {
   staticTemplateDetails: (templateId) => emailAxios.get(`/broadcast/email/static-template/details/${templateId}`).then(unwrap),
   staticTemplatesByType: (templateType) => emailAxios.get(`/broadcast/email/static-template/by-type/${templateType}`).then(unwrap),
   deleteStaticTemplate: (payload) => emailAxios.put('/broadcast/email/static-template/delete', payload).then(unwrap),
+  getTemplateVariables: (templateType) => emailAxios.get(`/broadcast/email/variables/${templateType}`).then(unwrap),
   setDefaultStaticTemplate: (payload) => emailAxios.put('/broadcast/email/static-template/set-default', payload).then(unwrap),
   // Broadcast
   createBroadcast: (payload) => emailAxios.post('/broadcast/email/broadcast/create', payload).then(unwrap),
