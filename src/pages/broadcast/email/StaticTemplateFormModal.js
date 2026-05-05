@@ -7,8 +7,6 @@ import StarterKit from '@tiptap/starter-kit';
 import Placeholder from '@tiptap/extension-placeholder';
 import Link from '@tiptap/extension-link';
 import Image from '@tiptap/extension-image';
-// import TextStyle from '@tiptap/extension-text-style';
-// import Color from '@tiptap/extension-color';
 import { emailApi } from './emailApi';
 // Correct imports
 import { TextStyle } from '@tiptap/extension-text-style';
@@ -23,6 +21,7 @@ const StaticTemplateFormModal = ({ show, onHide, editData, onSuccess }) => {
   const [previewData, setPreviewData] = useState({});
   const [htmlCode, setHtmlCode] = useState('');
   const [isSyncing, setIsSyncing] = useState(false);
+  const [isInitialized, setIsInitialized] = useState(false);
   
   const [formData, setFormData] = useState({
     template_id: null,
@@ -88,10 +87,12 @@ const StaticTemplateFormModal = ({ show, onHide, editData, onSuccess }) => {
 
   // Fetch template details when editing
   useEffect(() => {
-    if (editData && editData.template_id && show) {
-      fetchTemplateDetails(editData.template_id);
-    } else if (!editData && show) {
-      resetForm();
+    if (show) {
+      if (editData && editData.template_id) {
+        fetchTemplateDetails(editData.template_id);
+      } else {
+        resetForm();
+      }
     }
   }, [editData, show]);
 
@@ -102,27 +103,40 @@ const StaticTemplateFormModal = ({ show, onHide, editData, onSuccess }) => {
     }
   }, [formData.template_type]);
 
+  // Update preview when previewData changes
+  useEffect(() => {
+    if (formData.html_body && isInitialized) {
+      updatePreview(formData.html_body, previewData);
+    }
+  }, [previewData]);
+
   const fetchTemplateDetails = async (templateId) => {
     setLoading(true);
     try {
       const response = await emailApi.staticTemplateDetails(templateId);
       const template = response.data;
+      const htmlContent = template.html_body || getDefaultTemplate();
       
       setFormData({
         template_id: template.template_id,
         template_type: template.template_type || '',
         template_name: template.template_name || '',
         subject: template.subject || '',
-        html_body: template.html_body || getDefaultTemplate(),
+        html_body: htmlContent,
         text_body: template.text_body || '',
         status: template.status || 'active',
         is_default: template.is_default || 0
       });
       
-      setHtmlCode(template.html_body || getDefaultTemplate());
+      setHtmlCode(htmlContent);
       
-      // Extract variables from template
-      extractVariables(template.html_body || getDefaultTemplate());
+      // Extract variables and set preview
+      const vars = extractVariablesFromHtml(htmlContent);
+      const initialData = getInitialPreviewData(vars);
+      setVariables(vars);
+      setPreviewData(initialData);
+      setPreviewHtml(replaceVariables(htmlContent, initialData));
+      setIsInitialized(true);
     } catch (error) {
       console.error('Error fetching template details:', error);
       toast.error('Failed to load template details');
@@ -163,7 +177,11 @@ const StaticTemplateFormModal = ({ show, onHide, editData, onSuccess }) => {
 
   const resetForm = () => {
     const defaultHtml = getDefaultTemplate();
+    const vars = extractVariablesFromHtml(defaultHtml);
+    const initialData = getInitialPreviewData(vars);
+    
     setFormData({
+      template_id: null,
       template_type: '',
       template_name: '',
       subject: '',
@@ -173,13 +191,15 @@ const StaticTemplateFormModal = ({ show, onHide, editData, onSuccess }) => {
       is_default: 0
     });
     setHtmlCode(defaultHtml);
-    setVariables([]);
-    setPreviewData({});
+    setVariables(vars);
+    setPreviewData(initialData);
     setAvailableVariables(commonVariables);
-    setPreviewHtml(defaultHtml);
+    setPreviewHtml(replaceVariables(defaultHtml, initialData));
+    setIsInitialized(true);
   };
 
-  const extractVariables = (html) => {
+  const extractVariablesFromHtml = (html) => {
+    if (!html) return [];
     const regex = /{{(\w+)}}/g;
     const foundVariables = [];
     let match;
@@ -188,11 +208,37 @@ const StaticTemplateFormModal = ({ show, onHide, editData, onSuccess }) => {
         foundVariables.push(match[1]);
       }
     }
-    setVariables(foundVariables);
+    return foundVariables;
+  };
+
+  const getInitialPreviewData = (vars) => {
+    const initialPreviewData = {};
+    vars.forEach(varName => {
+      const varInfo = [...availableVariables, ...commonVariables].find(v => v.name === varName);
+      initialPreviewData[varName] = varInfo ? varInfo.example : `[${varName}]`;
+    });
+    return initialPreviewData;
+  };
+
+  const replaceVariables = (html, data) => {
+    if (!html) return '';
+    let preview = html;
+    if (data) {
+      Object.keys(data).forEach(key => {
+        const regex = new RegExp(`{{${key}}}`, 'g');
+        preview = preview.replace(regex, data[key] || `[${key}]`);
+      });
+    }
+    return preview;
+  };
+
+  const extractVariables = (html) => {
+    const vars = extractVariablesFromHtml(html);
+    setVariables(vars);
     
     // Initialize preview data with example values
     const initialPreviewData = {};
-    foundVariables.forEach(varName => {
+    vars.forEach(varName => {
       const varInfo = [...availableVariables, ...commonVariables].find(v => v.name === varName);
       initialPreviewData[varName] = varInfo ? varInfo.example : `[${varName}]`;
     });
@@ -244,11 +290,7 @@ const StaticTemplateFormModal = ({ show, onHide, editData, onSuccess }) => {
   };
 
   const updatePreview = (html, data) => {
-    let preview = html;
-    Object.keys(data).forEach(key => {
-      const regex = new RegExp(`{{${key}}}`, 'g');
-      preview = preview.replace(regex, data[key]);
-    });
+    const preview = replaceVariables(html, data);
     setPreviewHtml(preview);
   };
 
@@ -644,36 +686,79 @@ const StaticTemplateFormModal = ({ show, onHide, editData, onSuccess }) => {
                       </div>
 
                       <div className="lg:col-span-2">
-                        <div className="bg-gray-50 rounded-lg p-4">
+                        <div className="bg-gray-100 rounded-lg p-6">
                           <h4 className="text-sm font-medium text-gray-900 mb-3">
                             Email Preview
                           </h4>
-                          <div className="text-sm text-gray-500 mb-2 bg-white p-2 rounded border">
+                          <div className="text-sm text-gray-500 mb-3 bg-white p-3 rounded border border-gray-200">
                             <strong>Subject:</strong> {
                               formData.subject.replace(/{{(\w+)}}/g, (match, varName) => previewData[varName] || match)
                             }
                           </div>
-                          <div className="max-h-[600px] overflow-y-auto bg-white rounded-lg shadow-inner border">
-                            <div 
-                              dangerouslySetInnerHTML={{ __html: previewHtml }}
-                              className="p-4"
-                            />
+                          {/* Email Client Mockup */}
+                          <div className="bg-white rounded-lg shadow-lg overflow-hidden border border-gray-300">
+                            {/* Email Client Header */}
+                            <div className="border-b border-gray-200 bg-gray-100 px-4 py-3 flex items-center space-x-2">
+                              <div className="flex space-x-1.5">
+                                <div className="w-3 h-3 rounded-full bg-red-400"></div>
+                                <div className="w-3 h-3 rounded-full bg-yellow-400"></div>
+                                <div className="w-3 h-3 rounded-full bg-green-400"></div>
+                              </div>
+                              <span className="text-xs text-gray-500 ml-2 font-medium">Email Preview</span>
+                            </div>
+                            {/* Email Content */}
+                            <div className="w-full max-h-[600px] overflow-y-auto bg-white">
+                              <div 
+                                dangerouslySetInnerHTML={{ __html: previewHtml || formData.html_body }}
+                                className="w-full [&_img]:max-w-full [&_img]:h-auto [&_table]:max-w-full [&_a]:text-blue-600 [&_a]:underline [&_*]:box-border"
+                                style={{
+                                  fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif'
+                                }}
+                              />
+                            </div>
                           </div>
                         </div>
                       </div>
                     </div>
                   ) : (
-                    <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4">
-                      <div className="flex">
-                        <div className="flex-shrink-0">
-                          <svg className="h-5 w-5 text-yellow-400" viewBox="0 0 20 20" fill="currentColor">
-                            <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
-                          </svg>
+                    <div className="space-y-4">
+                      <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4">
+                        <div className="flex">
+                          <div className="flex-shrink-0">
+                            <svg className="h-5 w-5 text-yellow-400" viewBox="0 0 20 20" fill="currentColor">
+                              <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                            </svg>
+                          </div>
+                          <div className="ml-3">
+                            <p className="text-sm text-yellow-700">
+                              No variables found in your template. Add variables like {'{{user_name}}'} to test them here.
+                            </p>
+                          </div>
                         </div>
-                        <div className="ml-3">
-                          <p className="text-sm text-yellow-700">
-                            No variables found in your template. Add variables like {'{{user_name}}'} to test them here.
-                          </p>
+                      </div>
+                      {/* Show preview even without variables */}
+                      <div className="bg-gray-100 rounded-lg p-6">
+                        <h4 className="text-sm font-medium text-gray-900 mb-3">
+                          Email Preview
+                        </h4>
+                        <div className="bg-white rounded-lg shadow-lg overflow-hidden border border-gray-300">
+                          <div className="border-b border-gray-200 bg-gray-100 px-4 py-3 flex items-center space-x-2">
+                            <div className="flex space-x-1.5">
+                              <div className="w-3 h-3 rounded-full bg-red-400"></div>
+                              <div className="w-3 h-3 rounded-full bg-yellow-400"></div>
+                              <div className="w-3 h-3 rounded-full bg-green-400"></div>
+                            </div>
+                            <span className="text-xs text-gray-500 ml-2 font-medium">Email Preview</span>
+                          </div>
+                          <div className="w-full max-h-[600px] overflow-y-auto bg-white">
+                            <div 
+                              dangerouslySetInnerHTML={{ __html: formData.html_body }}
+                              className="w-full [&_img]:max-w-full [&_img]:h-auto [&_table]:max-w-full [&_a]:text-blue-600 [&_a]:underline [&_*]:box-border"
+                              style={{
+                                fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif'
+                              }}
+                            />
+                          </div>
                         </div>
                       </div>
                     </div>
