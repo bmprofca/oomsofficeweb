@@ -1505,6 +1505,7 @@ export const SaleForm = ({
     const [isLoadingParties, setIsLoadingParties] = useState(false);
     const [isLoadingBanks, setIsLoadingBanks] = useState(false);
     const [userSearchTerm, setUserSearchTerm] = useState('');
+    const [selectedSaleFirmId, setSelectedSaleFirmId] = useState('');
 
     const effectiveSaleType = lockedSaleType ?? saleType;
     const typeToggleVisible = showSaleTypeToggle !== undefined ? showSaleTypeToggle : lockedSaleType == null;
@@ -1650,6 +1651,19 @@ export const SaleForm = ({
                     care_of: client.care_of,
                     guardian_name: client.guardian_name,
                     guardian_type: client.guardian_type,
+                    firms: Array.isArray(client.firms)
+                        ? client.firms.map((firm) => ({
+                            firm_id: firm.firm_id,
+                            firm_name: firm.firm_name,
+                            pan_no: firm.pan_no,
+                            file_no: firm.file_no,
+                            firm_type: firm.firm_type,
+                            gst_no: firm.gst_no,
+                            username: firm.username,
+                            status: firm.status,
+                            address: firm.address,
+                        }))
+                        : [],
                 }));
                 setUserOptions(opts);
                 setShowPartyDropdown(opts.length > 0);
@@ -1712,6 +1726,7 @@ export const SaleForm = ({
             setShowPartyDropdown(false);
             setUserOptions([]);
             setSelectedSaleUser(null);
+            setSelectedSaleFirmId('');
             const hasParty = Boolean(presetPartyId);
             setSaleBankPickerOpen(!hasParty);
             setSaleBankRow(null);
@@ -1726,6 +1741,7 @@ export const SaleForm = ({
         setShowPartyDropdown(false);
         setUserOptions([]);
         setSelectedSaleUser(null);
+        setSelectedSaleFirmId('');
         setSaleBankPickerOpen(true);
         setSaleBankRow(null);
         if (type === 'bank' && bankOptions.length === 0) {
@@ -1754,6 +1770,26 @@ export const SaleForm = ({
         }
         return partyOptions.find(party => String(party.id) === String(formData.party_id));
     };
+
+    const selectedSaleFirms = useMemo(() => {
+        const p = getSelectedParty();
+        return Array.isArray(p?.firms) ? p.firms : [];
+    }, [formData.party_id, partyOptions, selectedSaleUser, hidePartySelector, fixedParty, effectiveSaleType]);
+
+    const saleFirmSelectOptions = useMemo(
+        () =>
+            selectedSaleFirms.map((firm) => ({
+                value: String(firm.firm_id),
+                label: `${firm.firm_name || '—'} • ${firm.pan_no || '—'} • ${firm.file_no || '—'} • ${firm.firm_type || '—'}`,
+                searchText: `${firm.firm_name || ''} ${firm.pan_no || ''} ${firm.file_no || ''} ${firm.firm_type || ''} ${firm.gst_no || ''}`,
+            })),
+        [selectedSaleFirms]
+    );
+
+    const selectedSaleFirm = useMemo(
+        () => selectedSaleFirms.find((f) => String(f.firm_id) === String(selectedSaleFirmId)),
+        [selectedSaleFirms, selectedSaleFirmId]
+    );
 
     /** Map sale `party` row to `ClientSearchAvatar` / Receive dropdown row shape */
     const partyRowToSearchClient = (party) => ({
@@ -1874,8 +1910,10 @@ export const SaleForm = ({
         if (effectiveSaleType === 'user') {
             const row = partyOptions.find((p) => String(p.id) === id);
             setSelectedSaleUser(row ?? null);
+            setSelectedSaleFirmId('');
         } else {
             setSelectedSaleUser(null);
+            setSelectedSaleFirmId('');
         }
         setFormData(prev => ({ ...prev, party_id: id }));
         setShowPartyDropdown(false);
@@ -1997,8 +2035,10 @@ export const SaleForm = ({
                     ...basePayload,
                     username: selectedParty?.username || selectedParty?.id,
                     user_type: 'client',
-                    firm_id: selectedParty?.id
                 };
+                if (selectedSaleFirmId) {
+                    finalPayload.firm_id = selectedSaleFirmId;
+                }
             } else if (effectiveSaleType === 'bank') {
                 endpoint = `${API_BASE_URL}/sale/create/bank`;
                 finalPayload = {
@@ -2019,6 +2059,11 @@ export const SaleForm = ({
             const data = await response.json();
 
             if (data.success) {
+                const msg =
+                    typeof data.message === 'string' && data.message.trim()
+                        ? data.message.trim()
+                        : 'Invoice created successfully';
+                toast.success(msg);
                 const submissionData = {
                     ...formData,
                     sale_type: effectiveSaleType,
@@ -2040,7 +2085,7 @@ export const SaleForm = ({
             }
         } catch (error) {
             console.error('Error submitting form:', error);
-            alert(error.message || `Error creating ${effectiveSaleType} sale. Please try again.`);
+            toast.error(error.message || `Error creating ${effectiveSaleType} sale. Please try again.`);
         } finally {
             setIsSubmitting(false);
         }
@@ -2160,22 +2205,50 @@ export const SaleForm = ({
                                     {!isLoadingParties
                                         && userSearchTerm.trim().length >= CLIENT_SEARCH_MIN
                                         && partyOptions.length === 0 && (
-                                        <p className="text-xs text-slate-500 mt-1.5">No clients found</p>
-                                    )}
+                                            <p className="text-xs text-slate-500 mt-1.5">No clients found</p>
+                                        )}
                                 </>
                             ) : (
-                                <SaleClientPreviewCard
-                                    party={getSelectedParty()}
-                                    summary={summary}
-                                    formatMoney={formatMoney}
-                                    onChangeClient={() => {
-                                        setFormData((prev) => ({ ...prev, party_id: '' }));
-                                        setSelectedSaleUser(null);
-                                        setUserSearchTerm('');
-                                        setUserOptions([]);
-                                        setShowPartyDropdown(false);
-                                    }}
-                                />
+                                <div className="space-y-3">
+                                    <SaleClientPreviewCard
+                                        party={getSelectedParty()}
+                                        summary={summary}
+                                        formatMoney={formatMoney}
+                                        onChangeClient={() => {
+                                            setFormData((prev) => ({ ...prev, party_id: '' }));
+                                            setSelectedSaleUser(null);
+                                            setSelectedSaleFirmId('');
+                                            setUserSearchTerm('');
+                                            setUserOptions([]);
+                                            setShowPartyDropdown(false);
+                                        }}
+                                    />
+                                    {selectedSaleFirms.length > 0 && (
+                                        <div className="rounded-lg border border-slate-200 bg-white p-3">
+                                            <SelectInput
+                                                label="Firm (optional)"
+                                                options={saleFirmSelectOptions}
+                                                value={selectedSaleFirmId || null}
+                                                onChange={(value) => setSelectedSaleFirmId(value ? String(value) : '')}
+                                                placeholder="Select firm for this sale"
+                                                searchPlaceholder="Search firm by name, PAN, file no, type"
+                                                noOptionsText="No firms available"
+                                                clearable
+                                            />
+                                            {selectedSaleFirm && (
+                                                <div className="mt-3 rounded-lg border border-slate-100 bg-slate-50 p-3 text-xs text-slate-700">
+                                                    <div className="font-semibold text-slate-800">{selectedSaleFirm.firm_name || '—'}</div>
+                                                    <div className="mt-1 grid grid-cols-1 gap-1 sm:grid-cols-2">
+                                                        <p><span className="text-slate-500">PAN:</span> <span className="font-mono">{selectedSaleFirm.pan_no || '—'}</span></p>
+                                                        <p><span className="text-slate-500">File No:</span> {selectedSaleFirm.file_no || '—'}</p>
+                                                        <p><span className="text-slate-500">Type:</span> {selectedSaleFirm.firm_type || '—'}</p>
+                                                        <p><span className="text-slate-500">GST:</span> {selectedSaleFirm.gst_no || '—'}</p>
+                                                    </div>
+                                                </div>
+                                            )}
+                                        </div>
+                                    )}
+                                </div>
                             )}
                         </div>
                     )}
@@ -3062,6 +3135,11 @@ export const PurchaseModal = ({ isOpen, onClose, onSubmit, formatCurrency, clien
             const data = await response.json();
 
             if (data.success) {
+                const msg =
+                    typeof data.message === 'string' && data.message.trim()
+                        ? data.message.trim()
+                        : 'Purchase created successfully';
+                toast.success(msg);
                 const submissionData = {
                     ...formData,
                     clientName,
@@ -3080,7 +3158,7 @@ export const PurchaseModal = ({ isOpen, onClose, onSubmit, formatCurrency, clien
             }
         } catch (error) {
             console.error('Error submitting form:', error);
-            alert(error.message || 'Error creating purchase. Please try again.');
+            toast.error(error.message || 'Error creating purchase. Please try again.');
         } finally {
             setIsSubmitting(false);
         }

@@ -15,8 +15,6 @@ import {
     FiEye,
     FiInfo,
     FiCalendar,
-    FiHash,
-    FiTag,
     FiHome,
     FiBriefcase,
     FiPercent,
@@ -33,12 +31,32 @@ import { Header, Sidebar } from '../components/header';
 import EmailSelectionModal from '../components/email-selection';
 import MobileSelectionModal from '../components/mobile-selection';
 import { SaleForm } from '../components/Modals/CreateTransactions';
-import DateFilter from '../components/DateFilter';
+import { DateRangePickerField } from '../components/PortalDatePicker';
+import TablePagination from '../components/TablePagination';
 import API_BASE_URL from '../utils/api-controller';
 import getHeaders from '../utils/get-headers';
 import axios from 'axios';
 
-const LIMIT_OPTIONS = [5, 10, 20, 50, 100];
+/** Format `sale_party` mobile with `country_code` (numeric → +91 …; non-numeric e.g. India → label + number). */
+const formatSalePartyMobile = (party) => {
+    if (!party || party.mobile == null || String(party.mobile).trim() === '') return '';
+    const mobile = String(party.mobile).trim();
+    const raw = party.country_code == null ? '' : String(party.country_code).trim();
+    if (!raw) return mobile;
+    if (/^\d+$/.test(raw)) return `+${raw} ${mobile}`;
+    return `${raw} · ${mobile}`;
+};
+
+/** Parse line `remark` e.g. `task:…` for display in sale line items */
+const parseLineRemark = (remark) => {
+    if (remark == null || String(remark).trim() === '') return null;
+    const s = String(remark).trim();
+    if (s.startsWith('task:')) {
+        const id = s.slice(5).trim();
+        return { kind: 'task', id, short: id.length > 12 ? `${id.slice(0, 10)}…` : id };
+    }
+    return { kind: 'text', text: s };
+};
 
 const ViewSales = () => {
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -47,7 +65,12 @@ const ViewSales = () => {
         return saved ? JSON.parse(saved) : false;
     });
     const [loading, setLoading] = useState(true);
-    const [dateRange, setDateRange] = useState('');
+    const [fromDate, setFromDate] = useState(() => {
+        const d = new Date();
+        d.setDate(1);
+        return d.toISOString().split('T')[0];
+    });
+    const [toDate, setToDate] = useState(() => new Date().toISOString().split('T')[0]);
     const [sales, setSales] = useState([]);
     const [saleFormModal, setSaleFormModal] = useState(false);
     const [summary, setSummary] = useState({
@@ -79,7 +102,6 @@ const ViewSales = () => {
     // Pagination state
     const [currentPage, setCurrentPage] = useState(1);
     const [totalPages, setTotalPages] = useState(1);
-    const [pageJumpInput, setPageJumpInput] = useState('');
     const [itemsPerPage, setItemsPerPage] = useState(20);
     const [totalRecords, setTotalRecords] = useState(0);
     const [isLastPage, setIsLastPage] = useState(false);
@@ -97,79 +119,48 @@ const ViewSales = () => {
     // Reset to page 1 when search, date range, or page size changes (LedgerTab pattern)
     useEffect(() => {
         setCurrentPage(1);
-    }, [debouncedSearchTerm, dateRange, itemsPerPage]);
+    }, [debouncedSearchTerm, fromDate, toDate, itemsPerPage]);
 
     // Persist sidebar minimized state
     useEffect(() => {
         localStorage.setItem('sidebarMinimized', JSON.stringify(isMinimized));
     }, [isMinimized]);
 
-    // Lock body scroll when mobile sidebar is open
+    // Lock page scroll for mobile sidebar only. Sale details modal uses a full-viewport fixed
+    // backdrop — BodyScrollLockObserver (index.js) detects it and locks/unlocks html+body.
+    // Setting overflow here for viewModalOpen too would race the observer and save 'hidden' as
+    // the "restore" value, leaving scroll stuck after the modal closes.
     useEffect(() => {
         if (mobileMenuOpen) {
             document.body.style.overflow = 'hidden';
         } else {
-            document.body.style.overflow = 'auto';
+            document.body.style.overflow = '';
         }
         return () => {
-            document.body.style.overflow = 'auto';
+            document.body.style.overflow = '';
         };
     }, [mobileMenuOpen]);
 
-    // Lock body scroll when view modal is open
-    useEffect(() => {
-        if (viewModalOpen) {
-            document.body.style.overflow = 'hidden';
-        } else {
-            document.body.style.overflow = 'auto';
-        }
-        return () => {
-            document.body.style.overflow = 'auto';
-        };
-    }, [viewModalOpen]);
-
-    // Format date for API
-    const formatDateForAPI = (dateString) => {
-        const [day, month, year] = dateString.split('/');
-        return `${year}-${month}-${day}`;
+    /** ISO YYYY-MM-DD → DD/MM/YYYY for export payload (legacy backend shape) */
+    const isoToDdMmYyyy = (iso) => {
+        if (!iso || typeof iso !== 'string') return '';
+        const [y, m, d] = iso.split('T')[0].split('-');
+        if (!y || !m || !d) return '';
+        return `${d}/${m}/${y}`;
     };
-
-    // Initialize with current month date range
-    useEffect(() => {
-        const today = new Date();
-        const firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
-        const lastDay = today;
-
-        const formatDate = (date) => {
-            return date.toLocaleDateString('en-GB', {
-                day: '2-digit',
-                month: '2-digit',
-                year: 'numeric'
-            }).replace(/\//g, '/');
-        };
-
-        const from = formatDate(firstDay);
-        const to = formatDate(lastDay);
-
-        setDateRange(`${from} - ${to}`);
-    }, []);
 
     // Fetch sales data from API
     const fetchSalesData = useCallback(async () => {
-        if (!dateRange) return;
+        if (!fromDate || !toDate) return;
 
         setLoading(true);
 
         try {
-            const [from, to] = dateRange.split(' - ');
-            const fromDateFormatted = formatDateForAPI(from);
-            const toDateFormatted = formatDateForAPI(to);
-
             const params = {
                 page_no: currentPage,
                 limit: itemsPerPage,
-                from_date: fromDateFormatted,
-                to_date: toDateFormatted,
+                from_date: fromDate,
+                to_date: toDate,
                 search: debouncedSearchTerm || ''
             };
 
@@ -263,7 +254,7 @@ const ViewSales = () => {
         } finally {
             setLoading(false);
         }
-    }, [dateRange, debouncedSearchTerm, currentPage, itemsPerPage]);
+    }, [fromDate, toDate, debouncedSearchTerm, currentPage, itemsPerPage]);
 
     // Fetch data when dependencies change
     useEffect(() => {
@@ -282,36 +273,11 @@ const ViewSales = () => {
         setSearchTerm(e.target.value);
     };
 
-    // Handle search button click
-    const handleSearch = () => {
-        fetchSalesData();
-    };
-
-    // Handle date filter change
-    const handleDateFilterChange = (filter) => {
-        if (filter.range) {
-            setDateRange(filter.range);
-        }
-    };
-
-    const handleItemsPerPageChange = (e) => {
-        setItemsPerPage(Number(e.target.value));
-    };
-
     const handlePageChange = (newPage) => {
-        const page = Math.max(1, Math.min(totalPages, Math.floor(Number(newPage))));
-        if (page >= 1 && page <= totalPages) {
-            setCurrentPage(page);
-            setPageJumpInput('');
-        }
-    };
-
-    const handlePageJump = (e) => {
-        e.preventDefault();
-        const page = parseInt(pageJumpInput, 10);
-        if (!Number.isNaN(page)) {
-            handlePageChange(page);
-        }
+        const n = Math.floor(Number(newPage));
+        if (!Number.isFinite(n)) return;
+        const maxPage = Math.max(1, totalPages);
+        setCurrentPage(Math.min(Math.max(1, n), maxPage));
     };
 
     const handleSaleSuccess = (saleData) => {
@@ -340,7 +306,8 @@ const ViewSales = () => {
             const exportData = {
                 type: type,
                 data: data || sales,
-                date_range: dateRange,
+                date_range:
+                    fromDate && toDate ? `${isoToDdMmYyyy(fromDate)} - ${isoToDdMmYyyy(toDate)}` : '',
                 search: searchTerm
             };
 
@@ -408,18 +375,6 @@ const ViewSales = () => {
         return date.toLocaleDateString('en-GB');
     };
 
-    // Format date with time
-    const formatDateTime = (dateString) => {
-        const date = new Date(dateString);
-        return date.toLocaleString('en-GB', {
-            day: '2-digit',
-            month: '2-digit',
-            year: 'numeric',
-            hour: '2-digit',
-            minute: '2-digit'
-        });
-    };
-
     // Format currency
     const formatCurrency = (amount) => {
         const numAmount = parseFloat(amount);
@@ -455,14 +410,14 @@ const ViewSales = () => {
         return typeMap[saleType] || saleType;
     };
 
-    // Get sale party details for display
+    // Get sale party details for display (matches list API `sale_party` shape)
     const getSalePartyDetails = (sale) => {
         if (sale.sale_type === 'client' && sale.sale_party) {
+            const sp = sale.sale_party;
             return {
-                name: sale.sale_party.name,
-                email: sale.sale_party.email,
-                mobile: sale.sale_party.mobile,
-                username: sale.sale_party.username
+                name: sp.name,
+                email: sp.email,
+                mobile: formatSalePartyMobile(sp),
             };
         }
         if (sale.sale_type === 'bank' && sale.sale_party) {
@@ -500,8 +455,6 @@ const ViewSales = () => {
 
     // List rows are server-paginated; `sales` is already the current page from the API
     const currentItems = sales;
-    const displayRangeStart = totalRecords === 0 ? 0 : (currentPage - 1) * itemsPerPage + 1;
-    const displayRangeEnd = Math.min(currentPage * itemsPerPage, totalRecords);
 
     // Skeleton loader component
     const SkeletonRow = () => (
@@ -600,240 +553,363 @@ const ViewSales = () => {
         </div>
     );
 
-    // View Modal Component
-    const ViewSaleModal = () => {
+    // View modal panel (backdrop is a direct motion child of AnimatePresence below — fixes stuck overlay / scroll)
+    const ViewSaleModalPanel = () => {
         if (!selectedSale) return null;
 
         const partyDetails = getSalePartyDetails(selectedSale);
         const calculation = selectedSale.calculation || {};
+        const lineItems = Array.isArray(selectedSale.items) ? selectedSale.items : [];
+        const firm = selectedSale.firm && typeof selectedSale.firm === 'object' ? selectedSale.firm : null;
+        const hasFirmDetails = Boolean(
+            firm
+            && (
+                firm.firm_name
+                || firm.firm_type
+                || firm.pan_no
+                || firm.gst_no
+                || firm.file_no
+                || firm.cin_no
+                || (firm.address && Object.values(firm.address).some((v) => v != null && String(v).trim() !== ''))
+            )
+        );
 
         return (
             <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4"
-                onClick={() => setViewModalOpen(false)}
+                initial={{ opacity: 0, scale: 0.96, y: 16 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                transition={{ type: 'spring', damping: 28, stiffness: 320 }}
+                className="pointer-events-auto max-h-[90vh] w-full max-w-4xl overflow-y-auto rounded-2xl bg-white shadow-2xl [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden"
+                style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+                onClick={(e) => e.stopPropagation()}
             >
-                <motion.div
-                    initial={{ opacity: 0, scale: 0.9, y: 20 }}
-                    animate={{ opacity: 1, scale: 1, y: 0 }}
-                    exit={{ opacity: 0, scale: 0.9, y: 20 }}
-                    className="bg-white rounded-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto shadow-2xl"
-                    onClick={(e) => e.stopPropagation()}
-                >
-                    {/* Modal Header */}
-                    <div className="sticky top-0 bg-gradient-to-r from-blue-600 to-blue-700 text-white px-6 py-4 rounded-t-2xl">
-                        <div className="flex justify-between items-center">
-                            <div className="flex items-center gap-3">
-                                <div className="p-2 bg-white/20 rounded-lg">
-                                    <FiFileText className="w-5 h-5" />
-                                </div>
-                                <div>
-                                    <h2 className="text-xl font-bold">Sale Details</h2>
-                                    <p className="text-blue-100 text-sm">Invoice #{selectedSale.invoice_no}</p>
-                                </div>
-                            </div>
-                            <button
-                                onClick={() => setViewModalOpen(false)}
-                                className="p-2 hover:bg-white/20 rounded-lg transition-colors"
-                            >
-                                <FiX className="w-5 h-5" />
-                            </button>
-                        </div>
-                    </div>
-
-                    {/* Modal Content */}
-                    <div className="p-6 space-y-6">
-                        {/* Basic Information */}
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div className="bg-slate-50 rounded-xl p-4">
-                                <div className="flex items-center gap-2 text-slate-600 mb-2">
-                                    <FiCalendar className="w-4 h-4" />
-                                    <span className="text-xs font-medium uppercase tracking-wider">Transaction Date</span>
-                                </div>
-                                <p className="text-slate-800 font-semibold">{formatDateTime(selectedSale.transaction_date)}</p>
-                            </div>
-                            <div className="bg-slate-50 rounded-xl p-4">
-                                <div className="flex items-center gap-2 text-slate-600 mb-2">
-                                    <FiHash className="w-4 h-4" />
-                                    <span className="text-xs font-medium uppercase tracking-wider">Transaction ID</span>
-                                </div>
-                                <p className="text-slate-800 font-mono text-sm break-all">{selectedSale.transaction_id}</p>
-                            </div>
-                        </div>
-
-                        {/* Party Information */}
+                {/* Modal Header */}
+                <div className="sticky top-0 bg-gradient-to-r from-blue-600 to-blue-700 text-white px-6 py-2.5 rounded-t-2xl">
+                    <div className="flex justify-between items-center">
                         <div>
-                            <h3 className="text-lg font-semibold text-slate-800 mb-3 flex items-center gap-2">
-                                <FiUsers className="w-4 h-4 text-blue-600" />
-                                Party Information
-                            </h3>
-                            <div className="bg-gradient-to-r from-slate-50 to-white rounded-xl p-4 border border-slate-200">
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    <div>
-                                        <p className="text-xs text-slate-500 mb-1">Sale Type</p>
-                                        <span className={`inline-flex px-3 py-1 rounded-full text-xs font-medium ${selectedSale.sale_type === 'client' ? 'bg-blue-100 text-blue-700' :
-                                            selectedSale.sale_type === 'bank' ? 'bg-amber-100 text-amber-700' :
-                                                'bg-slate-100 text-slate-700'
-                                            }`}>
-                                            {getSaleTypeDisplay(selectedSale.sale_type)}
-                                        </span>
-                                    </div>
-                                    {partyDetails && (
-                                        <>
-                                            <div>
-                                                <p className="text-xs text-slate-500 mb-1">Name</p>
-                                                <p className="text-slate-800 font-medium">{partyDetails.name || 'N/A'}</p>
-                                            </div>
-                                            {partyDetails.email && (
-                                                <div>
-                                                    <p className="text-xs text-slate-500 mb-1">Email</p>
-                                                    <p className="text-slate-800">{partyDetails.email}</p>
-                                                </div>
-                                            )}
-                                            {partyDetails.mobile && (
-                                                <div>
-                                                    <p className="text-xs text-slate-500 mb-1">Mobile</p>
-                                                    <p className="text-slate-800">{partyDetails.mobile}</p>
-                                                </div>
-                                            )}
-                                            {partyDetails.bank && (
-                                                <div>
-                                                    <p className="text-xs text-slate-500 mb-1">Bank</p>
-                                                    <p className="text-slate-800">{partyDetails.bank}</p>
-                                                </div>
-                                            )}
-                                            {partyDetails.account_no && (
-                                                <div>
-                                                    <p className="text-xs text-slate-500 mb-1">Account No</p>
-                                                    <p className="text-slate-800 font-mono">{partyDetails.account_no}</p>
-                                                </div>
-                                            )}
-                                            {partyDetails.ifsc && (
-                                                <div>
-                                                    <p className="text-xs text-slate-500 mb-1">IFSC Code</p>
-                                                    <p className="text-slate-800 font-mono">{partyDetails.ifsc}</p>
-                                                </div>
-                                            )}
-                                            {partyDetails.branch && (
-                                                <div>
-                                                    <p className="text-xs text-slate-500 mb-1">Branch</p>
-                                                    <p className="text-slate-800">{partyDetails.branch}</p>
-                                                </div>
-                                            )}
-                                        </>
-                                    )}
-                                </div>
-                            </div>
+                            <h2 className="text-lg font-bold">Sale Details</h2>
                         </div>
-
-                        {/* Calculation Details */}
-                        <div>
-                            <h3 className="text-lg font-semibold text-slate-800 mb-3 flex items-center gap-2">
-                                <TbCurrencyRupee className="h-4 w-4 text-green-600" aria-hidden />
-                                Financial Details
-                            </h3>
-                            <div className="bg-gradient-to-r from-green-50 to-emerald-50 rounded-xl p-4 border border-green-200">
-                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                                    <div>
-                                        <p className="text-xs text-slate-500 mb-1">Subtotal</p>
-                                        <p className="text-lg font-bold text-green-700">₹{formatCurrency(calculation.subtotal || selectedSale.amount || 0)}</p>
-                                    </div>
-                                    <div>
-                                        <p className="text-xs text-slate-500 mb-1">Tax Rate</p>
-                                        <p className="text-slate-800 font-medium">{calculation.tax_rate || '0'}%</p>
-                                    </div>
-                                    <div>
-                                        <p className="text-xs text-slate-500 mb-1">GST Value</p>
-                                        <p className="text-lg font-bold text-amber-600">₹{formatCurrency(calculation.gst_value || 0)}</p>
-                                    </div>
-                                    <div>
-                                        <p className="text-xs text-slate-500 mb-1">Discount Type</p>
-                                        <p className="text-slate-800 capitalize">{calculation.discount_type || 'Not Applicable'}</p>
-                                    </div>
-                                    <div>
-                                        <p className="text-xs text-slate-500 mb-1">Discount Value</p>
-                                        <p className="text-slate-800">₹{formatCurrency(calculation.discount_value || 0)}</p>
-                                    </div>
-                                    <div>
-                                        <p className="text-xs text-slate-500 mb-1">Additional Charges</p>
-                                        <p className="text-slate-800">₹{formatCurrency(calculation.additional_charge || 0)}</p>
-                                    </div>
-                                    <div>
-                                        <p className="text-xs text-slate-500 mb-1">Round Off</p>
-                                        <p className="text-slate-800">₹{formatCurrency(calculation.round_off || 0)}</p>
-                                    </div>
-                                    <div className="md:col-span-2 lg:col-span-3">
-                                        <p className="text-xs text-slate-500 mb-1">Grand Total</p>
-                                        <p className="text-2xl font-bold text-blue-600">₹{formatCurrency(calculation.grand_total || selectedSale.amount || 0)}</p>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        {/* Remark */}
-                        {selectedSale.remark && (
-                            <div>
-                                <h3 className="text-lg font-semibold text-slate-800 mb-3 flex items-center gap-2">
-                                    <FiMessageSquare className="w-4 h-4 text-purple-600" />
-                                    Remarks
-                                </h3>
-                                <div className="bg-purple-50 rounded-xl p-4 border border-purple-200">
-                                    <p className="text-slate-700 italic">"{selectedSale.remark}"</p>
-                                </div>
-                            </div>
-                        )}
-
-                        {/* Created/Modified By */}
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-                            {selectedSale.create_by && (
-                                <div className="bg-slate-50 rounded-xl p-4">
-                                    <p className="text-xs text-slate-500 mb-2 flex items-center gap-1">
-                                        <FiUser className="w-3 h-3" />
-                                        Created By
-                                    </p>
-                                    <p className="font-medium text-slate-800">{selectedSale.create_by.name}</p>
-                                    <p className="text-xs text-slate-500">{selectedSale.create_by.email}</p>
-                                    <p className="text-xs text-slate-500">{selectedSale.create_by.mobile}</p>
-                                </div>
-                            )}
-                            {selectedSale.modify_by && selectedSale.modify_by !== selectedSale.create_by && (
-                                <div className="bg-slate-50 rounded-xl p-4">
-                                    <p className="text-xs text-slate-500 mb-2 flex items-center gap-1">
-                                        <FiEdit className="w-3 h-3" />
-                                        Last Modified By
-                                    </p>
-                                    <p className="font-medium text-slate-800">{selectedSale.modify_by.name}</p>
-                                    <p className="text-xs text-slate-500">{selectedSale.modify_by.email}</p>
-                                    <p className="text-xs text-slate-500">{selectedSale.modify_by.mobile}</p>
-                                </div>
-                            )}
-                        </div>
-                    </div>
-
-                    {/* Modal Footer */}
-                    <div className="sticky bottom-0 bg-slate-50 px-6 py-4 rounded-b-2xl border-t border-slate-200 flex justify-end gap-3">
                         <button
                             onClick={() => setViewModalOpen(false)}
-                            className="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-lg transition-colors"
+                            className="p-2 hover:bg-white/20 rounded-lg transition-colors"
                         >
-                            Close
-                        </button>
-                        <button
-                            onClick={() => {
-                                const { editLink } = getActionLinks(selectedSale);
-                                if (editLink && editLink !== '#') {
-                                    window.location.href = editLink;
-                                }
-                            }}
-                            className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors flex items-center gap-2"
-                        >
-                            <FiEdit className="w-4 h-4" />
-                            Edit Sale
+                            <FiX className="w-5 h-5" />
                         </button>
                     </div>
-                </motion.div>
+                </div>
+
+                {/* Modal Content */}
+                <div className="p-6 space-y-6">
+                    {/* Basic Information */}
+                    <div className="grid grid-cols-1 gap-4">
+                        <div className="bg-slate-50 rounded-xl p-4">
+                            <div className="flex items-center gap-2 text-slate-600 mb-2">
+                                <FiCalendar className="w-4 h-4" />
+                                <span className="text-xs font-medium uppercase tracking-wider">Transaction Date</span>
+                            </div>
+                            <p className="text-slate-800 font-semibold">{formatDate(selectedSale.transaction_date)}</p>
+                        </div>
+                    </div>
+
+                    {/* Party Information */}
+                    <div>
+                        <h3 className="text-lg font-semibold text-slate-800 mb-3 flex items-center gap-2">
+                            <FiUsers className="w-4 h-4 text-blue-600" />
+                            Party Information
+                        </h3>
+                        <div className="bg-gradient-to-r from-slate-50 to-white rounded-xl p-4 border border-slate-200">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div>
+                                    <p className="text-xs text-slate-500 mb-1">Sale Type</p>
+                                    <span className={`inline-flex px-3 py-1 rounded-full text-xs font-medium ${selectedSale.sale_type === 'client' ? 'bg-blue-100 text-blue-700' :
+                                        selectedSale.sale_type === 'bank' ? 'bg-amber-100 text-amber-700' :
+                                            'bg-slate-100 text-slate-700'
+                                        }`}>
+                                        {getSaleTypeDisplay(selectedSale.sale_type)}
+                                    </span>
+                                </div>
+                                {partyDetails && (
+                                    <>
+                                        <div>
+                                            <p className="text-xs text-slate-500 mb-1">Name</p>
+                                            <p className="text-slate-800 font-medium">{partyDetails.name || 'N/A'}</p>
+                                        </div>
+                                        {partyDetails.email && (
+                                            <div>
+                                                <p className="text-xs text-slate-500 mb-1">Email</p>
+                                                <p className="text-slate-800">{partyDetails.email}</p>
+                                            </div>
+                                        )}
+                                        {partyDetails.mobile && (
+                                            <div>
+                                                <p className="text-xs text-slate-500 mb-1">Mobile</p>
+                                                <p className="text-slate-800">{partyDetails.mobile}</p>
+                                            </div>
+                                        )}
+                                        {partyDetails.bank && (
+                                            <div>
+                                                <p className="text-xs text-slate-500 mb-1">Bank</p>
+                                                <p className="text-slate-800">{partyDetails.bank}</p>
+                                            </div>
+                                        )}
+                                        {partyDetails.account_no && (
+                                            <div>
+                                                <p className="text-xs text-slate-500 mb-1">Account No</p>
+                                                <p className="text-slate-800 font-mono">{partyDetails.account_no}</p>
+                                            </div>
+                                        )}
+                                        {partyDetails.ifsc && (
+                                            <div>
+                                                <p className="text-xs text-slate-500 mb-1">IFSC Code</p>
+                                                <p className="text-slate-800 font-mono">{partyDetails.ifsc}</p>
+                                            </div>
+                                        )}
+                                        {partyDetails.branch && (
+                                            <div>
+                                                <p className="text-xs text-slate-500 mb-1">Branch</p>
+                                                <p className="text-slate-800">{partyDetails.branch}</p>
+                                            </div>
+                                        )}
+                                    </>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Firm Information (client sales) */}
+                    {selectedSale.sale_type === 'client' && (
+                        <div>
+                            <h3 className="text-lg font-semibold text-slate-800 mb-3 flex items-center gap-2">
+                                <FiBriefcase className="w-4 h-4 text-violet-600" />
+                                Firm Information
+                            </h3>
+                            {hasFirmDetails ? (
+                                <div className="rounded-xl border border-violet-200 bg-gradient-to-r from-violet-50 to-white p-4">
+                                    <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                                        <div>
+                                            <p className="text-xs text-slate-500 mb-1">Firm name</p>
+                                            <p className="text-slate-900 font-semibold">{firm.firm_name || 'N/A'}</p>
+                                        </div>
+                                        <div>
+                                            <p className="text-xs text-slate-500 mb-1">Firm type</p>
+                                            <p className="text-slate-800 capitalize">{String(firm.firm_type || 'N/A').replace(/_/g, ' ')}</p>
+                                        </div>
+                                        <div>
+                                            <p className="text-xs text-slate-500 mb-1">PAN</p>
+                                            <p className="text-slate-800 font-mono">{firm.pan_no || 'N/A'}</p>
+                                        </div>
+                                        <div>
+                                            <p className="text-xs text-slate-500 mb-1">File No</p>
+                                            <p className="text-slate-800">{firm.file_no || 'N/A'}</p>
+                                        </div>
+                                        <div>
+                                            <p className="text-xs text-slate-500 mb-1">GST</p>
+                                            <p className="text-slate-800 font-mono">{firm.gst_no || 'N/A'}</p>
+                                        </div>
+                                        <div>
+                                            <p className="text-xs text-slate-500 mb-1">CIN</p>
+                                            <p className="text-slate-800 font-mono">{firm.cin_no || 'N/A'}</p>
+                                        </div>
+                                    </div>
+                                    {firm.address && Object.values(firm.address).some((v) => v != null && String(v).trim() !== '') && (
+                                        <div className="mt-4 rounded-lg border border-violet-100 bg-white px-3 py-2">
+                                            <p className="text-xs text-slate-500 mb-1">Address</p>
+                                            <p className="text-sm text-slate-700 break-words">
+                                                {[
+                                                    firm.address.address_line_1,
+                                                    firm.address.address_line_2,
+                                                    firm.address.city,
+                                                    firm.address.district,
+                                                    firm.address.state,
+                                                    firm.address.country,
+                                                    firm.address.pincode,
+                                                ].filter((part) => part != null && String(part).trim() !== '').join(', ') || 'N/A'}
+                                            </p>
+                                        </div>
+                                    )}
+                                </div>
+                            ) : (
+                                <div className="rounded-xl border border-dashed border-slate-300 bg-slate-50 px-4 py-3 text-sm text-slate-600">
+                                    No firm selected for this sale.
+                                </div>
+                            )}
+                        </div>
+                    )}
+
+                    {/* Line items (services) */}
+                    {lineItems.length > 0 && (
+                        <div>
+                            <h3 className="text-lg font-semibold text-slate-800 mb-3 flex items-center gap-2">
+                                <FiLayers className="w-4 h-4 text-indigo-600" />
+                                Services &amp; items
+                            </h3>
+                            <div className="overflow-x-auto rounded-xl border border-slate-200">
+                                <table className="w-full min-w-[640px] text-sm">
+                                    <thead>
+                                        <tr className="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-600">
+                                            <th className="px-3 py-2 font-semibold">Service</th>
+                                            <th className="px-3 py-2 font-semibold text-right">Fees</th>
+                                            <th className="px-3 py-2 font-semibold text-right">Tax %</th>
+                                            <th className="px-3 py-2 font-semibold text-right">Tax</th>
+                                            <th className="px-3 py-2 font-semibold text-right">Line total</th>
+                                            <th className="px-3 py-2 font-semibold">Note</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-slate-100 bg-white">
+                                        {lineItems.map((row) => {
+                                            const svc = row.service || {};
+                                            const parsed = parseLineRemark(row.remark);
+                                            return (
+                                                <tr key={`${row.service_id || 'line'}-${row.item_id || row.total || 0}-${row.fees || 0}`} className="text-slate-800">
+                                                    <td className="px-3 py-2">
+                                                        <div className="font-medium text-slate-900">{svc.name || '—'}</div>
+                                                        {svc.sac_code && (
+                                                            <div className="text-xs text-slate-500">SAC {svc.sac_code}{svc.type ? ` · ${svc.type}` : ''}</div>
+                                                        )}
+                                                    </td>
+                                                    <td className="px-3 py-2 text-right tabular-nums">₹{formatCurrency(row.fees ?? 0)}</td>
+                                                    <td className="px-3 py-2 text-right tabular-nums">{row.tax_perc ?? '—'}%</td>
+                                                    <td className="px-3 py-2 text-right tabular-nums">₹{formatCurrency(row.tax_value ?? 0)}</td>
+                                                    <td className="px-3 py-2 text-right font-semibold tabular-nums">₹{formatCurrency(row.total ?? 0)}</td>
+                                                    <td className="px-3 py-2 text-xs text-slate-600 max-w-[200px]">
+                                                        {parsed?.kind === 'task' ? (
+                                                            <span>Task linked</span>
+                                                        ) : parsed?.kind === 'text' ? (
+                                                            <span className="italic">{parsed.text}</span>
+                                                        ) : (
+                                                            '—'
+                                                        )}
+                                                    </td>
+                                                </tr>
+                                            );
+                                        })}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Calculation Details */}
+                    <div>
+                        <h3 className="text-lg font-semibold text-slate-800 mb-3 flex items-center gap-2">
+                            <TbCurrencyRupee className="h-4 w-4 text-green-600" aria-hidden />
+                            Financial Details
+                        </h3>
+                        <div className="bg-gradient-to-r from-green-50 to-emerald-50 rounded-xl p-4 border border-green-200">
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                                <div>
+                                    <p className="text-xs text-slate-500 mb-1">Subtotal</p>
+                                    <p className="text-lg font-bold text-green-700">₹{formatCurrency(calculation.subtotal ?? selectedSale.amount ?? 0)}</p>
+                                </div>
+                                <div>
+                                    <p className="text-xs text-slate-500 mb-1">Tax rate</p>
+                                    <p className="text-slate-800 font-medium">{calculation.tax_rate != null ? `${String(calculation.tax_rate).replace(/\.00$/, '')}%` : '—'}</p>
+                                </div>
+                                <div>
+                                    <p className="text-xs text-slate-500 mb-1">GST value</p>
+                                    <p className="text-lg font-bold text-amber-600">₹{formatCurrency(calculation.gst_value ?? 0)}</p>
+                                </div>
+                                <div>
+                                    <p className="text-xs text-slate-500 mb-1">Discount type</p>
+                                    <p className="text-slate-800 capitalize">{String(calculation.discount_type || 'not applicable').replace(/_/g, ' ')}</p>
+                                </div>
+                                <div>
+                                    <p className="text-xs text-slate-500 mb-1">Discount % / rate</p>
+                                    <p className="text-slate-800 tabular-nums">{calculation.discount_perc_rate != null ? `${calculation.discount_perc_rate}%` : '—'}</p>
+                                </div>
+                                <div>
+                                    <p className="text-xs text-slate-500 mb-1">Discount value</p>
+                                    <p className="text-slate-800">₹{formatCurrency(calculation.discount_value ?? 0)}</p>
+                                </div>
+                                <div>
+                                    <p className="text-xs text-slate-500 mb-1">Additional charges</p>
+                                    <p className="text-slate-800">₹{formatCurrency(calculation.additional_charge ?? 0)}</p>
+                                </div>
+                                <div>
+                                    <p className="text-xs text-slate-500 mb-1">Invoice total (pre round-off)</p>
+                                    <p className="text-slate-800 font-semibold">₹{formatCurrency(calculation.total ?? selectedSale.amount ?? 0)}</p>
+                                </div>
+                                <div>
+                                    <p className="text-xs text-slate-500 mb-1">Round off</p>
+                                    <p className="text-slate-800">₹{formatCurrency(calculation.round_off ?? 0)}</p>
+                                </div>
+                                <div>
+                                    <p className="text-xs text-slate-500 mb-1">Amount (API)</p>
+                                    <p className="text-slate-700 text-sm">₹{formatCurrency(selectedSale.amount ?? 0)}</p>
+                                </div>
+                                <div className="md:col-span-2 lg:col-span-3">
+                                    <p className="text-xs text-slate-500 mb-1">Grand total</p>
+                                    <p className="text-2xl font-bold text-blue-600">₹{formatCurrency(calculation.grand_total ?? selectedSale.amount ?? 0)}</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Invoice-level remark */}
+                    {selectedSale.remark != null && String(selectedSale.remark).trim() !== '' && (
+                        <div>
+                            <h3 className="text-lg font-semibold text-slate-800 mb-3 flex items-center gap-2">
+                                <FiMessageSquare className="w-4 h-4 text-purple-600" />
+                                Invoice remark
+                            </h3>
+                            <div className="bg-purple-50 rounded-xl p-4 border border-purple-200">
+                                <p className="text-slate-700 italic">&ldquo;{String(selectedSale.remark)}&rdquo;</p>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Created/Modified By */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                        {selectedSale.create_by && (
+                            <div className="bg-slate-50 rounded-xl p-4">
+                                <p className="text-xs text-slate-500 mb-2 flex items-center gap-1">
+                                    <FiUser className="w-3 h-3" />
+                                    Created By
+                                </p>
+                                <p className="font-medium text-slate-800">{selectedSale.create_by.name}</p>
+                                <p className="text-xs text-slate-500">{selectedSale.create_by.email}</p>
+                                <p className="text-xs text-slate-500">{formatSalePartyMobile(selectedSale.create_by)}</p>
+                            </div>
+                        )}
+                        <div className="bg-slate-50 rounded-xl p-4">
+                            <p className="text-xs text-slate-500 mb-2 flex items-center gap-1">
+                                <FiEdit className="w-3 h-3" />
+                                Last modified by
+                            </p>
+                            {selectedSale.modify_by ? (
+                                <>
+                                    <p className="font-medium text-slate-800">{selectedSale.modify_by.name}</p>
+                                    <p className="text-xs text-slate-500">{selectedSale.modify_by.email}</p>
+                                    <p className="text-xs text-slate-500">{formatSalePartyMobile(selectedSale.modify_by)}</p>
+                                </>
+                            ) : (
+                                <p className="text-xs text-slate-500">N/A</p>
+                            )}
+                        </div>
+                    </div>
+                </div>
+
+                {/* Modal Footer */}
+                <div className="sticky bottom-0 bg-slate-50 px-6 py-4 rounded-b-2xl border-t border-slate-200 flex justify-end gap-3">
+                    <button
+                        onClick={() => setViewModalOpen(false)}
+                        className="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-lg transition-colors"
+                    >
+                        Close
+                    </button>
+                    <button
+                        onClick={() => {
+                            const { editLink } = getActionLinks(selectedSale);
+                            if (editLink && editLink !== '#') {
+                                window.location.href = editLink;
+                            }
+                        }}
+                        className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors flex items-center gap-2"
+                    >
+                        <FiEdit className="w-4 h-4" />
+                        Edit Sale
+                    </button>
+                </div>
             </motion.div>
         );
     };
@@ -938,115 +1014,123 @@ const ViewSales = () => {
                         transition={{ duration: 0.3 }}
                         className="bg-white rounded-2xl shadow-lg border border-slate-200 overflow-hidden"
                     >
-                        <div className="sticky top-0 z-10 border-b border-slate-200 bg-gradient-to-r from-slate-50 to-white px-3 py-2.5 sm:px-4">
-                            <div className="mb-3 min-w-0 border-b border-slate-200/80 pb-3">
-                                <h5 className="text-sm font-bold tracking-tight text-slate-800 sm:text-base">
-                                    Sales Register
-                                </h5>
-                                {dateRange ? (
-                                    <p className="mt-0.5 text-xs font-medium tabular-nums text-slate-500 sm:text-sm">
-                                        {dateRange.replace(/\s*[–—]\s*/g, ' - ')}
-                                    </p>
-                                ) : null}
-                            </div>
-                            <div className="flex min-w-0 w-full flex-nowrap items-center gap-2">
-                                <div className="min-w-0 flex-1">
+                        <div className="sticky top-0 z-10 border-b border-slate-200 bg-gradient-to-r from-slate-50 to-white py-2.5 pl-3 pr-0 sm:pl-4 sm:pr-0">
+                            <div className="flex min-w-0 flex-col gap-3 lg:flex-row lg:items-center lg:justify-between lg:gap-4">
+                                <div className="flex min-w-0 flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:gap-x-3 sm:gap-y-2 lg:flex-1 lg:flex-nowrap lg:items-center lg:gap-x-4">
+                                    <h5 className="shrink-0 text-sm font-bold tracking-tight text-slate-800 sm:text-base mr-4 sm:mr-6 lg:mr-8">
+                                        Sale Register
+                                    </h5>
                                     <input
                                         type="text"
                                         placeholder="Search…"
                                         value={searchTerm}
                                         onChange={handleSearchChange}
-                                        className="h-9 w-full min-w-[8rem] rounded-lg border border-slate-300 px-2.5 text-sm transition-all focus:border-transparent focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                        className="h-9 w-full min-w-0 flex-1 rounded-lg border border-slate-300 px-3 text-sm transition-all focus:border-transparent focus:outline-none focus:ring-2 focus:ring-blue-500 sm:min-w-[18rem] lg:min-w-[22rem] xl:min-w-[28rem]"
                                     />
+                                    <div className="w-full min-w-0 max-w-full overflow-x-auto sm:min-w-[10rem] sm:max-w-[14rem] sm:shrink-0 sm:overflow-x-auto lg:max-w-[14rem] xl:max-w-[16rem]">
+                                        <DateRangePickerField
+                                            value={{ start: fromDate, end: toDate }}
+                                            onChange={(range) => {
+                                                setFromDate(range?.start || '');
+                                                setToDate(range?.end || '');
+                                            }}
+                                            placeholder="Select date range"
+                                            mode="range"
+                                            initialTab="quick"
+                                            defaultQuickKey="tm"
+                                            quickOptionKeys={['tw', 'lw', 'lm', 'tm', 'lf', 'fy']}
+                                            showRangeHint={false}
+                                            showResetButton={false}
+                                            truncateRangeLabel={false}
+                                            buttonClassName="w-full min-w-0 px-3.5 py-2 bg-white border border-slate-200 rounded-lg text-sm text-slate-600 hover:border-indigo-400 focus:outline-none transition-all"
+                                            wrapperClassName="w-full min-w-0"
+                                        />
+                                    </div>
                                 </div>
-                                <div className="w-auto shrink-0">
-                                    <DateFilter
-                                        className="w-auto max-w-[16rem] shrink-0"
-                                        onChange={handleDateFilterChange}
-                                    />
-                                </div>
-                                <div className="dropdown-container relative shrink-0">
+                                <div className="flex shrink-0 items-center justify-end gap-2">
+                                    <div className="dropdown-container relative shrink-0">
+                                        <motion.button
+                                            type="button"
+                                            onClick={() => setShowAddDropdown(!showAddDropdown)}
+                                            className="inline-flex h-9 items-center justify-center gap-1.5 rounded-lg bg-gradient-to-r from-blue-600 to-blue-700 px-2.5 text-xs font-semibold text-white shadow-sm transition-all duration-200 hover:from-blue-700 hover:to-blue-800 hover:shadow sm:h-10 sm:px-3"
+                                            whileHover={{ scale: 1.02 }}
+                                            whileTap={{ scale: 0.98 }}
+                                        >
+                                            <PiExportBold className="h-4 w-4 shrink-0" />
+                                            <span className="whitespace-nowrap">Export</span>
+                                            <FiChevronDown className={`h-3.5 w-3.5 shrink-0 opacity-90 transition-transform ${showAddDropdown ? 'rotate-180' : ''}`} />
+                                        </motion.button>
+
+                                        <AnimatePresence>
+                                            {showAddDropdown && (
+                                                <motion.div
+                                                    initial={{ opacity: 0, y: 5 }}
+                                                    animate={{ opacity: 1, y: 0 }}
+                                                    exit={{ opacity: 0, y: 5 }}
+                                                    className="absolute right-0 z-50 mt-1 w-56 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-xl"
+                                                >
+                                                    <div className="py-1">
+                                                        <button
+                                                            onClick={() => handleExport('pdf')}
+                                                            className="flex items-center w-full px-3 py-2 text-sm text-slate-700 hover:bg-blue-50 transition-all duration-150 group"
+                                                        >
+                                                            <div className="p-1.5 bg-red-50 rounded mr-2 group-hover:bg-red-100 transition-colors">
+                                                                <PiFilePdfDuotone className="w-3.5 h-3.5 text-red-500" />
+                                                            </div>
+                                                            <div className="text-left">
+                                                                <div className="font-medium text-xs">Export as PDF</div>
+                                                            </div>
+                                                        </button>
+                                                        <button
+                                                            onClick={() => handleExport('excel')}
+                                                            className="flex items-center w-full px-3 py-2 text-sm text-slate-700 hover:bg-blue-50 transition-all duration-150 group"
+                                                        >
+                                                            <div className="p-1.5 bg-green-50 rounded mr-2 group-hover:bg-green-100 transition-colors">
+                                                                <PiMicrosoftExcelLogoDuotone className="w-3.5 h-3.5 text-green-500" />
+                                                            </div>
+                                                            <div className="text-left">
+                                                                <div className="font-medium text-xs">Export as Excel</div>
+                                                            </div>
+                                                        </button>
+                                                        <button
+                                                            onClick={() => setWhatsappModalOpen(true)}
+                                                            className="flex items-center w-full px-3 py-2 text-sm text-slate-700 hover:bg-blue-50 transition-all duration-150 group"
+                                                        >
+                                                            <div className="p-1.5 bg-green-50 rounded mr-2 group-hover:bg-green-100 transition-colors">
+                                                                <FaWhatsapp className="w-3.5 h-3.5 text-green-500" />
+                                                            </div>
+                                                            <div className="text-left">
+                                                                <div className="font-medium text-xs">Share via WhatsApp</div>
+                                                            </div>
+                                                        </button>
+                                                        <button
+                                                            onClick={() => setIsEmailModalOpen(true)}
+                                                            className="flex items-center w-full px-3 py-2 text-sm text-slate-700 hover:bg-blue-50 transition-all duration-150 group"
+                                                        >
+                                                            <div className="p-1.5 bg-blue-50 rounded mr-2 group-hover:bg-blue-100 transition-colors">
+                                                                <AiOutlineMail className="w-3.5 h-3.5 text-blue-500" />
+                                                            </div>
+                                                            <div className="text-left">
+                                                                <div className="font-medium text-xs">Share via Email</div>
+                                                            </div>
+                                                        </button>
+                                                    </div>
+                                                </motion.div>
+                                            )}
+                                        </AnimatePresence>
+                                    </div>
+
                                     <motion.button
                                         type="button"
-                                        onClick={() => setShowAddDropdown(!showAddDropdown)}
-                                        className="inline-flex h-9 items-center justify-center gap-1.5 rounded-lg bg-gradient-to-r from-blue-600 to-blue-700 px-2.5 text-xs font-semibold text-white shadow-sm transition-all duration-200 hover:from-blue-700 hover:to-blue-800 hover:shadow sm:h-10 sm:px-3"
+                                        onClick={() => setSaleFormModal(true)}
+                                        className="mr-2 inline-flex h-9 shrink-0 items-center justify-center gap-1.5 rounded-lg bg-gradient-to-r from-emerald-600 to-emerald-700 px-2.5 text-xs font-semibold text-white shadow-sm transition-all duration-200 hover:from-emerald-700 hover:to-emerald-800 hover:shadow sm:mr-3 sm:h-10 sm:px-3"
                                         whileHover={{ scale: 1.02 }}
                                         whileTap={{ scale: 0.98 }}
                                     >
-                                        <PiExportBold className="h-4 w-4 shrink-0" />
-                                        <span className="whitespace-nowrap">Export</span>
-                                        <FiChevronDown className={`h-3.5 w-3.5 shrink-0 opacity-90 transition-transform ${showAddDropdown ? 'rotate-180' : ''}`} />
+                                        <FiPlus className="h-4 w-4 shrink-0" />
+                                        <span className="whitespace-nowrap">Create Sale</span>
                                     </motion.button>
-
-                                    <AnimatePresence>
-                                        {showAddDropdown && (
-                                            <motion.div
-                                                initial={{ opacity: 0, y: 5 }}
-                                                animate={{ opacity: 1, y: 0 }}
-                                                exit={{ opacity: 0, y: 5 }}
-                                                className="absolute right-0 z-50 mt-1 w-56 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-xl"
-                                            >
-                                                <div className="py-1">
-                                                    <button
-                                                        onClick={() => handleExport('pdf')}
-                                                        className="flex items-center w-full px-3 py-2 text-sm text-slate-700 hover:bg-blue-50 transition-all duration-150 group"
-                                                    >
-                                                        <div className="p-1.5 bg-red-50 rounded mr-2 group-hover:bg-red-100 transition-colors">
-                                                            <PiFilePdfDuotone className="w-3.5 h-3.5 text-red-500" />
-                                                        </div>
-                                                        <div className="text-left">
-                                                            <div className="font-medium text-xs">Export as PDF</div>
-                                                        </div>
-                                                    </button>
-                                                    <button
-                                                        onClick={() => handleExport('excel')}
-                                                        className="flex items-center w-full px-3 py-2 text-sm text-slate-700 hover:bg-blue-50 transition-all duration-150 group"
-                                                    >
-                                                        <div className="p-1.5 bg-green-50 rounded mr-2 group-hover:bg-green-100 transition-colors">
-                                                            <PiMicrosoftExcelLogoDuotone className="w-3.5 h-3.5 text-green-500" />
-                                                        </div>
-                                                        <div className="text-left">
-                                                            <div className="font-medium text-xs">Export as Excel</div>
-                                                        </div>
-                                                    </button>
-                                                    <button
-                                                        onClick={() => setWhatsappModalOpen(true)}
-                                                        className="flex items-center w-full px-3 py-2 text-sm text-slate-700 hover:bg-blue-50 transition-all duration-150 group"
-                                                    >
-                                                        <div className="p-1.5 bg-green-50 rounded mr-2 group-hover:bg-green-100 transition-colors">
-                                                            <FaWhatsapp className="w-3.5 h-3.5 text-green-500" />
-                                                        </div>
-                                                        <div className="text-left">
-                                                            <div className="font-medium text-xs">Share via WhatsApp</div>
-                                                        </div>
-                                                    </button>
-                                                    <button
-                                                        onClick={() => setIsEmailModalOpen(true)}
-                                                        className="flex items-center w-full px-3 py-2 text-sm text-slate-700 hover:bg-blue-50 transition-all duration-150 group"
-                                                    >
-                                                        <div className="p-1.5 bg-blue-50 rounded mr-2 group-hover:bg-blue-100 transition-colors">
-                                                            <AiOutlineMail className="w-3.5 h-3.5 text-blue-500" />
-                                                        </div>
-                                                        <div className="text-left">
-                                                            <div className="font-medium text-xs">Share via Email</div>
-                                                        </div>
-                                                    </button>
-                                                </div>
-                                            </motion.div>
-                                        )}
-                                    </AnimatePresence>
                                 </div>
-
-                                <motion.button
-                                    type="button"
-                                    onClick={() => setSaleFormModal(true)}
-                                    className="inline-flex h-9 shrink-0 items-center justify-center gap-1.5 rounded-lg bg-gradient-to-r from-emerald-600 to-emerald-700 px-2.5 text-xs font-semibold text-white shadow-sm transition-all duration-200 hover:from-emerald-700 hover:to-emerald-800 hover:shadow sm:h-10 sm:px-3"
-                                    whileHover={{ scale: 1.02 }}
-                                    whileTap={{ scale: 0.98 }}
-                                >
-                                    <FiPlus className="h-4 w-4 shrink-0" />
-                                    <span className="whitespace-nowrap">Add Sale</span>
-                                </motion.button>
                             </div>
                         </div>
 
@@ -1109,13 +1193,14 @@ const ViewSales = () => {
                                     ) : (
                                         currentItems.map((sale, index) => {
                                             const { editLink, invoiceLink } = getActionLinks(sale);
+                                            const rowKey = sale.invoice_id || sale.sale_id || sale.transaction_id || `row-${index}`;
                                             const isDropdownOpen = activeRowDropdown === sale.invoice_id;
                                             const actualIndex = (currentPage - 1) * itemsPerPage + index;
-                                            const partyDetails = getSalePartyDetails(sale);
+                                            const firstServiceName = sale.items?.[0]?.service?.name;
 
                                             return (
                                                 <motion.tr
-                                                    key={sale.invoice_id}
+                                                    key={rowKey}
                                                     initial={{ opacity: 0 }}
                                                     animate={{ opacity: 1 }}
                                                     transition={{ duration: 0.15 }}
@@ -1137,18 +1222,21 @@ const ViewSales = () => {
                                                                 {getSalePartyName(sale) || 'N/A'}
                                                             </div>
                                                             <div className="flex flex-col items-center gap-1 mt-1">
-                                                                <span className={`px-2 py-0.5 rounded-full text-[10px] font-medium capitalize ${sale.sale_type === 'client' ? 'bg-blue-100 text-blue-700' :
-                                                                    sale.sale_type === 'bank' ? 'bg-amber-100 text-amber-700' :
-                                                                        'bg-slate-100 text-slate-700'
-                                                                    }`}>
-                                                                    {getSaleTypeDisplay(sale.sale_type)}
-                                                                </span>
-                                                                {partyDetails && partyDetails.mobile && (
-                                                                    <span className="text-slate-500 text-[10px]">
-                                                                        {partyDetails.mobile}
+                                                                {sale.is_task ? (
+                                                                    <span className="text-[9px] font-semibold uppercase tracking-wide text-amber-800 bg-amber-100 px-1.5 py-0.5 rounded">
+                                                                        Task
+                                                                    </span>
+                                                                ) : (
+                                                                    <span className="text-[9px] font-medium text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded">
+                                                                        Direct
                                                                     </span>
                                                                 )}
                                                             </div>
+                                                            {firstServiceName && (
+                                                                <div className="text-slate-500 text-[10px] mt-1 truncate max-w-[200px] mx-auto" title={firstServiceName}>
+                                                                    {firstServiceName}
+                                                                </div>
+                                                            )}
                                                             {sale.remark && (
                                                                 <div className="text-slate-500 text-[10px] text-center mt-1 italic truncate">
                                                                     "{sale.remark}"
@@ -1280,84 +1368,18 @@ const ViewSales = () => {
                                 </tbody>
                             </table>
 
-                            {/* Pagination — same pattern as LedgerTab (context.md); meta: page_no, limit, total, total_pages?, is_last_page */}
                             {!loading && (currentItems.length > 0 || totalRecords > 0) && totalPages > 0 && (
-                                <div className="border-t border-slate-200 bg-white px-4 py-3 sm:px-6 sm:py-4">
-                                    <div className="flex flex-col items-center justify-between gap-4 sm:flex-row">
-                                        <div className="flex flex-wrap items-center gap-4">
-                                            <div className="text-sm text-slate-600">
-                                                Showing {displayRangeStart} to {displayRangeEnd} of {totalRecords} entries
-                                            </div>
-                                            <div className="flex items-center gap-2">
-                                                <label htmlFor="sale-limit-select" className="text-sm text-slate-500">
-                                                    Show
-                                                </label>
-                                                <select
-                                                    id="sale-limit-select"
-                                                    value={itemsPerPage}
-                                                    onChange={handleItemsPerPageChange}
-                                                    className="rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-sm text-slate-700 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500"
-                                                >
-                                                    {LIMIT_OPTIONS.map((n) => (
-                                                        <option key={n} value={n}>
-                                                            {n}
-                                                        </option>
-                                                    ))}
-                                                </select>
-                                                <span className="text-sm text-slate-500">per page</span>
-                                            </div>
-                                        </div>
-                                        <div className="flex flex-wrap items-center gap-3">
-                                            <div className="flex items-center gap-1">
-                                                <button
-                                                    type="button"
-                                                    onClick={(e) => {
-                                                        e.stopPropagation();
-                                                        handlePageChange(currentPage - 1);
-                                                    }}
-                                                    disabled={currentPage <= 1}
-                                                    className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 transition-all hover:border-slate-300 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-white"
-                                                >
-                                                    Previous
-                                                </button>
-                                                <span className="min-w-[2.5rem] rounded-lg bg-indigo-600 px-3 py-2 text-center text-sm font-medium text-white">
-                                                    {currentPage}
-                                                </span>
-                                                <span className="px-1 text-sm text-slate-400">/</span>
-                                                <span className="px-2 py-2 text-sm font-medium text-slate-600">{totalPages}</span>
-                                                <button
-                                                    type="button"
-                                                    onClick={(e) => {
-                                                        e.stopPropagation();
-                                                        handlePageChange(currentPage + 1);
-                                                    }}
-                                                    disabled={currentPage >= totalPages || isLastPage}
-                                                    className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 transition-all hover:border-slate-300 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-white"
-                                                >
-                                                    Next
-                                                </button>
-                                            </div>
-                                            <form onSubmit={handlePageJump} className="flex items-center gap-2">
-                                                <span className="text-sm text-slate-500">Go to</span>
-                                                <input
-                                                    type="number"
-                                                    min={1}
-                                                    max={totalPages}
-                                                    value={pageJumpInput}
-                                                    onChange={(e) => setPageJumpInput(e.target.value)}
-                                                    placeholder={String(currentPage)}
-                                                    className="w-14 rounded-lg border border-slate-200 px-2 py-1.5 text-center text-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500"
-                                                />
-                                                <button
-                                                    type="submit"
-                                                    className="rounded-lg px-2 py-1.5 text-sm font-medium text-indigo-600 transition-colors hover:bg-indigo-50 hover:text-indigo-700"
-                                                >
-                                                    Go
-                                                </button>
-                                            </form>
-                                        </div>
-                                    </div>
-                                </div>
+                                <TablePagination
+                                    page={currentPage}
+                                    limit={itemsPerPage}
+                                    total={totalRecords}
+                                    totalPages={totalPages}
+                                    isLastPage={isLastPage}
+                                    rowOptions={[5, 10, 20, 50, 100]}
+                                    defaultRows={20}
+                                    onPageChange={handlePageChange}
+                                    onLimitChange={setItemsPerPage}
+                                />
                             )}
                         </div>
                     </motion.div>
@@ -1384,9 +1406,23 @@ const ViewSales = () => {
                 onSubmit={handleWhatsappSubmit}
             />
 
-            {/* View Sale Modal */}
+            {/* View Sale Modal — backdrop must be a motion.* direct child of AnimatePresence so exit removes the full-screen layer */}
             <AnimatePresence>
-                {viewModalOpen && <ViewSaleModal />}
+                {viewModalOpen && selectedSale && (
+                    <motion.div
+                        key="view-sale-modal"
+                        role="dialog"
+                        aria-modal="true"
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        transition={{ duration: 0.2 }}
+                        className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm"
+                        onClick={() => setViewModalOpen(false)}
+                    >
+                        <ViewSaleModalPanel />
+                    </motion.div>
+                )}
             </AnimatePresence>
 
             {/* Export Confirmation Modal */}
