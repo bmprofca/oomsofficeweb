@@ -38,6 +38,16 @@ export const emailApi = {
   previewTemplate: (payload) => emailAxios.post('/broadcast/email/template/preview', payload).then(unwrap),
   changeTemplateStatus: (payload) => emailAxios.put('/broadcast/email/template/change-status', payload).then(unwrap),
 
+
+  // Static Templates
+  createStaticTemplate: (payload) => emailAxios.post('/broadcast/email/static-template/create', payload).then(unwrap),
+  updateStaticTemplate: (payload) => emailAxios.put('/broadcast/email/static-template/update', payload).then(unwrap),
+  listStaticTemplates: (params) => emailAxios.get('/broadcast/email/static-template/active-list', { params }).then(unwrap),
+  staticTemplateDetails: (templateId) => emailAxios.get(`/broadcast/email/static-template/details/${templateId}`).then(unwrap),
+  staticTemplatesByType: (templateType) => emailAxios.get(`/broadcast/email/static-template/by-type/${templateType}`).then(unwrap),
+  deleteStaticTemplate: (payload) => emailAxios.put('/broadcast/email/static-template/delete', payload).then(unwrap),
+  getTemplateVariables: (templateType) => emailAxios.get(`/broadcast/email/variables/${templateType}`).then(unwrap),
+  setDefaultStaticTemplate: (payload) => emailAxios.put('/broadcast/email/static-template/set-default', payload).then(unwrap),
   // Broadcast
   createBroadcast: (payload) => emailAxios.post('/broadcast/email/broadcast/create', payload).then(unwrap),
   listBroadcasts: (params) => emailAxios.get('/broadcast/email/broadcast/list', { params }).then(unwrap),
