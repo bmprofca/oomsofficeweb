@@ -14,10 +14,8 @@ import {
     FiActivity
 } from 'react-icons/fi';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { SaleForm } from '../components/Modals/CreateTransactions';
+import { SaleForm, TransactionModalManager } from '../components/Modals/CreateTransactions';
 import PurchaseForm from '../components/purchase-form';
-import PaymentReceived from '../components/payment-received';
-import PaymentSend from '../components/payment-send';
 import ContraTransfer from '../components/contra';
 import JournalEntry from '../components/journal';
 import CreateLedgerModal from '../components/create-ledger-modal';
@@ -72,16 +70,12 @@ const FinanceEntry = () => {
         alert('Purchase entry confirmed! Refreshing data...');
     }
 
-    const handlePaymentReceivedSubmit = (formData) => {
-        console.log('Payment Received Data:', formData);
-        // Handle form submission logic here
-        alert('Payment Received confimed.');
+    const handlePaymentReceivedSubmit = (type, payload) => {
+        console.log(`${type} transaction created:`, payload);
     };
 
-    const handlePaymentSendSubmit = (formData) => {
-        console.log('Payment Received Data:', formData);
-        // Handle form submission logic here
-        alert('Payment send confimed.');
+    const handlePaymentSendSubmit = (type, payload) => {
+        console.log(`${type} transaction created:`, payload);
     };
 
     const handleContraSubmit = (formData) => {
@@ -110,6 +104,17 @@ const FinanceEntry = () => {
         console.log('Ledger created successfully:', ledgerData);
         alert('Ledger created successfully! Refreshing data...');
     }
+
+    const formatCurrency = (amount) => {
+        const value = Number(amount);
+        if (!Number.isFinite(value)) return '0.00';
+        return new Intl.NumberFormat('en-IN', {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2,
+        }).format(value);
+    };
+
+    const emptySummary = { totalCredit: 0, totalDebit: 0 };
 
     return (
         <div className="min-h-screen bg-slate-50 overflow-hidden">
@@ -678,21 +683,27 @@ const FinanceEntry = () => {
             />
 
             {/* Payment Received Modal */}
-            <PaymentReceived
+            <TransactionModalManager
+                modalType="RECEIVE"
                 isOpen={paymentReceivedFormModal}
                 onClose={() => setPaymentReceivedFormModal(false)}
                 onSubmit={handlePaymentReceivedSubmit}
-                initialUsername={initialClientUsername}
-                mode="modal"
+                clientId={initialClientUsername}
+                clientName={initialClientUsername || 'Selected Client'}
+                formatCurrency={formatCurrency}
+                summary={emptySummary}
             />
 
             {/* Payment Send Modal */}
-            <PaymentSend
+            <TransactionModalManager
+                modalType="PAYMENT"
                 isOpen={paymentSendFormModal}
                 onClose={() => setPaymentSendFormModal(false)}
                 onSubmit={handlePaymentSendSubmit}
-                initialUsername={initialClientUsername}
-                mode="modal"
+                clientId={initialClientUsername}
+                clientName={initialClientUsername || 'Selected Client'}
+                formatCurrency={formatCurrency}
+                summary={emptySummary}
             />
 
             <ContraTransfer

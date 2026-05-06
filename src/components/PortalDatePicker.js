@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { createPortal } from 'react-dom';
+import { AnimatePresence, motion } from 'framer-motion';
 import { FaCheck } from 'react-icons/fa';
 import { FiX } from 'react-icons/fi';
 
@@ -74,6 +75,67 @@ function usePickerPortalEscapeClose(open, setOpen) {
         document.addEventListener('keydown', onKey, true);
         return () => document.removeEventListener('keydown', onKey, true);
     }, [open, close]);
+}
+
+/** Portals the picker with enter/exit motion; keeps portal mounted until exit finishes. */
+function PickerPortalOverlay({
+    open,
+    onClose,
+    popoverClassName,
+    portalKey,
+    children,
+}) {
+    const [portalMounted, setPortalMounted] = useState(false);
+
+    useEffect(() => {
+        if (open) setPortalMounted(true);
+    }, [open]);
+
+    if (!portalMounted || typeof document === 'undefined') {
+        return null;
+    }
+
+    return createPortal(
+        <AnimatePresence
+            onExitComplete={() => {
+                if (!open) setPortalMounted(false);
+            }}
+        >
+            {open && (
+                <motion.div
+                    key={portalKey}
+                    data-datepicker-portal="true"
+                    className="fixed inset-0 z-[10200] grid place-items-center overflow-y-auto bg-black/45 p-3 sm:p-6"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    transition={{ duration: 0.2, ease: [0.4, 0, 0.2, 1] }}
+                    onClick={onClose}
+                    onKeyDown={(e) => {
+                        if (e.key !== 'Escape') return;
+                        e.preventDefault();
+                        e.stopPropagation();
+                        onClose();
+                    }}
+                    role="presentation"
+                >
+                    <motion.div
+                        className={`relative w-full max-w-[min(21rem,calc(100vw-1.5rem))] min-w-0 ${popoverClassName}`.trim()}
+                        initial={{ opacity: 0, scale: 0.96, y: 12 }}
+                        animate={{ opacity: 1, scale: 1, y: 0 }}
+                        exit={{ opacity: 0, scale: 0.96, y: 12 }}
+                        transition={{ type: 'spring', damping: 26, stiffness: 340 }}
+                        onClick={(e) => e.stopPropagation()}
+                        role="dialog"
+                        aria-modal="true"
+                    >
+                        {children}
+                    </motion.div>
+                </motion.div>
+            )}
+        </AnimatePresence>,
+        document.body,
+    );
 }
 
 function sameDay(a, b) {
@@ -782,54 +844,37 @@ export function DatePickerField({
                 <span className="flex-shrink-0 text-[10px] text-gray-400">▾</span>
             </button>
 
-            {open
-                && createPortal(
-                    <div
-                        data-datepicker-portal="true"
-                        className="fixed inset-0 z-[10200] grid place-items-center overflow-y-auto bg-black/45 p-3 sm:p-6"
-                        onClick={() => setOpen(false)}
-                        onKeyDown={(e) => {
-                            if (e.key !== 'Escape') return;
-                            e.preventDefault();
-                            e.stopPropagation();
-                            setOpen(false);
-                        }}
-                        role="presentation"
-                    >
-                        <div
-                            className={`relative w-full max-w-[min(21rem,calc(100vw-1.5rem))] min-w-0 ${popoverClassName}`.trim()}
-                            onClick={(e) => e.stopPropagation()}
-                            role="dialog"
-                            aria-modal="true"
-                        >
-                            <DatePicker
-                                mode={mode}
-                                initialTab={initialTab}
-                                quickOptionKeys={quickOptionKeys}
-                                defaultQuickKey={defaultQuickKey}
-                                initialQuickKey={initialQuickKey}
-                                initialSingle={selectedDate}
-                                minCalendarYear={minCalendarYear}
-                                maxCalendarYear={maxCalendarYear}
-                                hideTabs={hideTabs}
-                                showResetButton={showResetButton}
-                                onRequestClose={() => setOpen(false)}
-                                onApply={(result) => {
-                                    if (result?.type === 'single') {
-                                        onChange?.(toIsoDate(result.date));
-                                    } else if (result?.type === 'range') {
-                                        onChange?.({
-                                            start: toIsoDate(result.start),
-                                            end: toIsoDate(result.end),
-                                        });
-                                    }
-                                    setOpen(false);
-                                }}
-                            />
-                        </div>
-                    </div>,
-                    document.body,
-                )}
+            <PickerPortalOverlay
+                open={open}
+                onClose={() => setOpen(false)}
+                popoverClassName={popoverClassName}
+                portalKey="portal-datepicker-field"
+            >
+                <DatePicker
+                    mode={mode}
+                    initialTab={initialTab}
+                    quickOptionKeys={quickOptionKeys}
+                    defaultQuickKey={defaultQuickKey}
+                    initialQuickKey={initialQuickKey}
+                    initialSingle={selectedDate}
+                    minCalendarYear={minCalendarYear}
+                    maxCalendarYear={maxCalendarYear}
+                    hideTabs={hideTabs}
+                    showResetButton={showResetButton}
+                    onRequestClose={() => setOpen(false)}
+                    onApply={(result) => {
+                        if (result?.type === 'single') {
+                            onChange?.(toIsoDate(result.date));
+                        } else if (result?.type === 'range') {
+                            onChange?.({
+                                start: toIsoDate(result.start),
+                                end: toIsoDate(result.end),
+                            });
+                        }
+                        setOpen(false);
+                    }}
+                />
+            </PickerPortalOverlay>
         </div>
     );
 }
@@ -852,6 +897,8 @@ export function DateRangePickerField({
     mode = 'both',
     showRangeHint = true,
     showResetButton = true,
+    /** When false, range text stays on one line without ellipsis (use with a wide enough wrapper). */
+    truncateRangeLabel = true,
 }) {
     const [open, setOpen] = useState(false);
     const [lastUsedTab, setLastUsedTab] = useState(initialTab);
@@ -879,72 +926,59 @@ export function DateRangePickerField({
                 aria-haspopup="dialog"
                 aria-expanded={open}
             >
-                <span className={`min-w-0 flex-1 truncate text-left text-xs sm:text-sm ${startDate ? '' : 'text-gray-400'}`}>
+                <span
+                    className={`min-w-0 flex-1 text-left text-xs sm:text-sm ${
+                        truncateRangeLabel ? 'truncate' : 'whitespace-nowrap'
+                    } ${startDate ? '' : 'text-gray-400'}`}
+                >
                     {displayValue}
                 </span>
                 <span className="flex-shrink-0 text-[10px] text-gray-400">▾</span>
             </button>
 
-            {open
-                && createPortal(
-                    <div
-                        data-datepicker-portal="true"
-                        className="fixed inset-0 z-[10200] grid place-items-center overflow-y-auto bg-black/45 p-3 sm:p-6"
-                        onClick={() => setOpen(false)}
-                        onKeyDown={(e) => {
-                            if (e.key !== 'Escape') return;
-                            e.preventDefault();
-                            e.stopPropagation();
-                            setOpen(false);
-                        }}
-                        role="presentation"
-                    >
-                        <div
-                            className={`relative w-full max-w-[min(21rem,calc(100vw-1.5rem))] min-w-0 ${popoverClassName}`.trim()}
-                            onClick={(e) => e.stopPropagation()}
-                            role="dialog"
-                            aria-modal="true"
-                        >
-                            <DatePicker
-                                mode={mode}
-                                presetSource={presetSource}
-                                quickOptionKeys={quickOptionKeys}
-                                defaultQuickKey={lastQuickKey || defaultQuickKey}
-                                initialQuickKey={lastQuickKey || initialQuickKey}
-                                initialTab={lastUsedTab}
-                                initialRangeStart={startDate}
-                                initialRangeEnd={endDate}
-                                minCalendarYear={minCalendarYear}
-                                maxCalendarYear={maxCalendarYear}
-                                showRangeHint={showRangeHint}
-                                showResetButton={showResetButton}
-                                onRequestClose={() => setOpen(false)}
-                                onApply={(result) => {
-                                    if (result?.sourceTab) {
-                                        setLastUsedTab(result.sourceTab === 'custom' ? 'custom' : result.sourceTab);
-                                    }
-                                    if (result?.sourceTab === 'quick' && result?.quickKey) {
-                                        setLastQuickKey(result.quickKey);
-                                    }
-                                    if (result?.type === 'range') {
-                                        onChange?.({
-                                            start: toIsoDate(result.start),
-                                            end: toIsoDate(result.end),
-                                        });
-                                    } else if (result?.type === 'single') {
-                                        const iso = toIsoDate(result.date);
-                                        onChange?.({
-                                            start: iso,
-                                            end: iso,
-                                        });
-                                    }
-                                    setOpen(false);
-                                }}
-                            />
-                        </div>
-                    </div>,
-                    document.body,
-                )}
+            <PickerPortalOverlay
+                open={open}
+                onClose={() => setOpen(false)}
+                popoverClassName={popoverClassName}
+                portalKey="portal-datepicker-range"
+            >
+                <DatePicker
+                    mode={mode}
+                    presetSource={presetSource}
+                    quickOptionKeys={quickOptionKeys}
+                    defaultQuickKey={lastQuickKey || defaultQuickKey}
+                    initialQuickKey={lastQuickKey || initialQuickKey}
+                    initialTab={lastUsedTab}
+                    initialRangeStart={startDate}
+                    initialRangeEnd={endDate}
+                    minCalendarYear={minCalendarYear}
+                    maxCalendarYear={maxCalendarYear}
+                    showRangeHint={showRangeHint}
+                    showResetButton={showResetButton}
+                    onRequestClose={() => setOpen(false)}
+                    onApply={(result) => {
+                        if (result?.sourceTab) {
+                            setLastUsedTab(result.sourceTab === 'custom' ? 'custom' : result.sourceTab);
+                        }
+                        if (result?.sourceTab === 'quick' && result?.quickKey) {
+                            setLastQuickKey(result.quickKey);
+                        }
+                        if (result?.type === 'range') {
+                            onChange?.({
+                                start: toIsoDate(result.start),
+                                end: toIsoDate(result.end),
+                            });
+                        } else if (result?.type === 'single') {
+                            const iso = toIsoDate(result.date);
+                            onChange?.({
+                                start: iso,
+                                end: iso,
+                            });
+                        }
+                        setOpen(false);
+                    }}
+                />
+            </PickerPortalOverlay>
         </div>
     );
 }
