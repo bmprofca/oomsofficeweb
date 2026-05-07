@@ -69,7 +69,6 @@ const Login = () => {
         setLoading(true);
 
         try {
-            // credentialResponse.credential is the ID token (JWT format)
             const idToken = credentialResponse.credential;
             console.log('Sending Google ID token to backend...');
             
@@ -87,20 +86,51 @@ const Login = () => {
             console.log('Backend response:', result);
             
             if (result.error === false || result.success === true) {
-                // Login successful
+                // Store basic user info
                 localStorage.setItem('user_token', result.token);
                 localStorage.setItem('user_username', result.username);
                 localStorage.setItem('user_email', result.profile.email);
                 localStorage.setItem('user_name', result.profile.name);
                 
-                alert(`Welcome ${result.profile.name}! Login successful!`);
+                setLoginResponse(result);
                 
-                // Redirect to dashboard
-                setTimeout(() => {
-                    window.location.href = '/';
-                }, 1500);
-                
-                setLoginSuccess(true);
+                // Check for branches/projects
+                if (result.branches && result.branches.length > 0) {
+                    setBranches(result.branches);
+                    if (result.branches.length === 1) {
+                        // Single branch - auto select and login
+                        const branchId = result.branches[0].branch_id;
+                        const branchName = result.branches[0].name;
+                        localStorage.setItem('branch_id', branchId);
+                        localStorage.setItem('branch_name', branchName);
+                        completeGoogleLogin(result);
+                    } else {
+                        // Multiple branches - show selection
+                        setShowBranchSelection(true);
+                        setActiveSocialLogin(null);
+                    }
+                } else if (result.projects && result.projects.length > 0) {
+                    // Handle projects as branches
+                    const mappedBranches = result.projects.map(project => ({
+                        branch_id: project.project_id,
+                        name: project.name,
+                        owned: true
+                    }));
+                    setBranches(mappedBranches);
+                    setLoginResponse({...result, branches: mappedBranches});
+                    
+                    if (mappedBranches.length === 1) {
+                        localStorage.setItem('branch_id', mappedBranches[0].branch_id);
+                        localStorage.setItem('branch_name', mappedBranches[0].name);
+                        completeGoogleLogin(result);
+                    } else {
+                        setShowBranchSelection(true);
+                        setActiveSocialLogin(null);
+                    }
+                } else {
+                    // No branches - direct login
+                    completeGoogleLogin(result);
+                }
             } else {
                 alert(result.error || 'Google authentication failed');
                 setActiveSocialLogin(null);
@@ -112,6 +142,33 @@ const Login = () => {
         } finally {
             setLoading(false);
         }
+    };
+
+    const handleBranchSelectForGoogle = (branchId) => {
+        setSelectedBranch(branchId);
+        const selectedBranchInfo = branches.find(b => b.branch_id === branchId);
+        if (selectedBranchInfo) {
+            localStorage.setItem('branch_id', branchId);
+            localStorage.setItem('branch_name', selectedBranchInfo.name);
+            localStorage.setItem('branch_owned', selectedBranchInfo.owned ? 'true' : 'false');
+        }
+        completeGoogleLogin(loginResponse);
+    };
+
+    const completeGoogleLogin = (result) => {
+        setLoginSuccess(true);
+        setShowBranchSelection(false);
+        
+        // Store additional info if available
+        if (result.branches) {
+            localStorage.setItem('user_branches', JSON.stringify(result.branches));
+        }
+        
+        alert(`Welcome ${result.profile.name || result.username}! Login successful!`);
+        
+        setTimeout(() => {
+            window.location.href = '/';
+        }, 1500);
     };
 
     // Handle Google Registration for new users
@@ -133,22 +190,26 @@ const Login = () => {
             if (!registerResult.error) {
                 console.log('Google registration successful:', registerResult);
                 
-                // Store user data
                 localStorage.setItem('user_token', registerResult.token);
                 localStorage.setItem('user_username', registerResult.username);
                 localStorage.setItem('user_email', registerResult.profile.email);
                 localStorage.setItem('user_name', registerResult.profile.name);
                 
-                // Handle projects/branches
+                setLoginResponse(registerResult);
+                
                 if (registerResult.projects && registerResult.projects.length > 0) {
-                    setBranches(registerResult.projects);
+                    const mappedBranches = registerResult.projects.map(project => ({
+                        branch_id: project.project_id,
+                        name: project.name,
+                        owned: true
+                    }));
+                    setBranches(mappedBranches);
                     
-                    if (registerResult.projects.length === 1) {
-                        localStorage.setItem('branch_id', registerResult.projects[0].project_id);
-                        localStorage.setItem('branch_name', registerResult.projects[0].name);
+                    if (mappedBranches.length === 1) {
+                        localStorage.setItem('branch_id', mappedBranches[0].branch_id);
+                        localStorage.setItem('branch_name', mappedBranches[0].name);
                         completeGoogleLogin(registerResult);
                     } else {
-                        setLoginResponse(registerResult);
                         setShowBranchSelection(true);
                     }
                 } else {
@@ -165,19 +226,7 @@ const Login = () => {
         }
     };
 
-    const completeGoogleLogin = (result) => {
-        setLoginSuccess(true);
-        setShowBranchSelection(false);
-        alert(`Welcome ${result.profile.name || result.username}! Login successful!`);
-        
-        // Redirect to dashboard after 1 second
-        setTimeout(() => {
-            window.location.href = '/';
-        }, 1500);
-    };
-
     useEffect(() => {
-        // Focus on email input on initial load
         if (phase === 1) {
             setTimeout(() => {
                 emailRef.current?.focus();
@@ -186,7 +235,6 @@ const Login = () => {
     }, [phase]);
 
     useEffect(() => {
-        // Focus management for OTP input
         if (phase === 2 && !showBranchSelection && !loginSuccess) {
             setTimeout(() => {
                 otpRefs.current[0]?.current?.focus();
@@ -201,7 +249,6 @@ const Login = () => {
             [name]: value
         }));
 
-        // Email validation
         if (name === 'email') {
             const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
             setIsValidEmail(value === '' || emailRegex.test(value));
@@ -214,16 +261,13 @@ const Login = () => {
             newOtpDigits[index] = value;
             setOtpDigits(newOtpDigits);
 
-            // Update formData
             const otpValue = newOtpDigits.join('');
             setFormData(prev => ({ ...prev, otp: otpValue }));
 
-            // Auto-focus next input
             if (value && index < 5) {
                 otpRefs.current[index + 1]?.current?.focus();
             }
 
-            // Auto-focus previous input on backspace
             if (!value && index > 0) {
                 otpRefs.current[index - 1]?.current?.focus();
             }
@@ -244,7 +288,6 @@ const Login = () => {
             return;
         }
 
-        // Validate email format
         const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
         if (!emailRegex.test(formData.email)) {
             setIsValidEmail(false);
@@ -410,7 +453,6 @@ const Login = () => {
         }
     };
 
-    // Full Screen Loading Component
     if (fullScreenLoading) {
         return (
             <div className="min-h-screen bg-gradient-to-br from-blue-600 to-purple-700 flex items-center justify-center">
@@ -425,7 +467,6 @@ const Login = () => {
 
     return (
         <div className="min-h-screen bg-gradient-to-br from-gray-50 to-blue-50 flex items-center justify-center p-4 relative overflow-hidden">
-            {/* Background Elements */}
             <div className="absolute inset-0 overflow-hidden">
                 <div className="absolute -top-40 -right-40 w-80 h-80 bg-blue-100 rounded-full mix-blend-multiply filter blur-3xl opacity-70 animate-blob"></div>
                 <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-purple-100 rounded-full mix-blend-multiply filter blur-3xl opacity-70 animate-blob animation-delay-2000"></div>
@@ -486,24 +527,99 @@ const Login = () => {
 
                     {/* Right Side - Login Form */}
                     <div className="md:w-3/5 p-8">
-                        {/* Header */}
                         <div className="mb-8">
                             <h1 className="text-2xl font-bold text-gray-900">
-                                {showBranchSelection ? 'Select Project' :
+                                {showBranchSelection ? 'Select Branch' :
                                     loginSuccess ? 'Welcome Back!' :
                                         phase === 1 ? 'Sign in to your account' : 'Verify Your Identity'}
                             </h1>
                             <p className="text-gray-600 mt-2">
-                                {showBranchSelection ? 'Choose your project to continue' :
+                                {showBranchSelection ? 'Choose your branch to continue' :
                                     loginSuccess ? 'You have successfully logged in' :
                                         phase === 1 ? 'Enter your credentials to continue' : 'Enter the 6-digit verification code'}
                             </p>
                         </div>
 
+                        {/* Branch Selection Screen */}
+                        {showBranchSelection && (
+                            <div className="space-y-6">
+                                <div className="bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 rounded-xl p-6">
+                                    <div className="flex items-center">
+                                        <FiCheckCircle className="text-green-600 text-2xl mr-3" />
+                                        <div>
+                                            <p className="font-semibold text-green-800">Identity Verified Successfully!</p>
+                                            <p className="text-green-700 text-sm mt-1">Please select your branch to continue</p>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div className="space-y-4">
+                                    <label className="block text-sm font-semibold text-gray-800">
+                                        Available Branches
+                                    </label>
+                                    <div className="space-y-3">
+                                        {branches.map((branch) => (
+                                            <button
+                                                key={branch.branch_id}
+                                                type="button"
+                                                onClick={() => {
+                                                    if (loginResponse?.projects) {
+                                                        handleBranchSelectForGoogle(branch.branch_id);
+                                                    } else {
+                                                        handleBranchSelect(branch.branch_id);
+                                                    }
+                                                }}
+                                                disabled={loading}
+                                                className={`w-full p-5 text-left rounded-xl border-2 transition-all duration-300 transform hover:-translate-y-0.5 flex items-center justify-between group
+                                                    ${selectedBranch === branch.branch_id ?
+                                                        'border-blue-500 bg-blue-50 shadow-lg shadow-blue-100' :
+                                                        'border-gray-200 hover:border-blue-300 hover:shadow-lg'
+                                                    }`}
+                                            >
+                                                <div className="flex items-center">
+                                                    <div className={`p-2 rounded-lg mr-4 ${selectedBranch === branch.branch_id ? 'bg-blue-100' : 'bg-gray-100 group-hover:bg-blue-50'}`}>
+                                                        <FiHome className={`w-5 h-5 ${selectedBranch === branch.branch_id ? 'text-blue-600' : 'text-gray-600'}`} />
+                                                    </div>
+                                                    <div>
+                                                        <p className="font-semibold text-gray-900">{branch.name}</p>
+                                                        <p className="text-sm text-gray-600 mt-1">
+                                                            Branch ID: {branch.branch_id}
+                                                            {branch.owned && (
+                                                                <span className="ml-2 px-2 py-1 bg-green-100 text-green-800 text-xs rounded-full">Owned</span>
+                                                            )}
+                                                        </p>
+                                                    </div>
+                                                </div>
+                                                {selectedBranch === branch.branch_id && (
+                                                    <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center">
+                                                        <FiCheck className="text-white" />
+                                                    </div>
+                                                )}
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+
+                                <div className="flex space-x-4 pt-4">
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            setShowBranchSelection(false);
+                                            setPhase(1);
+                                            setActiveSocialLogin(null);
+                                        }}
+                                        className="flex-1 py-3 px-6 border-2 border-gray-300 text-gray-700 rounded-xl font-medium hover:bg-gray-50 hover:border-gray-400 transition-all duration-300 flex items-center justify-center"
+                                    >
+                                        <FiArrowLeft className="mr-2" />
+                                        Back
+                                    </button>
+                                </div>
+                            </div>
+                        )}
+
                         {/* Phase 1: Email and Password Together */}
                         {phase === 1 && !showBranchSelection && !loginSuccess && (
                             <div>
-                                {/* Social Login Buttons */}
                                 <div className="mb-6">
                                     <div className="grid grid-cols-2 gap-3">
                                         {activeSocialLogin === 'Google' ? (
@@ -554,9 +670,7 @@ const Login = () => {
                                     </div>
                                 </div>
 
-                                {/* Email and Password Form */}
                                 <form onSubmit={handleSendOtp} className="space-y-5">
-                                    {/* Email Field */}
                                     <div className="space-y-2">
                                         <label className="block text-sm font-medium text-gray-700">
                                             Email Address
@@ -586,7 +700,6 @@ const Login = () => {
                                         )}
                                     </div>
 
-                                    {/* Password Field */}
                                     <div className="space-y-2">
                                         <div className="flex justify-between items-center">
                                             <label className="block text-sm font-medium text-gray-700">
@@ -621,7 +734,6 @@ const Login = () => {
                                         </div>
                                     </div>
 
-                                    {/* Remember Me */}
                                     <div className="flex items-center">
                                         <input
                                             type="checkbox"
@@ -633,7 +745,6 @@ const Login = () => {
                                         </label>
                                     </div>
 
-                                    {/* Submit Button */}
                                     <button
                                         type="submit"
                                         disabled={loading || !formData.email || !formData.password}
@@ -652,78 +763,6 @@ const Login = () => {
                                         )}
                                     </button>
                                 </form>
-                            </div>
-                        )}
-
-                        {/* Branch/Project Selection Screen */}
-                        {showBranchSelection && (
-                            <div className="space-y-6">
-                                <div className="bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 rounded-xl p-6">
-                                    <div className="flex items-center">
-                                        <FiCheckCircle className="text-green-600 text-2xl mr-3" />
-                                        <div>
-                                            <p className="font-semibold text-green-800">Google Verified Successfully!</p>
-                                            <p className="text-green-700 text-sm mt-1">Please select your project to continue</p>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                <div className="space-y-4">
-                                    <label className="block text-sm font-semibold text-gray-800">
-                                        Available Projects
-                                    </label>
-                                    <div className="space-y-3">
-                                        {(loginResponse?.projects || branches).map((project) => (
-                                            <button
-                                                key={project.project_id}
-                                                type="button"
-                                                onClick={() => {
-                                                    localStorage.setItem('branch_id', project.project_id);
-                                                    localStorage.setItem('branch_name', project.name);
-                                                    completeGoogleLogin(loginResponse);
-                                                }}
-                                                disabled={loading}
-                                                className={`w-full p-5 text-left rounded-xl border-2 transition-all duration-300 transform hover:-translate-y-0.5 flex items-center justify-between group
-                                                    ${selectedBranch === project.project_id ?
-                                                        'border-blue-500 bg-blue-50 shadow-lg shadow-blue-100' :
-                                                        'border-gray-200 hover:border-blue-300 hover:shadow-lg'
-                                                    }`}
-                                            >
-                                                <div className="flex items-center">
-                                                    <div className={`p-2 rounded-lg mr-4 ${selectedBranch === project.project_id ? 'bg-blue-100' : 'bg-gray-100 group-hover:bg-blue-50'}`}>
-                                                        <FiHome className={`w-5 h-5 ${selectedBranch === project.project_id ? 'text-blue-600' : 'text-gray-600'}`} />
-                                                    </div>
-                                                    <div>
-                                                        <p className="font-semibold text-gray-900">{project.name}</p>
-                                                        <p className="text-sm text-gray-600 mt-1">
-                                                            Project ID: {project.project_id}
-                                                        </p>
-                                                    </div>
-                                                </div>
-                                                {selectedBranch === project.project_id && (
-                                                    <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center">
-                                                        <FiCheck className="text-white" />
-                                                    </div>
-                                                )}
-                                            </button>
-                                        ))}
-                                    </div>
-                                </div>
-
-                                <div className="flex space-x-4 pt-4">
-                                    <button
-                                        type="button"
-                                        onClick={() => {
-                                            setShowBranchSelection(false);
-                                            setPhase(1);
-                                            setActiveSocialLogin(null);
-                                        }}
-                                        className="flex-1 py-3 px-6 border-2 border-gray-300 text-gray-700 rounded-xl font-medium hover:bg-gray-50 hover:border-gray-400 transition-all duration-300 flex items-center justify-center"
-                                    >
-                                        <FiArrowLeft className="mr-2" />
-                                        Back
-                                    </button>
-                                </div>
                             </div>
                         )}
 
