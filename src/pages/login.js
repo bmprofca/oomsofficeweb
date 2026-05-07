@@ -21,7 +21,7 @@ import {
 import { FcGoogle } from 'react-icons/fc';
 import { FaMicrosoft } from 'react-icons/fa';
 import { SiAuth0 } from 'react-icons/si';
-import { useGoogleLogin } from '@react-oauth/google';
+import { GoogleLogin } from '@react-oauth/google';
 import CryptoJS from 'crypto-js';
 
 const BASE_URL = 'https://api.ooms.in/api/v1';
@@ -64,69 +64,55 @@ const Login = () => {
         };
     };
 
-    // Google Login Integration
-    const googleLogin = useGoogleLogin({
-        onSuccess: async (tokenResponse) => {
-            console.log('Google Login Success:', tokenResponse);
-            await handleGoogleAuth(tokenResponse.access_token);
-        },
-        onError: (error) => {
-            console.error('Google Login Failed:', error);
-            alert('Google login failed. Please try again.');
+    const handleGoogleAuth = async (credentialResponse) => {
+        setActiveSocialLogin('Google');
+        setLoading(true);
+
+        try {
+            // credentialResponse.credential is the ID token (JWT format)
+            const idToken = credentialResponse.credential;
+            console.log('Sending Google ID token to backend...');
+            
+            const response = await fetch(`${BASE_URL}/auth/google-login`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ 
+                    google_token: idToken
+                })
+            });
+
+            const result = await response.json();
+            console.log('Backend response:', result);
+            
+            if (result.error === false || result.success === true) {
+                // Login successful
+                localStorage.setItem('user_token', result.token);
+                localStorage.setItem('user_username', result.username);
+                localStorage.setItem('user_email', result.profile.email);
+                localStorage.setItem('user_name', result.profile.name);
+                
+                alert(`Welcome ${result.profile.name}! Login successful!`);
+                
+                // Redirect to dashboard
+                setTimeout(() => {
+                    window.location.href = '/';
+                }, 1500);
+                
+                setLoginSuccess(true);
+            } else {
+                alert(result.error || 'Google authentication failed');
+                setActiveSocialLogin(null);
+            }
+        } catch (error) {
+            console.error('Google Auth Error:', error);
+            alert('Error during Google authentication. Please try again.');
             setActiveSocialLogin(null);
-        },
-        flow: 'implicit',
-        scope: 'email profile openid',
-    });
-
-   const handleGoogleAuth = async (accessToken) => {
-    setActiveSocialLogin('Google');
-    setLoading(true);
-
-    try {
-        console.log('Sending Google token to backend...');
-        
-        // Send directly without encryption for now
-        const response = await fetch(`${BASE_URL}/auth/google-login`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({ 
-                google_token: accessToken 
-            })
-        });
-
-        const result = await response.json();
-        console.log('Backend response:', result);
-        
-        if (result.error === false || result.success === true) {
-            // Login successful
-            localStorage.setItem('user_token', result.token);
-            localStorage.setItem('user_username', result.username);
-            localStorage.setItem('user_email', result.profile.email);
-            localStorage.setItem('user_name', result.profile.name);
-            
-            alert(`Welcome ${result.profile.name}! Login successful!`);
-            
-            // Redirect to dashboard
-            setTimeout(() => {
-                window.location.href = '/';
-            }, 1500);
-            
-            setLoginSuccess(true);
-        } else {
-            alert(result.error || 'Google authentication failed');
-            setActiveSocialLogin(null);
+        } finally {
+            setLoading(false);
         }
-    } catch (error) {
-        console.error('Google Auth Error:', error);
-        alert('Error during Google authentication. Please try again.');
-        setActiveSocialLogin(null);
-    } finally {
-        setLoading(false);
-    }
-};
+    };
 
     // Handle Google Registration for new users
     const handleGoogleRegister = async (accessToken) => {
@@ -415,9 +401,7 @@ const Login = () => {
     };
 
     const handleSocialLogin = (provider) => {
-        if (provider === 'Google') {
-            googleLogin();
-        } else if (provider === 'Microsoft') {
+        if (provider === 'Microsoft') {
             setActiveSocialLogin(provider);
             setTimeout(() => {
                 setActiveSocialLogin(null);
@@ -522,20 +506,31 @@ const Login = () => {
                                 {/* Social Login Buttons */}
                                 <div className="mb-6">
                                     <div className="grid grid-cols-2 gap-3">
-                                        <button
-                                            onClick={() => handleSocialLogin('Google')}
-                                            disabled={activeSocialLogin !== null}
-                                            className="flex items-center justify-center p-3 border border-gray-300 rounded-xl hover:bg-gray-50 transition-all duration-300 disabled:opacity-50 group hover:border-blue-300"
-                                        >
-                                            {activeSocialLogin === 'Google' ? (
+                                        {activeSocialLogin === 'Google' ? (
+                                            <div className="flex items-center justify-center p-3 border border-gray-300 rounded-xl bg-gray-50">
                                                 <div className="w-5 h-5 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
-                                            ) : (
-                                                <>
-                                                    <FcGoogle className="text-xl mr-3" />
-                                                    <span className="font-medium text-gray-700">Continue with Google</span>
-                                                </>
-                                            )}
-                                        </button>
+                                                <span className="ml-2 font-medium text-gray-700">Verifying...</span>
+                                            </div>
+                                        ) : (
+                                            <div className="w-full">
+                                                <GoogleLogin
+                                                    onSuccess={async (credentialResponse) => {
+                                                        await handleGoogleAuth(credentialResponse);
+                                                    }}
+                                                    onError={() => {
+                                                        console.log('Google Login Failed');
+                                                        alert('Google login failed. Please try again.');
+                                                        setActiveSocialLogin(null);
+                                                    }}
+                                                    theme="outline"
+                                                    size="large"
+                                                    text="continue_with"
+                                                    shape="rectangular"
+                                                    logo_alignment="left"
+                                                    width="100%"
+                                                />
+                                            </div>
+                                        )}
                                         <button
                                             onClick={() => handleSocialLogin('Microsoft')}
                                             disabled={activeSocialLogin !== null}
