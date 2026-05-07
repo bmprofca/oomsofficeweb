@@ -79,67 +79,54 @@ const Login = () => {
         scope: 'email profile openid',
     });
 
-    // Handle Google Authentication
-    const handleGoogleAuth = async (accessToken) => {
-        setActiveSocialLogin('Google');
-        setLoading(true);
+   const handleGoogleAuth = async (accessToken) => {
+    setActiveSocialLogin('Google');
+    setLoading(true);
 
-        try {
-            // First try to login with existing account
-            const key = generateKey();
-            const encryptedData = encryptData({ google_token: accessToken }, key);
+    try {
+        console.log('Sending Google token to backend...');
+        
+        // Send directly without encryption for now
+        const response = await fetch(`${BASE_URL}/auth/google-login`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ 
+                google_token: accessToken 
+            })
+        });
+
+        const result = await response.json();
+        console.log('Backend response:', result);
+        
+        if (result.error === false || result.success === true) {
+            // Login successful
+            localStorage.setItem('user_token', result.token);
+            localStorage.setItem('user_username', result.username);
+            localStorage.setItem('user_email', result.profile.email);
+            localStorage.setItem('user_name', result.profile.name);
             
-            const loginResponse = await fetch(`${BASE_URL}/auth/google-login`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify(encryptedData)
-            });
-
-            const loginResult = await loginResponse.json();
-
-            if (!loginResult.error) {
-                // Login successful for existing user
-                console.log('Google login successful:', loginResult);
-                
-                // Store user data
-                localStorage.setItem('user_token', loginResult.token);
-                localStorage.setItem('user_username', loginResult.username);
-                localStorage.setItem('user_email', loginResult.profile.email);
-                localStorage.setItem('user_name', loginResult.profile.name);
-                
-                // Handle projects/branches
-                if (loginResult.projects && loginResult.projects.length > 0) {
-                    setBranches(loginResult.projects);
-                    
-                    if (loginResult.projects.length === 1) {
-                        localStorage.setItem('branch_id', loginResult.projects[0].project_id);
-                        localStorage.setItem('branch_name', loginResult.projects[0].name);
-                        completeGoogleLogin(loginResult);
-                    } else {
-                        setLoginResponse(loginResult);
-                        setShowBranchSelection(true);
-                    }
-                } else {
-                    completeGoogleLogin(loginResult);
-                }
-            } else if (loginResult.error === 'Account not found on the google account') {
-                // User doesn't exist, try to register
-                console.log('Account not found, attempting registration...');
-                await handleGoogleRegister(accessToken);
-            } else {
-                alert(loginResult.error || 'Google authentication failed');
-                setActiveSocialLogin(null);
-            }
-        } catch (error) {
-            console.error('Google Auth Error:', error);
-            alert('Error during Google authentication. Please try again.');
+            alert(`Welcome ${result.profile.name}! Login successful!`);
+            
+            // Redirect to dashboard
+            setTimeout(() => {
+                window.location.href = '/';
+            }, 1500);
+            
+            setLoginSuccess(true);
+        } else {
+            alert(result.error || 'Google authentication failed');
             setActiveSocialLogin(null);
-        } finally {
-            setLoading(false);
         }
-    };
+    } catch (error) {
+        console.error('Google Auth Error:', error);
+        alert('Error during Google authentication. Please try again.');
+        setActiveSocialLogin(null);
+    } finally {
+        setLoading(false);
+    }
+};
 
     // Handle Google Registration for new users
     const handleGoogleRegister = async (accessToken) => {
