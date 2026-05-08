@@ -48,6 +48,7 @@ import ViewInactiveClients from './pages/office-assistance/inactive-client';
 import CAList from './pages/office-assistance/ca-list';
 import AutoReminder from './pages/office-assistance/auto-reminder';
 import Broadcast from './pages/broadcast';
+import EmailBroadcastReport from './pages/broadcast/email/EmailBordcastReport';
 import TextMessageOoms from './pages/broadcast/message/ooms';
 import BroadcastReport from './pages/broadcast/report';
 import WhatsAppOoms from './pages/broadcast/whatsapp/ooms';
@@ -89,7 +90,7 @@ import TaskDetailsPage from './staff/TaskDetailsPage';
 
 
 // Google Client ID
-const GOOGLE_CLIENT_ID = "124604231994-dtnflivbu049428d1cg9ngfuhgq38efs.apps.googleusercontent.com";
+const GOOGLE_CLIENT_ID = "124604231994-dtnflivbu049428d1cg9ngfuhgq38efs.apps.googleusercontent.com ";
 
 // Authentication wrapper component
 const ProtectedRoute = ({ children }) => {
@@ -408,6 +409,12 @@ root.render(
             <Broadcast />
           </ProtectedRoute>
         } />
+  <Route path="/broadcast/email/reports" element={
+          <ProtectedRoute>
+            <EmailBroadcastReport />
+          </ProtectedRoute>
+        } />
+
 
         <Route path="/broadcast/text-message/ooms" element={
           <ProtectedRoute>
@@ -427,11 +434,11 @@ root.render(
           </ProtectedRoute>
         } />
 
-        <Route path="/broadcast/report" element={
+      <Route path="/broadcast/report" element={
           <ProtectedRoute>
             <BroadcastReport />
           </ProtectedRoute>
-        } />
+        } /> 
 
         {/* Email Broadcast Module */}
         <Route path="/broadcast/email/configs" element={
