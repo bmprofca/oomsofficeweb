@@ -509,22 +509,7 @@ const BroadcastReport = () => {
                                 {/* Tabs */}
                                 <div className="mb-6">
                                     <div className="border-b border-gray-200">
-                                        <nav className="-mb-px flex space-x-8 overflow-x-auto">
-                                            {['text-message', 'whatsapp', 'push'].map((tab) => (
-                                                <button
-                                                    key={tab}
-                                                    onClick={() => handleTabChange(tab)}
-                                                    className={`py-2 px-1 border-b-2 font-medium text-sm whitespace-nowrap flex items-center gap-2 transition-colors ${
-                                                        activeTab === tab
-                                                            ? 'border-blue-500 text-blue-600'
-                                                            : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                                                    }`}
-                                                >
-                                                    <FiBarChart2 className="w-4 h-4" />
-                                                    {tab === 'text-message' ? 'SMS Reports' : tab === 'whatsapp' ? 'WhatsApp Reports' : 'Push Reports'}
-                                                </button>
-                                            ))}
-                                        </nav>
+                                        
                                     </div>
                                 </div>
 
