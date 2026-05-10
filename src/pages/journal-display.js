@@ -1,23 +1,19 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
     FiSearch,
     FiPlus,
-    FiSettings,
     FiEdit,
     FiFileText,
     FiMenu,
     FiChevronRight,
-    FiFilter,
     FiPrinter,
-    FiChevronLeft,
-    FiChevronRight as FiChevronRightIcon,
-    FiDollarSign,
     FiX
 } from 'react-icons/fi';
 import { PiExportBold } from "react-icons/pi";
 import { PiFilePdfDuotone, PiMicrosoftExcelLogoDuotone } from "react-icons/pi";
-import JournalEntry from '../components/journal';
-import DateFilter from '../components/DateFilter';
+import { TransactionModalManager } from '../components/Modals/CreateTransactions';
+import { DateRangePickerField } from '../components/PortalDatePicker';
+import TablePagination from '../components/TablePagination';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Header, Sidebar } from '../components/header';
 import API_BASE_URL from '../utils/api-controller';
@@ -30,12 +26,9 @@ const ViewJournal = () => {
         const saved = localStorage.getItem('sidebarMinimized');
         return saved ? JSON.parse(saved) : false;
     });
-    const [dateRange, setDateRange] = useState('');
-    const [fromToDate, setFromToDate] = useState('');
     const [loading, setLoading] = useState(false);
     const [journals, setJournals] = useState([]);
     const [journalFormModal, setJournalEntryModal] = useState(false);
-    const [totalAmount, setTotalAmount] = useState(0);
     const [searchTerm, setSearchTerm] = useState('');
     const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
 
@@ -46,10 +39,10 @@ const ViewJournal = () => {
 
     // Pagination state
     const [currentPage, setCurrentPage] = useState(1);
-    const [itemsPerPage] = useState(10);
+    const [itemsPerPage, setItemsPerPage] = useState(10);
     const [totalItems, setTotalItems] = useState(0);
     const [isLastPage, setIsLastPage] = useState(false);
-    
+
     // Date state
     const [fromDate, setFromDate] = useState('');
     const [toDate, setToDate] = useState('');
@@ -63,6 +56,10 @@ const ViewJournal = () => {
         return () => clearTimeout(timer);
     }, [searchTerm]);
 
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [debouncedSearchTerm, fromDate, toDate]);
+
     // Fetch data when dependencies change
     useEffect(() => {
         if (fromDate && toDate) {
@@ -70,10 +67,10 @@ const ViewJournal = () => {
         }
     }, [currentPage, debouncedSearchTerm, fromDate, toDate]);
 
-    const handleJournalSuccess = (journalData) => {
-        console.log('Journal entry created successfully:', journalData);
-        alert('Journal entry confirmed! Refreshing data...');
-        fetchJournalData(); // Refresh the list
+    const handleJournalSuccess = (type) => {
+        if (type === 'JOURNAL') {
+            fetchJournalData();
+        }
     };
 
     const handleExport = (type, data = null) => {
@@ -97,41 +94,35 @@ const ViewJournal = () => {
     // API call to fetch journal data
     const fetchJournalData = async () => {
         setLoading(true);
-        
+
         try {
             const headers = await getHeaders();
             const url = `${API_BASE_URL}/transaction/report/journal`;
-            
+
             const params = {
                 page_no: currentPage,
                 limit: itemsPerPage,
                 from_date: fromDate,
                 to_date: toDate
             };
-            
+
             // Add search parameter if search term exists
             if (debouncedSearchTerm.trim()) {
                 params.search = debouncedSearchTerm.trim();
             }
-            
+
             const response = await axios.get(url, {
                 headers,
                 params
             });
-            
+
             if (response.data.success) {
                 const journalData = transformApiData(response.data.data);
                 setJournals(journalData);
-                
+
                 // Update pagination info
                 setTotalItems(response.data.meta.total);
                 setIsLastPage(response.data.meta.is_last_page);
-                
-                // Calculate total amount from all data (not just current page)
-                // If API provides total amount in meta, use that; otherwise calculate from current page
-                // For now, we'll calculate from current page but ideally API should provide total
-                const total = journalData.reduce((acc, item) => acc + item.amount, 0);
-                setTotalAmount(total);
             }
         } catch (error) {
             console.error('Error fetching journal data:', error);
@@ -192,13 +183,6 @@ const ViewJournal = () => {
         return date.toLocaleDateString('en-CA'); // YYYY-MM-DD format
     };
 
-    // Handle search
-    const handleSearch = () => {
-        // Reset to first page when searching
-        setCurrentPage(1);
-        fetchJournalData();
-    };
-
     // Handle search input change
     const handleSearchChange = (e) => {
         setSearchTerm(e.target.value);
@@ -211,54 +195,16 @@ const ViewJournal = () => {
         setCurrentPage(1);
     };
 
-    // Handle date filter change
-    const handleDateFilterChange = (filter) => {
-        console.log('Selected filter:', filter);
-        if (filter.range) {
-            setDateRange(filter.range);
-            const [from, to] = filter.range.split(' - ');
-            
-            // Parse dates for API format
-            const parseDate = (dateStr) => {
-                const [day, month, year] = dateStr.split('/');
-                return `${year}-${month}-${day}`;
-            };
-            
-            const fromDateFormatted = parseDate(from);
-            const toDateFormatted = parseDate(to);
-            
-            setFromDate(fromDateFormatted);
-            setToDate(toDateFormatted);
-            setFromToDate(`From ${from} to ${to}`);
-            setCurrentPage(1); // Reset to first page on date change
-        }
-    };
-
     // Initialize with current month date range
     useEffect(() => {
         const today = new Date();
         const firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
-        
+
         const from = formatDateForAPI(firstDay);
         const to = formatDateForAPI(today);
-        
+
         setFromDate(from);
         setToDate(to);
-        
-        // Format for display
-        const formatDisplayDate = (date) => {
-            return date.toLocaleDateString('en-GB', {
-                day: '2-digit',
-                month: '2-digit',
-                year: 'numeric'
-            });
-        };
-        
-        const fromDisplay = formatDisplayDate(firstDay);
-        const toDisplay = formatDisplayDate(today);
-        
-        setDateRange(`${fromDisplay} - ${toDisplay}`);
-        setFromToDate(`From ${fromDisplay} to ${toDisplay}`);
     }, []);
 
     // Persist sidebar minimized state
@@ -325,22 +271,17 @@ const ViewJournal = () => {
         };
     }, []);
 
-    // Pagination handlers
-    const goToNextPage = () => {
-        if (!isLastPage) {
-            setCurrentPage(prev => prev + 1);
-        }
-    };
-
-    const goToPrevPage = () => {
-        if (currentPage > 1) {
-            setCurrentPage(prev => prev - 1);
-        }
+    const totalPages = Math.max(1, Math.ceil(totalItems / itemsPerPage));
+    const handlePageChange = (newPage) => {
+        const n = Math.floor(Number(newPage));
+        if (!Number.isFinite(n)) return;
+        const maxPage = Math.max(1, totalPages);
+        setCurrentPage(Math.min(Math.max(1, n), maxPage));
     };
 
     // Get account type color
     const getAccountTypeColor = (type) => {
-        switch(type) {
+        switch (type) {
             case 'cash': return 'bg-yellow-100 text-yellow-700';
             case 'bank': return 'bg-blue-100 text-blue-700';
             case 'asset': return 'bg-purple-100 text-purple-700';
@@ -467,31 +408,12 @@ const ViewJournal = () => {
             {/* Main Content Area - Full Page Scroll */}
             <div className={`pt-16 transition-all duration-300 ease-in-out ${isMinimized ? 'md:pl-20' : 'md:pl-[260px]'}`}>
                 <div className="max-w-full mx-auto px-4 sm:px-6 lg:px-8 py-6">
-                    {/* Header Stats Card - Smaller */}
-                    <motion.div 
-                        initial={{ opacity: 0, y: 10 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ duration: 0.2 }}
-                        className="bg-gradient-to-r from-blue-500 to-blue-600 rounded-lg p-4 text-white shadow-md mb-4"
-                    >
-                        <div className="flex items-center justify-between">
-                            <div>
-                                <p className="text-blue-100 text-xs font-medium">Total Journal Amount (Current Page)</p>
-                                <h3 className="text-lg font-bold mt-1">₹{formatCurrency(totalAmount)}</h3>
-                                <p className="text-blue-100 text-xs mt-1">
-                                    Total Records: {totalItems}
-                                </p>
-                            </div>
-                            <FiDollarSign className="w-5 h-5 opacity-80" />
-                        </div>
-                    </motion.div>
-
                     {/* Main Card */}
-                    <motion.div 
+                    <motion.div
                         initial={{ opacity: 0, scale: 0.98 }}
                         animate={{ opacity: 1, scale: 1 }}
                         transition={{ duration: 0.3 }}
-                        className="bg-white rounded-xl shadow-lg border border-slate-200"
+                        className="bg-white rounded-xl shadow-lg border border-slate-200 overflow-hidden"
                     >
                         {/* Card Header */}
                         <div className="border-b border-slate-200 px-6 py-4 bg-gradient-to-r from-slate-50 to-white sticky top-0 z-10">
@@ -505,17 +427,9 @@ const ViewJournal = () => {
                                             Journal Register
                                         </h5>
                                     </div>
-                                    {fromToDate && (
-                                        <div className="flex items-center gap-1 text-slate-600">
-                                            <FiFilter className="w-3 h-3" />
-                                            <p className="text-xs font-medium">
-                                                {fromToDate}
-                                            </p>
-                                        </div>
-                                    )}
                                 </div>
 
-                                <div className="flex flex-col lg:flex-row gap-3 w-full lg:w-auto">
+                                <div className="flex flex-col lg:flex-row gap-3 w-full lg:w-auto lg:items-center">
                                     {/* Search Bar */}
                                     <div className="relative w-full lg:w-64">
                                         <FiSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 w-4 h-4" />
@@ -536,12 +450,27 @@ const ViewJournal = () => {
                                         )}
                                     </div>
 
-                                    {/* Date Filter Component */}
-                                    <div className="w-full lg:w-auto">
-                                        <DateFilter onChange={handleDateFilterChange} />
+                                    <div className="w-full min-w-0 max-w-full shrink-0 sm:max-w-[14rem] lg:w-auto lg:max-w-[16rem]">
+                                        <DateRangePickerField
+                                            value={{ start: fromDate, end: toDate }}
+                                            onChange={(range) => {
+                                                setFromDate(range?.start || '');
+                                                setToDate(range?.end || '');
+                                            }}
+                                            placeholder="Select date range"
+                                            mode="range"
+                                            initialTab="quick"
+                                            defaultQuickKey="tm"
+                                            quickOptionKeys={['tw', 'lw', 'lm', 'tm', 'lf', 'fy']}
+                                            showRangeHint={false}
+                                            showResetButton={false}
+                                            truncateRangeLabel={false}
+                                            buttonClassName="w-full min-w-0 px-3.5 py-2 bg-white border border-slate-200 rounded-lg text-sm text-slate-600 hover:border-indigo-400 focus:outline-none transition-all"
+                                            wrapperClassName="w-full min-w-0"
+                                        />
                                     </div>
 
-                                    <div className="flex gap-2">
+                                    <div className="flex gap-2 shrink-0">
                                         {/* Export Dropdown */}
                                         <div className="dropdown-container relative">
                                             <motion.button
@@ -617,13 +546,13 @@ const ViewJournal = () => {
                             </div>
                         </div>
 
-                        {/* Table Container */}
+                        {/* Table Container — no extra radius; outer card supplies rounded corners */}
                         <div className="w-full overflow-x-auto">
                             <table className="w-full text-xs">
                                 <thead className="bg-gradient-to-r from-slate-50 to-slate-100 sticky top-0">
                                     <tr>
                                         <th className="text-center p-3 font-semibold text-slate-700 text-[10px] uppercase tracking-wider w-[5%]">
-                                            Sl No
+                                            #
                                         </th>
                                         <th className="text-center p-3 font-semibold text-slate-700 text-[10px] uppercase tracking-wider w-[8%]">
                                             Date
@@ -632,10 +561,10 @@ const ViewJournal = () => {
                                             Voucher No
                                         </th>
                                         <th className="text-center p-3 font-semibold text-slate-700 text-[10px] uppercase tracking-wider w-[20%]">
-                                            Reduce From
+                                            Payment From
                                         </th>
                                         <th className="text-center p-3 font-semibold text-slate-700 text-[10px] uppercase tracking-wider w-[20%]">
-                                            Increase To
+                                            Payment To
                                         </th>
                                         <th className="text-center p-3 font-semibold text-slate-700 text-[10px] uppercase tracking-wider w-[10%]">
                                             Amount
@@ -683,7 +612,7 @@ const ViewJournal = () => {
                                             const isDropdownOpen = activeRowDropdown === journal.journal_id;
                                             const serialNumber = (currentPage - 1) * itemsPerPage + index + 1;
                                             const { editLink, invoiceLink } = getActionLinks(journal);
-                                            
+
                                             return (
                                                 <motion.tr
                                                     key={journal.journal_id}
@@ -762,7 +691,7 @@ const ViewJournal = () => {
                                                                         className="absolute right-0 mt-1 w-48 bg-white rounded-lg shadow-xl border border-slate-200 z-50 overflow-hidden"
                                                                     >
                                                                         <div className="py-1">
-                                                                            <a 
+                                                                            <a
                                                                                 href={editLink}
                                                                                 className="flex items-center w-full px-3 py-2 text-xs text-slate-700 hover:bg-blue-50 transition-colors duration-150"
                                                                                 onClick={() => setActiveRowDropdown(null)}
@@ -775,7 +704,7 @@ const ViewJournal = () => {
                                                                                 </div>
                                                                             </a>
                                                                             {invoiceLink && (
-                                                                                <a 
+                                                                                <a
                                                                                     href={invoiceLink}
                                                                                     className="flex items-center w-full px-3 py-2 text-xs text-slate-700 hover:bg-blue-50 transition-colors duration-150"
                                                                                     onClick={() => setActiveRowDropdown(null)}
@@ -815,55 +744,34 @@ const ViewJournal = () => {
                             </table>
                         </div>
 
-                        {/* Pagination */}
-                        {!loading && journals.length > 0 && (
-                            <div className="border-t border-slate-200 px-6 py-4 bg-slate-50 flex flex-col sm:flex-row justify-between items-center gap-3">
-                                <div className="text-xs text-slate-600">
-                                    Showing {(currentPage - 1) * itemsPerPage + 1} to {Math.min(currentPage * itemsPerPage, totalItems)} of {totalItems} entries
-                                </div>
-                                <div className="flex items-center gap-2">
-                                    <motion.button
-                                        onClick={goToPrevPage}
-                                        disabled={currentPage === 1}
-                                        className={`p-2 rounded-lg border transition-all duration-200 ${
-                                            currentPage === 1
-                                                ? 'border-slate-200 text-slate-300 cursor-not-allowed'
-                                                : 'border-slate-300 text-slate-600 hover:bg-blue-50 hover:border-blue-300'
-                                        }`}
-                                        whileHover={currentPage !== 1 ? { scale: 1.05 } : {}}
-                                        whileTap={currentPage !== 1 ? { scale: 0.95 } : {}}
-                                    >
-                                        <FiChevronLeft className="w-4 h-4" />
-                                    </motion.button>
-                                    <span className="px-3 py-1 bg-white border border-slate-300 rounded-lg text-xs font-medium text-slate-700">
-                                        Page {currentPage} of {Math.ceil(totalItems / itemsPerPage)}
-                                    </span>
-                                    <motion.button
-                                        onClick={goToNextPage}
-                                        disabled={isLastPage}
-                                        className={`p-2 rounded-lg border transition-all duration-200 ${
-                                            isLastPage
-                                                ? 'border-slate-200 text-slate-300 cursor-not-allowed'
-                                                : 'border-slate-300 text-slate-600 hover:bg-blue-50 hover:border-blue-300'
-                                        }`}
-                                        whileHover={!isLastPage ? { scale: 1.05 } : {}}
-                                        whileTap={!isLastPage ? { scale: 0.95 } : {}}
-                                    >
-                                        <FiChevronRightIcon className="w-4 h-4" />
-                                    </motion.button>
-                                </div>
-                            </div>
+                        {!loading && (journals.length > 0 || totalItems > 0) && totalPages > 0 && (
+                            <TablePagination
+                                page={currentPage}
+                                limit={itemsPerPage}
+                                total={totalItems}
+                                totalPages={totalPages}
+                                isLastPage={isLastPage}
+                                rowOptions={[5, 10, 20, 50, 100]}
+                                defaultRows={10}
+                                onPageChange={handlePageChange}
+                                onLimitChange={setItemsPerPage}
+                            />
                         )}
                     </motion.div>
                 </div>
             </div>
 
             {/* Modals */}
-            <JournalEntry
+            <TransactionModalManager
+                modalType="JOURNAL"
                 isOpen={journalFormModal}
                 onClose={() => setJournalEntryModal(false)}
-                onSuccess={handleJournalSuccess}
-                mode="modal"
+                onSubmit={handleJournalSuccess}
+                formatCurrency={formatCurrency}
+                summary={{ totalCredit: 0, totalDebit: 0 }}
+                showSummary={true}
+                showFromClient={true}
+                showToClient={true}
             />
 
             {/* Export Confirmation Modal */}

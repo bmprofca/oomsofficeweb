@@ -1,29 +1,30 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Header, Sidebar } from '../components/header';
 import {
     FiSearch,
     FiPlus,
-    FiSettings,
     FiEdit,
-    FiDollarSign,
     FiRepeat,
     FiMenu,
     FiChevronRight,
-    FiTrendingUp,
-    FiFilter,
-    FiChevronDown,
-    FiChevronUp,
     FiChevronLeft,
     FiChevronRight as FiChevronRightIcon,
-    FiCreditCard,
+    FiEye,
     FiPrinter,
-    FiX
+    FiX,
+    FiCalendar,
+    FiUser,
+    FiCreditCard,
+    FiMail,
+    FiPhone,
+    FiShield,
 } from 'react-icons/fi';
 import { PiExportBold } from "react-icons/pi";
 import { PiFilePdfDuotone, PiMicrosoftExcelLogoDuotone } from "react-icons/pi";
 import { motion, AnimatePresence } from 'framer-motion';
-import ContraTransfer from '../components/contra';
-import DateFilter from '../components/DateFilter';
+import { TransactionModalManager } from '../components/Modals/CreateTransactions';
+import { DateRangePickerField } from '../components/PortalDatePicker';
+import TablePagination from '../components/TablePagination';
 import API_BASE_URL from '../utils/api-controller';
 import getHeaders from '../utils/get-headers';
 import axios from 'axios';
@@ -34,12 +35,10 @@ const ViewContra = () => {
         const saved = localStorage.getItem('sidebarMinimized');
         return saved ? JSON.parse(saved) : false;
     });
-    const [dateRange, setDateRange] = useState('');
-    const [fromToDate, setFromToDate] = useState('');
     const [loading, setLoading] = useState(false);
     const [contras, setContras] = useState([]);
     const [contraFormModal, setContraTransferModal] = useState(false);
-    const [totalAmount, setTotalAmount] = useState(0);
+    const [detailContra, setDetailContra] = useState(null);
     const [searchTerm, setSearchTerm] = useState('');
     const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
 
@@ -50,10 +49,10 @@ const ViewContra = () => {
 
     // Pagination state
     const [currentPage, setCurrentPage] = useState(1);
-    const [itemsPerPage] = useState(10);
+    const [itemsPerPage, setItemsPerPage] = useState(10);
     const [totalItems, setTotalItems] = useState(0);
     const [isLastPage, setIsLastPage] = useState(false);
-    
+
     // Date state
     const [fromDate, setFromDate] = useState('');
     const [toDate, setToDate] = useState('');
@@ -67,6 +66,10 @@ const ViewContra = () => {
         return () => clearTimeout(timer);
     }, [searchTerm]);
 
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [debouncedSearchTerm, fromDate, toDate]);
+
     // Fetch data when dependencies change
     useEffect(() => {
         if (fromDate && toDate) {
@@ -74,15 +77,15 @@ const ViewContra = () => {
         }
     }, [currentPage, debouncedSearchTerm, fromDate, toDate]);
 
-    const handleContraSuccess = (contraData) => {
-        console.log('Contra entry created successfully:', contraData);
+    const handleContraSuccess = (type, contraData) => {
+        console.log(`${type} transaction created:`, contraData);
         alert('Contra entry confirmed! Refreshing data...');
         fetchContraData(); // Refresh the list
     };
 
     const handleExport = (type, data = null) => {
         setExportModal({ open: true, type, data });
-        
+
         // Simulate export process
         setTimeout(() => {
             setExportModal({ open: false, type: '', data: null });
@@ -101,39 +104,35 @@ const ViewContra = () => {
     // API call to fetch contra data
     const fetchContraData = async () => {
         setLoading(true);
-        
+
         try {
             const headers = await getHeaders();
-            const url = `${API_BASE_URL}/transaction/report/contra`;
-            
+            const url = `${API_BASE_URL}/contra/list`;
+
             const params = {
                 page_no: currentPage,
                 limit: itemsPerPage,
                 from_date: fromDate,
                 to_date: toDate
             };
-            
+
             // Add search parameter if search term exists
             if (debouncedSearchTerm.trim()) {
                 params.search = debouncedSearchTerm.trim();
             }
-            
+
             const response = await axios.get(url, {
                 headers,
                 params
             });
-            
+
             if (response.data.success) {
                 const contraData = transformApiData(response.data.data);
                 setContras(contraData);
-                
+
                 // Update pagination info
                 setTotalItems(response.data.meta.total);
                 setIsLastPage(response.data.meta.is_last_page);
-                
-                // Calculate total amount from current page
-                const total = contraData.reduce((acc, item) => acc + item.amount, 0);
-                setTotalAmount(total);
             }
         } catch (error) {
             console.error('Error fetching contra data:', error);
@@ -145,14 +144,15 @@ const ViewContra = () => {
 
     // Transform API response to match the component's expected format
     const transformApiData = (apiData) => {
-        return apiData.map((item, index) => {
+        return apiData.map((item) => {
             // Extract from bank details from payment_from
             const fromBank = item.payment_from?.details || {};
             // Extract to bank details from payment_to
             const toBank = item.payment_to?.details || {};
-            
+
             return {
-                contra_id: item.transaction_id,
+                contra_id: item.contra_id || item.transaction_id,
+                transaction_id: item.transaction_id,
                 invoice_id: item.invoice_id,
                 invoice_no: item.invoice_no,
                 date: formatDateForDisplay(item.transaction_date),
@@ -205,54 +205,16 @@ const ViewContra = () => {
         setCurrentPage(1);
     };
 
-    // Handle date filter change
-    const handleDateFilterChange = (filter) => {
-        console.log('Selected filter:', filter);
-        if (filter.range) {
-            setDateRange(filter.range);
-            const [from, to] = filter.range.split(' - ');
-            
-            // Parse dates for API format
-            const parseDate = (dateStr) => {
-                const [day, month, year] = dateStr.split('/');
-                return `${year}-${month}-${day}`;
-            };
-            
-            const fromDateFormatted = parseDate(from);
-            const toDateFormatted = parseDate(to);
-            
-            setFromDate(fromDateFormatted);
-            setToDate(toDateFormatted);
-            setFromToDate(`From ${from} to ${to}`);
-            setCurrentPage(1); // Reset to first page on date change
-        }
-    };
-
     // Initialize with current month date range
     useEffect(() => {
         const today = new Date();
         const firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
-        
+
         const from = formatDateForAPI(firstDay);
         const to = formatDateForAPI(today);
-        
+
         setFromDate(from);
         setToDate(to);
-        
-        // Format for display
-        const formatDisplayDate = (date) => {
-            return date.toLocaleDateString('en-GB', {
-                day: '2-digit',
-                month: '2-digit',
-                year: 'numeric'
-            });
-        };
-        
-        const fromDisplay = formatDisplayDate(firstDay);
-        const toDisplay = formatDisplayDate(today);
-        
-        setDateRange(`${fromDisplay} - ${toDisplay}`);
-        setFromToDate(`From ${fromDisplay} to ${toDisplay}`);
     }, []);
 
     // Persist sidebar minimized state
@@ -299,22 +261,17 @@ const ViewContra = () => {
         };
     }, []);
 
-    // Pagination handlers
-    const goToNextPage = () => {
-        if (!isLastPage) {
-            setCurrentPage(prev => prev + 1);
-        }
-    };
-
-    const goToPrevPage = () => {
-        if (currentPage > 1) {
-            setCurrentPage(prev => prev - 1);
-        }
+    const totalPages = Math.max(1, Math.ceil(totalItems / itemsPerPage));
+    const handlePageChange = (newPage) => {
+        const n = Math.floor(Number(newPage));
+        if (!Number.isFinite(n)) return;
+        const maxPage = Math.max(1, totalPages);
+        setCurrentPage(Math.min(Math.max(1, n), maxPage));
     };
 
     // Get account type color for bank type
     const getBankTypeColor = (type) => {
-        switch(type?.toLowerCase()) {
+        switch (type?.toLowerCase()) {
             case 'savings': return 'bg-blue-100 text-blue-700';
             case 'current': return 'bg-emerald-100 text-emerald-700';
             case 'salary': return 'bg-purple-100 text-purple-700';
@@ -322,6 +279,123 @@ const ViewContra = () => {
             default: return 'bg-slate-100 text-slate-700';
         }
     };
+
+    /** Shorten remark for table cells — first ~10 words then ellipsis */
+    const ellipsisRemark = (text, maxWords = 10) => {
+        const s = text != null ? String(text).trim() : '';
+        if (!s) return '-';
+        const words = s.split(/\s+/);
+        if (words.length <= maxWords) return s;
+        return `${words.slice(0, maxWords).join(' ')}…`;
+    };
+
+    const formatPartyMobile = (p) => {
+        if (!p || p.mobile == null || String(p.mobile).trim() === '') return '';
+        const mobile = String(p.mobile).trim();
+        const raw = p.country_code == null ? '' : String(p.country_code).trim();
+        if (!raw) return mobile;
+        if (/^\d+$/.test(raw)) return `+${raw} ${mobile}`;
+        return `${raw} ${mobile}`;
+    };
+
+    const BankDetailBlock = ({ title, paymentSide }) => {
+        const d = paymentSide?.details;
+        const type = paymentSide?.type || 'bank';
+        if (!d || typeof d !== 'object' || Object.keys(d).length === 0) {
+            return (
+                <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50 p-3 text-sm text-slate-600">
+                    <p className="font-semibold text-slate-800 mb-1 flex items-center gap-1.5">
+                        <FiCreditCard className="w-4 h-4 text-slate-500" />
+                        {title}
+                    </p>
+                    <p className="text-xs">Bank details not available for this entry.</p>
+                    <p className="text-[10px] text-slate-500 mt-1 capitalize inline-flex items-center px-2 py-0.5 rounded-full bg-slate-100 border border-slate-200">Type: {type}</p>
+                </div>
+            );
+        }
+        return (
+            <div className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm">
+                <div className="flex items-start justify-between gap-2 mb-3">
+                    <p className="font-semibold text-slate-800 inline-flex items-center gap-1.5">
+                        <FiCreditCard className="w-4 h-4 text-indigo-600" />
+                        {title}
+                    </p>
+                    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold capitalize bg-indigo-50 text-indigo-700 border border-indigo-200">
+                        {d.type || type}
+                    </span>
+                </div>
+                <dl className="grid grid-cols-2 gap-2 text-xs">
+                    <div className="rounded-lg border border-slate-100 bg-slate-50/70 p-2 col-span-2">
+                        <p className="text-slate-500 mb-0.5">Bank</p>
+                        <p className="text-slate-800 font-semibold break-words">{d.bank ?? '—'}</p>
+                    </div>
+                    <div className="rounded-lg border border-slate-100 bg-slate-50/70 p-2">
+                        <p className="text-slate-500 mb-0.5">Holder</p>
+                        <p className="text-slate-800 break-words">{d.holder ?? '—'}</p>
+                    </div>
+                    <div className="rounded-lg border border-slate-100 bg-slate-50/70 p-2">
+                        <p className="text-slate-500 mb-0.5">Account</p>
+                        <p className="text-slate-800 font-mono break-words">{d.account_no ?? '—'}</p>
+                    </div>
+                    <div className="rounded-lg border border-slate-100 bg-slate-50/70 p-2">
+                        <p className="text-slate-500 mb-0.5">IFSC</p>
+                        <p className="text-slate-800 font-mono break-words">{d.ifsc ?? '—'}</p>
+                    </div>
+                    <div className="rounded-lg border border-slate-100 bg-slate-50/70 p-2">
+                        <p className="text-slate-500 mb-0.5">Branch</p>
+                        <p className="text-slate-800 break-words">{d.branch ?? '—'}</p>
+                    </div>
+                </dl>
+            </div>
+        );
+    };
+
+    const PersonBlock = ({ label, person }) => {
+        if (!person || typeof person !== 'object') {
+            return (
+                <div className="rounded-xl border border-slate-100 bg-slate-50/80 p-3 text-xs text-slate-500">
+                    <span className="font-medium text-slate-700 inline-flex items-center gap-1.5">
+                        <FiUser className="w-3.5 h-3.5" />
+                        {label}
+                    </span> — N/A
+                </div>
+            );
+        }
+        const mob = formatPartyMobile(person);
+        return (
+            <div className="rounded-xl border border-slate-200 bg-white p-3 text-xs shadow-sm">
+                <div className="flex items-start justify-between gap-2 mb-2">
+                    <p className="font-semibold text-slate-800 flex items-center gap-1.5">
+                        <FiUser className="w-4 h-4 shrink-0 text-violet-600" />
+                        {label}
+                    </p>
+                    <span className="inline-flex items-center gap-1 rounded-full border border-violet-200 bg-violet-50 px-2 py-0.5 text-[10px] font-semibold text-violet-700">
+                        <FiShield className="w-3 h-3" />
+                        Audit
+                    </span>
+                </div>
+                <div className="space-y-1.5">
+                    <div className="rounded-lg border border-slate-100 bg-slate-50/70 p-2">
+                        <p className="text-slate-500 mb-0.5">Name</p>
+                        <p className="font-medium text-slate-800 break-words">{person.name ?? '—'}</p>
+                    </div>
+                    <div className="rounded-lg border border-slate-100 bg-slate-50/70 p-2 flex items-center gap-1.5">
+                        <FiMail className="w-3.5 h-3.5 text-slate-500 shrink-0" />
+                        <span className="text-slate-700 break-all">{person.email ?? '—'}</span>
+                    </div>
+                    {mob ? (
+                        <div className="rounded-lg border border-slate-100 bg-slate-50/70 p-2 flex items-center gap-1.5">
+                            <FiPhone className="w-3.5 h-3.5 text-slate-500 shrink-0" />
+                            <span className="text-slate-700">{mob}</span>
+                        </div>
+                    ) : null}
+                </div>
+            </div>
+        );
+    };
+
+    /** Sum of amounts on the current page (not shown in UI; avoids stale `totalAmount` refs during HMR). */
+    const totalAmount = contras.reduce((acc, c) => acc + (Number(c.amount) || 0), 0);
 
     // Skeleton loader component
     const SkeletonRow = () => (
@@ -388,19 +462,17 @@ const ViewContra = () => {
 
                         {/* Skeleton Table */}
                         <div className="overflow-hidden">
-                            <div className="border-b border-slate-200">
-                                <table className="w-full text-sm">
-                                    <thead className="bg-gradient-to-r from-slate-50 to-slate-100">
-                                        <tr>
-                                            {[...Array(8)].map((_, i) => (
-                                                <th key={i} className="text-center p-3">
-                                                    <div className="h-4 bg-gray-200 rounded w-20 mx-auto"></div>
-                                                </th>
-                                            ))}
-                                        </tr>
-                                    </thead>
-                                </table>
-                            </div>
+                            <table className="w-full text-sm">
+                                <thead className="bg-gradient-to-r from-slate-50 to-slate-100">
+                                    <tr>
+                                        {[...Array(8)].map((_, i) => (
+                                            <th key={i} className="text-center p-3">
+                                                <div className="h-4 bg-gray-200 rounded w-20 mx-auto"></div>
+                                            </th>
+                                        ))}
+                                    </tr>
+                                </thead>
+                            </table>
 
                             <div className="p-4">
                                 {[...Array(6)].map((_, index) => (
@@ -439,31 +511,15 @@ const ViewContra = () => {
             {/* Main Content Area - Full Page Scroll */}
             <div className={`pt-16 transition-all duration-300 ease-in-out ${isMinimized ? 'md:pl-20' : 'md:pl-[260px]'}`}>
                 <div className="max-w-full mx-auto px-4 sm:px-6 lg:px-8 py-6">
-                    {/* Header Stats Card - Smaller */}
-                    <motion.div 
-                        initial={{ opacity: 0, y: 10 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ duration: 0.2 }}
-                        className="bg-gradient-to-r from-blue-500 to-blue-600 rounded-lg p-4 text-white shadow-md mb-4"
-                    >
-                        <div className="flex items-center justify-between">
-                            <div>
-                                <p className="text-blue-100 text-xs font-medium">Total Transfer Amount (Current Page)</p>
-                                <h3 className="text-lg font-bold mt-1">₹{formatCurrency(totalAmount)}</h3>
-                                <p className="text-blue-100 text-xs mt-1">
-                                    Total Records: {totalItems}
-                                </p>
-                            </div>
-                            <FiRepeat className="w-5 h-5 opacity-80" />
-                        </div>
-                    </motion.div>
-
+                    <span className="sr-only">
+                        Total transfer amount on this page: ₹{formatCurrency(totalAmount)}
+                    </span>
                     {/* Main Card */}
-                    <motion.div 
+                    <motion.div
                         initial={{ opacity: 0, scale: 0.98 }}
                         animate={{ opacity: 1, scale: 1 }}
                         transition={{ duration: 0.3 }}
-                        className="bg-white rounded-xl shadow-lg border border-slate-200"
+                        className="bg-white rounded-xl shadow-lg border border-slate-200 overflow-hidden"
                     >
                         {/* Card Header */}
                         <div className="border-b border-slate-200 px-6 py-4 bg-gradient-to-r from-slate-50 to-white sticky top-0 z-10">
@@ -477,17 +533,9 @@ const ViewContra = () => {
                                             Contra Register
                                         </h5>
                                     </div>
-                                    {fromToDate && (
-                                        <div className="flex items-center gap-1 text-slate-600">
-                                            <FiFilter className="w-3 h-3" />
-                                            <p className="text-xs font-medium">
-                                                {fromToDate}
-                                            </p>
-                                        </div>
-                                    )}
                                 </div>
 
-                                <div className="flex flex-col lg:flex-row gap-3 w-full lg:w-auto">
+                                <div className="flex flex-col lg:flex-row gap-3 w-full lg:w-auto lg:items-center">
                                     {/* Search Bar */}
                                     <div className="relative w-full lg:w-64">
                                         <FiSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 w-4 h-4" />
@@ -508,12 +556,27 @@ const ViewContra = () => {
                                         )}
                                     </div>
 
-                                    {/* Date Filter Component */}
-                                    <div className="w-full lg:w-auto">
-                                        <DateFilter onChange={handleDateFilterChange} />
+                                    <div className="w-full min-w-0 max-w-full shrink-0 sm:max-w-[14rem] lg:w-auto lg:max-w-[16rem]">
+                                        <DateRangePickerField
+                                            value={{ start: fromDate, end: toDate }}
+                                            onChange={(range) => {
+                                                setFromDate(range?.start || '');
+                                                setToDate(range?.end || '');
+                                            }}
+                                            placeholder="Select date range"
+                                            mode="range"
+                                            initialTab="quick"
+                                            defaultQuickKey="tm"
+                                            quickOptionKeys={['tw', 'lw', 'lm', 'tm', 'lf', 'fy']}
+                                            showRangeHint={false}
+                                            showResetButton={false}
+                                            truncateRangeLabel={false}
+                                            buttonClassName="w-full min-w-0 px-3.5 py-2 bg-white border border-slate-200 rounded-lg text-sm text-slate-600 hover:border-indigo-400 focus:outline-none transition-all"
+                                            wrapperClassName="w-full min-w-0"
+                                        />
                                     </div>
 
-                                    <div className="flex gap-2">
+                                    <div className="flex gap-2 shrink-0">
                                         {/* Export Dropdown */}
                                         <div className="dropdown-container relative">
                                             <motion.button
@@ -589,13 +652,13 @@ const ViewContra = () => {
                             </div>
                         </div>
 
-                        {/* Table Container */}
+                        {/* Table Container — no extra radius; outer card supplies rounded corners */}
                         <div className="w-full overflow-x-auto">
                             <table className="w-full text-xs">
                                 <thead className="bg-gradient-to-r from-slate-50 to-slate-100 sticky top-0">
                                     <tr>
                                         <th className="text-center p-3 font-semibold text-slate-700 text-[10px] uppercase tracking-wider w-[5%]">
-                                            Sl No
+                                            #
                                         </th>
                                         <th className="text-center p-3 font-semibold text-slate-700 text-[10px] uppercase tracking-wider w-[8%]">
                                             Date
@@ -654,7 +717,7 @@ const ViewContra = () => {
                                         contras.map((contra, index) => {
                                             const isDropdownOpen = activeRowDropdown === contra.contra_id;
                                             const serialNumber = (currentPage - 1) * itemsPerPage + index + 1;
-                                            
+
                                             return (
                                                 <motion.tr
                                                     key={contra.contra_id}
@@ -735,11 +798,14 @@ const ViewContra = () => {
                                                             ₹{formatCurrency(contra.amount)}
                                                         </span>
                                                     </td>
-                                                    <td className="text-center p-3 align-middle">
-                                                        <div className="px-2">
-                                                            <div className="text-slate-500 text-[10px] italic truncate" title={contra.remark}>
-                                                                {contra.remark || '-'}
-                                                            </div>
+                                                    <td className="text-center p-3 align-middle max-w-[14rem]">
+                                                        <div className="px-2 mx-auto text-left">
+                                                            <p
+                                                                className="text-slate-600 text-[10px] italic line-clamp-2 break-words"
+                                                                title={contra.remark || ''}
+                                                            >
+                                                                {ellipsisRemark(contra.remark)}
+                                                            </p>
                                                         </div>
                                                     </td>
                                                     <td className="text-center p-3 align-middle">
@@ -761,7 +827,22 @@ const ViewContra = () => {
                                                                         className="absolute right-0 mt-1 w-48 bg-white rounded-lg shadow-xl border border-slate-200 z-50 overflow-hidden"
                                                                     >
                                                                         <div className="py-1">
-                                                                            <a 
+                                                                            <button
+                                                                                type="button"
+                                                                                className="flex items-center w-full px-3 py-2 text-xs text-slate-700 hover:bg-blue-50 transition-colors duration-150"
+                                                                                onClick={() => {
+                                                                                    setDetailContra(contra);
+                                                                                    setActiveRowDropdown(null);
+                                                                                }}
+                                                                            >
+                                                                                <div className="p-1 bg-blue-50 rounded mr-2">
+                                                                                    <FiEye className="w-3 h-3 text-blue-500" />
+                                                                                </div>
+                                                                                <div className="text-left">
+                                                                                    <div className="font-medium">Details</div>
+                                                                                </div>
+                                                                            </button>
+                                                                            <a
                                                                                 href={`/edit-contra-entry?redirect=${window.location.href}&contra_id=${contra.contra_id}`}
                                                                                 className="flex items-center w-full px-3 py-2 text-xs text-slate-700 hover:bg-blue-50 transition-colors duration-150"
                                                                                 onClick={() => setActiveRowDropdown(null)}
@@ -800,56 +881,137 @@ const ViewContra = () => {
                             </table>
                         </div>
 
-                        {/* Pagination */}
-                        {!loading && contras.length > 0 && (
-                            <div className="border-t border-slate-200 px-6 py-4 bg-slate-50 flex flex-col sm:flex-row justify-between items-center gap-3">
-                                <div className="text-xs text-slate-600">
-                                    Showing {(currentPage - 1) * itemsPerPage + 1} to {Math.min(currentPage * itemsPerPage, totalItems)} of {totalItems} entries
-                                </div>
-                                <div className="flex items-center gap-2">
-                                    <motion.button
-                                        onClick={goToPrevPage}
-                                        disabled={currentPage === 1}
-                                        className={`p-2 rounded-lg border transition-all duration-200 ${
-                                            currentPage === 1
-                                                ? 'border-slate-200 text-slate-300 cursor-not-allowed'
-                                                : 'border-slate-300 text-slate-600 hover:bg-blue-50 hover:border-blue-300'
-                                        }`}
-                                        whileHover={currentPage !== 1 ? { scale: 1.05 } : {}}
-                                        whileTap={currentPage !== 1 ? { scale: 0.95 } : {}}
-                                    >
-                                        <FiChevronLeft className="w-4 h-4" />
-                                    </motion.button>
-                                    <span className="px-3 py-1 bg-white border border-slate-300 rounded-lg text-xs font-medium text-slate-700">
-                                        Page {currentPage} of {Math.ceil(totalItems / itemsPerPage)}
-                                    </span>
-                                    <motion.button
-                                        onClick={goToNextPage}
-                                        disabled={isLastPage}
-                                        className={`p-2 rounded-lg border transition-all duration-200 ${
-                                            isLastPage
-                                                ? 'border-slate-200 text-slate-300 cursor-not-allowed'
-                                                : 'border-slate-300 text-slate-600 hover:bg-blue-50 hover:border-blue-300'
-                                        }`}
-                                        whileHover={!isLastPage ? { scale: 1.05 } : {}}
-                                        whileTap={!isLastPage ? { scale: 0.95 } : {}}
-                                    >
-                                        <FiChevronRightIcon className="w-4 h-4" />
-                                    </motion.button>
-                                </div>
-                            </div>
+                        {!loading && (contras.length > 0 || totalItems > 0) && totalPages > 0 && (
+                            <TablePagination
+                                page={currentPage}
+                                limit={itemsPerPage}
+                                total={totalItems}
+                                totalPages={totalPages}
+                                isLastPage={isLastPage}
+                                rowOptions={[5, 10, 20, 50, 100]}
+                                defaultRows={10}
+                                onPageChange={handlePageChange}
+                                onLimitChange={setItemsPerPage}
+                            />
                         )}
                     </motion.div>
                 </div>
             </div>
 
             {/* Modals */}
-            <ContraTransfer
+            <TransactionModalManager
+                modalType="CONTRA"
                 isOpen={contraFormModal}
                 onClose={() => setContraTransferModal(false)}
-                onSuccess={handleContraSuccess}
-                mode="modal"
+                onSubmit={handleContraSuccess}
+                formatCurrency={formatCurrency}
             />
+
+            {/* Contra entry detail — follows context/modal.md (viewport-safe, body scroll only) */}
+            <AnimatePresence>
+                {detailContra && (
+                    <motion.div
+                        key="contra-detail"
+                        role="dialog"
+                        aria-modal="true"
+                        aria-labelledby="contra-detail-title"
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/50 p-3 backdrop-blur-sm sm:p-4"
+                        onClick={() => setDetailContra(null)}
+                    >
+                        <motion.div
+                            initial={{ opacity: 0, scale: 0.96, y: 12 }}
+                            animate={{ opacity: 1, scale: 1, y: 0 }}
+                            exit={{ opacity: 0, scale: 0.96, y: 12 }}
+                            transition={{ type: 'spring', damping: 28, stiffness: 320 }}
+                            className="pointer-events-auto my-2 flex w-full max-w-2xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl sm:my-4 max-h-[calc(100vh-1.5rem)] sm:max-h-[calc(100vh-2rem)]"
+                            onClick={(e) => e.stopPropagation()}
+                        >
+                            <div className="flex shrink-0 items-center justify-between border-b border-indigo-800/30 bg-gradient-to-r from-indigo-600 to-indigo-700 px-5 py-3.5 text-white">
+                                <div className="flex items-center gap-2">
+                                    <FiEye className="h-5 w-5 shrink-0 opacity-90" aria-hidden />
+                                    <h2 id="contra-detail-title" className="text-lg font-bold">
+                                        Contra details
+                                    </h2>
+                                </div>
+                                <button
+                                    type="button"
+                                    onClick={() => setDetailContra(null)}
+                                    className="rounded-lg p-2 text-indigo-100 transition-colors hover:bg-white/15 hover:text-white"
+                                    aria-label="Close"
+                                >
+                                    <FiX className="h-5 w-5" />
+                                </button>
+                            </div>
+                            <div
+                                className="flex-1 overflow-y-auto px-5 py-4 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden"
+                                style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+                            >
+                                {(() => {
+                                    const raw = detailContra.raw_data || {};
+                                    const txDate = raw.transaction_date || detailContra.date;
+                                    return (
+                                        <div className="space-y-4">
+                                            <div className="rounded-xl border border-slate-200 bg-gradient-to-r from-slate-50 to-white p-4 shadow-sm">
+                                                <div className="flex flex-wrap items-center gap-3 text-sm">
+                                                    <div className="inline-flex items-center gap-2 rounded-lg bg-white px-2.5 py-1.5 border border-slate-200">
+                                                        <FiCalendar className="h-4 w-4 text-slate-500" aria-hidden />
+                                                        <span className="text-slate-600">Date</span>
+                                                        <span className="font-semibold text-slate-900">{formatDate(txDate)}</span>
+                                                    </div>
+                                                    <div className="inline-flex items-center gap-2 rounded-lg bg-white px-2.5 py-1.5 border border-slate-200">
+                                                        <span className="text-slate-600">Voucher</span>
+                                                        <span className="font-mono font-semibold text-slate-900">{raw.invoice_no ?? detailContra.invoice_no ?? '—'}</span>
+                                                    </div>
+                                                </div>
+                                                <div className="mt-3 rounded-lg border border-emerald-100 bg-emerald-50 px-3 py-2 flex items-center justify-between">
+                                                    <span className="text-sm font-medium text-emerald-800">Amount</span>
+                                                    <span className="text-base font-bold text-emerald-700 tabular-nums">
+                                                        ₹{formatCurrency(raw.amount ?? detailContra.amount)}
+                                                    </span>
+                                                </div>
+                                            </div>
+
+                                            <div className="grid gap-3 md:grid-cols-2">
+                                                <BankDetailBlock title="From Bank" paymentSide={raw.payment_from} />
+                                                <BankDetailBlock title="To Bank" paymentSide={raw.payment_to} />
+                                            </div>
+
+                                            <div>
+                                                <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-slate-500">Remark</p>
+                                                <p className="rounded-lg border border-slate-200 bg-white p-3 text-sm text-slate-800 whitespace-pre-wrap break-words shadow-sm">
+                                                    {raw.remark != null && String(raw.remark).trim() !== '' ? String(raw.remark).trim() : '—'}
+                                                </p>
+                                            </div>
+
+                                            <div className="rounded-xl border border-slate-200 bg-slate-50/70 p-3">
+                                                <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Audit</p>
+                                                <div className="grid gap-3 md:grid-cols-2">
+                                                    <PersonBlock label="Created by" person={raw.create_by} />
+                                                    <PersonBlock label="Last modified by" person={raw.modify_by} />
+                                                </div>
+                                            </div>
+                                        </div>
+                                    );
+                                })()}
+                            </div>
+                            <div className="shrink-0 border-t border-slate-200 bg-slate-50 px-5 py-3">
+                                <div className="flex justify-end">
+                                    <button
+                                        type="button"
+                                        onClick={() => setDetailContra(null)}
+                                        className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-slate-400/40"
+                                    >
+                                        Close
+                                    </button>
+                                </div>
+                            </div>
+                        </motion.div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
 
             {/* Export Confirmation Modal */}
             <AnimatePresence>

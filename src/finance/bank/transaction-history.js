@@ -33,7 +33,29 @@ import TablePagination from '../../components/TablePagination';
 import OpeningBalanceModal from '../../components/OpeningBalanceModal';
 import { ViewTransactionModalManager } from '../../components/Modals/ViewTransactions';
 import { TransactionModalManager } from '../../components/Modals/CreateTransactions';
-import ContraTransfer from '../../components/contra';
+
+/** @param {Record<string, unknown> | null} details */
+function isLedgerCash(details) {
+    return Boolean(details && String(details.type ?? '').toLowerCase() === 'cash');
+}
+
+/** Subtitle below "Transaction History" plus accessible title (cash: holder only).
+ * @param {Record<string, unknown> | null} details */
+function formatLedgerHeaderLines(details) {
+    if (!details) {
+        return { line: '', title: '' };
+    }
+    if (isLedgerCash(details)) {
+        const holder = String(details.holder ?? '').trim() || 'Cash account';
+        return { line: holder, title: holder };
+    }
+    const bank = String(details.bank ?? '').trim();
+    const accountNo = String(details.account_no ?? '').trim();
+    const branch = String(details.branch ?? '').trim();
+    const line = `${bank}${accountNo ? ` - ${accountNo}` : ''}${branch ? ` (${branch})` : ''}`.trim() || 'Bank account';
+    const title = `${bank}${accountNo ? ` - ${accountNo}` : ''}${branch ? ` (${branch})` : ''}`.trim();
+    return { line, title };
+}
 
 const TransactionHistory = () => {
     const location = useLocation();
@@ -422,11 +444,18 @@ const TransactionHistory = () => {
 
     const handleShare = useCallback(async () => {
         const url = window.location.href;
+        const ledgerLabel = bankDetails
+            ? (isLedgerCash(bankDetails)
+                ? (String(bankDetails.holder ?? '').trim() || 'Cash account')
+                : String(bankDetails.bank ?? '').trim() || 'Bank account')
+            : '';
         const title = bankDetails
-            ? `Transaction History — ${bankDetails.bank}`
+            ? `Transaction History — ${ledgerLabel}`
             : 'Transaction History';
         const text = bankDetails
-            ? `${bankDetails.bank} - ${bankDetails.account_no} (${bankDetails.branch})`
+            ? (isLedgerCash(bankDetails)
+                ? `${String(bankDetails.holder ?? '').trim() || 'Cash account'} · Cash`
+                : `${bankDetails.bank} - ${bankDetails.account_no} (${bankDetails.branch})`)
             : 'Bank transaction history';
 
         try {
@@ -462,18 +491,20 @@ const TransactionHistory = () => {
         setShowTransactionModal(true);
     };
 
-    // Handle create transaction
+    // Handle create transaction (Receive/Payment/etc. may simulate; CONTRA is saved inside CreateTransactions)
     const handleCreateTransaction = async (type, formData) => {
         try {
-            // Here you would implement the API call to create the transaction
-            console.log('Creating transaction:', type, formData);
+            if (type !== 'CONTRA') {
+                console.log('Creating transaction:', type, formData);
+                await new Promise(resolve => setTimeout(resolve, 1000));
+                toast.success(`${type} transaction created successfully`);
+            }
 
-            // Simulate API call
-            await new Promise(resolve => setTimeout(resolve, 1000));
-
-            toast.success(`${type} transaction created successfully`);
             setShowTransactionModal(false);
-            fetchTransactions(); // Refresh the list
+            fetchTransactions();
+            if (type === 'CONTRA') {
+                fetchBankDetails();
+            }
         } catch (error) {
             console.error('Error creating transaction:', error);
             toast.error(`Failed to create ${type} transaction`);
@@ -575,6 +606,8 @@ const TransactionHistory = () => {
 
     const formatCurrency = formatLedgerCurrency;
 
+    const ledgerHeader = useMemo(() => formatLedgerHeaderLines(bankDetails), [bankDetails]);
+
     // Get transaction type icon
     const getTransactionTypeIcon = (type) => {
         switch (type) {
@@ -617,11 +650,11 @@ const TransactionHistory = () => {
                             <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between lg:gap-6">
                                 <div className="min-w-0 flex-1">
                                     <h1 className="text-xl sm:text-2xl font-bold text-slate-800 tracking-tight">Transaction History</h1>
-                                    {bankDetails && (
-                                        <p className="text-sm text-slate-500 mt-0.5 truncate" title={`${bankDetails.bank} - ${bankDetails.account_no} (${bankDetails.branch})`}>
-                                            {bankDetails.bank} - {bankDetails.account_no} ({bankDetails.branch})
+                                    {bankDetails ? (
+                                        <p className="text-sm text-slate-500 mt-0.5 truncate" title={ledgerHeader.title}>
+                                            {ledgerHeader.line}
                                         </p>
-                                    )}
+                                    ) : null}
                                 </div>
                                 <div className="flex flex-wrap items-center gap-2 lg:justify-end shrink-0">
                                     <button
@@ -768,29 +801,26 @@ const TransactionHistory = () => {
                         )}
                     </AnimatePresence>
 
-                    {transactionType === 'CONTRA' ? (
-                        <ContraTransfer
-                            isOpen={showTransactionModal}
-                            onClose={() => setShowTransactionModal(false)}
-                            onSuccess={(data) => handleCreateTransaction('CONTRA', data)}
-                            initialOutBankId={bankId || ''}
-                            mode="modal"
-                        />
-                    ) : (
-                        <TransactionModalManager
-                            modalType={transactionType}
-                            isOpen={showTransactionModal}
-                            onClose={() => setShowTransactionModal(false)}
-                            bankDetails={bankDetails}
-                            bankId={bankId}
-                            bankPageClientLookup={transactionType === 'RECEIVE' || transactionType === 'PAYMENT'}
-                            showClient={!(transactionType === 'RECEIVE' || transactionType === 'PAYMENT')}
-                            showSummary={!(transactionType === 'RECEIVE' || transactionType === 'PAYMENT')}
-                            onSubmit={handleCreateTransaction}
-                            formatCurrency={formatCurrency}
-                            summary={summary}
-                        />
-                    )}
+                    <TransactionModalManager
+                        modalType={transactionType}
+                        isOpen={showTransactionModal}
+                        onClose={() => setShowTransactionModal(false)}
+                        bankDetails={bankDetails}
+                        bankId={bankId}
+                        bankPageClientLookup={transactionType === 'RECEIVE' || transactionType === 'PAYMENT'}
+                        showClient={!(transactionType === 'RECEIVE' || transactionType === 'PAYMENT')}
+                        showSummary={
+                            transactionType !== 'RECEIVE' &&
+                            transactionType !== 'PAYMENT' &&
+                            transactionType !== 'CONTRA'
+                        }
+                        onSubmit={handleCreateTransaction}
+                        formatCurrency={formatCurrency}
+                        summary={summary}
+                        showFromBank={transactionType !== 'CONTRA'}
+                        fromBankId={transactionType === 'CONTRA' ? (bankId || '') : ''}
+                        fromBankDetails={transactionType === 'CONTRA' ? bankDetails : null}
+                    />
 
                     {showActionMenu && selectedActionTransaction && actionMenuPosition && createPortal(
                         <motion.div

@@ -29,6 +29,27 @@ const sanitizeDecimalInput = (value, maxDecimals = 2) => {
 
 const parseDecimalValue = (value) => parseFloat(value || 0) || 0;
 const getBalanceColorClass = (balance) => (parseDecimalValue(balance) > 0 ? 'text-red-600' : 'text-green-600');
+
+/** Bank list API often omits `bank` for cash — show holder as the main label. */
+const getBankPrimaryLabel = (bank) => {
+    if (!bank || typeof bank !== 'object') return '—';
+    const name = String(bank.bank ?? '').trim();
+    if (name) return name;
+    return String(bank.holder ?? '').trim() || '—';
+};
+
+const hasBankInstitutionName = (bank) => Boolean(bank && typeof bank === 'object' && String(bank.bank ?? '').trim());
+
+/** Second line under title: holder when bank name exists; otherwise type hint (e.g. Cash). */
+const getBankSecondaryLabel = (bank) => {
+    if (!bank || typeof bank !== 'object') return '—';
+    if (hasBankInstitutionName(bank)) {
+        return String(bank.holder ?? '').trim() || '—';
+    }
+    const t = String(bank.type ?? '').toLowerCase();
+    if (t === 'cash') return 'Cash';
+    return bank.type ? String(bank.type) : '—';
+};
 // Base Modal Component
 const BaseModal = ({
     isOpen,
@@ -125,9 +146,10 @@ const formatClientCareOfSubtitle = (p) => {
 /** Selected bank card — same compact layout as Receive/Payment modals. */
 const SaleBankPreviewCard = ({ bank, onChangeBank, formatMoney, readOnly = false }) => {
     if (!bank) return null;
-    const title = bank.bank ?? bank.name ?? '—';
-    const holder = bank.holder ?? '—';
+    const title = getBankPrimaryLabel(bank);
+    const subtitle = getBankSecondaryLabel(bank);
     const balance = bank.balance ?? 0;
+    const isCashLedger = String(bank.type ?? '').toLowerCase() === 'cash';
     const account_no = bank.account_no ?? bank.account ?? '—';
     const ifsc = bank.ifsc ?? '—';
     const branch = bank.branch ?? '—';
@@ -139,7 +161,7 @@ const SaleBankPreviewCard = ({ bank, onChangeBank, formatMoney, readOnly = false
                 </div>
                 <div className="flex-1 min-w-0">
                     <p className="text-sm font-semibold text-slate-800 leading-snug truncate">{title}</p>
-                    <p className="text-xs text-slate-500 truncate mt-px">{holder}</p>
+                    <p className="text-xs text-slate-500 truncate mt-px">{subtitle}</p>
                 </div>
                 <div className="flex items-center gap-1.5 flex-shrink-0">
                     <div className="text-right">
@@ -160,20 +182,22 @@ const SaleBankPreviewCard = ({ bank, onChangeBank, formatMoney, readOnly = false
                     )}
                 </div>
             </div>
-            <div className="grid grid-cols-3 divide-x divide-slate-100 border-t border-slate-100 bg-slate-50/90">
-                <div className="px-2 py-1.5 min-w-0">
-                    <p className="text-xs text-slate-500">Account No</p>
-                    <p className="text-sm text-slate-800 font-mono truncate mt-px">{account_no}</p>
+            {!isCashLedger ? (
+                <div className="grid grid-cols-3 divide-x divide-slate-100 border-t border-slate-100 bg-slate-50/90">
+                    <div className="px-2 py-1.5 min-w-0">
+                        <p className="text-xs text-slate-500">Account No</p>
+                        <p className="text-sm text-slate-800 font-mono truncate mt-px">{account_no}</p>
+                    </div>
+                    <div className="px-2 py-1.5 min-w-0">
+                        <p className="text-xs text-slate-500">IFSC</p>
+                        <p className="text-sm text-slate-800 font-mono truncate mt-px">{ifsc}</p>
+                    </div>
+                    <div className="px-2 py-1.5 min-w-0">
+                        <p className="text-xs text-slate-500">Branch</p>
+                        <p className="text-sm text-slate-800 truncate mt-px">{branch}</p>
+                    </div>
                 </div>
-                <div className="px-2 py-1.5 min-w-0">
-                    <p className="text-xs text-slate-500">IFSC</p>
-                    <p className="text-sm text-slate-800 font-mono truncate mt-px">{ifsc}</p>
-                </div>
-                <div className="px-2 py-1.5 min-w-0">
-                    <p className="text-xs text-slate-500">Branch</p>
-                    <p className="text-sm text-slate-800 truncate mt-px">{branch}</p>
-                </div>
-            </div>
+            ) : null}
         </div>
     );
 };
@@ -415,7 +439,7 @@ const BankSearchDropdown = ({ onSelect, selectedBankId, excludeBankId }) => {
 
     const handleSelect = (bank) => {
         onSelect(bank);
-        setSearchTerm(bank.bank);
+        setSearchTerm(getBankPrimaryLabel(bank));
         setShowDropdown(false);
     };
 
@@ -455,7 +479,13 @@ const BankSearchDropdown = ({ onSelect, selectedBankId, excludeBankId }) => {
                         <>
                             {banks.map((bank) => {
                                 const isSelected = selectedBankId === bank.bank_id;
-                                const initial = (bank.bank || 'B').trim().charAt(0).toUpperCase();
+                                const primaryLabel = getBankPrimaryLabel(bank);
+                                const secondaryLabel = getBankSecondaryLabel(bank);
+                                const initial = (primaryLabel || 'B').trim().charAt(0).toUpperCase();
+                                const hasMeta =
+                                    Boolean(String(bank.ifsc ?? '').trim()) ||
+                                    Boolean(String(bank.account_no ?? '').trim()) ||
+                                    Boolean(String(bank.branch ?? '').trim());
                                 return (
                                     <button
                                         key={bank.bank_id}
@@ -473,10 +503,10 @@ const BankSearchDropdown = ({ onSelect, selectedBankId, excludeBankId }) => {
                                                 ${isSelected ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-500 group-hover:bg-indigo-100 group-hover:text-indigo-600'}`}>
                                                 {initial}
                                             </div>
-                                            {/* Name + holder */}
+                                            {/* Name + holder / type */}
                                             <div className="flex-1 min-w-0">
-                                                <p className="text-[13px] font-semibold text-slate-800 leading-none truncate">{bank.bank || 'Unnamed Bank'}</p>
-                                                <p className="text-[11px] text-slate-400 leading-none truncate mt-[3px]">{bank.holder || '—'}</p>
+                                                <p className="text-[13px] font-semibold text-slate-800 leading-none truncate">{primaryLabel}</p>
+                                                <p className="text-[11px] text-slate-400 leading-none truncate mt-[3px]">{secondaryLabel}</p>
                                             </div>
                                             {/* Balance */}
                                             <div className="flex-shrink-0 text-right">
@@ -488,15 +518,23 @@ const BankSearchDropdown = ({ onSelect, selectedBankId, excludeBankId }) => {
                                                 )}
                                             </div>
                                         </div>
-                                        {/* Meta chips */}
-                                        <div className="flex items-center gap-2 px-3.5 pb-2 pl-[2.75rem]">
-                                            <span className="inline-flex items-center px-1.5 py-px rounded bg-slate-100 text-[10px] font-mono text-slate-500 tracking-tight">
-                                                {bank.ifsc || '—'}
-                                            </span>
-                                            <span className="text-[10px] text-slate-400">
-                                                ••{bank.account_no?.slice(-4) || '——'}
-                                            </span>
-                                            <span className="text-[10px] text-slate-400 truncate">{bank.branch || ''}</span>
+                                        {/* Meta chips — cash rows often have no IFSC/account/branch */}
+                                        <div className="flex items-center gap-2 px-3.5 pb-2 pl-[2.75rem] min-h-[1.5rem]">
+                                            {hasMeta ? (
+                                                <>
+                                                    <span className="inline-flex items-center px-1.5 py-px rounded bg-slate-100 text-[10px] font-mono text-slate-500 tracking-tight">
+                                                        {bank.ifsc || '—'}
+                                                    </span>
+                                                    <span className="text-[10px] text-slate-400">
+                                                        ••{bank.account_no?.slice(-4) || '——'}
+                                                    </span>
+                                                    <span className="text-[10px] text-slate-400 truncate">{bank.branch || ''}</span>
+                                                </>
+                                            ) : (
+                                                <span className="text-[10px] text-slate-400 italic">
+                                                    {String(bank.type ?? '').toLowerCase() === 'cash' ? 'Cash ledger' : '—'}
+                                                </span>
+                                            )}
                                         </div>
                                     </button>
                                 );
@@ -550,25 +588,38 @@ const getClientProfileImageUrl = (client) => {
 /** Profile image from `client.profile`, or first letter of name if missing / broken. */
 const ClientSearchAvatar = ({ client, sizeClass = 'w-10 h-10', textClass = 'text-base', roundedClass = 'rounded-xl' }) => {
     const [imgFailed, setImgFailed] = useState(false);
+    const [imgLoading, setImgLoading] = useState(false);
     const url = getClientProfileImageUrl(client);
     const initial = (client?.name || 'C').trim().charAt(0).toUpperCase();
     const showImg = Boolean(url) && !imgFailed;
 
     useEffect(() => {
         setImgFailed(false);
+        setImgLoading(Boolean(url));
     }, [client?.username, client?.profile, client?.image, client?.profile_photo, url]);
 
     return (
         <div
-            className={`flex-shrink-0 ${sizeClass} ${roundedClass} bg-indigo-100 overflow-hidden flex items-center justify-center font-bold text-indigo-600 ${textClass}`}
+            className={`relative flex-shrink-0 ${sizeClass} ${roundedClass} bg-indigo-100 overflow-hidden flex items-center justify-center font-bold text-indigo-600 ${textClass}`}
         >
             {showImg ? (
-                <img
-                    src={url}
-                    alt=""
-                    className="w-full h-full object-cover"
-                    onError={() => setImgFailed(true)}
-                />
+                <>
+                    {imgLoading && (
+                        <div className="absolute inset-0 flex items-center justify-center bg-indigo-100">
+                            <div className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-indigo-300 border-t-indigo-600" />
+                        </div>
+                    )}
+                    <img
+                        src={url}
+                        alt=""
+                        className={`w-full h-full object-cover transition-opacity duration-200 ${imgLoading ? 'opacity-0' : 'opacity-100'}`}
+                        onLoad={() => setImgLoading(false)}
+                        onError={() => {
+                            setImgFailed(true);
+                            setImgLoading(false);
+                        }}
+                    />
+                </>
             ) : (
                 <span className="select-none">{initial}</span>
             )}
@@ -576,13 +627,14 @@ const ClientSearchAvatar = ({ client, sizeClass = 'w-10 h-10', textClass = 'text
     );
 };
 
-/** Client search for bank transaction history (GET /client/search). */
-const useFirmClientSearch = (enabled) => {
+/** Client search for Receive/Payment/Journal (GET /client/search). */
+const useFirmClientSearch = (enabled, excludeUsername = '') => {
     const [searchTerm, setSearchTerm] = useState('');
     const [firms, setFirms] = useState([]);
     const [searchLoading, setSearchLoading] = useState(false);
     const [selectedFirm, setSelectedFirm] = useState(null);
     const [showDropdown, setShowDropdown] = useState(false);
+    const exclude = String(excludeUsername || '').trim();
 
     const searchClients = useCallback(async (term) => {
         const q = String(term || '').trim();
@@ -597,7 +649,11 @@ const useFirmClientSearch = (enabled) => {
                 { headers: getHeaders() }
             );
             if (response.data.success) {
-                setFirms(response.data.data || []);
+                let list = response.data.data || [];
+                if (exclude) {
+                    list = list.filter((f) => String(f.username) !== exclude);
+                }
+                setFirms(list);
                 setShowDropdown(true);
             } else {
                 setFirms([]);
@@ -614,7 +670,16 @@ const useFirmClientSearch = (enabled) => {
         } finally {
             setSearchLoading(false);
         }
-    }, []);
+    }, [exclude]);
+
+    useEffect(() => {
+        if (exclude && selectedFirm && String(selectedFirm.username) === exclude) {
+            setSelectedFirm(null);
+            setSearchTerm('');
+            setFirms([]);
+            setShowDropdown(false);
+        }
+    }, [exclude, selectedFirm]);
 
     useEffect(() => {
         if (!enabled) return;
@@ -654,6 +719,9 @@ const useFirmClientSearch = (enabled) => {
 
 const FirmClientSearchFields = ({
     variant = 'receive',
+    label = 'Client',
+    lockedFirm = null,
+    readOnly = false,
     searchTerm,
     setSearchTerm,
     firms,
@@ -667,8 +735,9 @@ const FirmClientSearchFields = ({
 }) => {
     const itemHover = variant === 'payment' ? 'hover:bg-red-50' : 'hover:bg-blue-50';
     const fmtBal = (v) => (typeof formatCurrency === 'function' ? formatCurrency(v ?? 0) : String(v ?? 0));
-    const selectedCareSubtitle = selectedFirm
-        ? [selectedFirm.care_of, selectedFirm.guardian_name]
+    const previewFirm = lockedFirm || selectedFirm;
+    const selectedCareSubtitle = previewFirm
+        ? [previewFirm.care_of, previewFirm.guardian_name]
             .filter((s) => s != null && String(s).trim() !== '')
             .map((s) => String(s).trim())
             .join(' · ')
@@ -679,13 +748,69 @@ const FirmClientSearchFields = ({
             ? 'text-slate-400 hover:text-red-600 hover:bg-red-50'
             : 'text-slate-400 hover:text-indigo-600 hover:bg-indigo-50';
 
+    const showSearchUi = !lockedFirm && !selectedFirm;
+
+    if (lockedFirm) {
+        const lf = lockedFirm;
+        const lockedCareSubtitle = [lf.care_of, lf.guardian_name]
+            .filter((s) => s != null && String(s).trim() !== '')
+            .map((s) => String(s).trim())
+            .join(' · ');
+        return (
+            <div className="space-y-3">
+                <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">
+                        {label} {!readOnly && <span className="text-red-500">*</span>}
+                    </label>
+                    <div className="rounded-lg border-2 border-slate-200 overflow-hidden bg-white">
+                        <div className="flex items-center gap-2 px-3 py-2">
+                            <ClientSearchAvatar client={lf} sizeClass="w-8 h-8" textClass="text-xs" roundedClass="rounded-lg" />
+                            <div className="flex-1 min-w-0">
+                                <p className="text-sm font-semibold text-slate-800 leading-snug truncate">{lf.name || '—'}</p>
+                                <p className="text-xs text-slate-500 truncate mt-px" title={lockedCareSubtitle || undefined}>
+                                    {lockedCareSubtitle || '—'}
+                                </p>
+                            </div>
+                            <div className="flex items-center gap-1.5 flex-shrink-0">
+                                <div className="text-right">
+                                    <p className={`text-sm font-semibold tabular-nums leading-tight ${getBalanceColorClass(lf.balance)}`}>
+                                        ₹{fmtBal(lf.balance)}
+                                    </p>
+                                    <p className="text-xs text-slate-500">Balance</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div className="grid grid-cols-3 divide-x divide-slate-100 border-t border-slate-100 bg-slate-50/90">
+                            <div className="px-2 py-1.5 min-w-0">
+                                <p className="text-xs text-slate-500">Mobile</p>
+                                <p className="text-sm text-slate-800 truncate mt-px">
+                                    {lf.country_code ? `+${lf.country_code} ` : ''}{lf.mobile || '—'}
+                                </p>
+                            </div>
+                            <div className="px-2 py-1.5 min-w-0">
+                                <p className="text-xs text-slate-500">PAN</p>
+                                <p className="text-sm text-slate-800 font-mono truncate mt-px">{lf.pan_number || '—'}</p>
+                            </div>
+                            <div className="px-2 py-1.5 min-w-0">
+                                <p className="text-xs text-slate-500">Email</p>
+                                <p className="text-sm text-slate-800 truncate mt-px" title={lf.email || ''}>
+                                    {lf.email || '—'}
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        );
+    }
+
     return (
         <div className="space-y-3">
             <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">
-                    Client <span className="text-red-500">*</span>
+                    {label} {!readOnly && <span className="text-red-500">*</span>}
                 </label>
-                {!selectedFirm ? (
+                {showSearchUi ? (
                     <>
                         <p className="text-xs text-slate-500 mb-1.5">Type at least {CLIENT_SEARCH_MIN} characters (name, mobile, email, or PAN).</p>
                         <div className="relative">
@@ -752,53 +877,55 @@ const FirmClientSearchFields = ({
                         </div>
                     </>
                 ) : null}
-                {selectedFirm ? (
+                {previewFirm ? (
                     <div className="rounded-lg border-2 border-slate-200 overflow-hidden bg-white">
                         <div className="flex items-center gap-2 px-3 py-2">
-                            <ClientSearchAvatar client={selectedFirm} sizeClass="w-8 h-8" textClass="text-xs" roundedClass="rounded-lg" />
+                            <ClientSearchAvatar client={previewFirm} sizeClass="w-8 h-8" textClass="text-xs" roundedClass="rounded-lg" />
                             <div className="flex-1 min-w-0">
-                                <p className="text-sm font-semibold text-slate-800 leading-snug truncate">{selectedFirm.name || '—'}</p>
+                                <p className="text-sm font-semibold text-slate-800 leading-snug truncate">{previewFirm.name || '—'}</p>
                                 <p className="text-xs text-slate-500 truncate mt-px" title={selectedCareSubtitle || undefined}>
                                     {selectedCareSubtitle || '—'}
                                 </p>
                             </div>
                             <div className="flex items-center gap-1.5 flex-shrink-0">
                                 <div className="text-right">
-                                    <p className={`text-sm font-semibold tabular-nums leading-tight ${getBalanceColorClass(selectedFirm.balance)}`}>
-                                        ₹{fmtBal(selectedFirm.balance)}
+                                    <p className={`text-sm font-semibold tabular-nums leading-tight ${getBalanceColorClass(previewFirm.balance)}`}>
+                                        ₹{fmtBal(previewFirm.balance)}
                                     </p>
                                     <p className="text-xs text-slate-500">Balance</p>
                                 </div>
-                                <button
-                                    type="button"
-                                    onClick={() => {
-                                        setSelectedFirm(null);
-                                        setSearchTerm('');
-                                        setFirms([]);
-                                        setShowDropdown(false);
-                                    }}
-                                    title="Change client"
-                                    className={`p-1 rounded-md transition-colors ${repeatHover}`}
-                                >
-                                    <FiRepeat className="w-3.5 h-3.5" />
-                                </button>
+                                {!readOnly && !lockedFirm ? (
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            setSelectedFirm(null);
+                                            setSearchTerm('');
+                                            setFirms([]);
+                                            setShowDropdown(false);
+                                        }}
+                                        title="Change client"
+                                        className={`p-1 rounded-md transition-colors ${repeatHover}`}
+                                    >
+                                        <FiRepeat className="w-3.5 h-3.5" />
+                                    </button>
+                                ) : null}
                             </div>
                         </div>
                         <div className="grid grid-cols-3 divide-x divide-slate-100 border-t border-slate-100 bg-slate-50/90">
                             <div className="px-2 py-1.5 min-w-0">
                                 <p className="text-xs text-slate-500">Mobile</p>
                                 <p className="text-sm text-slate-800 truncate mt-px">
-                                    {selectedFirm.country_code ? `+${selectedFirm.country_code} ` : ''}{selectedFirm.mobile || '—'}
+                                    {previewFirm.country_code ? `+${previewFirm.country_code} ` : ''}{previewFirm.mobile || '—'}
                                 </p>
                             </div>
                             <div className="px-2 py-1.5 min-w-0">
                                 <p className="text-xs text-slate-500">PAN</p>
-                                <p className="text-sm text-slate-800 font-mono truncate mt-px">{selectedFirm.pan_number || '—'}</p>
+                                <p className="text-sm text-slate-800 font-mono truncate mt-px">{previewFirm.pan_number || '—'}</p>
                             </div>
                             <div className="px-2 py-1.5 min-w-0">
                                 <p className="text-xs text-slate-500">Email</p>
-                                <p className="text-sm text-slate-800 truncate mt-px" title={selectedFirm.email || ''}>
-                                    {selectedFirm.email || '—'}
+                                <p className="text-sm text-slate-800 truncate mt-px" title={previewFirm.email || ''}>
+                                    {previewFirm.email || '—'}
                                 </p>
                             </div>
                         </div>
@@ -817,7 +944,11 @@ export const ReceiveModal = ({ isOpen, onClose, bankDetails, bankId, onSubmit, f
     const [transactionDate, setTransactionDate] = useState(new Date().toISOString().split('T')[0]);
     const [amount, setAmount] = useState('');
     const [formKey, setFormKey] = useState(0);
-    const firmLookup = useFirmClientSearch(Boolean(bankPageClientLookup));
+    const hasPresetClient = Boolean(String(clientUsername || '').trim());
+    const hasPresetBank = Boolean(String(bankId || '').trim());
+    const shouldShowClientSelector = bankPageClientLookup || !hasPresetClient;
+    const shouldShowBankSelector = !hasPresetBank;
+    const firmLookup = useFirmClientSearch(Boolean(shouldShowClientSelector));
 
     // Reset all fields every time the modal opens
     useEffect(() => {
@@ -828,25 +959,27 @@ export const ReceiveModal = ({ isOpen, onClose, bankDetails, bankId, onSubmit, f
         setTransactionDate(new Date().toISOString().split('T')[0]);
         setAmount('');
         setLoading(false);
-        if (bankPageClientLookup) firmLookup.reset();
-    }, [isOpen, bankPageClientLookup]); // eslint-disable-line react-hooks/exhaustive-deps
+        if (shouldShowClientSelector) firmLookup.reset();
+    }, [isOpen, shouldShowClientSelector]); // eslint-disable-line react-hooks/exhaustive-deps
 
     const isAmountValid = parseDecimalValue(amount) > 0;
     const isDateValid = Boolean(transactionDate);
-    const hasSelectedBank = Boolean(selectedBank || bankId);
-    const hasClientParty = bankPageClientLookup ? Boolean(firmLookup.selectedFirm?.username) : true;
+    const hasSelectedBank = hasPresetBank || Boolean(selectedBank);
+    const hasClientParty = hasPresetClient || Boolean(firmLookup.selectedFirm?.username);
     const isReceiveFormValid = hasSelectedBank && isDateValid && isAmountValid && hasClientParty;
+    const selectedClientDisplayName = hasPresetClient ? clientName : (firmLookup.selectedFirm?.name || 'Selected client');
+    const shouldShowReceiveSummary = showSummary && hasSelectedBank && hasClientParty;
 
     const handleSubmit = async (e) => {
         e.preventDefault();
 
-        const effectiveBank = selectedBank || (bankId ? { bank_id: bankId, bank: 'Selected Bank' } : null);
+        const effectiveBank = hasPresetBank ? { bank_id: bankId, bank: bankDetails?.bank || 'Selected Bank' } : selectedBank;
         if (!effectiveBank) {
             toast.error('Please select a bank');
             return;
         }
 
-        if (bankPageClientLookup && !firmLookup.selectedFirm?.username) {
+        if (!hasPresetClient && !firmLookup.selectedFirm?.username) {
             toast.error('Please select a client');
             return;
         }
@@ -863,14 +996,14 @@ export const ReceiveModal = ({ isOpen, onClose, bankDetails, bankId, onSubmit, f
 
         setLoading(true);
 
-        const resolvedParty1 = bankPageClientLookup ? firmLookup.selectedFirm.username : clientUsername;
-        const resolvedName = bankPageClientLookup ? firmLookup.selectedFirm.name : clientName;
+        const resolvedParty1 = hasPresetClient ? clientUsername : firmLookup.selectedFirm?.username;
+        const resolvedName = hasPresetClient ? clientName : firmLookup.selectedFirm?.name;
 
         const payload = {
             amount: parsedAmount,
             party1_id: resolvedParty1,
             party1_type: "client",
-            party2_id: bankPageClientLookup ? bankId : effectiveBank.bank_id,
+            party2_id: hasPresetBank ? bankId : effectiveBank.bank_id,
             party2_type: "bank",
             remark: description || `Payment received from ${resolvedName}`,
             transaction_date: date
@@ -888,8 +1021,10 @@ export const ReceiveModal = ({ isOpen, onClose, bankDetails, bankId, onSubmit, f
                 onSubmit('RECEIVE', response.data.data);
                 onClose();
                 // Reset form
-                setSelectedBank(bankDetails);
-                setShowBankSearch(false);
+                if (!hasPresetBank) {
+                    setSelectedBank(bankDetails || null);
+                    setShowBankSearch(false);
+                }
             }
         } catch (error) {
             console.error('Error creating receive transaction:', error);
@@ -927,7 +1062,7 @@ export const ReceiveModal = ({ isOpen, onClose, bankDetails, bankId, onSubmit, f
             )}
         >
             <form key={formKey} id="receive-form" onSubmit={handleSubmit} className="space-y-5">
-                {bankPageClientLookup && (
+                {shouldShowClientSelector && (
                     <FirmClientSearchFields
                         variant="receive"
                         formatCurrency={formatCurrency}
@@ -942,24 +1077,8 @@ export const ReceiveModal = ({ isOpen, onClose, bankDetails, bankId, onSubmit, f
                         setSelectedFirm={firmLookup.setSelectedFirm}
                     />
                 )}
-                {/* Client Info - Read Only */}
-                {showClient && <div className="bg-blue-50/80 px-3 py-2 rounded-lg border border-blue-200">
-                    <div className="flex items-center justify-between gap-2">
-                        <div className="min-w-0">
-                            <p className="text-xs text-blue-600 font-medium">Client</p>
-                            <p className="text-sm font-semibold text-slate-800 truncate">{clientName}</p>
-                            <p className="text-xs text-slate-500 truncate">Username: {clientUsername}</p>
-                        </div>
-                        <div className="text-right shrink-0">
-                            <p className="text-xs text-blue-600 font-medium">Balance Summary</p>
-                            <p className="text-sm text-green-600 leading-tight">Credit: ₹{formatCurrency(summary?.totalCredit || 0)}</p>
-                            <p className="text-sm text-red-600 leading-tight">Debit: ₹{formatCurrency(summary?.totalDebit || 0)}</p>
-                        </div>
-                    </div>
-                </div>}
-
                 {/* Bank Selection */}
-                {showBank && (
+                {showBank && shouldShowBankSelector && (
                     <div>
                         <label className="block text-sm font-medium text-slate-700 mb-1.5">
                             Bank Account <span className="text-red-500">*</span>
@@ -974,48 +1093,11 @@ export const ReceiveModal = ({ isOpen, onClose, bankDetails, bankId, onSubmit, f
                                 selectedBankId={selectedBank?.bank_id}
                             />
                         ) : (
-                            /* ── Selected bank card (compact, matches form text scale) ── */
-                            <div className="rounded-lg border-2 border-slate-200 overflow-hidden bg-white">
-                                <div className="flex items-center gap-2 px-3 py-2">
-                                    <div className="flex-shrink-0 w-8 h-8 rounded-lg bg-indigo-100 flex items-center justify-center text-xs font-bold text-indigo-600">
-                                        {(selectedBank?.bank || 'B').trim().charAt(0).toUpperCase()}
-                                    </div>
-                                    <div className="flex-1 min-w-0">
-                                        <p className="text-sm font-semibold text-slate-800 leading-snug truncate">{selectedBank?.bank}</p>
-                                        <p className="text-xs text-slate-500 truncate mt-px">{selectedBank?.holder || '—'}</p>
-                                    </div>
-                                    <div className="flex items-center gap-1.5 flex-shrink-0">
-                                        <div className="text-right">
-                                            <p className={`text-sm font-semibold tabular-nums leading-tight ${getBalanceColorClass(selectedBank?.balance)}`}>
-                                                ₹{formatCurrency(selectedBank?.balance || 0)}
-                                            </p>
-                                            <p className="text-xs text-slate-500">Balance</p>
-                                        </div>
-                                        <button
-                                            type="button"
-                                            onClick={() => setShowBankSearch(true)}
-                                            title="Change Bank"
-                                            className="p-1 rounded-md text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 transition-colors"
-                                        >
-                                            <FiRepeat className="w-3.5 h-3.5" />
-                                        </button>
-                                    </div>
-                                </div>
-                                <div className="grid grid-cols-3 divide-x divide-slate-100 border-t border-slate-100 bg-slate-50/90">
-                                    <div className="px-2 py-1.5 min-w-0">
-                                        <p className="text-xs text-slate-500">Account No</p>
-                                        <p className="text-sm text-slate-800 font-mono truncate mt-px">{selectedBank?.account_no || '—'}</p>
-                                    </div>
-                                    <div className="px-2 py-1.5 min-w-0">
-                                        <p className="text-xs text-slate-500">IFSC</p>
-                                        <p className="text-sm text-slate-800 font-mono truncate mt-px">{selectedBank?.ifsc || '—'}</p>
-                                    </div>
-                                    <div className="px-2 py-1.5 min-w-0">
-                                        <p className="text-xs text-slate-500">Branch</p>
-                                        <p className="text-sm text-slate-800 truncate mt-px">{selectedBank?.branch || '—'}</p>
-                                    </div>
-                                </div>
-                            </div>
+                            <SaleBankPreviewCard
+                                bank={selectedBank}
+                                onChangeBank={() => setShowBankSearch(true)}
+                                formatMoney={formatCurrency}
+                            />
                         )}
                     </div>
                 )}
@@ -1067,12 +1149,12 @@ export const ReceiveModal = ({ isOpen, onClose, bankDetails, bankId, onSubmit, f
                         />
                     </div>
 
-                    {showSummary && (
+                    {shouldShowReceiveSummary && (
                         <div className="bg-slate-50 p-3 rounded-lg border border-slate-200">
                             <p className="text-xs text-slate-600 mb-1">Transaction Summary</p>
                             <div className="flex items-center justify-between text-sm">
                                 <span className="font-medium">Receiving from:</span>
-                                <span className="text-blue-600">{clientName}</span>
+                                <span className="text-blue-600">{selectedClientDisplayName}</span>
                             </div>
                             <div className="flex items-center justify-between text-sm mt-1">
                                 <span className="font-medium">To Bank:</span>
@@ -1095,7 +1177,11 @@ export const PaymentModal = ({ isOpen, onClose, bankDetails, bankId, onSubmit, f
     const [transactionDate, setTransactionDate] = useState(new Date().toISOString().split('T')[0]);
     const [amount, setAmount] = useState('');
     const [formKey, setFormKey] = useState(0);
-    const firmLookup = useFirmClientSearch(Boolean(bankPageClientLookup));
+    const hasPresetClient = Boolean(String(clientUsername || '').trim());
+    const hasPresetBank = Boolean(String(bankId || '').trim());
+    const shouldShowClientSelector = bankPageClientLookup || !hasPresetClient;
+    const shouldShowBankSelector = !hasPresetBank;
+    const firmLookup = useFirmClientSearch(Boolean(shouldShowClientSelector));
 
     // Reset all fields every time the modal opens
     useEffect(() => {
@@ -1106,25 +1192,20 @@ export const PaymentModal = ({ isOpen, onClose, bankDetails, bankId, onSubmit, f
         setTransactionDate(new Date().toISOString().split('T')[0]);
         setAmount('');
         setLoading(false);
-        if (bankPageClientLookup) firmLookup.reset();
-    }, [isOpen, bankPageClientLookup]); // eslint-disable-line react-hooks/exhaustive-deps
+        if (shouldShowClientSelector) firmLookup.reset();
+    }, [isOpen, shouldShowClientSelector]); // eslint-disable-line react-hooks/exhaustive-deps
 
     const handleSubmit = async (e) => {
         e.preventDefault();
 
-        const effectiveBank = selectedBank || (bankId ? { bank_id: bankId, bank: 'Selected Bank' } : null);
+        const effectiveBank = hasPresetBank ? { bank_id: bankId, bank: bankDetails?.bank || 'Selected Bank' } : selectedBank;
         if (!effectiveBank) {
             toast.error('Please select a bank');
             return;
         }
 
-        if (bankPageClientLookup) {
-            if (!firmLookup.selectedFirm?.username) {
-                toast.error('Please select a client');
-                return;
-            }
-        } else if (!clientUsername) {
-            toast.error('Client information not available');
+        if (!hasPresetClient && !firmLookup.selectedFirm?.username) {
+            toast.error('Please select a client');
             return;
         }
 
@@ -1132,7 +1213,6 @@ export const PaymentModal = ({ isOpen, onClose, bankDetails, bankId, onSubmit, f
         const parsedAmount = parseDecimalValue(amount);
         const date = transactionDate;
         const description = formData.get('description');
-        const paymentMode = formData.get('payment_mode');
 
         if (!parsedAmount || parsedAmount <= 0) {
             toast.error('Please enter a valid amount');
@@ -1147,9 +1227,9 @@ export const PaymentModal = ({ isOpen, onClose, bankDetails, bankId, onSubmit, f
 
         setLoading(true);
 
-        const resolvedParty2 = bankPageClientLookup ? firmLookup.selectedFirm.username : clientUsername;
-        const resolvedName = bankPageClientLookup ? firmLookup.selectedFirm.name : clientName;
-        const party1BankId = bankPageClientLookup ? bankId : effectiveBank.bank_id;
+        const resolvedParty2 = hasPresetClient ? clientUsername : firmLookup.selectedFirm?.username;
+        const resolvedName = hasPresetClient ? clientName : firmLookup.selectedFirm?.name;
+        const party1BankId = hasPresetBank ? bankId : effectiveBank.bank_id;
 
         const payload = {
             amount: parsedAmount,
@@ -1157,7 +1237,7 @@ export const PaymentModal = ({ isOpen, onClose, bankDetails, bankId, onSubmit, f
             party1_type: "bank",
             party2_id: resolvedParty2,
             party2_type: "client",
-            remark: description || `Payment made to ${resolvedName} via ${paymentMode}`,
+            remark: description || `Payment made to ${resolvedName}`,
             transaction_date: date
         };
 
@@ -1175,8 +1255,10 @@ export const PaymentModal = ({ isOpen, onClose, bankDetails, bankId, onSubmit, f
                 }
                 onClose();
                 // Reset form
-                setSelectedBank(bankDetails);
-                setShowBankSearch(false);
+                if (!hasPresetBank) {
+                    setSelectedBank(bankDetails || null);
+                    setShowBankSearch(false);
+                }
                 e.target.reset();
             } else {
                 toast.error(response.data.message || 'Payment failed');
@@ -1191,9 +1273,11 @@ export const PaymentModal = ({ isOpen, onClose, bankDetails, bankId, onSubmit, f
     };
 
     const isPaymentFormValid =
-        (selectedBank || bankId) &&
+        (hasPresetBank || Boolean(selectedBank)) &&
         parseDecimalValue(amount) > 0 &&
-        (!bankPageClientLookup || Boolean(firmLookup.selectedFirm?.username));
+        (hasPresetClient || Boolean(firmLookup.selectedFirm?.username));
+    const selectedClientDisplayName = hasPresetClient ? clientName : (firmLookup.selectedFirm?.name || 'Selected client');
+    const shouldShowPaymentSummary = showSummary && (hasPresetBank || Boolean(selectedBank)) && (hasPresetClient || Boolean(firmLookup.selectedFirm?.username));
 
     return (
         <BaseModal
@@ -1222,7 +1306,7 @@ export const PaymentModal = ({ isOpen, onClose, bankDetails, bankId, onSubmit, f
             )}
         >
             <form key={formKey} id="payment-form" onSubmit={handleSubmit} className="space-y-5">
-                {bankPageClientLookup && (
+                {shouldShowClientSelector && (
                     <FirmClientSearchFields
                         variant="payment"
                         formatCurrency={formatCurrency}
@@ -1237,24 +1321,8 @@ export const PaymentModal = ({ isOpen, onClose, bankDetails, bankId, onSubmit, f
                         setSelectedFirm={firmLookup.setSelectedFirm}
                     />
                 )}
-                {/* Client Info - Read Only */}
-                {showClient && <div className="bg-red-50/80 px-3 py-2 rounded-lg border border-red-200">
-                    <div className="flex items-center justify-between gap-2">
-                        <div className="min-w-0">
-                            <p className="text-xs text-red-600 font-medium">Client</p>
-                            <p className="text-sm font-semibold text-slate-800 truncate">{clientName}</p>
-                            <p className="text-xs text-slate-500 truncate">Username: {clientUsername}</p>
-                        </div>
-                        <div className="text-right shrink-0">
-                            <p className="text-xs text-red-600 font-medium">Balance Summary</p>
-                            <p className="text-sm text-green-600 leading-tight">Credit: ₹{formatCurrency(summary?.totalCredit || 0)}</p>
-                            <p className="text-sm text-red-600 leading-tight">Debit: ₹{formatCurrency(summary?.totalDebit || 0)}</p>
-                        </div>
-                    </div>
-                </div>}
-
                 {/* Bank Selection */}
-                {showBank && (
+                {showBank && shouldShowBankSelector && (
                     <div>
                         <label className="block text-sm font-medium text-slate-700 mb-1.5">
                             Bank Account <span className="text-red-500">*</span>
@@ -1269,47 +1337,11 @@ export const PaymentModal = ({ isOpen, onClose, bankDetails, bankId, onSubmit, f
                                 selectedBankId={selectedBank?.bank_id}
                             />
                         ) : (
-                            <div className="rounded-lg border-2 border-slate-200 overflow-hidden bg-white">
-                                <div className="flex items-center gap-2 px-3 py-2">
-                                    <div className="flex-shrink-0 w-8 h-8 rounded-lg bg-red-100 flex items-center justify-center text-xs font-bold text-red-700">
-                                        {(selectedBank?.bank || 'B').trim().charAt(0).toUpperCase()}
-                                    </div>
-                                    <div className="flex-1 min-w-0">
-                                        <p className="text-sm font-semibold text-slate-800 leading-snug truncate">{selectedBank?.bank}</p>
-                                        <p className="text-xs text-slate-500 truncate mt-px">{selectedBank?.holder || '—'}</p>
-                                    </div>
-                                    <div className="flex items-center gap-1.5 flex-shrink-0">
-                                        <div className="text-right">
-                                            <p className={`text-sm font-semibold tabular-nums leading-tight ${getBalanceColorClass(selectedBank?.balance)}`}>
-                                                ₹{formatCurrency(selectedBank?.balance || 0)}
-                                            </p>
-                                            <p className="text-xs text-slate-500">Balance</p>
-                                        </div>
-                                        <button
-                                            type="button"
-                                            onClick={() => setShowBankSearch(true)}
-                                            title="Change Bank"
-                                            className="p-1 rounded-md text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors"
-                                        >
-                                            <FiRepeat className="w-3.5 h-3.5" />
-                                        </button>
-                                    </div>
-                                </div>
-                                <div className="grid grid-cols-3 divide-x divide-slate-100 border-t border-slate-100 bg-slate-50/90">
-                                    <div className="px-2 py-1.5 min-w-0">
-                                        <p className="text-xs text-slate-500">Account No</p>
-                                        <p className="text-sm text-slate-800 font-mono truncate mt-px">{selectedBank?.account_no || '—'}</p>
-                                    </div>
-                                    <div className="px-2 py-1.5 min-w-0">
-                                        <p className="text-xs text-slate-500">IFSC</p>
-                                        <p className="text-sm text-slate-800 font-mono truncate mt-px">{selectedBank?.ifsc || '—'}</p>
-                                    </div>
-                                    <div className="px-2 py-1.5 min-w-0">
-                                        <p className="text-xs text-slate-500">Branch</p>
-                                        <p className="text-sm text-slate-800 truncate mt-px">{selectedBank?.branch || '—'}</p>
-                                    </div>
-                                </div>
-                            </div>
+                            <SaleBankPreviewCard
+                                bank={selectedBank}
+                                onChangeBank={() => setShowBankSearch(true)}
+                                formatMoney={formatCurrency}
+                            />
                         )}
                     </div>
                 )}
@@ -1351,23 +1383,6 @@ export const PaymentModal = ({ isOpen, onClose, bankDetails, bankId, onSubmit, f
 
                     <div>
                         <label className="block text-sm font-medium text-slate-700 mb-1">
-                            Payment Mode <span className="text-red-500">*</span>
-                        </label>
-                        <select
-                            name="payment_mode"
-                            required
-                            className="w-full px-4 py-3 border-2 border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                        >
-                            <option value="cash">Cash</option>
-                            <option value="cheque">Cheque</option>
-                            <option value="online">Online Transfer</option>
-                            <option value="card">Card</option>
-                            <option value="upi">UPI</option>
-                        </select>
-                    </div>
-
-                    <div>
-                        <label className="block text-sm font-medium text-slate-700 mb-1">
                             Description / Remark
                         </label>
                         <textarea
@@ -1378,12 +1393,12 @@ export const PaymentModal = ({ isOpen, onClose, bankDetails, bankId, onSubmit, f
                         />
                     </div>
 
-                    {showSummary && (
+                    {shouldShowPaymentSummary && (
                         <div className="bg-slate-50 p-3 rounded-lg border border-slate-200">
                             <p className="text-xs text-slate-600 mb-1">Transaction Summary</p>
                             <div className="flex items-center justify-between text-sm">
                                 <span className="font-medium">Paying to:</span>
-                                <span className="text-red-600">{clientName}</span>
+                                <span className="text-red-600">{selectedClientDisplayName}</span>
                             </div>
                             <div className="flex items-center justify-between text-sm mt-1">
                                 <span className="font-medium">From Bank:</span>
@@ -1590,7 +1605,7 @@ export const SaleForm = ({
                 const formattedBanks = data.data.map(bank => ({
                     id: bank.bank_id || bank.id,
                     type: 'bank',
-                    name: bank.bank || bank.name || 'Unnamed Bank',
+                    name: getBankPrimaryLabel(bank),
                     account: bank.account_number || bank.account_no || bank.account || 'N/A',
                     holder: bank.account_holder || bank.holder_name || bank.holder || 'N/A',
                     ifsc: bank.ifsc_code || bank.ifsc || 'N/A',
@@ -2941,33 +2956,72 @@ export const saleFormLedgerBankProps = ({ bankId, bankName, partyBannerSubtitle 
     ...(partyBannerSubtitle ? { partyBannerSubtitle } : {}),
 });
 
-export const PurchaseModal = ({ isOpen, onClose, onSubmit, formatCurrency, clientUsername, clientName, clientId }) => {
+export const PurchaseForm = ({
+    isOpen = false,
+    onClose = () => { },
+    onSuccess = () => { },
+    mode = 'modal',
+    initialPartyId = '',
+    hidePartySelector = false,
+    fixedParty = null,
+    showFixedPartyBanner = true,
+    modalTitle = 'Create Purchase Bill',
+    modalMaxWidth = 'max-w-4xl',
+    closeOnOverlayClick = false,
+    formClassName = '',
+    submitButtonLabel = '',
+}) => {
     const [formData, setFormData] = useState({
-        purchase_date: new Date().toISOString().split('T')[0],
-        items: [{ service_id: '', description: '', price: '', amount: 0, remark: '' }],
-        subtotal: 0,
-        sgst_rate: 9, // 18% total GST, 9% each
-        cgst_rate: 9,
-        sgst_amount: 0,
-        cgst_amount: 0,
-        round_off: 0,
-        grand_total: 0,
-        notes: '',
-        tax_rate: 18
+        party_id: initialPartyId || '',
+        transaction_date: new Date().toISOString().split('T')[0],
+        remark: '',
+        tax_rate: appSettings.default_gst_rate,
+        items: [{ service_id: '', fees: '', remark: '' }],
     });
-
+    const [isSubmitting, setIsSubmitting] = useState(false);
     const [serviceOptions, setServiceOptions] = useState([]);
     const [isLoadingServices, setIsLoadingServices] = useState(false);
-    const [isSubmitting, setIsSubmitting] = useState(false);
+    const [userOptions, setUserOptions] = useState([]);
+    const [isLoadingParties, setIsLoadingParties] = useState(false);
+    const [showPartyDropdown, setShowPartyDropdown] = useState(false);
+    const [userSearchTerm, setUserSearchTerm] = useState('');
+    const [selectedPurchaseUser, setSelectedPurchaseUser] = useState(null);
     const [sendEmail, setSendEmail] = useState(true);
     const [sendWhatsApp, setSendWhatsApp] = useState(true);
 
     useEffect(() => {
-        if (isOpen) {
-            fetchServices();
-            resetForm();
+        if (!isOpen) return;
+        const presetPartyId = hidePartySelector && fixedParty?.id != null && fixedParty.id !== ''
+            ? String(fixedParty.id)
+            : (initialPartyId ? String(initialPartyId) : '');
+        setFormData({
+            party_id: presetPartyId,
+            transaction_date: new Date().toISOString().split('T')[0],
+            remark: '',
+            tax_rate: appSettings.default_gst_rate,
+            items: [{ service_id: '', fees: '', remark: '' }],
+        });
+        setIsSubmitting(false);
+        setUserSearchTerm('');
+        setUserOptions([]);
+        setShowPartyDropdown(false);
+        setSelectedPurchaseUser(null);
+        fetchServices();
+    }, [isOpen, hidePartySelector, fixedParty?.id, initialPartyId]);
+
+    useEffect(() => {
+        if (hidePartySelector) return;
+        const q = String(userSearchTerm || '').trim();
+        if (q.length < CLIENT_SEARCH_MIN) {
+            setShowPartyDropdown(false);
+            if (!formData.party_id) setUserOptions([]);
+            return;
         }
-    }, [isOpen]);
+        const delayDebounce = setTimeout(() => {
+            fetchUsers();
+        }, 500);
+        return () => clearTimeout(delayDebounce);
+    }, [userSearchTerm, hidePartySelector, formData.party_id]);
 
     const fetchServices = async () => {
         setIsLoadingServices(true);
@@ -2978,399 +3032,535 @@ export const PurchaseModal = ({ isOpen, onClose, onSubmit, formatCurrency, clien
             });
             const data = await response.json();
             if (data.success) {
-                setServiceOptions(data.data.map(service => ({
+                setServiceOptions((data.data || []).map((service) => ({
                     service_id: service.service_id,
                     name: service.name,
-                    fees: parseFloat(service.fees),
+                    fees: parseDecimalValue(service.fees),
                     category: service.category_name,
-                    remark: service.remark
+                    remark: service.remark,
                 })));
+            } else {
+                setServiceOptions([]);
             }
         } catch (error) {
             console.error('Error fetching services:', error);
+            setServiceOptions([]);
         } finally {
             setIsLoadingServices(false);
         }
     };
 
-    const resetForm = () => {
-        setFormData({
-            purchase_date: new Date().toISOString().split('T')[0],
-            items: [{ service_id: '', description: '', price: '', amount: 0, remark: '' }],
-            subtotal: 0,
-            sgst_rate: 9,
-            cgst_rate: 9,
-            sgst_amount: 0,
-            cgst_amount: 0,
-            round_off: 0,
-            grand_total: 0,
-            notes: '',
-            tax_rate: 18
-        });
+    const fetchUsers = async () => {
+        const q = String(userSearchTerm || '').trim();
+        if (q.length < CLIENT_SEARCH_MIN) {
+            setShowPartyDropdown(false);
+            return;
+        }
+        setIsLoadingParties(true);
+        try {
+            const response = await fetch(`${API_BASE_URL}/client/search?search=${encodeURIComponent(q)}`, {
+                method: 'GET',
+                headers: getHeaders()
+            });
+            const data = await response.json();
+            if (data.success) {
+                const opts = (data.data || []).map((client) => ({
+                    id: client.client_id || client.username,
+                    type: 'user',
+                    name: client.name || client.firm_name,
+                    email: client.email,
+                    contact: client.mobile,
+                    pan_no: client.pan_number,
+                    username: client.username,
+                    balance: client.balance,
+                    profile: client.profile ?? client.profile_photo ?? client.profile_image,
+                    profile_photo: client.profile_photo,
+                    profile_image: client.profile_image,
+                    photo_url: client.photo_url,
+                    image: client.image,
+                    avatar: client.avatar,
+                    photo: client.photo,
+                    country_code: client.country_code,
+                    care_of: client.care_of,
+                    guardian_name: client.guardian_name,
+                }));
+                setUserOptions(opts);
+                setShowPartyDropdown(opts.length > 0);
+            } else {
+                setUserOptions([]);
+                setShowPartyDropdown(false);
+            }
+        } catch (error) {
+            console.error('Error fetching users:', error);
+            setUserOptions([]);
+            setShowPartyDropdown(false);
+        } finally {
+            setIsLoadingParties(false);
+        }
     };
 
+    const getSelectedParty = () => {
+        if (hidePartySelector && fixedParty && fixedParty.id != null && fixedParty.id !== '') {
+            const id = String(fixedParty.id);
+            return {
+                ...fixedParty,
+                id,
+                type: 'user',
+                name: fixedParty.name || String(fixedParty.id),
+                username: fixedParty.username || id,
+                email: fixedParty.email,
+                contact: fixedParty.contact,
+                pan_no: fixedParty.pan_no ?? fixedParty.pan_number,
+            };
+        }
+        if (selectedPurchaseUser && String(selectedPurchaseUser.id) === String(formData.party_id)) {
+            return selectedPurchaseUser;
+        }
+        return userOptions.find((u) => String(u.id) === String(formData.party_id));
+    };
+
+    const partyRowToSearchClient = (party) => ({
+        username: party.username,
+        name: party.name,
+        mobile: party.contact,
+        email: party.email,
+        pan_number: party.pan_no,
+        country_code: party.country_code,
+        balance: party.balance,
+        profile: party.profile,
+        profile_photo: party.profile_photo,
+        profile_image: party.profile_image,
+        photo_url: party.photo_url,
+        image: party.image,
+        avatar: party.avatar,
+        photo: party.photo,
+    });
+
     const addItem = () => {
-        setFormData(prev => ({
+        setFormData((prev) => ({
             ...prev,
-            items: [
-                ...prev.items,
-                { service_id: '', description: '', price: '', amount: 0, remark: '' }
-            ]
+            items: [...prev.items, { service_id: '', fees: '', remark: '' }],
         }));
     };
 
     const removeItem = (index) => {
-        if (formData.items.length > 1) {
-            setFormData(prev => ({
-                ...prev,
-                items: prev.items.filter((_, i) => i !== index)
-            }));
-        }
-    };
-
-    const handleInputChange = (e) => {
-        const { name, value } = e.target;
-        setFormData(prev => ({
+        if (formData.items.length <= 1) return;
+        setFormData((prev) => ({
             ...prev,
-            [name]: value
+            items: prev.items.filter((_, i) => i !== index),
         }));
     };
 
     const handleItemChange = (index, field, value) => {
-        const updatedItems = formData.items.map((item, i) => {
-            if (i === index) {
-                const updatedItem = {
-                    ...item,
-                    [field]: field === 'price' ? sanitizeDecimalInput(value, 2) : value
-                };
-                updatedItem.amount = parseDecimalValue(updatedItem.price);
-                return updatedItem;
-            }
-            return item;
-        });
-
-        setFormData(prev => ({ ...prev, items: updatedItems }));
+        setFormData((prev) => ({
+            ...prev,
+            items: prev.items.map((item, i) => {
+                if (i !== index) return item;
+                if (field === 'fees') return { ...item, fees: sanitizeDecimalInput(String(value), 2) };
+                return { ...item, [field]: value };
+            }),
+        }));
     };
 
     const handleServiceChange = (index, serviceId) => {
-        const service = serviceOptions.find(s => s.service_id === serviceId);
-        if (service) {
-            const updatedItems = formData.items.map((item, i) =>
-                i === index ? {
-                    ...item,
-                    service_id: serviceId,
-                    price: parseFloat(service.fees),
-                    amount: parseFloat(service.fees),
-                    description: service.name,
-                    remark: service.remark || ''
-                } : item
-            );
-
-            setFormData(prev => ({
-                ...prev,
-                items: updatedItems
-            }));
+        if (!serviceId) {
+            handleItemChange(index, 'service_id', '');
+            return;
         }
+        const service = serviceOptions.find((s) => String(s.service_id) === String(serviceId));
+        if (!service) return;
+        setFormData((prev) => ({
+            ...prev,
+            items: prev.items.map((item, i) => (
+                i === index
+                    ? {
+                        ...item,
+                        service_id: service.service_id,
+                        fees: sanitizeDecimalInput(String(service.fees), 2),
+                        remark: item.remark || service.remark || '',
+                    }
+                    : item
+            )),
+        }));
     };
 
-    // Calculate totals
-    useEffect(() => {
-        let subtotal = 0;
-        formData.items.forEach(item => {
-            subtotal += Number(item.amount) || 0;
-        });
-
-        const sgst_amount = subtotal * (Number(formData.sgst_rate) / 100);
-        const cgst_amount = subtotal * (Number(formData.cgst_rate) / 100);
-
-        let grand_total = subtotal + sgst_amount + cgst_amount;
-
-        let round_off = 0;
-
-        setFormData(prev => ({
-            ...prev,
-            subtotal,
-            sgst_amount,
-            cgst_amount,
-            round_off,
-            grand_total
-        }));
-    }, [formData.items, formData.sgst_rate, formData.cgst_rate]);
+    const serviceSelectOptions = useMemo(
+        () => serviceOptions.map((s) => ({
+            value: String(s.service_id),
+            label: `${s.name} — ₹${Number(s.fees).toFixed(2)}`,
+            searchText: `${s.name} ${s.category || ''} ${s.remark || ''}`,
+        })),
+        [serviceOptions]
+    );
 
     const handleSubmit = async (e) => {
         e.preventDefault();
-
         if (isSubmitting) return;
 
-        const hasValidItems = formData.items.some(item => item.service_id && item.price > 0);
+        const partyIdOk = hidePartySelector && fixedParty?.id != null && fixedParty.id !== ''
+            ? true
+            : Boolean(formData.party_id);
+        if (!partyIdOk) {
+            toast.error('Please select a client');
+            return;
+        }
+
+        const hasValidItems = formData.items.some(
+            (item) => item.service_id && parseDecimalValue(item.fees) > 0
+        );
         if (!hasValidItems) {
-            alert('Please add at least one valid service item');
+            toast.error('Please add at least one valid service item');
+            return;
+        }
+
+        const selectedParty = getSelectedParty();
+        if (!selectedParty?.username && !selectedParty?.id) {
+            toast.error('Client information is missing');
             return;
         }
 
         setIsSubmitting(true);
         try {
             const payload = {
-                transaction_date: formData.purchase_date,
-                remark: formData.notes,
-                tax_rate: formData.tax_rate,
+                username: selectedParty.username || selectedParty.id,
+                user_type: 'client',
+                transaction_date: formData.transaction_date,
+                remark: formData.remark || undefined,
+                tax_rate: parseDecimalValue(formData.tax_rate),
                 items: formData.items
-                    .filter(item => item.service_id && item.price > 0)
-                    .map(item => ({
+                    .filter((item) => item.service_id && parseDecimalValue(item.fees) > 0)
+                    .map((item) => ({
                         service_id: item.service_id,
-                        fees: item.price,
-                        remark: item.remark || item.description
-                    }))
+                        fees: parseDecimalValue(item.fees),
+                        remark: item.remark || undefined,
+                    })),
             };
-
-            payload.username = clientUsername;
-            payload.user_type = 'client';
 
             const response = await fetch(`${API_BASE_URL}/purchase/create/user`, {
                 method: 'POST',
                 headers: getHeaders(),
-                body: JSON.stringify(payload)
+                body: JSON.stringify(payload),
             });
-
             const data = await response.json();
+            if (!data.success) throw new Error(data.message || 'Failed to create purchase');
 
-            if (data.success) {
-                const msg =
-                    typeof data.message === 'string' && data.message.trim()
-                        ? data.message.trim()
-                        : 'Purchase created successfully';
-                toast.success(msg);
-                const submissionData = {
-                    ...formData,
-                    clientName,
-                    clientUsername,
-                    timestamp: new Date().toISOString(),
-                    api_response: data,
-                    notifications: {
-                        email: sendEmail,
-                        whatsapp: sendWhatsApp
-                    }
-                };
-                onSubmit('PURCHASE', submissionData);
-                onClose();
-            } else {
-                throw new Error(data.message || 'Failed to create purchase');
-            }
+            toast.success(
+                typeof data.message === 'string' && data.message.trim()
+                    ? data.message.trim()
+                    : 'Purchase created successfully'
+            );
+
+            const submissionData = {
+                ...formData,
+                selected_party: selectedParty,
+                timestamp: new Date().toISOString(),
+                api_response: data,
+                notifications: {
+                    email: sendEmail,
+                    whatsapp: sendWhatsApp,
+                },
+            };
+            onSuccess(submissionData);
+            if (mode === 'modal') onClose();
         } catch (error) {
-            console.error('Error submitting form:', error);
+            console.error('Error submitting purchase form:', error);
             toast.error(error.message || 'Error creating purchase. Please try again.');
         } finally {
             setIsSubmitting(false);
         }
     };
 
-    const formatCurrencyLocal = (amount) => {
-        return new Intl.NumberFormat('en-IN', {
-            style: 'currency',
-            currency: 'INR',
-            minimumFractionDigits: 0,
-            maximumFractionDigits: 0
-        }).format(amount);
-    };
+    const formClassMerged = [mode === 'modal' ? 'space-y-5' : '', formClassName].filter(Boolean).join(' ').trim();
+    const partyReady = hidePartySelector && fixedParty?.id != null && fixedParty.id !== ''
+        ? true
+        : Boolean(formData.party_id);
+    const selectedParty = getSelectedParty();
 
+    const purchaseFormElement = (
+        <form id="purchase-create-form" onSubmit={handleSubmit} className={formClassMerged || undefined}>
+            <div className="space-y-5 mb-6">
+                {!hidePartySelector ? (
+                    <div className="space-y-3">
+                        <label className="block text-sm font-medium text-slate-700 mb-1">
+                            Client <span className="text-red-500">*</span>
+                        </label>
+                        {!formData.party_id ? (
+                            <>
+                                <p className="text-xs text-slate-500 mb-1.5">
+                                    Type at least {CLIENT_SEARCH_MIN} characters (name, mobile, email, or PAN).
+                                </p>
+                                <div className="relative">
+                                    <input
+                                        type="text"
+                                        value={userSearchTerm}
+                                        onChange={(e) => {
+                                            const value = e.target.value;
+                                            setUserSearchTerm(value);
+                                            if (!value.trim()) {
+                                                setUserOptions([]);
+                                                setShowPartyDropdown(false);
+                                            }
+                                        }}
+                                        onFocus={() => {
+                                            if (userOptions.length > 0) setShowPartyDropdown(true);
+                                        }}
+                                        placeholder="Name, mobile, email, or PAN (min 3 characters)"
+                                        className="w-full px-4 py-3 border-2 border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+                                        autoComplete="off"
+                                    />
+                                    {isLoadingParties && (
+                                        <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                                            <div className="animate-spin rounded-full h-4 w-4 border-2 border-purple-500 border-t-transparent" />
+                                        </div>
+                                    )}
+                                    {showPartyDropdown && userOptions.length > 0 && (
+                                        <div className="absolute z-[60] mt-1 w-full max-w-[calc(100%-0.5rem)] bg-white border-2 border-slate-200 rounded-lg shadow-xl max-h-60 overflow-y-auto">
+                                            {userOptions.map((party) => (
+                                                <button
+                                                    key={party.id}
+                                                    type="button"
+                                                    onClick={() => {
+                                                        const id = String(party.id);
+                                                        setSelectedPurchaseUser(party);
+                                                        setFormData((prev) => ({ ...prev, party_id: id }));
+                                                        setShowPartyDropdown(false);
+                                                        setUserSearchTerm('');
+                                                    }}
+                                                    className="w-full flex items-start gap-3 px-4 py-3 text-left border-b border-slate-100 last:border-0 transition-colors hover:bg-purple-50"
+                                                >
+                                                    <ClientSearchAvatar client={partyRowToSearchClient(party)} sizeClass="w-9 h-9" textClass="text-sm" />
+                                                    <div className="min-w-0 flex-1">
+                                                        <div className="font-medium text-slate-800 truncate">{party.name || '—'}</div>
+                                                        <div className="text-xs text-slate-600 mt-1 space-y-0.5">
+                                                            <p className="flex items-center gap-1.5">
+                                                                <FiPhone className="w-3 h-3 shrink-0 text-slate-400" />
+                                                                <span>{party.country_code ? `+${party.country_code} ` : ''}{party.contact || '—'}</span>
+                                                            </p>
+                                                            <p className="flex items-center gap-1.5 break-all">
+                                                                <FiMail className="w-3 h-3 shrink-0 text-slate-400" />
+                                                                <span>{party.email || '—'}</span>
+                                                            </p>
+                                                        </div>
+                                                    </div>
+                                                </button>
+                                            ))}
+                                        </div>
+                                    )}
+                                </div>
+                            </>
+                        ) : (
+                            <SaleClientPreviewCard
+                                party={selectedParty}
+                                summary={null}
+                                formatMoney={(v) => new Intl.NumberFormat('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(parseDecimalValue(v))}
+                                onChangeClient={() => {
+                                    setFormData((prev) => ({ ...prev, party_id: '' }));
+                                    setSelectedPurchaseUser(null);
+                                    setUserSearchTerm('');
+                                    setUserOptions([]);
+                                    setShowPartyDropdown(false);
+                                }}
+                            />
+                        )}
+                    </div>
+                ) : (
+                    showFixedPartyBanner && fixedParty && (
+                        <SaleClientPreviewCard
+                            party={selectedParty}
+                            summary={null}
+                            formatMoney={(v) => new Intl.NumberFormat('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(parseDecimalValue(v))}
+                            readOnly
+                        />
+                    )
+                )}
+
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                    <div>
+                        <label className="block text-sm font-medium text-slate-700 mb-1.5">
+                            Purchase Date <span className="text-red-500">*</span>
+                        </label>
+                        <DatePickerField
+                            value={formData.transaction_date}
+                            onChange={(v) => setFormData((prev) => ({ ...prev, transaction_date: v || '' }))}
+                            mode="single"
+                            hideTabs={true}
+                            showResetButton={false}
+                            placeholder="Select date"
+                            buttonClassName="w-full px-4 py-3 border-2 border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+                        />
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium text-slate-700 mb-1.5">
+                            Tax Rate (%) <span className="text-red-500">*</span>
+                        </label>
+                        <input
+                            type="text"
+                            inputMode="decimal"
+                            value={String(formData.tax_rate ?? '')}
+                            onChange={(e) => setFormData((prev) => ({ ...prev, tax_rate: sanitizeDecimalInput(e.target.value, 2) }))}
+                            className="w-full px-4 py-3 border-2 border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+                        />
+                    </div>
+                </div>
+            </div>
+
+            <div className="mb-6 rounded-xl border border-slate-200 bg-white">
+                <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3">
+                    <h3 className="text-sm font-semibold text-slate-800">Purchase Items</h3>
+                    <button
+                        type="button"
+                        onClick={addItem}
+                        className="inline-flex items-center gap-1.5 rounded-lg bg-purple-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-purple-700"
+                    >
+                        <IoAdd className="h-4 w-4" />
+                        Add Item
+                    </button>
+                </div>
+                <div className="space-y-3 p-4">
+                    {formData.items.map((item, index) => (
+                        <div key={index} className="grid grid-cols-1 gap-3 rounded-lg border border-slate-100 p-3 sm:grid-cols-12">
+                            <div className="sm:col-span-5">
+                                <label className="mb-1 block text-xs font-medium text-slate-500">Service</label>
+                                <SelectInput
+                                    options={serviceSelectOptions}
+                                    value={item.service_id ? String(item.service_id) : null}
+                                    onChange={(value) => handleServiceChange(index, value ? String(value) : '')}
+                                    placeholder={isLoadingServices ? 'Loading services...' : 'Select service'}
+                                    searchPlaceholder="Search service..."
+                                    noOptionsText={isLoadingServices ? 'Loading...' : 'No services found'}
+                                />
+                            </div>
+                            <div className="sm:col-span-3">
+                                <label className="mb-1 block text-xs font-medium text-slate-500">Fees</label>
+                                <input
+                                    type="text"
+                                    inputMode="decimal"
+                                    value={item.fees}
+                                    onChange={(e) => handleItemChange(index, 'fees', e.target.value)}
+                                    placeholder="0.00"
+                                    className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
+                                />
+                            </div>
+                            <div className="sm:col-span-3">
+                                <label className="mb-1 block text-xs font-medium text-slate-500">Item Remark</label>
+                                <input
+                                    type="text"
+                                    value={item.remark}
+                                    onChange={(e) => handleItemChange(index, 'remark', e.target.value)}
+                                    placeholder="Optional remark"
+                                    className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
+                                />
+                            </div>
+                            <div className="flex items-end sm:col-span-1">
+                                {formData.items.length > 1 && (
+                                    <button
+                                        type="button"
+                                        onClick={() => removeItem(index)}
+                                        className="w-full rounded-lg border border-red-200 p-2 text-red-600 hover:bg-red-50"
+                                        title="Remove item"
+                                    >
+                                        <IoTrash className="mx-auto h-4 w-4" />
+                                    </button>
+                                )}
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            </div>
+
+            <div className="space-y-4">
+                <div>
+                    <label className="mb-1 block text-sm font-medium text-slate-700">Remark</label>
+                    <textarea
+                        value={formData.remark}
+                        onChange={(e) => setFormData((prev) => ({ ...prev, remark: e.target.value }))}
+                        rows="2"
+                        placeholder="Any remark"
+                        className="w-full rounded-lg border-2 border-slate-200 px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+                    />
+                </div>
+            </div>
+        </form>
+    );
+
+    if (mode !== 'modal') return purchaseFormElement;
     if (!isOpen) return null;
 
     return (
-        <div className="fixed inset-0 z-50">
-            <div className="fixed inset-0 bg-gray-900 bg-opacity-50 backdrop-blur-sm transition-opacity" onClick={onClose} />
-            <div className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[calc(100vw-1.5rem)] sm:w-[calc(100vw-2rem)] max-w-4xl bg-white rounded-xl shadow-2xl max-h-[calc(100vh-1.5rem)] sm:max-h-[calc(100vh-2rem)] flex flex-col overflow-hidden">
-                {/* Header */}
-                <div className="flex-shrink-0 flex items-center justify-between px-5 py-3.5 border-b bg-gradient-to-r from-purple-600 to-purple-700 text-white rounded-t-xl">
-                    <div>
-                        <h2 className="text-lg font-bold">Create Purchase Bill</h2>
-                        <p className="text-purple-100 text-xs">{clientName}</p>
-                    </div>
-                    <button onClick={onClose} className="p-1 hover:bg-purple-500 rounded-lg">
-                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                        </svg>
-                    </button>
-                </div>
-
-                {/* Body */}
-                <div className="flex-1 overflow-y-auto p-5 bg-gray-50 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
-                    <form onSubmit={handleSubmit}>
-                        {/* Client Info */}
-                        <div className="bg-purple-50 p-4 rounded-lg border border-purple-200 mb-5">
-                            <p className="text-xs text-purple-600 font-medium">Client</p>
-                            <p className="text-lg font-semibold text-slate-800">{clientName}</p>
-                            <p className="text-xs text-slate-500">Username: {clientUsername}</p>
-                        </div>
-
-                        {/* Date */}
-                        <div className="mb-5">
-                            <label className="block text-sm font-semibold text-gray-700 mb-1.5">
-                                Bill Date <span className="text-red-500">*</span>
-                            </label>
-                            <DatePickerField
-                                value={formData.purchase_date}
-                                onChange={(value) => setFormData(prev => ({ ...prev, purchase_date: value || '' }))}
-                                mode="single"
-                                hideTabs={true}
-                                showResetButton={false}
-                                placeholder="Select bill date"
-                                buttonClassName="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 bg-white"
-                            />
-                        </div>
-
-                        {/* Items Table */}
-                        <div className="mb-5">
-                            <div className="flex justify-between items-center mb-3">
-                                <h3 className="text-base font-bold text-gray-900">Purchase Items</h3>
-                                <button
-                                    type="button"
-                                    onClick={addItem}
-                                    className="inline-flex items-center px-3 py-1.5 bg-purple-600 text-white rounded-lg hover:bg-purple-700 text-sm"
-                                >
-                                    <IoAdd className="w-4 h-4 mr-1" />
-                                    Add Item
-                                </button>
-                            </div>
-
-                            <div className="overflow-x-auto border border-gray-300 rounded-lg">
-                                <table className="min-w-full divide-y divide-gray-200">
-                                    <thead className="bg-gray-50">
-                                        <tr>
-                                            <th className="px-3 py-2 text-left text-xs font-semibold text-gray-700">Service/Item</th>
-                                            <th className="px-3 py-2 text-left text-xs font-semibold text-gray-700">Description</th>
-                                            <th className="px-3 py-2 text-right text-xs font-semibold text-gray-700">Price</th>
-                                            <th className="px-3 py-2 text-center text-xs font-semibold text-gray-700 w-12">Action</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody className="bg-white divide-y divide-gray-200">
-                                        {formData.items.map((item, index) => (
-                                            <tr key={index}>
-                                                <td className="px-3 py-2">
-                                                    <select
-                                                        className="w-full px-2 py-1 border border-gray-300 rounded text-sm focus:outline-none focus:ring-1 focus:ring-purple-500"
-                                                        value={item.service_id}
-                                                        onChange={(e) => handleServiceChange(index, e.target.value)}
-                                                        required
-                                                        disabled={isLoadingServices}
-                                                    >
-                                                        <option value="">Select Service</option>
-                                                        {serviceOptions.map(service => (
-                                                            <option key={service.service_id} value={service.service_id}>
-                                                                {service.name} - ₹{service.fees}
-                                                            </option>
-                                                        ))}
-                                                    </select>
-                                                </td>
-                                                <td className="px-3 py-2">
-                                                    <input
-                                                        type="text"
-                                                        className="w-full px-2 py-1 border border-gray-300 rounded text-sm"
-                                                        placeholder="Description"
-                                                        value={item.description}
-                                                        onChange={(e) => handleItemChange(index, 'description', e.target.value)}
-                                                    />
-                                                </td>
-                                                <td className="px-3 py-2">
-                                                    <input
-                                                        type="text"
-                                                        className="w-full px-2 py-1 border border-gray-300 rounded text-sm text-right"
-                                                        placeholder="0"
-                                                        value={item.price}
-                                                        inputMode="decimal"
-                                                        onChange={(e) => handleItemChange(index, 'price', e.target.value)}
-                                                        required
-                                                    />
-                                                </td>
-                                                <td className="px-3 py-2 text-center">
-                                                    {formData.items.length > 1 && (
-                                                        <button
-                                                            type="button"
-                                                            onClick={() => removeItem(index)}
-                                                            className="text-red-500 hover:bg-red-50 p-1 rounded"
-                                                        >
-                                                            <IoTrash className="w-4 h-4" />
-                                                        </button>
-                                                    )}
-                                                </td>
-                                            </tr>
-                                        ))}
-                                    </tbody>
-                                </table>
-                            </div>
-                        </div>
-
-                        {/* Notes */}
-                        <div className="mb-5">
-                            <textarea
-                                name="notes"
-                                value={formData.notes}
-                                onChange={handleInputChange}
-                                placeholder="Additional notes..."
-                                className="w-full px-3 py-2 border rounded-lg text-sm resize-none"
-                                rows="2"
-                            />
-                        </div>
-
-                        {/* Summary */}
-                        <div className="bg-gradient-to-br from-purple-50 to-white p-4 rounded-lg border border-purple-100">
-                            <div className="space-y-2 text-sm">
-                                <div className="flex justify-between">
-                                    <span>Subtotal:</span>
-                                    <span className="font-semibold">{formatCurrencyLocal(formData.subtotal)}</span>
-                                </div>
-                                <div className="flex justify-between">
-                                    <span>SGST ({formData.sgst_rate}%):</span>
-                                    <span>{formatCurrencyLocal(formData.sgst_amount)}</span>
-                                </div>
-                                <div className="flex justify-between">
-                                    <span>CGST ({formData.cgst_rate}%):</span>
-                                    <span>{formatCurrencyLocal(formData.cgst_amount)}</span>
-                                </div>
-                                <div className="pt-2 border-t">
-                                    <div className="flex justify-between font-bold">
-                                        <span>Total Payable:</span>
-                                        <span className="text-purple-700 text-lg">{formatCurrencyLocal(formData.grand_total)}</span>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </form>
-                </div>
-
-                {/* Footer */}
-                <div className="flex-shrink-0 border-t bg-white px-5 py-3 rounded-b-xl">
-                    <div className="flex justify-between items-center mb-3">
-                        <div className="flex items-center gap-4">
-                            <label className="flex items-center cursor-pointer">
-                                <input type="checkbox" checked={sendEmail} onChange={(e) => setSendEmail(e.target.checked)} className="mr-2" />
-                                <span className="text-xs">Email Bill</span>
-                            </label>
-                            <label className="flex items-center cursor-pointer">
-                                <input type="checkbox" checked={sendWhatsApp} onChange={(e) => setSendWhatsApp(e.target.checked)} className="mr-2" />
-                                <span className="text-xs">WhatsApp Bill</span>
-                            </label>
-                        </div>
+        <BaseModal
+            isOpen={isOpen}
+            onClose={onClose}
+            title={modalTitle}
+            maxWidth={modalMaxWidth}
+            closeOnOverlayClick={closeOnOverlayClick}
+            footer={(
+                <div className="w-full">
+                    <div className="mb-3 flex items-center gap-4">
+                        <label className="flex items-center cursor-pointer">
+                            <input type="checkbox" checked={sendEmail} onChange={(e) => setSendEmail(e.target.checked)} className="mr-2" />
+                            <span className="text-xs">Email Bill</span>
+                        </label>
+                        <label className="flex items-center cursor-pointer">
+                            <input type="checkbox" checked={sendWhatsApp} onChange={(e) => setSendWhatsApp(e.target.checked)} className="mr-2" />
+                            <span className="text-xs">WhatsApp Bill</span>
+                        </label>
                     </div>
                     <div className="flex justify-end gap-2">
                         <button
                             type="button"
                             onClick={onClose}
-                            className="px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-50 transition-all"
+                            className="px-4 py-2 bg-white border border-slate-300 text-slate-700 rounded-lg text-sm font-medium hover:bg-slate-50 transition-all"
                         >
                             Cancel
                         </button>
                         <button
                             type="submit"
-                            onClick={handleSubmit}
-                            disabled={isSubmitting || formData.items.every(item => !item.service_id)}
+                            form="purchase-create-form"
+                            disabled={isSubmitting || !partyReady}
                             className="px-4 py-2 bg-gradient-to-r from-purple-600 to-purple-700 text-white rounded-lg text-sm font-medium hover:from-purple-700 hover:to-purple-800 disabled:opacity-50 transition-all min-w-[170px]"
                         >
-                            {isSubmitting ? 'Creating...' : 'Create Purchase Bill'}
+                            {isSubmitting ? 'Creating...' : (submitButtonLabel || 'Create Purchase Bill')}
                         </button>
                     </div>
                 </div>
-            </div>
-        </div>
+            )}
+        >
+            {purchaseFormElement}
+        </BaseModal>
+    );
+};
+
+/** Spread into `<PurchaseForm />` on a client ledger page (party known; no search UI). */
+export const purchaseFormLedgerClientProps = ({ clientId, clientUsername, clientName }) => ({
+    hidePartySelector: true,
+    fixedParty: {
+        id: clientId || clientUsername,
+        username: clientUsername || clientId,
+        name: clientName || clientUsername || String(clientId || ''),
+    },
+});
+
+/** Backward-compatible wrapper used by `TransactionModalManager`. */
+export const PurchaseModal = ({ isOpen, onClose, onSubmit, clientUsername, clientName, clientId }) => {
+    const hasClient = Boolean(String(clientUsername || clientId || '').trim());
+    return (
+        <PurchaseForm
+            isOpen={isOpen}
+            onClose={onClose}
+            onSuccess={(data) => {
+                if (onSubmit) onSubmit('PURCHASE', data);
+            }}
+            mode="modal"
+            initialPartyId={hasClient ? String(clientId || clientUsername) : ''}
+            hidePartySelector={hasClient}
+            showFixedPartyBanner={!hasClient}
+            fixedParty={hasClient ? {
+                id: clientId || clientUsername,
+                username: clientUsername || clientId,
+                name: clientName || clientUsername || String(clientId || clientUsername || ''),
+            } : null}
+            modalTitle={hasClient ? 'Purchase from Client' : 'Create Purchase Bill'}
+        />
     );
 };
 
@@ -3592,398 +3782,254 @@ export const ExpenseModal = ({ isOpen, onClose, bankDetails, bankId, onSubmit, f
     );
 };
 
-// Journal Modal - UI Only with Client Search for client-to-client transfers
-export const JournalModal = ({ isOpen, onClose, bankDetails, bankId, onSubmit, formatCurrency, clientUsername, clientName, showClient = true }) => {
-    const [selectedFromClient, setSelectedFromClient] = useState(null);
-    const [selectedToClient, setSelectedToClient] = useState(null);
-    const [showFromClientSearch, setShowFromClientSearch] = useState(false);
-    const [showToClientSearch, setShowToClientSearch] = useState(false);
+// Journal Modal — client-to-client transfer (same client UI as Receive/Payment)
+export const JournalModal = ({
+    isOpen,
+    onClose,
+    onSubmit,
+    formatCurrency,
+    showSummary = true,
+    showFromClient = true,
+    showToClient = true,
+    /** Optional preset “from” client (username) when opening from a client context */
+    clientUsername = '',
+    clientName = '',
+    /** Legacy: hide entire from block — maps to !showFromClient */
+    showClient = true,
+}) => {
+    const showFromSection = showClient && showFromClient;
     const [loading, setLoading] = useState(false);
-    const [formKey, setFormKey] = useState(0);
-
-    // Search terms for client search
-    const [fromSearchTerm, setFromSearchTerm] = useState('');
-    const [toSearchTerm, setToSearchTerm] = useState('');
-    const [fromClients, setFromClients] = useState([]);
-    const [toClients, setToClients] = useState([]);
-    const [loadingFrom, setLoadingFrom] = useState(false);
-    const [loadingTo, setLoadingTo] = useState(false);
-    const [fromPage, setFromPage] = useState(1);
-    const [toPage, setToPage] = useState(1);
-    const [hasMoreFrom, setHasMoreFrom] = useState(true);
-    const [hasMoreTo, setHasMoreTo] = useState(true);
+    const [presetFromClient, setPresetFromClient] = useState(null);
+    const [loadingPresetFrom, setLoadingPresetFrom] = useState(false);
     const [transactionDate, setTransactionDate] = useState(new Date().toISOString().split('T')[0]);
     const [amount, setAmount] = useState('');
+    const [formKey, setFormKey] = useState(0);
+    const [excludeForFromLookup, setExcludeForFromLookup] = useState('');
 
-    const fromDropdownRef = useRef(null);
-    const toDropdownRef = useRef(null);
+    const hasPresetFromParam = Boolean(String(clientUsername || '').trim());
 
-    // Auto-select the current client when modal opens
+    const shouldShowFromSelector = showFromSection && !hasPresetFromParam;
+    const shouldShowToSelector = showToClient;
+
+    const fromFirmLookup = useFirmClientSearch(Boolean(shouldShowFromSelector), excludeForFromLookup);
+
+    const excludeUsernameForTo = hasPresetFromParam
+        ? String(clientUsername || '').trim()
+        : (fromFirmLookup.selectedFirm?.username || '');
+
+    const toFirmLookup = useFirmClientSearch(Boolean(shouldShowToSelector), excludeUsernameForTo);
+
     useEffect(() => {
-        if (isOpen && clientUsername) {
-            // Create current client object from props
-            const currentClient = {
-                id: clientUsername,
-                username: clientUsername,
-                name: clientName || clientUsername,
-                email: '',
-                contact: '',
-                balance: '0'
-            };
-            setSelectedFromClient(currentClient);
+        setExcludeForFromLookup(toFirmLookup.selectedFirm?.username || '');
+    }, [toFirmLookup.selectedFirm]);
+
+    useEffect(() => {
+        if (!isOpen || !hasPresetFromParam) {
+            setPresetFromClient(null);
+            setLoadingPresetFrom(false);
+            return undefined;
         }
-    }, [isOpen, clientUsername, clientName]);
-
-    // Fetch clients for FROM dropdown
-    const fetchFromClients = useCallback(async (search = '', pageNum = 1, append = false) => {
-        setLoadingFrom(true);
-        try {
-            const response = await axios.get(
-                `${API_BASE_URL}/client/search?page_no=${pageNum}&limit=10&search=${search}`,
-                { headers: getHeaders() }
-            );
-
-            if (response.data.success) {
-                const clientData = response.data.data || [];
-                const formattedClients = clientData.map(client => ({
-                    id: client.username,
-                    name: client.name || client.username,
-                    username: client.username,
-                    email: client.email || '',
-                    contact: client.phone || '',
-                    balance: client.balance || '0'
-                }));
-
-                if (append) {
-                    setFromClients(prev => [...prev, ...formattedClients]);
-                } else {
-                    setFromClients(formattedClients);
+        let cancelled = false;
+        setLoadingPresetFrom(true);
+        (async () => {
+            try {
+                const response = await axios.get(
+                    `${API_BASE_URL}/client/search?page_no=1&limit=10&search=${encodeURIComponent(String(clientUsername).trim())}`,
+                    { headers: getHeaders() }
+                );
+                if (!response.data.success || cancelled) return;
+                const rows = response.data.data || [];
+                const match =
+                    rows.find((c) => String(c.username) === String(clientUsername).trim()) ||
+                    rows[0];
+                if (match && !cancelled) {
+                    setPresetFromClient(match);
                 }
-
-                setHasMoreFrom(!response.data.is_last_page);
+            } catch (err) {
+                console.error('Journal preset client fetch:', err);
+            } finally {
+                if (!cancelled) setLoadingPresetFrom(false);
             }
-        } catch (error) {
-            console.error('Error fetching from clients:', error);
-        } finally {
-            setLoadingFrom(false);
-        }
-    }, []);
+        })();
+        return () => {
+            cancelled = true;
+        };
+    }, [isOpen, clientUsername, hasPresetFromParam]);
 
-    // Fetch clients for TO dropdown
-    const fetchToClients = useCallback(async (search = '', pageNum = 1, append = false) => {
-        setLoadingTo(true);
-        try {
-            const response = await axios.get(
-                `${API_BASE_URL}/client/search?page_no=${pageNum}&limit=10&search=${search}`,
-                { headers: getHeaders() }
-            );
-
-            if (response.data.success) {
-                const clientData = response.data.data || [];
-                const formattedClients = clientData.map(client => ({
-                    id: client.username,
-                    name: client.name || client.username,
-                    username: client.username,
-                    email: client.email || '',
-                    contact: client.phone || '',
-                    balance: client.balance || '0'
-                }));
-
-                if (append) {
-                    setToClients(prev => [...prev, ...formattedClients]);
-                } else {
-                    setToClients(formattedClients);
-                }
-
-                setHasMoreTo(!response.data.is_last_page);
-            }
-        } catch (error) {
-            console.error('Error fetching to clients:', error);
-        } finally {
-            setLoadingTo(false);
-        }
-    }, []);
-
-    // Debounced search for FROM dropdown
-    useEffect(() => {
-        const timer = setTimeout(() => {
-            setFromPage(1);
-            fetchFromClients(fromSearchTerm, 1, false);
-        }, 500);
-        return () => clearTimeout(timer);
-    }, [fromSearchTerm, fetchFromClients]);
-
-    // Debounced search for TO dropdown
-    useEffect(() => {
-        const timer = setTimeout(() => {
-            setToPage(1);
-            fetchToClients(toSearchTerm, 1, false);
-        }, 500);
-        return () => clearTimeout(timer);
-    }, [toSearchTerm, fetchToClients]);
-
-    // Reset and reload every time the modal opens
     useEffect(() => {
         if (!isOpen) return;
-        setFormKey(k => k + 1);
-        setSelectedToClient(null);
-        setShowFromClientSearch(false);
-        setShowToClientSearch(false);
-        setFromSearchTerm('');
-        setToSearchTerm('');
-        setFromPage(1);
-        setToPage(1);
+        setFormKey((k) => k + 1);
+        setExcludeForFromLookup('');
         setTransactionDate(new Date().toISOString().split('T')[0]);
         setAmount('');
         setLoading(false);
-        fetchFromClients('', 1, false);
-        fetchToClients('', 1, false);
-    }, [isOpen, fetchFromClients, fetchToClients]);
+        fromFirmLookup.reset();
+        toFirmLookup.reset();
+    }, [isOpen]); // eslint-disable-line react-hooks/exhaustive-deps
 
-    // Click outside handlers
-    useEffect(() => {
-        const handleClickOutside = (event) => {
-            if (fromDropdownRef.current && !fromDropdownRef.current.contains(event.target)) {
-                setShowFromClientSearch(false);
-            }
-            if (toDropdownRef.current && !toDropdownRef.current.contains(event.target)) {
-                setShowToClientSearch(false);
-            }
-        };
-        document.addEventListener('mousedown', handleClickOutside);
-        return () => document.removeEventListener('mousedown', handleClickOutside);
-    }, []);
+    const effectiveFromClient = hasPresetFromParam
+        ? (presetFromClient || {
+            username: clientUsername,
+            name: clientName || clientUsername,
+            email: '',
+            balance: 0,
+            mobile: '',
+            pan_number: '',
+        })
+        : fromFirmLookup.selectedFirm;
+
+    const effectiveToClient = toFirmLookup.selectedFirm;
+
+    const fromId = String(effectiveFromClient?.username || '');
+    const toId = String(effectiveToClient?.username || '');
+
+    const isJournalFormValid =
+        Boolean(effectiveFromClient) &&
+        Boolean(effectiveToClient) &&
+        fromId !== '' &&
+        toId !== '' &&
+        fromId !== toId &&
+        parseDecimalValue(amount) > 0 &&
+        !(hasPresetFromParam && loadingPresetFrom);
 
     const handleSubmit = async (e) => {
         e.preventDefault();
-
-        if (!selectedFromClient || !selectedToClient) {
+        if (!effectiveFromClient || !effectiveToClient) {
             toast.error('Please select both clients');
             return;
         }
-
-        if (selectedFromClient.username === selectedToClient.username) {
+        if (fromId === toId) {
             toast.error('Cannot transfer between the same client');
             return;
         }
 
-        const formData = new FormData(e.target);
         const parsedAmount = parseDecimalValue(amount);
-
-        if (parsedAmount <= 0) {
+        if (!parsedAmount || parsedAmount <= 0) {
             toast.error('Please enter a valid amount');
             return;
         }
 
+        if (hasPresetFromParam && loadingPresetFrom) {
+            toast.error('Loading source client…');
+            return;
+        }
+
+        const fromBal = parseDecimalValue(effectiveFromClient.balance);
+        if (parsedAmount > fromBal) {
+            toast.error('Insufficient balance in source client ledger');
+            return;
+        }
+
+        const formData = new FormData(e.target);
+        const description = formData.get('description');
+
         const payload = {
             amount: parsedAmount,
-            party1_id: selectedFromClient.username,
-            party2_id: selectedToClient.username,
-            party1_type: "client",
-            party2_type: "client",
-            remark: formData.get('description') || "Journal entry transfer",
-            transaction_date: transactionDate
+            party1_id: effectiveFromClient.username,
+            party2_id: effectiveToClient.username,
+            party1_type: 'client',
+            party2_type: 'client',
+            remark:
+                description ||
+                `Journal transfer from ${effectiveFromClient.name || effectiveFromClient.username} to ${effectiveToClient.name || effectiveToClient.username}`,
+            transaction_date: transactionDate,
         };
 
         setLoading(true);
-
         try {
-            await onSubmit(payload);
-            toast.success('Journal entry created successfully');
-            onClose();
-            setSelectedFromClient(null);
-            setSelectedToClient(null);
+            const response = await axios.post(`${API_BASE_URL}/transaction/payment/journal`, payload, {
+                headers: getHeaders(),
+            });
+            if (response.data.success) {
+                toast.success(response.data.message || 'Journal entry created successfully');
+                if (onSubmit) onSubmit('JOURNAL', response.data.data);
+                onClose();
+            } else {
+                toast.error(response.data.message || 'Failed to create journal entry');
+            }
         } catch (error) {
-            toast.error(error.message || 'Failed to create journal entry');
+            console.error('Error creating journal entry:', error);
+            const errorMessage =
+                error.response?.data?.message || error.response?.data?.error || error.message || 'Failed to create journal entry';
+            toast.error(errorMessage);
         } finally {
             setLoading(false);
         }
     };
 
-    // Client Search Dropdown Component
-    const ClientSearchDropdown = ({ type, onSelect, selectedClient, excludeClientId }) => {
-        const dropdownRef = type === 'from' ? fromDropdownRef : toDropdownRef;
-        const searchTerm = type === 'from' ? fromSearchTerm : toSearchTerm;
-        const setSearchTerm = type === 'from' ? setFromSearchTerm : setToSearchTerm;
-        const clients = type === 'from' ? fromClients : toClients;
-        const isLoading = type === 'from' ? loadingFrom : loadingTo;
-        const hasMore = type === 'from' ? hasMoreFrom : hasMoreTo;
-        const loadMore = type === 'from' ? () => {
-            const nextPage = fromPage + 1;
-            setFromPage(nextPage);
-            fetchFromClients(fromSearchTerm, nextPage, true);
-        } : () => {
-            const nextPage = toPage + 1;
-            setToPage(nextPage);
-            fetchToClients(toSearchTerm, nextPage, true);
-        };
-
-        const filteredClients = useMemo(() => {
-            if (!searchTerm) return clients;
-            return clients.filter(client =>
-                client.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                client.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                client.username?.toLowerCase().includes(searchTerm.toLowerCase())
-            );
-        }, [searchTerm, clients]);
-
-        const handleSelect = (client) => {
-            onSelect(client);
-            setShowFromClientSearch(false);
-            setShowToClientSearch(false);
-        };
-
-        return (
-            <div className="relative" ref={dropdownRef}>
-                <div className="relative">
-                    <input
-                        type="text"
-                        placeholder="Name, email, or username"
-                        className="w-full px-4 py-3 border-2 border-indigo-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                        value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
-                        autoFocus
-                    />
-                </div>
-
-                <div className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-xl max-h-64 overflow-y-auto">
-                    {isLoading && clients.length === 0 ? (
-                        <div className="px-4 py-3 text-center text-gray-500">Loading clients...</div>
-                    ) : filteredClients.length > 0 ? (
-                        <>
-                            {filteredClients
-                                .filter(client => client.id !== excludeClientId)
-                                .map(client => (
-                                    <div
-                                        key={client.id}
-                                        className="px-4 py-2 cursor-pointer hover:bg-indigo-50 border-b border-gray-100 last:border-0"
-                                        onClick={() => handleSelect(client)}
-                                    >
-                                        <div className="font-medium text-slate-800">{client.name}</div>
-                                        <div className="text-sm text-slate-500">
-                                            Username: {client.username} | Balance: ₹{formatCurrency(client.balance || 0)}
-                                        </div>
-                                    </div>
-                                ))}
-                            {hasMore && (
-                                <button
-                                    type="button"
-                                    onClick={loadMore}
-                                    disabled={isLoading}
-                                    className="w-full px-4 py-2 text-center bg-gray-50 hover:bg-gray-100 text-indigo-600 text-sm border-t border-gray-200"
-                                >
-                                    {isLoading ? 'Loading...' : 'Load More'}
-                                </button>
-                            )}
-                        </>
-                    ) : (
-                        <div className="px-4 py-3 text-center text-gray-500">
-                            {searchTerm ? 'No clients found' : 'No clients available'}
-                        </div>
-                    )}
-                </div>
-            </div>
-        );
-    };
+    const shouldShowJournalSummary =
+        showSummary && Boolean(effectiveFromClient) && Boolean(effectiveToClient);
 
     return (
         <BaseModal
             isOpen={isOpen}
             onClose={onClose}
-            title="Create Journal Entry"
+            title="Journal Transfer (Client to Client)"
             footer={(
                 <div className="flex justify-end gap-2">
                     <button
                         type="button"
                         onClick={onClose}
                         disabled={loading}
-                        className="px-4 py-2 bg-white border border-slate-300 text-slate-700 rounded-lg text-sm font-medium hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-slate-500/40 transition-all duration-200"
+                        className="px-4 py-2 bg-white border border-slate-300 text-slate-700 rounded-lg text-sm font-medium hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-slate-500/40 disabled:opacity-50 transition-all duration-200"
                     >
                         Cancel
                     </button>
                     <button
                         type="submit"
                         form="journal-form"
-                        disabled={!selectedFromClient || !selectedToClient || loading}
-                        className="px-4 py-2 bg-gradient-to-r from-indigo-600 to-indigo-700 text-white rounded-lg text-sm font-medium hover:from-indigo-700 hover:to-indigo-800 focus:outline-none focus:ring-2 focus:ring-indigo-500/40 disabled:opacity-50 transition-all duration-200 min-w-[160px]"
+                        disabled={loading || !isJournalFormValid || (hasPresetFromParam && loadingPresetFrom)}
+                        className="px-4 py-2 bg-gradient-to-r from-indigo-600 to-indigo-700 text-white rounded-lg text-sm font-medium hover:from-indigo-700 hover:to-indigo-800 focus:outline-none focus:ring-2 focus:ring-indigo-500/40 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 inline-flex items-center justify-center min-w-[150px]"
                     >
-                        {loading ? 'Creating...' : 'Create Journal Entry'}
+                        {loading ? 'Processing…' : hasPresetFromParam && loadingPresetFrom ? 'Loading…' : 'Transfer'}
                     </button>
                 </div>
             )}
         >
             <form key={formKey} id="journal-form" onSubmit={handleSubmit} className="space-y-5">
-                {/* From Client Selection - Auto-selected with current client */}
-                {showClient && <div className="bg-red-50 p-4 rounded-lg border border-red-200">
-                    <label className="block text-sm font-medium text-red-700 mb-2">
-                        From Client (Decrease) <span className="text-red-500">*</span>
-                    </label>
+                {shouldShowFromSelector && (
+                    <FirmClientSearchFields
+                        variant="receive"
+                        label="From Client"
+                        formatCurrency={formatCurrency}
+                        searchTerm={fromFirmLookup.searchTerm}
+                        setSearchTerm={fromFirmLookup.setSearchTerm}
+                        firms={fromFirmLookup.firms}
+                        setFirms={fromFirmLookup.setFirms}
+                        showDropdown={fromFirmLookup.showDropdown}
+                        setShowDropdown={fromFirmLookup.setShowDropdown}
+                        searchLoading={fromFirmLookup.searchLoading}
+                        selectedFirm={fromFirmLookup.selectedFirm}
+                        setSelectedFirm={fromFirmLookup.setSelectedFirm}
+                    />
+                )}
 
-                    {!showFromClientSearch ? (
-                        <div className="flex items-center justify-between">
-                            <div>
-                                <p className="font-medium text-slate-800">
-                                    {selectedFromClient ? selectedFromClient.name : 'No client selected'}
-                                </p>
-                                {selectedFromClient && (
-                                    <p className="text-sm text-slate-600">
-                                        Username: {selectedFromClient.username} | Balance: ₹{formatCurrency(selectedFromClient.balance || 0)}
-                                    </p>
-                                )}
-                            </div>
-                            <button
-                                type="button"
-                                onClick={() => setShowFromClientSearch(true)}
-                                className="px-3 py-1 text-sm bg-white border border-red-300 text-red-600 rounded-lg hover:bg-red-50"
-                            >
-                                {selectedFromClient ? 'Change Client' : 'Select Client'}
-                            </button>
-                        </div>
-                    ) : (
-                        <ClientSearchDropdown
-                            type="from"
-                            onSelect={setSelectedFromClient}
-                            selectedClient={selectedFromClient}
-                            excludeClientId={selectedToClient?.username}
-                        />
-                    )}
-                </div>}
+                {showFromSection && hasPresetFromParam && effectiveFromClient && (
+                    <FirmClientSearchFields
+                        variant="receive"
+                        label="From Client"
+                        lockedFirm={effectiveFromClient}
+                        readOnly
+                        formatCurrency={formatCurrency}
+                    />
+                )}
 
-                {/* To Client Selection */}
-                <div className="bg-green-50 p-4 rounded-lg border border-green-200">
-                    <label className="block text-sm font-medium text-green-700 mb-2">
-                        To Client (Increase) <span className="text-red-500">*</span>
-                    </label>
-
-                    {!showToClientSearch ? (
-                        <div className="flex items-center justify-between">
-                            <div>
-                                <p className="font-medium text-slate-800">
-                                    {selectedToClient ? selectedToClient.name : 'No client selected'}
-                                </p>
-                                {selectedToClient && (
-                                    <p className="text-sm text-slate-600">
-                                        Username: {selectedToClient.username} | Balance: ₹{formatCurrency(selectedToClient.balance || 0)}
-                                    </p>
-                                )}
-                            </div>
-                            <button
-                                type="button"
-                                onClick={() => setShowToClientSearch(true)}
-                                className="px-3 py-1 text-sm bg-white border border-green-300 text-green-600 rounded-lg hover:bg-green-50"
-                            >
-                                {selectedToClient ? 'Change Client' : 'Select Client'}
-                            </button>
-                        </div>
-                    ) : (
-                        <ClientSearchDropdown
-                            type="to"
-                            onSelect={setSelectedToClient}
-                            selectedClient={selectedToClient}
-                            excludeClientId={selectedFromClient?.username}
-                        />
-                    )}
-                </div>
+                {shouldShowToSelector && (
+                    <FirmClientSearchFields
+                        variant="payment"
+                        label="To Client"
+                        formatCurrency={formatCurrency}
+                        searchTerm={toFirmLookup.searchTerm}
+                        setSearchTerm={toFirmLookup.setSearchTerm}
+                        firms={toFirmLookup.firms}
+                        setFirms={toFirmLookup.setFirms}
+                        showDropdown={toFirmLookup.showDropdown}
+                        setShowDropdown={toFirmLookup.setShowDropdown}
+                        searchLoading={toFirmLookup.searchLoading}
+                        selectedFirm={toFirmLookup.selectedFirm}
+                        setSelectedFirm={toFirmLookup.setSelectedFirm}
+                    />
+                )}
 
                 <div className="grid grid-cols-2 gap-4">
                     <div>
@@ -4000,7 +4046,6 @@ export const JournalModal = ({ isOpen, onClose, bankDetails, bankId, onSubmit, f
                             buttonClassName="w-full px-4 py-3 border-2 border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                         />
                     </div>
-
                     <div>
                         <label className="block text-sm font-medium text-slate-700 mb-1">
                             Amount <span className="text-red-500">*</span>
@@ -4020,20 +4065,331 @@ export const JournalModal = ({ isOpen, onClose, bankDetails, bankId, onSubmit, f
 
                 <div>
                     <label className="block text-sm font-medium text-slate-700 mb-1">
-                        Description / Reference
+                        Description / Remark
                     </label>
                     <textarea
                         name="description"
-                        placeholder="Enter description or reference"
+                        placeholder="Enter description or remark"
                         rows="2"
                         className="w-full px-4 py-3 border-2 border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                     />
                 </div>
 
+                {shouldShowJournalSummary && (
+                    <div className="bg-slate-50 p-3 rounded-lg border border-slate-200">
+                        <p className="text-xs text-slate-600 mb-1">Transaction Summary</p>
+                        <div className="flex items-center justify-between text-sm">
+                            <span className="font-medium">From Client:</span>
+                            <span className="text-red-600 truncate max-w-[55%] text-right">
+                                {effectiveFromClient?.name || effectiveFromClient?.username || '—'}
+                            </span>
+                        </div>
+                        <div className="flex items-center justify-between text-sm mt-1">
+                            <span className="font-medium">To Client:</span>
+                            <span className="text-green-600 truncate max-w-[55%] text-right">
+                                {effectiveToClient?.name || effectiveToClient?.username || '—'}
+                            </span>
+                        </div>
+                        <div className="flex items-center justify-between text-sm mt-1">
+                            <span className="font-medium">Amount:</span>
+                            <span className="text-indigo-600">₹{formatCurrency(parseDecimalValue(amount) || 0)}</span>
+                        </div>
+                    </div>
+                )}
             </form>
         </BaseModal>
     );
 };
+
+// Contra Modal - API integrated bank-to-bank transfer
+export const ContraModal = ({
+    isOpen,
+    onClose,
+    onSubmit,
+    formatCurrency,
+    showSummary = true,
+    showFromBank = true,
+    showToBank = true,
+    fromBankDetails = null,
+    fromBankId = '',
+    toBankDetails = null,
+    toBankId = '',
+}) => {
+    const [loading, setLoading] = useState(false);
+    const [selectedFromBank, setSelectedFromBank] = useState(fromBankDetails || (fromBankId ? { bank_id: fromBankId, bank: 'Selected Bank' } : null));
+    const [selectedToBank, setSelectedToBank] = useState(toBankDetails || (toBankId ? { bank_id: toBankId, bank: 'Selected Bank' } : null));
+    const [showFromBankSearch, setShowFromBankSearch] = useState(false);
+    const [showToBankSearch, setShowToBankSearch] = useState(false);
+    const [transactionDate, setTransactionDate] = useState(new Date().toISOString().split('T')[0]);
+    const [amount, setAmount] = useState('');
+    const [formKey, setFormKey] = useState(0);
+
+    const hasPresetFromBank = Boolean(String(fromBankId || '').trim());
+    const hasPresetToBank = Boolean(String(toBankId || '').trim());
+    const shouldShowFromBankSelector = showFromBank && !hasPresetFromBank;
+    const shouldShowToBankSelector = showToBank && !hasPresetToBank;
+
+    useEffect(() => {
+        if (!isOpen) return;
+        setFormKey((k) => k + 1);
+        setSelectedFromBank(fromBankDetails || (fromBankId ? { bank_id: fromBankId, bank: 'Selected Bank' } : null));
+        setSelectedToBank(toBankDetails || (toBankId ? { bank_id: toBankId, bank: 'Selected Bank' } : null));
+        setShowFromBankSearch(false);
+        setShowToBankSearch(false);
+        setTransactionDate(new Date().toISOString().split('T')[0]);
+        setAmount('');
+        setLoading(false);
+    }, [isOpen, fromBankDetails, fromBankId, toBankDetails, toBankId]);
+
+    const effectiveFromBank = hasPresetFromBank
+        ? {
+            bank_id: fromBankId,
+            bank: fromBankDetails?.bank || fromBankDetails?.holder || 'Selected Bank',
+            balance: fromBankDetails?.balance ?? 0,
+        }
+        : selectedFromBank;
+    const effectiveToBank = hasPresetToBank
+        ? {
+            bank_id: toBankId,
+            bank: toBankDetails?.bank || toBankDetails?.holder || 'Selected Bank',
+            balance: toBankDetails?.balance ?? 0,
+        }
+        : selectedToBank;
+
+    const selectedFromBankId = String(effectiveFromBank?.bank_id || '');
+    const selectedToBankId = String(effectiveToBank?.bank_id || '');
+
+    const isContraFormValid =
+        Boolean(effectiveFromBank) &&
+        Boolean(effectiveToBank) &&
+        selectedFromBankId !== '' &&
+        selectedToBankId !== '' &&
+        selectedFromBankId !== selectedToBankId &&
+        parseDecimalValue(amount) > 0;
+
+    const handleSubmit = async (e) => {
+        e.preventDefault();
+        if (!effectiveFromBank || !effectiveToBank) {
+            toast.error('Please select both banks');
+            return;
+        }
+        if (String(effectiveFromBank.bank_id) === String(effectiveToBank.bank_id)) {
+            toast.error('Cannot transfer between the same bank account');
+            return;
+        }
+
+        const parsedAmount = parseDecimalValue(amount);
+        if (!parsedAmount || parsedAmount <= 0) {
+            toast.error('Please enter a valid amount');
+            return;
+        }
+
+        if (parsedAmount > parseDecimalValue(effectiveFromBank.balance || 0)) {
+            toast.error('Insufficient balance in source bank account');
+            return;
+        }
+
+        const formData = new FormData(e.target);
+        const description = formData.get('description');
+
+        const payload = {
+            party_1: effectiveFromBank.bank_id,
+            party_2: effectiveToBank.bank_id,
+            transaction_date: transactionDate,
+            amount: parsedAmount,
+            remark: description || `Contra transfer from ${effectiveFromBank.bank || 'source bank'} to ${effectiveToBank.bank || 'destination bank'}`,
+        };
+
+        setLoading(true);
+        try {
+            const response = await axios.post(
+                `${API_BASE_URL}/contra/create`,
+                payload,
+                { headers: getHeaders() }
+            );
+            if (response.data.success) {
+                toast.success(response.data.message || 'Contra transfer completed successfully');
+                if (onSubmit) onSubmit('CONTRA', response.data.data);
+                onClose();
+            } else {
+                toast.error(response.data.message || 'Failed to create contra transfer');
+            }
+        } catch (error) {
+            console.error('Error creating contra transfer:', error);
+            const errorMessage = error.response?.data?.message || error.response?.data?.error || error.message || 'Failed to create contra transfer';
+            toast.error(errorMessage);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const shouldShowContraSummary = showSummary && effectiveFromBank && effectiveToBank;
+
+    return (
+        <BaseModal
+            isOpen={isOpen}
+            onClose={onClose}
+            title="Bank Transfer (Contra)"
+            footer={(
+                <div className="flex justify-end gap-2">
+                    <button
+                        type="button"
+                        onClick={onClose}
+                        disabled={loading}
+                        className="px-4 py-2 bg-white border border-slate-300 text-slate-700 rounded-lg text-sm font-medium hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-slate-500/40 disabled:opacity-50 transition-all duration-200"
+                    >
+                        Cancel
+                    </button>
+                    <button
+                        type="submit"
+                        form="contra-form"
+                        disabled={loading || !isContraFormValid}
+                        className="px-4 py-2 bg-gradient-to-r from-indigo-600 to-indigo-700 text-white rounded-lg text-sm font-medium hover:from-indigo-700 hover:to-indigo-800 focus:outline-none focus:ring-2 focus:ring-indigo-500/40 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 inline-flex items-center justify-center min-w-[150px]"
+                    >
+                        {loading ? 'Processing...' : 'Transfer Funds'}
+                    </button>
+                </div>
+            )}
+        >
+            <form key={formKey} id="contra-form" onSubmit={handleSubmit} className="space-y-5">
+                {shouldShowFromBankSelector && (
+                    <div>
+                        <label className="block text-sm font-medium text-slate-700 mb-1.5">
+                            From Bank <span className="text-red-500">*</span>
+                        </label>
+                        {(!selectedFromBank || showFromBankSearch) ? (
+                            <BankSearchDropdown
+                                onSelect={(bank) => {
+                                    setSelectedFromBank(bank);
+                                    setShowFromBankSearch(false);
+                                }}
+                                selectedBankId={selectedFromBank?.bank_id}
+                                excludeBankId={effectiveToBank?.bank_id}
+                            />
+                        ) : (
+                            <SaleBankPreviewCard
+                                bank={selectedFromBank}
+                                onChangeBank={() => setShowFromBankSearch(true)}
+                                formatMoney={formatCurrency}
+                            />
+                        )}
+                    </div>
+                )}
+
+                {showFromBank && hasPresetFromBank && effectiveFromBank && (
+                    <div>
+                        <label className="block text-sm font-medium text-slate-700 mb-1.5">From Bank</label>
+                        <SaleBankPreviewCard
+                            bank={effectiveFromBank}
+                            formatMoney={formatCurrency}
+                            readOnly
+                        />
+                    </div>
+                )}
+
+                {shouldShowToBankSelector && (
+                    <div>
+                        <label className="block text-sm font-medium text-slate-700 mb-1.5">
+                            To Bank <span className="text-red-500">*</span>
+                        </label>
+                        {(!selectedToBank || showToBankSearch) ? (
+                            <BankSearchDropdown
+                                onSelect={(bank) => {
+                                    setSelectedToBank(bank);
+                                    setShowToBankSearch(false);
+                                }}
+                                selectedBankId={selectedToBank?.bank_id}
+                                excludeBankId={effectiveFromBank?.bank_id}
+                            />
+                        ) : (
+                            <SaleBankPreviewCard
+                                bank={selectedToBank}
+                                onChangeBank={() => setShowToBankSearch(true)}
+                                formatMoney={formatCurrency}
+                            />
+                        )}
+                    </div>
+                )}
+
+                {showToBank && hasPresetToBank && effectiveToBank && (
+                    <div>
+                        <label className="block text-sm font-medium text-slate-700 mb-1.5">To Bank</label>
+                        <SaleBankPreviewCard
+                            bank={effectiveToBank}
+                            formatMoney={formatCurrency}
+                            readOnly
+                        />
+                    </div>
+                )}
+
+                <div className="grid grid-cols-2 gap-4">
+                    <div>
+                        <label className="block text-sm font-medium text-slate-700 mb-1">
+                            Date <span className="text-red-500">*</span>
+                        </label>
+                        <DatePickerField
+                            value={transactionDate}
+                            onChange={setTransactionDate}
+                            mode="single"
+                            hideTabs={true}
+                            showResetButton={false}
+                            placeholder="Select date"
+                            buttonClassName="w-full px-4 py-3 border-2 border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                        />
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium text-slate-700 mb-1">
+                            Amount <span className="text-red-500">*</span>
+                        </label>
+                        <input
+                            type="text"
+                            name="amount"
+                            placeholder="Enter amount"
+                            required
+                            inputMode="decimal"
+                            value={amount}
+                            onChange={(e) => setAmount(sanitizeDecimalInput(e.target.value, 2))}
+                            className="w-full px-4 py-3 border-2 border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                        />
+                    </div>
+                </div>
+
+                <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">
+                        Description / Remark
+                    </label>
+                    <textarea
+                        name="description"
+                        placeholder="Enter description or remark"
+                        rows="2"
+                        className="w-full px-4 py-3 border-2 border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                    />
+                </div>
+
+                {shouldShowContraSummary && (
+                    <div className="bg-slate-50 p-3 rounded-lg border border-slate-200">
+                        <p className="text-xs text-slate-600 mb-1">Transaction Summary</p>
+                        {showFromBank && (
+                            <div className="flex items-center justify-between text-sm">
+                                <span className="font-medium">From Bank:</span>
+                                <span className="text-red-600">{effectiveFromBank?.bank || `Bank #${effectiveFromBank?.bank_id || ''}`}</span>
+                            </div>
+                        )}
+                        <div className={`flex items-center justify-between text-sm ${showFromBank ? 'mt-1' : ''}`}>
+                            <span className="font-medium">To Bank:</span>
+                            <span className="text-green-600">{effectiveToBank?.bank || `Bank #${effectiveToBank?.bank_id || ''}`}</span>
+                        </div>
+                        <div className="flex items-center justify-between text-sm mt-1">
+                            <span className="font-medium">Amount:</span>
+                            <span className="text-indigo-600">₹{formatCurrency(parseDecimalValue(amount) || 0)}</span>
+                        </div>
+                    </div>
+                )}
+            </form>
+        </BaseModal>
+    );
+};
+
 // Modal Manager Component
 export const TransactionModalManager = ({
     modalType,
@@ -4050,6 +4406,14 @@ export const TransactionModalManager = ({
     showClient = true,
     showSummary = true,
     bankPageClientLookup = false,
+    showFromBank = true,
+    showToBank = true,
+    fromBankDetails = null,
+    fromBankId = '',
+    toBankDetails = null,
+    toBankId = '',
+    showFromClient = true,
+    showToClient = true,
 }) => {
     const modalProps = {
         isOpen,
@@ -4067,6 +4431,14 @@ export const TransactionModalManager = ({
         showClient,
         showSummary,
         bankPageClientLookup,
+        showFromBank,
+        showToBank,
+        fromBankDetails,
+        fromBankId,
+        toBankDetails,
+        toBankId,
+        showFromClient,
+        showToClient,
     };
 
     switch (modalType) {
@@ -4082,6 +4454,8 @@ export const TransactionModalManager = ({
             return <ExpenseModal {...modalProps} />;
         case 'JOURNAL':
             return <JournalModal {...modalProps} />;
+        case 'CONTRA':
+            return <ContraModal {...modalProps} />;
         default:
             return null;
     }

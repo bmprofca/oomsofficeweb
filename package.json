@@ -20,6 +20,7 @@
     "axios": "^1.13.4",
     "bootstrap": "^5.3.8",
     "framer-motion": "^12.23.24",
+    "ifsc": "^2.0.50",
     "lodash.debounce": "^4.0.8",
     "lodash.get": "^4.4.2",
     "lucide-react": "^0.567.0",

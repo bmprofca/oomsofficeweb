@@ -1,6 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
-    FiSearch,
     FiPlus,
     FiSettings,
     FiEdit,
@@ -14,23 +13,20 @@ import {
     FiMail,
     FiMessageSquare,
     FiChevronRight,
-    FiTrendingUp,
-    FiFilter,
-    FiChevronDown,
-    FiChevronUp,
-    FiChevronLeft,
-    FiChevronRight as FiChevronRightIcon
+    FiChevronDown
 } from 'react-icons/fi';
 import { PiExportBold } from "react-icons/pi";
 import { PiFilePdfDuotone, PiMicrosoftExcelLogoDuotone } from "react-icons/pi";
+import { TbCurrencyRupee } from 'react-icons/tb';
 import { AiOutlineMail } from "react-icons/ai";
 import { FaWhatsapp } from "react-icons/fa6";
 import { motion, AnimatePresence } from 'framer-motion';
 import EmailSelectionModal from '../components/email-selection';
 import MobileSelectionModal from '../components/mobile-selection';
 import PurchaseForm from '../components/purchase-form';
-import DateFilter from '../components/DateFilter';
+import { DateRangePickerField } from '../components/PortalDatePicker';
 import { Header, Sidebar } from '../components/header';
+import TablePagination from '../components/TablePagination';
 import API_BASE_URL from '../utils/api-controller';
 import getHeaders from '../utils/get-headers';
 
@@ -40,15 +36,18 @@ const ViewPurchase = () => {
         const saved = localStorage.getItem('sidebarMinimized');
         return saved ? JSON.parse(saved) : false;
     });
-    const [dateRange, setDateRange] = useState('');
-    const [fromToDate, setFromToDate] = useState('');
+    const [fromDate, setFromDate] = useState(() => {
+        const d = new Date();
+        d.setDate(1);
+        return d.toISOString().split('T')[0];
+    });
+    const [toDate, setToDate] = useState(() => new Date().toISOString().split('T')[0]);
     const [loading, setLoading] = useState(false);
     const [purchases, setPurchases] = useState([]);
     const [purchaseFormModal, setPurchaseFormModal] = useState(false);
     const [summary, setSummary] = useState({
+        count: 0,
         total: 0,
-        tax: 0,
-        grand_total: 0
     });
 
     // State for dropdown menus
@@ -67,8 +66,9 @@ const ViewPurchase = () => {
     const [itemsPerPage, setItemsPerPage] = useState(10);
     const [showAll, setShowAll] = useState(false);
     const [totalItems, setTotalItems] = useState(0);
+    const [isLastPage, setIsLastPage] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
-    const [selectedDateFilter, setSelectedDateFilter] = useState(null);
+    const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
     const [error, setError] = useState(null);
 
     // Persist sidebar minimized state
@@ -108,7 +108,7 @@ const ViewPurchase = () => {
 
     const handleExport = (type, data = null) => {
         setExportModal({ open: true, type, data });
-        
+
         // Simulate export process
         setTimeout(() => {
             setExportModal({ open: false, type: '', data: null });
@@ -116,32 +116,18 @@ const ViewPurchase = () => {
         }, 1500);
     };
 
-    // Initialize with current month date range
+    // Debounce search input (same behavior as sale page)
     useEffect(() => {
-        const today = new Date();
-        const firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
-        
-        const formatDateForAPI = (date) => {
-            return date.toISOString().split('T')[0];
-        };
-        
-        const formatDateForDisplay = (date) => {
-            return date.toLocaleDateString('en-GB', {
-                day: '2-digit',
-                month: '2-digit',
-                year: 'numeric'
-            }).replace(/\//g, '/');
-        };
+        const timerId = setTimeout(() => {
+            setDebouncedSearchTerm(searchTerm);
+        }, 500);
+        return () => clearTimeout(timerId);
+    }, [searchTerm]);
 
-        const fromDate = formatDateForAPI(firstDay);
-        const toDate = formatDateForAPI(today);
-        const fromDisplay = formatDateForDisplay(firstDay);
-        const toDisplay = formatDateForDisplay(today);
-
-        setDateRange(`${fromDisplay} - ${toDisplay}`);
-        setFromToDate(`From ${fromDisplay} to ${toDisplay}`);
-        fetchPurchaseData(fromDate, toDate, 1, itemsPerPage, '');
-    }, []);
+    // Reset page when filters/search/page size change
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [debouncedSearchTerm, fromDate, toDate, itemsPerPage]);
 
     // Format currency
     const formatCurrency = (amount) => {
@@ -152,41 +138,41 @@ const ViewPurchase = () => {
     };
 
     // API call to fetch purchase data
-    const fetchPurchaseData = async (fromDate = null, toDate = null, pageNo = currentPage, limit = itemsPerPage, search = searchTerm) => {
+    const fetchPurchaseData = useCallback(async (fromDateArg = null, toDateArg = null, pageNo = currentPage, limit = itemsPerPage, search = debouncedSearchTerm) => {
         setLoading(true);
         setError(null);
-        
+
         try {
             // Get current date if not provided
             const today = new Date();
             const firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
-            
+
             const formatDateForAPI = (date) => {
                 return date.toISOString().split('T')[0];
             };
-            
-            const from = fromDate || formatDateForAPI(firstDay);
-            const to = toDate || formatDateForAPI(today);
-            
+
+            const from = fromDateArg || formatDateForAPI(firstDay);
+            const to = toDateArg || formatDateForAPI(today);
+
             // Build URL with query parameters
             let url = `${API_BASE_URL}/purchase/list?page_no=${pageNo}&limit=${limit}&from_date=${from}&to_date=${to}`;
-            
+
             if (search && search.trim()) {
                 url += `&search=${encodeURIComponent(search.trim())}`;
             }
-            
+
             const response = await fetch(url, {
                 method: 'GET',
                 headers: getHeaders(),
                 credentials: 'include'
             });
-            
+
             if (!response.ok) {
                 throw new Error(`HTTP error! status: ${response.status}`);
             }
-            
+
             const result = await response.json();
-            
+
             if (result.success) {
                 // Transform API data to match component structure
                 const transformedData = result.data.map(item => ({
@@ -195,40 +181,39 @@ const ViewPurchase = () => {
                     date: item.transaction_date,
                     particulars: item.remark || 'No particulars',
                     purchase_from: item.purchase_type,
-                    firm_name: item.purchase_type === 'client' ? item.purchase_party?.name : 
-                              item.purchase_type === 'bank' ? item.purchase_party?.holder : '',
+                    firm_name: item.purchase_type === 'client' ? item.purchase_party?.name :
+                        item.purchase_type === 'bank' ? item.purchase_party?.holder : '',
                     remark: item.remark,
-                    total: parseFloat(item.calculation?.subtotal || 0),
-                    tax: parseFloat(item.calculation?.gst_value || 0),
-                    grand_total: parseFloat(item.calculation?.grand_total || 0),
+                    total: parseFloat(item.amount || 0),
+                    grand_total: parseFloat(item.amount || 0),
                     task_id: null,
                     purchase_party: item.purchase_party,
                     calculation: item.calculation
                 }));
-                
+
                 setPurchases(transformedData);
-                
+
                 // Calculate summary from stats
                 if (result.stats) {
+                    const statsAmount = parseFloat(result.stats.amount || 0);
                     setSummary({
-                        total: result.stats.amount || 0,
-                        tax: result.stats.tax || 0,
-                        grand_total: result.stats.amount || 0
+                        count: Number(result.stats.count) || 0,
+                        total: statsAmount,
                     });
                 } else {
                     // Fallback calculation
                     const summaryData = transformedData.reduce((acc, purchase) => ({
+                        count: acc.count + 1,
                         total: acc.total + purchase.total,
-                        tax: acc.tax + purchase.tax,
-                        grand_total: acc.grand_total + purchase.grand_total
-                    }), { total: 0, tax: 0, grand_total: 0 });
+                    }), { count: 0, total: 0 });
                     setSummary(summaryData);
                 }
-                
+
                 // Update pagination info
                 if (result.meta) {
                     setTotalItems(result.meta.total);
                     setItemsPerPage(result.meta.limit);
+                    setIsLastPage(Boolean(result.meta.is_last_page));
                     // Check if we're on the last page
                     if (result.meta.is_last_page && currentPage !== result.meta.page_no) {
                         setCurrentPage(result.meta.page_no);
@@ -237,118 +222,37 @@ const ViewPurchase = () => {
             } else {
                 console.error('API returned error:', result);
                 setPurchases([]);
-                setSummary({ total: 0, tax: 0, grand_total: 0 });
+                setSummary({ count: 0, total: 0 });
                 setError(result.message || 'Failed to fetch purchase data');
             }
         } catch (error) {
             console.error('Error fetching purchase data:', error);
             setPurchases([]);
-            setSummary({ total: 0, tax: 0, grand_total: 0 });
+            setSummary({ count: 0, total: 0 });
             setError(error.message || 'Network error. Please check your connection.');
         } finally {
             setLoading(false);
         }
-    };
+    }, [currentPage, itemsPerPage, debouncedSearchTerm]);
 
-    // Handle search
-    const handleSearch = () => {
-        const [fromDisplay, toDisplay] = dateRange.split(' - ');
-        
-        // Parse dates from display format to API format
-        const parseDate = (dateStr) => {
-            const [day, month, year] = dateStr.split('/');
-            return `${year}-${month}-${day}`;
-        };
-        
-        const fromDate = parseDate(fromDisplay);
-        const toDate = parseDate(toDisplay);
-        
-        setFromToDate(`From ${fromDisplay} to ${toDisplay}`);
-        setCurrentPage(1); // Reset to first page on search
-        fetchPurchaseData(fromDate, toDate, 1, itemsPerPage, searchTerm);
-    };
-
-    // Handle date filter change
-    const handleDateFilterChange = (filter) => {
-        console.log('Selected filter:', filter);
-        setSelectedDateFilter(filter);
-        
-        if (filter.range) {
-            setDateRange(filter.range);
-            const [fromDisplay, toDisplay] = filter.range.split(' - ');
-            
-            // Parse dates from display format to API format
-            const parseDate = (dateStr) => {
-                const [day, month, year] = dateStr.split('/');
-                return `${year}-${month}-${day}`;
-            };
-            
-            const fromDate = parseDate(fromDisplay);
-            const toDate = parseDate(toDisplay);
-            
-            setFromToDate(`From ${fromDisplay} to ${toDisplay}`);
-            setCurrentPage(1); // Reset to first page on date change
-            fetchPurchaseData(fromDate, toDate, 1, itemsPerPage, searchTerm);
-        }
-    };
+    // Fetch on filters/pagination/search change
+    useEffect(() => {
+        fetchPurchaseData(fromDate, toDate, currentPage, itemsPerPage, debouncedSearchTerm);
+    }, [fetchPurchaseData, fromDate, toDate, currentPage, itemsPerPage, debouncedSearchTerm]);
 
     // Handle search input change
     const handleSearchInputChange = (e) => {
         setSearchTerm(e.target.value);
     };
 
-    // Handle search on enter key
-    const handleSearchKeyPress = (e) => {
-        if (e.key === 'Enter') {
-            handleSearch();
-        }
-    };
-
     // Handle page change
     const handlePageChange = (newPage) => {
         setCurrentPage(newPage);
-        
-        const [fromDisplay, toDisplay] = dateRange.split(' - ');
-        const parseDate = (dateStr) => {
-            const [day, month, year] = dateStr.split('/');
-            return `${year}-${month}-${day}`;
-        };
-        
-        const fromDate = parseDate(fromDisplay);
-        const toDate = parseDate(toDisplay);
-        
-        fetchPurchaseData(fromDate, toDate, newPage, itemsPerPage, searchTerm);
     };
 
     // Handle items per page change
     const handleItemsPerPageChange = (newLimit) => {
         setItemsPerPage(newLimit);
-        setCurrentPage(1);
-        
-        const [fromDisplay, toDisplay] = dateRange.split(' - ');
-        const parseDate = (dateStr) => {
-            const [day, month, year] = dateStr.split('/');
-            return `${year}-${month}-${day}`;
-        };
-        
-        const fromDate = parseDate(fromDisplay);
-        const toDate = parseDate(toDisplay);
-        
-        fetchPurchaseData(fromDate, toDate, 1, newLimit, searchTerm);
-    };
-
-    // Handle refresh
-    const handleRefresh = () => {
-        const [fromDisplay, toDisplay] = dateRange.split(' - ');
-        const parseDate = (dateStr) => {
-            const [day, month, year] = dateStr.split('/');
-            return `${year}-${month}-${day}`;
-        };
-        
-        const fromDate = parseDate(fromDisplay);
-        const toDate = parseDate(toDisplay);
-        
-        fetchPurchaseData(fromDate, toDate, currentPage, itemsPerPage, searchTerm);
     };
 
     // Get edit link and invoice link based on purchase_from
@@ -417,10 +321,9 @@ const ViewPurchase = () => {
 
     // Calculate paginated summary (for current page)
     const paginatedSummary = currentItems.reduce((acc, purchase) => ({
+        count: acc.count + 1,
         total: acc.total + purchase.total,
-        tax: acc.tax + purchase.tax,
-        grand_total: acc.grand_total + purchase.grand_total
-    }), { total: 0, tax: 0, grand_total: 0 });
+    }), { count: 0, total: 0 });
 
     // Skeleton loader component
     const SkeletonRow = () => (
@@ -529,7 +432,7 @@ const ViewPurchase = () => {
                 isMinimized={isMinimized}
                 setIsMinimized={setIsMinimized}
             />
-            
+
             {/* Fixed Sidebar */}
             <Sidebar
                 mobileMenuOpen={mobileMenuOpen}
@@ -564,8 +467,8 @@ const ViewPurchase = () => {
                     )}
 
                     {/* Header Stats Cards - Smaller */}
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-4">
-                        <motion.div 
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-4">
+                        <motion.div
                             initial={{ opacity: 0, y: 10 }}
                             animate={{ opacity: 1, y: 0 }}
                             transition={{ duration: 0.2 }}
@@ -573,189 +476,153 @@ const ViewPurchase = () => {
                         >
                             <div className="flex items-center justify-between">
                                 <div>
-                                    <p className="text-blue-100 text-xs font-medium">Total Value</p>
-                                    <h3 className="text-lg font-bold mt-1">₹{formatCurrency(summary.total)}</h3>
+                                    <p className="text-blue-100 text-xs font-medium">No. of Purchases</p>
+                                    <h3 className="text-lg font-bold mt-1">{summary.count}</h3>
                                 </div>
-                                <FiDollarSign className="w-5 h-5 opacity-80" />
+                                <FiFileText className="w-5 h-5 opacity-80" />
                             </div>
                         </motion.div>
 
-                        <motion.div 
+                        <motion.div
                             initial={{ opacity: 0, y: 10 }}
                             animate={{ opacity: 1, y: 0 }}
                             transition={{ duration: 0.2, delay: 0.1 }}
-                            className="bg-gradient-to-r from-emerald-500 to-emerald-600 rounded-lg p-4 text-white shadow-md"
-                        >
-                            <div className="flex items-center justify-between">
-                                <div>
-                                    <p className="text-emerald-100 text-xs font-medium">Total Tax</p>
-                                    <h3 className="text-lg font-bold mt-1">₹{formatCurrency(summary.tax)}</h3>
-                                </div>
-                                <FiTrendingUp className="w-5 h-5 opacity-80" />
-                            </div>
-                        </motion.div>
-
-                        <motion.div 
-                            initial={{ opacity: 0, y: 10 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            transition={{ duration: 0.2, delay: 0.2 }}
                             className="bg-gradient-to-r from-violet-500 to-violet-600 rounded-lg p-4 text-white shadow-md"
                         >
                             <div className="flex items-center justify-between">
                                 <div>
-                                    <p className="text-violet-100 text-xs font-medium">Grand Total</p>
-                                    <h3 className="text-lg font-bold mt-1">₹{formatCurrency(summary.grand_total)}</h3>
+                                    <p className="text-violet-100 text-xs font-medium">Total Amount</p>
+                                    <h3 className="text-lg font-bold mt-1">₹{formatCurrency(summary.total)}</h3>
                                 </div>
-                                <FiCreditCard className="w-5 h-5 opacity-80" />
+                                <TbCurrencyRupee className="w-5 h-5 opacity-80" />
                             </div>
                         </motion.div>
                     </div>
 
-                    {/* Search and Filter Bar */}
-                    <div className="mb-4 flex gap-2">
-                        <div className="relative flex-1">
-                            <FiSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 w-4 h-4" />
-                            <input
-                                type="text"
-                                placeholder="Search by invoice no, particulars, firm name..."
-                                value={searchTerm}
-                                onChange={handleSearchInputChange}
-                                onKeyPress={handleSearchKeyPress}
-                                className="w-full pl-9 pr-4 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
-                            />
-                        </div>
-                        <button
-                            onClick={handleSearch}
-                            className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors"
-                        >
-                            Search
-                        </button>
-                        <button
-                            onClick={handleRefresh}
-                            className="px-4 py-2 bg-slate-600 text-white rounded-lg text-sm font-medium hover:bg-slate-700 transition-colors"
-                        >
-                            Refresh
-                        </button>
-                    </div>
-
                     {/* Main Card */}
-                    <motion.div 
+                    <motion.div
                         initial={{ opacity: 0, scale: 0.98 }}
                         animate={{ opacity: 1, scale: 1 }}
                         transition={{ duration: 0.3 }}
-                        className="bg-white rounded-xl shadow-lg border border-slate-200"
+                        className="bg-white rounded-2xl shadow-lg border border-slate-200 overflow-hidden"
                     >
                         {/* Card Header */}
-                        <div className="border-b border-slate-200 px-6 py-4 bg-gradient-to-r from-slate-50 to-white sticky top-0 z-10">
-                            <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
-                                <div>
-                                    <div className="flex items-center gap-2 mb-1">
-                                        <div className="p-1.5 bg-blue-100 rounded-lg">
-                                            <FiDollarSign className="w-4 h-4 text-blue-600" />
-                                        </div>
-                                        <h5 className="text-lg font-bold text-slate-800">
-                                            Purchase Register
-                                        </h5>
+                        <div className="sticky top-0 z-10 border-b border-slate-200 bg-gradient-to-r from-slate-50 to-white py-2.5 pl-3 pr-0 sm:pl-4 sm:pr-0">
+                            <div className="flex w-full min-w-0 flex-col gap-3 lg:flex-row lg:items-center lg:justify-between lg:gap-6">
+                                <div className="flex min-w-0 w-full flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:gap-x-3 sm:gap-y-2 lg:min-w-0 lg:flex-1 lg:flex-nowrap lg:items-center lg:gap-x-4">
+                                    <h5 className="shrink-0 text-sm font-bold tracking-tight text-slate-800 sm:text-base mr-4 sm:mr-6 lg:mr-8">
+                                        Purchase Register
+                                    </h5>
+                                    <input
+                                        type="text"
+                                        placeholder="Search…"
+                                        value={searchTerm}
+                                        onChange={handleSearchInputChange}
+                                        className="h-9 w-full min-w-0 flex-1 rounded-lg border border-slate-300 px-3 text-sm transition-all focus:border-transparent focus:outline-none focus:ring-2 focus:ring-blue-500 sm:min-w-[18rem] lg:min-w-[22rem] xl:min-w-[28rem]"
+                                    />
+                                    <div className="w-full min-w-0 max-w-full shrink-0 overflow-x-auto sm:min-w-[10rem] sm:max-w-[14rem] sm:overflow-x-auto lg:max-w-[14rem] xl:max-w-[16rem]">
+                                        <DateRangePickerField
+                                            value={{ start: fromDate, end: toDate }}
+                                            onChange={(range) => {
+                                                setFromDate(range?.start || '');
+                                                setToDate(range?.end || '');
+                                            }}
+                                            placeholder="Select date range"
+                                            mode="range"
+                                            initialTab="quick"
+                                            defaultQuickKey="tm"
+                                            quickOptionKeys={['tw', 'lw', 'lm', 'tm', 'lf', 'fy']}
+                                            showRangeHint={false}
+                                            showResetButton={false}
+                                            truncateRangeLabel={false}
+                                            buttonClassName="w-full min-w-0 px-3.5 py-2 bg-white border border-slate-200 rounded-lg text-sm text-slate-600 hover:border-indigo-400 focus:outline-none transition-all"
+                                            wrapperClassName="w-full min-w-0"
+                                        />
                                     </div>
-                                    {fromToDate && (
-                                        <div className="flex items-center gap-1 text-slate-600">
-                                            <FiFilter className="w-3 h-3" />
-                                            <p className="text-xs font-medium">
-                                                {fromToDate}
-                                            </p>
-                                        </div>
-                                    )}
                                 </div>
-
-                                <div className="flex flex-col lg:flex-row gap-3 w-full lg:w-auto">
-                                    {/* Date Filter Component */}
-                                    <div className="w-full lg:w-auto">
-                                        <DateFilter onChange={handleDateFilterChange} />
-                                    </div>
-
-                                    <div className="flex gap-2">
-                                        {/* Export Dropdown */}
-                                        <div className="dropdown-container relative">
-                                            <motion.button
-                                                onClick={() => setShowAddDropdown(!showAddDropdown)}
-                                                className="px-4 py-2.5 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white rounded-lg text-xs font-semibold transition-all duration-200 flex items-center gap-2 shadow-sm hover:shadow"
-                                                whileHover={{ scale: 1.02 }}
-                                                whileTap={{ scale: 0.98 }}
-                                            >
-                                                <PiExportBold className="w-4 h-4" />
-                                                Export
-                                                <FiChevronRight className={`w-3 h-3 transition-transform ${showAddDropdown ? 'rotate-90' : ''}`} />
-                                            </motion.button>
-
-                                            <AnimatePresence>
-                                                {showAddDropdown && (
-                                                    <motion.div
-                                                        initial={{ opacity: 0, y: 5 }}
-                                                        animate={{ opacity: 1, y: 0 }}
-                                                        exit={{ opacity: 0, y: 5 }}
-                                                        className="absolute right-0 mt-1 w-56 bg-white rounded-lg shadow-xl border border-slate-200 z-50 overflow-hidden"
-                                                    >
-                                                        <div className="py-1">
-                                                            <button
-                                                                onClick={() => handleExport('pdf')}
-                                                                className="flex items-center w-full px-3 py-2 text-sm text-slate-700 hover:bg-blue-50 transition-all duration-150 group"
-                                                            >
-                                                                <div className="p-1.5 bg-red-50 rounded mr-2 group-hover:bg-red-100 transition-colors">
-                                                                    <PiFilePdfDuotone className="w-3.5 h-3.5 text-red-500" />
-                                                                </div>
-                                                                <div className="text-left">
-                                                                    <div className="font-medium text-xs">Export as PDF</div>
-                                                                </div>
-                                                            </button>
-                                                            <button
-                                                                onClick={() => handleExport('excel')}
-                                                                className="flex items-center w-full px-3 py-2 text-sm text-slate-700 hover:bg-blue-50 transition-all duration-150 group"
-                                                            >
-                                                                <div className="p-1.5 bg-green-50 rounded mr-2 group-hover:bg-green-100 transition-colors">
-                                                                    <PiMicrosoftExcelLogoDuotone className="w-3.5 h-3.5 text-green-500" />
-                                                                </div>
-                                                                <div className="text-left">
-                                                                    <div className="font-medium text-xs">Export as Excel</div>
-                                                                </div>
-                                                            </button>
-                                                            <button
-                                                                onClick={() => setWhatsappModalOpen(true)}
-                                                                className="flex items-center w-full px-3 py-2 text-sm text-slate-700 hover:bg-blue-50 transition-all duration-150 group"
-                                                            >
-                                                                <div className="p-1.5 bg-green-50 rounded mr-2 group-hover:bg-green-100 transition-colors">
-                                                                    <FaWhatsapp className="w-3.5 h-3.5 text-green-500" />
-                                                                </div>
-                                                                <div className="text-left">
-                                                                    <div className="font-medium text-xs">Share via WhatsApp</div>
-                                                                </div>
-                                                            </button>
-                                                            <button
-                                                                onClick={() => setIsEmailModalOpen(true)}
-                                                                className="flex items-center w-full px-3 py-2 text-sm text-slate-700 hover:bg-blue-50 transition-all duration-150 group"
-                                                            >
-                                                                <div className="p-1.5 bg-blue-50 rounded mr-2 group-hover:bg-blue-100 transition-colors">
-                                                                    <AiOutlineMail className="w-3.5 h-3.5 text-blue-500" />
-                                                                </div>
-                                                                <div className="text-left">
-                                                                    <div className="font-medium text-xs">Share via Email</div>
-                                                                </div>
-                                                            </button>
-                                                        </div>
-                                                    </motion.div>
-                                                )}
-                                            </AnimatePresence>
-                                        </div>
-
+                                <div className="flex w-full shrink-0 items-center justify-end gap-2 sm:w-auto lg:pl-1">
+                                    <div className="dropdown-container relative shrink-0">
                                         <motion.button
-                                            onClick={() => setPurchaseFormModal(true)}
-                                            className="px-4 py-2.5 bg-gradient-to-r from-emerald-600 to-emerald-700 hover:from-emerald-700 hover:to-emerald-800 text-white rounded-lg text-xs font-semibold transition-all duration-200 flex items-center gap-2 shadow-sm hover:shadow"
+                                            type="button"
+                                            onClick={() => setShowAddDropdown(!showAddDropdown)}
+                                            className="inline-flex h-9 items-center justify-center gap-1.5 rounded-lg bg-gradient-to-r from-blue-600 to-blue-700 px-2.5 text-xs font-semibold text-white shadow-sm transition-all duration-200 hover:from-blue-700 hover:to-blue-800 hover:shadow sm:h-10 sm:px-3"
                                             whileHover={{ scale: 1.02 }}
                                             whileTap={{ scale: 0.98 }}
                                         >
-                                            <FiPlus className="w-4 h-4" />
-                                            Add Purchase
+                                            <PiExportBold className="h-4 w-4 shrink-0" />
+                                            <span className="whitespace-nowrap">Export</span>
+                                            <FiChevronDown className={`h-3.5 w-3.5 shrink-0 opacity-90 transition-transform ${showAddDropdown ? 'rotate-180' : ''}`} />
                                         </motion.button>
+
+                                        <AnimatePresence>
+                                            {showAddDropdown && (
+                                                <motion.div
+                                                    initial={{ opacity: 0, y: 5 }}
+                                                    animate={{ opacity: 1, y: 0 }}
+                                                    exit={{ opacity: 0, y: 5 }}
+                                                    className="absolute right-0 z-50 mt-1 w-56 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-xl"
+                                                >
+                                                    <div className="py-1">
+                                                        <button
+                                                            onClick={() => handleExport('pdf')}
+                                                            className="flex items-center w-full px-3 py-2 text-sm text-slate-700 hover:bg-blue-50 transition-all duration-150 group"
+                                                        >
+                                                            <div className="p-1.5 bg-red-50 rounded mr-2 group-hover:bg-red-100 transition-colors">
+                                                                <PiFilePdfDuotone className="w-3.5 h-3.5 text-red-500" />
+                                                            </div>
+                                                            <div className="text-left">
+                                                                <div className="font-medium text-xs">Export as PDF</div>
+                                                            </div>
+                                                        </button>
+                                                        <button
+                                                            onClick={() => handleExport('excel')}
+                                                            className="flex items-center w-full px-3 py-2 text-sm text-slate-700 hover:bg-blue-50 transition-all duration-150 group"
+                                                        >
+                                                            <div className="p-1.5 bg-green-50 rounded mr-2 group-hover:bg-green-100 transition-colors">
+                                                                <PiMicrosoftExcelLogoDuotone className="w-3.5 h-3.5 text-green-500" />
+                                                            </div>
+                                                            <div className="text-left">
+                                                                <div className="font-medium text-xs">Export as Excel</div>
+                                                            </div>
+                                                        </button>
+                                                        <button
+                                                            onClick={() => setWhatsappModalOpen(true)}
+                                                            className="flex items-center w-full px-3 py-2 text-sm text-slate-700 hover:bg-blue-50 transition-all duration-150 group"
+                                                        >
+                                                            <div className="p-1.5 bg-green-50 rounded mr-2 group-hover:bg-green-100 transition-colors">
+                                                                <FaWhatsapp className="w-3.5 h-3.5 text-green-500" />
+                                                            </div>
+                                                            <div className="text-left">
+                                                                <div className="font-medium text-xs">Share via WhatsApp</div>
+                                                            </div>
+                                                        </button>
+                                                        <button
+                                                            onClick={() => setIsEmailModalOpen(true)}
+                                                            className="flex items-center w-full px-3 py-2 text-sm text-slate-700 hover:bg-blue-50 transition-all duration-150 group"
+                                                        >
+                                                            <div className="p-1.5 bg-blue-50 rounded mr-2 group-hover:bg-blue-100 transition-colors">
+                                                                <AiOutlineMail className="w-3.5 h-3.5 text-blue-500" />
+                                                            </div>
+                                                            <div className="text-left">
+                                                                <div className="font-medium text-xs">Share via Email</div>
+                                                            </div>
+                                                        </button>
+                                                    </div>
+                                                </motion.div>
+                                            )}
+                                        </AnimatePresence>
                                     </div>
+
+                                    <motion.button
+                                        type="button"
+                                        onClick={() => setPurchaseFormModal(true)}
+                                        className="mr-2 inline-flex h-9 shrink-0 items-center justify-center gap-1.5 rounded-lg bg-gradient-to-r from-emerald-600 to-emerald-700 px-2.5 text-xs font-semibold text-white shadow-sm transition-all duration-200 hover:from-emerald-700 hover:to-emerald-800 hover:shadow sm:mr-3 sm:h-10 sm:px-3"
+                                        whileHover={{ scale: 1.02 }}
+                                        whileTap={{ scale: 0.98 }}
+                                    >
+                                        <FiPlus className="h-4 w-4 shrink-0" />
+                                        <span className="whitespace-nowrap">Create</span>
+                                    </motion.button>
                                 </div>
                             </div>
                         </div>
@@ -778,12 +645,6 @@ const ViewPurchase = () => {
                                             Voucher No
                                         </th>
                                         <th className="text-center p-3 font-semibold text-slate-700 text-[10px] uppercase tracking-wider min-w-[100px]">
-                                            T Value
-                                        </th>
-                                        <th className="text-center p-3 font-semibold text-slate-700 text-[10px] uppercase tracking-wider min-w-[100px]">
-                                            Tax
-                                        </th>
-                                        <th className="text-center p-3 font-semibold text-slate-700 text-[10px] uppercase tracking-wider min-w-[100px]">
                                             Total
                                         </th>
                                         <th className="text-center p-3 font-semibold text-slate-700 text-[10px] uppercase tracking-wider min-w-[80px]">
@@ -799,21 +660,12 @@ const ViewPurchase = () => {
                                         ))
                                     ) : purchases.length === 0 ? (
                                         <tr>
-                                            <td colSpan="8" className="text-center py-8 text-slate-500">
+                                            <td colSpan="6" className="text-center py-8 text-slate-500">
                                                 <div className="flex flex-col items-center justify-center">
                                                     <div className="p-3 bg-slate-100 rounded-full mb-3">
                                                         <FiFileText className="w-8 h-8 text-slate-400" />
                                                     </div>
                                                     <p className="text-slate-600 text-sm font-medium mb-1">No purchase records found</p>
-                                                    <p className="text-slate-500 text-xs mb-4">Start by creating your first purchase entry</p>
-                                                    <motion.button
-                                                        onClick={() => setPurchaseFormModal(true)}
-                                                        className="px-4 py-2 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-lg text-xs font-semibold hover:shadow transition-all duration-200"
-                                                        whileHover={{ scale: 1.02 }}
-                                                        whileTap={{ scale: 0.98 }}
-                                                    >
-                                                        Create Your First Purchase
-                                                    </motion.button>
                                                 </div>
                                             </td>
                                         </tr>
@@ -849,13 +701,12 @@ const ViewPurchase = () => {
                                                             </div>
                                                             <div className="flex flex-col items-center gap-1 mt-1">
                                                                 {purchase.purchase_from && (
-                                                                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-medium capitalize ${
-                                                                        purchase.purchase_from === 'client' ? 'bg-blue-100 text-blue-700' :
+                                                                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-medium capitalize ${purchase.purchase_from === 'client' ? 'bg-blue-100 text-blue-700' :
                                                                         purchase.purchase_from === 'ca' ? 'bg-purple-100 text-purple-700' :
-                                                                        purchase.purchase_from === 'bank' ? 'bg-amber-100 text-amber-700' :
-                                                                        purchase.purchase_from === 'capital' ? 'bg-emerald-100 text-emerald-700' :
-                                                                        'bg-slate-100 text-slate-700'
-                                                                    }`}>
+                                                                            purchase.purchase_from === 'bank' ? 'bg-amber-100 text-amber-700' :
+                                                                                purchase.purchase_from === 'capital' ? 'bg-emerald-100 text-emerald-700' :
+                                                                                    'bg-slate-100 text-slate-700'
+                                                                        }`}>
                                                                         {purchase.purchase_from}
                                                                     </span>
                                                                 )}
@@ -876,16 +727,6 @@ const ViewPurchase = () => {
                                                     <td className="text-center p-3 align-middle">
                                                         <span className="inline-flex items-center justify-center bg-gradient-to-r from-slate-100 to-slate-200 text-slate-800 font-bold px-3 py-1.5 rounded text-xs border border-slate-300/50 shadow-xs">
                                                             {purchase.invoice_no}
-                                                        </span>
-                                                    </td>
-                                                    <td className="text-center p-3 align-middle">
-                                                        <span className="inline-flex items-center justify-center bg-gradient-to-r from-green-50 to-green-100 text-green-800 font-bold px-3 py-1.5 rounded text-xs min-w-[90px] shadow-xs">
-                                                            ₹{formatCurrency(purchase.total)}
-                                                        </span>
-                                                    </td>
-                                                    <td className="text-center p-3 align-middle">
-                                                        <span className="inline-flex items-center justify-center bg-gradient-to-r from-amber-50 to-amber-100 text-amber-800 font-bold px-3 py-1.5 rounded text-xs min-w-[90px] shadow-xs">
-                                                            ₹{formatCurrency(purchase.tax)}
                                                         </span>
                                                     </td>
                                                     <td className="text-center p-3 align-middle">
@@ -964,7 +805,7 @@ const ViewPurchase = () => {
                                                                 )}
                                                             </AnimatePresence>
                                                         </div>
-                                                     </td>
+                                                    </td>
                                                 </motion.tr>
                                             );
                                         })
@@ -972,73 +813,18 @@ const ViewPurchase = () => {
                                 </tbody>
                             </table>
 
-                            {/* Pagination Controls */}
-                            {!loading && purchases.length > 0 && totalPages > 1 && (
-                                <div className="border-t border-slate-200 bg-gradient-to-r from-slate-50 to-slate-100">
-                                    <div className="flex flex-col sm:flex-row justify-between items-center px-4 py-3 gap-3">
-                                        <div className="text-xs text-slate-600">
-                                            Showing {((currentPage - 1) * itemsPerPage) + 1} to {Math.min(currentPage * itemsPerPage, totalItems)} of {totalItems} entries
-                                        </div>
-                                        <div className="flex items-center gap-2">
-                                            <button
-                                                onClick={() => handlePageChange(currentPage - 1)}
-                                                disabled={currentPage === 1}
-                                                className="px-3 py-1.5 text-xs font-medium rounded-lg border border-slate-300 bg-white hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-1"
-                                            >
-                                                <FiChevronLeft className="w-3 h-3" />
-                                                Previous
-                                            </button>
-                                            <div className="flex items-center gap-1">
-                                                {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                                                    let pageNumber;
-                                                    if (totalPages <= 5) {
-                                                        pageNumber = i + 1;
-                                                    } else if (currentPage <= 3) {
-                                                        pageNumber = i + 1;
-                                                    } else if (currentPage >= totalPages - 2) {
-                                                        pageNumber = totalPages - 4 + i;
-                                                    } else {
-                                                        pageNumber = currentPage - 2 + i;
-                                                    }
-                                                    
-                                                    return (
-                                                        <button
-                                                            key={pageNumber}
-                                                            onClick={() => handlePageChange(pageNumber)}
-                                                            className={`w-8 h-8 text-xs font-medium rounded-lg transition-colors ${
-                                                                currentPage === pageNumber
-                                                                    ? 'bg-blue-600 text-white'
-                                                                    : 'border border-slate-300 bg-white hover:bg-slate-50 text-slate-700'
-                                                            }`}
-                                                        >
-                                                            {pageNumber}
-                                                        </button>
-                                                    );
-                                                })}
-                                            </div>
-                                            <button
-                                                onClick={() => handlePageChange(currentPage + 1)}
-                                                disabled={currentPage === totalPages}
-                                                className="px-3 py-1.5 text-xs font-medium rounded-lg border border-slate-300 bg-white hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-1"
-                                            >
-                                                Next
-                                                <FiChevronRightIcon className="w-3 h-3" />
-                                            </button>
-                                        </div>
-                                        <div className="flex items-center gap-2">
-                                            <select
-                                                value={itemsPerPage}
-                                                onChange={(e) => handleItemsPerPageChange(Number(e.target.value))}
-                                                className="px-2 py-1.5 text-xs border border-slate-300 rounded-lg bg-white"
-                                            >
-                                                <option value={5}>5 per page</option>
-                                                <option value={10}>10 per page</option>
-                                                <option value={20}>20 per page</option>
-                                                <option value={50}>50 per page</option>
-                                            </select>
-                                        </div>
-                                    </div>
-                                </div>
+                            {!loading && (currentItems.length > 0 || totalItems > 0) && totalPages > 0 && (
+                                <TablePagination
+                                    page={currentPage}
+                                    limit={itemsPerPage}
+                                    total={totalItems}
+                                    totalPages={totalPages}
+                                    isLastPage={isLastPage}
+                                    rowOptions={[5, 10, 20, 50, 100]}
+                                    defaultRows={10}
+                                    onPageChange={handlePageChange}
+                                    onLimitChange={handleItemsPerPageChange}
+                                />
                             )}
                         </div>
                     </motion.div>

@@ -1015,8 +1015,8 @@ const ViewSales = () => {
                         className="bg-white rounded-2xl shadow-lg border border-slate-200 overflow-hidden"
                     >
                         <div className="sticky top-0 z-10 border-b border-slate-200 bg-gradient-to-r from-slate-50 to-white py-2.5 pl-3 pr-0 sm:pl-4 sm:pr-0">
-                            <div className="flex min-w-0 flex-col gap-3 lg:flex-row lg:items-center lg:justify-between lg:gap-4">
-                                <div className="flex min-w-0 flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:gap-x-3 sm:gap-y-2 lg:flex-1 lg:flex-nowrap lg:items-center lg:gap-x-4">
+                            <div className="flex w-full min-w-0 flex-col gap-3 lg:flex-row lg:items-center lg:justify-between lg:gap-6">
+                                <div className="flex min-w-0 w-full flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:gap-x-3 sm:gap-y-2 lg:min-w-0 lg:flex-1 lg:flex-nowrap lg:items-center lg:gap-x-4">
                                     <h5 className="shrink-0 text-sm font-bold tracking-tight text-slate-800 sm:text-base mr-4 sm:mr-6 lg:mr-8">
                                         Sale Register
                                     </h5>
@@ -1027,7 +1027,7 @@ const ViewSales = () => {
                                         onChange={handleSearchChange}
                                         className="h-9 w-full min-w-0 flex-1 rounded-lg border border-slate-300 px-3 text-sm transition-all focus:border-transparent focus:outline-none focus:ring-2 focus:ring-blue-500 sm:min-w-[18rem] lg:min-w-[22rem] xl:min-w-[28rem]"
                                     />
-                                    <div className="w-full min-w-0 max-w-full overflow-x-auto sm:min-w-[10rem] sm:max-w-[14rem] sm:shrink-0 sm:overflow-x-auto lg:max-w-[14rem] xl:max-w-[16rem]">
+                                    <div className="w-full min-w-0 max-w-full shrink-0 overflow-x-auto sm:min-w-[10rem] sm:max-w-[14rem] sm:overflow-x-auto lg:max-w-[14rem] xl:max-w-[16rem]">
                                         <DateRangePickerField
                                             value={{ start: fromDate, end: toDate }}
                                             onChange={(range) => {
@@ -1047,7 +1047,7 @@ const ViewSales = () => {
                                         />
                                     </div>
                                 </div>
-                                <div className="flex shrink-0 items-center justify-end gap-2">
+                                <div className="flex w-full shrink-0 items-center justify-end gap-2 sm:w-auto lg:pl-1">
                                     <div className="dropdown-container relative shrink-0">
                                         <motion.button
                                             type="button"
@@ -1128,7 +1128,7 @@ const ViewSales = () => {
                                         whileTap={{ scale: 0.98 }}
                                     >
                                         <FiPlus className="h-4 w-4 shrink-0" />
-                                        <span className="whitespace-nowrap">Create Sale</span>
+                                        <span className="whitespace-nowrap">Create</span>
                                     </motion.button>
                                 </div>
                             </div>
@@ -1178,15 +1178,6 @@ const ViewSales = () => {
                                                         <FiFileText className="w-8 h-8 text-slate-400" />
                                                     </div>
                                                     <p className="text-slate-600 text-sm font-medium mb-1">No sales records found</p>
-                                                    <p className="text-slate-500 text-xs mb-4">Try adjusting your search or date filter</p>
-                                                    <motion.button
-                                                        onClick={() => setSaleFormModal(true)}
-                                                        className="px-4 py-2 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-lg text-xs font-semibold hover:shadow transition-all duration-200"
-                                                        whileHover={{ scale: 1.02 }}
-                                                        whileTap={{ scale: 0.98 }}
-                                                    >
-                                                        Create Your First Sale
-                                                    </motion.button>
                                                 </div>
                                             </td>
                                         </tr>
