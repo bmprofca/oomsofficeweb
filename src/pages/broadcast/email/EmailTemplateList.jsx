@@ -1,8 +1,8 @@
-// EmailTemplateList.js (updated with tabs for Static Templates)
+// EmailTemplateList.js (Professional UI with compact design - no horizontal scroll)
 
 import React, { useEffect, useState } from 'react';
-import { Badge, Button, Card, Form, Spinner, Table, Tabs, Tab } from 'react-bootstrap';
 import { toast } from 'react-hot-toast';
+import { Mail, FileText, Search, Plus, Edit, Eye, RefreshCw, Trash2, CheckCircle, XCircle } from 'react-feather';
 import { Header, Sidebar } from '../../../components/header';
 import EmailTemplateFormModal from './EmailTemplateFormModal';
 import StaticTemplateFormModal from './StaticTemplateFormModal';
@@ -19,6 +19,8 @@ const EmailTemplateList = () => {
   const [pagination, setPagination] = useState({ page_no: 1, limit: 10, total: 0, total_pages: 1 });
   const [showModal, setShowModal] = useState(false);
   const [editData, setEditData] = useState(null);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [statusFilter, setStatusFilter] = useState('');
   
   // Static Templates State
   const [staticLoading, setStaticLoading] = useState(false);
@@ -34,7 +36,13 @@ const EmailTemplateList = () => {
   const fetchTemplates = async (page = 1) => {
     setLoading(true);
     try {
-      const res = await emailApi.listTemplates({ page_no: page, limit: pagination.limit });
+      const params = {
+        page_no: page,
+        limit: pagination.limit,
+        ...(searchTerm && { search: searchTerm }),
+        ...(statusFilter && { status: statusFilter })
+      };
+      const res = await emailApi.listTemplates(params);
       setRows(normalizeList(res?.data));
       setPagination(normalizePagination(res?.pagination));
     } catch (e) {
@@ -59,7 +67,6 @@ const EmailTemplateList = () => {
       setStaticRows(data);
       setStaticPagination(normalizePagination(res?.pagination));
       
-      // Extract unique template types for filter
       const types = [...new Set(data.map(item => item.template_type))];
       setTemplateTypes(types);
     } catch (e) {
@@ -75,7 +82,7 @@ const EmailTemplateList = () => {
     } else {
       fetchStaticTemplates();
     }
-  }, [activeTab]);
+  }, [activeTab, searchTerm, statusFilter]);
   
   useEffect(() => { 
     localStorage.setItem('sidebarMinimized', JSON.stringify(isMinimized)); 
@@ -84,7 +91,10 @@ const EmailTemplateList = () => {
   // Email Template Actions
   const changeStatus = async (row) => {
     try {
-      await emailApi.changeTemplateStatus({ template_id: row.template_id, status: row.status === 'active' ? 'inactive' : 'active' });
+      await emailApi.changeTemplateStatus({ 
+        template_id: row.template_id, 
+        status: row.status === 'active' ? 'inactive' : 'active' 
+      });
       toast.success('Template status updated');
       fetchTemplates(pagination.page_no);
     } catch (e) { 
@@ -109,7 +119,7 @@ const EmailTemplateList = () => {
 
   // Static Template Actions
   const deleteStaticTemplate = async (row) => {
-    if (!window.confirm(`Are you sure you want to delete template "${row.template_name}"?`)) return;
+    if (!window.confirm(`Delete template "${row.template_name}"?`)) return;
     try {
       await emailApi.deleteStaticTemplate({ template_id: row.template_id });
       toast.success('Static template deleted successfully');
@@ -133,161 +143,389 @@ const EmailTemplateList = () => {
     fetchStaticTemplates(1);
   };
 
+  // Status Badge Component
+  const StatusBadge = ({ status }) => {
+    const variants = {
+      active: { bg: 'bg-green-100', text: 'text-green-800', icon: CheckCircle },
+      inactive: { bg: 'bg-gray-100', text: 'text-gray-800', icon: XCircle }
+    };
+    const variant = variants[status] || variants.inactive;
+    const Icon = variant.icon;
+    return (
+      <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${variant.bg} ${variant.text}`}>
+        <Icon size={10} className="mr-1" />
+        {status}
+      </span>
+    );
+  };
+
+  // Compact Table Header Component
+  const CompactTableHeader = ({ children, className = "" }) => (
+    <th className={`px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider bg-gray-50 ${className}`}>
+      {children}
+    </th>
+  );
+
   return (
-    <div className="min-h-screen bg-light">
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
       <Header mobileMenuOpen={mobileMenuOpen} setMobileMenuOpen={setMobileMenuOpen} isMinimized={isMinimized} setIsMinimized={setIsMinimized} />
       <Sidebar mobileMenuOpen={mobileMenuOpen} setMobileMenuOpen={setMobileMenuOpen} isMinimized={isMinimized} setIsMinimized={setIsMinimized} />
-      <div className={`pt-16 ${isMinimized ? 'md:pl-20' : 'md:pl-[260px]'}`}>
-        <div className="container-fluid py-4">
-          <Card>
-            <Card.Header>
-              <Tabs activeKey={activeTab} onSelect={(k) => setActiveTab(k)} className="mb-0">
-                <Tab eventKey="email-templates" title="Email Templates">
-                  <div className="d-flex justify-content-end mb-3 mt-3">
-                    <Button onClick={() => { setEditData(null); setShowModal(true); }}>Add Template</Button>
-                  </div>
-                </Tab>
-                <Tab eventKey="static-templates" title="Static Templates">
-                  <div className="d-flex justify-content-between align-items-center mb-3 mt-3">
-                    <div className="d-flex gap-2">
-                      <Form.Control
-                        type="text"
-                        placeholder="Search by name, subject, or type..."
-                        value={staticSearch}
-                        onChange={(e) => setStaticSearch(e.target.value)}
-                        style={{ width: 300 }}
-                      />
-                      <Button variant="outline-primary" onClick={handleStaticSearch}>Search</Button>
-                      {templateTypeFilter && (
-                        <Button variant="outline-secondary" onClick={() => { setTemplateTypeFilter(''); setStaticSearch(''); fetchStaticTemplates(1); }}>
-                          Clear Filters
-                        </Button>
-                      )}
-                    </div>
-                    <Button onClick={() => { setStaticEditData(null); setShowStaticModal(true); }}>Add Static Template</Button>
-                  </div>
-                </Tab>
-              </Tabs>
-            </Card.Header>
-            <Card.Body>
-              {activeTab === 'email-templates' && (
-                <>
-                  {loading ? <div className="text-center py-5"><Spinner /></div> : (
-                    <>
-                      <Table bordered hover responsive>
-                        <thead>
-                          <tr>
-                            <th>Name</th>
-                            <th>Subject</th>
-                            <th>Variables JSON</th>
-                            <th>Status</th>
-                            <th>Create Date</th>
-                            <th>Actions</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {rows.length === 0 ? (
-                            <tr><td colSpan={6} className="text-center py-4 text-muted">No templates found</td></tr>
-                          ) : rows.map((row) => (
-                            <tr key={row.template_id}>
-                              <td>{row.template_name}</td>
-                              <td>{row.subject}</td>
-                              <td>
-                                <pre className="mb-0" style={{ whiteSpace: 'pre-wrap', fontSize: 12 }}>
-                                  {JSON.stringify(row.variables_json || {}, null, 2)}
-                                </pre>
-                              </td>
-                              <td><Badge bg={row.status === 'active' ? 'success' : 'secondary'}>{row.status}</Badge></td>
-                              <td>{row.create_date ? new Date(row.create_date).toLocaleString() : '-'}</td>
-                              <td className="d-flex gap-2 flex-wrap">
-                                <Button size="sm" variant="outline-primary" onClick={() => { setEditData(row); setShowModal(true); }}>Edit</Button>
-                                <Button size="sm" variant="outline-info" onClick={() => preview(row)}>Preview</Button>
-                                <Button size="sm" variant="outline-warning" onClick={() => changeStatus(row)}>Toggle Status</Button>
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </Table>
-                      <div className="d-flex justify-content-between align-items-center">
-                        <small>Total: {pagination.total}</small>
-                        <div className="d-flex align-items-center gap-2">
-                          <Button size="sm" disabled={pagination.page_no <= 1} onClick={() => fetchTemplates(pagination.page_no - 1)}>Prev</Button>
-                          <Form.Control size="sm" readOnly value={`Page ${pagination.page_no} / ${pagination.total_pages}`} style={{ width: 140 }} />
-                          <Button size="sm" disabled={pagination.page_no >= pagination.total_pages} onClick={() => fetchTemplates(pagination.page_no + 1)}>Next</Button>
-                        </div>
-                      </div>
-                    </>
-                  )}
-                </>
-              )}
+      
+      <div className={`pt-16 transition-all duration-300 ${isMinimized ? 'md:pl-20' : 'md:pl-[260px]'}`}>
+        <div className="px-4 py-4">
+          {/* Header Section */}
+          <div className="mb-4">
+            <h1 className="text-xl font-semibold text-gray-900">Email Templates</h1>
+            <p className="text-sm text-gray-600 mt-0.5">Manage your email templates and static templates</p>
+          </div>
 
-              {activeTab === 'static-templates' && (
-                <>
-                  {staticLoading ? <div className="text-center py-5"><Spinner /></div> : (
-                    <>
-                      <Table bordered hover responsive>
-                        <thead>
+          {/* Tabs */}
+          <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+            <div className="border-b border-gray-200">
+              <nav className="flex space-x-6 px-4" aria-label="Tabs">
+                {[
+                  { id: 'email-templates', name: 'Email Templates', icon: Mail },
+                  { id: 'static-templates', name: 'Static Templates', icon: FileText }
+                ].map((tab) => {
+                  const Icon = tab.icon;
+                  return (
+                    <button
+                      key={tab.id}
+                      onClick={() => setActiveTab(tab.id)}
+                      className={`
+                        py-3 px-1 border-b-2 font-medium text-sm transition-colors duration-200 inline-flex items-center
+                        ${activeTab === tab.id 
+                          ? 'border-blue-500 text-blue-600' 
+                          : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                        }
+                      `}
+                    >
+                      <Icon size={16} className="mr-1.5" />
+                      {tab.name}
+                    </button>
+                  );
+                })}
+              </nav>
+            </div>
+
+            {/* Email Templates Tab */}
+            {activeTab === 'email-templates' && (
+              <div>
+                {/* Filters Bar */}
+                <div className="p-4 border-b border-gray-200 bg-gray-50">
+                  <div className="flex flex-wrap gap-3 items-center justify-between">
+                    <div className="flex flex-wrap gap-2">
+                      <div className="relative">
+                        <input
+                          type="text"
+                          placeholder="Search templates..."
+                          value={searchTerm}
+                          onChange={(e) => setSearchTerm(e.target.value)}
+                          className="w-64 pl-8 pr-3 py-1.5 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                        />
+                        <Search size={14} className="absolute left-2.5 top-2 text-gray-400" />
+                      </div>
+                      <select
+                        value={statusFilter}
+                        onChange={(e) => setStatusFilter(e.target.value)}
+                        className="px-2 py-1.5 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-blue-500"
+                      >
+                        <option value="">All Status</option>
+                        <option value="active">Active</option>
+                        <option value="inactive">Inactive</option>
+                      </select>
+                    </div>
+                    <button
+                      onClick={() => { setEditData(null); setShowModal(true); }}
+                      className="inline-flex items-center px-3 py-1.5 bg-blue-600 text-white text-sm font-medium rounded-md hover:bg-blue-700 transition-colors duration-200 shadow-sm"
+                    >
+                      <Plus size={14} className="mr-1.5" />
+                      Add Template
+                    </button>
+                  </div>
+                </div>
+
+                {/* Table - No horizontal scroll */}
+                <div className="overflow-x-auto">
+                  {loading ? (
+                    <div className="flex justify-center items-center py-12">
+                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                    </div>
+                  ) : (
+                    <table className="min-w-full divide-y divide-gray-200">
+                      <thead className="bg-gray-50">
+                        <tr>
+                          <CompactTableHeader>Template Name</CompactTableHeader>
+                          <CompactTableHeader>Subject</CompactTableHeader>
+                          <CompactTableHeader className="w-20">Variables</CompactTableHeader>
+                          <CompactTableHeader className="w-24">Status</CompactTableHeader>
+                          <CompactTableHeader className="w-28">Created</CompactTableHeader>
+                          <CompactTableHeader className="w-28">Actions</CompactTableHeader>
+                        </tr>
+                      </thead>
+                      <tbody className="bg-white divide-y divide-gray-200">
+                        {rows.length === 0 ? (
                           <tr>
-                            <th>Template Type</th>
-                            <th>Template Name</th>
-                            <th>Subject</th>
-                            <th>Variables</th>
-                            <th>Status</th>
-                            <th>Default</th>
-                            <th>Create Date</th>
-                            <th>Actions</th>
+                            <td colSpan={6} className="px-4 py-12 text-center text-gray-500">
+                              <Mail size={40} className="mx-auto text-gray-400 mb-2" />
+                              <p className="text-sm">No templates found</p>
+                            </td>
                           </tr>
-                        </thead>
-                        <tbody>
-                          {staticRows.length === 0 ? (
-                            <tr><td colSpan={8} className="text-center py-4 text-muted">No static templates found</td></tr>
-                          ) : staticRows.map((row) => (
-                            <tr key={row.template_id}>
-                              <td><Badge bg="info">{row.template_type}</Badge></td>
-                              <td>{row.template_name}</td>
-                              <td>{row.subject}</td>
-                              <td>
-                                <span className="badge bg-secondary">
-                                  {row.total_variables || row.variables_json?.length || 0} variables
+                        ) : (
+                          rows.map((row) => (
+                            <tr key={row.template_id} className="hover:bg-gray-50 transition-colors duration-150">
+                              <td className="px-3 py-2">
+                                <div className="font-medium text-gray-900 text-sm">{row.template_name}</div>
+                              </td>
+                              <td className="px-3 py-2 text-sm text-gray-600 truncate max-w-xs">{row.subject}</td>
+                              <td className="px-3 py-2">
+                                <span className="inline-flex items-center px-1.5 py-0.5 rounded bg-purple-50 text-purple-700 text-xs font-medium">
+                                  {Object.keys(row.variables_json || {}).length}
                                 </span>
                               </td>
-                              <td><Badge bg={row.status === 'active' ? 'success' : 'secondary'}>{row.status}</Badge></td>
-                              <td>
-                                {row.is_default === 1 ? (
-                                  <Badge bg="primary">Default</Badge>
-                                ) : (
-                                  <Button size="sm" variant="outline-primary" onClick={() => setDefaultStaticTemplate(row)}>
-                                    Set Default
-                                  </Button>
-                                )}
+                              <td className="px-3 py-2">
+                                <StatusBadge status={row.status} />
                               </td>
-                              <td>{row.create_date ? new Date(row.create_date).toLocaleString() : '-'}</td>
-                              <td className="d-flex gap-2 flex-wrap">
-                                <Button size="sm" variant="outline-primary" onClick={() => { setStaticEditData(row); setShowStaticModal(true); }}>Edit</Button>
-                                <Button size="sm" variant="outline-danger" onClick={() => deleteStaticTemplate(row)}>Delete</Button>
+                              <td className="px-3 py-2 text-xs text-gray-500">
+                                {row.create_date ? new Date(row.create_date).toLocaleDateString() : '-'}
+                              </td>
+                              <td className="px-3 py-2">
+                                <div className="flex space-x-1.5">
+                                  <button
+                                    onClick={() => { setEditData(row); setShowModal(true); }}
+                                    className="p-1 text-blue-600 hover:text-blue-800 transition-colors"
+                                    title="Edit"
+                                  >
+                                    <Edit size={14} />
+                                  </button>
+                                  <button
+                                    onClick={() => preview(row)}
+                                    className="p-1 text-gray-600 hover:text-gray-800 transition-colors"
+                                    title="Preview"
+                                  >
+                                    <Eye size={14} />
+                                  </button>
+                                  <button
+                                    onClick={() => changeStatus(row)}
+                                    className="p-1 text-yellow-600 hover:text-yellow-800 transition-colors"
+                                    title="Toggle Status"
+                                  >
+                                    <RefreshCw size={14} />
+                                  </button>
+                                </div>
                               </td>
                             </tr>
-                          ))}
-                        </tbody>
-                      </Table>
-                      <div className="d-flex justify-content-between align-items-center">
-                        <small>Total: {staticPagination.total}</small>
-                        <div className="d-flex align-items-center gap-2">
-                          <Button size="sm" disabled={staticPagination.page_no <= 1} onClick={() => fetchStaticTemplates(staticPagination.page_no - 1)}>Prev</Button>
-                          <Form.Control size="sm" readOnly value={`Page ${staticPagination.page_no} / ${staticPagination.total_pages}`} style={{ width: 140 }} />
-                          <Button size="sm" disabled={staticPagination.page_no >= staticPagination.total_pages} onClick={() => fetchStaticTemplates(staticPagination.page_no + 1)}>Next</Button>
-                        </div>
-                      </div>
-                    </>
+                          ))
+                        )}
+                      </tbody>
+                    </table>
                   )}
-                </>
-              )}
-            </Card.Body>
-          </Card>
+                </div>
+
+                {/* Pagination */}
+                {rows.length > 0 && (
+                  <div className="px-4 py-3 border-t border-gray-200 flex items-center justify-between bg-gray-50">
+                    <div className="text-xs text-gray-700">
+                      Showing {((pagination.page_no - 1) * pagination.limit) + 1} to {Math.min(pagination.page_no * pagination.limit, pagination.total)} of {pagination.total}
+                    </div>
+                    <div className="flex space-x-1.5">
+                      <button
+                        onClick={() => fetchTemplates(pagination.page_no - 1)}
+                        disabled={pagination.page_no <= 1}
+                        className="px-2 py-1 border border-gray-300 rounded text-xs font-medium text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                      >
+                        Previous
+                      </button>
+                      <button
+                        onClick={() => fetchTemplates(pagination.page_no + 1)}
+                        disabled={pagination.page_no >= pagination.total_pages}
+                        className="px-2 py-1 border border-gray-300 rounded text-xs font-medium text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                      >
+                        Next
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Static Templates Tab - Compact Design */}
+            {activeTab === 'static-templates' && (
+              <div>
+                {/* Filters Bar */}
+                <div className="p-3 border-b border-gray-200 bg-gray-50">
+                  <div className="flex flex-wrap gap-2 items-center justify-between">
+                    <div className="flex flex-wrap gap-2">
+                      <div className="relative">
+                        <input
+                          type="text"
+                          placeholder="Search..."
+                          value={staticSearch}
+                          onChange={(e) => setStaticSearch(e.target.value)}
+                          className="w-56 pl-7 pr-2 py-1 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-blue-500"
+                        />
+                        <Search size={12} className="absolute left-2 top-1.5 text-gray-400" />
+                      </div>
+                      {templateTypes.length > 0 && (
+                        <select
+                          value={templateTypeFilter}
+                          onChange={(e) => setTemplateTypeFilter(e.target.value)}
+                          className="px-2 py-1 border border-gray-300 rounded-md text-sm"
+                        >
+                          <option value="">All Types</option>
+                          {templateTypes.map(type => (
+                            <option key={type} value={type}>{type}</option>
+                          ))}
+                        </select>
+                      )}
+                      <button
+                        onClick={handleStaticSearch}
+                        className="px-2 py-1 bg-blue-600 text-white text-xs font-medium rounded-md hover:bg-blue-700"
+                      >
+                        Search
+                      </button>
+                      {(staticSearch || templateTypeFilter) && (
+                        <button
+                          onClick={() => { setStaticSearch(''); setTemplateTypeFilter(''); fetchStaticTemplates(1); }}
+                          className="px-2 py-1 bg-gray-200 text-gray-700 text-xs font-medium rounded-md hover:bg-gray-300"
+                        >
+                          Clear
+                        </button>
+                      )}
+                    </div>
+                    {/* <button
+                      onClick={() => { setStaticEditData(null); setShowStaticModal(true); }}
+                      className="inline-flex items-center px-2.5 py-1 bg-blue-600 text-white text-xs font-medium rounded-md hover:bg-blue-700"
+                    >
+                      <Plus size={12} className="mr-1" />
+                      Add
+                    </button> */}
+                  </div>
+                </div>
+
+                {/* Compact Table - No horizontal scroll */}
+                <div className="overflow-x-auto">
+                  {staticLoading ? (
+                    <div className="flex justify-center items-center py-10">
+                      <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
+                    </div>
+                  ) : (
+                    <table className="w-full table-auto divide-y divide-gray-200">
+                      <thead className="bg-gray-50">
+                        <tr>
+                          <CompactTableHeader className="w-24">Type</CompactTableHeader>
+                          <CompactTableHeader>Name</CompactTableHeader>
+                          <CompactTableHeader>Subject</CompactTableHeader>
+                          <CompactTableHeader className="w-16">Vars</CompactTableHeader>
+                          <CompactTableHeader className="w-20">Status</CompactTableHeader>
+                          <CompactTableHeader className="w-20">Default</CompactTableHeader>
+                          <CompactTableHeader className="w-24">Created</CompactTableHeader>
+                          <CompactTableHeader className="w-16">Actions</CompactTableHeader>
+                        </tr>
+                      </thead>
+                      <tbody className="bg-white divide-y divide-gray-200">
+                        {staticRows.length === 0 ? (
+                          <tr>
+                            <td colSpan={8} className="px-3 py-10 text-center text-gray-500">
+                              <FileText size={32} className="mx-auto text-gray-400 mb-2" />
+                              <p className="text-sm">No static templates found</p>
+                            </td>
+                          </tr>
+                        ) : (
+                          staticRows.map((row) => (
+                            <tr key={row.template_id} className="hover:bg-gray-50 transition-colors duration-150">
+                              <td className="px-2 py-1.5">
+                                <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                                  {row.template_type?.substring(0, 12)}
+                                </span>
+                              </td>
+                              <td className="px-2 py-1.5">
+                                <div className="font-medium text-gray-900 text-xs">{row.template_name}</div>
+                              </td>
+                              <td className="px-2 py-1.5 text-xs text-gray-600 truncate max-w-[150px]">{row.subject}</td>
+                              <td className="px-2 py-1.5 text-center">
+                                <span className="inline-flex items-center px-1 py-0.5 rounded bg-purple-50 text-purple-700 text-xs">
+                                  {row.total_variables || row.variables_json?.length || 0}
+                                </span>
+                              </td>
+                              <td className="px-2 py-1.5">
+                                <StatusBadge status={row.status} />
+                              </td>
+                              <td className="px-2 py-1.5">
+                                {row.is_default === 1 ? (
+                                  <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                    <CheckCircle size={10} className="mr-0.5" />
+                                    Default
+                                  </span>
+                                ) : (
+                                  <button
+                                    onClick={() => setDefaultStaticTemplate(row)}
+                                    className="text-xs text-blue-600 hover:text-blue-800"
+                                  >
+                                    Set
+                                  </button>
+                                )}
+                              </td>
+                              <td className="px-2 py-1.5 text-xs text-gray-500">
+                                {row.create_date ? new Date(row.create_date).toLocaleDateString() : '-'}
+                              </td>
+                              <td className="px-2 py-1.5">
+                                <div className="flex space-x-1">
+                                  <button
+                                    onClick={() => { setStaticEditData(row); setShowStaticModal(true); }}
+                                    className="p-0.5 text-blue-600 hover:text-blue-800"
+                                    title="Edit"
+                                  >
+                                    <Edit size={12} />
+                                  </button>
+                                  {/* <button
+                                    onClick={() => deleteStaticTemplate(row)}
+                                    className="p-0.5 text-red-600 hover:text-red-800"
+                                    title="Delete"
+                                  >
+                                    <Trash2 size={12} />
+                                  </button> */}
+                                </div>
+                              </td>
+                            </tr>
+                          ))
+                        )}
+                      </tbody>
+                    </table>
+                  )}
+                </div>
+
+                {/* Pagination */}
+                {staticRows.length > 0 && (
+                  <div className="px-3 py-2 border-t border-gray-200 flex items-center justify-between bg-gray-50">
+                    <div className="text-xs text-gray-700">
+                      {((staticPagination.page_no - 1) * staticPagination.limit) + 1} - {Math.min(staticPagination.page_no * staticPagination.limit, staticPagination.total)} of {staticPagination.total}
+                    </div>
+                    <div className="flex space-x-1">
+                      <button
+                        onClick={() => fetchStaticTemplates(staticPagination.page_no - 1)}
+                        disabled={staticPagination.page_no <= 1}
+                        className="px-2 py-0.5 border border-gray-300 rounded text-xs font-medium text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50"
+                      >
+                        Prev
+                      </button>
+                      <button
+                        onClick={() => fetchStaticTemplates(staticPagination.page_no + 1)}
+                        disabled={staticPagination.page_no >= staticPagination.total_pages}
+                        className="px-2 py-0.5 border border-gray-300 rounded text-xs font-medium text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50"
+                      >
+                        Next
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
         </div>
       </div>
       
-      {/* Email Template Modal */}
+      {/* Modals */}
       <EmailTemplateFormModal 
         show={showModal} 
         onHide={() => setShowModal(false)} 
@@ -295,7 +533,6 @@ const EmailTemplateList = () => {
         onSuccess={() => fetchTemplates(pagination.page_no)} 
       />
       
-      {/* Static Template Modal */}
       <StaticTemplateFormModal 
         show={showStaticModal} 
         onHide={() => setShowStaticModal(false)} 

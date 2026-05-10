@@ -21,6 +21,8 @@ import {
 import { FcGoogle } from 'react-icons/fc';
 import { FaMicrosoft } from 'react-icons/fa';
 import { SiAuth0 } from 'react-icons/si';
+import { GoogleLogin } from '@react-oauth/google';
+import CryptoJS from 'crypto-js';
 
 const BASE_URL = 'https://api.ooms.in/api/v1';
 
@@ -48,8 +50,183 @@ const Login = () => {
     const passwordRef = useRef(null);
     const otpRefs = useRef([...Array(6)].map(() => React.createRef()));
 
+    // Generate random key for encryption
+    const generateKey = () => {
+        return CryptoJS.lib.WordArray.random(16).toString();
+    };
+
+    // Encrypt data for backend
+    const encryptData = (data, key) => {
+        const encrypted = CryptoJS.AES.encrypt(JSON.stringify(data), key).toString();
+        return {
+            data: encrypted,
+            key: key
+        };
+    };
+
+    const handleGoogleAuth = async (credentialResponse) => {
+        setActiveSocialLogin('Google');
+        setLoading(true);
+
+        try {
+            const idToken = credentialResponse.credential;
+            console.log('Sending Google ID token to backend...');
+            
+            const response = await fetch(`${BASE_URL}/auth/google-login`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ 
+                    google_token: idToken
+                })
+            });
+
+            const result = await response.json();
+            console.log('Backend response:', result);
+            
+            if (result.error === false || result.success === true) {
+                // Store basic user info
+                localStorage.setItem('user_token', result.token);
+                localStorage.setItem('user_username', result.username);
+                localStorage.setItem('user_email', result.profile.email);
+                localStorage.setItem('user_name', result.profile.name);
+                
+                setLoginResponse(result);
+                
+                // Check for branches/projects
+                if (result.branches && result.branches.length > 0) {
+                    setBranches(result.branches);
+                    if (result.branches.length === 1) {
+                        // Single branch - auto select and login
+                        const branchId = result.branches[0].branch_id;
+                        const branchName = result.branches[0].name;
+                        localStorage.setItem('branch_id', branchId);
+                        localStorage.setItem('branch_name', branchName);
+                        completeGoogleLogin(result);
+                    } else {
+                        // Multiple branches - show selection
+                        setShowBranchSelection(true);
+                        setActiveSocialLogin(null);
+                    }
+                } else if (result.projects && result.projects.length > 0) {
+                    // Handle projects as branches
+                    const mappedBranches = result.projects.map(project => ({
+                        branch_id: project.project_id,
+                        name: project.name,
+                        owned: true
+                    }));
+                    setBranches(mappedBranches);
+                    setLoginResponse({...result, branches: mappedBranches});
+                    
+                    if (mappedBranches.length === 1) {
+                        localStorage.setItem('branch_id', mappedBranches[0].branch_id);
+                        localStorage.setItem('branch_name', mappedBranches[0].name);
+                        completeGoogleLogin(result);
+                    } else {
+                        setShowBranchSelection(true);
+                        setActiveSocialLogin(null);
+                    }
+                } else {
+                    // No branches - direct login
+                    completeGoogleLogin(result);
+                }
+            } else {
+                alert(result.error || 'Google authentication failed');
+                setActiveSocialLogin(null);
+            }
+        } catch (error) {
+            console.error('Google Auth Error:', error);
+            alert('Error during Google authentication. Please try again.');
+            setActiveSocialLogin(null);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleBranchSelectForGoogle = (branchId) => {
+        setSelectedBranch(branchId);
+        const selectedBranchInfo = branches.find(b => b.branch_id === branchId);
+        if (selectedBranchInfo) {
+            localStorage.setItem('branch_id', branchId);
+            localStorage.setItem('branch_name', selectedBranchInfo.name);
+            localStorage.setItem('branch_owned', selectedBranchInfo.owned ? 'true' : 'false');
+        }
+        completeGoogleLogin(loginResponse);
+    };
+
+    const completeGoogleLogin = (result) => {
+        setLoginSuccess(true);
+        setShowBranchSelection(false);
+        
+        // Store additional info if available
+        if (result.branches) {
+            localStorage.setItem('user_branches', JSON.stringify(result.branches));
+        }
+        
+        alert(`Welcome ${result.profile.name || result.username}! Login successful!`);
+        
+        setTimeout(() => {
+            window.location.href = '/';
+        }, 1500);
+    };
+
+    // Handle Google Registration for new users
+    const handleGoogleRegister = async (accessToken) => {
+        try {
+            const key = generateKey();
+            const encryptedData = encryptData({ google_token: accessToken }, key);
+            
+            const registerResponse = await fetch(`${BASE_URL}/auth/google-register`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(encryptedData)
+            });
+
+            const registerResult = await registerResponse.json();
+
+            if (!registerResult.error) {
+                console.log('Google registration successful:', registerResult);
+                
+                localStorage.setItem('user_token', registerResult.token);
+                localStorage.setItem('user_username', registerResult.username);
+                localStorage.setItem('user_email', registerResult.profile.email);
+                localStorage.setItem('user_name', registerResult.profile.name);
+                
+                setLoginResponse(registerResult);
+                
+                if (registerResult.projects && registerResult.projects.length > 0) {
+                    const mappedBranches = registerResult.projects.map(project => ({
+                        branch_id: project.project_id,
+                        name: project.name,
+                        owned: true
+                    }));
+                    setBranches(mappedBranches);
+                    
+                    if (mappedBranches.length === 1) {
+                        localStorage.setItem('branch_id', mappedBranches[0].branch_id);
+                        localStorage.setItem('branch_name', mappedBranches[0].name);
+                        completeGoogleLogin(registerResult);
+                    } else {
+                        setShowBranchSelection(true);
+                    }
+                } else {
+                    completeGoogleLogin(registerResult);
+                }
+            } else {
+                alert(registerResult.error || 'Google registration failed');
+                setActiveSocialLogin(null);
+            }
+        } catch (error) {
+            console.error('Google Registration Error:', error);
+            alert('Error during Google registration. Please try again.');
+            setActiveSocialLogin(null);
+        }
+    };
+
     useEffect(() => {
-        // Focus on email input on initial load
         if (phase === 1) {
             setTimeout(() => {
                 emailRef.current?.focus();
@@ -58,7 +235,6 @@ const Login = () => {
     }, [phase]);
 
     useEffect(() => {
-        // Focus management for OTP input
         if (phase === 2 && !showBranchSelection && !loginSuccess) {
             setTimeout(() => {
                 otpRefs.current[0]?.current?.focus();
@@ -73,7 +249,6 @@ const Login = () => {
             [name]: value
         }));
 
-        // Email validation
         if (name === 'email') {
             const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
             setIsValidEmail(value === '' || emailRegex.test(value));
@@ -86,16 +261,13 @@ const Login = () => {
             newOtpDigits[index] = value;
             setOtpDigits(newOtpDigits);
 
-            // Update formData
             const otpValue = newOtpDigits.join('');
             setFormData(prev => ({ ...prev, otp: otpValue }));
 
-            // Auto-focus next input
             if (value && index < 5) {
                 otpRefs.current[index + 1]?.current?.focus();
             }
 
-            // Auto-focus previous input on backspace
             if (!value && index > 0) {
                 otpRefs.current[index - 1]?.current?.focus();
             }
@@ -116,7 +288,6 @@ const Login = () => {
             return;
         }
 
-        // Validate email format
         const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
         if (!emailRegex.test(formData.email)) {
             setIsValidEmail(false);
@@ -143,8 +314,6 @@ const Login = () => {
             if (result.success) {
                 setPhase(2);
                 setOtpExpireTime(result.expire);
-
-                // Show success message
                 alert(result.message);
             } else {
                 alert(result.message || 'Error sending OTP');
@@ -185,21 +354,16 @@ const Login = () => {
             if (result.success) {
                 setLoginResponse(result);
 
-                // Store branches from response
                 if (result.branches && result.branches.length > 0) {
                     setBranches(result.branches);
 
-                    // If only one branch, auto-select it
                     if (result.branches.length === 1) {
                         setSelectedBranch(result.branches[0].branch_id);
-                        // Complete login with the single branch
                         completeLogin(result, result.branches[0].branch_id);
                     } else {
-                        // If multiple branches, show selection
                         setShowBranchSelection(true);
                     }
                 } else {
-                    // No branches in response, just complete login
                     completeLogin(result, '');
                 }
             } else {
@@ -215,12 +379,10 @@ const Login = () => {
 
     const handleBranchSelect = (branchId) => {
         setSelectedBranch(branchId);
-        // Complete login with selected branch
         completeLogin(loginResponse, branchId);
     };
 
     const completeLogin = (result, branchId) => {
-        // Store user details and token in localStorage
         localStorage.setItem('user_token', result.token);
         localStorage.setItem('user_email', formData.email);
         localStorage.setItem('user_username', result.username);
@@ -229,7 +391,6 @@ const Login = () => {
 
         if (branchId) {
             localStorage.setItem('branch_id', branchId);
-            // Also find and store the selected branch name
             const selectedBranchInfo = result.branches?.find(b => b.branch_id === branchId);
             if (selectedBranchInfo) {
                 localStorage.setItem('branch_name', selectedBranchInfo.name);
@@ -239,13 +400,11 @@ const Login = () => {
 
         setLoginSuccess(true);
         setShowBranchSelection(false);
-
-        // Show success message
         alert('Login successful!');
-
-        console.log('Login successful:', result);
-        console.log('Token stored:', result.token);
-        console.log('Selected branch:', branchId);
+        
+        setTimeout(() => {
+            window.location.href = '/';
+        }, 1500);
     };
 
     const handleResendOtp = async () => {
@@ -270,7 +429,6 @@ const Login = () => {
                 setOtpDigits(['', '', '', '', '', '']);
                 setFormData(prev => ({ ...prev, otp: '' }));
                 alert('OTP has been resent!');
-                // Focus on first OTP input
                 setTimeout(() => {
                     otpRefs.current[0]?.current?.focus();
                 }, 100);
@@ -286,15 +444,15 @@ const Login = () => {
     };
 
     const handleSocialLogin = (provider) => {
-        setActiveSocialLogin(provider);
-        // Simulate social login loading
-        setTimeout(() => {
-            setActiveSocialLogin(null);
-            alert(`${provider} login integration would be implemented here`);
-        }, 1500);
+        if (provider === 'Microsoft') {
+            setActiveSocialLogin(provider);
+            setTimeout(() => {
+                setActiveSocialLogin(null);
+                alert('Microsoft login integration coming soon');
+            }, 1500);
+        }
     };
 
-    // Full Screen Loading Component
     if (fullScreenLoading) {
         return (
             <div className="min-h-screen bg-gradient-to-br from-blue-600 to-purple-700 flex items-center justify-center">
@@ -309,7 +467,6 @@ const Login = () => {
 
     return (
         <div className="min-h-screen bg-gradient-to-br from-gray-50 to-blue-50 flex items-center justify-center p-4 relative overflow-hidden">
-            {/* Background Elements */}
             <div className="absolute inset-0 overflow-hidden">
                 <div className="absolute -top-40 -right-40 w-80 h-80 bg-blue-100 rounded-full mix-blend-multiply filter blur-3xl opacity-70 animate-blob"></div>
                 <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-purple-100 rounded-full mix-blend-multiply filter blur-3xl opacity-70 animate-blob animation-delay-2000"></div>
@@ -370,7 +527,6 @@ const Login = () => {
 
                     {/* Right Side - Login Form */}
                     <div className="md:w-3/5 p-8">
-                        {/* Header */}
                         <div className="mb-8">
                             <h1 className="text-2xl font-bold text-gray-900">
                                 {showBranchSelection ? 'Select Branch' :
@@ -383,150 +539,6 @@ const Login = () => {
                                         phase === 1 ? 'Enter your credentials to continue' : 'Enter the 6-digit verification code'}
                             </p>
                         </div>
-
-                        {/* Phase 1: Email and Password Together */}
-                        {phase === 1 && !showBranchSelection && !loginSuccess && (
-                            <div>
-                                {/* Social Login Buttons */}
-                                <div className="mb-6">
-                                    <div className="grid grid-cols-2 gap-3">
-                                        <button
-                                            onClick={() => handleSocialLogin('Google')}
-                                            disabled={activeSocialLogin}
-                                            className="flex items-center justify-center p-3 border border-gray-300 rounded-xl hover:bg-gray-50 transition-all duration-300 disabled:opacity-50 group hover:border-blue-300"
-                                        >
-                                            {activeSocialLogin === 'Google' ? (
-                                                <div className="w-5 h-5 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
-                                            ) : (
-                                                <>
-                                                    <FcGoogle className="text-xl mr-3" />
-                                                    <span className="font-medium text-gray-700">Google</span>
-                                                </>
-                                            )}
-                                        </button>
-                                        <button
-                                            onClick={() => handleSocialLogin('Microsoft')}
-                                            disabled={activeSocialLogin}
-                                            className="flex items-center justify-center p-3 border border-gray-300 rounded-xl hover:bg-gray-50 transition-all duration-300 disabled:opacity-50 group hover:border-blue-300"
-                                        >
-                                            {activeSocialLogin === 'Microsoft' ? (
-                                                <div className="w-5 h-5 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
-                                            ) : (
-                                                <>
-                                                    <FaMicrosoft className="text-xl mr-3 text-blue-600" />
-                                                    <span className="font-medium text-gray-700">Microsoft</span>
-                                                </>
-                                            )}
-                                        </button>
-                                    </div>
-
-                                    <div className="flex items-center my-6">
-                                        <div className="flex-grow border-t border-gray-300"></div>
-                                        <span className="mx-4 text-gray-500 text-sm font-medium">OR CONTINUE WITH EMAIL</span>
-                                        <div className="flex-grow border-t border-gray-300"></div>
-                                    </div>
-                                </div>
-
-                                {/* Email and Password Form */}
-                                <form onSubmit={handleSendOtp} className="space-y-5">
-                                    {/* Email Field */}
-                                    <div className="space-y-2">
-                                        <label className="block text-sm font-medium text-gray-700">
-                                            Email Address
-                                        </label>
-                                        <div className="relative group">
-                                            <input
-                                                ref={emailRef}
-                                                type="email"
-                                                name="email"
-                                                value={formData.email}
-                                                onChange={handleInputChange}
-                                                className={`w-full pl-12 pr-4 py-4 bg-gray-50/50 border-2 rounded-xl focus:ring-4 outline-none transition-all duration-300 group-hover:border-blue-400 ${isValidEmail
-                                                    ? 'border-gray-300 focus:border-blue-500 focus:ring-blue-100'
-                                                    : 'border-red-300 focus:border-red-500 focus:ring-red-100'
-                                                    }`}
-                                                placeholder="your.email@company.com"
-                                                required
-                                            />
-                                            <FiMail className={`absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 transition-colors ${isValidEmail ? 'text-gray-400 group-focus-within:text-blue-500' : 'text-red-400'
-                                                }`} />
-                                        </div>
-                                        {!isValidEmail && formData.email && (
-                                            <p className="text-red-500 text-sm flex items-center">
-                                                <FiCheckCircle className="mr-1" />
-                                                Please enter a valid email address
-                                            </p>
-                                        )}
-                                    </div>
-
-                                    {/* Password Field */}
-                                    <div className="space-y-2">
-                                        <div className="flex justify-between items-center">
-                                            <label className="block text-sm font-medium text-gray-700">
-                                                Password
-                                            </label>
-                                            <button
-                                                type="button"
-                                                className="text-sm text-blue-600 hover:text-blue-700 font-medium hover:underline"
-                                            >
-                                                Forgot password?
-                                            </button>
-                                        </div>
-                                        <div className="relative group">
-                                            <input
-                                                ref={passwordRef}
-                                                type={showPassword ? 'text' : 'password'}
-                                                name="password"
-                                                value={formData.password}
-                                                onChange={handleInputChange}
-                                                className="w-full pl-12 pr-12 py-4 bg-gray-50/50 border-2 border-gray-300 rounded-xl focus:border-blue-500 focus:ring-4 focus:ring-blue-100 outline-none transition-all duration-300 group-hover:border-blue-400"
-                                                placeholder="Enter your password"
-                                                required
-                                            />
-                                            <FiLock className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 group-focus-within:text-blue-500 w-5 h-5 transition-colors" />
-                                            <button
-                                                type="button"
-                                                onClick={() => setShowPassword(!showPassword)}
-                                                className="absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
-                                            >
-                                                {showPassword ? <FiEyeOff className="w-5 h-5" /> : <FiEye className="w-5 h-5" />}
-                                            </button>
-                                        </div>
-                                    </div>
-
-                                    {/* Remember Me */}
-                                    <div className="flex items-center">
-                                        <input
-                                            type="checkbox"
-                                            id="remember"
-                                            className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-                                        />
-                                        <label htmlFor="remember" className="ml-2 text-sm text-gray-600">
-                                            Remember this device for 30 days
-                                        </label>
-                                    </div>
-
-                                    {/* Submit Button */}
-                                    <button
-                                        type="submit"
-                                        disabled={loading || !formData.email || !formData.password}
-                                        className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 disabled:from-gray-400 disabled:to-gray-500 text-white py-4 px-6 rounded-xl font-semibold shadow-lg hover:shadow-xl disabled:shadow-none transition-all duration-300 flex items-center justify-center group"
-                                    >
-                                        {loading ? (
-                                            <>
-                                                <FiRefreshCw className="animate-spin mr-3" />
-                                                Sending Verification Code...
-                                            </>
-                                        ) : (
-                                            <>
-                                                Continue to Verification
-                                                <FiArrowRight className="ml-3 group-hover:translate-x-1 transition-transform" />
-                                            </>
-                                        )}
-                                    </button>
-                                </form>
-                            </div>
-                        )}
 
                         {/* Branch Selection Screen */}
                         {showBranchSelection && (
@@ -550,7 +562,13 @@ const Login = () => {
                                             <button
                                                 key={branch.branch_id}
                                                 type="button"
-                                                onClick={() => handleBranchSelect(branch.branch_id)}
+                                                onClick={() => {
+                                                    if (loginResponse?.projects) {
+                                                        handleBranchSelectForGoogle(branch.branch_id);
+                                                    } else {
+                                                        handleBranchSelect(branch.branch_id);
+                                                    }
+                                                }}
                                                 disabled={loading}
                                                 className={`w-full p-5 text-left rounded-xl border-2 transition-all duration-300 transform hover:-translate-y-0.5 flex items-center justify-between group
                                                     ${selectedBranch === branch.branch_id ?
@@ -587,39 +605,170 @@ const Login = () => {
                                         type="button"
                                         onClick={() => {
                                             setShowBranchSelection(false);
-                                            setPhase(2);
+                                            setPhase(1);
+                                            setActiveSocialLogin(null);
                                         }}
                                         className="flex-1 py-3 px-6 border-2 border-gray-300 text-gray-700 rounded-xl font-medium hover:bg-gray-50 hover:border-gray-400 transition-all duration-300 flex items-center justify-center"
                                     >
                                         <FiArrowLeft className="mr-2" />
                                         Back
                                     </button>
-                                    <button
-                                        type="button"
-                                        onClick={() => selectedBranch && handleBranchSelect(selectedBranch)}
-                                        disabled={!selectedBranch || loading}
-                                        className="flex-1 bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 disabled:from-gray-400 disabled:to-gray-500 text-white py-3 px-6 rounded-xl font-semibold shadow-lg hover:shadow-xl disabled:shadow-none transition-all duration-300 flex items-center justify-center"
-                                    >
-                                        {loading ? (
-                                            <>
-                                                <FiRefreshCw className="animate-spin mr-2" />
-                                                Processing...
-                                            </>
-                                        ) : (
-                                            <>
-                                                Continue to Dashboard
-                                                <FiArrowRight className="ml-2" />
-                                            </>
-                                        )}
-                                    </button>
                                 </div>
                             </div>
                         )}
 
-                        {/* Phase 2: OTP Verification - Enhanced Eye-catching Design */}
+                        {/* Phase 1: Email and Password Together */}
+                        {phase === 1 && !showBranchSelection && !loginSuccess && (
+                            <div>
+                                <div className="mb-6">
+                                    <div className="grid grid-cols-2 gap-3">
+                                        {activeSocialLogin === 'Google' ? (
+                                            <div className="flex items-center justify-center p-3 border border-gray-300 rounded-xl bg-gray-50">
+                                                <div className="w-5 h-5 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+                                                <span className="ml-2 font-medium text-gray-700">Verifying...</span>
+                                            </div>
+                                        ) : (
+                                            <div className="w-full">
+                                                <GoogleLogin
+                                                    onSuccess={async (credentialResponse) => {
+                                                        await handleGoogleAuth(credentialResponse);
+                                                    }}
+                                                    onError={() => {
+                                                        console.log('Google Login Failed');
+                                                        alert('Google login failed. Please try again.');
+                                                        setActiveSocialLogin(null);
+                                                    }}
+                                                    theme="outline"
+                                                    size="large"
+                                                    text="continue_with"
+                                                    shape="rectangular"
+                                                    logo_alignment="left"
+                                                    width="100%"
+                                                />
+                                            </div>
+                                        )}
+                                        <button
+                                            onClick={() => handleSocialLogin('Microsoft')}
+                                            disabled={activeSocialLogin !== null}
+                                            className="flex items-center justify-center p-3 border border-gray-300 rounded-xl hover:bg-gray-50 transition-all duration-300 disabled:opacity-50 group hover:border-blue-300"
+                                        >
+                                            {activeSocialLogin === 'Microsoft' ? (
+                                                <div className="w-5 h-5 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+                                            ) : (
+                                                <>
+                                                    <FaMicrosoft className="text-xl mr-3 text-blue-600" />
+                                                    <span className="font-medium text-gray-700">Microsoft</span>
+                                                </>
+                                            )}
+                                        </button>
+                                    </div>
+
+                                    <div className="flex items-center my-6">
+                                        <div className="flex-grow border-t border-gray-300"></div>
+                                        <span className="mx-4 text-gray-500 text-sm font-medium">OR CONTINUE WITH EMAIL</span>
+                                        <div className="flex-grow border-t border-gray-300"></div>
+                                    </div>
+                                </div>
+
+                                <form onSubmit={handleSendOtp} className="space-y-5">
+                                    <div className="space-y-2">
+                                        <label className="block text-sm font-medium text-gray-700">
+                                            Email Address
+                                        </label>
+                                        <div className="relative group">
+                                            <input
+                                                ref={emailRef}
+                                                type="email"
+                                                name="email"
+                                                value={formData.email}
+                                                onChange={handleInputChange}
+                                                className={`w-full pl-12 pr-4 py-4 bg-gray-50/50 border-2 rounded-xl focus:ring-4 outline-none transition-all duration-300 group-hover:border-blue-400 ${isValidEmail
+                                                    ? 'border-gray-300 focus:border-blue-500 focus:ring-blue-100'
+                                                    : 'border-red-300 focus:border-red-500 focus:ring-red-100'
+                                                    }`}
+                                                placeholder="your.email@company.com"
+                                                required
+                                            />
+                                            <FiMail className={`absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 transition-colors ${isValidEmail ? 'text-gray-400 group-focus-within:text-blue-500' : 'text-red-400'
+                                                }`} />
+                                        </div>
+                                        {!isValidEmail && formData.email && (
+                                            <p className="text-red-500 text-sm flex items-center">
+                                                <FiCheckCircle className="mr-1" />
+                                                Please enter a valid email address
+                                            </p>
+                                        )}
+                                    </div>
+
+                                    <div className="space-y-2">
+                                        <div className="flex justify-between items-center">
+                                            <label className="block text-sm font-medium text-gray-700">
+                                                Password
+                                            </label>
+                                            <button
+                                                type="button"
+                                                className="text-sm text-blue-600 hover:text-blue-700 font-medium hover:underline"
+                                            >
+                                                Forgot password?
+                                            </button>
+                                        </div>
+                                        <div className="relative group">
+                                            <input
+                                                ref={passwordRef}
+                                                type={showPassword ? 'text' : 'password'}
+                                                name="password"
+                                                value={formData.password}
+                                                onChange={handleInputChange}
+                                                className="w-full pl-12 pr-12 py-4 bg-gray-50/50 border-2 border-gray-300 rounded-xl focus:border-blue-500 focus:ring-4 focus:ring-blue-100 outline-none transition-all duration-300 group-hover:border-blue-400"
+                                                placeholder="Enter your password"
+                                                required
+                                            />
+                                            <FiLock className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 group-focus-within:text-blue-500 w-5 h-5 transition-colors" />
+                                            <button
+                                                type="button"
+                                                onClick={() => setShowPassword(!showPassword)}
+                                                className="absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
+                                            >
+                                                {showPassword ? <FiEyeOff className="w-5 h-5" /> : <FiEye className="w-5 h-5" />}
+                                            </button>
+                                        </div>
+                                    </div>
+
+                                    <div className="flex items-center">
+                                        <input
+                                            type="checkbox"
+                                            id="remember"
+                                            className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                                        />
+                                        <label htmlFor="remember" className="ml-2 text-sm text-gray-600">
+                                            Remember this device for 30 days
+                                        </label>
+                                    </div>
+
+                                    <button
+                                        type="submit"
+                                        disabled={loading || !formData.email || !formData.password}
+                                        className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 disabled:from-gray-400 disabled:to-gray-500 text-white py-4 px-6 rounded-xl font-semibold shadow-lg hover:shadow-xl disabled:shadow-none transition-all duration-300 flex items-center justify-center group"
+                                    >
+                                        {loading ? (
+                                            <>
+                                                <FiRefreshCw className="animate-spin mr-3" />
+                                                Sending Verification Code...
+                                            </>
+                                        ) : (
+                                            <>
+                                                Continue to Verification
+                                                <FiArrowRight className="ml-3 group-hover:translate-x-1 transition-transform" />
+                                            </>
+                                        )}
+                                    </button>
+                                </form>
+                            </div>
+                        )}
+
+                        {/* Phase 2: OTP Verification */}
                         {phase === 2 && !showBranchSelection && !loginSuccess && (
                             <div className="space-y-6">
-                                {/* Animated Header */}
                                 <div className="relative overflow-hidden bg-gradient-to-br from-blue-50 to-indigo-100 border border-blue-200 rounded-2xl p-6">
                                     <div className="absolute -top-10 -right-10 w-20 h-20 bg-blue-200 rounded-full opacity-20"></div>
                                     <div className="absolute -bottom-10 -left-10 w-20 h-20 bg-purple-200 rounded-full opacity-20"></div>
@@ -643,14 +792,12 @@ const Login = () => {
                                     </div>
                                 </div>
 
-                                {/* OTP Input Section */}
                                 <div className="space-y-6">
                                     <div className="text-center">
                                         <h4 className="text-lg font-semibold text-gray-900 mb-2">Enter Verification Code</h4>
                                         <p className="text-gray-600 text-sm">Type the 6-digit code from your email</p>
                                     </div>
 
-                                    {/* Animated OTP Input Boxes */}
                                     <div className="flex justify-center space-x-3">
                                         {otpDigits.map((digit, index) => (
                                             <div key={index} className="relative group">
@@ -670,7 +817,6 @@ const Login = () => {
                                         ))}
                                     </div>
 
-                                    {/* OTP Status */}
                                     <div className="text-center">
                                         <div className="inline-flex items-center space-x-2 bg-gray-50 px-4 py-2 rounded-lg">
                                             <div className={`w-2 h-2 rounded-full ${formData.otp.length === 6 ? 'bg-green-500' : 'bg-yellow-500'}`}></div>
@@ -683,7 +829,6 @@ const Login = () => {
                                         </div>
                                     </div>
 
-                                    {/* Action Buttons */}
                                     <div className="grid grid-cols-2 gap-4 pt-2">
                                         <button
                                             type="button"
@@ -707,7 +852,6 @@ const Login = () => {
                                         </button>
                                     </div>
 
-                                    {/* Verify Button */}
                                     <button
                                         onClick={handleOtpSubmit}
                                         disabled={loading || formData.otp.length !== 6}
@@ -728,7 +872,6 @@ const Login = () => {
                                     </button>
                                 </div>
 
-                                {/* Security Note */}
                                 <div className="bg-gray-50 border border-gray-200 rounded-xl p-4 text-center">
                                     <div className="flex items-center justify-center space-x-2 text-sm text-gray-600">
                                         <FiShield className="text-blue-500" />
@@ -748,90 +891,8 @@ const Login = () => {
                                             <FiCheckCircle className="text-white text-3xl" />
                                         </div>
                                         <h3 className="font-bold text-green-900 text-xl mb-2">Login Successful!</h3>
-                                        <p className="text-green-700">Welcome back to LM Platform</p>
+                                        <p className="text-green-700">Redirecting to dashboard...</p>
                                     </div>
-                                </div>
-
-                                <div className="bg-gray-50 rounded-xl p-6 space-y-4">
-                                    <div className="flex justify-between items-center py-3 border-b border-gray-200 last:border-0">
-                                        <span className="text-gray-600">User:</span>
-                                        <span className="font-semibold text-gray-900">{loginResponse?.username || formData.email}</span>
-                                    </div>
-                                    <div className="flex justify-between items-center py-3 border-b border-gray-200 last:border-0">
-                                        <span className="text-gray-600">Email:</span>
-                                        <span className="font-medium text-gray-900">{formData.email}</span>
-                                    </div>
-                                    {selectedBranch && (
-                                        <div className="flex justify-between items-center py-3 border-b border-gray-200 last:border-0">
-                                            <span className="text-gray-600">Branch:</span>
-                                            <span className="font-medium text-green-700">
-                                                {branches.find(b => b.branch_id === selectedBranch)?.name}
-                                            </span>
-                                        </div>
-                                    )}
-                                </div>
-
-                                {branches.length > 0 && (
-                                    <div className="bg-blue-50/50 border border-blue-100 rounded-xl p-6">
-                                        <h4 className="font-semibold text-gray-900 mb-4 flex items-center">
-                                            <FiGitBranch className="mr-2 text-blue-600" />
-                                            Your Branches
-                                        </h4>
-                                        <div className="space-y-3">
-                                            {branches.map((branch) => (
-                                                <div
-                                                    key={branch.branch_id}
-                                                    className={`p-4 rounded-lg border ${selectedBranch === branch.branch_id ?
-                                                        'border-blue-500 bg-white shadow-sm' :
-                                                        'border-gray-200 bg-white/50'}`}
-                                                >
-                                                    <div className="flex justify-between items-center">
-                                                        <div>
-                                                            <span className="font-medium text-gray-900">{branch.name}</span>
-                                                            {branch.owned && (
-                                                                <span className="ml-3 px-2 py-1 bg-green-100 text-green-800 text-xs rounded-full font-medium">Owned</span>
-                                                            )}
-                                                        </div>
-                                                        {selectedBranch === branch.branch_id && (
-                                                            <span className="text-sm font-medium text-blue-600 bg-blue-100 px-3 py-1 rounded-full">Active</span>
-                                                        )}
-                                                    </div>
-                                                    <div className="text-sm text-gray-600 mt-2">
-                                                        ID: {branch.branch_id}
-                                                    </div>
-                                                </div>
-                                            ))}
-                                        </div>
-                                    </div>
-                                )}
-
-                                <div className="grid grid-cols-2 gap-4 pt-4">
-                                    <button
-                                        type="button"
-                                        onClick={() => {
-                                            setLoginSuccess(false);
-                                            setPhase(1);
-                                            setFormData({ email: '', password: '', otp: '' });
-                                            setOtpDigits(['', '', '', '', '', '']);
-                                            setBranches([]);
-                                            setSelectedBranch('');
-                                            setLoginResponse(null);
-                                        }}
-                                        className="py-3 px-6 border-2 border-gray-300 text-gray-700 rounded-xl font-medium hover:bg-gray-50 hover:border-gray-400 transition-all duration-300 flex items-center justify-center"
-                                    >
-                                        <FiUser className="mr-2" />
-                                        Switch Account
-                                    </button>
-                                    <button
-                                        type="button"
-                                        onClick={() => {
-                                            window.location.href = '/';
-                                        }}
-                                        className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white py-3 px-6 rounded-xl font-semibold shadow-lg hover:shadow-xl transition-all duration-300 flex items-center justify-center group"
-                                    >
-                                        Go to Dashboard
-                                        <FiArrowRight className="ml-2 group-hover:translate-x-1 transition-transform" />
-                                    </button>
                                 </div>
                             </div>
                         )}
@@ -857,7 +918,6 @@ const Login = () => {
                 </div>
             </div>
 
-            {/* Add animations to global styles */}
             <style jsx>{`
                 @keyframes blob {
                     0% {

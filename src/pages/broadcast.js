@@ -243,6 +243,13 @@ const Broadcast = () => {
             link: "/broadcast/email/create",
             color: "bg-indigo-100 text-indigo-600"
         },
+          {
+            title: "Reports",
+            description: "View email campaign reports",
+            icon: <FiBarChart2 className="w-5 h-5" />,
+            link: "/broadcast/email/reports",
+            color: "bg-indigo-100 text-indigo-600"
+        },
     ];
 
     // Handle channel changes
