@@ -16,8 +16,6 @@ import {
 import { useNavigate, useLocation } from 'react-router-dom';
 import { SaleForm, TransactionModalManager } from '../components/Modals/CreateTransactions';
 import PurchaseForm from '../components/purchase-form';
-import ContraTransfer from '../components/contra';
-import JournalEntry from '../components/journal';
 import CreateLedgerModal from '../components/create-ledger-modal';
 import DiscountForm from '../components/discount-form';
 import ExpenseForm from '../components/expense-form';
@@ -78,16 +76,12 @@ const FinanceEntry = () => {
         console.log(`${type} transaction created:`, payload);
     };
 
-    const handleContraSubmit = (formData) => {
-        console.log('Contra Received Data:', formData);
-        // Handle form submission logic here
-        alert('Contra send confimed.');
+    const handleContraSubmit = (type, payload) => {
+        console.log(`${type} transaction created:`, payload);
     };
 
-    const handleJournalSubmit = (formData) => {
-        console.log('Contra Received Data:', formData);
-        // Handle form submission logic here
-        alert('Contra send confimed.');
+    const handleJournalSubmit = (type, payload) => {
+        console.log(`${type} transaction created:`, payload);
     };
 
     const handleLedgerCreateSuccess = (ledgerData) => {
@@ -706,18 +700,29 @@ const FinanceEntry = () => {
                 summary={emptySummary}
             />
 
-            <ContraTransfer
+            <TransactionModalManager
+                modalType="CONTRA"
                 isOpen={contraFormModal}
                 onClose={() => setContraFormModal(false)}
                 onSubmit={handleContraSubmit}
-                mode="modal"
+                formatCurrency={formatCurrency}
+                summary={emptySummary}
+                showFromBank={true}
+                showToBank={true}
             />
 
-            <JournalEntry
+            <TransactionModalManager
+                modalType="JOURNAL"
                 isOpen={journalFormModal}
                 onClose={() => setJournalFormModal(false)}
                 onSubmit={handleJournalSubmit}
-                mode="modal"
+                formatCurrency={formatCurrency}
+                summary={emptySummary}
+                clientId={initialClientUsername}
+                clientName={initialClientUsername || ''}
+                showSummary={true}
+                showFromClient={true}
+                showToClient={true}
             />
 
             <CreateLedgerModal

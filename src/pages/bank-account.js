@@ -14,9 +14,6 @@ import {
     FiTrash2,
     FiSearch,
     FiRefreshCw,
-    FiArrowUp,
-    FiArrowDown,
-    FiRepeat,
     FiX,
     FiCalendar
 } from 'react-icons/fi';
@@ -28,48 +25,150 @@ import API_BASE_URL from '../utils/api-controller';
 import getHeaders from '../utils/get-headers';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
+import SelectInput from '../components/SelectInput';
+import { DatePickerField } from '../components/PortalDatePicker';
+import TablePagination from '../components/TablePagination';
+import { lookupIfscBankAndBranch, normalizeIfsc } from '../utils/ifscLookup';
+
+const sanitizeDecimalInput = (value, maxDecimals = 2) => {
+    let next = String(value ?? '').replace(/[^\d.]/g, '');
+    if (next === '') return '';
+    const firstDot = next.indexOf('.');
+    if (firstDot !== -1) {
+        next = `${next.slice(0, firstDot + 1)}${next.slice(firstDot + 1).replace(/\./g, '')}`;
+    }
+    if (next.startsWith('.')) next = `0${next}`;
+    const [i = '0', d = ''] = next.split('.');
+    const intPart = i.replace(/^0+(?=\d)/, '') || '0';
+    const decPart = d.slice(0, Math.max(0, maxDecimals));
+    return decPart.length ? `${intPart}.${decPart}` : intPart;
+};
 
 // Move ModalContent outside and memoize it
-const ModalContent = React.memo(({ 
-    isOpen, 
-    onClose, 
-    onSubmit, 
-    formData, 
-    onChange, 
-    loading, 
+const ModalContent = React.memo(({
+    isOpen,
+    onClose,
+    onSubmit,
+    formData,
+    onChange,
+    patchFields,
+    loading,
     mode = 'add',
     title,
     bankTypes,
     openingTypes
 }) => {
+    const [ifscLookupLoading, setIfscLookupLoading] = React.useState(false);
+    const ifscLookupSeqRef = React.useRef(0);
+    const lastSuccessfulIfscRef = React.useRef('');
+
+    const runIfscLookup = React.useCallback(
+        async (codeRaw) => {
+            const code = normalizeIfsc(codeRaw);
+            if (!patchFields) return;
+            if (String(formData.type || '').toLowerCase() === 'cash') return;
+            if (code.length !== 11) return;
+
+            const requestId = ++ifscLookupSeqRef.current;
+
+            setIfscLookupLoading(true);
+            try {
+                const { bank, branch } = await lookupIfscBankAndBranch(code);
+                if (requestId !== ifscLookupSeqRef.current) return;
+                lastSuccessfulIfscRef.current = code;
+                patchFields({
+                    bank: bank || '',
+                    branch: branch || ''
+                });
+            } catch (err) {
+                if (requestId !== ifscLookupSeqRef.current) return;
+                const codeKey = err?.code;
+                if (codeKey === 'INVALID_IFSC') {
+                    toast.error('Invalid IFSC code');
+                } else if (codeKey === 'NOT_FOUND' || codeKey === 'NETWORK') {
+                    toast.error('Could not fetch bank details. Enter bank and branch manually.');
+                } else {
+                    toast.error('Could not fetch bank details. Try again or enter manually.');
+                }
+            } finally {
+                if (requestId === ifscLookupSeqRef.current) {
+                    setIfscLookupLoading(false);
+                }
+            }
+        },
+        [formData.type, patchFields]
+    );
+
+    const handleIfscKeyUp = React.useCallback(
+        (e) => {
+            const code = normalizeIfsc(e.currentTarget.value);
+            if (code.length < 11) {
+                lastSuccessfulIfscRef.current = '';
+                return;
+            }
+            if (code.length === 11 && code !== lastSuccessfulIfscRef.current) {
+                void runIfscLookup(code);
+            }
+        },
+        [runIfscLookup]
+    );
+
+    const handleIfscPaste = React.useCallback(
+        (e) => {
+            const inputEl = e.currentTarget;
+            window.setTimeout(() => {
+                const code = normalizeIfsc(inputEl.value);
+                if (code.length < 11) {
+                    lastSuccessfulIfscRef.current = '';
+                    return;
+                }
+                if (code.length === 11 && code !== lastSuccessfulIfscRef.current) {
+                    void runIfscLookup(code);
+                }
+            }, 0);
+        },
+        [runIfscLookup]
+    );
+
     if (!isOpen) return null;
+    const isCashType = String(formData.type || '').toLowerCase() === 'cash';
+    const hasHolder = String(formData.holder || '').trim() !== '';
+    const hasOpeningAmount = String(formData.opening_balance?.amount ?? '').trim() !== '';
+    const hasOpeningDate = String(formData.opening_balance?.date || '').trim() !== '';
+    const hasOpeningType = String(formData.opening_balance?.type || '').trim() !== '';
+    const hasType = String(formData.type || '').trim() !== '';
+    const hasBankName = String(formData.bank || '').trim() !== '';
+    const hasAccountNo = String(formData.account_no || '').trim() !== '';
+    const hasIfsc = String(formData.ifsc || '').trim() !== '';
+    const hasBranch = String(formData.branch || '').trim() !== '';
+    const isFormValid = isCashType
+        ? hasType && hasHolder && hasOpeningAmount && hasOpeningDate && hasOpeningType
+        : hasType && hasHolder && hasBankName && hasAccountNo && hasIfsc && hasBranch && hasOpeningAmount && hasOpeningDate && hasOpeningType;
 
     return (
-        <div className="fixed inset-0 z-50 overflow-y-auto">
-            <div className="flex items-center justify-center min-h-screen p-4">
-                {/* Overlay */}
-                <motion.div
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    exit={{ opacity: 0 }}
-                    className="fixed inset-0 bg-black/50 backdrop-blur-sm"
-                    onClick={onClose}
-                />
-                
-                {/* Modal panel */}
-                <motion.div
-                    initial={{ opacity: 0, scale: 0.95, y: 20 }}
-                    animate={{ opacity: 1, scale: 1, y: 0 }}
-                    exit={{ opacity: 0, scale: 0.95, y: 20 }}
-                    className="relative w-full max-w-4xl bg-white rounded-2xl shadow-2xl h-[90vh] flex flex-col"
-                >
+        <div className="fixed inset-0 z-50 flex items-start justify-center overflow-hidden overscroll-none p-3 sm:p-4 pointer-events-none">
+            <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="absolute inset-0 bg-black/50 backdrop-blur-sm pointer-events-auto"
+                onClick={onClose}
+                aria-hidden
+            />
+
+            {/* Modal panel: fixed stacking; scrolling only inside body */}
+            <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                role="dialog"
+                aria-modal="true"
+                className="relative z-[1] pointer-events-auto w-full max-w-4xl my-2 sm:my-4 flex flex-col overflow-hidden rounded-2xl bg-white shadow-2xl max-h-[min(calc(100vh-1.5rem),100dvh)] sm:max-h-[min(calc(100vh-2rem),100dvh)] overscroll-none"
+            >
                     {/* Header */}
-                    <div className="flex-shrink-0 flex items-center justify-between p-6 border-b border-gray-200 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-t-2xl">
+                    <div className="shrink-0 flex items-center justify-between px-5 py-2.5 border-b border-gray-200 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-t-2xl">
                         <div>
-                            <h2 className="text-2xl font-bold">{title}</h2>
-                            <p className="text-blue-100 text-sm mt-1">
-                                {mode === 'add' ? 'Add a new bank account to your organization' : 'Update bank account details'}
-                            </p>
+                            <h2 className="text-xl font-bold">{title}</h2>
                         </div>
                         <button
                             onClick={onClose}
@@ -82,28 +181,30 @@ const ModalContent = React.memo(({
                     </div>
 
                     {/* Body */}
-                    <div className="flex-1 overflow-y-auto p-6">
+                    <div
+                        className="px-5 py-4 flex-1 min-h-0 overflow-y-auto overscroll-y-contain [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden touch-pan-y"
+                        style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+                    >
                         <form onSubmit={onSubmit} id="bank-form">
-                            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                                {/* Bank Name */}
-                                <div className="space-y-2">
-                                    <label className="block text-sm font-semibold text-gray-700">
-                                        Bank Name <span className="text-red-500">*</span>
+                            <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+                                {/* Account Type */}
+                                <div className="space-y-1.5">
+                                    <label className="block text-xs font-semibold text-gray-700">
+                                        Account Type <span className="text-red-500">*</span>
                                     </label>
-                                    <input
-                                        type="text"
-                                        name="bank"
-                                        value={formData.bank || ''}
-                                        onChange={onChange}
-                                        placeholder="Enter bank name"
-                                        className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 hover:border-blue-400 transition-all duration-200"
-                                        required
+                                    <SelectInput
+                                        options={bankTypes.map((type) => ({ value: type.value, label: type.name }))}
+                                        value={formData.type || null}
+                                        onChange={(value) => onChange({ target: { name: 'type', value: value || '' } })}
+                                        placeholder="Select Account Type"
+                                        searchPlaceholder="Search account type..."
+                                        clearable={false}
                                     />
                                 </div>
 
                                 {/* Account Holder */}
-                                <div className="space-y-2">
-                                    <label className="block text-sm font-semibold text-gray-700">
+                                <div className="space-y-1.5">
+                                    <label className="block text-xs font-semibold text-gray-700">
                                         Account Holder <span className="text-red-500">*</span>
                                     </label>
                                     <input
@@ -112,83 +213,98 @@ const ModalContent = React.memo(({
                                         value={formData.holder || ''}
                                         onChange={onChange}
                                         placeholder="Enter account holder name"
-                                        className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 hover:border-blue-400 transition-all duration-200"
+                                        className="w-full h-10 px-3 text-sm border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 hover:border-blue-400 transition-all duration-200"
                                         required
                                     />
                                 </div>
 
-                                {/* Account Number */}
-                                <div className="space-y-2">
-                                    <label className="block text-sm font-semibold text-gray-700">
-                                        Account Number <span className="text-red-500">*</span>
-                                    </label>
-                                    <input
-                                        type="text"
-                                        name="account_no"
-                                        value={formData.account_no || ''}
-                                        onChange={onChange}
-                                        placeholder="Enter account number"
-                                        className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 hover:border-blue-400 transition-all duration-200"
-                                        required
-                                    />
-                                </div>
+                                {!isCashType && (
+                                    <>
+                                        {/* Account Number */}
+                                        <div className="space-y-1.5">
+                                            <label className="block text-xs font-semibold text-gray-700">
+                                                Account Number <span className="text-red-500">*</span>
+                                            </label>
+                                            <input
+                                                type="text"
+                                                name="account_no"
+                                                value={formData.account_no || ''}
+                                                onChange={onChange}
+                                                placeholder="Enter account number"
+                                                className="w-full h-10 px-3 text-sm border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 hover:border-blue-400 transition-all duration-200"
+                                                required={!isCashType}
+                                                autoCapitalize="characters"
+                                                autoCorrect="off"
+                                            />
+                                        </div>
 
-                                {/* IFSC Code */}
-                                <div className="space-y-2">
-                                    <label className="block text-sm font-semibold text-gray-700">
-                                        IFSC Code <span className="text-red-500">*</span>
-                                    </label>
-                                    <input
-                                        type="text"
-                                        name="ifsc"
-                                        value={formData.ifsc || ''}
-                                        onChange={onChange}
-                                        placeholder="Enter IFSC code"
-                                        className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 hover:border-blue-400 transition-all duration-200"
-                                        required
-                                    />
-                                </div>
+                                        {/* IFSC Code */}
+                                        <div className="space-y-1.5">
+                                            <div className="flex items-center gap-2">
+                                                <label className="block text-xs font-semibold text-gray-700">
+                                                    IFSC Code <span className="text-red-500">*</span>
+                                                </label>
+                                                {ifscLookupLoading ? (
+                                                    <span className="inline-flex items-center text-blue-600" aria-live="polite">
+                                                        <FiRefreshCw className="w-3.5 h-3.5 animate-spin shrink-0" aria-hidden />
+                                                        <span className="sr-only">Looking up bank details</span>
+                                                    </span>
+                                                ) : null}
+                                            </div>
+                                            <input
+                                                type="text"
+                                                name="ifsc"
+                                                value={formData.ifsc || ''}
+                                                onChange={onChange}
+                                                onKeyUp={handleIfscKeyUp}
+                                                onPaste={handleIfscPaste}
+                                                placeholder="Enter IFSC code"
+                                                className="w-full h-10 px-3 text-sm border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 hover:border-blue-400 transition-all duration-200"
+                                                required={!isCashType}
+                                                maxLength={11}
+                                                autoCapitalize="characters"
+                                                autoCorrect="off"
+                                                spellCheck={false}
+                                            />
+                                        </div>
 
-                                {/* Branch */}
-                                <div className="space-y-2">
-                                    <label className="block text-sm font-semibold text-gray-700">
-                                        Branch <span className="text-red-500">*</span>
-                                    </label>
-                                    <input
-                                        type="text"
-                                        name="branch"
-                                        value={formData.branch || ''}
-                                        onChange={onChange}
-                                        placeholder="Enter branch name"
-                                        className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 hover:border-blue-400 transition-all duration-200"
-                                        required
-                                    />
-                                </div>
+                                        {/* Bank Name */}
+                                        <div className="space-y-1.5">
+                                            <label className="block text-xs font-semibold text-gray-700">
+                                                Bank Name <span className="text-red-500">*</span>
+                                            </label>
+                                            <input
+                                                type="text"
+                                                name="bank"
+                                                value={formData.bank || ''}
+                                                onChange={onChange}
+                                                placeholder="Auto-filled from IFSC or type manually"
+                                                className="w-full h-10 px-3 text-sm border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 hover:border-blue-400 transition-all duration-200"
+                                                required={!isCashType}
+                                            />
+                                        </div>
 
-                                {/* Account Type */}
-                                <div className="space-y-2">
-                                    <label className="block text-sm font-semibold text-gray-700">
-                                        Account Type <span className="text-red-500">*</span>
-                                    </label>
-                                    <select
-                                        name="type"
-                                        value={formData.type || ''}
-                                        onChange={onChange}
-                                        className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 hover:border-blue-400 transition-all duration-200 bg-white"
-                                        required
-                                    >
-                                        <option value="" disabled>Select Account Type</option>
-                                        {bankTypes.map(type => (
-                                            <option key={type.value} value={type.value}>
-                                                {type.name}
-                                            </option>
-                                        ))}
-                                    </select>
-                                </div>
+                                        {/* Branch */}
+                                        <div className="space-y-1.5">
+                                            <label className="block text-xs font-semibold text-gray-700">
+                                                Branch <span className="text-red-500">*</span>
+                                            </label>
+                                            <input
+                                                type="text"
+                                                name="branch"
+                                                value={formData.branch || ''}
+                                                onChange={onChange}
+                                                placeholder="Auto-filled from IFSC or type manually"
+                                                className="w-full h-10 px-3 text-sm border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 hover:border-blue-400 transition-all duration-200"
+                                                required={!isCashType}
+                                            />
+                                        </div>
+                                    </>
+                                )}
 
                                 {/* Remark */}
-                                <div className="lg:col-span-2 space-y-2">
-                                    <label className="block text-sm font-semibold text-gray-700">
+                                <div className="lg:col-span-2 space-y-1.5">
+                                    <label className="block text-xs font-semibold text-gray-700">
                                         Remark
                                     </label>
                                     <input
@@ -197,62 +313,60 @@ const ModalContent = React.memo(({
                                         value={formData.remark || ''}
                                         onChange={onChange}
                                         placeholder="Enter any remarks"
-                                        className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 hover:border-blue-400 transition-all duration-200"
+                                        className="w-full h-10 px-3 text-sm border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 hover:border-blue-400 transition-all duration-200"
                                     />
                                 </div>
 
                                 {/* Opening Balance Section */}
-                                <div className="lg:col-span-2 border-t border-gray-200 pt-4 mt-2">
-                                    <h3 className="text-lg font-semibold text-gray-800 mb-4">Opening Balance Details</h3>
+                                <div className="lg:col-span-2 border-t border-gray-200 pt-2 mt-0.5">
+                                    <h3 className="text-sm font-semibold text-gray-800 mb-2">Opening Balance Details</h3>
                                 </div>
 
                                 {/* Opening Balance Amount */}
-                                <div className="space-y-2">
-                                    <label className="block text-sm font-semibold text-gray-700">
+                                <div className="space-y-1.5">
+                                    <label className="block text-xs font-semibold text-gray-700">
                                         Opening Balance Amount <span className="text-red-500">*</span>
                                     </label>
                                     <input
-                                        type="number"
+                                        type="text"
                                         name="opening_balance.amount"
                                         value={formData.opening_balance?.amount || ''}
                                         onChange={onChange}
                                         placeholder="Enter amount"
-                                        className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 hover:border-blue-400 transition-all duration-200"
+                                        className="w-full h-10 px-3 text-sm border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 hover:border-blue-400 transition-all duration-200"
                                         required
-                                        step="0.01"
-                                        min="0"
+                                        inputMode="decimal"
                                     />
                                 </div>
 
                                 {/* Opening Balance Type */}
-                                <div className="space-y-2">
-                                    <label className="block text-sm font-semibold text-gray-700">
+                                <div className="space-y-1.5">
+                                    <label className="block text-xs font-semibold text-gray-700">
                                         Balance Type <span className="text-red-500">*</span>
                                     </label>
-                                    <select
-                                        name="opening_balance.type"
+                                    <SelectInput
+                                        options={openingTypes.map((type) => ({ value: type.value, label: type.name }))}
                                         value={formData.opening_balance?.type || 'credit'}
-                                        onChange={onChange}
-                                        className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 hover:border-blue-400 transition-all duration-200 bg-white"
-                                        required
-                                    >
-                                        <option value="credit">Credit (Money In)</option>
-                                        <option value="debit">Debit (Money Out)</option>
-                                    </select>
+                                        onChange={(value) => onChange({ target: { name: 'opening_balance.type', value: value || 'credit' } })}
+                                        placeholder="Select balance type"
+                                        searchPlaceholder="Search balance type..."
+                                        clearable={false}
+                                    />
                                 </div>
 
                                 {/* Opening Balance Date */}
-                                <div className="space-y-2">
-                                    <label className="block text-sm font-semibold text-gray-700">
+                                <div className="space-y-1.5">
+                                    <label className="block text-xs font-semibold text-gray-700">
                                         Opening Date <span className="text-red-500">*</span>
                                     </label>
-                                    <input
-                                        type="date"
-                                        name="opening_balance.date"
+                                    <DatePickerField
                                         value={formData.opening_balance?.date || new Date().toISOString().split('T')[0]}
-                                        onChange={onChange}
-                                        className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 hover:border-blue-400 transition-all duration-200"
-                                        required
+                                        onChange={(value) => onChange({ target: { name: 'opening_balance.date', value: value || '' } })}
+                                        mode="single"
+                                        hideTabs={true}
+                                        showResetButton={false}
+                                        placeholder="Select opening date"
+                                        buttonClassName="w-full h-10 px-3 text-sm border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 hover:border-blue-400 transition-all duration-200"
                                     />
                                 </div>
                             </div>
@@ -260,21 +374,21 @@ const ModalContent = React.memo(({
                     </div>
 
                     {/* Footer */}
-                    <div className="flex-shrink-0 border-t border-gray-200 bg-gray-50 p-6 rounded-b-2xl">
+                    <div className="shrink-0 border-t border-gray-200 bg-gray-50 px-5 py-2 rounded-b-2xl">
                         <div className="flex justify-end gap-3">
                             <button
                                 type="button"
                                 onClick={onClose}
                                 disabled={loading}
-                                className="px-6 py-3 text-sm font-medium text-gray-700 bg-white border-2 border-gray-200 rounded-xl hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-gray-500 transition-all duration-200 disabled:opacity-50"
+                                className="px-6 py-2.5 text-sm font-medium text-gray-700 bg-white border-2 border-gray-200 rounded-xl hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-gray-500 transition-all duration-200 disabled:opacity-50"
                             >
                                 Cancel
                             </button>
                             <button
                                 type="submit"
                                 form="bank-form"
-                                disabled={loading}
-                                className="px-6 py-3 text-sm font-medium text-white bg-gradient-to-r from-blue-600 to-blue-700 rounded-xl hover:from-blue-700 hover:to-blue-800 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 flex items-center min-w-[140px] justify-center shadow-lg"
+                                disabled={loading || !isFormValid}
+                                className="px-6 py-2.5 text-sm font-medium text-white bg-gradient-to-r from-blue-600 to-blue-700 rounded-xl hover:from-blue-700 hover:to-blue-800 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 flex items-center min-w-[140px] justify-center shadow-lg"
                             >
                                 {loading ? (
                                     <>
@@ -291,7 +405,6 @@ const ModalContent = React.memo(({
                         </div>
                     </div>
                 </motion.div>
-            </div>
         </div>
     );
 });
@@ -301,31 +414,33 @@ const DeleteModal = React.memo(({ isOpen, onClose, onConfirm, bank, loading }) =
     if (!isOpen) return null;
 
     return (
-        <div className="fixed inset-0 z-50 overflow-y-auto">
-            <div className="flex items-center justify-center min-h-screen p-4">
-                <motion.div
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    exit={{ opacity: 0 }}
-                    className="fixed inset-0 bg-black/50 backdrop-blur-sm"
-                    onClick={onClose}
-                />
-                
-                <motion.div
-                    initial={{ opacity: 0, scale: 0.95, y: 20 }}
-                    animate={{ opacity: 1, scale: 1, y: 0 }}
-                    exit={{ opacity: 0, scale: 0.95, y: 20 }}
-                    className="relative w-full max-w-md bg-white rounded-2xl shadow-2xl p-6"
-                >
+        <div className="fixed inset-0 z-50 flex items-center justify-center overflow-hidden overscroll-none p-4 pointer-events-none">
+            <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="absolute inset-0 bg-black/50 backdrop-blur-sm pointer-events-auto"
+                onClick={onClose}
+                aria-hidden
+            />
+
+            <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="relative z-[1] pointer-events-auto w-full max-w-md bg-white rounded-2xl shadow-2xl p-6 overscroll-none"
+                role="dialog"
+                aria-modal="true"
+            >
                     <div className="text-center">
                         <div className="w-20 h-20 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
                             <FiTrash2 className="w-10 h-10 text-red-500" />
                         </div>
-                        
+
                         <h3 className="text-xl font-bold text-gray-800 mb-2">
                             Delete Bank Account
                         </h3>
-                        
+
                         <p className="text-gray-600 mb-6">
                             Are you sure you want to delete <span className="font-semibold">{bank?.bank}</span>? This action cannot be undone.
                         </p>
@@ -357,8 +472,7 @@ const DeleteModal = React.memo(({ isOpen, onClose, onConfirm, bank, loading }) =
                             </button>
                         </div>
                     </div>
-                </motion.div>
-            </div>
+            </motion.div>
         </div>
     );
 });
@@ -379,23 +493,15 @@ const BankList = () => {
     const [showAddDropdown, setShowAddDropdown] = useState(false);
     const [activeRowDropdown, setActiveRowDropdown] = useState(null);
     const [exportModal, setExportModal] = useState({ open: false, type: '', data: null });
-    
+
     // Pagination and list states
     const [currentPage, setCurrentPage] = useState(1);
     const [limit] = useState(10);
     const [total, setTotal] = useState(0);
-    const [count, setCount] = useState(0);
     const [isLastPage, setIsLastPage] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
     const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
     const [fetchError, setFetchError] = useState(null);
-
-    // Transaction summary states
-    const [transactionSummary, setTransactionSummary] = useState({
-        totalTransactions: 0,
-        totalCredit: 0,
-        totalDebit: 0
-    });
 
     // Form states
     const [formData, setFormData] = useState({
@@ -407,7 +513,7 @@ const BankList = () => {
         type: '',
         remark: '',
         opening_balance: {
-            amount: '',
+            amount: '0',
             date: new Date().toISOString().split('T')[0],
             type: 'credit'
         }
@@ -423,7 +529,7 @@ const BankList = () => {
         type: '',
         remark: '',
         opening_balance: {
-            amount: '',
+            amount: '0',
             date: '',
             type: 'credit'
         }
@@ -431,10 +537,10 @@ const BankList = () => {
 
     // Bank type options - memoized to prevent unnecessary re-renders
     const bankTypes = useMemo(() => [
-        { value: 'savings', name: 'Savings Account' },
-        { value: 'current', name: 'Current Account' },
-        { value: 'salary', name: 'Salary Account' },
-        { value: 'fixed_deposit', name: 'Fixed Deposit' }
+        { value: 'savings', name: 'Savings' },
+        { value: 'current', name: 'Current' },
+        { value: 'loan', name: 'Loan' },
+        { value: 'cash', name: 'Cash' }
     ], []);
 
     // Opening type options
@@ -472,10 +578,8 @@ const BankList = () => {
                 const meta = response.data.meta || {};
                 setBanks(list);
                 setTotal(meta.total ?? 0);
-                setCount(meta.count ?? list.length);
                 setIsLastPage(meta.is_last_page ?? true);
                 setFetchError(null);
-                calculateTransactionSummary(list);
             } else {
                 setFetchError(response.data?.message || 'Failed to fetch bank list');
                 setBanks([]);
@@ -510,15 +614,15 @@ const BankList = () => {
         localStorage.setItem('sidebarMinimized', JSON.stringify(isMinimized));
     }, [isMinimized]);
 
-    // Lock body scroll when mobile sidebar is open
+    // Lock body scroll when mobile sidebar is open (avoid leaving inline overflow when closed)
     useEffect(() => {
         if (mobileMenuOpen) {
             document.body.style.overflow = 'hidden';
         } else {
-            document.body.style.overflow = 'auto';
+            document.body.style.removeProperty('overflow');
         }
         return () => {
-            document.body.style.overflow = 'auto';
+            document.body.style.removeProperty('overflow');
         };
     }, [mobileMenuOpen]);
 
@@ -537,26 +641,6 @@ const BankList = () => {
         };
     }, []);
 
-    // Calculate transaction summary
-    const calculateTransactionSummary = (banksData) => {
-        let totalCredit = 0;
-        let totalDebit = 0;
-        
-        banksData.forEach(bank => {
-            if (bank.balance > 0) {
-                totalCredit += bank.balance;
-            } else {
-                totalDebit += Math.abs(bank.balance);
-            }
-        });
-        
-        setTransactionSummary({
-            totalTransactions: banksData.length,
-            totalCredit,
-            totalDebit
-        });
-    };
-
     // Handle balance click - redirect to transaction history page
     const handleBalanceClick = useCallback((bank) => {
         navigate(`/finance/bank/transaction-history?bank_id=${bank.bank_id}`);
@@ -573,20 +657,20 @@ const BankList = () => {
     // Handle form input changes for add modal - memoized
     const handleInputChange = useCallback((e) => {
         const { name, value } = e.target;
-        
+
         if (name.startsWith('opening_balance.')) {
             const field = name.split('.')[1];
             setFormData(prev => ({
                 ...prev,
                 opening_balance: {
                     ...prev.opening_balance,
-                    [field]: field === 'amount' ? parseFloat(value) || '' : value
+                    [field]: field === 'amount' ? sanitizeDecimalInput(value, 2) : value
                 }
             }));
         } else {
             setFormData(prev => ({
                 ...prev,
-                [name]: value
+                [name]: name === 'ifsc' ? normalizeIfsc(value) : value
             }));
         }
     }, []);
@@ -594,20 +678,20 @@ const BankList = () => {
     // Handle form input changes for edit modal - memoized
     const handleEditInputChange = useCallback((e) => {
         const { name, value } = e.target;
-        
+
         if (name.startsWith('opening_balance.')) {
             const field = name.split('.')[1];
             setEditFormData(prev => ({
                 ...prev,
                 opening_balance: {
                     ...prev.opening_balance,
-                    [field]: field === 'amount' ? parseFloat(value) || '' : value
+                    [field]: field === 'amount' ? sanitizeDecimalInput(value, 2) : value
                 }
             }));
         } else {
             setEditFormData(prev => ({
                 ...prev,
-                [name]: value
+                [name]: name === 'ifsc' ? normalizeIfsc(value) : value
             }));
         }
     }, []);
@@ -650,7 +734,7 @@ const BankList = () => {
                     type: '',
                     remark: '',
                     opening_balance: {
-                        amount: '',
+                        amount: '0',
                         date: new Date().toISOString().split('T')[0],
                         type: 'credit'
                     }
@@ -756,7 +840,7 @@ const BankList = () => {
             type: bank.type,
             remark: bank.remark || '',
             opening_balance: {
-                amount: Math.abs(bank.balance),
+                amount: sanitizeDecimalInput(String(Math.abs(bank.balance ?? 0)), 2),
                 date: new Date().toISOString().split('T')[0],
                 type: bank.balance < 0 ? 'credit' : 'debit'
             }
@@ -774,7 +858,7 @@ const BankList = () => {
     // Handle export - memoized
     const handleExport = useCallback((type, data = null) => {
         setExportModal({ open: true, type, data });
-        
+
         // Simulate export process
         setTimeout(() => {
             setExportModal({ open: false, type: '', data: null });
@@ -790,7 +874,7 @@ const BankList = () => {
 
     // Get bank type color
     const getBankTypeColor = useCallback((type) => {
-        switch(type?.toLowerCase()) {
+        switch (type?.toLowerCase()) {
             case 'savings': return 'bg-blue-100 text-blue-700';
             case 'current': return 'bg-green-100 text-green-700';
             case 'salary': return 'bg-purple-100 text-purple-700';
@@ -863,82 +947,8 @@ const BankList = () => {
             {/* Main Content Area */}
             <div className={`pt-16 transition-all duration-300 ease-in-out ${isMinimized ? 'md:pl-20' : 'md:pl-[260px]'}`}>
                 <div className="max-w-full mx-auto px-4 sm:px-6 lg:px-8 py-6">
-                    {/* Stats Cards Grid */}
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
-                        {/* Total Transactions Card */}
-                        <motion.div 
-                            initial={{ opacity: 0, y: 20 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            transition={{ delay: 0.1 }}
-                            className="bg-white rounded-2xl p-6 shadow-lg border border-slate-200 hover:shadow-xl transition-all duration-300"
-                        >
-                            <div className="flex items-center justify-between">
-                                <div>
-                                    <p className="text-slate-500 text-sm font-medium mb-1">Total Transactions</p>
-                                    <h3 className="text-3xl font-bold text-slate-800">
-                                        {transactionSummary.totalTransactions}
-                                    </h3>
-                                    <p className="text-slate-400 text-xs mt-2">
-                                        All bank accounts
-                                    </p>
-                                </div>
-                                <div className="p-4 bg-blue-100 rounded-2xl">
-                                    <FiRepeat className="w-6 h-6 text-blue-600" />
-                                </div>
-                            </div>
-                        </motion.div>
-
-                        {/* Total Credit Card */}
-                        <motion.div 
-                            initial={{ opacity: 0, y: 20 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            transition={{ delay: 0.2 }}
-                            className="bg-white rounded-2xl p-6 shadow-lg border border-slate-200 hover:shadow-xl transition-all duration-300"
-                        >
-                            <div className="flex items-center justify-between">
-                                <div>
-                                    <p className="text-slate-500 text-sm font-medium mb-1">Total Credit</p>
-                                    <h3 className="text-3xl font-bold text-green-600">
-                                        ₹{formatCurrency(transactionSummary.totalCredit)}
-                                    </h3>
-                                    <p className="text-green-500 text-xs mt-2 flex items-center gap-1">
-                                        <FiArrowUp className="w-3 h-3" />
-                                        Money In
-                                    </p>
-                                </div>
-                                <div className="p-4 bg-green-100 rounded-2xl">
-                                    <FiArrowUp className="w-6 h-6 text-green-600" />
-                                </div>
-                            </div>
-                        </motion.div>
-
-                        {/* Total Debit Card */}
-                        <motion.div 
-                            initial={{ opacity: 0, y: 20 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            transition={{ delay: 0.3 }}
-                            className="bg-white rounded-2xl p-6 shadow-lg border border-slate-200 hover:shadow-xl transition-all duration-300"
-                        >
-                            <div className="flex items-center justify-between">
-                                <div>
-                                    <p className="text-slate-500 text-sm font-medium mb-1">Total Debit</p>
-                                    <h3 className="text-3xl font-bold text-red-600">
-                                        ₹{formatCurrency(transactionSummary.totalDebit)}
-                                    </h3>
-                                    <p className="text-red-500 text-xs mt-2 flex items-center gap-1">
-                                        <FiArrowDown className="w-3 h-3" />
-                                        Money Out
-                                    </p>
-                                </div>
-                                <div className="p-4 bg-red-100 rounded-2xl">
-                                    <FiArrowDown className="w-6 h-6 text-red-600" />
-                                </div>
-                            </div>
-                        </motion.div>
-                    </div>
-
                     {/* Main Card */}
-                    <motion.div 
+                    <motion.div
                         initial={{ opacity: 0, y: 20 }}
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ delay: 0.4 }}
@@ -1062,8 +1072,8 @@ const BankList = () => {
                                 <thead>
                                     <tr className="bg-gradient-to-r from-slate-50 to-slate-100 border-y border-slate-200">
                                         <th className="text-left p-4 font-semibold text-slate-600">S.No</th>
-                                        <th className="text-left p-4 font-semibold text-slate-600">Bank Details</th>
                                         <th className="text-left p-4 font-semibold text-slate-600">Account Holder</th>
+                                        <th className="text-left p-4 font-semibold text-slate-600">Bank Details</th>
                                         <th className="text-left p-4 font-semibold text-slate-600">IFSC</th>
                                         <th className="text-left p-4 font-semibold text-slate-600">Type</th>
                                         <th className="text-right p-4 font-semibold text-slate-600">Balance</th>
@@ -1115,7 +1125,7 @@ const BankList = () => {
                                         banks.map((bank, index) => {
                                             const isDropdownOpen = activeRowDropdown === bank.bank_id;
                                             const isPositive = bank.balance > 0;
-                                            
+
                                             return (
                                                 <motion.tr
                                                     key={bank.bank_id}
@@ -1130,6 +1140,11 @@ const BankList = () => {
                                                         </span>
                                                     </td>
                                                     <td className="p-4">
+                                                        <span className="font-medium text-slate-700">
+                                                            {bank.holder}
+                                                        </span>
+                                                    </td>
+                                                    <td className="p-4">
                                                         <div>
                                                             <div className="font-semibold text-slate-800">
                                                                 {bank.bank}
@@ -1137,25 +1152,19 @@ const BankList = () => {
                                                             <div className="text-slate-500 text-xs mt-1">
                                                                 {bank.account_no}
                                                             </div>
-                                                            <div className="text-slate-400 text-xs">
-                                                                {bank.branch}
-                                                            </div>
                                                         </div>
                                                     </td>
                                                     <td className="p-4">
-                                                        <span className="font-medium text-slate-700">
-                                                            {bank.holder}
-                                                        </span>
-                                                        {bank.remark && (
-                                                            <div className="text-slate-400 text-xs mt-1">
-                                                                {bank.remark}
-                                                            </div>
-                                                        )}
-                                                    </td>
-                                                    <td className="p-4">
-                                                        <span className="inline-flex px-3 py-1.5 bg-slate-100 text-slate-700 font-mono text-xs rounded-lg border border-slate-200">
-                                                            {bank.ifsc}
-                                                        </span>
+                                                        <div className="space-y-1">
+                                                            {bank.ifsc ? (
+                                                                <span className="inline-flex px-3 py-1.5 bg-slate-100 text-slate-700 font-mono text-xs rounded-lg border border-slate-200">
+                                                                    {bank.ifsc}
+                                                                </span>
+                                                            ) : null}
+                                                            {bank.branch ? (
+                                                                <div className="text-slate-500 text-xs">{bank.branch}</div>
+                                                            ) : null}
+                                                        </div>
                                                     </td>
                                                     <td className="p-4">
                                                         <span className={`px-3 py-1.5 rounded-lg text-xs font-medium capitalize ${getBankTypeColor(bank.type)}`}>
@@ -1165,9 +1174,8 @@ const BankList = () => {
                                                     <td className="p-4 text-right">
                                                         <button
                                                             onClick={() => handleBalanceClick(bank)}
-                                                            className={`inline-flex items-center justify-end font-bold text-sm ${
-                                                                isPositive ? 'text-green-600 hover:text-green-700' : 'text-red-600 hover:text-red-700'
-                                                            } hover:underline cursor-pointer transition-all duration-200`}
+                                                            className={`inline-flex items-center justify-end font-bold text-sm ${isPositive ? 'text-green-600 hover:text-green-700' : 'text-red-600 hover:text-red-700'
+                                                                } cursor-pointer transition-all duration-200`}
                                                         >
                                                             {isPositive ? '+' : '-'} ₹{formatCurrency(Math.abs(bank.balance))}
                                                         </button>
@@ -1251,38 +1259,18 @@ const BankList = () => {
                             </table>
                         </div>
 
-                        {/* Pagination */}
-                        {!fetchLoading && banks.length > 0 && !fetchError && (
-                            <div className="border-t border-slate-200 px-6 py-4 bg-white">
-                                <div className="flex items-center justify-between">
-                                    <div className="text-sm text-slate-600">
-                                        Page {currentPage} • Showing {(currentPage - 1) * limit + 1} to {(currentPage - 1) * limit + count} of {total} entries
-                                    </div>
-                                    <div className="flex gap-2">
-                                        <motion.button
-                                            onClick={() => handlePageChange(currentPage - 1)}
-                                            disabled={currentPage === 1}
-                                            className="px-4 py-2 text-sm font-medium text-slate-700 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
-                                            whileHover={{ scale: 1.02 }}
-                                            whileTap={{ scale: 0.98 }}
-                                        >
-                                            Previous
-                                        </motion.button>
-                                        <span className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg">
-                                            {currentPage}
-                                        </span>
-                                        <motion.button
-                                            onClick={() => handlePageChange(currentPage + 1)}
-                                            disabled={isLastPage}
-                                            className="px-4 py-2 text-sm font-medium text-slate-700 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
-                                            whileHover={{ scale: 1.02 }}
-                                            whileTap={{ scale: 0.98 }}
-                                        >
-                                            Next
-                                        </motion.button>
-                                    </div>
-                                </div>
-                            </div>
+                        {!fetchLoading && (banks.length > 0 || total > 0) && !fetchError && (
+                            <TablePagination
+                                page={currentPage}
+                                limit={limit}
+                                total={total}
+                                totalPages={Math.max(1, Math.ceil(total / (limit || 1)))}
+                                isLastPage={isLastPage}
+                                rowOptions={[10]}
+                                defaultRows={10}
+                                onPageChange={handlePageChange}
+                                onLimitChange={() => { }}
+                            />
                         )}
                     </motion.div>
                 </div>
@@ -1297,6 +1285,7 @@ const BankList = () => {
                         onSubmit={handleCreateBank}
                         formData={formData}
                         onChange={handleInputChange}
+                        patchFields={(patch) => setFormData((prev) => ({ ...prev, ...patch }))}
                         loading={loading}
                         mode="add"
                         title="Add New Bank Account"
@@ -1312,6 +1301,7 @@ const BankList = () => {
                         onSubmit={handleEditBank}
                         formData={editFormData}
                         onChange={handleEditInputChange}
+                        patchFields={(patch) => setEditFormData((prev) => ({ ...prev, ...patch }))}
                         loading={loading}
                         mode="edit"
                         title="Edit Bank Account"
