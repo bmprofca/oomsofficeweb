@@ -48,8 +48,9 @@ export const emailApi = {
   deleteStaticTemplate: (payload) => emailAxios.put('/broadcast/email/static-template/delete', payload).then(unwrap),
   getTemplateVariables: (templateType) => emailAxios.get(`/broadcast/email/variables/${templateType}`).then(unwrap),
   setDefaultStaticTemplate: (payload) => emailAxios.put('/broadcast/email/static-template/set-default', payload).then(unwrap),
+  
   // Broadcast
-  createBroadcast: (payload) => emailAxios.post('/broadcast/email/broadcast/create', payload).then(unwrap),
+   createBroadcast: (payload) => emailAxios.post('/broadcast/email/broadcast/create', payload).then(unwrap),
   listBroadcasts: (params) => emailAxios.get('/broadcast/email/broadcast/list', { params }).then(unwrap),
   broadcastDetails: (id) => emailAxios.get(`/broadcast/email/broadcast/details/${id}`).then(unwrap),
   recipientList: (id, params) => emailAxios.get(`/broadcast/email/broadcast/recipient-list/${id}`, { params }).then(unwrap),
@@ -58,6 +59,7 @@ export const emailApi = {
   cancelBroadcast: (payload) => emailAxios.post('/broadcast/email/broadcast/cancel', payload).then(unwrap),
   retryFailed: (payload) => emailAxios.post('/broadcast/email/broadcast/retry-failed', payload).then(unwrap),
   processDue: (payload) => emailAxios.post('/broadcast/email/broadcast/process-due', payload || {}).then(unwrap),
+//createBroadcast: (payload) => emailAxios.post('/broadcast/email/send/mail', payload).then(unwrap),
 };
 
 export const normalizeList = (data) => (Array.isArray(data) ? data : []);
