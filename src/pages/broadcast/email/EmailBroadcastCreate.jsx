@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState, useCallback } from 'react';
 import { Button, Card, Col, Form, Row, Spinner, Table, Badge, Modal, Tab, Tabs, InputGroup } from 'react-bootstrap';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-hot-toast';
-import { FaUsers, FaLayerGroup, FaTasks, FaPlus, FaTrash, FaFileImport, FaSearch, FaEnvelope, FaPaperPlane, FaCheckDouble } from 'react-icons/fa';
+import { FaUsers, FaLayerGroup, FaTasks, FaPlus, FaTrash, FaFileImport, FaSearch, FaEnvelope, FaPaperPlane, FaCheckDouble, FaEye } from 'react-icons/fa';
 import { Header, Sidebar } from '../../../components/header';
 import { emailApi, normalizeList } from './emailApi';
 import axios from 'axios';
@@ -19,13 +19,14 @@ const EmailBroadcastCreate = () => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [isMinimized, setIsMinimized] = useState(() => JSON.parse(localStorage.getItem('sidebarMinimized') || 'false'));
   const [loading, setLoading] = useState(false);
-  const [activeTab, setActiveTab] = useState('manual'); // manual, clients, groups, services
-  
+  const [activeTab, setActiveTab] = useState('manual'); // manual, clients, groups, tasks
+
   // Dropdown data
   const [configs, setConfigs] = useState([]);
   const [templates, setTemplates] = useState([]);
   const [groups, setGroups] = useState([]);
   const [services, setServices] = useState([]);
+  const [taskStatuses, setTaskStatuses] = useState([]);
   
   // Search states
   const [clientSearch, setClientSearch] = useState('');
@@ -40,11 +41,26 @@ const EmailBroadcastCreate = () => {
   const [filteredGroups, setFilteredGroups] = useState([]);
   const [selectedGroups, setSelectedGroups] = useState([]);
   const [loadingGroups, setLoadingGroups] = useState(false);
+  const [viewingGroup, setViewingGroup] = useState(null);
+  const [showGroupModal, setShowGroupModal] = useState(false);
   
   const [serviceSearch, setServiceSearch] = useState('');
   const [filteredServices, setFilteredServices] = useState([]);
   const [selectedServices, setSelectedServices] = useState([]);
   const [loadingServices, setLoadingServices] = useState(false);
+  
+  // Tasks states
+  const [tasks, setTasks] = useState([]);
+  const [selectedTasks, setSelectedTasks] = useState([]);
+  const [loadingTasks, setLoadingTasks] = useState(false);
+  const [taskFilters, setTaskFilters] = useState({
+    service_id: '',
+    status: 'all',
+    billing_status: 'all'
+  });
+  const [availableServices, setAvailableServices] = useState([]);
+  const [viewingTask, setViewingTask] = useState(null);
+  const [showTaskModal, setShowTaskModal] = useState(false);
   
   // Form state
   const [form, setForm] = useState({
@@ -76,18 +92,21 @@ const EmailBroadcastCreate = () => {
   const loadInitialData = async () => {
     try {
       const headers = getHeaders();
-      const [c, t, g, s] = await Promise.all([
+      const [c, t, g, s, ts] = await Promise.all([
         emailApi.listConfigs({ page_no: 1, limit: 100 }),
         emailApi.listTemplates({ page_no: 1, limit: 100 }),
-        axios.get(`${API_BASE}/group/list?page=1&limit=100`, { headers }),
-        axios.get(`${API_BASE}/service/list?page_no=1&limit=100`, { headers })
+        axios.get(`${API_BASE}/group/groups/all?limit=100`, { headers }),
+        axios.get(`${API_BASE}/service/list?page_no=1&limit=100`, { headers }),
+        axios.get(`${API_BASE}/task/task-statuses`, { headers }).catch(() => ({ data: { data: [] } }))
       ]);
       setConfigs(normalizeList(c?.data).filter(x => x.status === 'active'));
       setTemplates(normalizeList(t?.data).filter(x => x.status === 'active'));
-      setGroups(g?.data?.data || []);
-      setFilteredGroups(g?.data?.data || []);
+      setGroups(g?.data?.data?.groups || []);
+      setFilteredGroups(g?.data?.data?.groups || []);
       setServices(s?.data?.data || []);
       setFilteredServices(s?.data?.data || []);
+      setAvailableServices(s?.data?.data || []);
+      setTaskStatuses(ts?.data?.data?.statuses || []);
     } catch (e) {
       toast.error('Failed to load initial data');
     }
@@ -174,14 +193,14 @@ const EmailBroadcastCreate = () => {
     return () => clearTimeout(delay);
   }, [clientSearch, searchClients]);
 
-  // Load groups with pagination
+  // Load groups
   const loadGroups = useCallback(async () => {
     setLoadingGroups(true);
     try {
       const headers = getHeaders();
-      const res = await axios.get(`${API_BASE}/group/list?search=${encodeURIComponent(groupSearch)}&page=1&limit=100`, { headers });
-      setGroups(res?.data?.data || []);
-      setFilteredGroups(res?.data?.data || []);
+      const res = await axios.get(`${API_BASE}/group/groups/all?search=${encodeURIComponent(groupSearch)}&limit=100`, { headers });
+      setGroups(res?.data?.data?.groups || []);
+      setFilteredGroups(res?.data?.data?.groups || []);
     } catch (e) {
       toast.error('Failed to load groups');
     } finally {
@@ -196,13 +215,25 @@ const EmailBroadcastCreate = () => {
   // Filter groups locally
   useEffect(() => {
     if (groupSearch) {
-      setFilteredGroups(groups.filter(g => g.name?.toLowerCase().includes(groupSearch.toLowerCase())));
+      setFilteredGroups(groups.filter(g => g.group_name?.toLowerCase().includes(groupSearch.toLowerCase())));
     } else {
       setFilteredGroups(groups);
     }
   }, [groupSearch, groups]);
 
-  // Load services with pagination
+  // View group details
+  const handleViewGroup = async (groupId) => {
+    try {
+      const headers = getHeaders();
+      const res = await axios.get(`${API_BASE}/group/groups/all?group_id=${groupId}`, { headers });
+      setViewingGroup(res?.data?.data);
+      setShowGroupModal(true);
+    } catch (e) {
+      toast.error('Failed to load group details');
+    }
+  };
+
+  // Load services
   const loadServices = useCallback(async () => {
     setLoadingServices(true);
     try {
@@ -230,6 +261,61 @@ const EmailBroadcastCreate = () => {
     }
   }, [serviceSearch, services]);
 
+  // Load tasks with filters
+  const loadTasks = useCallback(async () => {
+    if (!taskFilters.service_id) {
+      setTasks([]);
+      return;
+    }
+    setLoadingTasks(true);
+    try {
+      const headers = getHeaders();
+      let url = `${API_BASE}/task/tasks/filter?service_id=${taskFilters.service_id}`;
+      if (taskFilters.status && taskFilters.status !== 'all') {
+        url += `&status=${taskFilters.status}`;
+      }
+      if (taskFilters.billing_status && taskFilters.billing_status !== 'all') {
+        url += `&billing_status=${taskFilters.billing_status}`;
+      }
+      const res = await axios.get(url, { headers });
+      const tasksData = res?.data?.data?.all_tasks || [];
+      setTasks(tasksData);
+    } catch (e) {
+      toast.error('Failed to load tasks');
+      setTasks([]);
+    } finally {
+      setLoadingTasks(false);
+    }
+  }, [taskFilters]);
+
+  useEffect(() => {
+    loadTasks();
+  }, [loadTasks]);
+
+  // Handle task selection
+  const handleTaskSelection = (task, checked) => {
+    if (checked) {
+      setSelectedTasks([...selectedTasks, task]);
+    } else {
+      setSelectedTasks(selectedTasks.filter(t => t.task_id !== task.task_id));
+    }
+  };
+
+  // Handle select all tasks
+  const handleSelectAllTasks = () => {
+    if (selectedTasks.length === tasks.length) {
+      setSelectedTasks([]);
+    } else {
+      setSelectedTasks([...tasks]);
+    }
+  };
+
+  // View task details
+  const handleViewTask = (task) => {
+    setViewingTask(task);
+    setShowTaskModal(true);
+  };
+
   // Get valid recipients for manual tab
   const getValidRecipients = useCallback(() => {
     return recipients.filter(r => r.recipient_email && emailRegex.test(r.recipient_email));
@@ -253,11 +339,54 @@ const EmailBroadcastCreate = () => {
 
   // Build recipients array from selected groups
   const buildRecipientsFromGroups = useCallback(() => {
-    // For groups, we need to fetch all clients in the group
-    // This would require an API call to get group members
-    // For now, we'll just store group_ids and handle on backend
-    return [];
+    const recipientsList = [];
+    for (const group of selectedGroups) {
+      if (group.firms && group.firms.length > 0) {
+        for (const firm of group.firms) {
+          if (firm.client && firm.client.email && emailRegex.test(firm.client.email)) {
+            recipientsList.push({
+              recipient_name: firm.client.name || firm.firm_name,
+              recipient_email: firm.client.email,
+              variable_values_json: JSON.stringify({
+                name: firm.client.name || firm.firm_name,
+                username: firm.client.username,
+                mobile: firm.client.mobile || '',
+                city: firm.client.address?.city || '',
+                state: firm.client.address?.state || '',
+                firm_name: firm.firm_name,
+                group_name: group.group_name
+              })
+            });
+          }
+        }
+      }
+    }
+    return recipientsList;
   }, [selectedGroups]);
+
+  // Build recipients array from selected tasks
+  const buildRecipientsFromTasks = useCallback(() => {
+    const recipientsList = [];
+    for (const task of selectedTasks) {
+      if (task.client && task.client.email && emailRegex.test(task.client.email)) {
+        recipientsList.push({
+          recipient_name: task.client.name || task.firm?.firm_name,
+          recipient_email: task.client.email,
+          variable_values_json: JSON.stringify({
+            name: task.client.name || task.firm?.firm_name,
+            username: task.client.username,
+            mobile: task.client.mobile || '',
+            city: task.client.address?.city || '',
+            state: task.client.address?.state || '',
+            firm_name: task.firm?.firm_name,
+            task_id: task.task_id,
+            task_status: task.status
+          })
+        });
+      }
+    }
+    return recipientsList;
+  }, [selectedTasks]);
 
   // Validation
   const formErrors = useMemo(() => {
@@ -282,13 +411,15 @@ const EmailBroadcastCreate = () => {
       err.recipients = 'Select at least one client';
     } else if (activeTab === 'groups' && selectedGroups.length === 0) {
       err.recipients = 'Select at least one group';
+    } else if (activeTab === 'tasks' && selectedTasks.length === 0) {
+      err.recipients = 'Select at least one task';
     } else if (activeTab === 'services' && selectedServices.length === 0) {
       err.recipients = 'Select at least one service';
     }
     
     try { JSON.parse(form.global_variables_json || '{}'); } catch { err.global_variables_json = 'Invalid JSON'; }
     return err;
-  }, [form, recipients, activeTab, selectedClients, selectedGroups, selectedServices, getValidRecipients]);
+  }, [form, recipients, activeTab, selectedClients, selectedGroups, selectedTasks, selectedServices, getValidRecipients]);
 
   // Build payload for broadcast/create endpoint
   const buildPayload = () => {
@@ -316,25 +447,11 @@ const EmailBroadcastCreate = () => {
         variable_values_json: JSON.parse(r.variable_values_json || '{}')
       }));
     } else if (activeTab === 'clients') {
-      // Build recipients from selected clients
-      recipientsList = selectedClients.map(client => ({
-        recipient_name: client.name || client.username,
-        recipient_email: client.email,
-        variable_values_json: {
-          name: client.name || client.username,
-          username: client.username,
-          mobile: client.mobile || '',
-          city: client.city || '',
-          state: client.state || '',
-          firms: client.firms?.map(f => f.firm_name).join(', ') || ''
-        }
-      }));
+      recipientsList = buildRecipientsFromClients();
     } else if (activeTab === 'groups') {
-      // For groups, we need to get all clients in the group
-      // This will be handled by backend when we pass group_ids
-      // For now, we'll show a message
-      toast.error('Group selection requires backend processing. Please use client selection for now.');
-      return null;
+      recipientsList = buildRecipientsFromGroups();
+    } else if (activeTab === 'tasks') {
+      recipientsList = buildRecipientsFromTasks();
     } else if (activeTab === 'services') {
       toast.error('Service selection requires backend processing. Please use client selection for now.');
       return null;
@@ -363,6 +480,16 @@ const EmailBroadcastCreate = () => {
     
     if (activeTab === 'clients' && selectedClients.length === 0) {
       toast.error('Please select at least one client');
+      return;
+    }
+    
+    if (activeTab === 'groups' && selectedGroups.length === 0) {
+      toast.error('Please select at least one group');
+      return;
+    }
+    
+    if (activeTab === 'tasks' && selectedTasks.length === 0) {
+      toast.error('Please select at least one task');
       return;
     }
     
@@ -445,6 +572,7 @@ const EmailBroadcastCreate = () => {
     }
     if (activeTab === 'clients') return `${selectedClients.length} client(s) selected`;
     if (activeTab === 'groups') return `${selectedGroups.length} group(s) selected`;
+    if (activeTab === 'tasks') return `${selectedTasks.length} task(s) selected`;
     if (activeTab === 'services') return `${selectedServices.length} service(s) selected`;
     return 'No recipients selected';
   };
@@ -460,7 +588,7 @@ const EmailBroadcastCreate = () => {
               <strong><FaEnvelope className="me-2" />Create Email Broadcast</strong>
               <div>
                 <Badge bg="info" className="me-2">Email Broadcast API</Badge>
-                <Badge bg="success">Send to Clients</Badge>
+                <Badge bg="success">Send to Clients, Groups & Tasks</Badge>
               </div>
             </Card.Header>
           </Card>
@@ -811,12 +939,8 @@ const EmailBroadcastCreate = () => {
                   )}
                 </Tab>
 
-                {/* Groups Tab */}
+                {/* Groups Tab (Updated) */}
                 <Tab eventKey="groups" title={<span><FaLayerGroup className="me-1" /> Groups</span>}>
-                  <div className="alert alert-info">
-                    <strong>Note:</strong> Group selection will send emails to all clients in the selected groups.
-                    Please use Client selection for now, or ensure your backend supports group_ids.
-                  </div>
                   <div className="mb-3">
                     <InputGroup>
                       <InputGroup.Text><FaSearch /></InputGroup.Text>
@@ -837,27 +961,39 @@ const EmailBroadcastCreate = () => {
                         <Card 
                           className={`cursor-pointer ${selectedGroups.some(g => g.group_id === group.group_id) ? 'border-primary bg-primary-light' : ''}`}
                           style={{ cursor: 'pointer' }}
-                          onClick={() => {
-                            if (selectedGroups.some(g => g.group_id === group.group_id)) {
-                              setSelectedGroups(selectedGroups.filter(g => g.group_id !== group.group_id));
-                            } else {
-                              setSelectedGroups([...selectedGroups, group]);
-                              toast.info(`Group "${group.name}" will send to all members. Please use Client selection for immediate sending.`);
-                            }
-                          }}
                         >
                           <Card.Body className="py-2">
                             <div className="d-flex justify-content-between align-items-center">
-                              <div>
-                                <strong>{group.name}</strong>
-                                <div className="small text-muted">{group.firm_count || 0} firms</div>
+                              <div className="flex-grow-1">
+                                <strong>{group.group_name}</strong>
+                                <div className="small text-muted">
+                                  {group.statistics?.active_firms_with_email || group.firms?.length || 0} firms
+                                </div>
                                 {group.remark && <div className="small text-muted">{group.remark}</div>}
                               </div>
-                              <Form.Check 
-                                type="checkbox"
-                                checked={selectedGroups.some(g => g.group_id === group.group_id)}
-                                onChange={() => {}}
-                              />
+                              <div className="d-flex gap-1">
+                                <Button 
+                                  size="sm" 
+                                  variant="outline-info"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleViewGroup(group.group_id);
+                                  }}
+                                >
+                                  <FaEye />
+                                </Button>
+                                <Form.Check 
+                                  type="checkbox"
+                                  checked={selectedGroups.some(g => g.group_id === group.group_id)}
+                                  onChange={(e) => {
+                                    if (e.target.checked) {
+                                      setSelectedGroups([...selectedGroups, group]);
+                                    } else {
+                                      setSelectedGroups(selectedGroups.filter(g => g.group_id !== group.group_id));
+                                    }
+                                  }}
+                                />
+                              </div>
                             </div>
                           </Card.Body>
                         </Card>
@@ -881,13 +1017,145 @@ const EmailBroadcastCreate = () => {
                             style={{ cursor: 'pointer' }}
                             onClick={() => setSelectedGroups(selectedGroups.filter(sg => sg.group_id !== g.group_id))}
                           >
-                            {g.name}
+                            {g.group_name}
                             <span className="ms-1">×</span>
                           </Badge>
                         ))}
                       </div>
-                      <div className="small text-warning mt-2">
-                        ⚠️ Group sending requires backend support. Please use Client selection for now.
+                    </div>
+                  )}
+                </Tab>
+
+                {/* Tasks Tab (New) */}
+                <Tab eventKey="tasks" title={<span><FaTasks className="me-1" /> Tasks</span>}>
+                  <div className="mb-3">
+                    <Row>
+                      <Col md={5}>
+                        <Form.Label>Service</Form.Label>
+                        <Form.Select
+                          value={taskFilters.service_id}
+                          onChange={(e) => setTaskFilters({ ...taskFilters, service_id: e.target.value })}
+                        >
+                          <option value="">Select Service</option>
+                          {availableServices.map(s => (
+                            <option key={s.service_id} value={s.service_id}>{s.name}</option>
+                          ))}
+                        </Form.Select>
+                      </Col>
+                      <Col md={4}>
+                        <Form.Label>Task Status</Form.Label>
+                        <Form.Select
+                          value={taskFilters.status}
+                          onChange={(e) => setTaskFilters({ ...taskFilters, status: e.target.value })}
+                        >
+                          <option value="all">All Status</option>
+                          {taskStatuses.map(s => (
+                            <option key={s.id} value={s.status}>{s.status}</option>
+                          ))}
+                        </Form.Select>
+                      </Col>
+                      <Col md={3}>
+                        <Form.Label>Billing Status</Form.Label>
+                        <Form.Select
+                          value={taskFilters.billing_status}
+                          onChange={(e) => setTaskFilters({ ...taskFilters, billing_status: e.target.value })}
+                        >
+                          <option value="all">All</option>
+                          <option value="0">Pending</option>
+                          <option value="1">Completed</option>
+                          <option value="2">Non Billable</option>
+                        </Form.Select>
+                      </Col>
+                    </Row>
+                    <div className="mt-2">
+                      <Button 
+                        size="sm" 
+                        variant="outline-primary" 
+                        onClick={loadTasks}
+                        disabled={!taskFilters.service_id || loadingTasks}
+                      >
+                        {loadingTasks ? <Spinner size="sm" /> : 'Load Tasks'}
+                      </Button>
+                    </div>
+                  </div>
+                  
+                  {loadingTasks && <div className="text-center py-3"><Spinner /></div>}
+                  
+                  {tasks.length > 0 && (
+                    <div className="border rounded mb-3" style={{ maxHeight: '400px', overflowY: 'auto' }}>
+                      <Table responsive hover size="sm" className="mb-0">
+                        <thead className="table-light sticky-top">
+                          <tr>
+                            <th style={{ width: 40 }}>
+                              <Form.Check
+                                type="checkbox"
+                                checked={selectedTasks.length === tasks.length && tasks.length > 0}
+                                onChange={handleSelectAllTasks}
+                              />
+                            </th>
+                            <th>Task ID</th>
+                            <th>Client Name</th>
+                            <th>Email</th>
+                            <th>Status</th>
+                            <th>Total</th>
+                            <th style={{ width: 40 }}>View</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {tasks.map(task => (
+                            <tr key={task.task_id}>
+                              <td>
+                                <Form.Check
+                                  type="checkbox"
+                                  checked={selectedTasks.some(t => t.task_id === task.task_id)}
+                                  onChange={(e) => handleTaskSelection(task, e.target.checked)}
+                                />
+                              </td>
+                              <td><code>{task.task_id?.substring(0, 12)}...</code></td>
+                              <td>{task.client?.name || task.firm?.firm_name}</td>
+                              <td>{task.client?.email}</td>
+                              <td><Badge bg="secondary">{task.status}</Badge></td>
+                              <td>₹{task.financials?.total}</td>
+                              <td>
+                                <Button 
+                                  size="sm" 
+                                  variant="outline-info"
+                                  onClick={() => handleViewTask(task)}
+                                >
+                                  <FaEye />
+                                </Button>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </Table>
+                    </div>
+                  )}
+                  
+                  {tasks.length === 0 && !loadingTasks && taskFilters.service_id && (
+                    <div className="alert alert-info">No tasks found for the selected filters</div>
+                  )}
+                  
+                  {selectedTasks.length > 0 && (
+                    <div className="mt-3 p-2 bg-light rounded">
+                      <strong>Selected Tasks: {selectedTasks.length}</strong>
+                      <div className="d-flex flex-wrap gap-1 mt-1">
+                        {selectedTasks.slice(0, 5).map(t => (
+                          <Badge 
+                            key={t.task_id} 
+                            bg="warning" 
+                            text="dark"
+                            className="d-flex align-items-center gap-1"
+                            style={{ cursor: 'pointer' }}
+                            onClick={() => setSelectedTasks(selectedTasks.filter(st => st.task_id !== t.task_id))}
+                          >
+                            {t.task_id?.substring(0, 8)}...
+                            <span className="ms-1">×</span>
+                          </Badge>
+                        ))}
+                        {selectedTasks.length > 5 && (
+                          <Badge bg="secondary">+{selectedTasks.length - 5} more</Badge>
+                        )}
                       </div>
                     </div>
                   )}
@@ -916,6 +1184,139 @@ const EmailBroadcastCreate = () => {
           </div>
         </div>
       </div>
+
+      {/* Group Details Modal */}
+      <Modal show={showGroupModal} onHide={() => setShowGroupModal(false)} size="lg">
+        <Modal.Header closeButton>
+          <Modal.Title>Group Details: {viewingGroup?.group_name}</Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          {viewingGroup && (
+            <>
+              <Row className="mb-3">
+                <Col md={6}>
+                  <strong>Group ID:</strong> {viewingGroup.group_id}
+                </Col>
+                <Col md={6}>
+                  <strong>Created At:</strong> {viewingGroup.create_date}
+                </Col>
+              </Row>
+              <Row className="mb-3">
+                <Col md={12}>
+                  <strong>Remark:</strong> {viewingGroup.remark || 'N/A'}
+                </Col>
+              </Row>
+              <hr />
+              <h6>Statistics</h6>
+              <Row className="mb-3">
+                <Col md={3}>
+                  <Badge bg="info">Total Firms: {viewingGroup.statistics?.total_firms_in_group || 0}</Badge>
+                </Col>
+                <Col md={3}>
+                  <Badge bg="success">Active Firms: {viewingGroup.statistics?.active_firms_with_email || 0}</Badge>
+                </Col>
+                <Col md={3}>
+                  <Badge bg="warning">States: {viewingGroup.statistics?.states?.length || 0}</Badge>
+                </Col>
+                <Col md={3}>
+                  <Badge bg="secondary">Cities: {viewingGroup.statistics?.cities?.length || 0}</Badge>
+                </Col>
+              </Row>
+              <h6>Firms in this Group</h6>
+              <Table responsive size="sm">
+                <thead>
+                  <tr>
+                    <th>Firm Name</th>
+                    <th>Client Name</th>
+                    <th>Email</th>
+                    <th>Mobile</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {viewingGroup.firms?.map((firm, idx) => (
+                    <tr key={idx}>
+                      <td>{firm.firm_name}</td>
+                      <td>{firm.client?.name}</td>
+                      <td>{firm.client?.email}</td>
+                      <td>{firm.client?.mobile}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </Table>
+            </>
+          )}
+        </Modal.Body>
+        <Modal.Footer>
+          <Button variant="secondary" onClick={() => setShowGroupModal(false)}>Close</Button>
+        </Modal.Footer>
+      </Modal>
+
+      {/* Task Details Modal */}
+      <Modal show={showTaskModal} onHide={() => setShowTaskModal(false)} size="lg">
+        <Modal.Header closeButton>
+          <Modal.Title>Task Details</Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          {viewingTask && (
+            <>
+              <Row className="mb-3">
+                <Col md={6}>
+                  <strong>Task ID:</strong> {viewingTask.task_id}
+                </Col>
+                <Col md={6}>
+                  <strong>Status:</strong> <Badge bg="secondary">{viewingTask.status}</Badge>
+                </Col>
+              </Row>
+              <Row className="mb-3">
+                <Col md={6}>
+                  <strong>Due Date:</strong> {viewingTask.dates?.due_date || 'N/A'}
+                </Col>
+                <Col md={6}>
+                  <strong>Created At:</strong> {viewingTask.dates?.created_at}
+                </Col>
+              </Row>
+              <hr />
+              <h6>Financial Details</h6>
+              <Row className="mb-3">
+                <Col md={4}>
+                  <strong>Fees:</strong> ₹{viewingTask.financials?.fees}
+                </Col>
+                <Col md={4}>
+                  <strong>Tax:</strong> {viewingTask.financials?.tax_rate}% (₹{viewingTask.financials?.tax_value})
+                </Col>
+                <Col md={4}>
+                  <strong>Total:</strong> ₹{viewingTask.financials?.total}
+                </Col>
+              </Row>
+              <hr />
+              <h6>Firm Details</h6>
+              <Row className="mb-3">
+                <Col md={6}>
+                  <strong>Firm Name:</strong> {viewingTask.firm?.firm_name}
+                </Col>
+                <Col md={6}>
+                  <strong>Firm Type:</strong> {viewingTask.firm?.firm_type}
+                </Col>
+              </Row>
+              <h6>Client Details</h6>
+              <Row className="mb-3">
+                <Col md={4}>
+                  <strong>Name:</strong> {viewingTask.client?.name}
+                </Col>
+                <Col md={4}>
+                  <strong>Email:</strong> {viewingTask.client?.email}
+                </Col>
+                <Col md={4}>
+                  <strong>Mobile:</strong> {viewingTask.client?.mobile}
+                </Col>
+              </Row>
+            </>
+          )}
+        </Modal.Body>
+        <Modal.Footer>
+          <Button variant="secondary" onClick={() => setShowTaskModal(false)}>Close</Button>
+        </Modal.Footer>
+      </Modal>
 
       {/* Preview Modal */}
       <Modal show={showPreview} onHide={() => setShowPreview(false)} size="lg">
