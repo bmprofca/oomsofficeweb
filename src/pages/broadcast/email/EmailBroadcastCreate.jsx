@@ -2,11 +2,11 @@ import React, { useEffect, useMemo, useState, useCallback } from 'react';
 import { Button, Card, Col, Form, Row, Spinner, Table, Badge, Modal, Tab, Tabs, InputGroup, Dropdown } from 'react-bootstrap';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-hot-toast';
-import { 
-  FaUsers, FaLayerGroup, FaTasks, FaPlus, FaTrash, FaFileImport, 
-  FaSearch, FaEnvelope, FaPaperPlane, FaCheckDouble, FaEye, 
-  FaClock, FaUserCheck, FaFilter, FaChevronDown, FaTimes, 
-  FaCheck, FaCircle, FaSpinner, FaHourglassHalf, FaUserClock, 
+import {
+  FaUsers, FaLayerGroup, FaTasks, FaPlus, FaTrash, FaFileImport,
+  FaSearch, FaEnvelope, FaPaperPlane, FaCheckDouble, FaEye,
+  FaClock, FaUserCheck, FaFilter, FaChevronDown, FaTimes,
+  FaCheck, FaCircle, FaSpinner, FaHourglassHalf, FaUserClock,
   FaBuilding, FaMoneyBillWave, FaCalendarAlt, FaGlobe,
   FaServer, FaCode, FaBolt, FaClipboardList, FaArrowLeft,
   FaExclamationCircle, FaInfoCircle, FaCheckCircle, FaShieldAlt,
@@ -533,11 +533,11 @@ const styles = `@import url('https://fonts.googleapis.com/css2?family=Plus+Jakar
 // ─── StatusBadge ─────────────────────────────────────────────────────────────
 const StatusBadge = ({ status }) => {
   const map = {
-    'Complete':                { cls: 'status-complete',      icon: <FaCheck size={10} /> },
-    'Canceled':                { cls: 'status-canceled',      icon: <FaTimes size={10} /> },
-    'In Process':              { cls: 'status-inprocess',     icon: <FaSpinner size={10} /> },
-    'Pending from Client':     { cls: 'status-pendingclient', icon: <FaUserClock size={10} /> },
-    'Pending from Department': { cls: 'status-pendingdept',   icon: <FaBuilding size={10} /> },
+    'Complete': { cls: 'status-complete', icon: <FaCheck size={10} /> },
+    'Canceled': { cls: 'status-canceled', icon: <FaTimes size={10} /> },
+    'In Process': { cls: 'status-inprocess', icon: <FaSpinner size={10} /> },
+    'Pending from Client': { cls: 'status-pendingclient', icon: <FaUserClock size={10} /> },
+    'Pending from Department': { cls: 'status-pendingdept', icon: <FaBuilding size={10} /> },
   };
   const cfg = map[status] || { cls: 'ebc-badge-gray', icon: <FaCircle size={10} /> };
   return (
@@ -659,6 +659,12 @@ const EmailBroadcastCreate = () => {
     daily_limit: 1000, global_variables_json: '{}',
   });
 
+  const [templateVariables, setTemplateVariables] = useState([]);
+  const [templateVariableKeys, setTemplateVariableKeys] = useState([]);
+  const [showVariableSelector, setShowVariableSelector] = useState(false);
+  const [showGlobalVarHelp, setShowGlobalVarHelp] = useState(false);
+  const [loadingTemplateVars, setLoadingTemplateVars] = useState(false);
+
   const [recipients, setRecipients] = useState([newRecipient()]);
   const [bulkInput, setBulkInput] = useState('');
   const [showPreview, setShowPreview] = useState(false);
@@ -668,6 +674,7 @@ const EmailBroadcastCreate = () => {
   useEffect(() => { loadInitialData(); }, []);
 
   const loadInitialData = async () => {
+    console.log("🔵 loadInitialData STARTED");
     try {
       const headers = getHeaders();
       const [c, t, g, s, ts] = await Promise.all([
@@ -677,6 +684,7 @@ const EmailBroadcastCreate = () => {
         axios.get(`${API_BASE}/service/list?page_no=1&limit=100`, { headers }),
         axios.get(`${API_BASE}/task/task-statuses`, { headers }).catch(() => ({ data: { data: [] } }))
       ]);
+      console.log("✅ Initial data loaded");
       setConfigs(normalizeList(c?.data).filter(x => x.status === 'active'));
       setTemplates(normalizeList(t?.data).filter(x => x.status === 'active'));
       setGroups(g?.data?.data?.groups || []);
@@ -686,7 +694,139 @@ const EmailBroadcastCreate = () => {
       setAvailableServices(s?.data?.data || []);
       const statuses = ts?.data?.data?.statuses || ['complete', 'cancel', 'in process', 'pending from client', 'pending from department'];
       setTaskStatuses(statuses);
-    } catch (e) { toast.error('Failed to load initial data'); }
+    } catch (e) {
+      console.error("❌ Failed to load initial data:", e);
+      toast.error('Failed to load initial data');
+    }
+  };
+
+  // FIXED: Load template variables with proper extraction
+  const loadTemplateVariables = useCallback(async (templateId) => {
+    console.log("🔵 loadTemplateVariables called with ID:", templateId);
+
+    if (!templateId) {
+      console.log("No template ID, clearing variables");
+      setTemplateVariables([]);
+      setTemplateVariableKeys([]);
+      return;
+    }
+
+    setLoadingTemplateVars(true);
+    try {
+      console.log("Fetching template details...");
+      const templateDetails = await emailApi.templateDetails(templateId);
+      console.log("Template details response:", templateDetails);
+
+      const subject = templateDetails?.data?.subject || '';
+      const htmlBody = templateDetails?.data?.html_body || '';
+
+      console.log("Template subject:", subject);
+      console.log("Template HTML body length:", htmlBody.length);
+
+      // Extract variables from template content
+      const regex = /{{([a-zA-Z0-9_]+)}}/g;
+      const extractedVars = new Set();
+
+      let match;
+      while ((match = regex.exec(subject)) !== null) {
+        console.log(`Found variable in subject: ${match[1]}`);
+        extractedVars.add(match[1]);
+      }
+      while ((match = regex.exec(htmlBody)) !== null) {
+        console.log(`Found variable in body: ${match[1]}`);
+        extractedVars.add(match[1]);
+      }
+
+      const uniqueVars = Array.from(extractedVars);
+      console.log("Unique extracted variables:", uniqueVars);
+      setTemplateVariables(uniqueVars);
+      setTemplateVariableKeys(uniqueVars);
+
+      // Also get type-based variables from API
+      const selectedTemplate = templates.find(t => t.template_id === templateId);
+      console.log("Selected template:", selectedTemplate);
+
+      if (selectedTemplate && selectedTemplate.template_type) {
+        console.log(`Fetching variables for template type: ${selectedTemplate.template_type}`);
+        const res = await emailApi.getVariableKeys(selectedTemplate.template_type);
+        console.log("Type-based variables response:", res);
+
+        const typeVars = res?.data?.keys || [];
+        console.log("Type-based variables:", typeVars);
+
+        const allVars = [...new Set([...uniqueVars, ...typeVars])];
+        console.log("Combined all variables:", allVars);
+        setTemplateVariables(allVars);
+        setTemplateVariableKeys(allVars);
+      }
+    } catch (error) {
+      console.error('❌ Failed to load template variables:', error);
+      setTemplateVariables([]);
+      setTemplateVariableKeys([]);
+    } finally {
+      setLoadingTemplateVars(false);
+    }
+  }, [templates]);
+
+  // FIXED: Auto-populate global variables - DON'T set placeholder values for recipient-specific fields
+  const autoPopulateGlobalVariables = useCallback(async (templateId) => {
+    console.log("🔵 autoPopulateGlobalVariables called with ID:", templateId);
+
+    if (!templateId) return;
+
+    try {
+      const templateDetails = await emailApi.templateDetails(templateId);
+      const subject = templateDetails?.subject || '';
+      const htmlBody = templateDetails?.html_body || '';
+
+      const regex = /{{([a-zA-Z0-9_]+)}}/g;
+      const extractedVars = new Set();
+
+      let match;
+      while ((match = regex.exec(subject)) !== null) {
+        extractedVars.add(match[1]);
+      }
+      while ((match = regex.exec(htmlBody)) !== null) {
+        extractedVars.add(match[1]);
+      }
+
+      const templateVariablesList = Array.from(extractedVars);
+      console.log("Template variables found:", templateVariablesList);
+
+      if (templateVariablesList.length > 0) {
+        let globalVars = {};
+
+        templateVariablesList.forEach(varName => {
+          // ONLY set placeholder for GLOBAL variables (not recipient-specific)
+          // These are typically company-level info that doesn't change per recipient
+          const globalOnlyVariables = ['company', 'support_email', 'support_phone', 'website', 'year'];
+
+          if (globalOnlyVariables.includes(varName)) {
+            globalVars[varName] = `Your ${varName} here`;
+          } else {
+            // For recipient-specific variables, leave as EMPTY STRING
+            // They will be filled by the API response from getDynamicVariables
+            globalVars[varName] = '';
+          }
+        });
+
+        setForm(prev => ({
+          ...prev,
+          global_variables_json: JSON.stringify(globalVars, null, 2)
+        }));
+
+        console.log('Auto-populated global variables (empty for recipient fields):', globalVars);
+      }
+    } catch (error) {
+      console.error('Failed to auto-populate global variables:', error);
+    }
+  }, []);
+  // Handle template selection change - FIXED
+  const handleTemplateChange = async (templateId) => {
+    console.log("🔵 handleTemplateChange called with ID:", templateId);
+    setForm({ ...form, template_id: templateId });
+    await loadTemplateVariables(templateId);
+    await autoPopulateGlobalVariables(templateId);
   };
 
   const loadAllClients = async () => {
@@ -795,35 +935,278 @@ const EmailBroadcastCreate = () => {
 
   const getValidRecipients = useCallback(() => recipients.filter(r => r.recipient_email && emailRegex.test(r.recipient_email)), [recipients]);
 
-  const buildRecipientsFromClients = useCallback(() =>
-    selectedClients.map(c => ({
-      recipient_name: c.name || c.username, recipient_email: c.email,
-      variable_values_json: JSON.stringify({ name: c.name || c.username, username: c.username, mobile: c.mobile || '', city: c.city || '', state: c.state || '', firms: c.firms?.map(f => f.firm_name).join(', ') || '' })
-    })), [selectedClients]);
+  // FIXED: Build recipients from clients (already working, just ensure proper format)
+  const buildRecipientsFromClients = useCallback(async () => {
+    console.log("🔵 Building recipients from clients");
+    console.log("Selected clients:", selectedClients);
 
-  const buildRecipientsFromGroups = useCallback(() => {
-    const list = [];
+    const recipientsList = [];
+
+    for (const client of selectedClients) {
+      try {
+        console.log(`Fetching dynamic variables for client: ${client.username}`);
+        const res = await emailApi.getDynamicVariables('client', client.username);
+        console.log("API Response for client:", res);
+
+        const dynamicVars = res?.variables || {};
+        console.log("Dynamic variables received:", dynamicVars);
+
+        // Merge client data with API response
+        const mergedVars = {
+          // Basic client info
+          name: client.name || client.username,
+          username: client.username,
+          email: client.email,
+          mobile: client.mobile || '',
+          city: client.city || '',
+          state: client.state || '',
+          // Firm info
+          firm_name: client.firms?.[0]?.firm_name || '',
+          firm_type: client.firms?.[0]?.firm_type || '',
+          gst_no: client.firms?.[0]?.gst_no || '',
+          pan_no: client.firms?.[0]?.pan_no || '',
+          // Date
+          date: new Date().toISOString().split('T')[0],
+          // API dynamic variables (overrides)
+          ...dynamicVars
+        };
+
+        recipientsList.push({
+          recipient_name: client.name || client.username,
+          recipient_email: client.email,
+          variable_values_json: mergedVars  // Pass as object
+        });
+      } catch (error) {
+        console.error(`Failed to fetch variables for client ${client.username}:`, error);
+        // Fallback with basic client data
+        recipientsList.push({
+          recipient_name: client.name || client.username,
+          recipient_email: client.email,
+          variable_values_json: {
+            name: client.name || client.username,
+            username: client.username,
+            email: client.email,
+            mobile: client.mobile || '',
+            city: client.city || '',
+            state: client.state || '',
+            firm_name: client.firms?.[0]?.firm_name || '',
+            firm_type: client.firms?.[0]?.firm_type || '',
+            gst_no: client.firms?.[0]?.gst_no || '',
+            pan_no: client.firms?.[0]?.pan_no || '',
+            date: new Date().toISOString().split('T')[0]
+          }
+        });
+      }
+    }
+
+    console.log(`Total recipients from clients: ${recipientsList.length}`);
+    return recipientsList;
+  }, [selectedClients]);
+
+  // FIXED: Build recipients from groups
+  const buildRecipientsFromGroups = useCallback(async () => {
+    console.log("🔵 Building recipients from groups");
+    console.log("Selected groups:", selectedGroups);
+
+    const recipientsList = [];
+
     for (const group of selectedGroups) {
-      for (const firm of (group.firms || [])) {
-        if (firm.client?.email && emailRegex.test(firm.client.email)) {
-          list.push({ recipient_name: firm.client.name || firm.firm_name, recipient_email: firm.client.email, variable_values_json: JSON.stringify({ name: firm.client.name || firm.firm_name, username: firm.client.username, mobile: firm.client.mobile || '', city: firm.client.address?.city || '', state: firm.client.address?.state || '', firm_name: firm.firm_name, group_name: group.group_name }) });
+      console.log(`Processing group: ${group.group_name} (ID: ${group.group_id})`);
+
+      // Get all firms in this group with their clients
+      const firms = group.firms || [];
+      console.log(`Group has ${firms.length} firms`);
+
+      for (const firm of firms) {
+        const client = firm.client;
+
+        if (client?.email && emailRegex.test(client.email)) {
+          console.log(`Processing client: ${client.username} from firm: ${firm.firm_name}`);
+
+          try {
+            // Fetch dynamic variables for this client
+            const res = await emailApi.getDynamicVariables('client', client.username);
+            console.log(`API Response for client ${client.username}:`, res);
+
+            const dynamicVars = res?.variables || {};
+
+            // Merge firm and client data with API response
+            const mergedVars = {
+              // Client basic info
+              name: client.name || client.username,
+              username: client.username,
+              email: client.email,
+              mobile: client.mobile || '',
+              city: client.city || '',
+              state: client.state || '',
+              // Firm specific info (from group firm)
+              firm_name: firm.firm_name || '',
+              firm_type: firm.firm_type || '',
+              gst_no: firm.gst_no || '',
+              pan_no: firm.pan_no || '',
+              tan_no: firm.tan_no || '',
+              vat_no: firm.vat_no || '',
+              cin_no: firm.cin_no || '',
+              file_no: firm.file_no || '',
+              firm_address: firm.address || '',
+              firm_city: firm.city || '',
+              firm_state: firm.state || '',
+              firm_pincode: firm.pincode || '',
+              // Date
+              date: new Date().toISOString().split('T')[0],
+              // API dynamic variables (overrides everything)
+              ...dynamicVars
+            };
+
+            recipientsList.push({
+              recipient_name: client.name || firm.firm_name,
+              recipient_email: client.email,
+              variable_values_json: mergedVars
+            });
+
+            console.log(`Added recipient: ${client.email} with firm: ${firm.firm_name}`);
+          } catch (error) {
+            console.error(`Failed to fetch variables for client ${client.username} in group ${group.group_name}:`, error);
+            // Fallback with firm and client data
+            recipientsList.push({
+              recipient_name: client.name || firm.firm_name,
+              recipient_email: client.email,
+              variable_values_json: {
+                name: client.name || client.username,
+                username: client.username,
+                email: client.email,
+                mobile: client.mobile || '',
+                city: client.city || '',
+                state: client.state || '',
+                firm_name: firm.firm_name || '',
+                firm_type: firm.firm_type || '',
+                gst_no: firm.gst_no || '',
+                pan_no: firm.pan_no || '',
+                tan_no: firm.tan_no || '',
+                vat_no: firm.vat_no || '',
+                cin_no: firm.cin_no || '',
+                file_no: firm.file_no || '',
+                firm_address: firm.address || '',
+                firm_city: firm.city || '',
+                firm_state: firm.state || '',
+                firm_pincode: firm.pincode || '',
+                date: new Date().toISOString().split('T')[0]
+              }
+            });
+          }
+        } else {
+          console.warn(`Skipping client without valid email: ${client?.username}`);
         }
       }
     }
-    return list;
+
+    console.log(`Total recipients from groups: ${recipientsList.length}`);
+    return recipientsList;
   }, [selectedGroups]);
 
-  const buildRecipientsFromTasks = useCallback(() => {
-    if (!tasksSummary) return [];
-    const list = [];
-    for (const [, statusData] of Object.entries(tasksSummary)) {
-      for (const task of (statusData.tasks || [])) {
-        if (task.client?.email && emailRegex.test(task.client.email)) {
-          list.push({ recipient_name: task.client.name || task.firm?.firm_name, recipient_email: task.client.email, variable_values_json: JSON.stringify({ name: task.client.name || task.firm?.firm_name, username: task.client.username, mobile: task.client.mobile || '', city: task.client.address?.city || '', state: task.client.address?.state || '', firm_name: task.firm?.firm_name, task_id: task.task_id, task_status: task.status }) });
+  // FIXED: Build recipients from tasks
+  const buildRecipientsFromTasks = useCallback(async () => {
+    console.log("🔵 Building recipients from tasks");
+    console.log("Tasks summary:", tasksSummary);
+
+    const recipientsList = [];
+
+    if (!tasksSummary) {
+      console.warn("No tasks summary available");
+      return recipientsList;
+    }
+
+    for (const [status, statusData] of Object.entries(tasksSummary)) {
+      console.log(`Processing status: ${status}`);
+      const tasks = statusData.tasks || [];
+      console.log(`Found ${tasks.length} tasks with status ${status}`);
+
+      for (const task of tasks) {
+        const client = task.client;
+        const firm = task.firm;
+
+        if (client?.email && emailRegex.test(client.email)) {
+          console.log(`Processing task: ${task.task_id} for client: ${client.username}`);
+
+          try {
+            // Fetch dynamic variables for this task
+            const res = await emailApi.getDynamicVariables('task', task.task_id);
+            console.log(`API Response for task ${task.task_id}:`, res);
+
+            const dynamicVars = res?.variables || {};
+
+            // Merge task, client, and firm data with API response
+            const mergedVars = {
+              // Client basic info
+              name: client.name || client.username,
+              username: client.username,
+              email: client.email,
+              mobile: client.mobile || '',
+              city: client.city || '',
+              state: client.state || '',
+              // Firm info from task
+              firm_name: firm?.firm_name || '',
+              firm_type: firm?.firm_type || '',
+              gst_no: firm?.gst_no || '',
+              pan_no: firm?.pan_no || '',
+              // Task specific info
+              task_id: task.task_id,
+              task_status: task.status || status,
+              task_billing_status: task.billing_status === 1 ? 'Completed' : task.billing_status === 0 ? 'Pending' : 'Non Billable',
+              task_service_name: task.service_name || '',
+              task_service_id: task.service_id || '',
+              task_assigned_to: task.assigned_to_name || '',
+              task_due_date: task.due_date || '',
+              task_completed_date: task.completed_date || '',
+              // Service info
+              service_name: task.service_name || '',
+              // Date
+              date: new Date().toISOString().split('T')[0],
+              // API dynamic variables (overrides everything)
+              ...dynamicVars
+            };
+
+            recipientsList.push({
+              recipient_name: client.name || firm?.firm_name || client.username,
+              recipient_email: client.email,
+              variable_values_json: mergedVars
+            });
+
+            console.log(`Added recipient from task ${task.task_id}: ${client.email}`);
+          } catch (error) {
+            console.error(`Failed to fetch variables for task ${task.task_id}:`, error);
+            // Fallback with task, client, and firm data
+            recipientsList.push({
+              recipient_name: client.name || firm?.firm_name || client.username,
+              recipient_email: client.email,
+              variable_values_json: {
+                name: client.name || client.username,
+                username: client.username,
+                email: client.email,
+                mobile: client.mobile || '',
+                city: client.city || '',
+                state: client.state || '',
+                firm_name: firm?.firm_name || '',
+                firm_type: firm?.firm_type || '',
+                gst_no: firm?.gst_no || '',
+                pan_no: firm?.pan_no || '',
+                task_id: task.task_id,
+                task_status: task.status || status,
+                task_billing_status: task.billing_status === 1 ? 'Completed' : task.billing_status === 0 ? 'Pending' : 'Non Billable',
+                task_service_name: task.service_name || '',
+                task_due_date: task.due_date || '',
+                date: new Date().toISOString().split('T')[0]
+              }
+            });
+          }
+        } else {
+          console.warn(`Skipping task ${task.task_id} - client has no valid email:`, client);
         }
       }
     }
-    return list;
+
+    console.log(`Total recipients from tasks: ${recipientsList.length}`);
+    return recipientsList;
   }, [tasksSummary]);
 
   const formErrors = useMemo(() => {
@@ -847,39 +1230,139 @@ const EmailBroadcastCreate = () => {
     try { JSON.parse(form.global_variables_json || '{}'); } catch { err.global_variables_json = 'Invalid JSON'; }
     return err;
   }, [form, recipients, activeTab, selectedClients, selectedGroups, selectedServices, getValidRecipients, selectedTaskCount]);
-
-  const buildPayload = () => {
-    const payload = { config_id: form.config_id, template_id: form.template_id, broadcast_name: form.broadcast_name, schedule_type: form.schedule_type, daily_limit: form.daily_limit, timezone: form.timezone, global_variables_json: JSON.parse(form.global_variables_json || '{}') };
-    if (form.fallback_config_id) payload.fallback_config_id = form.fallback_config_id;
-    if (form.schedule_type === 'scheduled') payload.scheduled_at = form.scheduled_at;
-    let recipientsList = [];
-    if (activeTab === 'manual') recipientsList = getValidRecipients().map(r => ({ recipient_name: r.recipient_name, recipient_email: r.recipient_email, variable_values_json: JSON.parse(r.variable_values_json || '{}') }));
-    else if (activeTab === 'clients') recipientsList = buildRecipientsFromClients();
-    else if (activeTab === 'groups') recipientsList = buildRecipientsFromGroups();
-    else if (activeTab === 'tasks') recipientsList = buildRecipientsFromTasks();
-    else if (activeTab === 'services') { toast.error('Service selection requires backend processing.'); return null; }
-    if (recipientsList.length === 0) { toast.error('No valid recipients selected'); return null; }
-    payload.recipients = recipientsList;
-    return payload;
+const buildPayload = async () => {
+  console.log("🔵 buildPayload STARTED");
+  console.log("Active tab:", activeTab);
+  
+  // Parse existing global variables
+  let globalVars = {};
+  try {
+    globalVars = JSON.parse(form.global_variables_json || '{}');
+  } catch (e) {
+    console.error("Error parsing global variables:", e);
+    globalVars = {};
+  }
+  
+  // Remove recipient-specific variables from global vars (they should come from recipient data only)
+  const recipientSpecificVars = ['name', 'username', 'email', 'mobile', 'city', 'state', 
+                                   'firm_name', 'firm_type', 'gst_no', 'pan_no', 'date',
+                                   'task_id', 'task_status', 'task_billing_status', 'service_name'];
+  
+  recipientSpecificVars.forEach(varName => {
+    delete globalVars[varName];
+  });
+  
+  const payload = {
+    config_id: form.config_id,
+    template_id: form.template_id,
+    broadcast_name: form.broadcast_name,
+    schedule_type: form.schedule_type,
+    daily_limit: form.daily_limit,
+    timezone: form.timezone,
+    global_variables_json: globalVars  // Only global company-level variables
   };
-
+  
+  if (form.fallback_config_id) payload.fallback_config_id = form.fallback_config_id;
+  if (form.schedule_type === 'scheduled') payload.scheduled_at = form.scheduled_at;
+  
+  let recipientsList = [];
+  
+  if (activeTab === 'manual') {
+    console.log("Manual tab - building from manual entries");
+    recipientsList = getValidRecipients().map(r => ({
+      recipient_name: r.recipient_name,
+      recipient_email: r.recipient_email,
+      variable_values_json: JSON.parse(r.variable_values_json || '{}')
+    }));
+  } else if (activeTab === 'clients') {
+    console.log("Clients tab - calling buildRecipientsFromClients");
+    recipientsList = await buildRecipientsFromClients();
+  } else if (activeTab === 'groups') {
+    console.log("Groups tab - calling buildRecipientsFromGroups");
+    recipientsList = await buildRecipientsFromGroups();
+  } else if (activeTab === 'tasks') {
+    console.log("Tasks tab - calling buildRecipientsFromTasks");
+    recipientsList = await buildRecipientsFromTasks();
+  } else if (activeTab === 'services') {
+    toast.error('Service selection requires backend processing.');
+    return null;
+  }
+  
+  if (recipientsList.length === 0) {
+    console.error("No recipients found!");
+    toast.error('No valid recipients selected');
+    return null;
+  }
+  
+  payload.recipients = recipientsList;
+  
+  console.log("Final payload summary:", {
+    broadcast_name: payload.broadcast_name,
+    template_id: payload.template_id,
+    config_id: payload.config_id,
+    total_recipients: payload.recipients.length,
+    sample_recipient: payload.recipients[0]
+  });
+  
+  return payload;
+};
+  // FIXED: Submit function with better error handling
   const submit = async () => {
-    if (activeTab === 'manual' && getValidRecipients().length === 0) { toast.error('Please add at least one valid recipient'); return; }
-    if (activeTab === 'clients' && selectedClients.length === 0) { toast.error('Please select at least one client'); return; }
-    if (activeTab === 'groups' && selectedGroups.length === 0) { toast.error('Please select at least one group'); return; }
-    if (activeTab === 'tasks' && selectedTaskCount === 0) { toast.error('No tasks found for selected filters'); return; }
-    if (Object.keys(formErrors).length) { toast.error('Please fix validation errors'); return; }
+    console.log("🔵 SUBMIT FUNCTION CALLED");
+    console.log("Active tab:", activeTab);
+    console.log("Form state:", form);
+
+    if (activeTab === 'manual' && getValidRecipients().length === 0) {
+      toast.error('Please add at least one valid recipient');
+      return;
+    }
+    if (activeTab === 'clients' && selectedClients.length === 0) {
+      toast.error('Please select at least one client');
+      return;
+    }
+    if (activeTab === 'groups' && selectedGroups.length === 0) {
+      toast.error('Please select at least one group');
+      return;
+    }
+    if (activeTab === 'tasks' && selectedTaskCount === 0) {
+      toast.error('No tasks found for selected filters');
+      return;
+    }
+    if (Object.keys(formErrors).length) {
+      console.error("Form errors:", formErrors);
+      toast.error('Please fix validation errors');
+      return;
+    }
+
     setLoading(true);
     try {
-      const payload = buildPayload();
-      if (!payload) { setLoading(false); return; }
+      console.log("Building payload...");
+      const payload = await buildPayload();
+      console.log("Payload built:", payload);
+
+      if (!payload) {
+        setLoading(false);
+        return;
+      }
+
+      console.log("Calling createBroadcast API...");
       const res = await emailApi.createBroadcast(payload);
+      console.log("API Response:", res);
+
       toast.success(res?.message || 'Broadcast created successfully');
-      if (form.schedule_type === 'now') toast.success('Emails are being sent in the background');
-      else toast.success(`Broadcast scheduled for ${form.scheduled_at}`);
+      if (form.schedule_type === 'now') {
+        toast.success('Emails are being sent in the background');
+      } else {
+        toast.success(`Broadcast scheduled for ${form.scheduled_at}`);
+      }
       navigate('/broadcast/email');
-    } catch (e) { toast.error(e?.response?.data?.message || e.message || 'Failed to create broadcast'); }
-    finally { setLoading(false); }
+    } catch (e) {
+      console.error('Broadcast error:', e);
+      console.error('Error response:', e?.response?.data);
+      toast.error(e?.response?.data?.message || e.message || 'Failed to create broadcast');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handlePreview = async () => {
@@ -916,6 +1399,21 @@ const EmailBroadcastCreate = () => {
     if (taskFilters.statuses.length === 1) return names[taskFilters.statuses[0]] || taskFilters.statuses[0];
     return `${taskFilters.statuses.length} statuses selected`;
   };
+
+  // FIXED: Add variable to global with proper JSON handling
+  const addVariableToGlobal = useCallback((variableName) => {
+    console.log(`Adding variable to global: ${variableName}`);
+    let currentJson = {};
+    try {
+      currentJson = JSON.parse(form.global_variables_json || '{}');
+    } catch (e) {
+      console.error("Error parsing current global variables:", e);
+      currentJson = {};
+    }
+    currentJson[variableName] = `Your ${variableName} here`;
+    setForm({ ...form, global_variables_json: JSON.stringify(currentJson, null, 2) });
+    toast.success(`Added {{${variableName}}} to global variables`);
+  }, [form.global_variables_json]);
 
   return (
     <>
@@ -968,14 +1466,75 @@ const EmailBroadcastCreate = () => {
                 <Col md={4}>
                   <FieldGroup label="Email Template" required hint="Select and preview your template" error={formErrors.template_id}>
                     <div style={{ display: 'flex', gap: 8 }}>
-                      <select className={`ebc-control ebc-select flex-grow-1 ${formErrors.template_id ? 'is-invalid' : ''}`} value={form.template_id} onChange={e => setForm({ ...form, template_id: e.target.value })} style={{ flex: 1 }}>
+                      <select
+                        className={`ebc-control ebc-select flex-grow-1 ${formErrors.template_id ? 'is-invalid' : ''}`}
+                        value={form.template_id}
+                        onChange={(e) => handleTemplateChange(e.target.value)}
+                        style={{ flex: 1 }}
+                      >
                         <option value="">Select template…</option>
-                        {templates.map(t => <option key={t.template_id} value={t.template_id}>{t.template_name}</option>)}
+                        {templates.map(t => (
+                          <option key={t.template_id} value={t.template_id}>
+                            {t.template_name} {t.template_type ? `(${t.template_type})` : ''}
+                          </option>
+                        ))}
                       </select>
                       <button className="ebc-btn ebc-btn-outline ebc-btn-sm" onClick={handlePreview} disabled={!form.template_id} style={{ borderRadius: 9, whiteSpace: 'nowrap' }}>
                         <FaEye size={12} /> Preview
                       </button>
+                      {templateVariables.length > 0 && (
+                        <button
+                          className="ebc-btn ebc-btn-outline ebc-btn-sm"
+                          onClick={() => setShowVariableSelector(!showVariableSelector)}
+                          style={{ borderRadius: 9 }}
+                        >
+                          <FaCode size={12} /> Variables
+                        </button>
+                      )}
                     </div>
+
+                    {/* Variable Selector Panel */}
+                    {showVariableSelector && (
+                      <div className="mt-3 p-3 bg-light rounded" style={{ border: '1px solid #e5e7eb' }}>
+                        <div className="d-flex justify-content-between align-items-center mb-2">
+                          <small className="text-muted" style={{ fontWeight: 600 }}>📋 Available Variables for this Template</small>
+                          <button
+                            className="ebc-btn ebc-btn-ghost ebc-btn-sm"
+                            onClick={() => setShowVariableSelector(false)}
+                            style={{ padding: '2px 6px' }}
+                          >
+                            <FaTimes size={10} /> Close
+                          </button>
+                        </div>
+                        {loadingTemplateVars ? (
+                          <div className="text-center py-2"><Spinner size="sm" /></div>
+                        ) : (
+                          <>
+                            <div className="d-flex flex-wrap gap-2 mb-2">
+                              {templateVariables.map(v => (
+                                <code
+                                  key={v}
+                                  className="p-2 bg-white rounded border"
+                                  style={{ fontSize: '0.75rem', cursor: 'pointer', transition: 'all 0.2s' }}
+                                  onClick={() => {
+                                    navigator.clipboard.writeText(`{{${v}}}`);
+                                    toast.success(`Copied {{${v}}} to clipboard`);
+                                  }}
+                                  title="Click to copy"
+                                >
+                                  {'{{' + v + '}}'}
+                                </code>
+                              ))}
+                            </div>
+                            <small className="text-muted d-block mt-1">
+                              💡 These variables will be automatically replaced with actual client data when sending emails.
+                              <br />
+                              📋 Click any variable to copy it to clipboard.
+                            </small>
+                          </>
+                        )}
+                      </div>
+                    )}
                   </FieldGroup>
                 </Col>
               </Row>
@@ -1026,8 +1585,36 @@ const EmailBroadcastCreate = () => {
                   </Col>
                 )}
                 <Col md={form.schedule_type === 'scheduled' ? 5 : 9}>
-                  <FieldGroup label="Global Variables" hint={`Use {{variable_name}} in your template`} error={formErrors.global_variables_json}>
-                    <textarea className={`ebc-control mono w-100 ${formErrors.global_variables_json ? 'is-invalid' : ''}`} rows={2} value={form.global_variables_json} onChange={e => setForm({ ...form, global_variables_json: e.target.value })} placeholder='{"company_name": "Acme Corp", "support_email": "help@acme.com"}' style={{ resize: 'vertical', fontFamily: "'JetBrains Mono', monospace", fontSize: '0.775rem' }} />
+                  <FieldGroup label="Global Variables" hint="Use {{variable_name}} in your template" error={formErrors.global_variables_json}>
+                    {/* Available Variables Helper */}
+                    {templateVariableKeys.length > 0 && (
+                      <div className="mb-2">
+                        <small>📋 Available variables for this template:</small>
+                        <div className="d-flex flex-wrap gap-1 mt-1">
+                          {templateVariableKeys.slice(0, 10).map(v => (
+                            <code
+                              key={v}
+                              onClick={() => addVariableToGlobal(v)}
+                              style={{ fontSize: '0.7rem', cursor: 'pointer', background: '#f3f4f6', padding: '2px 6px', borderRadius: '4px' }}
+                            >
+                              {'{{' + v + '}}'}
+                            </code>
+                          ))}
+                          {templateVariableKeys.length > 10 && <span className="text-muted" style={{ fontSize: '0.7rem' }}>+{templateVariableKeys.length - 10} more</span>}
+                        </div>
+                      </div>
+                    )}
+                    <textarea
+                      className={`ebc-control mono w-100 ${formErrors.global_variables_json ? 'is-invalid' : ''}`}
+                      rows={4}
+                      value={form.global_variables_json}
+                      onChange={e => setForm({ ...form, global_variables_json: e.target.value })}
+                      placeholder='{"company_name": "Acme Corp", "support_email": "help@acme.com"}'
+                      style={{ resize: 'vertical', fontFamily: "'JetBrains Mono', monospace", fontSize: '0.775rem' }}
+                    />
+                    <div className="ebc-tooltip-hint mt-1">
+                      💡 Click on any variable above to add it to the JSON. Variables in {'{{}}'} will be replaced with actual values.
+                    </div>
                   </FieldGroup>
                 </Col>
               </Row>
@@ -1374,9 +1961,9 @@ const EmailBroadcastCreate = () => {
                 <div style={{ fontSize: '0.78rem', fontWeight: 700, color: '#374151', marginBottom: 12 }}>Statistics</div>
                 <Row className="g-2 mb-4">
                   {[['Total Firms', viewingGroup.statistics?.total_firms_in_group || 0, '#111827'],
-                    ['Active w/ Email', viewingGroup.statistics?.active_firms_with_email || 0, '#059669'],
-                    ['States', viewingGroup.statistics?.states?.length || 0, '#0369a1'],
-                    ['Cities', viewingGroup.statistics?.cities?.length || 0, '#6b7280']].map(([lbl, val, clr]) => (
+                  ['Active w/ Email', viewingGroup.statistics?.active_firms_with_email || 0, '#059669'],
+                  ['States', viewingGroup.statistics?.states?.length || 0, '#0369a1'],
+                  ['Cities', viewingGroup.statistics?.cities?.length || 0, '#6b7280']].map(([lbl, val, clr]) => (
                     <Col xs={6} md={3} key={lbl}>
                       <div className="ebc-stat-mini">
                         <div className="val" style={{ color: clr }}>{val}</div>

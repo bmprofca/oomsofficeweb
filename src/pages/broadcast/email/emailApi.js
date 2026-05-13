@@ -57,9 +57,10 @@ export const emailApi = {
   pauseBroadcast: (payload) => emailAxios.post('/broadcast/email/broadcast/pause', payload).then(unwrap),
   resumeBroadcast: (payload) => emailAxios.post('/broadcast/email/broadcast/resume', payload).then(unwrap),
   cancelBroadcast: (payload) => emailAxios.post('/broadcast/email/broadcast/cancel', payload).then(unwrap),
-  retryFailed: (payload) => emailAxios.post('/broadcast/email/broadcast/retry-failed', payload).then(unwrap),
-  processDue: (payload) => emailAxios.post('/broadcast/email/broadcast/process-due', payload || {}).then(unwrap),
-//createBroadcast: (payload) => emailAxios.post('/broadcast/email/send/mail', payload).then(unwrap),
+  retryFailed: (payload) => emailAxios.post('/broadcast/email/broadcast/retry-failed', payload).then(unwrap), 
+ processDue: (payload) => emailAxios.post('/broadcast/email/broadcast/process-due', payload || {}).then(unwrap),
+ getVariableKeys: (type) => emailAxios.get(`/broadcast/email/variable-keys/${type}`).then(unwrap),
+getDynamicVariables: (type, identifier) => emailAxios.get(`/broadcast/email/dynamic-variables/${type}/${identifier}`).then(unwrap),
 };
 
 export const normalizeList = (data) => (Array.isArray(data) ? data : []);
