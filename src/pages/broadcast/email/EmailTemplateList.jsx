@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { toast } from 'react-hot-toast';
-import { Mail, FileText, Search, Plus, Edit, Eye, RefreshCw, Trash2, CheckCircle, XCircle } from 'react-feather';
+import { Mail, FileText, Search, Plus, Edit, Eye, RefreshCw, Trash2, CheckCircle, XCircle, Filter, ChevronLeft, ChevronRight, Calendar, Hash, Type, CreditCard } from 'react-feather';
 import { Header, Sidebar } from '../../../components/header';
 import EmailTemplateFormModal from './EmailTemplateFormModal';
 import StaticTemplateFormModal from './StaticTemplateFormModal';
@@ -145,44 +145,44 @@ const EmailTemplateList = () => {
 
   // Status Badge Component
   const StatusBadge = ({ status }) => {
-    const variants = {
-      active: { bg: 'bg-green-100', text: 'text-green-800', icon: CheckCircle },
-      inactive: { bg: 'bg-gray-100', text: 'text-gray-800', icon: XCircle }
-    };
-    const variant = variants[status] || variants.inactive;
-    const Icon = variant.icon;
     return (
-      <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${variant.bg} ${variant.text}`}>
-        <Icon size={10} className="mr-1" />
+      <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium ${
+        status === 'active' 
+          ? 'bg-emerald-50 text-emerald-700 ring-1 ring-emerald-600/20' 
+          : 'bg-slate-100 text-slate-600 ring-1 ring-slate-600/10'
+      }`}>
+        <span className={`w-1.5 h-1.5 rounded-full ${status === 'active' ? 'bg-emerald-500 animate-pulse' : 'bg-slate-400'}`}></span>
         {status}
       </span>
     );
   };
 
-  // Compact Table Header Component
-  const CompactTableHeader = ({ children, className = "" }) => (
-    <th className={`px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider bg-gray-50 ${className}`}>
-      {children}
-    </th>
-  );
-
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-indigo-50/30">
       <Header mobileMenuOpen={mobileMenuOpen} setMobileMenuOpen={setMobileMenuOpen} isMinimized={isMinimized} setIsMinimized={setIsMinimized} />
       <Sidebar mobileMenuOpen={mobileMenuOpen} setMobileMenuOpen={setMobileMenuOpen} isMinimized={isMinimized} setIsMinimized={setIsMinimized} />
       
       <div className={`pt-16 transition-all duration-300 ${isMinimized ? 'md:pl-20' : 'md:pl-[260px]'}`}>
-        <div className="px-4 py-4">
+        <div className="p-4 md:p-6 lg:p-8">
           {/* Header Section */}
-          <div className="mb-4">
-            <h1 className="text-xl font-semibold text-gray-900">Email Templates</h1>
-            <p className="text-sm text-gray-600 mt-0.5">Manage your email templates and static templates</p>
+          <div className="mb-6">
+            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+              <div>
+                <h1 className="text-2xl lg:text-3xl font-bold bg-gradient-to-r from-slate-800 to-slate-600 bg-clip-text text-transparent">
+                  Email Templates
+                </h1>
+                <p className="text-slate-500 mt-1 text-sm">
+                  Manage your email templates and static templates for automated communications
+                </p>
+              </div>
+            </div>
           </div>
 
-          {/* Tabs */}
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
-            <div className="border-b border-gray-200">
-              <nav className="flex space-x-6 px-4" aria-label="Tabs">
+          {/* Main Card */}
+          <div className="bg-white rounded-2xl shadow-xl border border-slate-200 overflow-hidden">
+            {/* Tabs */}
+            <div className="border-b border-slate-200 bg-gradient-to-r from-slate-50 to-white">
+              <nav className="flex gap-1 px-6" aria-label="Tabs">
                 {[
                   { id: 'email-templates', name: 'Email Templates', icon: Mail },
                   { id: 'static-templates', name: 'Static Templates', icon: FileText }
@@ -193,15 +193,18 @@ const EmailTemplateList = () => {
                       key={tab.id}
                       onClick={() => setActiveTab(tab.id)}
                       className={`
-                        py-3 px-1 border-b-2 font-medium text-sm transition-colors duration-200 inline-flex items-center
+                        relative py-3.5 px-4 font-medium text-sm transition-all duration-200 inline-flex items-center gap-2
                         ${activeTab === tab.id 
-                          ? 'border-blue-500 text-blue-600' 
-                          : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                          ? 'text-blue-600' 
+                          : 'text-slate-500 hover:text-slate-700'
                         }
                       `}
                     >
-                      <Icon size={16} className="mr-1.5" />
+                      <Icon size={16} />
                       {tab.name}
+                      {activeTab === tab.id && (
+                        <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-gradient-to-r from-blue-500 to-indigo-500 rounded-full"></div>
+                      )}
                     </button>
                   );
                 })}
@@ -212,102 +215,122 @@ const EmailTemplateList = () => {
             {activeTab === 'email-templates' && (
               <div>
                 {/* Filters Bar */}
-                <div className="p-4 border-b border-gray-200 bg-gray-50">
+                <div className="p-4 border-b border-slate-100 bg-slate-50/50">
                   <div className="flex flex-wrap gap-3 items-center justify-between">
-                    <div className="flex flex-wrap gap-2">
+                    <div className="flex flex-wrap gap-3">
                       <div className="relative">
+                        <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
                         <input
                           type="text"
                           placeholder="Search templates..."
                           value={searchTerm}
                           onChange={(e) => setSearchTerm(e.target.value)}
-                          className="w-64 pl-8 pr-3 py-1.5 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                          className="w-64 pl-9 pr-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm bg-white"
                         />
-                        <Search size={14} className="absolute left-2.5 top-2 text-gray-400" />
                       </div>
-                      <select
-                        value={statusFilter}
-                        onChange={(e) => setStatusFilter(e.target.value)}
-                        className="px-2 py-1.5 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-blue-500"
-                      >
-                        <option value="">All Status</option>
-                        <option value="active">Active</option>
-                        <option value="inactive">Inactive</option>
-                      </select>
+                      <div className="relative">
+                        <Filter size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                        <select
+                          value={statusFilter}
+                          onChange={(e) => setStatusFilter(e.target.value)}
+                          className="pl-9 pr-8 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 bg-white appearance-none cursor-pointer"
+                        >
+                          <option value="">All Status</option>
+                          <option value="active">Active</option>
+                          <option value="inactive">Inactive</option>
+                        </select>
+                      </div>
                     </div>
                     <button
                       onClick={() => { setEditData(null); setShowModal(true); }}
-                      className="inline-flex items-center px-3 py-1.5 bg-blue-600 text-white text-sm font-medium rounded-md hover:bg-blue-700 transition-colors duration-200 shadow-sm"
+                      className="inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white text-sm font-medium rounded-lg shadow-md hover:shadow-lg transition-all duration-200"
                     >
-                      <Plus size={14} className="mr-1.5" />
+                      <Plus size={16} />
                       Add Template
                     </button>
                   </div>
                 </div>
 
-                {/* Table - No horizontal scroll */}
+                {/* Table */}
                 <div className="overflow-x-auto">
                   {loading ? (
-                    <div className="flex justify-center items-center py-12">
-                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                    <div className="flex flex-col items-center justify-center py-16">
+                      <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600"></div>
+                      <p className="mt-3 text-sm text-slate-500">Loading templates...</p>
                     </div>
                   ) : (
-                    <table className="min-w-full divide-y divide-gray-200">
-                      <thead className="bg-gray-50">
+                    <table className="w-full">
+                      <thead className="bg-slate-50 border-b border-slate-200">
                         <tr>
-                          <CompactTableHeader>Template Name</CompactTableHeader>
-                          <CompactTableHeader>Subject</CompactTableHeader>
-                          <CompactTableHeader className="w-20">Variables</CompactTableHeader>
-                          <CompactTableHeader className="w-24">Status</CompactTableHeader>
-                          <CompactTableHeader className="w-28">Created</CompactTableHeader>
-                          <CompactTableHeader className="w-28">Actions</CompactTableHeader>
+                          <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">Template Name</th>
+                          <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">Subject</th>
+                          <th className="px-4 py-3 text-center text-xs font-semibold text-slate-600 uppercase tracking-wider w-24">Variables</th>
+                          <th className="px-4 py-3 text-center text-xs font-semibold text-slate-600 uppercase tracking-wider w-28">Status</th>
+                          <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider w-32">Created</th>
+                          <th className="px-4 py-3 text-center text-xs font-semibold text-slate-600 uppercase tracking-wider w-28">Actions</th>
                         </tr>
                       </thead>
-                      <tbody className="bg-white divide-y divide-gray-200">
+                      <tbody className="divide-y divide-slate-100">
                         {rows.length === 0 ? (
                           <tr>
-                            <td colSpan={6} className="px-4 py-12 text-center text-gray-500">
-                              <Mail size={40} className="mx-auto text-gray-400 mb-2" />
-                              <p className="text-sm">No templates found</p>
+                            <td colSpan={6} className="px-4 py-16 text-center">
+                              <div className="flex flex-col items-center">
+                                <div className="p-3 bg-slate-100 rounded-full mb-3">
+                                  <Mail size={32} className="text-slate-400" />
+                                </div>
+                                <p className="text-slate-500 font-medium">No templates found</p>
+                                <p className="text-slate-400 text-sm mt-1">Create your first email template</p>
+                              </div>
                             </td>
                           </tr>
                         ) : (
                           rows.map((row) => (
-                            <tr key={row.template_id} className="hover:bg-gray-50 transition-colors duration-150">
-                              <td className="px-3 py-2">
-                                <div className="font-medium text-gray-900 text-sm">{row.template_name}</div>
+                            <tr key={row.template_id} className="hover:bg-slate-50 transition-colors duration-150">
+                              <td className="px-4 py-3">
+                                <div className="flex items-center gap-2">
+                                  <div className="p-1.5 bg-blue-50 rounded-lg">
+                                    <Mail size={14} className="text-blue-600" />
+                                  </div>
+                                  <span className="text-sm font-medium text-slate-900">{row.template_name}</span>
+                                </div>
                               </td>
-                              <td className="px-3 py-2 text-sm text-gray-600 truncate max-w-xs">{row.subject}</td>
-                              <td className="px-3 py-2">
-                                <span className="inline-flex items-center px-1.5 py-0.5 rounded bg-purple-50 text-purple-700 text-xs font-medium">
+                              <td className="px-4 py-3">
+                                <span className="text-sm text-slate-600 line-clamp-1">{row.subject}</span>
+                              </td>
+                              <td className="px-4 py-3 text-center">
+                                <span className="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-purple-50 text-purple-700 text-xs font-medium">
+                                  <Hash size={10} />
                                   {Object.keys(row.variables_json || {}).length}
                                 </span>
                               </td>
-                              <td className="px-3 py-2">
+                              <td className="px-4 py-3 text-center">
                                 <StatusBadge status={row.status} />
                               </td>
-                              <td className="px-3 py-2 text-xs text-gray-500">
-                                {row.create_date ? new Date(row.create_date).toLocaleDateString() : '-'}
+                              <td className="px-4 py-3">
+                                <div className="flex items-center gap-1.5 text-xs text-slate-500">
+                                  <Calendar size={12} />
+                                  <span>{row.create_date ? new Date(row.create_date).toLocaleDateString() : '-'}</span>
+                                </div>
                               </td>
-                              <td className="px-3 py-2">
-                                <div className="flex space-x-1.5">
+                              <td className="px-4 py-3">
+                                <div className="flex items-center justify-center gap-1.5">
                                   <button
                                     onClick={() => { setEditData(row); setShowModal(true); }}
-                                    className="p-1 text-blue-600 hover:text-blue-800 transition-colors"
+                                    className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition-all duration-200"
                                     title="Edit"
                                   >
                                     <Edit size={14} />
                                   </button>
                                   <button
                                     onClick={() => preview(row)}
-                                    className="p-1 text-gray-600 hover:text-gray-800 transition-colors"
+                                    className="p-1.5 text-emerald-600 hover:bg-emerald-50 rounded-lg transition-all duration-200"
                                     title="Preview"
                                   >
                                     <Eye size={14} />
                                   </button>
                                   <button
                                     onClick={() => changeStatus(row)}
-                                    className="p-1 text-yellow-600 hover:text-yellow-800 transition-colors"
+                                    className="p-1.5 text-amber-600 hover:bg-amber-50 rounded-lg transition-all duration-200"
                                     title="Toggle Status"
                                   >
                                     <RefreshCw size={14} />
@@ -324,24 +347,35 @@ const EmailTemplateList = () => {
 
                 {/* Pagination */}
                 {rows.length > 0 && (
-                  <div className="px-4 py-3 border-t border-gray-200 flex items-center justify-between bg-gray-50">
-                    <div className="text-xs text-gray-700">
-                      Showing {((pagination.page_no - 1) * pagination.limit) + 1} to {Math.min(pagination.page_no * pagination.limit, pagination.total)} of {pagination.total}
+                  <div className="px-4 py-3 border-t border-slate-200 bg-slate-50 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                    <div className="text-xs text-slate-600">
+                      Showing <span className="font-semibold text-slate-800">{((pagination.page_no - 1) * pagination.limit) + 1}</span> to{' '}
+                      <span className="font-semibold text-slate-800">{Math.min(pagination.page_no * pagination.limit, pagination.total)}</span> of{' '}
+                      <span className="font-semibold text-slate-800">{pagination.total}</span> templates
                     </div>
-                    <div className="flex space-x-1.5">
+                    <div className="flex items-center gap-2">
                       <button
                         onClick={() => fetchTemplates(pagination.page_no - 1)}
                         disabled={pagination.page_no <= 1}
-                        className="px-2 py-1 border border-gray-300 rounded text-xs font-medium text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                        className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium rounded-lg border border-slate-300 bg-white text-slate-700 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
                       >
+                        <ChevronLeft size={14} />
                         Previous
                       </button>
+                      <div className="flex items-center gap-1">
+                        <span className="text-xs text-slate-600">Page</span>
+                        <span className="text-xs font-semibold text-slate-800 bg-white px-2 py-1 rounded border border-slate-300">
+                          {pagination.page_no}
+                        </span>
+                        <span className="text-xs text-slate-600">of {pagination.total_pages}</span>
+                      </div>
                       <button
                         onClick={() => fetchTemplates(pagination.page_no + 1)}
                         disabled={pagination.page_no >= pagination.total_pages}
-                        className="px-2 py-1 border border-gray-300 rounded text-xs font-medium text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                        className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium rounded-lg border border-slate-300 bg-white text-slate-700 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
                       >
                         Next
+                        <ChevronRight size={14} />
                       </button>
                     </div>
                   </div>
@@ -349,142 +383,151 @@ const EmailTemplateList = () => {
               </div>
             )}
 
-            {/* Static Templates Tab - Compact Design */}
+            {/* Static Templates Tab */}
             {activeTab === 'static-templates' && (
               <div>
                 {/* Filters Bar */}
-                <div className="p-3 border-b border-gray-200 bg-gray-50">
-                  <div className="flex flex-wrap gap-2 items-center justify-between">
-                    <div className="flex flex-wrap gap-2">
+                <div className="p-4 border-b border-slate-100 bg-slate-50/50">
+                  <div className="flex flex-wrap gap-3 items-center justify-between">
+                    <div className="flex flex-wrap gap-3">
                       <div className="relative">
+                        <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
                         <input
                           type="text"
-                          placeholder="Search..."
+                          placeholder="Search templates..."
                           value={staticSearch}
                           onChange={(e) => setStaticSearch(e.target.value)}
-                          className="w-56 pl-7 pr-2 py-1 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-blue-500"
+                          className="w-64 pl-9 pr-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm bg-white"
                         />
-                        <Search size={12} className="absolute left-2 top-1.5 text-gray-400" />
                       </div>
                       {templateTypes.length > 0 && (
-                        <select
-                          value={templateTypeFilter}
-                          onChange={(e) => setTemplateTypeFilter(e.target.value)}
-                          className="px-2 py-1 border border-gray-300 rounded-md text-sm"
-                        >
-                          <option value="">All Types</option>
-                          {templateTypes.map(type => (
-                            <option key={type} value={type}>{type}</option>
-                          ))}
-                        </select>
+                        <div className="relative">
+                          <Type size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                          <select
+                            value={templateTypeFilter}
+                            onChange={(e) => setTemplateTypeFilter(e.target.value)}
+                            className="pl-9 pr-8 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 bg-white appearance-none cursor-pointer"
+                          >
+                            <option value="">All Types</option>
+                            {templateTypes.map(type => (
+                              <option key={type} value={type}>{type}</option>
+                            ))}
+                          </select>
+                        </div>
                       )}
                       <button
                         onClick={handleStaticSearch}
-                        className="px-2 py-1 bg-blue-600 text-white text-xs font-medium rounded-md hover:bg-blue-700"
+                        className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-all duration-200 shadow-sm"
                       >
                         Search
                       </button>
                       {(staticSearch || templateTypeFilter) && (
                         <button
                           onClick={() => { setStaticSearch(''); setTemplateTypeFilter(''); fetchStaticTemplates(1); }}
-                          className="px-2 py-1 bg-gray-200 text-gray-700 text-xs font-medium rounded-md hover:bg-gray-300"
+                          className="px-4 py-2 bg-slate-200 text-slate-700 text-sm font-medium rounded-lg hover:bg-slate-300 transition-all duration-200"
                         >
                           Clear
                         </button>
                       )}
                     </div>
-                    {/* <button
-                      onClick={() => { setStaticEditData(null); setShowStaticModal(true); }}
-                      className="inline-flex items-center px-2.5 py-1 bg-blue-600 text-white text-xs font-medium rounded-md hover:bg-blue-700"
-                    >
-                      <Plus size={12} className="mr-1" />
-                      Add
-                    </button> */}
+                    {/* Add button commented out as per original */}
                   </div>
                 </div>
 
-                {/* Compact Table - No horizontal scroll */}
+                {/* Table */}
                 <div className="overflow-x-auto">
                   {staticLoading ? (
-                    <div className="flex justify-center items-center py-10">
-                      <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
+                    <div className="flex flex-col items-center justify-center py-16">
+                      <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600"></div>
+                      <p className="mt-3 text-sm text-slate-500">Loading static templates...</p>
                     </div>
                   ) : (
-                    <table className="w-full table-auto divide-y divide-gray-200">
-                      <thead className="bg-gray-50">
+                    <table className="w-full">
+                      <thead className="bg-slate-50 border-b border-slate-200">
                         <tr>
-                          <CompactTableHeader className="w-24">Type</CompactTableHeader>
-                          <CompactTableHeader>Name</CompactTableHeader>
-                          <CompactTableHeader>Subject</CompactTableHeader>
-                          <CompactTableHeader className="w-16">Vars</CompactTableHeader>
-                          <CompactTableHeader className="w-20">Status</CompactTableHeader>
-                          <CompactTableHeader className="w-20">Default</CompactTableHeader>
-                          <CompactTableHeader className="w-24">Created</CompactTableHeader>
-                          <CompactTableHeader className="w-16">Actions</CompactTableHeader>
+                          <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider w-32">Type</th>
+                          <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">Template Name</th>
+                          <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">Subject</th>
+                          <th className="px-4 py-3 text-center text-xs font-semibold text-slate-600 uppercase tracking-wider w-20">Variables</th>
+                          <th className="px-4 py-3 text-center text-xs font-semibold text-slate-600 uppercase tracking-wider w-24">Status</th>
+                          <th className="px-4 py-3 text-center text-xs font-semibold text-slate-600 uppercase tracking-wider w-24">Default</th>
+                          <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider w-32">Created</th>
+                          <th className="px-4 py-3 text-center text-xs font-semibold text-slate-600 uppercase tracking-wider w-20">Actions</th>
                         </tr>
                       </thead>
-                      <tbody className="bg-white divide-y divide-gray-200">
+                      <tbody className="divide-y divide-slate-100">
                         {staticRows.length === 0 ? (
                           <tr>
-                            <td colSpan={8} className="px-3 py-10 text-center text-gray-500">
-                              <FileText size={32} className="mx-auto text-gray-400 mb-2" />
-                              <p className="text-sm">No static templates found</p>
+                            <td colSpan={8} className="px-4 py-16 text-center">
+                              <div className="flex flex-col items-center">
+                                <div className="p-3 bg-slate-100 rounded-full mb-3">
+                                  <FileText size={32} className="text-slate-400" />
+                                </div>
+                                <p className="text-slate-500 font-medium">No static templates found</p>
+                                <p className="text-slate-400 text-sm mt-1">Static templates will appear here</p>
+                              </div>
                             </td>
                           </tr>
                         ) : (
                           staticRows.map((row) => (
-                            <tr key={row.template_id} className="hover:bg-gray-50 transition-colors duration-150">
-                              <td className="px-2 py-1.5">
-                                <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                                  {row.template_type?.substring(0, 12)}
+                            <tr key={row.template_id} className="hover:bg-slate-50 transition-colors duration-150">
+                              <td className="px-4 py-3">
+                                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium bg-indigo-50 text-indigo-700">
+                                  <CreditCard size={12} />
+                                  {row.template_type?.substring(0, 15)}
                                 </span>
                               </td>
-                              <td className="px-2 py-1.5">
-                                <div className="font-medium text-gray-900 text-xs">{row.template_name}</div>
+                              <td className="px-4 py-3">
+                                <div className="flex items-center gap-2">
+                                  <div className="p-1.5 bg-purple-50 rounded-lg">
+                                    <FileText size={14} className="text-purple-600" />
+                                  </div>
+                                  <span className="text-sm font-medium text-slate-900">{row.template_name}</span>
+                                </div>
                               </td>
-                              <td className="px-2 py-1.5 text-xs text-gray-600 truncate max-w-[150px]">{row.subject}</td>
-                              <td className="px-2 py-1.5 text-center">
-                                <span className="inline-flex items-center px-1 py-0.5 rounded bg-purple-50 text-purple-700 text-xs">
+                              <td className="px-4 py-3">
+                                <span className="text-sm text-slate-600 line-clamp-1">{row.subject}</span>
+                              </td>
+                              <td className="px-4 py-3 text-center">
+                                <span className="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-purple-50 text-purple-700 text-xs font-medium">
+                                  <Hash size={10} />
                                   {row.total_variables || row.variables_json?.length || 0}
                                 </span>
                               </td>
-                              <td className="px-2 py-1.5">
+                              <td className="px-4 py-3 text-center">
                                 <StatusBadge status={row.status} />
                               </td>
-                              <td className="px-2 py-1.5">
+                              <td className="px-4 py-3 text-center">
                                 {row.is_default === 1 ? (
-                                  <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                                    <CheckCircle size={10} className="mr-0.5" />
+                                  <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium bg-emerald-50 text-emerald-700">
+                                    <CheckCircle size={12} />
                                     Default
                                   </span>
                                 ) : (
                                   <button
                                     onClick={() => setDefaultStaticTemplate(row)}
-                                    className="text-xs text-blue-600 hover:text-blue-800"
+                                    className="text-xs text-blue-600 hover:text-blue-700 font-medium"
                                   >
-                                    Set
+                                    Set Default
                                   </button>
                                 )}
                               </td>
-                              <td className="px-2 py-1.5 text-xs text-gray-500">
-                                {row.create_date ? new Date(row.create_date).toLocaleDateString() : '-'}
+                              <td className="px-4 py-3">
+                                <div className="flex items-center gap-1.5 text-xs text-slate-500">
+                                  <Calendar size={12} />
+                                  <span>{row.create_date ? new Date(row.create_date).toLocaleDateString() : '-'}</span>
+                                </div>
                               </td>
-                              <td className="px-2 py-1.5">
-                                <div className="flex space-x-1">
+                              <td className="px-4 py-3">
+                                <div className="flex items-center justify-center gap-1">
                                   <button
                                     onClick={() => { setStaticEditData(row); setShowStaticModal(true); }}
-                                    className="p-0.5 text-blue-600 hover:text-blue-800"
+                                    className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition-all duration-200"
                                     title="Edit"
                                   >
-                                    <Edit size={12} />
+                                    <Edit size={14} />
                                   </button>
-                                  {/* <button
-                                    onClick={() => deleteStaticTemplate(row)}
-                                    className="p-0.5 text-red-600 hover:text-red-800"
-                                    title="Delete"
-                                  >
-                                    <Trash2 size={12} />
-                                  </button> */}
+                                  {/* Delete button commented out as per original */}
                                 </div>
                               </td>
                             </tr>
@@ -497,24 +540,35 @@ const EmailTemplateList = () => {
 
                 {/* Pagination */}
                 {staticRows.length > 0 && (
-                  <div className="px-3 py-2 border-t border-gray-200 flex items-center justify-between bg-gray-50">
-                    <div className="text-xs text-gray-700">
-                      {((staticPagination.page_no - 1) * staticPagination.limit) + 1} - {Math.min(staticPagination.page_no * staticPagination.limit, staticPagination.total)} of {staticPagination.total}
+                  <div className="px-4 py-3 border-t border-slate-200 bg-slate-50 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                    <div className="text-xs text-slate-600">
+                      Showing <span className="font-semibold text-slate-800">{((staticPagination.page_no - 1) * staticPagination.limit) + 1}</span> to{' '}
+                      <span className="font-semibold text-slate-800">{Math.min(staticPagination.page_no * staticPagination.limit, staticPagination.total)}</span> of{' '}
+                      <span className="font-semibold text-slate-800">{staticPagination.total}</span> templates
                     </div>
-                    <div className="flex space-x-1">
+                    <div className="flex items-center gap-2">
                       <button
                         onClick={() => fetchStaticTemplates(staticPagination.page_no - 1)}
                         disabled={staticPagination.page_no <= 1}
-                        className="px-2 py-0.5 border border-gray-300 rounded text-xs font-medium text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50"
+                        className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium rounded-lg border border-slate-300 bg-white text-slate-700 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
                       >
-                        Prev
+                        <ChevronLeft size={14} />
+                        Previous
                       </button>
+                      <div className="flex items-center gap-1">
+                        <span className="text-xs text-slate-600">Page</span>
+                        <span className="text-xs font-semibold text-slate-800 bg-white px-2 py-1 rounded border border-slate-300">
+                          {staticPagination.page_no}
+                        </span>
+                        <span className="text-xs text-slate-600">of {staticPagination.total_pages}</span>
+                      </div>
                       <button
                         onClick={() => fetchStaticTemplates(staticPagination.page_no + 1)}
                         disabled={staticPagination.page_no >= staticPagination.total_pages}
-                        className="px-2 py-0.5 border border-gray-300 rounded text-xs font-medium text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50"
+                        className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium rounded-lg border border-slate-300 bg-white text-slate-700 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
                       >
                         Next
+                        <ChevronRight size={14} />
                       </button>
                     </div>
                   </div>
