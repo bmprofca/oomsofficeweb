@@ -23,6 +23,7 @@
     "crypto-js": "^4.2.0",
     "framer-motion": "^12.23.24",
     "ifsc": "^2.0.50",
+    "jwt-decode": "^4.0.0",
     "lodash.debounce": "^4.0.8",
     "lodash.get": "^4.4.2",
     "lucide-react": "^0.567.0",

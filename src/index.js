@@ -90,7 +90,7 @@ import TaskDetailsPage from './staff/TaskDetailsPage';
 
 
 // Google Client ID
-const GOOGLE_CLIENT_ID = "124604231994-dtnflivbu049428d1cg9ngfuhgq38efs.apps.googleusercontent.com ";
+const GOOGLE_CLIENT_ID = "process.env.REACT_APP_GOOGLE_CLIENT_ID" in process.env ? process.env.REACT_APP_GOOGLE_CLIENT_ID : "706030491156-5rq848qm4eih47h29675u6pdv11m8kvq.apps.googleusercontent.com";
 
 // Authentication wrapper component
 const ProtectedRoute = ({ children }) => {

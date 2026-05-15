@@ -25,7 +25,7 @@ import { GoogleLogin } from '@react-oauth/google';
 import CryptoJS from 'crypto-js';
 
 const BASE_URL = 'https://api.ooms.in/api/v1';
-
+const googleClientId = process.env.REACT_APP_GOOGLE_CLIENT_ID || "706030491156-5rq848qm4eih47h29675u6pdv11m8kvq.apps.googleusercontent.com";
 const Login = () => {
     const [phase, setPhase] = useState(1); // 1: Credentials, 2: OTP
     const [loading, setLoading] = useState(false);
@@ -64,167 +64,238 @@ const Login = () => {
         };
     };
 
+    // FRONTEND - Login.jsx (Only Google functions)
+
     const handleGoogleAuth = async (credentialResponse) => {
         setActiveSocialLogin('Google');
         setLoading(true);
 
         try {
             const idToken = credentialResponse.credential;
-            console.log('Sending Google ID token to backend...');
-            
-            const response = await fetch(`${BASE_URL}/auth/google-login`, {
+
+            // STEP 1: Try to login first
+            const response = await fetch(`${BASE_URL}/auth/google-auth`, {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({ 
-                    google_token: idToken
-                })
+                headers: { 'Content-Type': 'application/json' },
+                referrerPolicy: "no-referrer-when-downgrade",
+                body: JSON.stringify({ google_token: idToken })
             });
 
             const result = await response.json();
-            console.log('Backend response:', result);
-            
-            if (result.error === false || result.success === true) {
-                // Store basic user info
-                localStorage.setItem('user_token', result.token);
-                localStorage.setItem('user_username', result.username);
-                localStorage.setItem('user_email', result.profile.email);
-                localStorage.setItem('user_name', result.profile.name);
-                
-                setLoginResponse(result);
-                
-                // Check for branches/projects
-                if (result.branches && result.branches.length > 0) {
-                    setBranches(result.branches);
-                    if (result.branches.length === 1) {
-                        // Single branch - auto select and login
-                        const branchId = result.branches[0].branch_id;
-                        const branchName = result.branches[0].name;
-                        localStorage.setItem('branch_id', branchId);
-                        localStorage.setItem('branch_name', branchName);
-                        completeGoogleLogin(result);
-                    } else {
-                        // Multiple branches - show selection
-                        setShowBranchSelection(true);
-                        setActiveSocialLogin(null);
-                    }
-                } else if (result.projects && result.projects.length > 0) {
-                    // Handle projects as branches
-                    const mappedBranches = result.projects.map(project => ({
-                        branch_id: project.project_id,
-                        name: project.name,
-                        owned: true
-                    }));
-                    setBranches(mappedBranches);
-                    setLoginResponse({...result, branches: mappedBranches});
-                    
-                    if (mappedBranches.length === 1) {
-                        localStorage.setItem('branch_id', mappedBranches[0].branch_id);
-                        localStorage.setItem('branch_name', mappedBranches[0].name);
-                        completeGoogleLogin(result);
-                    } else {
-                        setShowBranchSelection(true);
-                        setActiveSocialLogin(null);
-                    }
+
+            // CASE 1: Account not found (404) - Ask to register
+            if (response.status === 404) {
+                setActiveSocialLogin(null);
+
+                const wantsToRegister = window.confirm(
+                    '🔍 Account not found with this Google email.\n\nWould you like to register?'
+                );
+
+                if (wantsToRegister) {
+                    await handleGoogleRegister(idToken);
                 } else {
-                    // No branches - direct login
-                    completeGoogleLogin(result);
+                    alert('Please contact admin to create an account.');
+                }
+                return;
+            }
+
+            // CASE 2: Other errors
+            if (!response.ok || !result.success) {
+                throw new Error(result.message || 'Login failed');
+            }
+
+            // CASE 3: Login SUCCESSFUL
+            console.log('✅ Login successful:', result);
+
+            // Store user data
+            localStorage.setItem('user_token', result.token);
+            localStorage.setItem('user_username', result.username);
+            localStorage.setItem('user_email', result.profile.email);
+            localStorage.setItem('user_name', result.profile.name);
+
+            setLoginResponse(result);
+
+            // Handle branches
+            if (result.branches && result.branches.length > 0) {
+                setBranches(result.branches);
+
+                if (result.branches.length === 1) {
+                    // Single branch - auto select and login
+                    localStorage.setItem('branch_id', result.branches[0].branch_id);
+                    localStorage.setItem('branch_name', result.branches[0].name);
+                    completeLogin();
+                } else {
+                    // Multiple branches - show selection
+                    setShowBranchSelection(true);
+                    setActiveSocialLogin(null);
                 }
             } else {
-                alert(result.error || 'Google authentication failed');
-                setActiveSocialLogin(null);
+                // No branches - direct login
+                completeLogin();
             }
+
         } catch (error) {
             console.error('Google Auth Error:', error);
-            alert('Error during Google authentication. Please try again.');
+            alert('❌ Authentication failed: ' + error.message);
             setActiveSocialLogin(null);
         } finally {
             setLoading(false);
         }
     };
 
+    // Handle branch selection for Google login
     const handleBranchSelectForGoogle = (branchId) => {
         setSelectedBranch(branchId);
         const selectedBranchInfo = branches.find(b => b.branch_id === branchId);
+
         if (selectedBranchInfo) {
             localStorage.setItem('branch_id', branchId);
             localStorage.setItem('branch_name', selectedBranchInfo.name);
             localStorage.setItem('branch_owned', selectedBranchInfo.owned ? 'true' : 'false');
         }
-        completeGoogleLogin(loginResponse);
+
+        completeLogin();
+    };
+    const handleGoogleRegister = async (idToken) => {
+        setLoading(true);
+
+        try {
+            const response = await fetch(`${BASE_URL}/auth/google-auth`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                referrerPolicy: "no-referrer-when-downgrade",
+                body: JSON.stringify({ google_token: idToken })
+            });
+
+            const result = await response.json();
+
+            // Registration successful
+            if (response.status === 201 && result.success) {
+                localStorage.setItem('user_token', result.token);
+                localStorage.setItem('user_username', result.username);
+                localStorage.setItem('user_email', result.profile.email);
+
+                alert('✅ Registration successful! Welcome!');
+
+                // Handle branches if any
+                if (result.branches?.length === 1) {
+                    localStorage.setItem('branch_id', result.branches[0].branch_id);
+                    completeLogin();
+                } else if (result.branches?.length > 1) {
+                    setBranches(result.branches);
+                    setShowBranchSelection(true);
+                    setLoginResponse(result);
+                } else {
+                    completeLogin();
+                }
+            }
+            // User already exists (should not happen, but handle gracefully)
+            else if (response.status === 409) {
+                alert('⚠️ Account already exists. Please login.');
+                // Retry login
+                await handleGoogleAuth({ credential: idToken });
+            }
+            else {
+                throw new Error(result.message || 'Registration failed');
+            }
+        } catch (error) {
+            console.error('Google Registration Error:', error);
+            alert('❌ Registration failed: ' + error.message);
+            setActiveSocialLogin(null);
+        } finally {
+            setLoading(false);
+        }
     };
 
-    const completeGoogleLogin = (result) => {
+    // Complete login function - handles final success
+    const completeLogin = () => {
         setLoginSuccess(true);
-        setShowBranchSelection(false);
-        
-        // Store additional info if available
-        if (result.branches) {
-            localStorage.setItem('user_branches', JSON.stringify(result.branches));
-        }
-        
-        alert(`Welcome ${result.profile.name || result.username}! Login successful!`);
-        
         setTimeout(() => {
             window.location.href = '/';
         }, 1500);
     };
 
-    // Handle Google Registration for new users
-    const handleGoogleRegister = async (accessToken) => {
-        try {
-            const key = generateKey();
-            const encryptedData = encryptData({ google_token: accessToken }, key);
-            
-            const registerResponse = await fetch(`${BASE_URL}/auth/google-register`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify(encryptedData)
-            });
+    // const handleBranchSelectForGoogle = (branchId) => {
+    //     setSelectedBranch(branchId);
+    //     const selectedBranchInfo = branches.find(b => b.branch_id === branchId);
+    //     if (selectedBranchInfo) {
+    //         localStorage.setItem('branch_id', branchId);
+    //         localStorage.setItem('branch_name', selectedBranchInfo.name);
+    //         localStorage.setItem('branch_owned', selectedBranchInfo.owned ? 'true' : 'false');
+    //     }
+    //     completeGoogleLogin(loginResponse);
+    // };
 
-            const registerResult = await registerResponse.json();
+    const completeGoogleLogin = (result) => {
+        setLoginSuccess(true);
+        setShowBranchSelection(false);
 
-            if (!registerResult.error) {
-                console.log('Google registration successful:', registerResult);
-                
-                localStorage.setItem('user_token', registerResult.token);
-                localStorage.setItem('user_username', registerResult.username);
-                localStorage.setItem('user_email', registerResult.profile.email);
-                localStorage.setItem('user_name', registerResult.profile.name);
-                
-                setLoginResponse(registerResult);
-                
-                if (registerResult.projects && registerResult.projects.length > 0) {
-                    const mappedBranches = registerResult.projects.map(project => ({
-                        branch_id: project.project_id,
-                        name: project.name,
-                        owned: true
-                    }));
-                    setBranches(mappedBranches);
-                    
-                    if (mappedBranches.length === 1) {
-                        localStorage.setItem('branch_id', mappedBranches[0].branch_id);
-                        localStorage.setItem('branch_name', mappedBranches[0].name);
-                        completeGoogleLogin(registerResult);
-                    } else {
-                        setShowBranchSelection(true);
-                    }
-                } else {
-                    completeGoogleLogin(registerResult);
-                }
-            } else {
-                alert(registerResult.error || 'Google registration failed');
-                setActiveSocialLogin(null);
-            }
-        } catch (error) {
-            console.error('Google Registration Error:', error);
-            alert('Error during Google registration. Please try again.');
-            setActiveSocialLogin(null);
+        // Store additional info if available
+        if (result.branches) {
+            localStorage.setItem('user_branches', JSON.stringify(result.branches));
         }
+
+        alert(`Welcome ${result.profile.name || result.username}! Login successful!`);
+
+        setTimeout(() => {
+            window.location.href = '/';
+        }, 1500);
     };
+
+    // // Handle Google Registration for new users
+    // const handleGoogleRegister = async (accessToken) => {
+    //     try {
+    //         const key = generateKey();
+    //         const encryptedData = encryptData({ google_token: accessToken }, key);
+
+    //         const registerResponse = await fetch(`${BASE_URL}/auth/google-register`, {
+    //             method: 'POST',
+    //             headers: {
+    //                 'Content-Type': 'application/json',
+    //             },
+    //             body: JSON.stringify(encryptedData)
+    //         });
+
+    //         const registerResult = await registerResponse.json();
+
+    //         if (!registerResult.error) {
+    //             console.log('Google registration successful:', registerResult);
+
+    //             localStorage.setItem('user_token', registerResult.token);
+    //             localStorage.setItem('user_username', registerResult.username);
+    //             localStorage.setItem('user_email', registerResult.profile.email);
+    //             localStorage.setItem('user_name', registerResult.profile.name);
+
+    //             setLoginResponse(registerResult);
+
+    //             if (registerResult.projects && registerResult.projects.length > 0) {
+    //                 const mappedBranches = registerResult.projects.map(project => ({
+    //                     branch_id: project.project_id,
+    //                     name: project.name,
+    //                     owned: true
+    //                 }));
+    //                 setBranches(mappedBranches);
+
+    //                 if (mappedBranches.length === 1) {
+    //                     localStorage.setItem('branch_id', mappedBranches[0].branch_id);
+    //                     localStorage.setItem('branch_name', mappedBranches[0].name);
+    //                     completeGoogleLogin(registerResult);
+    //                 } else {
+    //                     setShowBranchSelection(true);
+    //                 }
+    //             } else {
+    //                 completeGoogleLogin(registerResult);
+    //             }
+    //         } else {
+    //             alert(registerResult.error || 'Google registration failed');
+    //             setActiveSocialLogin(null);
+    //         }
+    //     } catch (error) {
+    //         console.error('Google Registration Error:', error);
+    //         alert('Error during Google registration. Please try again.');
+    //         setActiveSocialLogin(null);
+    //     }
+    // };
 
     useEffect(() => {
         if (phase === 1) {
@@ -241,6 +312,7 @@ const Login = () => {
             }, 300);
         }
     }, [phase, showBranchSelection, loginSuccess]);
+
 
     const handleInputChange = (e) => {
         const { name, value } = e.target;
@@ -382,30 +454,30 @@ const Login = () => {
         completeLogin(loginResponse, branchId);
     };
 
-    const completeLogin = (result, branchId) => {
-        localStorage.setItem('user_token', result.token);
-        localStorage.setItem('user_email', formData.email);
-        localStorage.setItem('user_username', result.username);
-        localStorage.setItem('user_branches', JSON.stringify(result.branches || []));
-        localStorage.setItem('token_expire', result.expire_date);
+    // const completeLogin = (result, branchId) => {
+    //     localStorage.setItem('user_token', result.token);
+    //     localStorage.setItem('user_email', formData.email);
+    //     localStorage.setItem('user_username', result.username);
+    //     localStorage.setItem('user_branches', JSON.stringify(result.branches || []));
+    //     localStorage.setItem('token_expire', result.expire_date);
 
-        if (branchId) {
-            localStorage.setItem('branch_id', branchId);
-            const selectedBranchInfo = result.branches?.find(b => b.branch_id === branchId);
-            if (selectedBranchInfo) {
-                localStorage.setItem('branch_name', selectedBranchInfo.name);
-                localStorage.setItem('branch_owned', selectedBranchInfo.owned ? 'true' : 'false');
-            }
-        }
+    //     if (branchId) {
+    //         localStorage.setItem('branch_id', branchId);
+    //         const selectedBranchInfo = result.branches?.find(b => b.branch_id === branchId);
+    //         if (selectedBranchInfo) {
+    //             localStorage.setItem('branch_name', selectedBranchInfo.name);
+    //             localStorage.setItem('branch_owned', selectedBranchInfo.owned ? 'true' : 'false');
+    //         }
+    //     }
 
-        setLoginSuccess(true);
-        setShowBranchSelection(false);
-        alert('Login successful!');
-        
-        setTimeout(() => {
-            window.location.href = '/';
-        }, 1500);
-    };
+    //     setLoginSuccess(true);
+    //     setShowBranchSelection(false);
+    //     alert('Login successful!');
+
+    //     setTimeout(() => {
+    //         window.location.href = '/';
+    //     }, 1500);
+    // };
 
     const handleResendOtp = async () => {
         setLoading(true);
@@ -462,8 +534,19 @@ const Login = () => {
                     <p className="text-white/80">Please wait while we prepare your dashboard</p>
                 </div>
             </div>
+
+
         );
+
+        console.log('=== GOOGLE CLIENT ID DEBUG ===');
+        console.log('From env:', process.env.REACT_APP_GOOGLE_CLIENT_ID);
+        console.log('Passed to GoogleLogin:', googleClientId);
+        console.log('===============================');
+
+
     }
+
+    // Add this for debugging
 
     return (
         <div className="min-h-screen bg-gradient-to-br from-gray-50 to-blue-50 flex items-center justify-center p-4 relative overflow-hidden">
@@ -630,7 +713,11 @@ const Login = () => {
                                         ) : (
                                             <div className="w-full">
                                                 <GoogleLogin
+                                                    clientId={googleClientId} // Ensure this matches the string variable we set above
                                                     onSuccess={async (credentialResponse) => {
+                                                        const token = credentialResponse.credential;
+
+                                                        console.log("My Google Token:", token);
                                                         await handleGoogleAuth(credentialResponse);
                                                     }}
                                                     onError={() => {
