@@ -42,7 +42,8 @@ import {
     FiMinimize2,
     FiMaximize2,
     FiArrowUp,
-    FiArrowDown
+    FiArrowDown,
+    FiHome
 } from 'react-icons/fi';
 import { motion, AnimatePresence } from 'framer-motion';
 import TaskSummary from '../DashboardComponents/task-summary';
@@ -55,6 +56,7 @@ import StaffWiseSales from '../DashboardComponents/staffWiseSales';
 import TopClients from '../DashboardComponents/TopClients';
 import { useNavigate } from 'react-router-dom';
 import SalesOverviewWidget from '../DashboardComponents/SalesOverviewWidget';
+import BranchSetupModal from '../../src/DashboardComponents/BranchSetupModal';
 
 // Version constants for localStorage migration
 const DASHBOARD_VERSION = '3';
@@ -305,6 +307,11 @@ const Dashboard = () => {
     const [topClients, setTopClients] = useState([]);
     const [refreshKey, setRefreshKey] = useState(0);
 
+    // Branch validation state
+    const [hasBranch, setHasBranch] = useState(false);
+    const [showBranchModal, setShowBranchModal] = useState(false);
+    const [branchValidated, setBranchValidated] = useState(false);
+
     // Customization state
     const [isCustomizing, setIsCustomizing] = useState(false);
     const [customizationPanelMinimized, setCustomizationPanelMinimized] = useState(false);
@@ -415,6 +422,35 @@ const Dashboard = () => {
         }
     ], []);
 
+    // Check for branch_id in localStorage on mount
+    useEffect(() => {
+        const branchId = localStorage.getItem('branch_id');
+        if (branchId && branchId !== 'null' && branchId !== 'undefined' && branchId !== '') {
+            setHasBranch(true);
+            setBranchValidated(true);
+        } else {
+            setHasBranch(false);
+            setBranchValidated(false);
+            // Don't auto-open modal - wait for button click
+        }
+    }, []);
+
+    const handleBranchCreated = (branchData) => {
+        setHasBranch(true);
+        setBranchValidated(true);
+        setShowBranchModal(false);
+        // Refresh dashboard data with new branch
+        fetchDashboardData();
+    };
+
+    const handleCloseBranchModal = () => {
+        setShowBranchModal(false);
+    };
+
+    const openBranchModal = () => {
+        setShowBranchModal(true);
+    };
+
     // Initialize working copies when entering customization mode
     useEffect(() => {
         if (isCustomizing && !workingWidgets) {
@@ -469,16 +505,24 @@ const Dashboard = () => {
         };
     }, [mobileMenuOpen]);
 
-    // Load initial data
+    // Load initial data - Modified to check for branch
     useEffect(() => {
-        fetchDashboardData();
-    }, []);
+        if (branchValidated) {
+            fetchDashboardData();
+        }
+    }, [branchValidated]);
 
     const fetchDashboardData = async () => {
+        const branchId = localStorage.getItem('branch_id');
+        if (!branchId) {
+            console.log('No branch found, skipping data fetch');
+            return;
+        }
+
         setLoading(true);
         try {
             const headers = getHeaders();
-            const response = await fetch(`${API_BASE_URL}/report/dashboard-summary`, {
+            const response = await fetch(`${API_BASE_URL}/report/dashboard-summary?branch_id=${branchId}`, {
                 method: 'GET',
                 headers: {
                     ...headers,
@@ -1101,6 +1145,87 @@ const Dashboard = () => {
             </div>
         </WidgetWrapper>
     ));
+
+    // If branch is not validated, show greyed out overlay with Setup button
+    if (!branchValidated) {
+        return (
+            <>
+                <div className="min-h-screen bg-gray-100 relative">
+                    {/* Greyed out Header */}
+                    <div className="bg-white shadow-sm border-b border-gray-200 p-4 opacity-50">
+                        <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-3">
+                                <div className="p-2 bg-gray-200 rounded-lg">
+                                    <FiActivity className="w-6 h-6 text-gray-400" />
+                                </div>
+                                <div>
+                                    <div className="h-5 w-32 bg-gray-200 rounded"></div>
+                                    <div className="h-3 w-48 bg-gray-200 rounded mt-1"></div>
+                                </div>
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <div className="w-8 h-8 bg-gray-200 rounded-full"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Greyed out Sidebar */}
+                    <div className="fixed left-0 top-0 h-full w-64 bg-white shadow-lg opacity-50">
+                        <div className="p-4 space-y-2">
+                            {[1, 2, 3, 4, 5].map((i) => (
+                                <div key={i} className="h-10 bg-gray-200 rounded-lg"></div>
+                            ))}
+                        </div>
+                    </div>
+
+                    {/* Greyed out Content */}
+                    <div className="ml-64 pt-16 p-6">
+                        <div className="space-y-4">
+                            <div className="h-32 bg-gray-200 rounded-xl animate-pulse"></div>
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                                <div className="h-48 bg-gray-200 rounded-xl animate-pulse"></div>
+                                <div className="h-48 bg-gray-200 rounded-xl animate-pulse"></div>
+                                <div className="h-48 bg-gray-200 rounded-xl animate-pulse"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Setup Button Overlay */}
+                    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
+                        <motion.div
+                            initial={{ scale: 0.9, opacity: 0, y: 20 }}
+                            animate={{ scale: 1, opacity: 1, y: 0 }}
+                            className="text-center bg-white rounded-2xl p-8 max-w-md mx-4 shadow-2xl"
+                        >
+                            <div className="w-24 h-24 bg-gradient-to-br from-indigo-100 to-purple-100 rounded-full flex items-center justify-center mx-auto mb-6">
+                                <FiHome className="w-12 h-12 text-indigo-600" />
+                            </div>
+                            <h2 className="text-2xl font-bold text-gray-800 mb-3">Welcome to Your Dashboard</h2>
+                            <p className="text-gray-600 mb-6">
+                                You haven't set up your branch yet. Click the button below to create your first branch and start using the system.
+                            </p>
+                            <motion.button
+                                onClick={openBranchModal}
+                                className="px-6 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-xl hover:shadow-xl transition-all duration-300 flex items-center gap-2 mx-auto"
+                                whileHover={{ scale: 1.02 }}
+                                whileTap={{ scale: 0.98 }}
+                            >
+                                <FiHome className="w-5 h-5" />
+                                Setup Your Branch
+                            </motion.button>
+                        </motion.div>
+                    </div>
+                </div>
+
+                {/* Branch Setup Modal */}
+                <BranchSetupModal
+                    isOpen={showBranchModal}
+                    onBranchCreated={handleBranchCreated}
+                    onClose={handleCloseBranchModal}
+                />
+            </>
+        );
+    }
 
     return (
         <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
