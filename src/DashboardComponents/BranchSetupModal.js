@@ -34,31 +34,99 @@ const BranchSetupModal = ({ isOpen, onBranchCreated, onClose, invitationToken })
     });
 
     // Function to get custom headers for backend
-    const getCustomHeaders = (skipBranch = false) => {
-        const userName = localStorage.getItem('user_username') || '';
-        const token = localStorage.getItem('user_token') || '';
-        const branchId = localStorage.getItem('branch_id') || '';
+   // BranchSetupModal.jsx - Update these functions
 
-        const headers = {
-            'Content-Type': 'application/json'
-        };
+const getCustomHeaders = (skipBranch = false) => {
+    // FIX: Use correct localStorage keys
+    const userName = localStorage.getItem('username') ||      // Try 'username' first
+                    localStorage.getItem('user_username') ||  // Fallback to 'user_username'
+                    localStorage.getItem('user_name');
+    
+    const token = localStorage.getItem('token') ||           // Try 'token' first
+                  localStorage.getItem('user_token');        // Fallback to 'user_token'
+    
+    const branchId = localStorage.getItem('branch_id') || '';
 
-        // Add required authentication headers
-        if (userName) {
-            headers['username'] = userName;
-        }
-        
-        if (token) {
-            headers['token'] = token;
-        }
-        
-        // Add branch header only if we have branchId AND not skipping
-        if (branchId && !skipBranch) {
-            headers['branch'] = branchId;
-        }
-
-        return headers;
+    const headers = {
+        'Content-Type': 'application/json'
     };
+
+    // FIX: Always send username if available
+    if (userName) {
+        headers['username'] = userName;
+        console.log('Sending username:', userName);
+    } else {
+        console.error('No username found in localStorage!');
+        // Try to get from somewhere else or show error
+        const userData = JSON.parse(localStorage.getItem('user') || '{}');
+        if (userData.username) {
+            headers['username'] = userData.username;
+            console.log('Using username from user object:', userData.username);
+        }
+    }
+    
+    if (token) {
+        headers['token'] = token;
+        console.log('Sending token:', token.substring(0, 10) + '...');
+    }
+    
+    if (branchId && !skipBranch) {
+        headers['branch'] = branchId;
+    }
+
+    return headers;
+};
+
+const acceptInvitation = async () => {
+    setAcceptingInvitation(true);
+    setError('');
+    
+    try {
+        // FIX: Get username correctly
+        const username = localStorage.getItem('username') || 
+                        localStorage.getItem('user_username') ||
+                        JSON.parse(localStorage.getItem('user') || '{}').username;
+        
+        if (!username) {
+            throw new Error('User not logged in. Please login again.');
+        }
+        
+        const headers = getCustomHeaders(true);
+        
+        const response = await fetch(`${API_BASE_URL}/branch/invitations/accept/${invitationToken}`, {
+            method: 'POST',
+            headers: headers,
+            body: JSON.stringify({
+                username: username  // FIX: Send 'username' not 'user_id'
+            })
+        });
+        
+        const data = await response.json();
+        
+        if (response.ok && data.success) {
+            localStorage.setItem('branch_id', data.data.branch_id);
+            localStorage.setItem('branch_name', data.data.branch_name);
+            localStorage.setItem('branch_code', data.data.branch_code);
+            
+            setInvitationAccepted(true);
+            
+            if (onBranchCreated) {
+                onBranchCreated(data.data);
+            }
+            
+            setTimeout(() => {
+                onClose();
+            }, 1500);
+        } else {
+            setError(data.message || 'Failed to accept invitation');
+        }
+    } catch (err) {
+        console.error('Accept invitation error:', err);
+        setError(err.message || 'Network error. Please try again.');
+    } finally {
+        setAcceptingInvitation(false);
+    }
+};
 
     useEffect(() => {
         if (invitationToken && isOpen) {
@@ -96,50 +164,6 @@ const BranchSetupModal = ({ isOpen, onBranchCreated, onClose, invitationToken })
             setLoading(false);
         }
     };
-
-    const acceptInvitation = async () => {
-        setAcceptingInvitation(true);
-        setError('');
-        
-        try {
-            // Skip branch header for invitation (branch doesn't exist yet)
-            const headers = getCustomHeaders(true);
-            
-            const response = await fetch(`${API_BASE_URL}/branch/invitations/accept/${invitationToken}`, {
-                method: 'POST',
-                headers: headers,
-                body: JSON.stringify({
-                    user_id: localStorage.getItem('user_username')
-                })
-            });
-            
-            const data = await response.json();
-            
-            if (response.ok && data.success) {
-                localStorage.setItem('branch_id', data.data.branch_id);
-                localStorage.setItem('branch_name', data.data.branch_name);
-                localStorage.setItem('branch_code', data.data.branch_code);
-                
-                setInvitationAccepted(true);
-                
-                if (onBranchCreated) {
-                    onBranchCreated(data.data);
-                }
-                
-                setTimeout(() => {
-                    onClose();
-                }, 1500);
-            } else {
-                setError(data.message || 'Failed to accept invitation');
-            }
-        } catch (err) {
-            console.error('Accept invitation error:', err);
-            setError('Network error. Please try again.');
-        } finally {
-            setAcceptingInvitation(false);
-        }
-    };
-
     const handleChange = (e) => {
         const { name, value, type, checked } = e.target;
         setFormData(prev => ({
