@@ -1,7 +1,20 @@
 import React, { useEffect, useState } from "react";
-import { Modal, Button, Form, Row, Col, Spinner } from "react-bootstrap";
 import { toast } from "react-hot-toast";
 import { emailApi } from "./emailApi";
+import { 
+  FiX, 
+  FiMail, 
+  FiServer, 
+  FiGlobe, 
+  FiUser, 
+  FiLock, 
+  FiAtSign, 
+  FiUserCheck,
+  FiSend,
+  FiSave,
+  FiActivity,
+  FiShield
+} from "react-icons/fi";
 
 const emptyForm = {
   config_id: "",
@@ -77,13 +90,13 @@ const EmailConfigFormModal = ({ show, onHide, onSuccess, editData }) => {
       if (isEdit) {
         await emailApi.updateConfig({
           ...payload,
-          smtp_username: form.username, // required backend key for update
+          smtp_username: form.username,
           password: form.password || undefined,
         });
       } else {
         await emailApi.createConfig({
           ...payload,
-          username: form.username, // required backend key for create
+          username: form.username,
           password: form.password,
         });
       }
@@ -126,145 +139,304 @@ const EmailConfigFormModal = ({ show, onHide, onSuccess, editData }) => {
     }
   };
 
+  if (!show) return null;
+
   return (
-    <Modal show={show} onHide={onHide} size="lg" centered>
-      <Modal.Header closeButton>
-        <Modal.Title>
-          {isEdit ? "Edit SMTP Config" : "Add SMTP Config"}
-        </Modal.Title>
-      </Modal.Header>
-      <Modal.Body>
-        <Form>
-          <Row className="g-3">
-            <Col md={6}>
-              <Form.Group>
-                <Form.Label>Config Name *</Form.Label>
-                <Form.Control
-                  name="config_name"
-                  value={form.config_name}
-                  onChange={onChange}
-                />
-              </Form.Group>
-            </Col>
-            <Col md={6}>
-              <Form.Group>
-                <Form.Label>Host *</Form.Label>
-                <Form.Control
-                  name="host"
-                  value={form.host}
-                  onChange={onChange}
-                />
-              </Form.Group>
-            </Col>
-            <Col md={4}>
-              <Form.Group>
-                <Form.Label>Port *</Form.Label>
-                <Form.Control
-                  name="port"
-                  value={form.port}
-                  onChange={onChange}
-                />
-              </Form.Group>
-            </Col>
-            <Col md={4}>
-              <Form.Group>
-                <Form.Label>Username *</Form.Label>
-                <Form.Control
-                  name="username"
-                  value={form.username}
-                  onChange={onChange}
-                />
-              </Form.Group>
-            </Col>
-            <Col md={4}>
-              <Form.Group>
-                <Form.Label>Password {!isEdit && "*"}</Form.Label>
-                <Form.Control
-                  type="password"
-                  name="password"
-                  value={form.password}
-                  onChange={onChange}
-                />
-              </Form.Group>
-            </Col>
-            <Col md={6}>
-              <Form.Group>
-                <Form.Label>From Email *</Form.Label>
-                <Form.Control
-                  name="from_email"
-                  value={form.from_email}
-                  onChange={onChange}
-                />
-              </Form.Group>
-            </Col>
-            <Col md={6}>
-              <Form.Group>
-                <Form.Label>From Name</Form.Label>
-                <Form.Control
-                  name="from_name"
-                  value={form.from_name}
-                  onChange={onChange}
-                />
-              </Form.Group>
-            </Col>
-            <Col md={6}>
-              <Form.Group>
-                <Form.Label>Reply-To</Form.Label>
-                <Form.Control
-                  name="reply_to"
-                  value={form.reply_to}
-                  onChange={onChange}
-                />
-              </Form.Group>
-            </Col>
-            <Col md={3}>
-              <Form.Group>
-                <Form.Label>Status</Form.Label>
-                <Form.Select
-                  name="status"
-                  value={form.status}
-                  onChange={onChange}
-                >
-                  <option value="active">Active</option>
-                  <option value="inactive">Inactive</option>
-                </Form.Select>
-              </Form.Group>
-            </Col>
-            <Col md={3} className="d-flex align-items-end gap-3">
-              <Form.Check
-                type="checkbox"
-                label="Secure"
-                name="secure"
-                checked={form.secure}
-                onChange={onChange}
-              />
-              <Form.Check
-                type="checkbox"
-                label="Default"
-                name="is_default"
-                checked={form.is_default}
-                onChange={onChange}
-              />
-            </Col>
-          </Row>
-        </Form>
-      </Modal.Body>
-      <Modal.Footer>
-        <Button variant="outline-secondary" onClick={onHide}>
-          Close
-        </Button>
-        <Button
-          variant="outline-primary"
-          onClick={handleTest}
-          disabled={testing}
-        >
-          {testing ? <Spinner size="sm" /> : "Test SMTP"}
-        </Button>
-        <Button variant="primary" onClick={handleSave} disabled={saving}>
-          {saving ? <Spinner size="sm" /> : isEdit ? "Update" : "Save"}
-        </Button>
-      </Modal.Footer>
-    </Modal>
+    <div className="fixed inset-0 z-50 overflow-y-auto">
+      <div className="flex min-h-screen items-center justify-center p-4">
+        {/* Backdrop */}
+        <div className="fixed inset-0 bg-black bg-opacity-50 transition-opacity" onClick={onHide}></div>
+
+        {/* Modal */}
+        <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-4xl transform transition-all">
+          {/* Header */}
+          <div className="flex items-center justify-between p-6 border-b border-gray-200 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-t-2xl">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-blue-100 rounded-xl">
+                <FiMail className="w-5 h-5 text-blue-600" />
+              </div>
+              <div>
+                <h2 className="text-xl font-bold text-gray-800">
+                  {isEdit ? "Edit SMTP Configuration" : "Add SMTP Configuration"}
+                </h2>
+                <p className="text-sm text-gray-500 mt-0.5">
+                  Configure your email server settings for reliable email delivery
+                </p>
+              </div>
+            </div>
+            <button
+              onClick={onHide}
+              className="p-2 hover:bg-gray-200 rounded-lg transition-colors"
+            >
+              <FiX className="w-5 h-5 text-gray-500" />
+            </button>
+          </div>
+
+          {/* Body */}
+          <div className="p-6 max-h-[60vh] overflow-y-auto">
+            <form>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                {/* Config Name */}
+                <div className="md:col-span-2">
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">
+                    Configuration Name <span className="text-red-500">*</span>
+                  </label>
+                  <div className="relative">
+                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                      <FiMail className="text-gray-400 w-4 h-4" />
+                    </div>
+                    <input
+                      type="text"
+                      name="config_name"
+                      value={form.config_name}
+                      onChange={onChange}
+                      className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
+                      placeholder="e.g., Primary SMTP Server"
+                    />
+                  </div>
+                </div>
+
+                {/* Host */}
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">
+                    Host <span className="text-red-500">*</span>
+                  </label>
+                  <div className="relative">
+                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                      <FiServer className="text-gray-400 w-4 h-4" />
+                    </div>
+                    <input
+                      type="text"
+                      name="host"
+                      value={form.host}
+                      onChange={onChange}
+                      className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
+                      placeholder="smtp.gmail.com"
+                    />
+                  </div>
+                </div>
+
+                {/* Port */}
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">
+                    Port <span className="text-red-500">*</span>
+                  </label>
+                  <div className="relative">
+                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                      <FiGlobe className="text-gray-400 w-4 h-4" />
+                    </div>
+                    <input
+                      type="number"
+                      name="port"
+                      value={form.port}
+                      onChange={onChange}
+                      className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
+                      placeholder="587"
+                    />
+                  </div>
+                </div>
+
+                {/* Username */}
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">
+                    Username <span className="text-red-500">*</span>
+                  </label>
+                  <div className="relative">
+                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                      <FiUser className="text-gray-400 w-4 h-4" />
+                    </div>
+                    <input
+                      type="text"
+                      name="username"
+                      value={form.username}
+                      onChange={onChange}
+                      className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
+                      placeholder="your-email@gmail.com"
+                    />
+                  </div>
+                </div>
+
+                {/* Password */}
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">
+                    Password {!isEdit && <span className="text-red-500">*</span>}
+                  </label>
+                  <div className="relative">
+                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                      <FiLock className="text-gray-400 w-4 h-4" />
+                    </div>
+                    <input
+                      type="password"
+                      name="password"
+                      value={form.password}
+                      onChange={onChange}
+                      className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
+                      placeholder="••••••••"
+                    />
+                  </div>
+                </div>
+
+                {/* From Email */}
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">
+                    From Email <span className="text-red-500">*</span>
+                  </label>
+                  <div className="relative">
+                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                      <FiAtSign className="text-gray-400 w-4 h-4" />
+                    </div>
+                    <input
+                      type="email"
+                      name="from_email"
+                      value={form.from_email}
+                      onChange={onChange}
+                      className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
+                      placeholder="noreply@yourdomain.com"
+                    />
+                  </div>
+                </div>
+
+                {/* From Name */}
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">
+                    From Name
+                  </label>
+                  <div className="relative">
+                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                      <FiUserCheck className="text-gray-400 w-4 h-4" />
+                    </div>
+                    <input
+                      type="text"
+                      name="from_name"
+                      value={form.from_name}
+                      onChange={onChange}
+                      className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
+                      placeholder="Your Company Name"
+                    />
+                  </div>
+                </div>
+
+                {/* Reply To */}
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">
+                    Reply-To
+                  </label>
+                  <div className="relative">
+                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                      <FiSend className="text-gray-400 w-4 h-4" />
+                    </div>
+                    <input
+                      type="email"
+                      name="reply_to"
+                      value={form.reply_to}
+                      onChange={onChange}
+                      className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
+                      placeholder="support@yourdomain.com"
+                    />
+                  </div>
+                </div>
+
+                {/* Status */}
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">
+                    Status
+                  </label>
+                  <div className="relative">
+                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                      <FiActivity className="text-gray-400 w-4 h-4" />
+                    </div>
+                    <select
+                      name="status"
+                      value={form.status}
+                      onChange={onChange}
+                      className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all appearance-none bg-white"
+                    >
+                      <option value="active">Active</option>
+                      <option value="inactive">Inactive</option>
+                    </select>
+                  </div>
+                </div>
+
+                {/* Checkboxes */}
+                <div className="flex gap-6 items-center">
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      name="secure"
+                      checked={form.secure}
+                      onChange={onChange}
+                      className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                    />
+                    <span className="text-sm text-gray-700 flex items-center gap-1">
+                      <FiShield className="w-4 h-4" />
+                      Secure Connection (SSL/TLS)
+                    </span>
+                  </label>
+                  
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      name="is_default"
+                      checked={form.is_default}
+                      onChange={onChange}
+                      className="w-4 h-4 text-green-600 border-gray-300 rounded focus:ring-green-500"
+                    />
+                    <span className="text-sm text-gray-700 flex items-center gap-1">
+                      <span className="w-2 h-2 bg-green-500 rounded-full"></span>
+                      Set as Default
+                    </span>
+                  </label>
+                </div>
+              </div>
+            </form>
+          </div>
+
+          {/* Footer */}
+          <div className="flex justify-end gap-3 p-6 border-t border-gray-200 bg-gray-50 rounded-b-2xl">
+            <button
+              onClick={onHide}
+              className="px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors font-medium"
+            >
+              Close
+            </button>
+            <button
+              onClick={handleTest}
+              disabled={testing}
+              className="px-4 py-2 text-blue-700 bg-blue-50 border border-blue-300 rounded-lg hover:bg-blue-100 transition-colors font-medium flex items-center gap-2"
+            >
+              {testing ? (
+                <>
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-700"></div>
+                  Testing...
+                </>
+              ) : (
+                <>
+                  <FiSend className="w-4 h-4" />
+                  Test SMTP
+                </>
+              )}
+            </button>
+            <button
+              onClick={handleSave}
+              disabled={saving}
+              className="px-4 py-2 text-white bg-gradient-to-r from-blue-600 to-indigo-600 rounded-lg hover:from-blue-700 hover:to-indigo-700 transition-all font-medium flex items-center gap-2 shadow-md"
+            >
+              {saving ? (
+                <>
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                  {isEdit ? "Updating..." : "Saving..."}
+                </>
+              ) : (
+                <>
+                  <FiSave className="w-4 h-4" />
+                  {isEdit ? "Update Configuration" : "Save Configuration"}
+                </>
+              )}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
   );
 };
 

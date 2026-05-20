@@ -6,14 +6,11 @@ import {
     FiArrowRight,
     FiArrowLeft,
     FiRefreshCw,
-    FiSmartphone,
     FiCheckCircle,
     FiEye,
     FiEyeOff,
-    FiBriefcase,
     FiGitBranch,
     FiCheck,
-    FiGlobe,
     FiHome,
     FiShield,
     FiKey
@@ -22,7 +19,6 @@ import { FcGoogle } from 'react-icons/fc';
 import { FaMicrosoft } from 'react-icons/fa';
 import { SiAuth0 } from 'react-icons/si';
 import { GoogleLogin } from '@react-oauth/google';
-import CryptoJS from 'crypto-js';
 
 const BASE_URL = 'https://api.ooms.in/api/v1';
 
@@ -49,182 +45,6 @@ const Login = () => {
     const emailRef = useRef(null);
     const passwordRef = useRef(null);
     const otpRefs = useRef([...Array(6)].map(() => React.createRef()));
-
-    // Generate random key for encryption
-    const generateKey = () => {
-        return CryptoJS.lib.WordArray.random(16).toString();
-    };
-
-    // Encrypt data for backend
-    const encryptData = (data, key) => {
-        const encrypted = CryptoJS.AES.encrypt(JSON.stringify(data), key).toString();
-        return {
-            data: encrypted,
-            key: key
-        };
-    };
-
-    const handleGoogleAuth = async (credentialResponse) => {
-        setActiveSocialLogin('Google');
-        setLoading(true);
-
-        try {
-            const idToken = credentialResponse.credential;
-            console.log('Sending Google ID token to backend...');
-            
-            const response = await fetch(`${BASE_URL}/auth/google-login`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({ 
-                    google_token: idToken
-                })
-            });
-
-            const result = await response.json();
-            console.log('Backend response:', result);
-            
-            if (result.error === false || result.success === true) {
-                // Store basic user info
-                localStorage.setItem('user_token', result.token);
-                localStorage.setItem('user_username', result.username);
-                localStorage.setItem('user_email', result.profile.email);
-                localStorage.setItem('user_name', result.profile.name);
-                
-                setLoginResponse(result);
-                
-                // Check for branches/projects
-                if (result.branches && result.branches.length > 0) {
-                    setBranches(result.branches);
-                    if (result.branches.length === 1) {
-                        // Single branch - auto select and login
-                        const branchId = result.branches[0].branch_id;
-                        const branchName = result.branches[0].name;
-                        localStorage.setItem('branch_id', branchId);
-                        localStorage.setItem('branch_name', branchName);
-                        completeGoogleLogin(result);
-                    } else {
-                        // Multiple branches - show selection
-                        setShowBranchSelection(true);
-                        setActiveSocialLogin(null);
-                    }
-                } else if (result.projects && result.projects.length > 0) {
-                    // Handle projects as branches
-                    const mappedBranches = result.projects.map(project => ({
-                        branch_id: project.project_id,
-                        name: project.name,
-                        owned: true
-                    }));
-                    setBranches(mappedBranches);
-                    setLoginResponse({...result, branches: mappedBranches});
-                    
-                    if (mappedBranches.length === 1) {
-                        localStorage.setItem('branch_id', mappedBranches[0].branch_id);
-                        localStorage.setItem('branch_name', mappedBranches[0].name);
-                        completeGoogleLogin(result);
-                    } else {
-                        setShowBranchSelection(true);
-                        setActiveSocialLogin(null);
-                    }
-                } else {
-                    // No branches - direct login
-                    completeGoogleLogin(result);
-                }
-            } else {
-                alert(result.error || 'Google authentication failed');
-                setActiveSocialLogin(null);
-            }
-        } catch (error) {
-            console.error('Google Auth Error:', error);
-            alert('Error during Google authentication. Please try again.');
-            setActiveSocialLogin(null);
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    const handleBranchSelectForGoogle = (branchId) => {
-        setSelectedBranch(branchId);
-        const selectedBranchInfo = branches.find(b => b.branch_id === branchId);
-        if (selectedBranchInfo) {
-            localStorage.setItem('branch_id', branchId);
-            localStorage.setItem('branch_name', selectedBranchInfo.name);
-            localStorage.setItem('branch_owned', selectedBranchInfo.owned ? 'true' : 'false');
-        }
-        completeGoogleLogin(loginResponse);
-    };
-
-    const completeGoogleLogin = (result) => {
-        setLoginSuccess(true);
-        setShowBranchSelection(false);
-        
-        // Store additional info if available
-        if (result.branches) {
-            localStorage.setItem('user_branches', JSON.stringify(result.branches));
-        }
-        
-        alert(`Welcome ${result.profile.name || result.username}! Login successful!`);
-        
-        setTimeout(() => {
-            window.location.href = '/';
-        }, 1500);
-    };
-
-    // Handle Google Registration for new users
-    const handleGoogleRegister = async (accessToken) => {
-        try {
-            const key = generateKey();
-            const encryptedData = encryptData({ google_token: accessToken }, key);
-            
-            const registerResponse = await fetch(`${BASE_URL}/auth/google-register`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify(encryptedData)
-            });
-
-            const registerResult = await registerResponse.json();
-
-            if (!registerResult.error) {
-                console.log('Google registration successful:', registerResult);
-                
-                localStorage.setItem('user_token', registerResult.token);
-                localStorage.setItem('user_username', registerResult.username);
-                localStorage.setItem('user_email', registerResult.profile.email);
-                localStorage.setItem('user_name', registerResult.profile.name);
-                
-                setLoginResponse(registerResult);
-                
-                if (registerResult.projects && registerResult.projects.length > 0) {
-                    const mappedBranches = registerResult.projects.map(project => ({
-                        branch_id: project.project_id,
-                        name: project.name,
-                        owned: true
-                    }));
-                    setBranches(mappedBranches);
-                    
-                    if (mappedBranches.length === 1) {
-                        localStorage.setItem('branch_id', mappedBranches[0].branch_id);
-                        localStorage.setItem('branch_name', mappedBranches[0].name);
-                        completeGoogleLogin(registerResult);
-                    } else {
-                        setShowBranchSelection(true);
-                    }
-                } else {
-                    completeGoogleLogin(registerResult);
-                }
-            } else {
-                alert(registerResult.error || 'Google registration failed');
-                setActiveSocialLogin(null);
-            }
-        } catch (error) {
-            console.error('Google Registration Error:', error);
-            alert('Error during Google registration. Please try again.');
-            setActiveSocialLogin(null);
-        }
-    };
 
     useEffect(() => {
         if (phase === 1) {
@@ -280,6 +100,7 @@ const Login = () => {
         }
     };
 
+    // Email/Password Login Flow
     const handleSendOtp = async (e) => {
         e.preventDefault();
 
@@ -358,13 +179,15 @@ const Login = () => {
                     setBranches(result.branches);
 
                     if (result.branches.length === 1) {
-                        setSelectedBranch(result.branches[0].branch_id);
-                        completeLogin(result, result.branches[0].branch_id);
+                        // Single branch - auto select and complete login
+                        handleCompleteLogin(result, result.branches[0].branch_id);
                     } else {
+                        // Multiple branches - show selection
                         setShowBranchSelection(true);
                     }
                 } else {
-                    completeLogin(result, '');
+                    // No branches - direct login
+                    handleCompleteLogin(result, null);
                 }
             } else {
                 alert(result.message || 'Login failed');
@@ -377,18 +200,80 @@ const Login = () => {
         }
     };
 
-    const handleBranchSelect = (branchId) => {
-        setSelectedBranch(branchId);
-        completeLogin(loginResponse, branchId);
+    // Google Auth Flow
+    const handleGoogleAuth = async (credentialResponse) => {
+        setActiveSocialLogin('Google');
+        setLoading(true);
+
+        try {
+            const idToken = credentialResponse.credential;
+
+            const response = await fetch(`${BASE_URL}/auth/google-auth`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ google_token: idToken })
+            });
+
+            const result = await response.json();
+
+            if (!response.ok || !result.success) {
+                throw new Error(result.message || 'Authentication failed');
+            }
+
+            console.log('Google auth successful:', result);
+
+            // Store basic user info
+            localStorage.setItem('user_token', result.token);
+            localStorage.setItem('user_username', result.username);
+            localStorage.setItem('user_email', result.profile.email);
+            localStorage.setItem('user_name', result.profile.name);
+            localStorage.setItem('user_is_new', result.is_new_user ? 'true' : 'false');
+
+            setLoginResponse(result);
+
+            // Handle branches
+            if (result.branches && result.branches.length > 0) {
+                setBranches(result.branches);
+
+                if (result.branches.length === 1) {
+                    // Single branch - auto select and complete login
+                    handleCompleteLogin(result, result.branches[0].branch_id);
+                } else {
+                    // Multiple branches - show selection
+                    setShowBranchSelection(true);
+                    setActiveSocialLogin(null);
+                    setLoading(false);
+                }
+            } else {
+                // No branches - direct login
+                handleCompleteLogin(result, null);
+            }
+
+        } catch (error) {
+            console.error('Google Auth Error:', error);
+            alert('Authentication failed: ' + error.message);
+            setActiveSocialLogin(null);
+            setLoading(false);
+        }
     };
 
-    const completeLogin = (result, branchId) => {
+    // Complete Login - handles final steps after branch selection or direct login
+    const handleCompleteLogin = (result, branchId) => {
+        // Store token and user info
         localStorage.setItem('user_token', result.token);
-        localStorage.setItem('user_email', formData.email);
         localStorage.setItem('user_username', result.username);
-        localStorage.setItem('user_branches', JSON.stringify(result.branches || []));
-        localStorage.setItem('token_expire', result.expire_date);
+        localStorage.setItem('user_email', result.profile?.email || formData.email);
+        localStorage.setItem('user_name', result.profile?.name || result.username);
+        
+        if (result.branches) {
+            localStorage.setItem('user_branches', JSON.stringify(result.branches));
+        }
+        
+        if (result.expire_date) {
+            localStorage.setItem('token_expire', result.expire_date);
+        }
 
+        // Handle branch selection
         if (branchId) {
             localStorage.setItem('branch_id', branchId);
             const selectedBranchInfo = result.branches?.find(b => b.branch_id === branchId);
@@ -400,11 +285,20 @@ const Login = () => {
 
         setLoginSuccess(true);
         setShowBranchSelection(false);
-        alert('Login successful!');
-        
+
+        // Show success message
+        const welcomeName = result.profile?.name || result.username || 'User';
+        alert(`Welcome ${welcomeName}! Login successful!`);
+
+        // Redirect after 1.5 seconds
         setTimeout(() => {
             window.location.href = '/';
         }, 1500);
+    };
+
+    const handleBranchSelect = (branchId) => {
+        setSelectedBranch(branchId);
+        handleCompleteLogin(loginResponse, branchId);
     };
 
     const handleResendOtp = async () => {
@@ -443,14 +337,12 @@ const Login = () => {
         }
     };
 
-    const handleSocialLogin = (provider) => {
-        if (provider === 'Microsoft') {
-            setActiveSocialLogin(provider);
-            setTimeout(() => {
-                setActiveSocialLogin(null);
-                alert('Microsoft login integration coming soon');
-            }, 1500);
-        }
+    const handleMicrosoftLogin = () => {
+        setActiveSocialLogin('Microsoft');
+        setTimeout(() => {
+            setActiveSocialLogin(null);
+            alert('Microsoft login integration coming soon');
+        }, 1500);
     };
 
     if (fullScreenLoading) {
@@ -467,6 +359,7 @@ const Login = () => {
 
     return (
         <div className="min-h-screen bg-gradient-to-br from-gray-50 to-blue-50 flex items-center justify-center p-4 relative overflow-hidden">
+            {/* Background Elements */}
             <div className="absolute inset-0 overflow-hidden">
                 <div className="absolute -top-40 -right-40 w-80 h-80 bg-blue-100 rounded-full mix-blend-multiply filter blur-3xl opacity-70 animate-blob"></div>
                 <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-purple-100 rounded-full mix-blend-multiply filter blur-3xl opacity-70 animate-blob animation-delay-2000"></div>
@@ -488,7 +381,7 @@ const Login = () => {
                                     <p className="text-blue-200 text-sm">Secure Enterprise Login</p>
                                 </div>
                             </div>
-
+                            
                             <div className="flex-grow flex flex-col justify-center">
                                 <div className="mb-8">
                                     <div className="w-16 h-16 bg-white/10 backdrop-blur-sm rounded-2xl flex items-center justify-center mb-6 mx-auto">
@@ -499,7 +392,7 @@ const Login = () => {
                                         Access all your enterprise tools with a single, secure authentication.
                                     </p>
                                 </div>
-
+                                
                                 <div className="space-y-4">
                                     <div className="flex items-center space-x-3 bg-white/10 p-3 rounded-lg">
                                         <FiCheckCircle className="text-green-300 flex-shrink-0" />
@@ -527,16 +420,17 @@ const Login = () => {
 
                     {/* Right Side - Login Form */}
                     <div className="md:w-3/5 p-8">
+                        {/* Header */}
                         <div className="mb-8">
                             <h1 className="text-2xl font-bold text-gray-900">
-                                {showBranchSelection ? 'Select Branch' :
-                                    loginSuccess ? 'Welcome Back!' :
-                                        phase === 1 ? 'Sign in to your account' : 'Verify Your Identity'}
+                                {showBranchSelection ? 'Select Branch' : 
+                                 loginSuccess ? 'Welcome Back!' :
+                                 phase === 1 ? 'Sign in to your account' : 'Verify Your Identity'}
                             </h1>
                             <p className="text-gray-600 mt-2">
-                                {showBranchSelection ? 'Choose your branch to continue' :
-                                    loginSuccess ? 'You have successfully logged in' :
-                                        phase === 1 ? 'Enter your credentials to continue' : 'Enter the 6-digit verification code'}
+                                {showBranchSelection ? 'Choose your branch to continue' : 
+                                 loginSuccess ? 'You have successfully logged in' :
+                                 phase === 1 ? 'Enter your credentials to continue' : 'Enter the 6-digit verification code'}
                             </p>
                         </div>
 
@@ -562,17 +456,11 @@ const Login = () => {
                                             <button
                                                 key={branch.branch_id}
                                                 type="button"
-                                                onClick={() => {
-                                                    if (loginResponse?.projects) {
-                                                        handleBranchSelectForGoogle(branch.branch_id);
-                                                    } else {
-                                                        handleBranchSelect(branch.branch_id);
-                                                    }
-                                                }}
+                                                onClick={() => handleBranchSelect(branch.branch_id)}
                                                 disabled={loading}
                                                 className={`w-full p-5 text-left rounded-xl border-2 transition-all duration-300 transform hover:-translate-y-0.5 flex items-center justify-between group
-                                                    ${selectedBranch === branch.branch_id ?
-                                                        'border-blue-500 bg-blue-50 shadow-lg shadow-blue-100' :
+                                                    ${selectedBranch === branch.branch_id ? 
+                                                        'border-blue-500 bg-blue-50 shadow-lg shadow-blue-100' : 
                                                         'border-gray-200 hover:border-blue-300 hover:shadow-lg'
                                                     }`}
                                             >
@@ -620,35 +508,37 @@ const Login = () => {
                         {/* Phase 1: Email and Password Together */}
                         {phase === 1 && !showBranchSelection && !loginSuccess && (
                             <div>
+                                {/* Social Login Buttons */}
                                 <div className="mb-6">
                                     <div className="grid grid-cols-2 gap-3">
-                                        {activeSocialLogin === 'Google' ? (
-                                            <div className="flex items-center justify-center p-3 border border-gray-300 rounded-xl bg-gray-50">
-                                                <div className="w-5 h-5 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
-                                                <span className="ml-2 font-medium text-gray-700">Verifying...</span>
-                                            </div>
-                                        ) : (
-                                            <div className="w-full">
+                                        {/* Google Login Button */}
+                                        <div className="w-full">
+                                            {activeSocialLogin === 'Google' ? (
+                                                <div className="flex items-center justify-center p-3 border border-gray-300 rounded-xl bg-gray-50">
+                                                    <div className="w-5 h-5 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+                                                    <span className="ml-2 font-medium text-gray-700">Verifying...</span>
+                                                </div>
+                                            ) : (
                                                 <GoogleLogin
-                                                    onSuccess={async (credentialResponse) => {
-                                                        await handleGoogleAuth(credentialResponse);
-                                                    }}
+                                                    onSuccess={handleGoogleAuth}
                                                     onError={() => {
                                                         console.log('Google Login Failed');
                                                         alert('Google login failed. Please try again.');
                                                         setActiveSocialLogin(null);
                                                     }}
+                                                    useOneTap={false}
                                                     theme="outline"
                                                     size="large"
                                                     text="continue_with"
                                                     shape="rectangular"
-                                                    logo_alignment="left"
                                                     width="100%"
                                                 />
-                                            </div>
-                                        )}
+                                            )}
+                                        </div>
+                                        
+                                        {/* Microsoft Login Button */}
                                         <button
-                                            onClick={() => handleSocialLogin('Microsoft')}
+                                            onClick={handleMicrosoftLogin}
                                             disabled={activeSocialLogin !== null}
                                             className="flex items-center justify-center p-3 border border-gray-300 rounded-xl hover:bg-gray-50 transition-all duration-300 disabled:opacity-50 group hover:border-blue-300"
                                         >
@@ -662,7 +552,7 @@ const Login = () => {
                                             )}
                                         </button>
                                     </div>
-
+                                    
                                     <div className="flex items-center my-6">
                                         <div className="flex-grow border-t border-gray-300"></div>
                                         <span className="mx-4 text-gray-500 text-sm font-medium">OR CONTINUE WITH EMAIL</span>
@@ -670,7 +560,9 @@ const Login = () => {
                                     </div>
                                 </div>
 
+                                {/* Email and Password Form */}
                                 <form onSubmit={handleSendOtp} className="space-y-5">
+                                    {/* Email Field */}
                                     <div className="space-y-2">
                                         <label className="block text-sm font-medium text-gray-700">
                                             Email Address
@@ -682,15 +574,17 @@ const Login = () => {
                                                 name="email"
                                                 value={formData.email}
                                                 onChange={handleInputChange}
-                                                className={`w-full pl-12 pr-4 py-4 bg-gray-50/50 border-2 rounded-xl focus:ring-4 outline-none transition-all duration-300 group-hover:border-blue-400 ${isValidEmail
-                                                    ? 'border-gray-300 focus:border-blue-500 focus:ring-blue-100'
-                                                    : 'border-red-300 focus:border-red-500 focus:ring-red-100'
-                                                    }`}
+                                                className={`w-full pl-12 pr-4 py-4 bg-gray-50/50 border-2 rounded-xl focus:ring-4 outline-none transition-all duration-300 group-hover:border-blue-400 ${
+                                                    isValidEmail 
+                                                        ? 'border-gray-300 focus:border-blue-500 focus:ring-blue-100' 
+                                                        : 'border-red-300 focus:border-red-500 focus:ring-red-100'
+                                                }`}
                                                 placeholder="your.email@company.com"
                                                 required
                                             />
-                                            <FiMail className={`absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 transition-colors ${isValidEmail ? 'text-gray-400 group-focus-within:text-blue-500' : 'text-red-400'
-                                                }`} />
+                                            <FiMail className={`absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 transition-colors ${
+                                                isValidEmail ? 'text-gray-400 group-focus-within:text-blue-500' : 'text-red-400'
+                                            }`} />
                                         </div>
                                         {!isValidEmail && formData.email && (
                                             <p className="text-red-500 text-sm flex items-center">
@@ -700,12 +594,13 @@ const Login = () => {
                                         )}
                                     </div>
 
+                                    {/* Password Field */}
                                     <div className="space-y-2">
                                         <div className="flex justify-between items-center">
                                             <label className="block text-sm font-medium text-gray-700">
                                                 Password
                                             </label>
-                                            <button
+                                            <button 
                                                 type="button"
                                                 className="text-sm text-blue-600 hover:text-blue-700 font-medium hover:underline"
                                             >
@@ -734,6 +629,7 @@ const Login = () => {
                                         </div>
                                     </div>
 
+                                    {/* Remember Me */}
                                     <div className="flex items-center">
                                         <input
                                             type="checkbox"
@@ -745,6 +641,7 @@ const Login = () => {
                                         </label>
                                     </div>
 
+                                    {/* Submit Button */}
                                     <button
                                         type="submit"
                                         disabled={loading || !formData.email || !formData.password}
@@ -769,10 +666,11 @@ const Login = () => {
                         {/* Phase 2: OTP Verification */}
                         {phase === 2 && !showBranchSelection && !loginSuccess && (
                             <div className="space-y-6">
+                                {/* Animated Header */}
                                 <div className="relative overflow-hidden bg-gradient-to-br from-blue-50 to-indigo-100 border border-blue-200 rounded-2xl p-6">
                                     <div className="absolute -top-10 -right-10 w-20 h-20 bg-blue-200 rounded-full opacity-20"></div>
                                     <div className="absolute -bottom-10 -left-10 w-20 h-20 bg-purple-200 rounded-full opacity-20"></div>
-
+                                    
                                     <div className="relative z-10 flex flex-col items-center text-center">
                                         <div className="w-20 h-20 bg-gradient-to-br from-blue-500 to-purple-600 rounded-2xl flex items-center justify-center mb-4 shadow-lg animate-pulse-slow">
                                             <FiMail className="text-white text-3xl" />
@@ -792,12 +690,14 @@ const Login = () => {
                                     </div>
                                 </div>
 
+                                {/* OTP Input Section */}
                                 <div className="space-y-6">
                                     <div className="text-center">
                                         <h4 className="text-lg font-semibold text-gray-900 mb-2">Enter Verification Code</h4>
                                         <p className="text-gray-600 text-sm">Type the 6-digit code from your email</p>
                                     </div>
 
+                                    {/* OTP Input Boxes */}
                                     <div className="flex justify-center space-x-3">
                                         {otpDigits.map((digit, index) => (
                                             <div key={index} className="relative group">
@@ -811,24 +711,27 @@ const Login = () => {
                                                     maxLength="1"
                                                     required
                                                 />
-                                                <div className={`absolute -bottom-1 left-1/2 transform -translate-x-1/2 w-10 h-1 rounded-full transition-all duration-300 ${digit ? 'bg-blue-500' : 'bg-gray-300'
-                                                    }`}></div>
+                                                <div className={`absolute -bottom-1 left-1/2 transform -translate-x-1/2 w-10 h-1 rounded-full transition-all duration-300 ${
+                                                    digit ? 'bg-blue-500' : 'bg-gray-300'
+                                                }`}></div>
                                             </div>
                                         ))}
                                     </div>
 
+                                    {/* OTP Status */}
                                     <div className="text-center">
                                         <div className="inline-flex items-center space-x-2 bg-gray-50 px-4 py-2 rounded-lg">
                                             <div className={`w-2 h-2 rounded-full ${formData.otp.length === 6 ? 'bg-green-500' : 'bg-yellow-500'}`}></div>
                                             <span className="text-sm text-gray-600">
-                                                {formData.otp.length === 6
-                                                    ? '✓ All digits entered'
+                                                {formData.otp.length === 6 
+                                                    ? '✓ All digits entered' 
                                                     : `${formData.otp.length}/6 digits entered`
                                                 }
                                             </span>
                                         </div>
                                     </div>
 
+                                    {/* Action Buttons */}
                                     <div className="grid grid-cols-2 gap-4 pt-2">
                                         <button
                                             type="button"
@@ -852,6 +755,7 @@ const Login = () => {
                                         </button>
                                     </div>
 
+                                    {/* Verify Button */}
                                     <button
                                         onClick={handleOtpSubmit}
                                         disabled={loading || formData.otp.length !== 6}
@@ -872,6 +776,7 @@ const Login = () => {
                                     </button>
                                 </div>
 
+                                {/* Security Note */}
                                 <div className="bg-gray-50 border border-gray-200 rounded-xl p-4 text-center">
                                     <div className="flex items-center justify-center space-x-2 text-sm text-gray-600">
                                         <FiShield className="text-blue-500" />
@@ -918,6 +823,7 @@ const Login = () => {
                 </div>
             </div>
 
+            {/* Add animations to global styles */}
             <style jsx>{`
                 @keyframes blob {
                     0% {

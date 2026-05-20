@@ -38,7 +38,6 @@ export const emailApi = {
   previewTemplate: (payload) => emailAxios.post('/broadcast/email/template/preview', payload).then(unwrap),
   changeTemplateStatus: (payload) => emailAxios.put('/broadcast/email/template/change-status', payload).then(unwrap),
 
-
   // Static Templates
   createStaticTemplate: (payload) => emailAxios.post('/broadcast/email/static-template/create', payload).then(unwrap),
   updateStaticTemplate: (payload) => emailAxios.put('/broadcast/email/static-template/update', payload).then(unwrap),
@@ -48,6 +47,7 @@ export const emailApi = {
   deleteStaticTemplate: (payload) => emailAxios.put('/broadcast/email/static-template/delete', payload).then(unwrap),
   getTemplateVariables: (templateType) => emailAxios.get(`/broadcast/email/variables/${templateType}`).then(unwrap),
   setDefaultStaticTemplate: (payload) => emailAxios.put('/broadcast/email/static-template/set-default', payload).then(unwrap),
+  
   // Broadcast
   createBroadcast: (payload) => emailAxios.post('/broadcast/email/broadcast/create', payload).then(unwrap),
   listBroadcasts: (params) => emailAxios.get('/broadcast/email/broadcast/list', { params }).then(unwrap),
@@ -56,8 +56,11 @@ export const emailApi = {
   pauseBroadcast: (payload) => emailAxios.post('/broadcast/email/broadcast/pause', payload).then(unwrap),
   resumeBroadcast: (payload) => emailAxios.post('/broadcast/email/broadcast/resume', payload).then(unwrap),
   cancelBroadcast: (payload) => emailAxios.post('/broadcast/email/broadcast/cancel', payload).then(unwrap),
-  retryFailed: (payload) => emailAxios.post('/broadcast/email/broadcast/retry-failed', payload).then(unwrap),
+  retryFailed: (payload) => emailAxios.post('/broadcast/email/broadcast/retry-failed', payload).then(unwrap), 
   processDue: (payload) => emailAxios.post('/broadcast/email/broadcast/process-due', payload || {}).then(unwrap),
+  getVariableKeys: (type) => emailAxios.get(`/broadcast/email/variable-keys/${type}`).then(unwrap),
+  getDynamicVariables: (type, identifier) => emailAxios.get(`/broadcast/email/dynamic-variables/${type}/${identifier}`).then(unwrap),
+
 };
 
 export const normalizeList = (data) => (Array.isArray(data) ? data : []);
