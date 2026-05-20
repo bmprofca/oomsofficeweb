@@ -14,7 +14,8 @@ import {
     FiMove, FiSave, FiList, FiChevronDown, FiChevronUp, FiMapPin,
     FiCreditCard, FiHome, FiMap, FiGlobe
 } from 'react-icons/fi';
-import { PiExportBold, PiFilePdfDuotone, PiMicrosoftExcelLogoDuotone } from "react-icons/pi";
+
+
 import { AiOutlineMail } from "react-icons/ai";
 import { FaWhatsapp } from "react-icons/fa6";
 import toast from 'react-hot-toast';
@@ -27,6 +28,7 @@ import MultiSelectInput from '../components/MultiSelectInput';
 import AssignedStaffList from '../components/Modals/AssignedStaffList';
 import TaskStatusChange from '../components/Modals/TaskStatusChange';
 import TablePagination from '../components/TablePagination';
+import ExportModal from '../TaskComponent/Export';
 
 // Import other modals
 import DeleteConfirmationModal from '../components/delete-confirmation';
@@ -620,6 +622,11 @@ const TaskDisplay = () => {
     const rowDropdownRef = useRef(null);
     const [rowDropdownPosition, setRowDropdownPosition] = useState({ top: 8, left: 8 });
 
+    // Export Modal State
+    const [exportModalOpen, setExportModalOpen] = useState(false);
+    const [exportData, setExportData] = useState([]);
+    const [exportColumns, setExportColumns] = useState([]);
+
     // Hidden states for columns and fields
     const [hiddenColumns, setHiddenColumns] = useState({});
     const [hiddenFields, setHiddenFields] = useState({});
@@ -1068,17 +1075,111 @@ const TaskDisplay = () => {
         }, 0);
     };
 
-    const handleExport = (type, data = null) => {
-        setExportModal({ open: true, type, data });
-        setTimeout(() => {
-            setExportModal({ open: false, type: '', data: null });
-            alert(`${type.toUpperCase()} export completed successfully!`);
-        }, 1500);
+    // ============================================
+    // EXPORT FUNCTIONS
+    // ============================================
+
+    // Prepare data for export
+    const prepareExportData = () => {
+        // Get visible columns configuration
+        const visibleColumns = getVisibleColumnConfig();
+        
+        // Prepare columns for export
+        const exportColumnsConfig = [];
+        const exportDataList = [];
+
+        // Build columns array
+        visibleColumns.forEach(col => {
+            col.items.forEach(item => {
+                exportColumnsConfig.push({
+                    header: item.label,
+                    key: item.id,
+                    width: 20
+                });
+            });
+        });
+
+        // Build data array for selected tasks or all tasks
+        const tasksToExport = selectedTasks.size > 0 
+            ? tasks.filter(task => selectedTasks.has(task.task_id))
+            : tasks;
+
+        tasksToExport.forEach(task => {
+            const row = {};
+            visibleColumns.forEach(col => {
+                col.items.forEach(item => {
+                    // Get cell content based on field type
+                    let value = '';
+                    switch (item.id) {
+                        case 'task_id':
+                            value = task.task_id || '';
+                            break;
+                        case 'client_name':
+                            value = task.client?.profile?.name || task.client?.name || '';
+                            break;
+                        case 'client_mobile':
+                            value = task.client?.profile?.mobile || task.client?.mobile || '';
+                            break;
+                        case 'client_email':
+                            value = task.client?.profile?.email || task.client?.email || '';
+                            break;
+                        case 'firm_name':
+                            value = task.firm?.firm_name || task.firm_name || '';
+                            break;
+                        case 'service_name':
+                            value = task.service?.name || task.service_name || '';
+                            break;
+                        case 'fees':
+                            value = task.charges?.fees || task.fees || 0;
+                            break;
+                        case 'due_date':
+                            value = formatDate(task.dates?.due_date);
+                            break;
+                        case 'create_date':
+                            value = formatDate(task.dates?.create_date);
+                            break;
+                        case 'target_date':
+                            value = formatDate(task.dates?.target_date);
+                            break;
+                        case 'billing_status':
+                            value = task.billing_status || '';
+                            break;
+                        case 'status':
+                            value = formatStatus(task.status);
+                            break;
+                        case 'staffs':
+                            value = (task.staffs || []).map(s => s.name).join(', ');
+                            break;
+                        case 'is_recurring':
+                            value = task.is_recurring ? 'Yes' : 'No';
+                            break;
+                        case 'create_by':
+                            value = task.create_by?.name || task.create_by || '';
+                            break;
+                        default:
+                            value = task[item.id] || '';
+                    }
+                    row[item.id] = value;
+                });
+            });
+            exportDataList.push(row);
+        });
+
+        return { data: exportDataList, columns: exportColumnsConfig };
     };
 
-    const openBulkStatusModal = () => {
-        if (selectedTasks.size === 0) return;
-        setBulkStatusModal({ open: true, loading: false });
+    // Handle export click
+    const handleExportClick = () => {
+        const { data, columns } = prepareExportData();
+        
+        if (data.length === 0) {
+            toast.error('No data to export');
+            return;
+        }
+
+        setExportData(data);
+        setExportColumns(columns);
+        setExportModalOpen(true);
     };
 
     // ============================================
@@ -1348,6 +1449,10 @@ const TaskDisplay = () => {
     const rowActionTask = activeRowDropdown
         ? tasks.find((t) => t.task_id === activeRowDropdown)
         : null;
+        const openBulkStatusModal = () => {
+        if (selectedTasks.size === 0) return;
+        setBulkStatusModal({ open: true, loading: false });
+    };
 
     return (
         <div className="min-h-screen bg-gray-50">
@@ -1444,18 +1549,27 @@ const TaskDisplay = () => {
                                                             animate={{ opacity: 1, y: 0 }}
                                                             exit={{ opacity: 0, y: -8 }}
                                                         >
-                                                            <div className="px-3 py-2 text-xs font-semibold text-gray-500 uppercase">Export</div>
-                                                            <button onClick={() => handleExport('pdf')} className="flex items-center w-full px-3 py-2 text-sm text-gray-700 hover:bg-indigo-50">
-                                                                <PiFilePdfDuotone className="w-4 h-4 mr-2 text-red-500" />Export as PDF
+                                                            <div className="px-3 py-2 text-xs font-semibold text-gray-500 uppercase border-b border-gray-100">Export Options</div>
+                                                            <button 
+                                                                onClick={() => { handleExportClick(); setShowMoreMenu(false); }} 
+                                                                className="flex items-center w-full px-3 py-2.5 text-sm text-gray-700 hover:bg-green-50 transition-colors"
+                                                            >
+                                                                <PiMicrosoftExcelLogoDuotone className="w-4 h-4 mr-2 text-green-600" />
+                                                                Export as Excel
                                                             </button>
-                                                            <button onClick={() => handleExport('excel')} className="flex items-center w-full px-3 py-2 text-sm text-gray-700 hover:bg-indigo-50">
-                                                                <PiMicrosoftExcelLogoDuotone className="w-4 h-4 mr-2 text-green-500" />Export as Excel
+                                                            <button 
+                                                                onClick={() => { handleExportClick(); setShowMoreMenu(false); }} 
+                                                                className="flex items-center w-full px-3 py-2.5 text-sm text-gray-700 hover:bg-blue-50 transition-colors"
+                                                            >
+                                                                <FaFileCsv className="w-4 h-4 mr-2 text-blue-600" />
+                                                                Export as CSV
                                                             </button>
-                                                            <button onClick={() => handleExport('whatsapp')} className="flex items-center w-full px-3 py-2 text-sm text-gray-700 hover:bg-indigo-50">
-                                                                <FaWhatsapp className="w-4 h-4 mr-2 text-green-500" />Share via WhatsApp
-                                                            </button>
-                                                            <button onClick={() => handleExport('email')} className="flex items-center w-full px-3 py-2 text-sm text-gray-700 hover:bg-indigo-50">
-                                                                <AiOutlineMail className="w-4 h-4 mr-2 text-blue-500" />Share via Email
+                                                            <button 
+                                                                onClick={() => { handleExportClick(); setShowMoreMenu(false); }} 
+                                                                className="flex items-center w-full px-3 py-2.5 text-sm text-gray-700 hover:bg-red-50 transition-colors"
+                                                            >
+                                                                <PiFilePdfDuotone className="w-4 h-4 mr-2 text-red-600" />
+                                                                Export as PDF
                                                             </button>
                                                             <div className="h-px bg-gray-200 my-1" />
                                                             <button
@@ -1465,10 +1579,11 @@ const TaskDisplay = () => {
                                                                         setShowMoreMenu(false);
                                                                     }
                                                                 }}
-                                                                className={`flex items-center w-full px-3 py-2 text-sm ${viewMode === 'table' ? 'text-gray-700 hover:bg-gray-100' : 'text-gray-400 cursor-not-allowed'}`}
+                                                                className={`flex items-center w-full px-3 py-2.5 text-sm ${viewMode === 'table' ? 'text-gray-700 hover:bg-gray-100' : 'text-gray-400 cursor-not-allowed'}`}
                                                                 disabled={viewMode !== 'table'}
                                                             >
-                                                                <FiSettings className="w-4 h-4 mr-2" />Settings {viewMode !== 'table' && '(Table view only)'}
+                                                                <FiSettings className="w-4 h-4 mr-2" />
+                                                                Settings {viewMode !== 'table' && '(Table view only)'}
                                                             </button>
                                                         </motion.div>
                                                     )}
@@ -1593,7 +1708,7 @@ const TaskDisplay = () => {
                                 className="px-3 py-2.5 bg-gradient-to-r from-green-600 to-green-700 text-white rounded-lg text-sm font-semibold flex items-center gap-2 shadow-xl"
                                 whileHover={{ scale: 1.05 }}
                                 whileTap={{ scale: 0.95 }}
-                                onClick={() => handleExport('selected')}
+                                onClick={handleExportClick}
                             >
                                 <FiDownload className="w-4 h-4" />
                                 <span className="hidden sm:inline">Export</span>
@@ -1736,36 +1851,17 @@ const TaskDisplay = () => {
             {deleteModal && <DeleteConfirmationModal title="Task Delete" onConfirm={(res) => { setDeleteModal(false); console.log("Confirmed:", res); }} />}
 
             {/* Export Modal */}
-            <AnimatePresence>
-                {exportModal.open && (
-                    <motion.div
-                        className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        exit={{ opacity: 0 }}
-                    >
-                        <motion.div
-                            className="bg-white rounded-lg p-4 max-w-sm w-full mx-auto"
-                            initial={{ scale: 0.9, opacity: 0 }}
-                            animate={{ scale: 1, opacity: 1 }}
-                            exit={{ scale: 0.9, opacity: 0 }}
-                        >
-                            <div className="text-center">
-                                <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-3">
-                                    <PiExportBold className="w-6 h-6 text-green-600" />
-                                </div>
-                                <h3 className="text-base font-semibold text-gray-800 mb-2">Exporting {exportModal.type.toUpperCase()}</h3>
-                                <p className="text-gray-600 mb-4 text-sm">Your {exportModal.type} export is being processed...</p>
-                                <div className="flex justify-center space-x-2">
-                                    <div className="w-2 h-2 bg-indigo-600 rounded-full animate-bounce"></div>
-                                    <div className="w-2 h-2 bg-indigo-600 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
-                                    <div className="w-2 h-2 bg-indigo-600 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
-                                </div>
-                            </div>
-                        </motion.div>
-                    </motion.div>
-                )}
-            </AnimatePresence>
+            <ExportModal
+                isOpen={exportModalOpen}
+                onClose={() => {
+                    setExportModalOpen(false);
+                    setExportData([]);
+                    setExportColumns([]);
+                }}
+                exportData={exportData}
+                columns={exportColumns}
+                jobType="task_report"
+            />
         </div>
     );
 };

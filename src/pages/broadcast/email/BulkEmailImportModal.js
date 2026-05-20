@@ -17,12 +17,6 @@ const BulkEmailImportModal = ({ show, onHide, onImportComplete }) => {
   const [showPreview, setShowPreview] = useState(false);
   const fileInputRef = useRef(null);
 
-  // Get headers for API calls
-  const getHeadersConfig = () => {
-    const headers = getHeaders();
-    return { headers: { ...headers } };
-  };
-
   const handleFileSelect = (event) => {
     const file = event.target.files[0];
     if (!file) return;
@@ -45,8 +39,8 @@ const BulkEmailImportModal = ({ show, onHide, onImportComplete }) => {
     const formData = new FormData();
     formData.append('file', file);
     const url = preview 
-      ? `${API_BASE}/bulkmail/upload-recipients?preview=true` 
-      : `${API_BASE}/bulkmail/upload-recipients`;
+      ? `${API_BASE}/broadcast/email/upload-recipients?preview=true` 
+      : `${API_BASE}/broadcast/email/upload-recipients`;
     
     const headers = getHeaders();
     const response = await axios.post(url, formData, {
@@ -74,6 +68,12 @@ const BulkEmailImportModal = ({ show, onHide, onImportComplete }) => {
       } else {
         setUploadedData(res.data);
         toast.success(res.message || 'File uploaded successfully');
+        
+        // Show variable info in toast
+        if (res.data?.detected_mappings?.variable_columns?.length > 0) {
+          toast.success(`Variables available: ${res.data.detected_mappings.variable_columns.join(', ')}`);
+        }
+        
         if (fileInputRef.current) fileInputRef.current.value = '';
         setSelectedFile(null);
         setFileName('');
@@ -87,17 +87,26 @@ const BulkEmailImportModal = ({ show, onHide, onImportComplete }) => {
   };
 
   const handleConfirmImport = () => {
-    if (uploadedData?.recipients?.length > 0) {
-      onImportComplete(uploadedData.recipients);
-      toast.success(`${uploadedData.recipients.length} recipients imported successfully`);
-      handleClose();
-    } else if (uploadedData?.sample_recipients?.length > 0) {
-      // Convert sample_recipients format to recipients format
-      const recipients = uploadedData.sample_recipients.map(r => ({
-        recipient_name: r.name || '',
-        recipient_email: r.email,
-        variable_values_json: r.variables || {}
+    let recipients = [];
+    
+    if (uploadedData?.sample_recipients && uploadedData.sample_recipients.length > 0) {
+      // Convert API response format to the format expected by parent
+      recipients = uploadedData.sample_recipients.map(r => ({
+        recipient_name: r.recipient_name || r.name || '',
+        recipient_email: r.recipient_email || r.email,
+        variable_values_json: r.variable_values_json || r.variables || {}
       }));
+    } else if (uploadedData?.recipients?.length > 0) {
+      recipients = uploadedData.recipients;
+    }
+    
+    if (recipients.length > 0) {
+      // Show variable info before import
+      const sampleVars = Object.keys(recipients[0].variable_values_json || {});
+      if (sampleVars.length > 0) {
+        toast.success(`Variables available: ${sampleVars.join(', ')}. Use {{VariableName}} in your template.`);
+      }
+      
       onImportComplete(recipients);
       toast.success(`${recipients.length} recipients imported successfully`);
       handleClose();
@@ -206,8 +215,12 @@ const BulkEmailImportModal = ({ show, onHide, onImportComplete }) => {
                   <div>
                     <strong>File uploaded successfully!</strong>
                     <div className="mt-1">
-                      <Badge bg="success" className="me-2">{uploadedData.valid_recipients || uploadedData.total_recipients || 0} Valid Recipients</Badge>
-                      <Badge bg="danger">{uploadedData.invalid_entries || 0} Invalid Entries</Badge>
+                      <Badge bg="success" className="me-2">
+                        {uploadedData.summary?.valid_recipients || uploadedData.sample_recipients?.length || 0} Valid Recipients
+                      </Badge>
+                      <Badge bg="danger">
+                        {uploadedData.summary?.invalid_entries || 0} Invalid Entries
+                      </Badge>
                     </div>
                   </div>
                   <Button variant="link" size="sm" onClick={() => setUploadedData(null)} style={{ color: '#dc2626' }}>
@@ -225,10 +238,25 @@ const BulkEmailImportModal = ({ show, onHide, onImportComplete }) => {
                     {uploadedData.detected_mappings.name_column && (
                       <Badge bg="secondary" className="me-2">Name: {uploadedData.detected_mappings.name_column}</Badge>
                     )}
-                    {uploadedData.detected_mappings.variable_columns?.slice(0, 3).map(col => (
-                      <Badge key={col} bg="light" text="dark" className="me-1">Var: {col}</Badge>
-                    ))}
                   </div>
+                  {uploadedData.detected_mappings.variable_columns?.length > 0 && (
+                    <div className="mt-2">
+                      <small className="text-muted">Available Variables (use in template):</small>
+                      <div className="mt-1">
+                        {uploadedData.detected_mappings.variable_columns.map(col => (
+                          <Badge key={col} bg="warning" text="dark" className="me-1" style={{ cursor: 'pointer' }} onClick={() => {
+                            navigator.clipboard.writeText(`{{${col}}}`);
+                            toast.success(`Copied {{${col}}} to clipboard`);
+                          }}>
+                            {'{{' + col + '}}'}
+                          </Badge>
+                        ))}
+                      </div>
+                      <small className="text-muted d-block mt-1">
+                        💡 Click on any variable to copy it. Use these in your email template.
+                      </small>
+                    </div>
+                  )}
                 </div>
               )}
 
@@ -250,11 +278,11 @@ const BulkEmailImportModal = ({ show, onHide, onImportComplete }) => {
                         {uploadedData.sample_recipients.slice(0, 5).map((r, idx) => (
                           <tr key={idx}>
                             <td>{idx + 1}</td>
-                            <td>{r.name || '-'}</td>
-                            <td>{r.email}</td>
+                            <td>{r.recipient_name || r.name || '-'}</td>
+                            <td>{r.recipient_email || r.email}</td>
                             <td style={{ fontSize: '0.7rem' }}>
-                              {Object.keys(r.variables || {}).slice(0, 2).join(', ')}
-                              {Object.keys(r.variables || {}).length > 2 && '...'}
+                              {Object.keys(r.variable_values_json || r.variables || {}).slice(0, 3).join(', ')}
+                              {Object.keys(r.variable_values_json || r.variables || {}).length > 3 && '...'}
                             </td>
                           </tr>
                         ))}
@@ -278,6 +306,7 @@ const BulkEmailImportModal = ({ show, onHide, onImportComplete }) => {
                   <li>First column should contain email addresses</li>
                   <li>Second column can contain recipient names (optional)</li>
                   <li>Additional columns will be available as variables in your template</li>
+                  <li>Use <code>{'{{ColumnName}}'}</code> in your email template</li>
                   <li>Supported formats: .csv, .xls, .xlsx</li>
                 </ul>
               </div>
@@ -290,7 +319,7 @@ const BulkEmailImportModal = ({ show, onHide, onImportComplete }) => {
           </Button>
           {uploadedData && (
             <Button variant="success" onClick={handleConfirmImport}>
-              <FaCheck /> Import {uploadedData.valid_recipients || uploadedData.total_recipients || 0} Recipients
+              <FaCheck /> Import {uploadedData.summary?.valid_recipients || uploadedData.sample_recipients?.length || 0} Recipients
             </Button>
           )}
         </Modal.Footer>
@@ -308,19 +337,25 @@ const BulkEmailImportModal = ({ show, onHide, onImportComplete }) => {
               <Row className="g-3 mb-4">
                 <Col md={4}>
                   <div className="text-center p-3 bg-success bg-opacity-10 rounded">
-                    <div style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#059669' }}>{previewData.summary?.valid_recipients || 0}</div>
+                    <div style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#059669' }}>
+                      {previewData.summary?.valid_recipients || previewData.sample_recipients?.length || 0}
+                    </div>
                     <div className="text-muted">Valid Recipients</div>
                   </div>
                 </Col>
                 <Col md={4}>
                   <div className="text-center p-3 bg-danger bg-opacity-10 rounded">
-                    <div style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#dc2626' }}>{previewData.summary?.invalid_entries || 0}</div>
+                    <div style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#dc2626' }}>
+                      {previewData.summary?.invalid_entries || 0}
+                    </div>
                     <div className="text-muted">Invalid Entries</div>
                   </div>
                 </Col>
                 <Col md={4}>
                   <div className="text-center p-3 bg-primary bg-opacity-10 rounded">
-                    <div style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#2563eb' }}>{previewData.summary?.total_rows || 0}</div>
+                    <div style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#2563eb' }}>
+                      {previewData.summary?.total_rows || 0}
+                    </div>
                     <div className="text-muted">Total Rows</div>
                   </div>
                 </Col>
@@ -335,6 +370,18 @@ const BulkEmailImportModal = ({ show, onHide, onImportComplete }) => {
                     <Badge bg="secondary" className="me-2">Name: {previewData.detected_mappings.name_column}</Badge>
                   )}
                 </div>
+                {previewData.detected_mappings?.variable_columns?.length > 0 && (
+                  <div className="mt-2">
+                    <strong>Variables to use in template:</strong>
+                    <div className="mt-1">
+                      {previewData.detected_mappings.variable_columns.map(col => (
+                        <code key={col} className="me-2 p-1 bg-light rounded" style={{ fontSize: '0.75rem' }}>
+                          {'{{' + col + '}}'}
+                        </code>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* Sample Data */}
@@ -350,13 +397,13 @@ const BulkEmailImportModal = ({ show, onHide, onImportComplete }) => {
                     </tr>
                   </thead>
                   <tbody>
-                    {(previewData.preview || []).slice(0, 10).map((r, idx) => (
+                    {(previewData.sample_recipients || previewData.preview || []).slice(0, 10).map((r, idx) => (
                       <tr key={idx}>
                         <td>{idx + 1}</td>
-                        <td>{r.name || '-'}</td>
-                        <td>{r.email}</td>
+                        <td>{r.recipient_name || r.name || '-'}</td>
+                        <td>{r.recipient_email || r.email}</td>
                         <td style={{ fontSize: '0.7rem' }}>
-                          {Object.keys(r.variables || {}).slice(0, 3).join(', ')}
+                          {Object.keys(r.variable_values_json || r.variables || {}).slice(0, 3).join(', ')}
                         </td>
                       </tr>
                     ))}
