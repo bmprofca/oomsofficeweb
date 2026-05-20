@@ -10,13 +10,14 @@ import {
   FaBuilding, FaMoneyBillWave, FaCalendarAlt, FaGlobe,
   FaServer, FaCode, FaBolt, FaClipboardList, FaArrowLeft,
   FaExclamationCircle, FaInfoCircle, FaCheckCircle, FaShieldAlt,
-  FaSlidersH
+  FaSlidersH , FaFileExcel  
 } from 'react-icons/fa';
 import { Header, Sidebar } from '../../../components/header';
 import { emailApi, normalizeList } from './emailApi';
 import axios from 'axios';
 import API_BASE from '../../../utils/api-controller';
 import getHeaders from '../../../utils/get-headers';
+import BulkEmailImportModal from './BulkEmailImportModal';
 
 const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -653,6 +654,8 @@ const EmailBroadcastCreate = () => {
   const [selectedTaskCount, setSelectedTaskCount] = useState(0);
   const [taskSearch, setTaskSearch] = useState('');
 
+  const [showImportModal, setShowImportModal] = useState(false);
+
   const [form, setForm] = useState({
     config_id: '', fallback_config_id: '', template_id: '', broadcast_name: '',
     schedule_type: 'now', scheduled_at: '', timezone: 'Asia/Kolkata',
@@ -853,6 +856,26 @@ const EmailBroadcastCreate = () => {
     if (selectAllClients) { setSelectAllClients(false); setSelectedClients([]); }
     else { setSelectAllClients(true); if (allClients.length === 0) await loadAllClients(); else setSelectedClients(allClients); }
   };
+
+  // Handle imported recipients from Excel/CSV
+const handleImportRecipients = useCallback((importedRecipients) => {
+  console.log("Importing recipients:", importedRecipients);
+  
+  // Convert imported recipients to the format expected by manual tab
+  const formattedRecipients = importedRecipients.map(r => ({
+    recipient_name: r.recipient_name || r.name || '',
+    recipient_email: r.recipient_email || r.email,
+    variable_values_json: JSON.stringify(r.variable_values_json || r.variables || {}, null, 2)
+  }));
+  
+  // Add to existing recipients
+  setRecipients(prev => [...prev, ...formattedRecipients]);
+  
+  // Switch to manual tab to show imported recipients
+  setActiveTab('manual');
+  
+  toast.success(`${formattedRecipients.length} recipients imported successfully`);
+}, []);
 
   const searchClients = useCallback(async () => {
     if (!clientSearch.trim()) { setClients([]); return; }
@@ -1427,22 +1450,41 @@ const buildPayload = async () => {
 
             {/* ── Header ── */}
             <div className="ebc-header-card">
-              <div>
-                <div className="ebc-header-main-title">
-                  <FaEnvelope style={{ marginRight: 10, opacity: 0.85 }} />
-                  Create Email Broadcast
-                </div>
-                <div className="ebc-header-sub">Send professional emails to clients, groups, or task-based recipients</div>
-              </div>
-              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                <span className="ebc-badge" style={{ background: 'rgba(255,255,255,0.15)', color: '#fff', backdropFilter: 'blur(4px)' }}>
-                  <FaPaperPlane size={10} /> Email Broadcast
-                </span>
-                <span className="ebc-badge" style={{ background: 'rgba(255,255,255,0.15)', color: '#fff', backdropFilter: 'blur(4px)' }}>
-                  <FaUsers size={10} /> Multi-Recipient
-                </span>
-              </div>
-            </div>
+  <div>
+    <div className="ebc-header-main-title">
+      <FaEnvelope style={{ marginRight: 10, opacity: 0.85 }} />
+      Create Email Broadcast
+    </div>
+    <div className="ebc-header-sub">Send professional emails to clients, groups, or task-based recipients</div>
+  </div>
+  <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'center' }}>
+    {/* Bulk Import Button */}
+    <button
+      onClick={() => setShowImportModal(true)}
+      style={{
+        background: 'linear-gradient(135deg, #059669 0%, #0d9488 100%)',
+        border: 'none',
+        borderRadius: 10,
+        padding: '8px 18px',
+        color: '#fff',
+        display: 'flex',
+        alignItems: 'center',
+        gap: 8,
+        cursor: 'pointer',
+        fontSize: '0.8rem',
+        fontWeight: 600
+      }}
+    >
+      <FaFileExcel size={14} /> Import Excel/CSV
+    </button>
+    <span className="ebc-badge" style={{ background: 'rgba(255,255,255,0.15)', color: '#fff' }}>
+      <FaPaperPlane size={10} /> Email Broadcast
+    </span>
+    <span className="ebc-badge" style={{ background: 'rgba(255,255,255,0.15)', color: '#fff' }}>
+      <FaUsers size={10} /> Multi-Recipient
+    </span>
+  </div>
+</div>
 
             {/* ── Basic Information ── */}
             <SectionCard icon={<FaServer size={12} />} title="Basic Information">
@@ -1651,23 +1693,38 @@ const buildPayload = async () => {
               {/* ── Manual Tab ── */}
               {activeTab === 'manual' && (
                 <>
-                  <div className="mb-4">
-                    <div className="ebc-label" style={{ marginBottom: 8 }}>
-                      <FaFileImport size={11} /> Bulk Import <span style={{ color: '#9ca3af', fontWeight: 400 }}>— CSV format: name, email</span>
-                    </div>
-                    <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
-                      <textarea
-                        className="ebc-bulk-area"
-                        placeholder={"Import multiple recipients (one per line)\nFormat: Name, email@example.com\nExample:\nJohn Doe, john@company.com"}
-                        value={bulkInput}
-                        onChange={e => setBulkInput(e.target.value)}
-                        style={{ flex: 1 }}
-                      />
-                      <button className="ebc-btn ebc-btn-primary ebc-btn-sm" onClick={addFromText} style={{ alignSelf: 'flex-end', whiteSpace: 'nowrap' }}>
-                        <FaFileImport size={12} /> Import
-                      </button>
-                    </div>
-                  </div>
+                 <div className="mb-4">
+  <div className="ebc-label" style={{ marginBottom: 8 }}>
+    <FaFileImport size={11} /> Bulk Import Options
+  </div>
+  {/* Excel/CSV Upload Button */}
+  <div style={{ marginBottom: 16 }}>
+    <button
+      className="ebc-btn ebc-btn-success ebc-btn-sm"
+      onClick={() => setShowImportModal(true)}
+      style={{ background: '#059669' }}
+    >
+      <FaFileExcel size={12} /> Upload Excel/CSV File
+    </button>
+    <span className="text-muted" style={{ fontSize: '0.7rem', marginLeft: 12 }}>Supports .csv, .xls, .xlsx</span>
+  </div>
+  
+  <div className="ebc-label" style={{ marginBottom: 8 }}>
+    <FaFileImport size={11} /> Manual CSV Entry <span style={{ color: '#9ca3af', fontWeight: 400 }}>— format: name, email</span>
+  </div>
+  <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
+    <textarea
+      className="ebc-bulk-area"
+      placeholder={"Import multiple recipients (one per line)\nFormat: Name, email@example.com\nExample:\nJohn Doe, john@company.com"}
+      value={bulkInput}
+      onChange={e => setBulkInput(e.target.value)}
+      style={{ flex: 1 }}
+    />
+    <button className="ebc-btn ebc-btn-primary ebc-btn-sm" onClick={addFromText} style={{ alignSelf: 'flex-end', whiteSpace: 'nowrap' }}>
+      <FaFileImport size={12} /> Import
+    </button>
+  </div>
+</div>
 
                   {getValidRecipients().length === 0 && (
                     <div className="ebc-alert ebc-alert-warning mb-3">
@@ -2025,6 +2082,13 @@ const buildPayload = async () => {
             <button className="ebc-btn ebc-btn-outline ebc-btn-sm" onClick={() => setShowPreview(false)}>Close</button>
           </Modal.Footer>
         </Modal>
+
+             {/* Bulk Import Modal */}
+        <BulkEmailImportModal
+          show={showImportModal}
+          onHide={() => setShowImportModal(false)}
+          onImportComplete={handleImportRecipients}
+        />
       </div>
     </>
   );
