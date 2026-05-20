@@ -1256,7 +1256,7 @@ const TaskDisplay = () => {
                             {staffs.length > 2 && (
                                 <button
                                     onClick={() => openUsersModal(staffs, task.service?.name)}
-                                        className="w-8 h-8 bg-gradient-to-br from-indigo-500 to-indigo-600 rounded-full border-2 border-white flex items-center justify-center text-xs font-bold text-white"
+                                    className="w-8 h-8 bg-gradient-to-br from-indigo-500 to-indigo-600 rounded-full border-2 border-white flex items-center justify-center text-xs font-bold text-white"
                                     title={`Click to view all ${staffs.length} staff members`}
                                 >
                                     +{showMoreCount}
