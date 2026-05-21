@@ -12,15 +12,237 @@ import {
     FiPrinter,
     FiTrendingUp,
     FiSearch,
-    FiEye
+    FiEye,
+    FiX,
+    FiCheckCircle,
+    FiAlertCircle,
+    FiInfo
 } from 'react-icons/fi';
 import { PiExportBold } from "react-icons/pi";
 import { PiFilePdfDuotone, PiMicrosoftExcelLogoDuotone } from "react-icons/pi";
+import { AiOutlineMail } from "react-icons/ai";
 import { motion, AnimatePresence } from 'framer-motion';
 import getHeaders from '../utils/get-headers';
 import API_BASE_URL from '../utils/api-controller';
 import Pagination from '../components/paging-nation-component';
 import DatePickerComponent from '../components/DatePickerComponent';
+import toast from 'react-hot-toast';
+
+// Inline Export Modal Component
+const InlineExportModal = ({ isOpen, onClose, exportData, columns, jobType }) => {
+    const [exporting, setExporting] = useState(false);
+    const [exportStatus, setExportStatus] = useState(null);
+    const [selectedFormat, setSelectedFormat] = useState(null);
+
+    const getUserEmail = () => {
+        try {
+            const userEmail = localStorage.getItem('user_email');
+            if (userEmail && userEmail !== 'undefined' && userEmail !== 'null') {
+                return userEmail;
+            }
+            const userData = localStorage.getItem('user');
+            if (userData) {
+                const user = JSON.parse(userData);
+                if (user.email) return user.email;
+                if (user.user_email) return user.user_email;
+            }
+            return null;
+        } catch (error) {
+            console.error('Error getting user email:', error);
+            return null;
+        }
+    };
+
+    const userEmail = getUserEmail();
+
+    const handleExport = async (fileType) => {
+        if (!exportData || exportData.length === 0) {
+            toast.error('No data to export');
+            return;
+        }
+
+        if (!userEmail) {
+            toast.error('User email not found. Please login again.');
+            return;
+        }
+
+        setSelectedFormat(fileType);
+        setExporting(true);
+        setExportStatus('processing');
+
+        try {
+            const headers = await getHeaders();
+            
+            const payload = {
+                job_type: jobType,
+                file_type: fileType,
+                recipient_email: userEmail,
+                email_subject: `${jobType.replace('_', ' ').toUpperCase()} Export - ${new Date().toLocaleString()}`,
+                email_message: `<p>Your ${jobType.replace('_', ' ')} export is ready.</p>
+                                <p><strong>File Format:</strong> ${fileType.toUpperCase()}</p>
+                                <p><strong>Total Records:</strong> ${exportData.length}</p>
+                                <p><strong>Generated on:</strong> ${new Date().toLocaleString()}</p>`,
+                data: exportData,
+                columns: columns,
+                filters: {
+                    export_date: new Date().toISOString(),
+                    total_records: exportData.length
+                }
+            };
+
+            const response = await fetch(`${API_BASE_URL}/export/request`, {
+                method: 'POST',
+                headers: { ...headers, 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+
+            const result = await response.json();
+
+            if (result.success) {
+                setExportStatus('success');
+                toast.success(`Export started! You will receive the ${fileType.toUpperCase()} file via email at ${userEmail}`);
+                setTimeout(() => {
+                    onClose();
+                    setExportStatus(null);
+                    setSelectedFormat(null);
+                    setExporting(false);
+                }, 2000);
+            } else {
+                throw new Error(result.message || 'Export failed');
+            }
+        } catch (error) {
+            console.error('Export error:', error);
+            setExportStatus('error');
+            toast.error(error.message || 'Failed to start export');
+            setTimeout(() => {
+                setExportStatus(null);
+                setSelectedFormat(null);
+                setExporting(false);
+            }, 2000);
+        }
+    };
+
+    const exportOptions = [
+        { type: 'excel', icon: <PiMicrosoftExcelLogoDuotone className="w-6 h-6 text-green-600" />, label: 'Excel (.xlsx)', description: 'Export as Microsoft Excel spreadsheet' },
+        { type: 'csv', icon: <FiTrendingUp className="w-6 h-6 text-blue-600" />, label: 'CSV (.csv)', description: 'Export as Comma Separated Values' },
+        { type: 'pdf', icon: <PiFilePdfDuotone className="w-6 h-6 text-red-600" />, label: 'PDF (.pdf)', description: 'Export as Portable Document Format' }
+    ];
+
+    if (!isOpen) return null;
+
+    return (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[200] p-4">
+            <div className="bg-white rounded-xl shadow-2xl w-full max-w-md mx-auto overflow-hidden">
+                {/* Header */}
+                <div className="bg-gradient-to-r from-indigo-600 to-indigo-700 text-white px-6 py-4">
+                    <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 bg-white/20 rounded-lg flex items-center justify-center">
+                                <PiExportBold className="w-5 h-5" />
+                            </div>
+                            <div>
+                                <h3 className="text-lg font-bold">Export Data</h3>
+                                <p className="text-indigo-100 text-sm">Choose your preferred format</p>
+                            </div>
+                        </div>
+                        <button
+                            onClick={onClose}
+                            className="text-white p-2 rounded-lg hover:bg-white/10 transition-colors"
+                            disabled={exporting}
+                        >
+                            <FiX className="w-5 h-5" />
+                        </button>
+                    </div>
+                </div>
+
+                {/* Body */}
+                <div className="p-6">
+                    {/* Email Info */}
+                    <div className="mb-4 p-3 bg-blue-50 rounded-lg border border-blue-200">
+                        <div className="flex items-center gap-2">
+                            <AiOutlineMail className="w-4 h-4 text-blue-600" />
+                            <span className="text-sm text-blue-800">
+                                Export will be sent to: <strong>{userEmail || 'Not found'}</strong>
+                            </span>
+                        </div>
+                        {!userEmail && (
+                            <div className="mt-2 text-xs text-red-600">
+                                Please make sure you are logged in with a valid email address.
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Data Summary */}
+                    <div className="mb-4 p-3 bg-gray-50 rounded-lg border border-gray-200">
+                        <div className="flex justify-between text-sm">
+                            <span className="text-gray-600">Total Records:</span>
+                            <span className="font-semibold text-gray-800">{exportData?.length || 0}</span>
+                        </div>
+                        <div className="flex justify-between text-sm mt-1">
+                            <span className="text-gray-600">Columns:</span>
+                            <span className="font-semibold text-gray-800">{columns?.length || 0}</span>
+                        </div>
+                    </div>
+
+                    {/* Export Options */}
+                    <div className="space-y-3">
+                        {exportOptions.map((option) => (
+                            <button
+                                key={option.type}
+                                onClick={() => handleExport(option.type)}
+                                disabled={exporting || !userEmail}
+                                className={`w-full flex items-center justify-between p-4 rounded-lg border-2 transition-all ${
+                                    exporting && selectedFormat === option.type
+                                        ? 'border-indigo-500 bg-indigo-50'
+                                        : 'border-gray-200 hover:border-indigo-300 hover:bg-gray-50'
+                                } ${(exporting || !userEmail) && selectedFormat !== option.type ? 'opacity-50 cursor-not-allowed' : ''}`}
+                            >
+                                <div className="flex items-center gap-3">
+                                    <div className="p-2 rounded-lg bg-gray-50">
+                                        {option.icon}
+                                    </div>
+                                    <div className="text-left">
+                                        <div className="font-medium text-gray-800">{option.label}</div>
+                                        <div className="text-xs text-gray-500">{option.description}</div>
+                                    </div>
+                                </div>
+                                {exporting && selectedFormat === option.type && (
+                                    <div className="flex items-center gap-2">
+                                        {exportStatus === 'processing' && <div className="w-5 h-5 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin"></div>}
+                                        {exportStatus === 'success' && <FiCheckCircle className="w-5 h-5 text-green-600" />}
+                                        {exportStatus === 'error' && <FiAlertCircle className="w-5 h-5 text-red-600" />}
+                                    </div>
+                                )}
+                            </button>
+                        ))}
+                    </div>
+
+                    {/* Info Message */}
+                    <div className="mt-4 p-3 bg-yellow-50 rounded-lg border border-yellow-200">
+                        <div className="flex items-start gap-2">
+                            <FiInfo className="w-4 h-4 text-yellow-600 mt-0.5 flex-shrink-0" />
+                            <p className="text-xs text-yellow-700">
+                                Export will be processed in the background. You will receive the file via email once completed.
+                                Duplicate export requests are not allowed while an export is already in progress.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Footer */}
+                <div className="px-6 py-4 bg-gray-50 border-t border-gray-200 flex justify-end">
+                    <button
+                        onClick={onClose}
+                        className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-100 font-medium text-sm transition-colors"
+                        disabled={exporting}
+                    >
+                        Cancel
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+};
 
 // --- Modal Components (moved outside to avoid re‑creation on every render) ---
 const ModalContent = ({
@@ -298,6 +520,11 @@ const CapitalAccounts = () => {
     const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
     const [selectedAccount, setSelectedAccount] = useState(null);
 
+    // Export Modal State
+    const [exportModalOpen, setExportModalOpen] = useState(false);
+    const [exportData, setExportData] = useState([]);
+    const [exportColumns, setExportColumns] = useState([]);
+
     // Pagination state
     const [pagination, setPagination] = useState({
         page: 1,
@@ -328,6 +555,62 @@ const CapitalAccounts = () => {
             type: 'credit'
         }
     });
+
+    // Prepare data for export
+    const prepareExportData = () => {
+        const exportDataList = [];
+        const exportColumnsConfig = [];
+
+        const columns = [
+            { header: 'S.No', key: 'sl_no', width: 10 },
+            { header: 'Account Name', key: 'account_name', width: 30 },
+            { header: 'Remark', key: 'remark', width: 35 },
+            { header: 'Balance (₹)', key: 'balance', width: 20 },
+            { header: 'Status', key: 'status', width: 15 }
+        ];
+
+        exportColumnsConfig.push(...columns);
+
+        accounts.forEach((account, index) => {
+            const isNegativeBalance = Number(account.balance) < 0;
+            const displayBalance = isNegativeBalance ? -account.balance : account.balance;
+            
+            const row = {
+                sl_no: ((pagination.page - 1) * pagination.limit) + index + 1,
+                account_name: account.name || 'N/A',
+                remark: account.remark || '-',
+                balance: (isNegativeBalance ? '-' : '') + displayBalance,
+                status: account.status ? 'Active' : 'Inactive'
+            };
+            exportDataList.push(row);
+        });
+
+        return { data: exportDataList, columns: exportColumnsConfig };
+    };
+
+    // Handle export click for modal
+    const handleExportClick = () => {
+        const { data, columns } = prepareExportData();
+        
+        if (data.length === 0) {
+            toast.error('No data to export');
+            return;
+        }
+
+        setExportData(data);
+        setExportColumns(columns);
+        setExportModalOpen(true);
+    };
+
+    // Handle other exports (print)
+    const handleOtherExport = (type, data = null) => {
+        setExportModal({ open: true, type, data });
+
+        setTimeout(() => {
+            setExportModal({ open: false, type: '', data: null });
+            toast.success(`${type.toUpperCase()} export completed successfully!`);
+        }, 1500);
+    };
 
     // Debounce search term
     useEffect(() => {
@@ -711,17 +994,6 @@ const CapitalAccounts = () => {
         }
     };
 
-    // Handle export
-    const handleExport = (type, data = null) => {
-        setExportModal({ open: true, type, data });
-
-        // Simulate export process
-        setTimeout(() => {
-            setExportModal({ open: false, type: '', data: null });
-            alert(`${type.toUpperCase()} export completed successfully!`);
-        }, 1500);
-    };
-
     // Toggle row dropdown
     const toggleRowDropdown = (accountId) => {
         setActiveRowDropdown(activeRowDropdown === accountId ? null : accountId);
@@ -859,7 +1131,7 @@ const CapitalAccounts = () => {
                                                 >
                                                     <div className="py-1">
                                                         <button
-                                                            onClick={() => handleExport('pdf')}
+                                                            onClick={handleExportClick}
                                                             className="flex items-center w-full px-3 py-2 text-sm text-slate-700 hover:bg-blue-50 transition-all duration-150 group"
                                                         >
                                                             <div className="p-1.5 bg-red-50 rounded mr-2 group-hover:bg-red-100 transition-colors">
@@ -870,7 +1142,7 @@ const CapitalAccounts = () => {
                                                             </div>
                                                         </button>
                                                         <button
-                                                            onClick={() => handleExport('excel')}
+                                                            onClick={handleExportClick}
                                                             className="flex items-center w-full px-3 py-2 text-sm text-slate-700 hover:bg-blue-50 transition-all duration-150 group"
                                                         >
                                                             <div className="p-1.5 bg-green-50 rounded mr-2 group-hover:bg-green-100 transition-colors">
@@ -881,7 +1153,7 @@ const CapitalAccounts = () => {
                                                             </div>
                                                         </button>
                                                         <button
-                                                            onClick={() => handleExport('print')}
+                                                            onClick={() => handleOtherExport('print')}
                                                             className="flex items-center w-full px-3 py-2 text-sm text-slate-700 hover:bg-blue-50 transition-all duration-150 group"
                                                         >
                                                             <div className="p-1.5 bg-slate-50 rounded mr-2 group-hover:bg-slate-100 transition-colors">
@@ -983,12 +1255,12 @@ const CapitalAccounts = () => {
                                                         </div>
                                                     </td>
                                                     <td className="text-center p-3 align-middle">
-    <div className="px-2">
-        <div className="text-slate-500 text-[10px] italic overflow-hidden text-ellipsis whitespace-nowrap max-w-[150px] text-center mx-auto">
-            {account.remark || '-'}
-        </div>
-    </div>
-</td>
+                                                        <div className="px-2">
+                                                            <div className="text-slate-500 text-[10px] italic overflow-hidden text-ellipsis whitespace-nowrap max-w-[150px] text-center mx-auto">
+                                                                {account.remark || '-'}
+                                                            </div>
+                                                        </div>
+                                                    </td>
                                                     <td className="text-center p-3 align-middle">
                                                         <div className={`inline-flex items-center justify-center font-bold px-3 py-1.5 rounded text-xs ${isNegativeBalance ? 'bg-gradient-to-r from-red-50 to-red-100 text-red-800' : 'bg-gradient-to-r from-green-50 to-green-100 text-green-800'}`}>
                                                             {isNegativeBalance ? '-' : ''}₹{formatCurrency(displayBalance)}
@@ -1056,7 +1328,7 @@ const CapitalAccounts = () => {
                                                                                     </a>
                                                                                     <button
                                                                                         className="flex items-center w-full px-3 py-2 text-xs text-slate-700 hover:bg-blue-50 transition-colors duration-150"
-                                                                                        onClick={() => handleExport('print', account)}
+                                                                                        onClick={() => handleOtherExport('print', account)}
                                                                                     >
                                                                                         <div className="p-1 bg-slate-50 rounded mr-2">
                                                                                             <FiPrinter className="w-3 h-3 text-slate-600" />
@@ -1130,6 +1402,15 @@ const CapitalAccounts = () => {
                 onClose={() => setShowViewModal(false)}
                 account={selectedAccount}
                 formatCurrency={formatCurrency}
+            />
+
+            {/* Inline Export Modal */}
+            <InlineExportModal
+                isOpen={exportModalOpen}
+                onClose={() => { setExportModalOpen(false); setExportData([]); setExportColumns([]); }}
+                exportData={exportData}
+                columns={exportColumns}
+                jobType="capital_accounts_report"
             />
 
             {/* Export Confirmation Modal */}

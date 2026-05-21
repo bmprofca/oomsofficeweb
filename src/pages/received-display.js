@@ -17,7 +17,11 @@ import {
     FiChevronRight as FiChevronRightIcon,
     FiDollarSign,
     FiCreditCard,
-    FiUsers
+    FiUsers,
+    FiX,
+    FiCheckCircle,
+    FiAlertCircle,
+    FiInfo
 } from 'react-icons/fi';
 import { PiExportBold } from "react-icons/pi";
 import { PiFilePdfDuotone, PiMicrosoftExcelLogoDuotone } from "react-icons/pi";
@@ -31,6 +35,223 @@ import PaymentReceived from '../components/payment-received';
 import DateFilter from '../components/DateFilter';
 import API_BASE_URL from "../utils/api-controller";
 import getHeaders from "../utils/get-headers";
+import toast from 'react-hot-toast';
+
+// Inline Export Modal Component
+const InlineExportModal = ({ isOpen, onClose, exportData, columns, jobType }) => {
+    const [exporting, setExporting] = useState(false);
+    const [exportStatus, setExportStatus] = useState(null);
+    const [selectedFormat, setSelectedFormat] = useState(null);
+
+    const getUserEmail = () => {
+        try {
+            const userEmail = localStorage.getItem('user_email');
+            if (userEmail && userEmail !== 'undefined' && userEmail !== 'null') {
+                return userEmail;
+            }
+            const userData = localStorage.getItem('user');
+            if (userData) {
+                const user = JSON.parse(userData);
+                if (user.email) return user.email;
+                if (user.user_email) return user.user_email;
+            }
+            return null;
+        } catch (error) {
+            console.error('Error getting user email:', error);
+            return null;
+        }
+    };
+
+    const userEmail = getUserEmail();
+
+    const handleExport = async (fileType) => {
+        if (!exportData || exportData.length === 0) {
+            toast.error('No data to export');
+            return;
+        }
+
+        if (!userEmail) {
+            toast.error('User email not found. Please login again.');
+            return;
+        }
+
+        setSelectedFormat(fileType);
+        setExporting(true);
+        setExportStatus('processing');
+
+        try {
+            const headers = await getHeaders();
+            
+            const payload = {
+                job_type: jobType,
+                file_type: fileType,
+                recipient_email: userEmail,
+                email_subject: `${jobType.replace('_', ' ').toUpperCase()} Export - ${new Date().toLocaleString()}`,
+                email_message: `<p>Your ${jobType.replace('_', ' ')} export is ready.</p>
+                                <p><strong>File Format:</strong> ${fileType.toUpperCase()}</p>
+                                <p><strong>Total Records:</strong> ${exportData.length}</p>
+                                <p><strong>Generated on:</strong> ${new Date().toLocaleString()}</p>`,
+                data: exportData,
+                columns: columns,
+                filters: {
+                    export_date: new Date().toISOString(),
+                    total_records: exportData.length
+                }
+            };
+
+            const response = await fetch(`${API_BASE_URL}/export/request`, {
+                method: 'POST',
+                headers: { ...headers, 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+
+            const result = await response.json();
+
+            if (result.success) {
+                setExportStatus('success');
+                toast.success(`Export started! You will receive the ${fileType.toUpperCase()} file via email at ${userEmail}`);
+                setTimeout(() => {
+                    onClose();
+                    setExportStatus(null);
+                    setSelectedFormat(null);
+                    setExporting(false);
+                }, 2000);
+            } else {
+                throw new Error(result.message || 'Export failed');
+            }
+        } catch (error) {
+            console.error('Export error:', error);
+            setExportStatus('error');
+            toast.error(error.message || 'Failed to start export');
+            setTimeout(() => {
+                setExportStatus(null);
+                setSelectedFormat(null);
+                setExporting(false);
+            }, 2000);
+        }
+    };
+
+    const exportOptions = [
+        { type: 'excel', icon: <PiMicrosoftExcelLogoDuotone className="w-6 h-6 text-green-600" />, label: 'Excel (.xlsx)', description: 'Export as Microsoft Excel spreadsheet' },
+        { type: 'csv', icon: <FiDollarSign className="w-6 h-6 text-blue-600" />, label: 'CSV (.csv)', description: 'Export as Comma Separated Values' },
+        { type: 'pdf', icon: <PiFilePdfDuotone className="w-6 h-6 text-red-600" />, label: 'PDF (.pdf)', description: 'Export as Portable Document Format' }
+    ];
+
+    if (!isOpen) return null;
+
+    return (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[200] p-4">
+            <div className="bg-white rounded-xl shadow-2xl w-full max-w-md mx-auto overflow-hidden">
+                {/* Header */}
+                <div className="bg-gradient-to-r from-indigo-600 to-indigo-700 text-white px-6 py-4">
+                    <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 bg-white/20 rounded-lg flex items-center justify-center">
+                                <PiExportBold className="w-5 h-5" />
+                            </div>
+                            <div>
+                                <h3 className="text-lg font-bold">Export Data</h3>
+                                <p className="text-indigo-100 text-sm">Choose your preferred format</p>
+                            </div>
+                        </div>
+                        <button
+                            onClick={onClose}
+                            className="text-white p-2 rounded-lg hover:bg-white/10 transition-colors"
+                            disabled={exporting}
+                        >
+                            <FiX className="w-5 h-5" />
+                        </button>
+                    </div>
+                </div>
+
+                {/* Body */}
+                <div className="p-6">
+                    {/* Email Info */}
+                    <div className="mb-4 p-3 bg-blue-50 rounded-lg border border-blue-200">
+                        <div className="flex items-center gap-2">
+                            <AiOutlineMail className="w-4 h-4 text-blue-600" />
+                            <span className="text-sm text-blue-800">
+                                Export will be sent to: <strong>{userEmail || 'Not found'}</strong>
+                            </span>
+                        </div>
+                        {!userEmail && (
+                            <div className="mt-2 text-xs text-red-600">
+                                Please make sure you are logged in with a valid email address.
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Data Summary */}
+                    <div className="mb-4 p-3 bg-gray-50 rounded-lg border border-gray-200">
+                        <div className="flex justify-between text-sm">
+                            <span className="text-gray-600">Total Records:</span>
+                            <span className="font-semibold text-gray-800">{exportData?.length || 0}</span>
+                        </div>
+                        <div className="flex justify-between text-sm mt-1">
+                            <span className="text-gray-600">Columns:</span>
+                            <span className="font-semibold text-gray-800">{columns?.length || 0}</span>
+                        </div>
+                    </div>
+
+                    {/* Export Options */}
+                    <div className="space-y-3">
+                        {exportOptions.map((option) => (
+                            <button
+                                key={option.type}
+                                onClick={() => handleExport(option.type)}
+                                disabled={exporting || !userEmail}
+                                className={`w-full flex items-center justify-between p-4 rounded-lg border-2 transition-all ${
+                                    exporting && selectedFormat === option.type
+                                        ? 'border-indigo-500 bg-indigo-50'
+                                        : 'border-gray-200 hover:border-indigo-300 hover:bg-gray-50'
+                                } ${(exporting || !userEmail) && selectedFormat !== option.type ? 'opacity-50 cursor-not-allowed' : ''}`}
+                            >
+                                <div className="flex items-center gap-3">
+                                    <div className="p-2 rounded-lg bg-gray-50">
+                                        {option.icon}
+                                    </div>
+                                    <div className="text-left">
+                                        <div className="font-medium text-gray-800">{option.label}</div>
+                                        <div className="text-xs text-gray-500">{option.description}</div>
+                                    </div>
+                                </div>
+                                {exporting && selectedFormat === option.type && (
+                                    <div className="flex items-center gap-2">
+                                        {exportStatus === 'processing' && <div className="w-5 h-5 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin"></div>}
+                                        {exportStatus === 'success' && <FiCheckCircle className="w-5 h-5 text-green-600" />}
+                                        {exportStatus === 'error' && <FiAlertCircle className="w-5 h-5 text-red-600" />}
+                                    </div>
+                                )}
+                            </button>
+                        ))}
+                    </div>
+
+                    {/* Info Message */}
+                    <div className="mt-4 p-3 bg-yellow-50 rounded-lg border border-yellow-200">
+                        <div className="flex items-start gap-2">
+                            <FiInfo className="w-4 h-4 text-yellow-600 mt-0.5 flex-shrink-0" />
+                            <p className="text-xs text-yellow-700">
+                                Export will be processed in the background. You will receive the file via email once completed.
+                                Duplicate export requests are not allowed while an export is already in progress.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Footer */}
+                <div className="px-6 py-4 bg-gray-50 border-t border-gray-200 flex justify-end">
+                    <button
+                        onClick={onClose}
+                        className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-100 font-medium text-sm transition-colors"
+                        disabled={exporting}
+                    >
+                        Cancel
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+};
 
 const ViewReceived = () => {
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -50,6 +271,11 @@ const ViewReceived = () => {
     const [showAddDropdown, setShowAddDropdown] = useState(false);
     const [activeRowDropdown, setActiveRowDropdown] = useState(null);
     const [exportModal, setExportModal] = useState({ open: false, type: '', data: null });
+
+    // Export Modal State
+    const [exportModalOpen, setExportModalOpen] = useState(false);
+    const [exportData, setExportData] = useState([]);
+    const [exportColumns, setExportColumns] = useState([]);
 
     const [isEmailModalOpen, setIsEmailModalOpen] = useState(false);
     const [selectedEmail, setSelectedEmail] = useState('');
@@ -90,13 +316,12 @@ const ViewReceived = () => {
         const lastDay = today;
 
         const formatDate = (date) => {
-            return date.toISOString().split('T')[0]; // Format as YYYY-MM-DD for API
+            return date.toISOString().split('T')[0];
         };
 
         const from = formatDate(firstDay);
         const to = formatDate(lastDay);
 
-        // Format for display
         const displayFrom = firstDay.toLocaleDateString('en-GB');
         const displayTo = lastDay.toLocaleDateString('en-GB');
         
@@ -120,13 +345,75 @@ const ViewReceived = () => {
         return date.toLocaleDateString('en-GB');
     };
 
+    // Prepare data for export
+    const prepareExportData = () => {
+        const exportDataList = [];
+        const exportColumnsConfig = [];
+
+        const columns = [
+            { header: 'Sl No', key: 'sl_no', width: 10 },
+            { header: 'Date', key: 'date', width: 15 },
+            { header: 'Particulars', key: 'particulars', width: 25 },
+            { header: 'Voucher No', key: 'voucher_no', width: 20 },
+            { header: 'Amount (₹)', key: 'amount', width: 18 },
+            { header: 'Received At', key: 'received_at', width: 20 },
+            { header: 'Received By', key: 'received_by', width: 20 },
+            { header: 'Remark', key: 'remark', width: 25 }
+        ];
+
+        exportColumnsConfig.push(...columns);
+
+        received.forEach((item, index) => {
+            const partyInfo = item.payment_from?.details?.name || item.payment_from?.details?.bank || 'N/A';
+            const bankInfo = item.payment_to?.details?.bank || 'N/A';
+            const creatorInfo = item.create_by?.name || 'N/A';
+            
+            const row = {
+                sl_no: showAll ? index + 1 : ((currentPage - 1) * itemsPerPage) + index + 1,
+                date: formatDisplayDate(item.transaction_date),
+                particulars: partyInfo,
+                voucher_no: item.invoice_no || 'N/A',
+                amount: parseFloat(item.amount) || 0,
+                received_at: bankInfo,
+                received_by: creatorInfo,
+                remark: item.remark || ''
+            };
+            exportDataList.push(row);
+        });
+
+        return { data: exportDataList, columns: exportColumnsConfig };
+    };
+
+    // Handle export click for modal
+    const handleExportClick = () => {
+        const { data, columns } = prepareExportData();
+        
+        if (data.length === 0) {
+            toast.error('No data to export');
+            return;
+        }
+
+        setExportData(data);
+        setExportColumns(columns);
+        setExportModalOpen(true);
+    };
+
+    // Handle other exports (print, whatsapp, email)
+    const handleOtherExport = (type, data = null) => {
+        setExportModal({ open: true, type, data });
+        
+        setTimeout(() => {
+            setExportModal({ open: false, type: '', data: null });
+            toast.success(`${type.toUpperCase()} export completed successfully!`);
+        }, 1500);
+    };
+
     // Fetch received data from API
     const fetchReceivedData = async (fromDate, toDate, page = 1, search = '') => {
         setLoading(true);
         setError(null);
         
         try {
-            // Use showAll logic: if showAll is true, fetch all records by setting limit to total
             const limit = showAll ? 10000 : itemsPerPage;
             
             const url = `${API_BASE_URL}/transaction/report/receive?page_no=${page}&limit=${limit}&from_date=${fromDate}&to_date=${toDate}${search ? `&search=${search}` : ''}`;
@@ -144,7 +431,6 @@ const ViewReceived = () => {
                 setTotalRecords(result.meta?.total || 0);
                 setIsLastPage(result.meta?.is_last_page || false);
                 
-                // Calculate total amount from all records (for the current page or all records)
                 const total = (result.data || []).reduce((acc, item) => {
                     const amount = parseFloat(item.amount) || 0;
                     return acc + amount;
@@ -171,12 +457,11 @@ const ViewReceived = () => {
         
         const [displayFrom, displayTo] = dateRange.split(' - ');
         
-        // Convert display dates to YYYY-MM-DD format for API
         const from = convertToAPIDate(displayFrom);
         const to = convertToAPIDate(displayTo);
         
         setFromToDate(`From ${displayFrom} to ${displayTo}`);
-        setCurrentPage(1); // Reset to first page on new search
+        setCurrentPage(1);
         fetchReceivedData(from, to, 1, searchTerm);
     };
 
@@ -200,7 +485,6 @@ const ViewReceived = () => {
             const [displayFrom, displayTo] = filter.range.split(' - ');
             setFromToDate(`From ${displayFrom} to ${displayTo}`);
             
-            // Convert to API format
             const from = convertToAPIDate(displayFrom);
             const to = convertToAPIDate(displayTo);
             
@@ -257,7 +541,6 @@ const ViewReceived = () => {
 
     const handleReceivedSuccess = (receivedData) => {
         console.log('Received entry created successfully:', receivedData);
-        // Refresh the data after successful addition
         if (dateRange) {
             const [displayFrom, displayTo] = dateRange.split(' - ');
             const from = convertToAPIDate(displayFrom);
@@ -270,24 +553,12 @@ const ViewReceived = () => {
         setSelectedEmail(email);
         setIsEmailModalOpen(false);
         console.log('Selected email:', email);
-        // Implement email sending logic here
     };
 
     const handleWhatsappSubmit = (number) => {
         setSelectedWhatsapp(number);
         setWhatsappModalOpen(false);
         console.log('Selected number:', number);
-        // Implement WhatsApp sending logic here
-    };
-
-    const handleExport = (type, data = null) => {
-        setExportModal({ open: true, type, data });
-        
-        // Simulate export process
-        setTimeout(() => {
-            setExportModal({ open: false, type: '', data: null });
-            alert(`${type.toUpperCase()} export completed successfully!`);
-        }, 1500);
     };
 
     // Get edit link and invoice link based on payment_from type
@@ -407,7 +678,6 @@ const ViewReceived = () => {
         let bgColor = 'bg-emerald-100';
         let textColor = 'text-emerald-700';
         
-        // You can customize this logic based on your user roles
         if (username === 'admin' || username.includes('admin')) {
             type = 'admin';
             bgColor = 'bg-red-100';
@@ -443,8 +713,6 @@ const ViewReceived = () => {
 
     // Calculate total pages
     const totalPages = Math.ceil(totalRecords / itemsPerPage);
-    
-    // Get current items (already handled by API pagination)
     const currentItems = received;
     const paginatedTotal = currentItems.reduce((acc, item) => {
         const amount = parseFloat(item.amount) || 0;
@@ -454,89 +722,40 @@ const ViewReceived = () => {
     // Skeleton loader component
     const SkeletonRow = () => (
         <tr className="border-b border-slate-100 animate-pulse">
-            <td className="p-3 text-center">
-                <div className="h-4 bg-slate-200 rounded w-6 mx-auto"></div>
-            </td>
-            <td className="p-3 text-center">
-                <div className="h-4 bg-slate-200 rounded w-16 mx-auto"></div>
-            </td>
-            <td className="p-3 text-center">
-                <div className="h-4 bg-slate-200 rounded w-24 mx-auto"></div>
-            </td>
-            <td className="p-3 text-center">
-                <div className="h-4 bg-slate-200 rounded w-16 mx-auto"></div>
-            </td>
-            <td className="p-3 text-center">
-                <div className="h-6 bg-slate-200 rounded w-16 mx-auto"></div>
-            </td>
-            <td className="p-3 text-center">
-                <div className="h-6 bg-slate-200 rounded w-16 mx-auto"></div>
-            </td>
-            <td className="p-3 text-center">
-                <div className="h-6 bg-slate-200 rounded w-16 mx-auto"></div>
-            </td>
-            <td className="p-3 text-center">
-                <div className="h-6 bg-slate-200 rounded w-10 mx-auto"></div>
-            </td>
+            <td className="p-3 text-center"><div className="h-4 bg-slate-200 rounded w-6 mx-auto"></div></td>
+            <td className="p-3 text-center"><div className="h-4 bg-slate-200 rounded w-16 mx-auto"></div></td>
+            <td className="p-3 text-center"><div className="h-4 bg-slate-200 rounded w-24 mx-auto"></div></td>
+            <td className="p-3 text-center"><div className="h-4 bg-slate-200 rounded w-16 mx-auto"></div></td>
+            <td className="p-3 text-center"><div className="h-6 bg-slate-200 rounded w-16 mx-auto"></div></td>
+            <td className="p-3 text-center"><div className="h-6 bg-slate-200 rounded w-16 mx-auto"></div></td>
+            <td className="p-3 text-center"><div className="h-6 bg-slate-200 rounded w-16 mx-auto"></div></td>
+            <td className="p-3 text-center"><div className="h-6 bg-slate-200 rounded w-10 mx-auto"></div></td>
         </tr>
     );
 
     // Skeleton Loading Component for full page
     const SkeletonLoader = () => (
         <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
-            <Header
-                mobileMenuOpen={mobileMenuOpen}
-                setMobileMenuOpen={setMobileMenuOpen}
-                isMinimized={isMinimized}
-                setIsMinimized={setIsMinimized}
-            />
-            <Sidebar
-                mobileMenuOpen={mobileMenuOpen}
-                setMobileMenuOpen={setMobileMenuOpen}
-                isMinimized={isMinimized}
-                setIsMinimized={setIsMinimized}
-            />
-
+            <Header mobileMenuOpen={mobileMenuOpen} setMobileMenuOpen={setMobileMenuOpen} isMinimized={isMinimized} setIsMinimized={setIsMinimized} />
+            <Sidebar mobileMenuOpen={mobileMenuOpen} setMobileMenuOpen={setMobileMenuOpen} isMinimized={isMinimized} setIsMinimized={setIsMinimized} />
             <div className={`pt-16 transition-all duration-300 ease-in-out ${isMinimized ? 'md:pl-20' : 'md:pl-[260px]'}`}>
                 <div className="max-w-full mx-auto px-4 sm:px-6 lg:px-8 py-6">
                     <div className="bg-white rounded-xl shadow-sm border border-slate-200">
-                        {/* Skeleton Header */}
                         <div className="border-b border-slate-200 px-6 py-4">
                             <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
-                                <div>
-                                    <div className="h-6 bg-gray-200 rounded w-48 mb-2"></div>
-                                    <div className="h-4 bg-gray-200 rounded w-32"></div>
-                                </div>
-                                <div className="flex gap-3">
-                                    <div className="h-10 bg-gray-200 rounded w-40"></div>
-                                    <div className="h-10 bg-gray-200 rounded w-32"></div>
-                                </div>
+                                <div><div className="h-6 bg-gray-200 rounded w-48 mb-2"></div><div className="h-4 bg-gray-200 rounded w-32"></div></div>
+                                <div className="flex gap-3"><div className="h-10 bg-gray-200 rounded w-40"></div><div className="h-10 bg-gray-200 rounded w-32"></div></div>
                             </div>
                         </div>
-
-                        {/* Skeleton Table */}
                         <div className="overflow-hidden">
                             <div className="border-b border-slate-200">
                                 <table className="w-full text-sm">
                                     <thead className="bg-gradient-to-r from-slate-50 to-slate-100">
-                                        <tr>
-                                            {[...Array(8)].map((_, i) => (
-                                                <th key={i} className="text-center p-3">
-                                                    <div className="h-4 bg-gray-200 rounded w-20 mx-auto"></div>
-                                                </th>
-                                            ))}
-                                        </tr>
+                                        <tr>{[...Array(8)].map((_, i) => (<th key={i} className="text-center p-3"><div className="h-4 bg-gray-200 rounded w-20 mx-auto"></div></th>))}</tr>
                                     </thead>
                                 </table>
                             </div>
-
-                            <div className="p-4">
-                                {[...Array(6)].map((_, index) => (
-                                    <div key={index} className="mb-4">
-                                        <div className="h-12 bg-gray-100 rounded"></div>
-                                    </div>
-                                ))}
-                            </div>
+                            <div className="p-4">{[...Array(6)].map((_, index) => (<div key={index} className="mb-4"><div className="h-12 bg-gray-100 rounded"></div></div>))}</div>
                         </div>
                     </div>
                 </div>
@@ -669,7 +888,7 @@ const ViewReceived = () => {
                                                     >
                                                         <div className="py-1">
                                                             <button
-                                                                onClick={() => handleExport('pdf')}
+                                                                onClick={handleExportClick}
                                                                 className="flex items-center w-full px-3 py-2 text-sm text-slate-700 hover:bg-blue-50 transition-all duration-150 group"
                                                             >
                                                                 <div className="p-1.5 bg-red-50 rounded mr-2 group-hover:bg-red-100 transition-colors">
@@ -680,7 +899,7 @@ const ViewReceived = () => {
                                                                 </div>
                                                             </button>
                                                             <button
-                                                                onClick={() => handleExport('excel')}
+                                                                onClick={handleExportClick}
                                                                 className="flex items-center w-full px-3 py-2 text-sm text-slate-700 hover:bg-blue-50 transition-all duration-150 group"
                                                             >
                                                                 <div className="p-1.5 bg-green-50 rounded mr-2 group-hover:bg-green-100 transition-colors">
@@ -737,30 +956,14 @@ const ViewReceived = () => {
                             <table className="w-full text-xs">
                                 <thead>
                                     <tr className="bg-gradient-to-r from-slate-50 to-slate-100">
-                                        <th className="text-center p-3 font-semibold text-slate-700 text-[10px] uppercase tracking-wider min-w-[60px]">
-                                            Sl No
-                                        </th>
-                                        <th className="text-center p-3 font-semibold text-slate-700 text-[10px] uppercase tracking-wider min-w-[80px]">
-                                            Date
-                                        </th>
-                                        <th className="text-center p-3 font-semibold text-slate-700 text-[10px] uppercase tracking-wider min-w-[200px]">
-                                            Particulars
-                                        </th>
-                                        <th className="text-center p-3 font-semibold text-slate-700 text-[10px] uppercase tracking-wider min-w-[120px]">
-                                            Voucher No
-                                        </th>
-                                        <th className="text-center p-3 font-semibold text-slate-700 text-[10px] uppercase tracking-wider min-w-[100px]">
-                                            Amount
-                                        </th>
-                                        <th className="text-center p-3 font-semibold text-slate-700 text-[10px] uppercase tracking-wider min-w-[150px]">
-                                            Received At
-                                        </th>
-                                        <th className="text-center p-3 font-semibold text-slate-700 text-[10px] uppercase tracking-wider min-w-[150px]">
-                                            Received By
-                                        </th>
-                                        <th className="text-center p-3 font-semibold text-slate-700 text-[10px] uppercase tracking-wider min-w-[80px]">
-                                            Actions
-                                        </th>
+                                        <th className="text-center p-3 font-semibold text-slate-700 text-[10px] uppercase tracking-wider min-w-[60px]">Sl No</th>
+                                        <th className="text-center p-3 font-semibold text-slate-700 text-[10px] uppercase tracking-wider min-w-[80px]">Date</th>
+                                        <th className="text-center p-3 font-semibold text-slate-700 text-[10px] uppercase tracking-wider min-w-[200px]">Particulars</th>
+                                        <th className="text-center p-3 font-semibold text-slate-700 text-[10px] uppercase tracking-wider min-w-[120px]">Voucher No</th>
+                                        <th className="text-center p-3 font-semibold text-slate-700 text-[10px] uppercase tracking-wider min-w-[100px]">Amount</th>
+                                        <th className="text-center p-3 font-semibold text-slate-700 text-[10px] uppercase tracking-wider min-w-[150px]">Received At</th>
+                                        <th className="text-center p-3 font-semibold text-slate-700 text-[10px] uppercase tracking-wider min-w-[150px]">Received By</th>
+                                        <th className="text-center p-3 font-semibold text-slate-700 text-[10px] uppercase tracking-wider min-w-[80px]">Actions</th>
                                     </tr>
                                 </thead>
                                 <tbody className="bg-white divide-y divide-slate-100">
@@ -918,7 +1121,7 @@ const ViewReceived = () => {
                                                                             <div className="border-t border-slate-100 mt-1 pt-1">
                                                                                 <button
                                                                                     className="flex items-center w-full px-3 py-2 text-xs text-slate-700 hover:bg-blue-50 transition-colors duration-150"
-                                                                                    onClick={() => handleExport('print', item)}
+                                                                                    onClick={() => handleOtherExport('print', item)}
                                                                                 >
                                                                                     <div className="p-1 bg-slate-50 rounded mr-2">
                                                                                         <FiPrinter className="w-3 h-3 text-slate-600" />
@@ -929,7 +1132,7 @@ const ViewReceived = () => {
                                                                                 </button>
                                                                                 <button
                                                                                     className="flex items-center w-full px-3 py-2 text-xs text-slate-700 hover:bg-blue-50 transition-colors duration-150"
-                                                                                    onClick={() => handleExport('whatsapp', item)}
+                                                                                    onClick={() => handleOtherExport('whatsapp', item)}
                                                                                 >
                                                                                     <div className="p-1 bg-green-50 rounded mr-2">
                                                                                         <FaWhatsapp className="w-3 h-3 text-green-500" />
@@ -940,7 +1143,7 @@ const ViewReceived = () => {
                                                                                 </button>
                                                                                 <button
                                                                                     className="flex items-center w-full px-3 py-2 text-xs text-slate-700 hover:bg-blue-50 transition-colors duration-150"
-                                                                                    onClick={() => handleExport('email', item)}
+                                                                                    onClick={() => handleOtherExport('email', item)}
                                                                                 >
                                                                                     <div className="p-1 bg-blue-50 rounded mr-2">
                                                                                         <FiMail className="w-3 h-3 text-blue-500" />
@@ -1066,7 +1269,16 @@ const ViewReceived = () => {
                 onSubmit={handleWhatsappSubmit}
             />
 
-            {/* Export Confirmation Modal */}
+            {/* Inline Export Modal */}
+            <InlineExportModal
+                isOpen={exportModalOpen}
+                onClose={() => { setExportModalOpen(false); setExportData([]); setExportColumns([]); }}
+                exportData={exportData}
+                columns={exportColumns}
+                jobType="received_report"
+            />
+
+            {/* Export Confirmation Modal (for other exports) */}
             <AnimatePresence>
                 {exportModal.open && (
                     <motion.div

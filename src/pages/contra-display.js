@@ -18,9 +18,13 @@ import {
     FiMail,
     FiPhone,
     FiShield,
+    FiCheckCircle,
+    FiAlertCircle,
+    FiInfo
 } from 'react-icons/fi';
 import { PiExportBold } from "react-icons/pi";
 import { PiFilePdfDuotone, PiMicrosoftExcelLogoDuotone } from "react-icons/pi";
+import { AiOutlineMail } from "react-icons/ai";
 import { motion, AnimatePresence } from 'framer-motion';
 import { TransactionModalManager } from '../components/Modals/CreateTransactions';
 import { DateRangePickerField } from '../components/PortalDatePicker';
@@ -28,6 +32,223 @@ import TablePagination from '../components/TablePagination';
 import API_BASE_URL from '../utils/api-controller';
 import getHeaders from '../utils/get-headers';
 import axios from 'axios';
+import toast from 'react-hot-toast';
+
+// Inline Export Modal Component
+const InlineExportModal = ({ isOpen, onClose, exportData, columns, jobType }) => {
+    const [exporting, setExporting] = useState(false);
+    const [exportStatus, setExportStatus] = useState(null);
+    const [selectedFormat, setSelectedFormat] = useState(null);
+
+    const getUserEmail = () => {
+        try {
+            const userEmail = localStorage.getItem('user_email');
+            if (userEmail && userEmail !== 'undefined' && userEmail !== 'null') {
+                return userEmail;
+            }
+            const userData = localStorage.getItem('user');
+            if (userData) {
+                const user = JSON.parse(userData);
+                if (user.email) return user.email;
+                if (user.user_email) return user.user_email;
+            }
+            return null;
+        } catch (error) {
+            console.error('Error getting user email:', error);
+            return null;
+        }
+    };
+
+    const userEmail = getUserEmail();
+
+    const handleExport = async (fileType) => {
+        if (!exportData || exportData.length === 0) {
+            toast.error('No data to export');
+            return;
+        }
+
+        if (!userEmail) {
+            toast.error('User email not found. Please login again.');
+            return;
+        }
+
+        setSelectedFormat(fileType);
+        setExporting(true);
+        setExportStatus('processing');
+
+        try {
+            const headers = await getHeaders();
+            
+            const payload = {
+                job_type: jobType,
+                file_type: fileType,
+                recipient_email: userEmail,
+                email_subject: `${jobType.replace('_', ' ').toUpperCase()} Export - ${new Date().toLocaleString()}`,
+                email_message: `<p>Your ${jobType.replace('_', ' ')} export is ready.</p>
+                                <p><strong>File Format:</strong> ${fileType.toUpperCase()}</p>
+                                <p><strong>Total Records:</strong> ${exportData.length}</p>
+                                <p><strong>Generated on:</strong> ${new Date().toLocaleString()}</p>`,
+                data: exportData,
+                columns: columns,
+                filters: {
+                    export_date: new Date().toISOString(),
+                    total_records: exportData.length
+                }
+            };
+
+            const response = await fetch(`${API_BASE_URL}/export/request`, {
+                method: 'POST',
+                headers: { ...headers, 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+
+            const result = await response.json();
+
+            if (result.success) {
+                setExportStatus('success');
+                toast.success(`Export started! You will receive the ${fileType.toUpperCase()} file via email at ${userEmail}`);
+                setTimeout(() => {
+                    onClose();
+                    setExportStatus(null);
+                    setSelectedFormat(null);
+                    setExporting(false);
+                }, 2000);
+            } else {
+                throw new Error(result.message || 'Export failed');
+            }
+        } catch (error) {
+            console.error('Export error:', error);
+            setExportStatus('error');
+            toast.error(error.message || 'Failed to start export');
+            setTimeout(() => {
+                setExportStatus(null);
+                setSelectedFormat(null);
+                setExporting(false);
+            }, 2000);
+        }
+    };
+
+    const exportOptions = [
+        { type: 'excel', icon: <PiMicrosoftExcelLogoDuotone className="w-6 h-6 text-green-600" />, label: 'Excel (.xlsx)', description: 'Export as Microsoft Excel spreadsheet' },
+        { type: 'csv', icon: <FiRepeat className="w-6 h-6 text-blue-600" />, label: 'CSV (.csv)', description: 'Export as Comma Separated Values' },
+        { type: 'pdf', icon: <PiFilePdfDuotone className="w-6 h-6 text-red-600" />, label: 'PDF (.pdf)', description: 'Export as Portable Document Format' }
+    ];
+
+    if (!isOpen) return null;
+
+    return (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[200] p-4">
+            <div className="bg-white rounded-xl shadow-2xl w-full max-w-md mx-auto overflow-hidden">
+                {/* Header */}
+                <div className="bg-gradient-to-r from-indigo-600 to-indigo-700 text-white px-6 py-4">
+                    <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 bg-white/20 rounded-lg flex items-center justify-center">
+                                <PiExportBold className="w-5 h-5" />
+                            </div>
+                            <div>
+                                <h3 className="text-lg font-bold">Export Data</h3>
+                                <p className="text-indigo-100 text-sm">Choose your preferred format</p>
+                            </div>
+                        </div>
+                        <button
+                            onClick={onClose}
+                            className="text-white p-2 rounded-lg hover:bg-white/10 transition-colors"
+                            disabled={exporting}
+                        >
+                            <FiX className="w-5 h-5" />
+                        </button>
+                    </div>
+                </div>
+
+                {/* Body */}
+                <div className="p-6">
+                    {/* Email Info */}
+                    <div className="mb-4 p-3 bg-blue-50 rounded-lg border border-blue-200">
+                        <div className="flex items-center gap-2">
+                            <AiOutlineMail className="w-4 h-4 text-blue-600" />
+                            <span className="text-sm text-blue-800">
+                                Export will be sent to: <strong>{userEmail || 'Not found'}</strong>
+                            </span>
+                        </div>
+                        {!userEmail && (
+                            <div className="mt-2 text-xs text-red-600">
+                                Please make sure you are logged in with a valid email address.
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Data Summary */}
+                    <div className="mb-4 p-3 bg-gray-50 rounded-lg border border-gray-200">
+                        <div className="flex justify-between text-sm">
+                            <span className="text-gray-600">Total Records:</span>
+                            <span className="font-semibold text-gray-800">{exportData?.length || 0}</span>
+                        </div>
+                        <div className="flex justify-between text-sm mt-1">
+                            <span className="text-gray-600">Columns:</span>
+                            <span className="font-semibold text-gray-800">{columns?.length || 0}</span>
+                        </div>
+                    </div>
+
+                    {/* Export Options */}
+                    <div className="space-y-3">
+                        {exportOptions.map((option) => (
+                            <button
+                                key={option.type}
+                                onClick={() => handleExport(option.type)}
+                                disabled={exporting || !userEmail}
+                                className={`w-full flex items-center justify-between p-4 rounded-lg border-2 transition-all ${
+                                    exporting && selectedFormat === option.type
+                                        ? 'border-indigo-500 bg-indigo-50'
+                                        : 'border-gray-200 hover:border-indigo-300 hover:bg-gray-50'
+                                } ${(exporting || !userEmail) && selectedFormat !== option.type ? 'opacity-50 cursor-not-allowed' : ''}`}
+                            >
+                                <div className="flex items-center gap-3">
+                                    <div className="p-2 rounded-lg bg-gray-50">
+                                        {option.icon}
+                                    </div>
+                                    <div className="text-left">
+                                        <div className="font-medium text-gray-800">{option.label}</div>
+                                        <div className="text-xs text-gray-500">{option.description}</div>
+                                    </div>
+                                </div>
+                                {exporting && selectedFormat === option.type && (
+                                    <div className="flex items-center gap-2">
+                                        {exportStatus === 'processing' && <div className="w-5 h-5 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin"></div>}
+                                        {exportStatus === 'success' && <FiCheckCircle className="w-5 h-5 text-green-600" />}
+                                        {exportStatus === 'error' && <FiAlertCircle className="w-5 h-5 text-red-600" />}
+                                    </div>
+                                )}
+                            </button>
+                        ))}
+                    </div>
+
+                    {/* Info Message */}
+                    <div className="mt-4 p-3 bg-yellow-50 rounded-lg border border-yellow-200">
+                        <div className="flex items-start gap-2">
+                            <FiInfo className="w-4 h-4 text-yellow-600 mt-0.5 flex-shrink-0" />
+                            <p className="text-xs text-yellow-700">
+                                Export will be processed in the background. You will receive the file via email once completed.
+                                Duplicate export requests are not allowed while an export is already in progress.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Footer */}
+                <div className="px-6 py-4 bg-gray-50 border-t border-gray-200 flex justify-end">
+                    <button
+                        onClick={onClose}
+                        className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-100 font-medium text-sm transition-colors"
+                        disabled={exporting}
+                    >
+                        Cancel
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+};
 
 const ViewContra = () => {
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -46,6 +267,11 @@ const ViewContra = () => {
     const [showAddDropdown, setShowAddDropdown] = useState(false);
     const [activeRowDropdown, setActiveRowDropdown] = useState(null);
     const [exportModal, setExportModal] = useState({ open: false, type: '', data: null });
+
+    // Export Modal State
+    const [exportModalOpen, setExportModalOpen] = useState(false);
+    const [exportData, setExportData] = useState([]);
+    const [exportColumns, setExportColumns] = useState([]);
 
     // Pagination state
     const [currentPage, setCurrentPage] = useState(1);
@@ -77,20 +303,67 @@ const ViewContra = () => {
         }
     }, [currentPage, debouncedSearchTerm, fromDate, toDate]);
 
-    const handleContraSuccess = (type, contraData) => {
-        console.log(`${type} transaction created:`, contraData);
-        alert('Contra entry confirmed! Refreshing data...');
-        fetchContraData(); // Refresh the list
+    // Prepare data for export
+    const prepareExportData = () => {
+        const exportDataList = [];
+        const exportColumnsConfig = [];
+
+        const columns = [
+            { header: 'Sl No', key: 'sl_no', width: 10 },
+            { header: 'Date', key: 'date', width: 15 },
+            { header: 'Voucher No', key: 'voucher_no', width: 20 },
+            { header: 'From Bank', key: 'from_bank', width: 25 },
+            { header: 'To Bank', key: 'to_bank', width: 25 },
+            { header: 'Amount (₹)', key: 'amount', width: 18 },
+            { header: 'Remark', key: 'remark', width: 30 }
+        ];
+
+        exportColumnsConfig.push(...columns);
+
+        contras.forEach((contra, index) => {
+            const row = {
+                sl_no: ((currentPage - 1) * itemsPerPage) + index + 1,
+                date: contra.date || 'N/A',
+                voucher_no: contra.invoice_no || 'N/A',
+                from_bank: contra.out_bank || 'N/A',
+                to_bank: contra.in_bank || 'N/A',
+                amount: contra.amount || 0,
+                remark: contra.remark || ''
+            };
+            exportDataList.push(row);
+        });
+
+        return { data: exportDataList, columns: exportColumnsConfig };
     };
 
-    const handleExport = (type, data = null) => {
+    // Handle export click for modal
+    const handleExportClick = () => {
+        const { data, columns } = prepareExportData();
+        
+        if (data.length === 0) {
+            toast.error('No data to export');
+            return;
+        }
+
+        setExportData(data);
+        setExportColumns(columns);
+        setExportModalOpen(true);
+    };
+
+    // Handle other exports (print)
+    const handleOtherExport = (type, data = null) => {
         setExportModal({ open: true, type, data });
 
-        // Simulate export process
         setTimeout(() => {
             setExportModal({ open: false, type: '', data: null });
-            alert(`${type.toUpperCase()} export completed successfully!`);
+            toast.success(`${type.toUpperCase()} export completed successfully!`);
         }, 1500);
+    };
+
+    const handleContraSuccess = (type, contraData) => {
+        console.log(`${type} transaction created:`, contraData);
+        toast.success('Contra entry confirmed! Refreshing data...');
+        fetchContraData();
     };
 
     // Format currency
@@ -116,7 +389,6 @@ const ViewContra = () => {
                 to_date: toDate
             };
 
-            // Add search parameter if search term exists
             if (debouncedSearchTerm.trim()) {
                 params.search = debouncedSearchTerm.trim();
             }
@@ -129,14 +401,12 @@ const ViewContra = () => {
             if (response.data.success) {
                 const contraData = transformApiData(response.data.data);
                 setContras(contraData);
-
-                // Update pagination info
                 setTotalItems(response.data.meta.total);
                 setIsLastPage(response.data.meta.is_last_page);
             }
         } catch (error) {
             console.error('Error fetching contra data:', error);
-            alert('Failed to fetch contra entries. Please try again.');
+            toast.error('Failed to fetch contra entries. Please try again.');
         } finally {
             setLoading(false);
         }
@@ -145,9 +415,7 @@ const ViewContra = () => {
     // Transform API response to match the component's expected format
     const transformApiData = (apiData) => {
         return apiData.map((item) => {
-            // Extract from bank details from payment_from
             const fromBank = item.payment_from?.details || {};
-            // Extract to bank details from payment_to
             const toBank = item.payment_to?.details || {};
 
             return {
@@ -156,14 +424,12 @@ const ViewContra = () => {
                 invoice_id: item.invoice_id,
                 invoice_no: item.invoice_no,
                 date: formatDateForDisplay(item.transaction_date),
-                // From Bank Details (payment_from)
                 out_bank: fromBank.bank || 'N/A',
                 out_account: fromBank.account_no || 'N/A',
                 out_holder: fromBank.holder || 'N/A',
                 out_type: fromBank.type || 'N/A',
                 out_ifsc: fromBank.ifsc || 'N/A',
                 out_branch: fromBank.branch || 'N/A',
-                // To Bank Details (payment_to)
                 in_bank: toBank.bank || 'N/A',
                 in_account: toBank.account_no || 'N/A',
                 in_holder: toBank.holder || 'N/A',
@@ -172,7 +438,7 @@ const ViewContra = () => {
                 in_branch: toBank.branch || 'N/A',
                 amount: parseFloat(item.amount),
                 remark: item.remark || '',
-                raw_data: item // Keep raw data for reference
+                raw_data: item
             };
         });
     };
@@ -190,7 +456,7 @@ const ViewContra = () => {
 
     // Format date for API (YYYY-MM-DD)
     const formatDateForAPI = (date) => {
-        return date.toLocaleDateString('en-CA'); // YYYY-MM-DD format
+        return date.toLocaleDateString('en-CA');
     };
 
     // Handle search input change
@@ -280,7 +546,6 @@ const ViewContra = () => {
         }
     };
 
-    /** Shorten remark for table cells — first ~10 words then ellipsis */
     const ellipsisRemark = (text, maxWords = 10) => {
         const s = text != null ? String(text).trim() : '';
         if (!s) return '-';
@@ -394,93 +659,43 @@ const ViewContra = () => {
         );
     };
 
-    /** Sum of amounts on the current page (not shown in UI; avoids stale `totalAmount` refs during HMR). */
     const totalAmount = contras.reduce((acc, c) => acc + (Number(c.amount) || 0), 0);
 
     // Skeleton loader component
     const SkeletonRow = () => (
         <tr className="border-b border-slate-100 animate-pulse">
-            <td className="p-3 text-center">
-                <div className="h-4 bg-slate-200 rounded w-6 mx-auto"></div>
-            </td>
-            <td className="p-3 text-center">
-                <div className="h-4 bg-slate-200 rounded w-16 mx-auto"></div>
-            </td>
-            <td className="p-3 text-center">
-                <div className="h-4 bg-slate-200 rounded w-16 mx-auto"></div>
-            </td>
-            <td className="p-3 text-center">
-                <div className="h-4 bg-slate-200 rounded w-24 mx-auto"></div>
-            </td>
-            <td className="p-3 text-center">
-                <div className="h-4 bg-slate-200 rounded w-24 mx-auto"></div>
-            </td>
-            <td className="p-3 text-center">
-                <div className="h-6 bg-slate-200 rounded w-16 mx-auto"></div>
-            </td>
-            <td className="p-3 text-center">
-                <div className="h-6 bg-slate-200 rounded w-20 mx-auto"></div>
-            </td>
-            <td className="p-3 text-center">
-                <div className="h-6 bg-slate-200 rounded w-10 mx-auto"></div>
-            </td>
+            <td className="p-3 text-center"><div className="h-4 bg-slate-200 rounded w-6 mx-auto"></div></td>
+            <td className="p-3 text-center"><div className="h-4 bg-slate-200 rounded w-16 mx-auto"></div></td>
+            <td className="p-3 text-center"><div className="h-4 bg-slate-200 rounded w-16 mx-auto"></div></td>
+            <td className="p-3 text-center"><div className="h-4 bg-slate-200 rounded w-24 mx-auto"></div></td>
+            <td className="p-3 text-center"><div className="h-4 bg-slate-200 rounded w-24 mx-auto"></div></td>
+            <td className="p-3 text-center"><div className="h-6 bg-slate-200 rounded w-16 mx-auto"></div></td>
+            <td className="p-3 text-center"><div className="h-6 bg-slate-200 rounded w-20 mx-auto"></div></td>
+            <td className="p-3 text-center"><div className="h-6 bg-slate-200 rounded w-10 mx-auto"></div></td>
         </tr>
     );
 
     // Skeleton Loading Component for full page
     const SkeletonLoader = () => (
         <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
-            <Header
-                mobileMenuOpen={mobileMenuOpen}
-                setMobileMenuOpen={setMobileMenuOpen}
-                isMinimized={isMinimized}
-                setIsMinimized={setIsMinimized}
-            />
-            <Sidebar
-                mobileMenuOpen={mobileMenuOpen}
-                setMobileMenuOpen={setMobileMenuOpen}
-                isMinimized={isMinimized}
-                setIsMinimized={setIsMinimized}
-            />
-
+            <Header mobileMenuOpen={mobileMenuOpen} setMobileMenuOpen={setMobileMenuOpen} isMinimized={isMinimized} setIsMinimized={setIsMinimized} />
+            <Sidebar mobileMenuOpen={mobileMenuOpen} setMobileMenuOpen={setMobileMenuOpen} isMinimized={isMinimized} setIsMinimized={setIsMinimized} />
             <div className={`pt-16 transition-all duration-300 ease-in-out ${isMinimized ? 'md:pl-20' : 'md:pl-[260px]'}`}>
                 <div className="max-w-full mx-auto px-4 sm:px-6 lg:px-8 py-6">
                     <div className="bg-white rounded-xl shadow-sm border border-slate-200">
-                        {/* Skeleton Header */}
                         <div className="border-b border-slate-200 px-6 py-4">
                             <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
-                                <div>
-                                    <div className="h-6 bg-gray-200 rounded w-48 mb-2"></div>
-                                    <div className="h-4 bg-gray-200 rounded w-32"></div>
-                                </div>
-                                <div className="flex gap-3">
-                                    <div className="h-10 bg-gray-200 rounded w-40"></div>
-                                    <div className="h-10 bg-gray-200 rounded w-32"></div>
-                                </div>
+                                <div><div className="h-6 bg-gray-200 rounded w-48 mb-2"></div><div className="h-4 bg-gray-200 rounded w-32"></div></div>
+                                <div className="flex gap-3"><div className="h-10 bg-gray-200 rounded w-40"></div><div className="h-10 bg-gray-200 rounded w-32"></div></div>
                             </div>
                         </div>
-
-                        {/* Skeleton Table */}
                         <div className="overflow-hidden">
                             <table className="w-full text-sm">
                                 <thead className="bg-gradient-to-r from-slate-50 to-slate-100">
-                                    <tr>
-                                        {[...Array(8)].map((_, i) => (
-                                            <th key={i} className="text-center p-3">
-                                                <div className="h-4 bg-gray-200 rounded w-20 mx-auto"></div>
-                                            </th>
-                                        ))}
-                                    </tr>
+                                    <tr>{[...Array(8)].map((_, i) => (<th key={i} className="text-center p-3"><div className="h-4 bg-gray-200 rounded w-20 mx-auto"></div></th>))}</tr>
                                 </thead>
                             </table>
-
-                            <div className="p-4">
-                                {[...Array(6)].map((_, index) => (
-                                    <div key={index} className="mb-4">
-                                        <div className="h-12 bg-gray-100 rounded"></div>
-                                    </div>
-                                ))}
-                            </div>
+                            <div className="p-4">{[...Array(6)].map((_, index) => (<div key={index} className="mb-4"><div className="h-12 bg-gray-100 rounded"></div></div>))}</div>
                         </div>
                     </div>
                 </div>
@@ -508,13 +723,11 @@ const ViewContra = () => {
                 setIsMinimized={setIsMinimized}
             />
 
-            {/* Main Content Area - Full Page Scroll */}
             <div className={`pt-16 transition-all duration-300 ease-in-out ${isMinimized ? 'md:pl-20' : 'md:pl-[260px]'}`}>
                 <div className="max-w-full mx-auto px-4 sm:px-6 lg:px-8 py-6">
                     <span className="sr-only">
                         Total transfer amount on this page: ₹{formatCurrency(totalAmount)}
                     </span>
-                    {/* Main Card */}
                     <motion.div
                         initial={{ opacity: 0, scale: 0.98 }}
                         animate={{ opacity: 1, scale: 1 }}
@@ -600,7 +813,7 @@ const ViewContra = () => {
                                                     >
                                                         <div className="py-1">
                                                             <button
-                                                                onClick={() => handleExport('pdf')}
+                                                                onClick={handleExportClick}
                                                                 className="flex items-center w-full px-3 py-2 text-sm text-slate-700 hover:bg-blue-50 transition-all duration-150 group"
                                                             >
                                                                 <div className="p-1.5 bg-red-50 rounded mr-2 group-hover:bg-red-100 transition-colors">
@@ -611,7 +824,7 @@ const ViewContra = () => {
                                                                 </div>
                                                             </button>
                                                             <button
-                                                                onClick={() => handleExport('excel')}
+                                                                onClick={handleExportClick}
                                                                 className="flex items-center w-full px-3 py-2 text-sm text-slate-700 hover:bg-blue-50 transition-all duration-150 group"
                                                             >
                                                                 <div className="p-1.5 bg-green-50 rounded mr-2 group-hover:bg-green-100 transition-colors">
@@ -622,7 +835,7 @@ const ViewContra = () => {
                                                                 </div>
                                                             </button>
                                                             <button
-                                                                onClick={() => handleExport('print')}
+                                                                onClick={() => handleOtherExport('print')}
                                                                 className="flex items-center w-full px-3 py-2 text-sm text-slate-700 hover:bg-blue-50 transition-all duration-150 group"
                                                             >
                                                                 <div className="p-1.5 bg-slate-50 rounded mr-2 group-hover:bg-slate-100 transition-colors">
@@ -652,43 +865,24 @@ const ViewContra = () => {
                             </div>
                         </div>
 
-                        {/* Table Container — no extra radius; outer card supplies rounded corners */}
+                        {/* Table Container */}
                         <div className="w-full overflow-x-auto">
                             <table className="w-full text-xs">
                                 <thead className="bg-gradient-to-r from-slate-50 to-slate-100 sticky top-0">
                                     <tr>
-                                        <th className="text-center p-3 font-semibold text-slate-700 text-[10px] uppercase tracking-wider w-[5%]">
-                                            #
-                                        </th>
-                                        <th className="text-center p-3 font-semibold text-slate-700 text-[10px] uppercase tracking-wider w-[8%]">
-                                            Date
-                                        </th>
-                                        <th className="text-center p-3 font-semibold text-slate-700 text-[10px] uppercase tracking-wider w-[10%]">
-                                            Voucher No
-                                        </th>
-                                        <th className="text-center p-3 font-semibold text-slate-700 text-[10px] uppercase tracking-wider w-[20%]">
-                                            From Bank (Payment From)
-                                        </th>
-                                        <th className="text-center p-3 font-semibold text-slate-700 text-[10px] uppercase tracking-wider w-[20%]">
-                                            To Bank (Payment To)
-                                        </th>
-                                        <th className="text-center p-3 font-semibold text-slate-700 text-[10px] uppercase tracking-wider w-[10%]">
-                                            Amount
-                                        </th>
-                                        <th className="text-center p-3 font-semibold text-slate-700 text-[10px] uppercase tracking-wider w-[17%]">
-                                            Remark
-                                        </th>
-                                        <th className="text-center p-3 font-semibold text-slate-700 text-[10px] uppercase tracking-wider w-[10%]">
-                                            Actions
-                                        </th>
+                                        <th className="text-center p-3 font-semibold text-slate-700 text-[10px] uppercase tracking-wider w-[5%]">#</th>
+                                        <th className="text-center p-3 font-semibold text-slate-700 text-[10px] uppercase tracking-wider w-[8%]">Date</th>
+                                        <th className="text-center p-3 font-semibold text-slate-700 text-[10px] uppercase tracking-wider w-[10%]">Voucher No</th>
+                                        <th className="text-center p-3 font-semibold text-slate-700 text-[10px] uppercase tracking-wider w-[20%]">From Bank (Payment From)</th>
+                                        <th className="text-center p-3 font-semibold text-slate-700 text-[10px] uppercase tracking-wider w-[20%]">To Bank (Payment To)</th>
+                                        <th className="text-center p-3 font-semibold text-slate-700 text-[10px] uppercase tracking-wider w-[10%]">Amount</th>
+                                        <th className="text-center p-3 font-semibold text-slate-700 text-[10px] uppercase tracking-wider w-[17%]">Remark</th>
+                                        <th className="text-center p-3 font-semibold text-slate-700 text-[10px] uppercase tracking-wider w-[10%]">Actions</th>
                                     </tr>
                                 </thead>
                                 <tbody className="bg-white divide-y divide-slate-100">
                                     {loading ? (
-                                        // Show skeleton rows while loading
-                                        [...Array(5)].map((_, idx) => (
-                                            <SkeletonRow key={idx} />
-                                        ))
+                                        [...Array(5)].map((_, idx) => <SkeletonRow key={idx} />)
                                     ) : contras.length === 0 ? (
                                         <tr>
                                             <td colSpan="8" className="text-center py-8 text-slate-500">
@@ -727,21 +921,16 @@ const ViewContra = () => {
                                                     className="hover:bg-blue-50/20 transition-colors duration-150"
                                                 >
                                                     <td className="text-center p-3 align-middle">
-                                                        <div className="text-slate-700 font-medium text-xs">
-                                                            {serialNumber}
-                                                        </div>
+                                                        <div className="text-slate-700 font-medium text-xs">{serialNumber}</div>
                                                     </td>
                                                     <td className="text-center p-3 align-middle">
-                                                        <div className="font-medium text-slate-700 text-xs">
-                                                            {formatDate(contra.date)}
-                                                        </div>
+                                                        <div className="font-medium text-slate-700 text-xs">{formatDate(contra.date)}</div>
                                                     </td>
                                                     <td className="text-center p-3 align-middle">
                                                         <span className="inline-flex items-center justify-center bg-gradient-to-r from-slate-100 to-slate-200 text-slate-800 font-bold px-3 py-1.5 rounded text-xs border border-slate-300/50">
                                                             {contra.invoice_no}
                                                         </span>
                                                     </td>
-                                                    {/* From Bank Column - payment_from data */}
                                                     <td className="text-center p-3 align-middle">
                                                         <div className="px-2">
                                                             <div className="text-slate-800 font-semibold text-xs truncate" title={contra.out_bank}>
@@ -767,7 +956,6 @@ const ViewContra = () => {
                                                             </div>
                                                         </div>
                                                     </td>
-                                                    {/* To Bank Column - payment_to data */}
                                                     <td className="text-center p-3 align-middle">
                                                         <div className="px-2">
                                                             <div className="text-slate-800 font-semibold text-xs truncate" title={contra.in_bank}>
@@ -800,10 +988,7 @@ const ViewContra = () => {
                                                     </td>
                                                     <td className="text-center p-3 align-middle max-w-[14rem]">
                                                         <div className="px-2 mx-auto text-left">
-                                                            <p
-                                                                className="text-slate-600 text-[10px] italic line-clamp-2 break-words"
-                                                                title={contra.remark || ''}
-                                                            >
+                                                            <p className="text-slate-600 text-[10px] italic line-clamp-2 break-words" title={contra.remark || ''}>
                                                                 {ellipsisRemark(contra.remark)}
                                                             </p>
                                                         </div>
@@ -857,7 +1042,7 @@ const ViewContra = () => {
                                                                             <div className="border-t border-slate-100 mt-1 pt-1">
                                                                                 <button
                                                                                     className="flex items-center w-full px-3 py-2 text-xs text-slate-700 hover:bg-blue-50 transition-colors duration-150"
-                                                                                    onClick={() => handleExport('print', contra)}
+                                                                                    onClick={() => handleOtherExport('print', contra)}
                                                                                 >
                                                                                     <div className="p-1 bg-slate-50 rounded mr-2">
                                                                                         <FiPrinter className="w-3 h-3 text-slate-600" />
@@ -907,7 +1092,7 @@ const ViewContra = () => {
                 formatCurrency={formatCurrency}
             />
 
-            {/* Contra entry detail — follows context/modal.md (viewport-safe, body scroll only) */}
+            {/* Contra entry detail modal */}
             <AnimatePresence>
                 {detailContra && (
                     <motion.div
@@ -932,9 +1117,7 @@ const ViewContra = () => {
                             <div className="flex shrink-0 items-center justify-between border-b border-indigo-800/30 bg-gradient-to-r from-indigo-600 to-indigo-700 px-5 py-3.5 text-white">
                                 <div className="flex items-center gap-2">
                                     <FiEye className="h-5 w-5 shrink-0 opacity-90" aria-hidden />
-                                    <h2 id="contra-detail-title" className="text-lg font-bold">
-                                        Contra details
-                                    </h2>
+                                    <h2 id="contra-detail-title" className="text-lg font-bold">Contra details</h2>
                                 </div>
                                 <button
                                     type="button"
@@ -945,10 +1128,7 @@ const ViewContra = () => {
                                     <FiX className="h-5 w-5" />
                                 </button>
                             </div>
-                            <div
-                                className="flex-1 overflow-y-auto px-5 py-4 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden"
-                                style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
-                            >
+                            <div className="flex-1 overflow-y-auto px-5 py-4" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
                                 {(() => {
                                     const raw = detailContra.raw_data || {};
                                     const txDate = raw.transaction_date || detailContra.date;
@@ -1012,6 +1192,15 @@ const ViewContra = () => {
                     </motion.div>
                 )}
             </AnimatePresence>
+
+            {/* Inline Export Modal */}
+            <InlineExportModal
+                isOpen={exportModalOpen}
+                onClose={() => { setExportModalOpen(false); setExportData([]); setExportColumns([]); }}
+                exportData={exportData}
+                columns={exportColumns}
+                jobType="contra_report"
+            />
 
             {/* Export Confirmation Modal */}
             <AnimatePresence>

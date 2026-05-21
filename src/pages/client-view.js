@@ -44,13 +44,15 @@ import { PiExportBold } from "react-icons/pi";
 import { PiFilePdfDuotone, PiMicrosoftExcelLogoDuotone } from "react-icons/pi";
 import { AiOutlineMail } from "react-icons/ai";
 import { FaWhatsapp } from "react-icons/fa6";
+import { FaFileCsv } from 'react-icons/fa';
 import DeleteConfirmationModal from '../components/delete-confirmation';
 import { motion, AnimatePresence } from 'framer-motion';
 import axios from 'axios';
 import API_BASE_URL from "../utils/api-controller";
 import getHeaders from "../utils/get-headers";
-// Import the new Pagination component
 import Pagination from '../components/paging-nation-component';
+import ExportModal from '../ClientComponents/ExportModal';
+import toast from 'react-hot-toast';
 
 // Import DnD Kit
 import {
@@ -122,7 +124,6 @@ const StatusChangeModal = ({ isOpen, onClose, clientId, currentStatus, onStatusC
                         transition={{ duration: 0.2 }}
                         onClick={(e) => e.stopPropagation()}
                     >
-                        {/* Header */}
                         <div className="bg-gradient-to-r from-blue-600 to-blue-700 text-white px-4 py-3">
                             <div className="flex items-center justify-between">
                                 <div className="flex items-center gap-2">
@@ -145,7 +146,6 @@ const StatusChangeModal = ({ isOpen, onClose, clientId, currentStatus, onStatusC
                             </div>
                         </div>
 
-                        {/* Current Status */}
                         <div className="p-4 border-b border-gray-200">
                             <div className="mb-3">
                                 <label className="block text-xs font-semibold text-gray-600 mb-1">Current Status</label>
@@ -157,7 +157,6 @@ const StatusChangeModal = ({ isOpen, onClose, clientId, currentStatus, onStatusC
                                 </div>
                             </div>
 
-                            {/* New Status Selection */}
                             <div className="mb-2">
                                 <label className="block text-xs font-semibold text-gray-600 mb-1">Select New Status</label>
                                 <div className="space-y-1.5">
@@ -182,7 +181,6 @@ const StatusChangeModal = ({ isOpen, onClose, clientId, currentStatus, onStatusC
                             </div>
                         </div>
 
-                        {/* Footer */}
                         <div className="px-4 py-3 bg-gray-50 flex justify-end gap-2">
                             <motion.button
                                 onClick={onClose}
@@ -259,7 +257,6 @@ const FirmsDetailsModal = ({ isOpen, onClose, firms, clientName }) => {
                         transition={{ duration: 0.2 }}
                         onClick={(e) => e.stopPropagation()}
                     >
-                        {/* Header */}
                         <div className="bg-gradient-to-r from-blue-600 to-blue-700 text-white px-6 py-4">
                             <div className="flex items-center justify-between">
                                 <div className="flex items-center gap-3">
@@ -282,7 +279,6 @@ const FirmsDetailsModal = ({ isOpen, onClose, firms, clientName }) => {
                             </div>
                         </div>
 
-                        {/* Firms List */}
                         <div className="p-6 overflow-y-auto max-h-[70vh]">
                             <div className="space-y-4">
                                 {firms.map((firm, index) => (
@@ -293,7 +289,6 @@ const FirmsDetailsModal = ({ isOpen, onClose, firms, clientName }) => {
                                         animate={{ opacity: 1, x: 0 }}
                                         transition={{ delay: index * 0.05 }}
                                     >
-                                        {/* Firm Header */}
                                         <div className="p-4 bg-white border-b border-gray-200">
                                             <div className="flex flex-col md:flex-row md:items-start justify-between mb-3 gap-4">
                                                 <div className="flex-1">
@@ -339,7 +334,6 @@ const FirmsDetailsModal = ({ isOpen, onClose, firms, clientName }) => {
                                             </div>
                                         </div>
 
-                                        {/* Basic Details */}
                                         <div className="p-4">
                                             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                                                 {firm.pan_no && (
@@ -369,7 +363,6 @@ const FirmsDetailsModal = ({ isOpen, onClose, firms, clientName }) => {
                                             </div>
                                         </div>
 
-                                        {/* Expanded Details */}
                                         <AnimatePresence>
                                             {expandedFirm === (firm.firm_id || index) && (
                                                 <motion.div
@@ -380,7 +373,6 @@ const FirmsDetailsModal = ({ isOpen, onClose, firms, clientName }) => {
                                                     transition={{ duration: 0.2 }}
                                                 >
                                                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                                                        {/* Additional Registration Numbers */}
                                                         <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm">
                                                             <h5 className="font-bold text-gray-800 text-sm mb-4 pb-2 border-b border-gray-100">Registration Details</h5>
                                                             <div className="space-y-3">
@@ -405,7 +397,6 @@ const FirmsDetailsModal = ({ isOpen, onClose, firms, clientName }) => {
                                                             </div>
                                                         </div>
 
-                                                        {/* Address Information */}
                                                         <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm">
                                                             <h5 className="font-bold text-gray-800 text-sm mb-4 pb-2 border-b border-gray-100">Address</h5>
                                                             <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
@@ -415,7 +406,6 @@ const FirmsDetailsModal = ({ isOpen, onClose, firms, clientName }) => {
                                                             </div>
                                                         </div>
 
-                                                        {/* Creation Details */}
                                                         <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm">
                                                             <h5 className="font-bold text-gray-800 text-sm mb-4 pb-2 border-b border-gray-100">Created By</h5>
                                                             {firm.create_by && (
@@ -440,7 +430,6 @@ const FirmsDetailsModal = ({ isOpen, onClose, firms, clientName }) => {
                                                             )}
                                                         </div>
 
-                                                        {/* Modification Details */}
                                                         <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm">
                                                             <h5 className="font-bold text-gray-800 text-sm mb-4 pb-2 border-b border-gray-100">Last Modified</h5>
                                                             {firm.modify_by && Object.keys(firm.modify_by).length > 0 ? (
@@ -469,7 +458,6 @@ const FirmsDetailsModal = ({ isOpen, onClose, firms, clientName }) => {
                             </div>
                         </div>
 
-                        {/* Footer */}
                         <div className="px-6 py-4 bg-gray-50 border-t border-gray-200 flex flex-col sm:flex-row justify-between items-center gap-3">
                             <div className="text-sm text-gray-600 font-medium">
                                 Total: {firms.length} firm{firms.length !== 1 ? 's' : ''}
@@ -1131,6 +1119,11 @@ const ViewClients = () => {
     const [isMobile, setIsMobile] = useState(false);
     const [statusModal, setStatusModal] = useState({ open: false, clientId: null, currentStatus: '' });
     const [firmsModal, setFirmsModal] = useState({ open: false, firms: [], clientName: '' });
+    
+    // Export Modal State
+    const [exportModalOpen, setExportModalOpen] = useState(false);
+    const [exportData, setExportData] = useState([]);
+    const [exportColumns, setExportColumns] = useState([]);
 
     // Pagination state based on API structure
     const [clients, setClients] = useState([]);
@@ -1152,8 +1145,6 @@ const ViewClients = () => {
             coordinateGetter: sortableKeyboardCoordinates,
         })
     );
-
-
 
     // Fetch clients with API pagination
     const fetchClients = useCallback(async (page = 1, limit = 10) => {
@@ -1189,7 +1180,6 @@ const ViewClients = () => {
                     is_last_page: true
                 };
 
-                // Handle different response structures
                 if (response.data.pagination && Array.isArray(response.data.data)) {
                     clientsData = response.data.data;
                     paginationData = response.data.pagination;
@@ -1231,7 +1221,6 @@ const ViewClients = () => {
         } catch (error) {
             console.error('Error fetching clients:', error);
 
-            // Dummy data for testing with pagination structure
             const dummyData = Array.from({ length: 15 }, (_, i) => ({
                 _id: `${i + 1}`,
                 id: `${i + 1}`,
@@ -1261,7 +1250,7 @@ const ViewClients = () => {
         } finally {
             setLoading(false);
         }
-    }, [searchQuery, selectedStatus, selectedGroup, getHeaders]);
+    }, [searchQuery, selectedStatus, selectedGroup]);
 
     useEffect(() => {
         const checkIfMobile = () => {
@@ -1295,19 +1284,16 @@ const ViewClients = () => {
         fetchClients(1, pagination.limit);
     }, [searchQuery, selectedStatus, selectedGroup]);
 
-    // Handle page change
     const handlePageChange = (newPage) => {
         if (newPage < 1 || newPage > pagination.total_pages) return;
         fetchClients(newPage, pagination.limit);
     };
 
-    // Handle limit change
     const handleLimitChange = (newLimit) => {
         setPagination(prev => ({ ...prev, limit: newLimit, page: 1 }));
         fetchClients(1, newLimit);
     };
 
-    // Handle custom page change
     const handleCustomPageChange = (pageNum) => {
         handlePageChange(pageNum);
     };
@@ -1400,13 +1386,106 @@ const ViewClients = () => {
         { value: 'company', name: 'Company' }
     ]);
 
-    const handleExport = (type, data = null) => {
-        setExportModal({ open: true, type, data });
+ // Prepare data for export - Uses existing clients state
+const prepareExportData = () => {
+    const exportDataList = [];
+    const exportColumnsConfig = [];
 
-        setTimeout(() => {
-            setExportModal({ open: false, type: '', data: null });
-            alert(`${type.toUpperCase()} export completed successfully!`);
-        }, 1500);
+    // Use already fetched clients data from state
+    const clientsToExport = selectedClients.size > 0
+        ? clients.filter(client => selectedClients.has(client._id))
+        : clients;
+
+    // Build columns from visible column config
+    const visibleColumns = columnConfig;
+
+    visibleColumns.forEach(col => {
+        col.items.forEach(item => {
+            if (item.id === 'actions') return;
+            
+            exportColumnsConfig.push({
+                header: item.label,
+                key: item.id,
+                width: 20
+            });
+        });
+    });
+
+    // Build data rows from clients state
+    clientsToExport.forEach(client => {
+        const row = {};
+        
+        visibleColumns.forEach(col => {
+            col.items.forEach(item => {
+                if (item.id === 'actions') return;
+                
+                let value = '';
+                switch (item.id) {
+                    case 'name':
+                        value = client.name || 'N/A';
+                        break;
+                    case 'mobile':
+                        value = client.mobile || 'N/A';
+                        break;
+                    case 'firms':
+                        // Get firm names from the firms array
+                        value = client.firms?.map(f => f.firm_name).join(', ') || 'N/A';
+                        break;
+                    case 'balance':
+                        value = client.balance || 0;
+                        break;
+                    case 'status':
+                        value = client.status === 'ACTIVE' ? 'Active' : 
+                                client.status === 'INACTIVE' ? 'Inactive' : 'Pending';
+                        break;
+                    case 'guardian_name':
+                        value = client.guardian_name || 'N/A';
+                        break;
+                    case 'username':
+                        value = client.username || 'N/A';
+                        break;
+                    case 'email':
+                        value = client.email || 'N/A';
+                        break;
+                    case 'pan_number':
+                        value = client.pan_number || 'N/A';
+                        break;
+                    case 'city':
+                        value = client.city || 'N/A';
+                        break;
+                    case 'state':
+                        value = client.state || 'N/A';
+                        break;
+                    case 'pincode':
+                        value = client.pincode || 'N/A';
+                        break;
+                    default:
+                        value = client[item.id] || '-';
+                }
+                row[item.id] = value;
+            });
+        });
+        exportDataList.push(row);
+    });
+
+    return { data: exportDataList, columns: exportColumnsConfig };
+};
+
+    const handleExportClick = () => {
+        const { data, columns } = prepareExportData();
+        
+        if (data.length === 0) {
+            toast.error('No data to export');
+            return;
+        }
+
+        setExportData(data);
+        setExportColumns(columns);
+        setExportModalOpen(true);
+    };
+
+    const handleExport = (type, data = null) => {
+        handleExportClick();
     };
 
     const handleClientSelect = (clientId) => {
@@ -2480,7 +2559,7 @@ const ViewClients = () => {
                                                             </div>
 
                                                             <button
-                                                                onClick={() => handleExport('pdf')}
+                                                                onClick={() => handleExportClick()}
                                                                 className="flex items-center w-full px-3 py-2 text-sm text-gray-700 hover:bg-blue-50"
                                                             >
                                                                 <PiFilePdfDuotone className="w-4 h-4 mr-2 text-red-500" />
@@ -2488,7 +2567,7 @@ const ViewClients = () => {
                                                             </button>
 
                                                             <button
-                                                                onClick={() => handleExport('excel')}
+                                                                onClick={() => handleExportClick()}
                                                                 className="flex items-center w-full px-3 py-2 text-sm text-gray-700 hover:bg-blue-50"
                                                             >
                                                                 <PiMicrosoftExcelLogoDuotone className="w-4 h-4 mr-2 text-green-500" />
@@ -2496,19 +2575,11 @@ const ViewClients = () => {
                                                             </button>
 
                                                             <button
-                                                                onClick={() => handleExport('whatsapp')}
+                                                                onClick={() => handleExportClick()}
                                                                 className="flex items-center w-full px-3 py-2 text-sm text-gray-700 hover:bg-blue-50"
                                                             >
-                                                                <FaWhatsapp className="w-4 h-4 mr-2 text-green-500" />
-                                                                Share via WhatsApp
-                                                            </button>
-
-                                                            <button
-                                                                onClick={() => handleExport('email')}
-                                                                className="flex items-center w-full px-3 py-2 text-sm text-gray-700 hover:bg-blue-50"
-                                                            >
-                                                                <AiOutlineMail className="w-4 h-4 mr-2 text-blue-500" />
-                                                                Share via Email
+                                                                <FaFileCsv className="w-4 h-4 mr-2 text-blue-500" />
+                                                                Export as CSV
                                                             </button>
 
                                                             <div className="h-px bg-gray-200 my-1" />
@@ -2577,7 +2648,6 @@ const ViewClients = () => {
                             )}
                         </div>
 
-                        {/* Pagination Component - REPLACED with new Pagination component */}
                         <Pagination
                             pagination={pagination}
                             onPageChange={handlePageChange}
@@ -2616,7 +2686,7 @@ const ViewClients = () => {
                                 className="px-3 py-2.5 bg-gradient-to-r from-green-600 to-green-700 text-white rounded-lg text-sm font-semibold hover:from-green-700 hover:to-green-800 flex items-center gap-2 shadow-xl"
                                 whileHover={{ scale: 1.05 }}
                                 whileTap={{ scale: 0.95 }}
-                                onClick={() => handleExport('selected')}
+                                onClick={() => handleExportClick()}
                             >
                                 <FiDownload className="w-4 h-4" />
                                 <span className="hidden sm:inline">Export</span>
@@ -2679,6 +2749,19 @@ const ViewClients = () => {
                     </motion.div>
                 )}
             </AnimatePresence>
+
+            {/* Export Modal */}
+            <ExportModal
+                isOpen={exportModalOpen}
+                onClose={() => {
+                    setExportModalOpen(false);
+                    setExportData([]);
+                    setExportColumns([]);
+                }}
+                exportData={exportData}
+                columns={exportColumns}
+                jobType="client_report"
+            />
 
             {deleteModal && <DeleteConfirmationModal
                 title="Client Delete"

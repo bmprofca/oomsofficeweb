@@ -17,8 +17,15 @@ import {
     FiTruck,
     FiEdit2,
     FiFile,
-    FiEye
+    FiEye,
+    FiX,
+    FiCheckCircle,
+    FiAlertCircle,
+    FiInfo
 } from 'react-icons/fi';
+import { PiExportBold } from "react-icons/pi";
+import { PiFilePdfDuotone, PiMicrosoftExcelLogoDuotone } from "react-icons/pi";
+import { AiOutlineMail } from "react-icons/ai";
 import { motion, AnimatePresence } from 'framer-motion';
 import toast from 'react-hot-toast';
 import API_BASE_URL from '../../utils/api-controller';
@@ -33,6 +40,222 @@ import TablePagination from '../../components/TablePagination';
 import OpeningBalanceModal from '../../components/OpeningBalanceModal';
 import { ViewTransactionModalManager } from '../../components/Modals/ViewTransactions';
 import { TransactionModalManager } from '../../components/Modals/CreateTransactions';
+
+// Inline Export Modal Component
+const InlineExportModal = ({ isOpen, onClose, exportData, columns, jobType }) => {
+    const [exporting, setExporting] = useState(false);
+    const [exportStatus, setExportStatus] = useState(null);
+    const [selectedFormat, setSelectedFormat] = useState(null);
+
+    const getUserEmail = () => {
+        try {
+            const userEmail = localStorage.getItem('user_email');
+            if (userEmail && userEmail !== 'undefined' && userEmail !== 'null') {
+                return userEmail;
+            }
+            const userData = localStorage.getItem('user');
+            if (userData) {
+                const user = JSON.parse(userData);
+                if (user.email) return user.email;
+                if (user.user_email) return user.user_email;
+            }
+            return null;
+        } catch (error) {
+            console.error('Error getting user email:', error);
+            return null;
+        }
+    };
+
+    const userEmail = getUserEmail();
+
+    const handleExport = async (fileType) => {
+        if (!exportData || exportData.length === 0) {
+            toast.error('No data to export');
+            return;
+        }
+
+        if (!userEmail) {
+            toast.error('User email not found. Please login again.');
+            return;
+        }
+
+        setSelectedFormat(fileType);
+        setExporting(true);
+        setExportStatus('processing');
+
+        try {
+            const headers = await getHeaders();
+            
+            const payload = {
+                job_type: jobType,
+                file_type: fileType,
+                recipient_email: userEmail,
+                email_subject: `${jobType.replace('_', ' ').toUpperCase()} Export - ${new Date().toLocaleString()}`,
+                email_message: `<p>Your ${jobType.replace('_', ' ')} export is ready.</p>
+                                <p><strong>File Format:</strong> ${fileType.toUpperCase()}</p>
+                                <p><strong>Total Records:</strong> ${exportData.length}</p>
+                                <p><strong>Generated on:</strong> ${new Date().toLocaleString()}</p>`,
+                data: exportData,
+                columns: columns,
+                filters: {
+                    export_date: new Date().toISOString(),
+                    total_records: exportData.length
+                }
+            };
+
+            const response = await fetch(`${API_BASE_URL}/export/request`, {
+                method: 'POST',
+                headers: { ...headers, 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+
+            const result = await response.json();
+
+            if (result.success) {
+                setExportStatus('success');
+                toast.success(`Export started! You will receive the ${fileType.toUpperCase()} file via email at ${userEmail}`);
+                setTimeout(() => {
+                    onClose();
+                    setExportStatus(null);
+                    setSelectedFormat(null);
+                    setExporting(false);
+                }, 2000);
+            } else {
+                throw new Error(result.message || 'Export failed');
+            }
+        } catch (error) {
+            console.error('Export error:', error);
+            setExportStatus('error');
+            toast.error(error.message || 'Failed to start export');
+            setTimeout(() => {
+                setExportStatus(null);
+                setSelectedFormat(null);
+                setExporting(false);
+            }, 2000);
+        }
+    };
+
+    const exportOptions = [
+        { type: 'excel', icon: <PiMicrosoftExcelLogoDuotone className="w-6 h-6 text-green-600" />, label: 'Excel (.xlsx)', description: 'Export as Microsoft Excel spreadsheet' },
+        { type: 'csv', icon: <FiRepeat className="w-6 h-6 text-blue-600" />, label: 'CSV (.csv)', description: 'Export as Comma Separated Values' },
+        { type: 'pdf', icon: <PiFilePdfDuotone className="w-6 h-6 text-red-600" />, label: 'PDF (.pdf)', description: 'Export as Portable Document Format' }
+    ];
+
+    if (!isOpen) return null;
+
+    return (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[200] p-4">
+            <div className="bg-white rounded-xl shadow-2xl w-full max-w-md mx-auto overflow-hidden">
+                {/* Header */}
+                <div className="bg-gradient-to-r from-indigo-600 to-indigo-700 text-white px-6 py-4">
+                    <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 bg-white/20 rounded-lg flex items-center justify-center">
+                                <PiExportBold className="w-5 h-5" />
+                            </div>
+                            <div>
+                                <h3 className="text-lg font-bold">Export Data</h3>
+                                <p className="text-indigo-100 text-sm">Choose your preferred format</p>
+                            </div>
+                        </div>
+                        <button
+                            onClick={onClose}
+                            className="text-white p-2 rounded-lg hover:bg-white/10 transition-colors"
+                            disabled={exporting}
+                        >
+                            <FiX className="w-5 h-5" />
+                        </button>
+                    </div>
+                </div>
+
+                {/* Body */}
+                <div className="p-6">
+                    {/* Email Info */}
+                    <div className="mb-4 p-3 bg-blue-50 rounded-lg border border-blue-200">
+                        <div className="flex items-center gap-2">
+                            <AiOutlineMail className="w-4 h-4 text-blue-600" />
+                            <span className="text-sm text-blue-800">
+                                Export will be sent to: <strong>{userEmail || 'Not found'}</strong>
+                            </span>
+                        </div>
+                        {!userEmail && (
+                            <div className="mt-2 text-xs text-red-600">
+                                Please make sure you are logged in with a valid email address.
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Data Summary */}
+                    <div className="mb-4 p-3 bg-gray-50 rounded-lg border border-gray-200">
+                        <div className="flex justify-between text-sm">
+                            <span className="text-gray-600">Total Records:</span>
+                            <span className="font-semibold text-gray-800">{exportData?.length || 0}</span>
+                        </div>
+                        <div className="flex justify-between text-sm mt-1">
+                            <span className="text-gray-600">Columns:</span>
+                            <span className="font-semibold text-gray-800">{columns?.length || 0}</span>
+                        </div>
+                    </div>
+
+                    {/* Export Options */}
+                    <div className="space-y-3">
+                        {exportOptions.map((option) => (
+                            <button
+                                key={option.type}
+                                onClick={() => handleExport(option.type)}
+                                disabled={exporting || !userEmail}
+                                className={`w-full flex items-center justify-between p-4 rounded-lg border-2 transition-all ${
+                                    exporting && selectedFormat === option.type
+                                        ? 'border-indigo-500 bg-indigo-50'
+                                        : 'border-gray-200 hover:border-indigo-300 hover:bg-gray-50'
+                                } ${(exporting || !userEmail) && selectedFormat !== option.type ? 'opacity-50 cursor-not-allowed' : ''}`}
+                            >
+                                <div className="flex items-center gap-3">
+                                    <div className="p-2 rounded-lg bg-gray-50">
+                                        {option.icon}
+                                    </div>
+                                    <div className="text-left">
+                                        <div className="font-medium text-gray-800">{option.label}</div>
+                                        <div className="text-xs text-gray-500">{option.description}</div>
+                                    </div>
+                                </div>
+                                {exporting && selectedFormat === option.type && (
+                                    <div className="flex items-center gap-2">
+                                        {exportStatus === 'processing' && <div className="w-5 h-5 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin"></div>}
+                                        {exportStatus === 'success' && <FiCheckCircle className="w-5 h-5 text-green-600" />}
+                                        {exportStatus === 'error' && <FiAlertCircle className="w-5 h-5 text-red-600" />}
+                                    </div>
+                                )}
+                            </button>
+                        ))}
+                    </div>
+
+                    {/* Info Message */}
+                    <div className="mt-4 p-3 bg-yellow-50 rounded-lg border border-yellow-200">
+                        <div className="flex items-start gap-2">
+                            <FiInfo className="w-4 h-4 text-yellow-600 mt-0.5 flex-shrink-0" />
+                            <p className="text-xs text-yellow-700">
+                                Export will be processed in the background. You will receive the file via email once completed.
+                                Duplicate export requests are not allowed while an export is already in progress.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Footer */}
+                <div className="px-6 py-4 bg-gray-50 border-t border-gray-200 flex justify-end">
+                    <button
+                        onClick={onClose}
+                        className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-100 font-medium text-sm transition-colors"
+                        disabled={exporting}
+                    >
+                        Cancel
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+};
 
 /** @param {Record<string, unknown> | null} details */
 function isLedgerCash(details) {
@@ -109,6 +332,11 @@ const TransactionHistory = () => {
     });
     const [showAddMenu, setShowAddMenu] = useState(false);
 
+    // Export Modal State
+    const [exportModalOpen, setExportModalOpen] = useState(false);
+    const [exportData, setExportData] = useState([]);
+    const [exportColumns, setExportColumns] = useState([]);
+
     // Fetch bank details and initial transactions
     useEffect(() => {
         if (bankId) {
@@ -160,6 +388,56 @@ const TransactionHistory = () => {
         document.addEventListener('click', handleClickOutside);
         return () => document.removeEventListener('click', handleClickOutside);
     }, []);
+
+    // Prepare data for export
+    const prepareExportData = () => {
+        const exportDataList = [];
+        const exportColumnsConfig = [];
+
+        const columns = [
+            { header: 'S.No', key: 'sl_no', width: 10 },
+            { header: 'Date', key: 'date', width: 15 },
+            { header: 'Voucher No', key: 'voucher_no', width: 20 },
+            { header: 'Particulars', key: 'particulars', width: 30 },
+            { header: 'Debit (₹)', key: 'debit', width: 18 },
+            { header: 'Credit (₹)', key: 'credit', width: 18 },
+            { header: 'Balance (₹)', key: 'balance', width: 18 },
+            { header: 'Type', key: 'type', width: 15 }
+        ];
+
+        exportColumnsConfig.push(...columns);
+
+        transactions.forEach((transaction, index) => {
+            const amounts = getTransactionAmounts(transaction);
+            const row = {
+                sl_no: ((currentPage - 1) * itemsPerPage) + index + 1,
+                date: transaction.transaction_date ? new Date(transaction.transaction_date).toLocaleDateString('en-GB') : 'N/A',
+                voucher_no: transaction.invoice_no || 'N/A',
+                particulars: transaction.particular || transaction.remark || 'N/A',
+                debit: amounts.debit || 0,
+                credit: amounts.credit || 0,
+                balance: amounts.balance || 0,
+                type: transaction.transaction_type || 'N/A'
+            };
+            exportDataList.push(row);
+        });
+
+        return { data: exportDataList, columns: exportColumnsConfig };
+    };
+
+    // Handle export click for modal
+    const handleExportClick = () => {
+        const { data, columns } = prepareExportData();
+        
+        if (data.length === 0) {
+            toast.error('No data to export');
+            return;
+        }
+
+        setExportData(data);
+        setExportColumns(columns);
+        setExportModalOpen(true);
+    };
 
     const computeActionMenuPosition = useCallback((anchorEl) => {
         if (!anchorEl) return null;
@@ -436,53 +714,25 @@ const TransactionHistory = () => {
         toast.success('Data refreshed');
     }, []);
 
-    // Handle export
+    // Handle export - SHARE BUTTON NOW OPENS EXPORT MODAL
     const handleExport = useCallback((type) => {
-        toast.success(`${type.toUpperCase()} export started...`);
-        // Implement export logic here
+        if (type === 'pdf' || type === 'excel') {
+            handleExportClick();
+        } else {
+            toast.success(`${type.toUpperCase()} export started...`);
+        }
     }, []);
 
-    const handleShare = useCallback(async () => {
-        const url = window.location.href;
-        const ledgerLabel = bankDetails
-            ? (isLedgerCash(bankDetails)
-                ? (String(bankDetails.holder ?? '').trim() || 'Cash account')
-                : String(bankDetails.bank ?? '').trim() || 'Bank account')
-            : '';
-        const title = bankDetails
-            ? `Transaction History — ${ledgerLabel}`
-            : 'Transaction History';
-        const text = bankDetails
-            ? (isLedgerCash(bankDetails)
-                ? `${String(bankDetails.holder ?? '').trim() || 'Cash account'} · Cash`
-                : `${bankDetails.bank} - ${bankDetails.account_no} (${bankDetails.branch})`)
-            : 'Bank transaction history';
+    // SHARE BUTTON HANDLER - Opens Export Modal
+    const handleShareClick = () => {
+        handleExportClick();
+    };
 
-        try {
-            if (typeof navigator !== 'undefined' && navigator.share) {
-                await navigator.share({ title, text, url });
-                return;
-            }
-            if (typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
-                await navigator.clipboard.writeText(url);
-                toast.success('Link copied to clipboard');
-                return;
-            }
-            toast.error('Sharing is not supported in this browser');
-        } catch (err) {
-            if (err?.name === 'AbortError') return;
-            try {
-                if (navigator.clipboard?.writeText) {
-                    await navigator.clipboard.writeText(url);
-                    toast.success('Link copied to clipboard');
-                } else {
-                    toast.error('Could not share or copy link');
-                }
-            } catch {
-                toast.error('Could not share or copy link');
-            }
-        }
-    }, [bankDetails]);
+    const handleShare = useCallback(async () => {
+        // This function is now replaced by handleShareClick which opens the Export Modal
+        // Keep this for backward compatibility if needed elsewhere
+        handleExportClick();
+    }, []);
 
     // Handle transaction type click
     const handleTransactionTypeClick = (type) => {
@@ -668,8 +918,7 @@ const TransactionHistory = () => {
                                         <span className="sm:hidden">Opening</span>
                                     </button>
                                     <div className="w-full min-[480px]:w-56 shrink-0">
-                                        <DateRangePickerField
-                                            value={{ start: fromDate, end: toDate }}
+                                        <DateRangePickerField                                            value={{ start: fromDate, end: toDate }}
                                             onChange={(range) => {
                                                 setFromDate(range?.start || '');
                                                 setToDate(range?.end || '');
@@ -705,13 +954,14 @@ const TransactionHistory = () => {
                                     >
                                         <FiDownload className="w-5 h-5 text-slate-600" />
                                     </motion.button>
+                                    {/* SHARE BUTTON - Now opens Export Modal */}
                                     <motion.button
                                         type="button"
-                                        onClick={handleShare}
+                                        onClick={handleShareClick}
                                         className="p-2 bg-white rounded-lg shadow-sm hover:shadow transition-all duration-200 border border-slate-200"
                                         whileHover={{ scale: 1.05 }}
                                         whileTap={{ scale: 0.95 }}
-                                        title="Share"
+                                        title="Export Data"
                                     >
                                         <FiShare2 className="w-5 h-5 text-slate-600" />
                                     </motion.button>
@@ -820,6 +1070,15 @@ const TransactionHistory = () => {
                         showFromBank={transactionType !== 'CONTRA'}
                         fromBankId={transactionType === 'CONTRA' ? (bankId || '') : ''}
                         fromBankDetails={transactionType === 'CONTRA' ? bankDetails : null}
+                    />
+
+                    {/* Inline Export Modal */}
+                    <InlineExportModal
+                        isOpen={exportModalOpen}
+                        onClose={() => { setExportModalOpen(false); setExportData([]); setExportColumns([]); }}
+                        exportData={exportData}
+                        columns={exportColumns}
+                        jobType="transaction_history"
                     />
 
                     {showActionMenu && selectedActionTransaction && actionMenuPosition && createPortal(

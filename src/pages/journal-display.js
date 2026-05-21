@@ -7,10 +7,14 @@ import {
     FiMenu,
     FiChevronRight,
     FiPrinter,
-    FiX
+    FiX,
+    FiCheckCircle,
+    FiAlertCircle,
+    FiInfo
 } from 'react-icons/fi';
 import { PiExportBold } from "react-icons/pi";
 import { PiFilePdfDuotone, PiMicrosoftExcelLogoDuotone } from "react-icons/pi";
+import { AiOutlineMail } from "react-icons/ai";
 import { TransactionModalManager } from '../components/Modals/CreateTransactions';
 import { DateRangePickerField } from '../components/PortalDatePicker';
 import TablePagination from '../components/TablePagination';
@@ -19,6 +23,223 @@ import { Header, Sidebar } from '../components/header';
 import API_BASE_URL from '../utils/api-controller';
 import getHeaders from '../utils/get-headers';
 import axios from 'axios';
+import toast from 'react-hot-toast';
+
+// Inline Export Modal Component
+const InlineExportModal = ({ isOpen, onClose, exportData, columns, jobType }) => {
+    const [exporting, setExporting] = useState(false);
+    const [exportStatus, setExportStatus] = useState(null);
+    const [selectedFormat, setSelectedFormat] = useState(null);
+
+    const getUserEmail = () => {
+        try {
+            const userEmail = localStorage.getItem('user_email');
+            if (userEmail && userEmail !== 'undefined' && userEmail !== 'null') {
+                return userEmail;
+            }
+            const userData = localStorage.getItem('user');
+            if (userData) {
+                const user = JSON.parse(userData);
+                if (user.email) return user.email;
+                if (user.user_email) return user.user_email;
+            }
+            return null;
+        } catch (error) {
+            console.error('Error getting user email:', error);
+            return null;
+        }
+    };
+
+    const userEmail = getUserEmail();
+
+    const handleExport = async (fileType) => {
+        if (!exportData || exportData.length === 0) {
+            toast.error('No data to export');
+            return;
+        }
+
+        if (!userEmail) {
+            toast.error('User email not found. Please login again.');
+            return;
+        }
+
+        setSelectedFormat(fileType);
+        setExporting(true);
+        setExportStatus('processing');
+
+        try {
+            const headers = await getHeaders();
+            
+            const payload = {
+                job_type: jobType,
+                file_type: fileType,
+                recipient_email: userEmail,
+                email_subject: `${jobType.replace('_', ' ').toUpperCase()} Export - ${new Date().toLocaleString()}`,
+                email_message: `<p>Your ${jobType.replace('_', ' ')} export is ready.</p>
+                                <p><strong>File Format:</strong> ${fileType.toUpperCase()}</p>
+                                <p><strong>Total Records:</strong> ${exportData.length}</p>
+                                <p><strong>Generated on:</strong> ${new Date().toLocaleString()}</p>`,
+                data: exportData,
+                columns: columns,
+                filters: {
+                    export_date: new Date().toISOString(),
+                    total_records: exportData.length
+                }
+            };
+
+            const response = await fetch(`${API_BASE_URL}/export/request`, {
+                method: 'POST',
+                headers: { ...headers, 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+
+            const result = await response.json();
+
+            if (result.success) {
+                setExportStatus('success');
+                toast.success(`Export started! You will receive the ${fileType.toUpperCase()} file via email at ${userEmail}`);
+                setTimeout(() => {
+                    onClose();
+                    setExportStatus(null);
+                    setSelectedFormat(null);
+                    setExporting(false);
+                }, 2000);
+            } else {
+                throw new Error(result.message || 'Export failed');
+            }
+        } catch (error) {
+            console.error('Export error:', error);
+            setExportStatus('error');
+            toast.error(error.message || 'Failed to start export');
+            setTimeout(() => {
+                setExportStatus(null);
+                setSelectedFormat(null);
+                setExporting(false);
+            }, 2000);
+        }
+    };
+
+    const exportOptions = [
+        { type: 'excel', icon: <PiMicrosoftExcelLogoDuotone className="w-6 h-6 text-green-600" />, label: 'Excel (.xlsx)', description: 'Export as Microsoft Excel spreadsheet' },
+        { type: 'csv', icon: <FiFileText className="w-6 h-6 text-blue-600" />, label: 'CSV (.csv)', description: 'Export as Comma Separated Values' },
+        { type: 'pdf', icon: <PiFilePdfDuotone className="w-6 h-6 text-red-600" />, label: 'PDF (.pdf)', description: 'Export as Portable Document Format' }
+    ];
+
+    if (!isOpen) return null;
+
+    return (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[200] p-4">
+            <div className="bg-white rounded-xl shadow-2xl w-full max-w-md mx-auto overflow-hidden">
+                {/* Header */}
+                <div className="bg-gradient-to-r from-indigo-600 to-indigo-700 text-white px-6 py-4">
+                    <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 bg-white/20 rounded-lg flex items-center justify-center">
+                                <PiExportBold className="w-5 h-5" />
+                            </div>
+                            <div>
+                                <h3 className="text-lg font-bold">Export Data</h3>
+                                <p className="text-indigo-100 text-sm">Choose your preferred format</p>
+                            </div>
+                        </div>
+                        <button
+                            onClick={onClose}
+                            className="text-white p-2 rounded-lg hover:bg-white/10 transition-colors"
+                            disabled={exporting}
+                        >
+                            <FiX className="w-5 h-5" />
+                        </button>
+                    </div>
+                </div>
+
+                {/* Body */}
+                <div className="p-6">
+                    {/* Email Info */}
+                    <div className="mb-4 p-3 bg-blue-50 rounded-lg border border-blue-200">
+                        <div className="flex items-center gap-2">
+                            <AiOutlineMail className="w-4 h-4 text-blue-600" />
+                            <span className="text-sm text-blue-800">
+                                Export will be sent to: <strong>{userEmail || 'Not found'}</strong>
+                            </span>
+                        </div>
+                        {!userEmail && (
+                            <div className="mt-2 text-xs text-red-600">
+                                Please make sure you are logged in with a valid email address.
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Data Summary */}
+                    <div className="mb-4 p-3 bg-gray-50 rounded-lg border border-gray-200">
+                        <div className="flex justify-between text-sm">
+                            <span className="text-gray-600">Total Records:</span>
+                            <span className="font-semibold text-gray-800">{exportData?.length || 0}</span>
+                        </div>
+                        <div className="flex justify-between text-sm mt-1">
+                            <span className="text-gray-600">Columns:</span>
+                            <span className="font-semibold text-gray-800">{columns?.length || 0}</span>
+                        </div>
+                    </div>
+
+                    {/* Export Options */}
+                    <div className="space-y-3">
+                        {exportOptions.map((option) => (
+                            <button
+                                key={option.type}
+                                onClick={() => handleExport(option.type)}
+                                disabled={exporting || !userEmail}
+                                className={`w-full flex items-center justify-between p-4 rounded-lg border-2 transition-all ${
+                                    exporting && selectedFormat === option.type
+                                        ? 'border-indigo-500 bg-indigo-50'
+                                        : 'border-gray-200 hover:border-indigo-300 hover:bg-gray-50'
+                                } ${(exporting || !userEmail) && selectedFormat !== option.type ? 'opacity-50 cursor-not-allowed' : ''}`}
+                            >
+                                <div className="flex items-center gap-3">
+                                    <div className="p-2 rounded-lg bg-gray-50">
+                                        {option.icon}
+                                    </div>
+                                    <div className="text-left">
+                                        <div className="font-medium text-gray-800">{option.label}</div>
+                                        <div className="text-xs text-gray-500">{option.description}</div>
+                                    </div>
+                                </div>
+                                {exporting && selectedFormat === option.type && (
+                                    <div className="flex items-center gap-2">
+                                        {exportStatus === 'processing' && <div className="w-5 h-5 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin"></div>}
+                                        {exportStatus === 'success' && <FiCheckCircle className="w-5 h-5 text-green-600" />}
+                                        {exportStatus === 'error' && <FiAlertCircle className="w-5 h-5 text-red-600" />}
+                                    </div>
+                                )}
+                            </button>
+                        ))}
+                    </div>
+
+                    {/* Info Message */}
+                    <div className="mt-4 p-3 bg-yellow-50 rounded-lg border border-yellow-200">
+                        <div className="flex items-start gap-2">
+                            <FiInfo className="w-4 h-4 text-yellow-600 mt-0.5 flex-shrink-0" />
+                            <p className="text-xs text-yellow-700">
+                                Export will be processed in the background. You will receive the file via email once completed.
+                                Duplicate export requests are not allowed while an export is already in progress.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Footer */}
+                <div className="px-6 py-4 bg-gray-50 border-t border-gray-200 flex justify-end">
+                    <button
+                        onClick={onClose}
+                        className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-100 font-medium text-sm transition-colors"
+                        disabled={exporting}
+                    >
+                        Cancel
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+};
 
 const ViewJournal = () => {
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -37,6 +258,11 @@ const ViewJournal = () => {
     const [activeRowDropdown, setActiveRowDropdown] = useState(null);
     const [exportModal, setExportModal] = useState({ open: false, type: '', data: null });
 
+    // Export Modal State
+    const [exportModalOpen, setExportModalOpen] = useState(false);
+    const [exportData, setExportData] = useState([]);
+    const [exportColumns, setExportColumns] = useState([]);
+
     // Pagination state
     const [currentPage, setCurrentPage] = useState(1);
     const [itemsPerPage, setItemsPerPage] = useState(10);
@@ -52,7 +278,6 @@ const ViewJournal = () => {
         const timer = setTimeout(() => {
             setDebouncedSearchTerm(searchTerm);
         }, 500);
-
         return () => clearTimeout(timer);
     }, [searchTerm]);
 
@@ -67,20 +292,67 @@ const ViewJournal = () => {
         }
     }, [currentPage, debouncedSearchTerm, fromDate, toDate]);
 
+    // Prepare data for export
+    const prepareExportData = () => {
+        const exportDataList = [];
+        const exportColumnsConfig = [];
+
+        const columns = [
+            { header: 'Sl No', key: 'sl_no', width: 10 },
+            { header: 'Date', key: 'date', width: 15 },
+            { header: 'Voucher No', key: 'voucher_no', width: 20 },
+            { header: 'Payment From', key: 'from', width: 25 },
+            { header: 'Payment To', key: 'to', width: 25 },
+            { header: 'Amount (₹)', key: 'amount', width: 18 },
+            { header: 'Remark', key: 'remark', width: 30 }
+        ];
+
+        exportColumnsConfig.push(...columns);
+
+        journals.forEach((journal, index) => {
+            const row = {
+                sl_no: ((currentPage - 1) * itemsPerPage) + index + 1,
+                date: journal.date || 'N/A',
+                voucher_no: journal.invoice_no || 'N/A',
+                from: journal.from || 'N/A',
+                to: journal.to || 'N/A',
+                amount: journal.amount || 0,
+                remark: journal.remark || ''
+            };
+            exportDataList.push(row);
+        });
+
+        return { data: exportDataList, columns: exportColumnsConfig };
+    };
+
+    // Handle export click for modal
+    const handleExportClick = () => {
+        const { data, columns } = prepareExportData();
+        
+        if (data.length === 0) {
+            toast.error('No data to export');
+            return;
+        }
+
+        setExportData(data);
+        setExportColumns(columns);
+        setExportModalOpen(true);
+    };
+
+    // Handle other exports (print)
+    const handleOtherExport = (type, data = null) => {
+        setExportModal({ open: true, type, data });
+
+        setTimeout(() => {
+            setExportModal({ open: false, type: '', data: null });
+            toast.success(`${type.toUpperCase()} export completed successfully!`);
+        }, 1500);
+    };
+
     const handleJournalSuccess = (type) => {
         if (type === 'JOURNAL') {
             fetchJournalData();
         }
-    };
-
-    const handleExport = (type, data = null) => {
-        setExportModal({ open: true, type, data });
-
-        // Simulate export process
-        setTimeout(() => {
-            setExportModal({ open: false, type: '', data: null });
-            alert(`${type.toUpperCase()} export completed successfully!`);
-        }, 1500);
     };
 
     // Format currency
@@ -106,7 +378,6 @@ const ViewJournal = () => {
                 to_date: toDate
             };
 
-            // Add search parameter if search term exists
             if (debouncedSearchTerm.trim()) {
                 params.search = debouncedSearchTerm.trim();
             }
@@ -119,14 +390,12 @@ const ViewJournal = () => {
             if (response.data.success) {
                 const journalData = transformApiData(response.data.data);
                 setJournals(journalData);
-
-                // Update pagination info
                 setTotalItems(response.data.meta.total);
                 setIsLastPage(response.data.meta.is_last_page);
             }
         } catch (error) {
             console.error('Error fetching journal data:', error);
-            alert('Failed to fetch journal entries. Please try again.');
+            toast.error('Failed to fetch journal entries. Please try again.');
         } finally {
             setLoading(false);
         }
@@ -145,7 +414,7 @@ const ViewJournal = () => {
             invoice_no: item.invoice_no,
             amount: parseFloat(item.amount),
             remark: item.remark || '',
-            raw_data: item // Keep raw data for reference
+            raw_data: item
         }));
     };
 
@@ -180,7 +449,7 @@ const ViewJournal = () => {
 
     // Format date for API (YYYY-MM-DD)
     const formatDateForAPI = (date) => {
-        return date.toLocaleDateString('en-CA'); // YYYY-MM-DD format
+        return date.toLocaleDateString('en-CA');
     };
 
     // Handle search input change
@@ -300,89 +569,40 @@ const ViewJournal = () => {
     // Skeleton loader component
     const SkeletonRow = () => (
         <tr className="border-b border-slate-100 animate-pulse">
-            <td className="p-3 text-center">
-                <div className="h-4 bg-slate-200 rounded w-6 mx-auto"></div>
-            </td>
-            <td className="p-3 text-center">
-                <div className="h-4 bg-slate-200 rounded w-16 mx-auto"></div>
-            </td>
-            <td className="p-3 text-center">
-                <div className="h-4 bg-slate-200 rounded w-16 mx-auto"></div>
-            </td>
-            <td className="p-3 text-center">
-                <div className="h-4 bg-slate-200 rounded w-24 mx-auto"></div>
-            </td>
-            <td className="p-3 text-center">
-                <div className="h-4 bg-slate-200 rounded w-24 mx-auto"></div>
-            </td>
-            <td className="p-3 text-center">
-                <div className="h-6 bg-slate-200 rounded w-16 mx-auto"></div>
-            </td>
-            <td className="p-3 text-center">
-                <div className="h-6 bg-slate-200 rounded w-20 mx-auto"></div>
-            </td>
-            <td className="p-3 text-center">
-                <div className="h-6 bg-slate-200 rounded w-10 mx-auto"></div>
-            </td>
+            <td className="p-3 text-center"><div className="h-4 bg-slate-200 rounded w-6 mx-auto"></div></td>
+            <td className="p-3 text-center"><div className="h-4 bg-slate-200 rounded w-16 mx-auto"></div></td>
+            <td className="p-3 text-center"><div className="h-4 bg-slate-200 rounded w-16 mx-auto"></div></td>
+            <td className="p-3 text-center"><div className="h-4 bg-slate-200 rounded w-24 mx-auto"></div></td>
+            <td className="p-3 text-center"><div className="h-4 bg-slate-200 rounded w-24 mx-auto"></div></td>
+            <td className="p-3 text-center"><div className="h-6 bg-slate-200 rounded w-16 mx-auto"></div></td>
+            <td className="p-3 text-center"><div className="h-6 bg-slate-200 rounded w-20 mx-auto"></div></td>
+            <td className="p-3 text-center"><div className="h-6 bg-slate-200 rounded w-10 mx-auto"></div></td>
         </tr>
     );
 
     // Skeleton Loading Component for full page
     const SkeletonLoader = () => (
         <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
-            <Header
-                mobileMenuOpen={mobileMenuOpen}
-                setMobileMenuOpen={setMobileMenuOpen}
-                isMinimized={isMinimized}
-                setIsMinimized={setIsMinimized}
-            />
-            <Sidebar
-                mobileMenuOpen={mobileMenuOpen}
-                setMobileMenuOpen={setMobileMenuOpen}
-                isMinimized={isMinimized}
-                setIsMinimized={setIsMinimized}
-            />
-
+            <Header mobileMenuOpen={mobileMenuOpen} setMobileMenuOpen={setMobileMenuOpen} isMinimized={isMinimized} setIsMinimized={setIsMinimized} />
+            <Sidebar mobileMenuOpen={mobileMenuOpen} setMobileMenuOpen={setMobileMenuOpen} isMinimized={isMinimized} setIsMinimized={setIsMinimized} />
             <div className={`pt-16 transition-all duration-300 ease-in-out ${isMinimized ? 'md:pl-20' : 'md:pl-[260px]'}`}>
                 <div className="max-w-full mx-auto px-4 sm:px-6 lg:px-8 py-6">
                     <div className="bg-white rounded-xl shadow-sm border border-slate-200">
-                        {/* Skeleton Header */}
                         <div className="border-b border-slate-200 px-6 py-4">
                             <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
-                                <div>
-                                    <div className="h-6 bg-gray-200 rounded w-48 mb-2"></div>
-                                    <div className="h-4 bg-gray-200 rounded w-32"></div>
-                                </div>
-                                <div className="flex gap-3">
-                                    <div className="h-10 bg-gray-200 rounded w-40"></div>
-                                    <div className="h-10 bg-gray-200 rounded w-32"></div>
-                                </div>
+                                <div><div className="h-6 bg-gray-200 rounded w-48 mb-2"></div><div className="h-4 bg-gray-200 rounded w-32"></div></div>
+                                <div className="flex gap-3"><div className="h-10 bg-gray-200 rounded w-40"></div><div className="h-10 bg-gray-200 rounded w-32"></div></div>
                             </div>
                         </div>
-
-                        {/* Skeleton Table */}
                         <div className="overflow-hidden">
                             <div className="border-b border-slate-200">
                                 <table className="w-full text-sm">
                                     <thead className="bg-gradient-to-r from-slate-50 to-slate-100">
-                                        <tr>
-                                            {[...Array(8)].map((_, i) => (
-                                                <th key={i} className="text-center p-3">
-                                                    <div className="h-4 bg-gray-200 rounded w-20 mx-auto"></div>
-                                                </th>
-                                            ))}
-                                        </tr>
+                                        <tr>{[...Array(8)].map((_, i) => (<th key={i} className="text-center p-3"><div className="h-4 bg-gray-200 rounded w-20 mx-auto"></div></th>))}</tr>
                                     </thead>
                                 </table>
                             </div>
-
-                            <div className="p-4">
-                                {[...Array(6)].map((_, index) => (
-                                    <div key={index} className="mb-4">
-                                        <div className="h-12 bg-gray-100 rounded"></div>
-                                    </div>
-                                ))}
-                            </div>
+                            <div className="p-4">{[...Array(6)].map((_, index) => (<div key={index} className="mb-4"><div className="h-12 bg-gray-100 rounded"></div></div>))}</div>
                         </div>
                     </div>
                 </div>
@@ -405,10 +625,8 @@ const ViewJournal = () => {
                 setIsMinimized={setIsMinimized}
             />
 
-            {/* Main Content Area - Full Page Scroll */}
             <div className={`pt-16 transition-all duration-300 ease-in-out ${isMinimized ? 'md:pl-20' : 'md:pl-[260px]'}`}>
                 <div className="max-w-full mx-auto px-4 sm:px-6 lg:px-8 py-6">
-                    {/* Main Card */}
                     <motion.div
                         initial={{ opacity: 0, scale: 0.98 }}
                         animate={{ opacity: 1, scale: 1 }}
@@ -494,7 +712,7 @@ const ViewJournal = () => {
                                                     >
                                                         <div className="py-1">
                                                             <button
-                                                                onClick={() => handleExport('pdf')}
+                                                                onClick={handleExportClick}
                                                                 className="flex items-center w-full px-3 py-2 text-sm text-slate-700 hover:bg-blue-50 transition-all duration-150 group"
                                                             >
                                                                 <div className="p-1.5 bg-red-50 rounded mr-2 group-hover:bg-red-100 transition-colors">
@@ -505,7 +723,7 @@ const ViewJournal = () => {
                                                                 </div>
                                                             </button>
                                                             <button
-                                                                onClick={() => handleExport('excel')}
+                                                                onClick={handleExportClick}
                                                                 className="flex items-center w-full px-3 py-2 text-sm text-slate-700 hover:bg-blue-50 transition-all duration-150 group"
                                                             >
                                                                 <div className="p-1.5 bg-green-50 rounded mr-2 group-hover:bg-green-100 transition-colors">
@@ -516,7 +734,7 @@ const ViewJournal = () => {
                                                                 </div>
                                                             </button>
                                                             <button
-                                                                onClick={() => handleExport('print')}
+                                                                onClick={() => handleOtherExport('print')}
                                                                 className="flex items-center w-full px-3 py-2 text-sm text-slate-700 hover:bg-blue-50 transition-all duration-150 group"
                                                             >
                                                                 <div className="p-1.5 bg-slate-50 rounded mr-2 group-hover:bg-slate-100 transition-colors">
@@ -546,43 +764,24 @@ const ViewJournal = () => {
                             </div>
                         </div>
 
-                        {/* Table Container — no extra radius; outer card supplies rounded corners */}
+                        {/* Table Container */}
                         <div className="w-full overflow-x-auto">
                             <table className="w-full text-xs">
                                 <thead className="bg-gradient-to-r from-slate-50 to-slate-100 sticky top-0">
                                     <tr>
-                                        <th className="text-center p-3 font-semibold text-slate-700 text-[10px] uppercase tracking-wider w-[5%]">
-                                            #
-                                        </th>
-                                        <th className="text-center p-3 font-semibold text-slate-700 text-[10px] uppercase tracking-wider w-[8%]">
-                                            Date
-                                        </th>
-                                        <th className="text-center p-3 font-semibold text-slate-700 text-[10px] uppercase tracking-wider w-[10%]">
-                                            Voucher No
-                                        </th>
-                                        <th className="text-center p-3 font-semibold text-slate-700 text-[10px] uppercase tracking-wider w-[20%]">
-                                            Payment From
-                                        </th>
-                                        <th className="text-center p-3 font-semibold text-slate-700 text-[10px] uppercase tracking-wider w-[20%]">
-                                            Payment To
-                                        </th>
-                                        <th className="text-center p-3 font-semibold text-slate-700 text-[10px] uppercase tracking-wider w-[10%]">
-                                            Amount
-                                        </th>
-                                        <th className="text-center p-3 font-semibold text-slate-700 text-[10px] uppercase tracking-wider w-[17%]">
-                                            Remark
-                                        </th>
-                                        <th className="text-center p-3 font-semibold text-slate-700 text-[10px] uppercase tracking-wider w-[10%]">
-                                            Actions
-                                        </th>
+                                        <th className="text-center p-3 font-semibold text-slate-700 text-[10px] uppercase tracking-wider w-[5%]">#</th>
+                                        <th className="text-center p-3 font-semibold text-slate-700 text-[10px] uppercase tracking-wider w-[8%]">Date</th>
+                                        <th className="text-center p-3 font-semibold text-slate-700 text-[10px] uppercase tracking-wider w-[10%]">Voucher No</th>
+                                        <th className="text-center p-3 font-semibold text-slate-700 text-[10px] uppercase tracking-wider w-[20%]">Payment From</th>
+                                        <th className="text-center p-3 font-semibold text-slate-700 text-[10px] uppercase tracking-wider w-[20%]">Payment To</th>
+                                        <th className="text-center p-3 font-semibold text-slate-700 text-[10px] uppercase tracking-wider w-[10%]">Amount</th>
+                                        <th className="text-center p-3 font-semibold text-slate-700 text-[10px] uppercase tracking-wider w-[17%]">Remark</th>
+                                        <th className="text-center p-3 font-semibold text-slate-700 text-[10px] uppercase tracking-wider w-[10%]">Actions</th>
                                     </tr>
                                 </thead>
                                 <tbody className="bg-white divide-y divide-slate-100">
                                     {loading ? (
-                                        // Show skeleton rows while loading
-                                        [...Array(5)].map((_, idx) => (
-                                            <SkeletonRow key={idx} />
-                                        ))
+                                        [...Array(5)].map((_, idx) => <SkeletonRow key={idx} />)
                                     ) : journals.length === 0 ? (
                                         <tr>
                                             <td colSpan="8" className="text-center py-8 text-slate-500">
@@ -621,57 +820,27 @@ const ViewJournal = () => {
                                                     transition={{ duration: 0.15 }}
                                                     className="hover:bg-blue-50/20 transition-colors duration-150"
                                                 >
-                                                    <td className="text-center p-3 align-middle">
-                                                        <div className="text-slate-700 font-medium text-xs">
-                                                            {serialNumber}
-                                                        </div>
-                                                    </td>
-                                                    <td className="text-center p-3 align-middle">
-                                                        <div className="font-medium text-slate-700 text-xs">
-                                                            {formatDate(journal.date)}
-                                                        </div>
-                                                    </td>
-                                                    <td className="text-center p-3 align-middle">
-                                                        <span className="inline-flex items-center justify-center bg-gradient-to-r from-slate-100 to-slate-200 text-slate-800 font-bold px-3 py-1.5 rounded text-xs border border-slate-300/50">
-                                                            {journal.invoice_no}
-                                                        </span>
-                                                    </td>
+                                                    <td className="text-center p-3 align-middle"><div className="text-slate-700 font-medium text-xs">{serialNumber}</div></td>
+                                                    <td className="text-center p-3 align-middle"><div className="font-medium text-slate-700 text-xs">{formatDate(journal.date)}</div></td>
+                                                    <td className="text-center p-3 align-middle"><span className="inline-flex items-center justify-center bg-gradient-to-r from-slate-100 to-slate-200 text-slate-800 font-bold px-3 py-1.5 rounded text-xs border border-slate-300/50">{journal.invoice_no}</span></td>
                                                     <td className="text-center p-3 align-middle">
                                                         <div className="px-2">
-                                                            <div className="text-slate-800 font-semibold text-xs truncate" title={journal.from}>
-                                                                {journal.from}
-                                                            </div>
+                                                            <div className="text-slate-800 font-semibold text-xs truncate" title={journal.from}>{journal.from}</div>
                                                             <div className="flex items-center justify-center gap-1 mt-1">
-                                                                <span className={`px-1.5 py-0.5 rounded-full text-[9px] font-medium capitalize whitespace-nowrap ${getAccountTypeColor(journal.from_type)}`}>
-                                                                    {journal.from_type}
-                                                                </span>
+                                                                <span className={`px-1.5 py-0.5 rounded-full text-[9px] font-medium capitalize whitespace-nowrap ${getAccountTypeColor(journal.from_type)}`}>{journal.from_type}</span>
                                                             </div>
                                                         </div>
                                                     </td>
                                                     <td className="text-center p-3 align-middle">
                                                         <div className="px-2">
-                                                            <div className="text-slate-800 font-semibold text-xs truncate" title={journal.to}>
-                                                                {journal.to}
-                                                            </div>
+                                                            <div className="text-slate-800 font-semibold text-xs truncate" title={journal.to}>{journal.to}</div>
                                                             <div className="flex items-center justify-center gap-1 mt-1">
-                                                                <span className={`px-1.5 py-0.5 rounded-full text-[9px] font-medium capitalize whitespace-nowrap ${getAccountTypeColor(journal.to_type)}`}>
-                                                                    {journal.to_type}
-                                                                </span>
+                                                                <span className={`px-1.5 py-0.5 rounded-full text-[9px] font-medium capitalize whitespace-nowrap ${getAccountTypeColor(journal.to_type)}`}>{journal.to_type}</span>
                                                             </div>
                                                         </div>
                                                     </td>
-                                                    <td className="text-center p-3 align-middle">
-                                                        <span className="inline-flex items-center justify-center bg-gradient-to-r from-green-50 to-green-100 text-green-800 font-bold px-3 py-1.5 rounded text-xs">
-                                                            ₹{formatCurrency(journal.amount)}
-                                                        </span>
-                                                    </td>
-                                                    <td className="text-center p-3 align-middle">
-                                                        <div className="px-2">
-                                                            <div className="text-slate-500 text-[10px] italic truncate" title={journal.remark}>
-                                                                {journal.remark || '-'}
-                                                            </div>
-                                                        </div>
-                                                    </td>
+                                                    <td className="text-center p-3 align-middle"><span className="inline-flex items-center justify-center bg-gradient-to-r from-green-50 to-green-100 text-green-800 font-bold px-3 py-1.5 rounded text-xs">₹{formatCurrency(journal.amount)}</span></td>
+                                                    <td className="text-center p-3 align-middle"><div className="px-2"><div className="text-slate-500 text-[10px] italic truncate" title={journal.remark}>{journal.remark || '-'}</div></div></td>
                                                     <td className="text-center p-3 align-middle">
                                                         <div className="dropdown-container relative flex justify-center">
                                                             <motion.button
@@ -691,43 +860,20 @@ const ViewJournal = () => {
                                                                         className="absolute right-0 mt-1 w-48 bg-white rounded-lg shadow-xl border border-slate-200 z-50 overflow-hidden"
                                                                     >
                                                                         <div className="py-1">
-                                                                            <a
-                                                                                href={editLink}
-                                                                                className="flex items-center w-full px-3 py-2 text-xs text-slate-700 hover:bg-blue-50 transition-colors duration-150"
-                                                                                onClick={() => setActiveRowDropdown(null)}
-                                                                            >
-                                                                                <div className="p-1 bg-blue-50 rounded mr-2">
-                                                                                    <FiEdit className="w-3 h-3 text-blue-500" />
-                                                                                </div>
-                                                                                <div className="text-left">
-                                                                                    <div className="font-medium">Edit Journal</div>
-                                                                                </div>
+                                                                            <a href={editLink} className="flex items-center w-full px-3 py-2 text-xs text-slate-700 hover:bg-blue-50 transition-colors duration-150" onClick={() => setActiveRowDropdown(null)}>
+                                                                                <div className="p-1 bg-blue-50 rounded mr-2"><FiEdit className="w-3 h-3 text-blue-500" /></div>
+                                                                                <div className="text-left"><div className="font-medium">Edit Journal</div></div>
                                                                             </a>
                                                                             {invoiceLink && (
-                                                                                <a
-                                                                                    href={invoiceLink}
-                                                                                    className="flex items-center w-full px-3 py-2 text-xs text-slate-700 hover:bg-blue-50 transition-colors duration-150"
-                                                                                    onClick={() => setActiveRowDropdown(null)}
-                                                                                >
-                                                                                    <div className="p-1 bg-green-50 rounded mr-2">
-                                                                                        <FiFileText className="w-3 h-3 text-green-500" />
-                                                                                    </div>
-                                                                                    <div className="text-left">
-                                                                                        <div className="font-medium">View Invoice</div>
-                                                                                    </div>
+                                                                                <a href={invoiceLink} className="flex items-center w-full px-3 py-2 text-xs text-slate-700 hover:bg-blue-50 transition-colors duration-150" onClick={() => setActiveRowDropdown(null)}>
+                                                                                    <div className="p-1 bg-green-50 rounded mr-2"><FiFileText className="w-3 h-3 text-green-500" /></div>
+                                                                                    <div className="text-left"><div className="font-medium">View Invoice</div></div>
                                                                                 </a>
                                                                             )}
                                                                             <div className="border-t border-slate-100 mt-1 pt-1">
-                                                                                <button
-                                                                                    className="flex items-center w-full px-3 py-2 text-xs text-slate-700 hover:bg-blue-50 transition-colors duration-150"
-                                                                                    onClick={() => handleExport('print', journal)}
-                                                                                >
-                                                                                    <div className="p-1 bg-slate-50 rounded mr-2">
-                                                                                        <FiPrinter className="w-3 h-3 text-slate-600" />
-                                                                                    </div>
-                                                                                    <div className="text-left">
-                                                                                        <div className="font-medium">Print</div>
-                                                                                    </div>
+                                                                                <button className="flex items-center w-full px-3 py-2 text-xs text-slate-700 hover:bg-blue-50 transition-colors duration-150" onClick={() => handleOtherExport('print', journal)}>
+                                                                                    <div className="p-1 bg-slate-50 rounded mr-2"><FiPrinter className="w-3 h-3 text-slate-600" /></div>
+                                                                                    <div className="text-left"><div className="font-medium">Print</div></div>
                                                                                 </button>
                                                                             </div>
                                                                         </div>
@@ -772,6 +918,15 @@ const ViewJournal = () => {
                 showSummary={true}
                 showFromClient={true}
                 showToClient={true}
+            />
+
+            {/* Inline Export Modal */}
+            <InlineExportModal
+                isOpen={exportModalOpen}
+                onClose={() => { setExportModalOpen(false); setExportData([]); setExportColumns([]); }}
+                exportData={exportData}
+                columns={exportColumns}
+                jobType="journal_report"
             />
 
             {/* Export Confirmation Modal */}
