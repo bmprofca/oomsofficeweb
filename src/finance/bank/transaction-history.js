@@ -1130,7 +1130,7 @@ const TransactionHistory = () => {
                                 {downloadingInvoice ? (
                                     <div className="w-4 h-4 border-2 border-green-500 border-t-transparent rounded-full animate-spin" />
                                 ) : (
-                                    <FiFile className="w-4 h-4 text-green-600" />
+                                    <FiFile className="w-4 h-4 text-green-500" />
                                 )}
                                 {downloadingInvoice ? 'Downloading…' : 'Invoice'}
                             </button>
