@@ -57,10 +57,24 @@ export const emailApi = {
   resumeBroadcast: (payload) => emailAxios.post('/broadcast/email/broadcast/resume', payload).then(unwrap),
   cancelBroadcast: (payload) => emailAxios.post('/broadcast/email/broadcast/cancel', payload).then(unwrap),
   retryFailed: (payload) => emailAxios.post('/broadcast/email/broadcast/retry-failed', payload).then(unwrap), 
-  processDue: (payload) => emailAxios.post('/broadcast/email/broadcast/process-due', payload || {}).then(unwrap),
-  getVariableKeys: (type) => emailAxios.get(`/broadcast/email/variable-keys/${type}`).then(unwrap),
-  getDynamicVariables: (type, identifier) => emailAxios.get(`/broadcast/email/dynamic-variables/${type}/${identifier}`).then(unwrap),
+ processDue: (payload) => emailAxios.post('/broadcast/email/broadcast/process-due', payload || {}).then(unwrap),
+ getVariableKeys: (type) => emailAxios.get(`/broadcast/email/variable-keys/${type}`).then(unwrap),
+getDynamicVariables: (type, identifier) => emailAxios.get(`/broadcast/email/dynamic-variables/${type}/${identifier}`).then(unwrap),
 
+ // ==================== BULK IMPORT FROM EXCEL/CSV ====================
+
+// uploadRecipients: (file, preview = false) => {
+//   const formData = new FormData();
+//   formData.append('file', file);
+//   const url = preview ? '/ImportMail/email/upload-recipients?preview=true' : '/ImportMail/email/upload-recipients';
+//   return emailAxios.post(url, formData, { headers: { 'Content-Type': 'multipart/form-data' } }).then(unwrap);
+// },
+
+// createBroadcastFromUpload: (payload) => emailAxios.post('/ImportMail/broadcast/create-from-upload', payload).then(unwrap),
+
+// getUploadedRecipientsInfo: () => emailAxios.get('/ImportMail/uploaded-recipients-info').then(unwrap),
+
+// clearUploadedRecipients: () => emailAxios.post('/ImportMail/clear-uploaded-recipients', {}).then(unwrap),
 };
 
 export const normalizeList = (data) => (Array.isArray(data) ? data : []);

@@ -3,7 +3,7 @@ import { Button, Card, Col, Form, Row, Spinner, Table, Badge, Modal, Tab, Tabs, 
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-hot-toast';
 import {
-  FaUsers, FaLayerGroup, FaTasks, FaPlus, FaTrash, FaFileImport,
+  FaUsers, FaFileExcel,FaLayerGroup, FaTasks, FaPlus, FaTrash, FaFileImport,
   FaSearch, FaEnvelope, FaPaperPlane, FaCheckDouble, FaEye,
   FaClock, FaUserCheck, FaFilter, FaChevronDown, FaTimes,
   FaCheck, FaCircle, FaSpinner, FaHourglassHalf, FaUserClock,
@@ -1448,8 +1448,7 @@ const buildPayload = async () => {
         <div className={`pt-16 ${isMinimized ? 'md:pl-20' : 'md:pl-[260px]'}`}>
           <div style={{ maxWidth: 1100, margin: '0 auto', padding: '28px 20px 40px' }}>
 
-            {/* ── Header ── */}
-            <div className="ebc-header-card">
+           <div className="ebc-header-card">
   <div>
     <div className="ebc-header-main-title">
       <FaEnvelope style={{ marginRight: 10, opacity: 0.85 }} />
@@ -1458,29 +1457,38 @@ const buildPayload = async () => {
     <div className="ebc-header-sub">Send professional emails to clients, groups, or task-based recipients</div>
   </div>
   <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'center' }}>
-    {/* Bulk Import Button */}
+    {/* NEW: Bulk Import Button */}
     <button
-      onClick={() => setShowImportModal(true)}
+      onClick={() => navigate('/broadcast/bulk-import')}
       style={{
         background: 'linear-gradient(135deg, #059669 0%, #0d9488 100%)',
         border: 'none',
         borderRadius: 10,
-        padding: '8px 18px',
+        padding: '8px 16px',
         color: '#fff',
         display: 'flex',
         alignItems: 'center',
         gap: 8,
         cursor: 'pointer',
         fontSize: '0.8rem',
-        fontWeight: 600
+        fontWeight: 600,
+        transition: 'transform 0.2s, box-shadow 0.2s'
+      }}
+      onMouseEnter={(e) => {
+        e.currentTarget.style.transform = 'translateY(-1px)';
+        e.currentTarget.style.boxShadow = '0 4px 12px rgba(5,150,105,0.4)';
+      }}
+      onMouseLeave={(e) => {
+        e.currentTarget.style.transform = 'translateY(0)';
+        e.currentTarget.style.boxShadow = 'none';
       }}
     >
-      <FaFileExcel size={14} /> Import Excel/CSV
+      <FaFileExcel size={14} /> Bulk Import from Excel/CSV
     </button>
-    <span className="ebc-badge" style={{ background: 'rgba(255,255,255,0.15)', color: '#fff' }}>
+    <span className="ebc-badge" style={{ background: 'rgba(255,255,255,0.15)', color: '#fff', backdropFilter: 'blur(4px)' }}>
       <FaPaperPlane size={10} /> Email Broadcast
     </span>
-    <span className="ebc-badge" style={{ background: 'rgba(255,255,255,0.15)', color: '#fff' }}>
+    <span className="ebc-badge" style={{ background: 'rgba(255,255,255,0.15)', color: '#fff', backdropFilter: 'blur(4px)' }}>
       <FaUsers size={10} /> Multi-Recipient
     </span>
   </div>
@@ -1691,26 +1699,22 @@ const buildPayload = async () => {
               </div>
 
               {/* ── Manual Tab ── */}
-              {activeTab === 'manual' && (
-                <>
-                 <div className="mb-4">
+            <div className="mb-4">
   <div className="ebc-label" style={{ marginBottom: 8 }}>
     <FaFileImport size={11} /> Bulk Import Options
   </div>
-  {/* Excel/CSV Upload Button */}
-  <div style={{ marginBottom: 16 }}>
+  <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginBottom: 12 }}>
     <button
-      className="ebc-btn ebc-btn-success ebc-btn-sm"
-      onClick={() => setShowImportModal(true)}
-      style={{ background: '#059669' }}
+      className="ebc-btn ebc-btn-outline ebc-btn-sm"
+      onClick={() => navigate('/broadcast/bulk-import')}
+      style={{ background: '#f0fdf4', borderColor: '#059669', color: '#059669' }}
     >
       <FaFileExcel size={12} /> Upload Excel/CSV File
     </button>
-    <span className="text-muted" style={{ fontSize: '0.7rem', marginLeft: 12 }}>Supports .csv, .xls, .xlsx</span>
+    <span style={{ fontSize: '0.7rem', color: '#9ca3af', alignSelf: 'center' }}>or</span>
   </div>
-  
   <div className="ebc-label" style={{ marginBottom: 8 }}>
-    <FaFileImport size={11} /> Manual CSV Entry <span style={{ color: '#9ca3af', fontWeight: 400 }}>— format: name, email</span>
+    <FaFileImport size={11} /> Manual CSV Import <span style={{ color: '#9ca3af', fontWeight: 400 }}>— format: name, email</span>
   </div>
   <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
     <textarea
@@ -1725,54 +1729,6 @@ const buildPayload = async () => {
     </button>
   </div>
 </div>
-
-                  {getValidRecipients().length === 0 && (
-                    <div className="ebc-alert ebc-alert-warning mb-3">
-                      <FaExclamationCircle size={14} />
-                      <span>No valid recipients yet. Add at least one recipient with a valid email address.</span>
-                    </div>
-                  )}
-
-                  <div className="ebc-table-wrap">
-                    <table className="ebc-table">
-                      <thead>
-                        <tr>
-                          <th style={{ width: '28%' }}>Recipient Name</th>
-                          <th style={{ width: '34%' }}>Email Address <span style={{ color: '#ef4444' }}>*</span></th>
-                          <th style={{ width: '30%' }}>Variables (JSON)</th>
-                          <th style={{ width: '8%', textAlign: 'center' }}>Del</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {recipients.map((r, idx) => (
-                          <tr key={idx} className={!r.recipient_email || !emailRegex.test(r.recipient_email) ? 'row-invalid' : ''}>
-                            <td>
-                              <input className={`ebc-cell-input ${formErrors[`recipient_name_${idx}`] ? 'invalid' : ''}`} value={r.recipient_name} onChange={e => { const n = [...recipients]; n[idx].recipient_name = e.target.value; setRecipients(n); }} placeholder="Full name" />
-                            </td>
-                            <td>
-                              <input className={`ebc-cell-input ${(formErrors[`recipient_email_${idx}`] || (r.recipient_email && !emailRegex.test(r.recipient_email))) ? 'invalid' : ''}`} value={r.recipient_email} onChange={e => { const n = [...recipients]; n[idx].recipient_email = e.target.value; setRecipients(n); }} placeholder="email@example.com" />
-                              {r.recipient_email && !emailRegex.test(r.recipient_email) && (
-                                <div className="ebc-error"><FaExclamationCircle size={9} /> Invalid email</div>
-                              )}
-                            </td>
-                            <td>
-                              <input className={`ebc-cell-input mono ${formErrors[`recipient_json_${idx}`] ? 'invalid' : ''}`} value={r.variable_values_json} onChange={e => { const n = [...recipients]; n[idx].variable_values_json = e.target.value; setRecipients(n); }} placeholder='{"name":"John"}' />
-                            </td>
-                            <td style={{ textAlign: 'center' }}>
-                              <button className="ebc-btn-danger-ghost" onClick={() => setRecipients(p => p.filter((_, i) => i !== idx))}>
-                                <FaTrash size={12} />
-                              </button>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                  <button className="ebc-btn ebc-btn-outline ebc-btn-sm mt-3" onClick={() => setRecipients(p => [...p, newRecipient()])}>
-                    <FaPlus size={11} /> Add Row
-                  </button>
-                </>
-              )}
 
               {/* ── Clients Tab ── */}
               {activeTab === 'clients' && (
@@ -1989,14 +1945,25 @@ const buildPayload = async () => {
 
             {/* ── Action Footer ── */}
             <div className="ebc-footer">
-              <button className="ebc-btn ebc-btn-outline" onClick={() => navigate('/broadcast/email')}>
-                <FaArrowLeft size={12} /> Cancel
-              </button>
-              <button className="ebc-btn ebc-btn-send" onClick={submit} disabled={loading}>
-                {loading ? <Spinner size="sm" style={{ marginRight: 6 }} /> : <FaPaperPlane size={13} />}
-                {form.schedule_type === 'now' ? 'Send Broadcast Now' : 'Schedule Broadcast'}
-              </button>
-            </div>
+  <div style={{ display: 'flex', gap: 12, marginRight: 'auto' }}>
+    <button 
+      className="ebc-btn ebc-btn-outline"
+      onClick={() => navigate('/broadcast/bulk-import')}
+      style={{ background: '#f0fdf4', borderColor: '#059669', color: '#059669' }}
+    >
+      <FaFileExcel size={12} /> Bulk Import from Excel
+    </button>
+  </div>
+  <div style={{ display: 'flex', gap: 12 }}>
+    <button className="ebc-btn ebc-btn-outline" onClick={() => navigate('/broadcast/email')}>
+      <FaArrowLeft size={12} /> Cancel
+    </button>
+    <button className="ebc-btn ebc-btn-send" onClick={submit} disabled={loading}>
+      {loading ? <Spinner size="sm" style={{ marginRight: 6 }} /> : <FaPaperPlane size={13} />}
+      {form.schedule_type === 'now' ? 'Send Broadcast Now' : 'Schedule Broadcast'}
+    </button>
+  </div>
+</div>
 
           </div>
         </div>

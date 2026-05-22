@@ -87,7 +87,7 @@ import ServiceWiseSales from './DashboardComponents/ServiceSalesDetails';
 import StaffSalesDetails from './DashboardComponents/StaffSalesDetails';
 import TopClientsViewAll from './DashboardComponents/TopClientsViewAll';
 import TaskDetailsPage from './staff/TaskDetailsPage';
-
+import BulkImportPage from './pages/broadcast/email/BulkEmailImport';
 
 // Google Client ID
 const GOOGLE_CLIENT_ID = "process.env.REACT_APP_GOOGLE_CLIENT_ID" in process.env ? process.env.REACT_APP_GOOGLE_CLIENT_ID : "706030491156-5rq848qm4eih47h29675u6pdv11m8kvq.apps.googleusercontent.com";
@@ -456,6 +456,14 @@ root.render(
             <EmailBroadcastList />
           </ProtectedRoute>
         } />
+         <Route path="/broadcast/bulk-import" element={
+          <ProtectedRoute>
+            <BulkImportPage/>
+          </ProtectedRoute>
+        } />
+
+
+   
         <Route path="/broadcast/email/create" element={
           <ProtectedRoute>
             <EmailBroadcastCreate />
