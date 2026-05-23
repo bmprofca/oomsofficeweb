@@ -15,9 +15,9 @@ import {
     FiCreditCard, FiHome, FiMap, FiGlobe
 } from 'react-icons/fi';
 
-
 import { AiOutlineMail } from "react-icons/ai";
-import { FaWhatsapp } from "react-icons/fa6";
+import { FaWhatsapp, FaFileCsv } from "react-icons/fa6";
+import { PiMicrosoftExcelLogoDuotone, PiFilePdfDuotone } from 'react-icons/pi';
 import toast from 'react-hot-toast';
 
 // Import components
