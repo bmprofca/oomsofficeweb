@@ -180,12 +180,12 @@ const ViewModal = ({ document: doc, onClose }) => {
         onClick={(e) => e.stopPropagation()}
       >
         <div className="p-6 border-b border-gray-200 flex justify-between items-center sticky top-0 bg-white z-10">
-          <h3 className="text-xl font-bold text-gray-900">Document Details</h3>
+          <h3 className="text-base font-bold text-slate-800">Document Details</h3>
           <button
             onClick={onClose}
             className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
           >
-            <FiX className="w-5 h-5 text-gray-500" />
+            <FiX className="w-5 h-5 text-slate-500" />
           </button>
         </div>
 
@@ -202,8 +202,8 @@ const ViewModal = ({ document: doc, onClose }) => {
                   />
                 ) : (
                   <div className="w-full p-8 bg-gray-50 rounded-lg text-center">
-                    <FiFileText className="w-16 h-16 text-gray-400 mx-auto mb-2" />
-                    <p className="text-sm text-gray-600 mb-4">Preview not available</p>
+                    <FiFileText className="w-16 h-16 text-slate-400 mx-auto mb-2" />
+                    <p className="text-sm text-slate-600 mb-4">Preview not available</p>
                     <button
                       onClick={handleViewInNewTab}
                       className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
@@ -218,23 +218,23 @@ const ViewModal = ({ document: doc, onClose }) => {
             {doc && Object.entries(doc).map(([key, value]) =>
               key !== 'id' && key !== 'firm_id' && key !== 'file_url' && key !== 'mime_type' && key !== 'size' && key !== 'create_date' && key !== 'type_value' && (
                 <div key={key} className="flex border-b border-gray-100 pb-3">
-                  <span className="w-1/3 text-sm font-medium text-gray-600 capitalize">
+                  <span className="w-1/3 text-xs font-semibold text-slate-600 capitalize">
                     {key.replace(/([A-Z])/g, ' $1').trim()}:
                   </span>
-                  <span className="w-2/3 text-sm text-gray-900 break-words">{value || '-'}</span>
+                  <span className="w-2/3 text-sm text-slate-800 break-words">{value || '-'}</span>
                 </div>
               )
             )}
             {doc?.size && (
               <div className="flex border-b border-gray-100 pb-3">
-                <span className="w-1/3 text-sm font-medium text-gray-600">File Size:</span>
-                <span className="w-2/3 text-sm text-gray-900">{(doc.size / 1024).toFixed(2)} KB</span>
+                <span className="w-1/3 text-xs font-semibold text-slate-600">File Size:</span>
+                <span className="w-2/3 text-sm text-slate-800">{(doc.size / 1024).toFixed(2)} KB</span>
               </div>
             )}
             {doc?.create_date && (
               <div className="flex border-b border-gray-100 pb-3">
-                <span className="w-1/3 text-sm font-medium text-gray-600">Uploaded On:</span>
-                <span className="w-2/3 text-sm text-gray-900">{new Date(doc.create_date).toLocaleString()}</span>
+                <span className="w-1/3 text-xs font-semibold text-slate-600">Uploaded On:</span>
+                <span className="w-2/3 text-sm text-slate-800">{new Date(doc.create_date).toLocaleString()}</span>
               </div>
             )}
           </div>
@@ -260,7 +260,7 @@ const ViewModal = ({ document: doc, onClose }) => {
             )}
             <button
               onClick={onClose}
-              className="px-6 py-2 bg-gray-100 text-gray-700 rounded-xl hover:bg-gray-200 transition-colors font-medium"
+              className="px-6 py-2 bg-gray-100 text-slate-700 rounded-xl hover:bg-gray-200 transition-colors font-medium"
             >
               Close
             </button>
@@ -298,13 +298,13 @@ const CreateCategoryModal = ({ onClose, onCreate, loading }) => {
         onClick={(e) => e.stopPropagation()}
       >
         <div className="p-6 border-b border-gray-200 sticky top-0 bg-white z-10">
-          <h3 className="text-xl font-bold text-gray-900">Create Category</h3>
+          <h3 className="text-base font-bold text-slate-800">Create Category</h3>
         </div>
 
         <div className="p-6 overflow-y-auto max-h-[calc(90vh-120px)] custom-scrollbar">
           <div className="space-y-4">
             <div className="space-y-2">
-              <label className="block text-sm font-medium text-gray-700">Name *</label>
+              <label className="block text-xs font-semibold text-slate-600">Name *</label>
               <input
                 type="text"
                 placeholder="Enter category name"
@@ -316,7 +316,7 @@ const CreateCategoryModal = ({ onClose, onCreate, loading }) => {
               />
             </div>
             <div className="space-y-2">
-              <label className="block text-sm font-medium text-gray-700">Remark</label>
+              <label className="block text-xs font-semibold text-slate-600">Remark</label>
               <textarea
                 rows="3"
                 placeholder="Enter remark (optional)"
@@ -333,7 +333,7 @@ const CreateCategoryModal = ({ onClose, onCreate, loading }) => {
           <div className="flex gap-3">
             <button
               onClick={onClose}
-              className="flex-1 px-6 py-3 border border-gray-300 text-gray-700 rounded-xl hover:bg-gray-50 transition-colors font-medium"
+              className="flex-1 px-6 py-3 border border-gray-300 text-slate-700 rounded-xl hover:bg-gray-50 transition-colors font-medium"
               disabled={loading}
             >
               Cancel
@@ -393,13 +393,13 @@ const EditCategoryModal = ({ onClose, onEdit, loading, category }) => {
         onClick={(e) => e.stopPropagation()}
       >
         <div className="p-6 border-b border-gray-200 sticky top-0 bg-white z-10">
-          <h3 className="text-xl font-bold text-gray-900">Edit Category</h3>
+          <h3 className="text-base font-bold text-slate-800">Edit Category</h3>
         </div>
 
         <div className="p-6 overflow-y-auto max-h-[calc(90vh-120px)] custom-scrollbar">
           <div className="space-y-4">
             <div className="space-y-2">
-              <label className="block text-sm font-medium text-gray-700">Name *</label>
+              <label className="block text-xs font-semibold text-slate-600">Name *</label>
               <input
                 type="text"
                 placeholder="Enter category name"
@@ -411,7 +411,7 @@ const EditCategoryModal = ({ onClose, onEdit, loading, category }) => {
               />
             </div>
             <div className="space-y-2">
-              <label className="block text-sm font-medium text-gray-700">Remark</label>
+              <label className="block text-xs font-semibold text-slate-600">Remark</label>
               <textarea
                 rows="3"
                 placeholder="Enter remark (optional)"
@@ -428,7 +428,7 @@ const EditCategoryModal = ({ onClose, onEdit, loading, category }) => {
           <div className="flex gap-3">
             <button
               onClick={onClose}
-              className="flex-1 px-6 py-3 border border-gray-300 text-gray-700 rounded-xl hover:bg-gray-50 transition-colors font-medium"
+              className="flex-1 px-6 py-3 border border-gray-300 text-slate-700 rounded-xl hover:bg-gray-50 transition-colors font-medium"
               disabled={loading}
             >
               Cancel
@@ -497,14 +497,14 @@ const SendModal = ({ document, selectedDocuments, onClose, onSubmit, loading }) 
         onClick={(e) => e.stopPropagation()}
       >
         <div className="p-6 border-b border-gray-200 flex justify-between items-center sticky top-0 bg-white z-10">
-          <h3 className="text-xl font-bold text-gray-900">
+          <h3 className="text-base font-bold text-slate-800">
             Send {document ? 'Document' : 'Documents'}
           </h3>
           <button
             onClick={onClose}
             className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
           >
-            <FiX className="w-5 h-5 text-gray-500" />
+            <FiX className="w-5 h-5 text-slate-500" />
           </button>
         </div>
 
@@ -519,7 +519,7 @@ const SendModal = ({ document, selectedDocuments, onClose, onSubmit, loading }) 
             )}
 
             <div className="space-y-2">
-              <label className="block text-sm font-medium text-gray-700">Send via *</label>
+              <label className="block text-xs font-semibold text-slate-600">Send via *</label>
               <div className="grid grid-cols-2 gap-3">
                 <button
                   onClick={() => setSendOption('whatsapp')}
@@ -547,7 +547,7 @@ const SendModal = ({ document, selectedDocuments, onClose, onSubmit, loading }) 
             </div>
 
             <div className="space-y-2">
-              <label className="block text-sm font-medium text-gray-700">
+              <label className="block text-xs font-semibold text-slate-600">
                 {sendOption === 'whatsapp' ? 'Phone Number *' : 'Email Address *'}
               </label>
               <input
@@ -561,7 +561,7 @@ const SendModal = ({ document, selectedDocuments, onClose, onSubmit, loading }) 
             </div>
 
             <div className="space-y-2">
-              <label className="block text-sm font-medium text-gray-700">Message (Optional)</label>
+              <label className="block text-xs font-semibold text-slate-600">Message (Optional)</label>
               <textarea
                 rows="3"
                 placeholder="Enter your message"
@@ -573,7 +573,7 @@ const SendModal = ({ document, selectedDocuments, onClose, onSubmit, loading }) 
             </div>
 
             <div className="space-y-2">
-              <label className="block text-sm font-medium text-gray-700">Attachments</label>
+              <label className="block text-xs font-semibold text-slate-600">Attachments</label>
               <div className="border-2 border-dashed border-gray-300 rounded-xl p-4 text-center hover:border-blue-500 transition-colors">
                 <input
                   type="file"
@@ -584,9 +584,9 @@ const SendModal = ({ document, selectedDocuments, onClose, onSubmit, loading }) 
                   disabled={loading}
                 />
                 <label htmlFor="file-upload" className="cursor-pointer">
-                  <FiPaperclip className="w-6 h-6 text-gray-400 mx-auto mb-2" />
-                  <p className="text-sm text-gray-600">Click to attach files</p>
-                  <p className="text-xs text-gray-500 mt-1">PDF, JPG, PNG up to 10MB each</p>
+                  <FiPaperclip className="w-6 h-6 text-slate-400 mx-auto mb-2" />
+                  <p className="text-sm text-slate-600">Click to attach files</p>
+                  <p className="text-xs text-slate-500 mt-1">PDF, JPG, PNG up to 10MB each</p>
                 </label>
               </div>
 
@@ -594,7 +594,7 @@ const SendModal = ({ document, selectedDocuments, onClose, onSubmit, loading }) 
                 <div className="mt-3 space-y-2">
                   {attachments.map((file, index) => (
                     <div key={index} className="flex items-center justify-between bg-gray-50 p-2 rounded-lg">
-                      <span className="text-sm text-gray-700 truncate">{file.name}</span>
+                      <span className="text-sm text-slate-700 truncate">{file.name}</span>
                       <button
                         onClick={() => removeAttachment(index)}
                         className="text-red-500 hover:text-red-700"
@@ -610,7 +610,7 @@ const SendModal = ({ document, selectedDocuments, onClose, onSubmit, loading }) 
             </div>
 
             <div className="bg-gray-50 p-3 rounded-lg">
-              <p className="text-xs text-gray-500 flex items-center gap-2">
+              <p className="text-xs text-slate-500 flex items-center gap-2">
                 <FiFile className="w-4 h-4" />
                 {document ? 'Selected document will be attached automatically' : 'Selected documents will be attached automatically'}
               </p>
@@ -622,7 +622,7 @@ const SendModal = ({ document, selectedDocuments, onClose, onSubmit, loading }) 
           <div className="flex gap-3">
             <button
               onClick={onClose}
-              className="flex-1 px-6 py-3 border border-gray-300 text-gray-700 rounded-xl hover:bg-gray-50 transition-colors font-medium"
+              className="flex-1 px-6 py-3 border border-gray-300 text-slate-700 rounded-xl hover:bg-gray-50 transition-colors font-medium"
               disabled={loading}
             >
               Cancel
@@ -693,7 +693,7 @@ const DocumentEntry = ({ index, document, onUpdate, onRemove, showRemove, tab, d
   return (
     <div className="border border-gray-200 rounded-xl p-4 bg-gray-50/50">
       <div className="flex justify-between items-center mb-3">
-        <h4 className="text-sm font-semibold text-gray-700">Document #{index + 1}</h4>
+        <h4 className="text-sm font-semibold text-slate-700">Document #{index + 1}</h4>
         {showRemove && (
           <button
             onClick={() => onRemove(index)}
@@ -720,8 +720,8 @@ const DocumentEntry = ({ index, document, onUpdate, onRemove, showRemove, tab, d
                 className="hidden"
                 disabled={uploadLoading}
               />
-              <FiPaperclip className="w-5 h-5 text-gray-400 mx-auto mb-1" />
-              <p className="text-xs text-gray-600">Click to upload file</p>
+              <FiPaperclip className="w-5 h-5 text-slate-400 mx-auto mb-1" />
+              <p className="text-xs text-slate-600">Click to upload file</p>
             </div>
           ) : (
             <div className="bg-blue-50 border border-blue-200 rounded-xl p-2">
@@ -731,8 +731,8 @@ const DocumentEntry = ({ index, document, onUpdate, onRemove, showRemove, tab, d
                     <FiFile className="w-4 h-4 text-blue-600" />
                   </div>
                   <div>
-                    <p className="text-xs font-medium text-gray-900 truncate max-w-[150px]">{document.file.name}</p>
-                    <p className="text-xs text-gray-500">{(document.file.size / 1024).toFixed(2)} KB</p>
+                    <p className="text-xs font-medium text-slate-800 truncate max-w-[150px]">{document.file.name}</p>
+                    <p className="text-xs text-slate-500">{(document.file.size / 1024).toFixed(2)} KB</p>
                   </div>
                 </div>
                 <button
@@ -993,15 +993,15 @@ const UploadModal = ({ onClose, tab, firms, loadingFirms, assessmentYears, finan
               <FiUpload className="w-5 h-5 text-blue-600" />
             </div>
             <div>
-              <h2 className="text-xl font-semibold text-gray-800">Upload {getTabTitle()}</h2>
-              <p className="text-sm text-gray-500">Add multiple documents at once</p>
+              <h2 className="text-base font-semibold text-slate-800">Upload {getTabTitle()}</h2>
+              <p className="text-sm text-slate-500">Add multiple documents at once</p>
             </div>
           </div>
           <button
             onClick={onClose}
             className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
           >
-            <FiX className="w-5 h-5 text-gray-500" />
+            <FiX className="w-5 h-5 text-slate-500" />
           </button>
         </div>
 
@@ -1009,7 +1009,7 @@ const UploadModal = ({ onClose, tab, firms, loadingFirms, assessmentYears, finan
         <div className="px-6 py-4 bg-gray-50 border-b border-gray-200">
           <div className="flex items-center space-x-4">
             <div className="flex-1 max-w-md">
-              <label className="block text-xs font-medium text-gray-500 uppercase tracking-wider mb-1">
+              <label className="block text-xs font-medium text-slate-500 uppercase tracking-wider mb-1">
                 Select Firm <span className="text-red-500">*</span>
               </label>
               <select
@@ -1028,7 +1028,7 @@ const UploadModal = ({ onClose, tab, firms, loadingFirms, assessmentYears, finan
                 })}
               </select>
             </div>
-            <div className="flex items-center space-x-2 text-sm text-gray-600">
+            <div className="flex items-center space-x-2 text-sm text-slate-600">
               <FiHardDrive className="w-4 h-4" />
               <span>{documents.length} document{documents.length !== 1 ? 's' : ''}</span>
             </div>
@@ -1042,10 +1042,10 @@ const UploadModal = ({ onClose, tab, firms, loadingFirms, assessmentYears, finan
               {/* Document Header */}
               <div className="flex items-center justify-between mb-3">
                 <div className="flex items-center space-x-2">
-                  <span className="w-6 h-6 bg-gray-100 rounded-full flex items-center justify-center text-xs font-medium text-gray-600">
+                  <span className="w-6 h-6 bg-gray-100 rounded-full flex items-center justify-center text-xs font-semibold text-slate-600">
                     {index + 1}
                   </span>
-                  <span className="text-sm font-medium text-gray-700">Document Details</span>
+                  <span className="text-sm font-medium text-slate-700">Document Details</span>
                   {!doc.file && (
                     <span className="px-2 py-0.5 bg-red-50 text-red-600 text-xs rounded-full">File Required</span>
                   )}
@@ -1053,7 +1053,7 @@ const UploadModal = ({ onClose, tab, firms, loadingFirms, assessmentYears, finan
                 {documents.length > 1 && (
                   <button
                     onClick={() => removeDocumentEntry(index)}
-                    className="p-1 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded transition-colors"
+                    className="p-1 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded transition-colors"
                   >
                     <FiTrash2 className="w-4 h-4" />
                   </button>
@@ -1067,7 +1067,7 @@ const UploadModal = ({ onClose, tab, firms, loadingFirms, assessmentYears, finan
                   {/* Document Type - Column 1 */}
                   {(tab === 'income-tax' || tab === 'gst' || tab === 'mca') && (
                     <div>
-                      <label className="block text-xs text-gray-500 mb-1">Document Type *</label>
+                      <label className="block text-xs text-slate-500 mb-1">Document Type *</label>
                       <select
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
                         value={doc.type}
@@ -1084,7 +1084,7 @@ const UploadModal = ({ onClose, tab, firms, loadingFirms, assessmentYears, finan
                   {/* Year Field - Column 2 */}
                   {(tab === 'income-tax' || tab === 'gst' || tab === 'mca') && (
                     <div>
-                      <label className="block text-xs text-gray-500 mb-1">{getYearLabel()} *</label>
+                      <label className="block text-xs text-slate-500 mb-1">{getYearLabel()} *</label>
                       <select
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
                         value={doc.year}
@@ -1101,7 +1101,7 @@ const UploadModal = ({ onClose, tab, firms, loadingFirms, assessmentYears, finan
                   {/* Month Field - For GST only */}
                   {tab === 'gst' && (
                     <div>
-                      <label className="block text-xs text-gray-500 mb-1">Month *</label>
+                      <label className="block text-xs text-slate-500 mb-1">Month *</label>
                       <select
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
                         value={doc.month}
@@ -1121,7 +1121,7 @@ const UploadModal = ({ onClose, tab, firms, loadingFirms, assessmentYears, finan
                   {tab === 'general' && (
                     <>
                       <div>
-                        <label className="block text-xs text-gray-500 mb-1">Document Name *</label>
+                        <label className="block text-xs text-slate-500 mb-1">Document Name *</label>
                         <input
                           type="text"
                           className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
@@ -1131,7 +1131,7 @@ const UploadModal = ({ onClose, tab, firms, loadingFirms, assessmentYears, finan
                         />
                       </div>
                       <div>
-                        <label className="block text-xs text-gray-500 mb-1">Category *</label>
+                        <label className="block text-xs text-slate-500 mb-1">Category *</label>
                         <select
                           className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
                           value={doc.category}
@@ -1152,7 +1152,7 @@ const UploadModal = ({ onClose, tab, firms, loadingFirms, assessmentYears, finan
                     ${tab === 'income-tax' || tab === 'mca' ? 'col-span-2' : ''}
                     ${tab === 'general' ? 'col-span-2' : ''}
                   `}>
-                    <label className="block text-xs text-gray-500 mb-1">Remark</label>
+                    <label className="block text-xs text-slate-500 mb-1">Remark</label>
                     <input
                       type="text"
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
@@ -1165,7 +1165,7 @@ const UploadModal = ({ onClose, tab, firms, loadingFirms, assessmentYears, finan
 
                 {/* Second Row: File Upload - Full Width */}
                 <div className="w-full">
-                  <label className="block text-xs text-gray-500 mb-1">Upload File *</label>
+                  <label className="block text-xs text-slate-500 mb-1">Upload File *</label>
                   {!doc.file ? (
                     <div
                       onClick={() => fileInputRefs.current[index]?.click()}
@@ -1177,9 +1177,9 @@ const UploadModal = ({ onClose, tab, firms, loadingFirms, assessmentYears, finan
                         onChange={(e) => handleFileSelect(index, e)}
                         className="hidden"
                       />
-                      <FiPaperclip className="w-5 h-5 text-gray-400 mx-auto mb-2" />
-                      <span className="text-sm text-gray-600">Click to choose file or drag and drop</span>
-                      <p className="text-xs text-gray-500 mt-1">PDF, JPG, PNG up to 10MB</p>
+                      <FiPaperclip className="w-5 h-5 text-slate-400 mx-auto mb-2" />
+                      <span className="text-sm text-slate-600">Click to choose file or drag and drop</span>
+                      <p className="text-xs text-slate-500 mt-1">PDF, JPG, PNG up to 10MB</p>
                     </div>
                   ) : (
                     <div className="border border-green-200 bg-green-50 rounded-lg p-3 w-full flex items-center justify-between">
@@ -1188,13 +1188,13 @@ const UploadModal = ({ onClose, tab, firms, loadingFirms, assessmentYears, finan
                           <FiFile className="w-5 h-5 text-green-600" />
                         </div>
                         <div>
-                          <p className="text-sm font-medium text-gray-700">{doc.file.name}</p>
+                          <p className="text-sm font-medium text-slate-700">{doc.file.name}</p>
                           <p className="text-xs text-green-600">{(doc.file.size / 1024).toFixed(1)} KB</p>
                         </div>
                       </div>
                       <button
                         onClick={() => removeFile(index)}
-                        className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                        className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
                       >
                         <FiX className="w-4 h-4" />
                       </button>
@@ -1208,7 +1208,7 @@ const UploadModal = ({ onClose, tab, firms, loadingFirms, assessmentYears, finan
           {/* Add More Button */}
           <button
             onClick={addDocumentEntry}
-            className="w-full py-3 border border-gray-300 border-dashed rounded-lg text-gray-500 hover:text-blue-600 hover:border-blue-400 hover:bg-blue-50 transition-colors flex items-center justify-center space-x-2"
+            className="w-full py-3 border border-gray-300 border-dashed rounded-lg text-slate-500 hover:text-blue-600 hover:border-blue-400 hover:bg-blue-50 transition-colors flex items-center justify-center space-x-2"
           >
             <FiPlus className="w-4 h-4" />
             <span className="text-sm">Add Another Document</span>
@@ -1233,13 +1233,13 @@ const UploadModal = ({ onClose, tab, firms, loadingFirms, assessmentYears, finan
 
         {/* Footer */}
         <div className="px-6 py-4 border-t border-gray-200 bg-gray-50 flex items-center justify-between">
-          <div className="text-xs text-gray-500">
-            <span className="text-gray-700 font-medium">{documents.length}</span> document(s) ready to upload
+          <div className="text-xs text-slate-500">
+            <span className="text-slate-700 font-medium">{documents.length}</span> document(s) ready to upload
           </div>
           <div className="flex space-x-3">
             <button
               onClick={onClose}
-              className="px-4 py-2 border border-gray-300 rounded-lg text-sm text-gray-700 hover:bg-gray-100 transition-colors"
+              className="px-4 py-2 border border-gray-300 rounded-lg text-sm text-slate-700 hover:bg-gray-100 transition-colors"
             >
               Cancel
             </button>
@@ -2310,16 +2310,16 @@ const DocumentsTab = ({ clientUsername }) => {
       <div className="border-b border-gray-200 px-6 pt-6">
         <div className="flex justify-between items-center mb-6">
           <div className="flex items-center gap-4">
-            <h2 className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-indigo-700 bg-clip-text text-transparent">
+            <h2 className="text-base sm:text-lg font-bold text-slate-800 bg-gradient-to-r from-blue-600 to-indigo-700 bg-clip-text text-transparent">
               Document Management System
             </h2>
             {/* Storage Usage Indicator */}
             <div className="flex items-center gap-3 bg-gray-50 px-4 py-2 rounded-xl border border-gray-200">
-              <FiHardDrive className="w-5 h-5 text-gray-500" />
+              <FiHardDrive className="w-5 h-5 text-slate-500" />
               <div className="flex flex-col">
                 <div className="flex items-center gap-2">
-                  <span className="text-sm font-medium text-gray-700">Storage:</span>
-                  <span className="text-sm text-gray-600">{formatStorage(storageUsed)} / 5 GB</span>
+                  <span className="text-sm font-medium text-slate-700">Storage:</span>
+                  <span className="text-sm text-slate-600">{formatStorage(storageUsed)} / 5 GB</span>
                 </div>
                 <div className="w-32 h-1.5 bg-gray-200 rounded-full overflow-hidden">
                   <div
@@ -2351,7 +2351,7 @@ const DocumentsTab = ({ clientUsername }) => {
                         setShowUploadModal(true);
                         setShowGeneralDropdown(false);
                       }}
-                      className="w-full px-4 py-3 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
+                      className="w-full px-4 py-3 text-left text-sm text-slate-700 hover:bg-gray-50 flex items-center gap-2"
                     >
                       <FiUpload className="w-4 h-4" />
                       Upload Document
@@ -2361,7 +2361,7 @@ const DocumentsTab = ({ clientUsername }) => {
                         setShowCreateCategoryModal(true);
                         setShowGeneralDropdown(false);
                       }}
-                      className="w-full px-4 py-3 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
+                      className="w-full px-4 py-3 text-left text-sm text-slate-700 hover:bg-gray-50 flex items-center gap-2"
                     >
                       <FiPlus className="w-4 h-4" />
                       Create Category
@@ -2402,7 +2402,7 @@ const DocumentsTab = ({ clientUsername }) => {
                 }}
                 className={`flex items-center gap-2 px-6 py-3 rounded-t-xl font-medium transition-all relative whitespace-nowrap ${activeTab === tab.id
                     ? `text-${tab.color}-600 bg-white border-t-2 border-l border-r border-gray-200 -mb-px`
-                    : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+                    : 'text-slate-600 hover:text-slate-800 hover:bg-gray-50'
                   }`}
               >
                 <Icon className={`w-5 h-5 ${activeTab === tab.id ? `text-${tab.color}-600` : ''}`} />
@@ -2427,7 +2427,7 @@ const DocumentsTab = ({ clientUsername }) => {
               onClick={() => setShowGeneralSubTab('documents')}
               className={`px-4 py-2 rounded-lg font-medium transition-all ${showGeneralSubTab === 'documents'
                   ? 'bg-blue-100 text-blue-700'
-                  : 'text-gray-600 hover:bg-gray-100'
+                  : 'text-slate-600 hover:bg-gray-100'
                 }`}
             >
               Documents
@@ -2436,7 +2436,7 @@ const DocumentsTab = ({ clientUsername }) => {
               onClick={() => setShowGeneralSubTab('categories')}
               className={`px-4 py-2 rounded-lg font-medium transition-all ${showGeneralSubTab === 'categories'
                   ? 'bg-blue-100 text-blue-700'
-                  : 'text-gray-600 hover:bg-gray-100'
+                  : 'text-slate-600 hover:bg-gray-100'
                 }`}
             >
               Categories
@@ -2450,7 +2450,7 @@ const DocumentsTab = ({ clientUsername }) => {
         <div className="p-6 border-b border-gray-200 bg-gray-50/50">
           <div className="flex flex-wrap gap-4 items-center">
             <div className="flex items-center gap-2 bg-white px-4 py-2 rounded-xl border border-gray-200 shadow-sm">
-              <FiUsers className="w-5 h-5 text-gray-400" />
+              <FiUsers className="w-5 h-5 text-slate-400" />
               <select
                 value={selectedFirm}
                 onChange={(e) => setSelectedFirm(e.target.value)}
@@ -2476,7 +2476,7 @@ const DocumentsTab = ({ clientUsername }) => {
 
             {(activeTab === 'income-tax' || activeTab === 'gst' || activeTab === 'mca') && (
               <div className="flex items-center gap-2 bg-white px-4 py-2 rounded-xl border border-gray-200 shadow-sm">
-                <FiCalendar className="w-5 h-5 text-gray-400" />
+                <FiCalendar className="w-5 h-5 text-slate-400" />
                 <select
                   value={selectedYear}
                   onChange={(e) => setSelectedYear(e.target.value)}
@@ -2497,7 +2497,7 @@ const DocumentsTab = ({ clientUsername }) => {
 
             {(activeTab === 'income-tax' || activeTab === 'gst' || activeTab === 'mca') && (
               <div className="flex items-center gap-2 bg-white px-4 py-2 rounded-xl border border-gray-200 shadow-sm">
-                <FiFileText className="w-5 h-5 text-gray-400" />
+                <FiFileText className="w-5 h-5 text-slate-400" />
                 <select
                   value={selectedType}
                   onChange={(e) => setSelectedType(e.target.value)}
@@ -2520,7 +2520,7 @@ const DocumentsTab = ({ clientUsername }) => {
 
             {activeTab === 'gst' && (
               <div className="flex items-center gap-2 bg-white px-4 py-2 rounded-xl border border-gray-200 shadow-sm">
-                <FiCalendar className="w-5 h-5 text-gray-400" />
+                <FiCalendar className="w-5 h-5 text-slate-400" />
                 <select
                   value={selectedMonth}
                   onChange={(e) => setSelectedMonth(e.target.value)}
@@ -2536,7 +2536,7 @@ const DocumentsTab = ({ clientUsername }) => {
 
             {activeTab === 'task' && (
               <div className="flex items-center gap-2 bg-white px-4 py-2 rounded-xl border border-gray-200 shadow-sm">
-                <FiBriefcase className="w-5 h-5 text-gray-400" />
+                <FiBriefcase className="w-5 h-5 text-slate-400" />
                 <select
                   value={selectedService}
                   onChange={(e) => setSelectedService(e.target.value)}
@@ -2553,7 +2553,7 @@ const DocumentsTab = ({ clientUsername }) => {
             {activeTab === 'general' && showGeneralSubTab === 'documents' && (
               <>
                 <div className="flex items-center gap-2 bg-white px-4 py-2 rounded-xl border border-gray-200 shadow-sm">
-                  <FiGrid className="w-5 h-5 text-gray-400" />
+                  <FiGrid className="w-5 h-5 text-slate-400" />
                   <select
                     value={selectedCategory}
                     onChange={(e) => setSelectedCategory(e.target.value)}
@@ -2571,7 +2571,7 @@ const DocumentsTab = ({ clientUsername }) => {
                   </select>
                 </div>
                 <div className="flex-1 relative min-w-[200px]">
-                  <FiSearch className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+                  <FiSearch className="absolute left-4 top-1/2 transform -translate-y-1/2 text-slate-400 w-5 h-5" />
                   <input
                     type="text"
                     placeholder="Search documents..."
@@ -2642,7 +2642,7 @@ const DocumentsTab = ({ clientUsername }) => {
                       <th className="w-16 px-6 py-4 text-left">
                         <button
                           onClick={handleSelectAll}
-                          className="text-gray-500 hover:text-gray-700"
+                          className="text-slate-500 hover:text-slate-700"
                           title={selectedDocuments.length === currentItems.length ? "Deselect all" : "Select all"}
                         >
                           {selectedDocuments.length === currentItems.length && currentItems.length > 0 ? (
@@ -2662,57 +2662,57 @@ const DocumentsTab = ({ clientUsername }) => {
                       {/* Dynamic Table Headers based on active tab */}
                       {activeTab === 'income-tax' && (
                         <>
-                          <th className="w-1/5 px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Firm</th>
-                          <th className="w-1/6 px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Assessment Year</th>
-                          <th className="w-1/5 px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Type</th>
-                          <th className="w-1/3 px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Remark</th>
-                          <th className="w-24 px-6 py-4 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider">View</th>
-                          <th className="w-24 px-6 py-4 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider">Actions</th>
+                          <th className="w-1/5 px-6 py-4 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">Firm</th>
+                          <th className="w-1/6 px-6 py-4 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">Assessment Year</th>
+                          <th className="w-1/5 px-6 py-4 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">Type</th>
+                          <th className="w-1/3 px-6 py-4 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">Remark</th>
+                          <th className="w-24 px-6 py-4 text-center text-xs font-semibold text-slate-600 uppercase tracking-wider">View</th>
+                          <th className="w-24 px-6 py-4 text-center text-xs font-semibold text-slate-600 uppercase tracking-wider">Actions</th>
                         </>
                       )}
 
                       {activeTab === 'gst' && (
                         <>
-                          <th className="w-1/6 px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Firm</th>
-                          <th className="w-1/6 px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Financial Year</th>
-                          <th className="w-1/6 px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Type</th>
-                          <th className="w-1/6 px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Month</th>
-                          <th className="w-1/4 px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Remark</th>
-                          <th className="w-24 px-6 py-4 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider">View</th>
-                          <th className="w-24 px-6 py-4 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider">Actions</th>
+                          <th className="w-1/6 px-6 py-4 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">Firm</th>
+                          <th className="w-1/6 px-6 py-4 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">Financial Year</th>
+                          <th className="w-1/6 px-6 py-4 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">Type</th>
+                          <th className="w-1/6 px-6 py-4 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">Month</th>
+                          <th className="w-1/4 px-6 py-4 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">Remark</th>
+                          <th className="w-24 px-6 py-4 text-center text-xs font-semibold text-slate-600 uppercase tracking-wider">View</th>
+                          <th className="w-24 px-6 py-4 text-center text-xs font-semibold text-slate-600 uppercase tracking-wider">Actions</th>
                         </>
                       )}
 
                       {activeTab === 'mca' && (
                         <>
-                          <th className="w-1/5 px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Firm</th>
-                          <th className="w-1/6 px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Financial Year</th>
-                          <th className="w-1/5 px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Type</th>
-                          <th className="w-1/3 px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Remark</th>
-                          <th className="w-24 px-6 py-4 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider">View</th>
-                          <th className="w-24 px-6 py-4 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider">Actions</th>
+                          <th className="w-1/5 px-6 py-4 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">Firm</th>
+                          <th className="w-1/6 px-6 py-4 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">Financial Year</th>
+                          <th className="w-1/5 px-6 py-4 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">Type</th>
+                          <th className="w-1/3 px-6 py-4 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">Remark</th>
+                          <th className="w-24 px-6 py-4 text-center text-xs font-semibold text-slate-600 uppercase tracking-wider">View</th>
+                          <th className="w-24 px-6 py-4 text-center text-xs font-semibold text-slate-600 uppercase tracking-wider">Actions</th>
                         </>
                       )}
 
                       {activeTab === 'task' && (
                         <>
-                          <th className="w-1/6 px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Firm</th>
-                          <th className="w-1/6 px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Service</th>
-                          <th className="w-1/6 px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Name</th>
-                          <th className="w-1/3 px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Remark</th>
-                          <th className="w-24 px-6 py-4 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider">View</th>
-                          <th className="w-24 px-6 py-4 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider">Actions</th>
+                          <th className="w-1/6 px-6 py-4 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">Firm</th>
+                          <th className="w-1/6 px-6 py-4 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">Service</th>
+                          <th className="w-1/6 px-6 py-4 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">Name</th>
+                          <th className="w-1/3 px-6 py-4 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">Remark</th>
+                          <th className="w-24 px-6 py-4 text-center text-xs font-semibold text-slate-600 uppercase tracking-wider">View</th>
+                          <th className="w-24 px-6 py-4 text-center text-xs font-semibold text-slate-600 uppercase tracking-wider">Actions</th>
                         </>
                       )}
 
                       {activeTab === 'general' && (
                         <>
-                          <th className="w-1/6 px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Firm</th>
-                          <th className="w-1/6 px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Name</th>
-                          <th className="w-1/6 px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Category</th>
-                          <th className="w-1/3 px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Remark</th>
-                          <th className="w-24 px-6 py-4 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider">View</th>
-                          <th className="w-24 px-6 py-4 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider">Actions</th>
+                          <th className="w-1/6 px-6 py-4 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">Firm</th>
+                          <th className="w-1/6 px-6 py-4 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">Name</th>
+                          <th className="w-1/6 px-6 py-4 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">Category</th>
+                          <th className="w-1/3 px-6 py-4 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">Remark</th>
+                          <th className="w-24 px-6 py-4 text-center text-xs font-semibold text-slate-600 uppercase tracking-wider">View</th>
+                          <th className="w-24 px-6 py-4 text-center text-xs font-semibold text-slate-600 uppercase tracking-wider">Actions</th>
                         </>
                       )}
                     </tr>
@@ -2734,7 +2734,7 @@ const DocumentsTab = ({ clientUsername }) => {
                             <td className="px-6 py-4 align-middle">
                               <button
                                 onClick={() => handleSelect(doc.id)}
-                                className="text-gray-500 hover:text-gray-700"
+                                className="text-slate-500 hover:text-slate-700"
                                 title={selectedDocuments.includes(doc.id) ? "Deselect" : "Select"}
                               >
                                 {selectedDocuments.includes(doc.id) ? (
@@ -2755,10 +2755,10 @@ const DocumentsTab = ({ clientUsername }) => {
                             {activeTab === 'income-tax' && (
                               <>
                                 <td className="px-6 py-4 align-middle">
-                                  <div className="text-sm font-medium text-gray-900 truncate" title={doc.firm}>{doc.firm}</div>
+                                  <div className="text-sm font-medium text-slate-800 truncate" title={doc.firm}>{doc.firm}</div>
                                 </td>
                                 <td className="px-6 py-4 align-middle">
-                                  <div className="text-sm text-gray-600">{doc.year}</div>
+                                  <div className="text-sm text-slate-600">{doc.year}</div>
                                 </td>
                                 <td className="px-6 py-4 align-middle">
                                   <span className="px-3 py-1 bg-blue-50 text-blue-700 rounded-full text-xs font-medium truncate block max-w-[120px]" title={doc.type}>
@@ -2766,7 +2766,7 @@ const DocumentsTab = ({ clientUsername }) => {
                                   </span>
                                 </td>
                                 <td className="px-6 py-4 align-middle">
-                                  <div className="text-sm text-gray-600 truncate" title={doc.remark}>{truncateText(doc.remark, 30)}</div>
+                                  <div className="text-sm text-slate-600 truncate" title={doc.remark}>{truncateText(doc.remark, 30)}</div>
                                 </td>
                               </>
                             )}
@@ -2774,10 +2774,10 @@ const DocumentsTab = ({ clientUsername }) => {
                             {activeTab === 'gst' && (
                               <>
                                 <td className="px-6 py-4 align-middle">
-                                  <div className="text-sm font-medium text-gray-900 truncate" title={doc.firm}>{doc.firm}</div>
+                                  <div className="text-sm font-medium text-slate-800 truncate" title={doc.firm}>{doc.firm}</div>
                                 </td>
                                 <td className="px-6 py-4 align-middle">
-                                  <div className="text-sm text-gray-600">{doc.year}</div>
+                                  <div className="text-sm text-slate-600">{doc.year}</div>
                                 </td>
                                 <td className="px-6 py-4 align-middle">
                                   <span className="px-3 py-1 bg-green-50 text-green-700 rounded-full text-xs font-medium truncate block max-w-[120px]" title={doc.type}>
@@ -2785,10 +2785,10 @@ const DocumentsTab = ({ clientUsername }) => {
                                   </span>
                                 </td>
                                 <td className="px-6 py-4 align-middle">
-                                  <div className="text-sm text-gray-600 truncate" title={doc.month}>{doc.month}</div>
+                                  <div className="text-sm text-slate-600 truncate" title={doc.month}>{doc.month}</div>
                                 </td>
                                 <td className="px-6 py-4 align-middle">
-                                  <div className="text-sm text-gray-600 truncate" title={doc.remark}>{truncateText(doc.remark, 30)}</div>
+                                  <div className="text-sm text-slate-600 truncate" title={doc.remark}>{truncateText(doc.remark, 30)}</div>
                                 </td>
                               </>
                             )}
@@ -2796,10 +2796,10 @@ const DocumentsTab = ({ clientUsername }) => {
                             {activeTab === 'mca' && (
                               <>
                                 <td className="px-6 py-4 align-middle">
-                                  <div className="text-sm font-medium text-gray-900 truncate" title={doc.firm}>{doc.firm}</div>
+                                  <div className="text-sm font-medium text-slate-800 truncate" title={doc.firm}>{doc.firm}</div>
                                 </td>
                                 <td className="px-6 py-4 align-middle">
-                                  <div className="text-sm text-gray-600">{doc.year}</div>
+                                  <div className="text-sm text-slate-600">{doc.year}</div>
                                 </td>
                                 <td className="px-6 py-4 align-middle">
                                   <span className="px-3 py-1 bg-purple-50 text-purple-700 rounded-full text-xs font-medium truncate block max-w-[120px]" title={doc.type}>
@@ -2807,7 +2807,7 @@ const DocumentsTab = ({ clientUsername }) => {
                                   </span>
                                 </td>
                                 <td className="px-6 py-4 align-middle">
-                                  <div className="text-sm text-gray-600 truncate" title={doc.remark}>{truncateText(doc.remark, 30)}</div>
+                                  <div className="text-sm text-slate-600 truncate" title={doc.remark}>{truncateText(doc.remark, 30)}</div>
                                 </td>
                               </>
                             )}
@@ -2815,7 +2815,7 @@ const DocumentsTab = ({ clientUsername }) => {
                             {activeTab === 'task' && (
                               <>
                                 <td className="px-6 py-4 align-middle">
-                                  <div className="text-sm font-medium text-gray-900 truncate" title={doc.firm}>{doc.firm}</div>
+                                  <div className="text-sm font-medium text-slate-800 truncate" title={doc.firm}>{doc.firm}</div>
                                 </td>
                                 <td className="px-6 py-4 align-middle">
                                   <span className="px-3 py-1 bg-orange-50 text-orange-700 rounded-full text-xs font-medium truncate block max-w-[120px]" title={doc.service}>
@@ -2823,10 +2823,10 @@ const DocumentsTab = ({ clientUsername }) => {
                                   </span>
                                 </td>
                                 <td className="px-6 py-4 align-middle">
-                                  <div className="text-sm font-medium text-gray-900 truncate" title={doc.name}>{doc.name}</div>
+                                  <div className="text-sm font-medium text-slate-800 truncate" title={doc.name}>{doc.name}</div>
                                 </td>
                                 <td className="px-6 py-4 align-middle">
-                                  <div className="text-sm text-gray-600 truncate" title={doc.remark}>{truncateText(doc.remark, 30)}</div>
+                                  <div className="text-sm text-slate-600 truncate" title={doc.remark}>{truncateText(doc.remark, 30)}</div>
                                 </td>
                               </>
                             )}
@@ -2834,18 +2834,18 @@ const DocumentsTab = ({ clientUsername }) => {
                             {activeTab === 'general' && (
                               <>
                                 <td className="px-6 py-4 align-middle">
-                                  <div className="text-sm font-medium text-gray-900 truncate" title={doc.firm}>{doc.firm}</div>
+                                  <div className="text-sm font-medium text-slate-800 truncate" title={doc.firm}>{doc.firm}</div>
                                 </td>
                                 <td className="px-6 py-4 align-middle">
-                                  <div className="text-sm font-medium text-gray-900 truncate" title={doc.name}>{doc.name}</div>
+                                  <div className="text-sm font-medium text-slate-800 truncate" title={doc.name}>{doc.name}</div>
                                 </td>
                                 <td className="px-6 py-4 align-middle">
-                                  <span className="px-3 py-1 bg-gray-50 text-gray-700 rounded-full text-xs font-medium truncate block max-w-[120px]" title={doc.category}>
+                                  <span className="px-3 py-1 bg-gray-50 text-slate-700 rounded-full text-xs font-medium truncate block max-w-[120px]" title={doc.category}>
                                     {doc.category}
                                   </span>
                                 </td>
                                 <td className="px-6 py-4 align-middle">
-                                  <div className="text-sm text-gray-600 truncate" title={doc.remark}>{truncateText(doc.remark, 30)}</div>
+                                  <div className="text-sm text-slate-600 truncate" title={doc.remark}>{truncateText(doc.remark, 30)}</div>
                                 </td>
                               </>
                             )}
@@ -2865,7 +2865,7 @@ const DocumentsTab = ({ clientUsername }) => {
                             <td className="px-6 py-4 text-center align-middle relative action-menu-container" ref={actionMenuRef}>
                               <button
                                 onClick={() => setActiveActionMenu(activeActionMenu === doc.id ? null : doc.id)}
-                                className="p-2 text-gray-500 hover:bg-gray-100 rounded-lg transition-colors"
+                                className="p-2 text-slate-500 hover:bg-gray-100 rounded-lg transition-colors"
                               >
                                 <FiMenu className="w-3.5 h-3.5" />
                               </button>
@@ -2878,7 +2878,7 @@ const DocumentsTab = ({ clientUsername }) => {
                                       handleView(doc);
                                       setActiveActionMenu(null);
                                     }}
-                                    className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
+                                    className="w-full px-4 py-2 text-left text-sm text-slate-700 hover:bg-gray-50 flex items-center gap-2"
                                   >
                                     <FiEye className="w-4 h-4" />
                                     View
@@ -2888,7 +2888,7 @@ const DocumentsTab = ({ clientUsername }) => {
                                       href={doc.file_url}
                                       target="_blank"
                                       rel="noopener noreferrer"
-                                      className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
+                                      className="w-full px-4 py-2 text-left text-sm text-slate-700 hover:bg-gray-50 flex items-center gap-2"
                                     >
                                       <FiDownload className="w-4 h-4" />
                                       Download
@@ -2896,7 +2896,7 @@ const DocumentsTab = ({ clientUsername }) => {
                                   )}
                                   <button
                                     onClick={() => handleSend(doc)}
-                                    className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
+                                    className="w-full px-4 py-2 text-left text-sm text-slate-700 hover:bg-gray-50 flex items-center gap-2"
                                   >
                                     <FiSend className="w-4 h-4" />
                                     Send
@@ -2917,10 +2917,10 @@ const DocumentsTab = ({ clientUsername }) => {
                           <td colSpan="10" className="px-6 py-12 text-center">
                             <div className="flex flex-col items-center justify-center">
                               <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mb-4">
-                                <FiFolder className="w-8 h-8 text-gray-400" />
+                                <FiFolder className="w-8 h-8 text-slate-400" />
                               </div>
-                              <h3 className="text-lg font-semibold text-gray-900 mb-2">No documents found</h3>
-                              <p className="text-gray-600">Try adjusting your search or filter criteria</p>
+                              <h3 className="text-sm font-semibold text-slate-800 mb-2">No documents found</h3>
+                              <p className="text-slate-600">Try adjusting your search or filter criteria</p>
                             </div>
                           </td>
                         </tr>
@@ -2937,47 +2937,47 @@ const DocumentsTab = ({ clientUsername }) => {
       {/* Categories Table for General Tab */}
       {activeTab === 'general' && showGeneralSubTab === 'categories' && (
         <div className="p-6">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">Categories</h3>
+          <h3 className="text-sm font-semibold text-slate-800 mb-4">Categories</h3>
           <div className="bg-white rounded-xl border border-gray-200 overflow-hidden shadow-sm">
             <div className="overflow-x-auto">
               <table className="w-full">
                 <thead>
                   <tr className="bg-gradient-to-r from-gray-50 to-gray-100 border-b border-gray-200">
-                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Name</th>
-                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Remark</th>
-                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Created By</th>
-                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Created Date</th>
-                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Modified By</th>
-                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Modified Date</th>
-                    <th className="px-6 py-4 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider">Actions</th>
+                    <th className="px-6 py-4 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">Name</th>
+                    <th className="px-6 py-4 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">Remark</th>
+                    <th className="px-6 py-4 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">Created By</th>
+                    <th className="px-6 py-4 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">Created Date</th>
+                    <th className="px-6 py-4 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">Modified By</th>
+                    <th className="px-6 py-4 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">Modified Date</th>
+                    <th className="px-6 py-4 text-center text-xs font-semibold text-slate-600 uppercase tracking-wider">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200">
                   {categories.map((category) => (
                     <tr key={category.category_id} className="hover:bg-gray-50 transition-colors">
                       <td className="px-6 py-4">
-                        <div className="text-sm font-medium text-gray-900">{category.name}</div>
+                        <div className="text-sm font-medium text-slate-800">{category.name}</div>
                       </td>
                       <td className="px-6 py-4">
-                        <div className="text-sm text-gray-600">{category.remark || '-'}</div>
+                        <div className="text-sm text-slate-600">{category.remark || '-'}</div>
                       </td>
                       <td className="px-6 py-4">
-                        <div className="text-sm text-gray-600">
+                        <div className="text-sm text-slate-600">
                           {category.create_by?.name || category.create_by?.username || '-'}
                         </div>
                       </td>
                       <td className="px-6 py-4">
-                        <div className="text-sm text-gray-600">
+                        <div className="text-sm text-slate-600">
                           {category.create_date ? new Date(category.create_date).toLocaleDateString() : '-'}
                         </div>
                       </td>
                       <td className="px-6 py-4">
-                        <div className="text-sm text-gray-600">
+                        <div className="text-sm text-slate-600">
                           {category.modify_by?.name || category.modify_by?.username || '-'}
                         </div>
                       </td>
                       <td className="px-6 py-4">
-                        <div className="text-sm text-gray-600">
+                        <div className="text-sm text-slate-600">
                           {category.modify_date ? new Date(category.modify_date).toLocaleDateString() : '-'}
                         </div>
                       </td>

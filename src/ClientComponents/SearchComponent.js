@@ -66,9 +66,9 @@ const SearchableDropdown = ({
       >
         <div className="flex-1 truncate">
           {selectedItem ? (
-            <span className="text-gray-900">{selectedItem[displayField]}</span>
+            <span className="text-slate-800">{selectedItem[displayField]}</span>
           ) : (
-            <span className="text-gray-500">{placeholder}</span>
+            <span className="text-slate-500">{placeholder}</span>
           )}
         </div>
         <div className="flex items-center gap-1">
@@ -78,10 +78,10 @@ const SearchableDropdown = ({
               className="p-1 hover:bg-gray-100 rounded-full"
               type="button"
             >
-              <FiX className="w-3 h-3 text-gray-500" />
+              <FiX className="w-3 h-3 text-slate-500" />
             </button>
           )}
-          <FiChevronDown className={`w-4 h-4 text-gray-500 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+          <FiChevronDown className={`w-4 h-4 text-slate-500 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
         </div>
       </div>
 
@@ -92,7 +92,7 @@ const SearchableDropdown = ({
           {isSearchable && (
             <div className="p-2 border-b border-gray-200">
               <div className="relative">
-                <FiSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                <FiSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 w-4 h-4" />
                 <input
                   type="text"
                   value={searchTerm}
@@ -108,7 +108,7 @@ const SearchableDropdown = ({
           {/* Options List */}
           <div className="flex-1 overflow-y-auto">
             {loading ? (
-              <div className="p-4 text-center text-sm text-gray-500">
+              <div className="p-4 text-center text-sm text-slate-500">
                 Loading...
               </div>
             ) : filteredData.length > 0 ? (
@@ -120,7 +120,7 @@ const SearchableDropdown = ({
                     px-3 py-2 text-sm cursor-pointer
                     ${String(item[valueField]) === String(selectedValue)
                       ? 'bg-blue-50 text-blue-700'
-                      : 'hover:bg-gray-50 text-gray-900'
+                      : 'hover:bg-gray-50 text-slate-800'
                     }
                   `}
                 >
@@ -128,7 +128,7 @@ const SearchableDropdown = ({
                 </div>
               ))
             ) : (
-              <div className="p-4 text-center text-sm text-gray-500">
+              <div className="p-4 text-center text-sm text-slate-500">
                 No results found
               </div>
             )}

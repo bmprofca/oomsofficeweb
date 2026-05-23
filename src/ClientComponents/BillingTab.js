@@ -38,7 +38,7 @@ const BillingTab = () => {
             case 'Overdue': 
                 return 'bg-gradient-to-r from-red-100 to-pink-100 text-red-800 border border-red-200';
             default: 
-                return 'bg-gradient-to-r from-gray-100 to-slate-100 text-gray-800 border border-gray-200';
+                return 'bg-gradient-to-r from-gray-100 to-slate-100 text-slate-800 border border-gray-200';
         }
     };
 
@@ -58,7 +58,7 @@ const BillingTab = () => {
             case 'Compliance': return 'bg-gradient-to-r from-green-50 to-emerald-50 text-green-700';
             case 'Audit': return 'bg-gradient-to-r from-yellow-50 to-amber-50 text-yellow-700';
             case 'Legal': return 'bg-gradient-to-r from-red-50 to-orange-50 text-red-700';
-            default: return 'bg-gradient-to-r from-gray-50 to-slate-50 text-gray-700';
+            default: return 'bg-gradient-to-r from-gray-50 to-slate-50 text-slate-700';
         }
     };
 
@@ -92,10 +92,10 @@ const BillingTab = () => {
             {/* Header Section */}
             <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center mb-8 gap-6">
                 <div className="space-y-2">
-                    <h3 className="text-2xl font-bold text-gray-900 bg-gradient-to-r from-blue-600 to-indigo-700 bg-clip-text text-transparent">
+                    <h3 className="text-base sm:text-lg font-bold text-slate-800 bg-gradient-to-r from-blue-600 to-indigo-700 bg-clip-text text-transparent">
                         Billing & Invoicing
                     </h3>
-                    <p className="text-sm text-gray-600 font-medium">Manage invoices, payments, and financial tracking</p>
+                    <p className="text-xs sm:text-sm text-slate-600">Manage invoices, payments, and financial tracking</p>
                 </div>
                 <div className="flex gap-3">
                     <motion.button
@@ -122,8 +122,8 @@ const BillingTab = () => {
                 <div className="bg-white p-6 rounded-2xl border border-gray-200 shadow-sm">
                     <div className="flex items-center justify-between">
                         <div>
-                            <p className="text-sm font-medium text-gray-600">Total Revenue</p>
-                            <p className="text-3xl font-bold text-gray-900 mt-2">₹{stats.totalRevenue.toLocaleString()}</p>
+                            <p className="text-xs font-semibold text-slate-600">Total Revenue</p>
+                            <p className="text-base font-bold text-slate-800 mt-1">₹{stats.totalRevenue.toLocaleString()}</p>
                         </div>
                         <div className="w-12 h-12 bg-gradient-to-r from-green-100 to-emerald-100 rounded-xl flex items-center justify-center">
                             <FiTrendingUp className="w-6 h-6 text-green-600" />
@@ -134,8 +134,8 @@ const BillingTab = () => {
                 <div className="bg-white p-6 rounded-2xl border border-gray-200 shadow-sm">
                     <div className="flex items-center justify-between">
                         <div>
-                            <p className="text-sm font-medium text-gray-600">Pending Amount</p>
-                            <p className="text-3xl font-bold text-gray-900 mt-2">₹{stats.pendingAmount.toLocaleString()}</p>
+                            <p className="text-xs font-semibold text-slate-600">Pending Amount</p>
+                            <p className="text-base font-bold text-slate-800 mt-1">₹{stats.pendingAmount.toLocaleString()}</p>
                         </div>
                         <div className="w-12 h-12 bg-gradient-to-r from-yellow-100 to-amber-100 rounded-xl flex items-center justify-center">
                             <FiClock className="w-6 h-6 text-yellow-600" />
@@ -146,8 +146,8 @@ const BillingTab = () => {
                 <div className="bg-white p-6 rounded-2xl border border-gray-200 shadow-sm">
                     <div className="flex items-center justify-between">
                         <div>
-                            <p className="text-sm font-medium text-gray-600">Overdue</p>
-                            <p className="text-3xl font-bold text-gray-900 mt-2">₹{stats.overdueAmount.toLocaleString()}</p>
+                            <p className="text-xs font-semibold text-slate-600">Overdue</p>
+                            <p className="text-base font-bold text-slate-800 mt-1">₹{stats.overdueAmount.toLocaleString()}</p>
                         </div>
                         <div className="w-12 h-12 bg-gradient-to-r from-red-100 to-pink-100 rounded-xl flex items-center justify-center">
                             <FiCalendar className="w-6 h-6 text-red-600" />
@@ -158,8 +158,8 @@ const BillingTab = () => {
                 <div className="bg-white p-6 rounded-2xl border border-gray-200 shadow-sm">
                     <div className="flex items-center justify-between">
                         <div>
-                            <p className="text-sm font-medium text-gray-600">Paid Invoices</p>
-                            <p className="text-3xl font-bold text-gray-900 mt-2">{stats.paidCount}</p>
+                            <p className="text-xs font-semibold text-slate-600">Paid Invoices</p>
+                            <p className="text-base font-bold text-slate-800 mt-1">{stats.paidCount}</p>
                         </div>
                         <div className="w-12 h-12 bg-gradient-to-r from-blue-100 to-indigo-100 rounded-xl flex items-center justify-center">
                             <FiCheckCircle className="w-6 h-6 text-blue-600" />
@@ -171,7 +171,7 @@ const BillingTab = () => {
             {/* Search and Filter Bar */}
             <div className="flex flex-col md:flex-row gap-4 mb-6">
                 <div className="flex-1 relative">
-                    <FiSearch className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+                    <FiSearch className="absolute left-4 top-1/2 transform -translate-y-1/2 text-slate-400 w-5 h-5" />
                     <input
                         type="text"
                         placeholder="Search by invoice number, client, or description..."
@@ -209,19 +209,19 @@ const BillingTab = () => {
                     <table className="w-full">
                         <thead className="bg-gradient-to-r from-blue-50 to-indigo-50">
                             <tr>
-                                <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                                <th className="px-6 py-4 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">
                                     Invoice Details
                                 </th>
-                                <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                                <th className="px-6 py-4 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">
                                     Client & Description
                                 </th>
-                                <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                                <th className="px-6 py-4 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">
                                     Amount
                                 </th>
-                                <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                                <th className="px-6 py-4 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">
                                     Status
                                 </th>
-                                <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                                <th className="px-6 py-4 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">
                                     Actions
                                 </th>
                             </tr>
@@ -231,10 +231,10 @@ const BillingTab = () => {
                                 <tr>
                                     <td colSpan="5" className="px-6 py-12 text-center">
                                         <div className="w-16 h-16 mx-auto bg-gradient-to-r from-gray-100 to-gray-200 rounded-full flex items-center justify-center mb-4">
-                                            <FiFileText className="w-8 h-8 text-gray-400" />
+                                            <FiFileText className="w-8 h-8 text-slate-400" />
                                         </div>
-                                        <h3 className="text-lg font-semibold text-gray-900 mb-2">No invoices found</h3>
-                                        <p className="text-gray-600">Try adjusting your search or filter criteria</p>
+                                        <h3 className="text-sm font-semibold text-slate-800 mb-2">No invoices found</h3>
+                                        <p className="text-slate-600">Try adjusting your search or filter criteria</p>
                                     </td>
                                 </tr>
                             ) : (
@@ -253,8 +253,8 @@ const BillingTab = () => {
                                                         <FiFileText className="w-5 h-5 text-green-600" />
                                                     </div>
                                                     <div>
-                                                        <div className="font-bold text-gray-900">{inv.invoice}</div>
-                                                        <div className="flex items-center gap-2 text-sm text-gray-600">
+                                                        <div className="font-semibold text-slate-800">{inv.invoice}</div>
+                                                        <div className="flex items-center gap-2 text-sm text-slate-600">
                                                             <FiCalendar className="w-3.5 h-3.5" />
                                                             Issued: {inv.date}
                                                         </div>
@@ -269,9 +269,9 @@ const BillingTab = () => {
                                         </td>
                                         <td className="px-6 py-4">
                                             <div className="space-y-2">
-                                                <div className="font-medium text-gray-900">{inv.client}</div>
-                                                <div className="text-sm text-gray-600 max-w-xs">{inv.description}</div>
-                                                <div className="text-xs text-gray-500">
+                                                <div className="font-medium text-slate-800">{inv.client}</div>
+                                                <div className="text-sm text-slate-600 max-w-xs">{inv.description}</div>
+                                                <div className="text-xs text-slate-500">
                                                     Due: {inv.dueDate} • {inv.paymentMethod}
                                                 </div>
                                             </div>
@@ -282,8 +282,8 @@ const BillingTab = () => {
                                                     <FiDollarSign className="w-5 h-5 text-blue-600" />
                                                 </div>
                                                 <div>
-                                                    <div className="font-bold text-gray-900 text-xl">₹{parseInt(inv.amount).toLocaleString()}</div>
-                                                    <div className="text-xs text-gray-500">
+                                                    <div className="text-base font-bold text-slate-800">₹{parseInt(inv.amount).toLocaleString()}</div>
+                                                    <div className="text-xs text-slate-500">
                                                         {inv.status === 'Paid' ? 'Payment received' : 'Payment pending'}
                                                     </div>
                                                 </div>
@@ -333,13 +333,13 @@ const BillingTab = () => {
                 {filteredInvoices.length > 0 && (
                     <div className="px-6 py-4 bg-gradient-to-r from-blue-50 to-indigo-50 border-t border-gray-200">
                         <div className="flex flex-col md:flex-row justify-between items-center gap-4">
-                            <div className="text-sm text-gray-600">
+                            <div className="text-sm text-slate-600">
                                 Showing <span className="font-semibold">{filteredInvoices.length}</span> of <span className="font-semibold">{invoices.length}</span> invoices • 
                                 <span className="ml-2 font-semibold text-green-600">₹{stats.totalRevenue.toLocaleString()}</span> total revenue
                             </div>
                             <div className="flex items-center gap-3">
                                 <motion.button
-                                    className="px-4 py-2 text-gray-600 hover:bg-white rounded-lg font-medium transition-colors"
+                                    className="px-4 py-2 text-slate-600 hover:bg-white rounded-lg font-medium transition-colors"
                                     whileHover={{ scale: 1.05 }}
                                     whileTap={{ scale: 0.95 }}
                                 >
@@ -349,15 +349,15 @@ const BillingTab = () => {
                                     <button className="w-8 h-8 bg-gradient-to-r from-blue-600 to-indigo-700 text-white rounded-lg font-semibold">
                                         1
                                     </button>
-                                    <button className="w-8 h-8 text-gray-600 hover:bg-white rounded-lg font-medium">
+                                    <button className="w-8 h-8 text-slate-600 hover:bg-white rounded-lg font-medium">
                                         2
                                     </button>
-                                    <button className="w-8 h-8 text-gray-600 hover:bg-white rounded-lg font-medium">
+                                    <button className="w-8 h-8 text-slate-600 hover:bg-white rounded-lg font-medium">
                                         3
                                     </button>
                                 </div>
                                 <motion.button
-                                    className="px-4 py-2 text-gray-600 hover:bg-white rounded-lg font-medium transition-colors"
+                                    className="px-4 py-2 text-slate-600 hover:bg-white rounded-lg font-medium transition-colors"
                                     whileHover={{ scale: 1.05 }}
                                     whileTap={{ scale: 0.95 }}
                                 >
@@ -378,8 +378,8 @@ const BillingTab = () => {
                                 <FiBarChart2 className="w-6 h-6 text-white" />
                             </div>
                             <div>
-                                <h4 className="font-semibold text-gray-900 mb-2">Revenue Insights</h4>
-                                <p className="text-sm text-gray-600">
+                                <h4 className="font-semibold text-slate-800 mb-2">Revenue Insights</h4>
+                                <p className="text-sm text-slate-600">
                                     <span className="font-bold text-green-600">₹{stats.totalRevenue.toLocaleString()}</span> collected • 
                                     <span className="font-bold text-yellow-600 ml-3">₹{stats.pendingAmount.toLocaleString()}</span> pending • 
                                     <span className="font-bold text-red-600 ml-3">₹{stats.overdueAmount.toLocaleString()}</span> overdue
@@ -399,30 +399,30 @@ const BillingTab = () => {
                 </div>
                 
                 <div className="p-6 bg-white border border-gray-200 rounded-2xl shadow-sm">
-                    <h4 className="font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                    <h4 className="font-semibold text-slate-800 mb-4 flex items-center gap-2">
                         <FiCreditCard className="w-5 h-5 text-blue-600" />
                         Payment Methods
                     </h4>
                     <div className="space-y-3">
                         <div className="flex items-center justify-between">
-                            <span className="text-gray-600">Bank Transfer</span>
-                            <span className="font-semibold text-gray-900">60%</span>
+                            <span className="text-slate-600">Bank Transfer</span>
+                            <span className="font-semibold text-slate-800">60%</span>
                         </div>
                         <div className="w-full bg-gray-200 rounded-full h-2">
                             <div className="h-2 rounded-full bg-gradient-to-r from-blue-500 to-indigo-600" style={{ width: '60%' }} />
                         </div>
                         
                         <div className="flex items-center justify-between">
-                            <span className="text-gray-600">Credit Card</span>
-                            <span className="font-semibold text-gray-900">25%</span>
+                            <span className="text-slate-600">Credit Card</span>
+                            <span className="font-semibold text-slate-800">25%</span>
                         </div>
                         <div className="w-full bg-gray-200 rounded-full h-2">
                             <div className="h-2 rounded-full bg-gradient-to-r from-green-500 to-emerald-600" style={{ width: '25%' }} />
                         </div>
                         
                         <div className="flex items-center justify-between">
-                            <span className="text-gray-600">Other</span>
-                            <span className="font-semibold text-gray-900">15%</span>
+                            <span className="text-slate-600">Other</span>
+                            <span className="font-semibold text-slate-800">15%</span>
                         </div>
                         <div className="w-full bg-gray-200 rounded-full h-2">
                             <div className="h-2 rounded-full bg-gradient-to-r from-purple-500 to-pink-600" style={{ width: '15%' }} />
@@ -434,7 +434,7 @@ const BillingTab = () => {
             {/* Upcoming Payments */}
             <div className="mt-6 p-6 bg-white rounded-2xl border border-gray-200 shadow-sm">
                 <div className="flex justify-between items-center mb-4">
-                    <h4 className="font-semibold text-gray-900 flex items-center gap-2">
+                    <h4 className="font-semibold text-slate-800 flex items-center gap-2">
                         <FiCalendar className="w-5 h-5 text-yellow-600" />
                         Upcoming Payments
                     </h4>
@@ -454,15 +454,15 @@ const BillingTab = () => {
                         .map(inv => (
                             <div key={inv.id} className="p-4 bg-gradient-to-r from-gray-50 to-slate-50 border border-gray-200 rounded-xl">
                                 <div className="flex items-center justify-between mb-2">
-                                    <span className="font-medium text-gray-900">{inv.invoice}</span>
+                                    <span className="font-medium text-slate-800">{inv.invoice}</span>
                                     <span className={`px-2 py-1 rounded text-xs font-semibold ${getStatusColor(inv.status)}`}>
                                         {inv.status}
                                     </span>
                                 </div>
-                                <div className="text-sm text-gray-600 mb-2">{inv.client}</div>
+                                <div className="text-sm text-slate-600 mb-2">{inv.client}</div>
                                 <div className="flex items-center justify-between">
-                                    <span className="font-bold text-gray-900">₹{parseInt(inv.amount).toLocaleString()}</span>
-                                    <span className="text-sm text-gray-500">Due: {inv.dueDate}</span>
+                                    <span className="font-semibold text-slate-800">₹{parseInt(inv.amount).toLocaleString()}</span>
+                                    <span className="text-sm text-slate-500">Due: {inv.dueDate}</span>
                                 </div>
                             </div>
                         ))}

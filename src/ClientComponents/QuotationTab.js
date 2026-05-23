@@ -265,7 +265,7 @@ const QuotationItemsModal = ({ quotation, onClose }) => {
             >
                 <div className="bg-gradient-to-r from-blue-600 to-indigo-700 px-5 py-3.5 text-white flex items-center justify-between shrink-0">
                     <div>
-                        <h3 className="text-lg font-semibold">Quotation Services</h3>
+                        <h3 className="text-base font-bold text-white">Quotation Services</h3>
                         <p className="text-xs text-blue-100 mt-1">Created: {formatDateTime(createdAt)}</p>
                 </div>
                     <button type="button" onClick={onClose} className="p-2 rounded-lg hover:bg-white/10">
@@ -329,7 +329,7 @@ const QuotationItemsModal = ({ quotation, onClose }) => {
                                         return (
                                             <tr key={`${idx}-${name}`} className="hover:bg-slate-50/70">
                                                 <td className="px-3 py-2.5 text-sm text-slate-600">{idx + 1}</td>
-                                                <td className="px-3 py-2.5 text-sm font-medium text-slate-800">{name}</td>
+                                                <td className="px-3 py-2.5 text-sm text-slate-700 font-medium text-slate-800">{name}</td>
                                                 <td className="px-3 py-2.5 text-sm text-slate-700 text-right">{formatMoney(fees)}</td>
                                                 <td className="px-3 py-2.5 text-sm text-slate-700 text-right">{formatMoney(tax)}</td>
                                                 <td className="px-3 py-2.5 text-sm text-slate-900 font-semibold text-right">{formatMoney(total)}</td>
@@ -377,7 +377,7 @@ const QuotationDetailsModal = ({ quotation, onClose }) => {
             >
                 <div className="bg-gradient-to-r from-indigo-600 via-blue-600 to-cyan-600 px-5 py-3.5 text-white flex items-center justify-between shrink-0">
                         <div>
-                        <h3 className="text-lg font-semibold">Quotation Details</h3>
+                        <h3 className="text-base font-bold text-white">Quotation Details</h3>
                         <p className="text-xs text-blue-100 mt-1">
                             Created: {formatDateTime(quotation?.create_date)}
                         </p>
@@ -492,7 +492,7 @@ const QuotationDetailsModal = ({ quotation, onClose }) => {
                                             return (
                                                 <tr key={`${idx}-${name}`} className="hover:bg-slate-50/70">
                                                     <td className="px-3 py-2.5 text-sm text-slate-600">{idx + 1}</td>
-                                                    <td className="px-3 py-2.5 text-sm font-medium text-slate-800">{name}</td>
+                                                    <td className="px-3 py-2.5 text-sm text-slate-700 font-medium text-slate-800">{name}</td>
                                                     <td className="px-3 py-2.5 text-sm text-slate-700 text-right">{formatMoney(fees)}</td>
                                                     <td className="px-3 py-2.5 text-sm text-slate-700 text-right">{formatMoney(tax)}</td>
                                                     <td className="px-3 py-2.5 text-sm text-slate-900 font-semibold text-right">{formatMoney(total)}</td>
@@ -1473,7 +1473,7 @@ const QuotationTab = ({ clientUsername }) => {
             <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xl">
                 <div className="border-b border-slate-200 bg-gradient-to-r from-slate-50 to-white px-4 py-3 sm:px-5">
                     <div>
-                        <h2 className="text-lg font-bold text-slate-800">Quotation List</h2>
+                        <h2 className="text-base font-bold text-slate-800">Quotation List</h2>
                     </div>
 
                     <div className="mt-3 flex flex-col gap-2 md:flex-row md:items-center md:gap-2">
@@ -1541,7 +1541,7 @@ const QuotationTab = ({ clientUsername }) => {
             </div>
 
                 {error && (
-                    <div className="mx-4 mt-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 flex items-start gap-2 sm:mx-5">
+                    <div className="mx-4 mt-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-slate-700 text-red-700 flex items-start gap-2 sm:mx-5">
                         <FiAlertCircle className="h-4 w-4 mt-0.5 shrink-0" />
                         <div className="flex-1">
                             <p className="font-medium">Unable to load quotations</p>
@@ -1735,7 +1735,7 @@ const QuotationTab = ({ clientUsername }) => {
                             onClick={(e) => e.stopPropagation()}
                         >
                             <div className="px-5 py-4 border-b border-slate-200 bg-slate-50">
-                                <h3 className="text-lg font-semibold text-slate-800">Confirm Status Change</h3>
+                                <h3 className="text-sm font-semibold text-slate-800">Confirm Status Change</h3>
                                                 </div>
                             <div className="px-5 py-4 space-y-3">
                                 <p className="text-sm text-slate-700">
@@ -1795,7 +1795,7 @@ const QuotationTab = ({ clientUsername }) => {
                         >
                             <div className="bg-gradient-to-r from-indigo-600 via-blue-600 to-cyan-600 px-5 py-3.5 text-white flex items-center justify-between shrink-0">
                                 <div>
-                                    <h3 className="text-lg font-semibold">Create Quotation</h3>
+                                    <h3 className="text-base font-bold text-white">Create Quotation</h3>
                                                 </div>
                                 <button
                                     type="button"
@@ -1970,7 +1970,7 @@ const QuotationTab = ({ clientUsername }) => {
                         >
                             <div className="bg-gradient-to-r from-indigo-600 via-blue-600 to-cyan-600 px-5 py-3.5 text-white flex items-center justify-between shrink-0">
                                 <div>
-                                    <h3 className="text-lg font-semibold">Edit Quotation</h3>
+                                    <h3 className="text-base font-bold text-white">Edit Quotation</h3>
                             </div>
                                 <button
                                     type="button"
@@ -2176,7 +2176,7 @@ const QuotationTab = ({ clientUsername }) => {
                         >
                             <div className="bg-gradient-to-r from-violet-600 to-indigo-600 px-5 py-3.5 text-white flex items-center justify-between shrink-0">
                         <div>
-                                    <h3 className="text-lg font-semibold">Share Quotation</h3>
+                                    <h3 className="text-base font-bold text-white">Share Quotation</h3>
                         </div>
                                 <button
                                     type="button"

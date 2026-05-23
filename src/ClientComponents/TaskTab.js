@@ -89,7 +89,7 @@ const getStatusStyle = (status) => {
         case 'pending from department': return 'bg-yellow-50 text-yellow-700 border-yellow-200';
         case 'complete': return 'bg-green-50 text-green-700 border-green-200';
         case 'cancel': return 'bg-red-50 text-red-700 border-red-200';
-        default: return 'bg-gray-50 text-gray-700 border-gray-200';
+        default: return 'bg-gray-50 text-slate-700 border-gray-200';
     }
 };
 
@@ -415,7 +415,7 @@ const TaskTab = ({ clientUsername: clientUsernameProp } = {}) => {
             switch (fieldId) {
                 case 'firm_name': {
                     const firmName = task.firm?.firm_name || task.firm_name || '-';
-                    return <div className="text-gray-700 font-medium text-sm">{safeGetString(firmName)}</div>;
+                    return <div className="text-slate-700 font-medium text-sm">{safeGetString(firmName)}</div>;
                 }
                 case 'service_name': {
                     const serviceName = task.service?.name || task.service_name || '-';
@@ -423,7 +423,7 @@ const TaskTab = ({ clientUsername: clientUsernameProp } = {}) => {
                         <button
                             type="button"
                             onClick={() => nav(`/task/${task.task_id}${taskUsernameQuery}`)}
-                            className="font-semibold text-gray-800 text-sm hover:text-indigo-600 transition-colors text-left"
+                            className="font-semibold text-slate-800 text-sm hover:text-indigo-600 transition-colors text-left"
                         >
                             {safeGetString(serviceName)}
                         </button>
@@ -440,7 +440,7 @@ const TaskTab = ({ clientUsername: clientUsernameProp } = {}) => {
                 case 'due_date':
                     return (
                         <div className="flex flex-col items-start gap-1">
-                            <div className="text-gray-700 font-medium text-sm">
+                            <div className="text-slate-700 font-medium text-sm">
                                 {task.dates?.due_date ? formatDate(task.dates.due_date) : '-'}
                             </div>
                             {task.dates?.due_date && daysLeft != null && (
@@ -454,13 +454,13 @@ const TaskTab = ({ clientUsername: clientUsernameProp } = {}) => {
                     );
                 case 'create_date':
                     return (
-                        <div className="text-gray-700 font-medium text-sm">
+                        <div className="text-slate-700 font-medium text-sm">
                             {task.dates?.create_date ? formatDate(task.dates.create_date) : '-'}
                         </div>
                     );
                 case 'target_date':
                     return (
-                        <div className="text-gray-700 font-medium text-sm">
+                        <div className="text-slate-700 font-medium text-sm">
                             {task.dates?.target_date ? formatDate(task.dates.target_date) : '-'}
                         </div>
                     );
@@ -472,7 +472,7 @@ const TaskTab = ({ clientUsername: clientUsernameProp } = {}) => {
                             ? [rawStaffs]
                             : [];
                     if (staffs.length === 0) {
-                        return <span className="text-gray-400 text-sm">-</span>;
+                        return <span className="text-slate-400 text-sm">-</span>;
                     }
                     const staffDisplayName = (s) =>
                         safeGetString(s?.name || s?.profile?.name || 'S');
@@ -550,7 +550,7 @@ const TaskTab = ({ clientUsername: clientUsernameProp } = {}) => {
                                     task.status === 'pending from department' ? 'bg-yellow-100 text-yellow-700' :
                                         task.status === 'complete' ? 'bg-green-100 text-green-700' :
                                             task.status === 'cancel' ? 'bg-red-100 text-red-700' :
-                                                'bg-gray-100 text-gray-700';
+                                                'bg-gray-100 text-slate-700';
                     const statusText =
                         task.status === 'unassign' ? 'Unassign' :
                             task.status === 'in process' ? 'In Process' :
@@ -617,7 +617,7 @@ const TaskTab = ({ clientUsername: clientUsernameProp } = {}) => {
                                                 setActiveDrop(null);
                                                 nav(`/task/${task.task_id}${taskUsernameQuery}`);
                                             }}
-                                            className="flex items-center w-full px-4 py-3 text-xs text-gray-700 hover:bg-gray-100 text-left"
+                                            className="flex items-center w-full px-4 py-3 text-xs text-slate-700 hover:bg-gray-100 text-left"
                                         >
                                             <FiEye className="mr-3 w-3.5 h-3.5" />
                                             View Details
@@ -625,7 +625,7 @@ const TaskTab = ({ clientUsername: clientUsernameProp } = {}) => {
                                         <button
                                             type="button"
                                             onClick={() => editTask(task)}
-                                            className="flex items-center w-full px-4 py-3 text-xs text-gray-700 hover:bg-gray-100 text-left"
+                                            className="flex items-center w-full px-4 py-3 text-xs text-slate-700 hover:bg-gray-100 text-left"
                                         >
                                             <FiEdit className="mr-3 w-3.5 h-3.5" />
                                             Edit Task
@@ -647,7 +647,7 @@ const TaskTab = ({ clientUsername: clientUsernameProp } = {}) => {
                 default: {
                     const value = task[fieldId];
                     return (
-                        <span className="text-gray-700 font-medium text-sm">
+                        <span className="text-slate-700 font-medium text-sm">
                             {safeGetString(value)}
                         </span>
                     );
@@ -668,10 +668,10 @@ const TaskTab = ({ clientUsername: clientUsernameProp } = {}) => {
         >
             <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center mb-8 gap-6">
                 <div className="space-y-2">
-                    <h3 className="text-2xl font-bold text-gray-900 bg-gradient-to-r from-blue-600 to-indigo-700 bg-clip-text text-transparent">
+                    <h3 className="text-base sm:text-lg font-bold text-slate-800 bg-gradient-to-r from-blue-600 to-indigo-700 bg-clip-text text-transparent">
                         Task Management
                     </h3>
-                    <p className="text-sm text-gray-600 font-medium">Track, assign, and manage client tasks efficiently</p>
+                    <p className="text-xs sm:text-sm text-slate-600">Track, assign, and manage client tasks efficiently</p>
                 </div>
                 <div className="flex items-center gap-3">
                     <motion.button
@@ -691,8 +691,8 @@ const TaskTab = ({ clientUsername: clientUsernameProp } = {}) => {
                 <div className="bg-white p-6 rounded-2xl border border-gray-200 shadow-sm">
                     <div className="flex items-center justify-between">
                         <div>
-                            <p className="text-sm font-medium text-gray-600">Total Tasks</p>
-                            <p className="text-3xl font-bold text-gray-900 mt-2">{taskStatistics.total}</p>
+                            <p className="text-xs font-semibold text-slate-600">Total Tasks</p>
+                            <p className="text-base font-bold text-slate-800 mt-1">{taskStatistics.total}</p>
                         </div>
                         <div className="w-12 h-12 bg-gradient-to-r from-blue-100 to-indigo-100 rounded-xl flex items-center justify-center">
                             <FiTarget className="w-6 h-6 text-blue-600" />
@@ -702,8 +702,8 @@ const TaskTab = ({ clientUsername: clientUsernameProp } = {}) => {
                 <div className="bg-white p-6 rounded-2xl border border-gray-200 shadow-sm">
                     <div className="flex items-center justify-between">
                         <div>
-                            <p className="text-sm font-medium text-gray-600">Complete</p>
-                            <p className="text-3xl font-bold text-gray-900 mt-2">{taskStatistics.complete}</p>
+                            <p className="text-xs font-semibold text-slate-600">Complete</p>
+                            <p className="text-base font-bold text-slate-800 mt-1">{taskStatistics.complete}</p>
                         </div>
                         <div className="w-12 h-12 bg-gradient-to-r from-green-100 to-emerald-100 rounded-xl flex items-center justify-center">
                             <FiCheckCircle className="w-6 h-6 text-green-600" />
@@ -713,8 +713,8 @@ const TaskTab = ({ clientUsername: clientUsernameProp } = {}) => {
                 <div className="bg-white p-6 rounded-2xl border border-gray-200 shadow-sm">
                     <div className="flex items-center justify-between">
                         <div>
-                            <p className="text-sm font-medium text-gray-600">Cancel</p>
-                            <p className="text-3xl font-bold text-gray-900 mt-2">{taskStatistics.cancel}</p>
+                            <p className="text-xs font-semibold text-slate-600">Cancel</p>
+                            <p className="text-base font-bold text-slate-800 mt-1">{taskStatistics.cancel}</p>
                         </div>
                         <div className="w-12 h-12 bg-gradient-to-r from-red-100 to-rose-100 rounded-xl flex items-center justify-center">
                             <FiXCircle className="w-6 h-6 text-red-600" />
@@ -724,8 +724,8 @@ const TaskTab = ({ clientUsername: clientUsernameProp } = {}) => {
                 <div className="bg-white p-6 rounded-2xl border border-gray-200 shadow-sm">
                     <div className="flex items-center justify-between">
                         <div>
-                            <p className="text-sm font-medium text-gray-600">In Process</p>
-                            <p className="text-3xl font-bold text-gray-900 mt-2">{taskStatistics.inProcess}</p>
+                            <p className="text-xs font-semibold text-slate-600">In Process</p>
+                            <p className="text-base font-bold text-slate-800 mt-1">{taskStatistics.inProcess}</p>
                         </div>
                         <div className="w-12 h-12 bg-gradient-to-r from-yellow-100 to-amber-100 rounded-xl flex items-center justify-center">
                             <FiClock className="w-6 h-6 text-yellow-600" />
@@ -741,7 +741,7 @@ const TaskTab = ({ clientUsername: clientUsernameProp } = {}) => {
                         placeholder="Search tasks, descriptions, or assigned to..."
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
-                        className="w-full h-10 px-4 py-2 text-sm border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent shadow-sm transition-all duration-300"
+                        className="w-full h-10 px-4 py-2 text-sm text-slate-700 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent shadow-sm transition-all duration-300"
                     />
                 </div>
                 <div className="flex w-full md:w-auto md:flex-none md:shrink-0 items-stretch gap-1.5 min-w-0">
@@ -761,7 +761,7 @@ const TaskTab = ({ clientUsername: clientUsernameProp } = {}) => {
                             type="button"
                             aria-label="Clear firm filter"
                             onClick={() => setSelectedFirmId(null)}
-                            className="inline-flex h-10 w-9 shrink-0 items-center justify-center rounded-xl border border-gray-300 bg-white text-gray-500 shadow-sm transition-colors hover:bg-gray-50 hover:text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-0"
+                            className="inline-flex h-10 w-9 shrink-0 items-center justify-center rounded-xl border border-gray-300 bg-white text-slate-500 shadow-sm transition-colors hover:bg-gray-50 hover:text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-0"
                         >
                             <FiX className="h-4 w-4" />
                         </button>

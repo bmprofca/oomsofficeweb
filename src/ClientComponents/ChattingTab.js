@@ -127,7 +127,7 @@ const ChattingTab = () => {
             return message.read ? (
                 <FiCheckCircle className="w-3 h-3 text-green-500" />
             ) : (
-                <FiCheck className="w-3 h-3 text-gray-400" />
+                <FiCheck className="w-3 h-3 text-slate-400" />
             );
         }
         return null;
@@ -148,7 +148,7 @@ const ChattingTab = () => {
                             <FiUser className="w-5 h-5" />
                         </div>
                         <div>
-                            <h3 className="font-bold text-lg">Venkatesh R</h3>
+                            <h3 className="text-sm font-bold text-white">Venkatesh R</h3>
                             <div className="flex items-center gap-2 text-sm text-blue-100">
                                 <div className="w-2 h-2 bg-green-400 rounded-full"></div>
                                 <span>Online</span>
@@ -188,7 +188,7 @@ const ChattingTab = () => {
                 <div className="flex-1 overflow-y-auto p-6 space-y-6">
                     {/* Date Separator */}
                     <div className="flex items-center justify-center my-4">
-                        <div className="px-4 py-1 bg-gradient-to-r from-gray-100 to-gray-200 text-gray-700 text-sm rounded-full">
+                        <div className="px-4 py-1 bg-gradient-to-r from-gray-100 to-gray-200 text-slate-700 text-sm rounded-full">
                             Today, January 20, 2024
                         </div>
                     </div>
@@ -206,23 +206,23 @@ const ChattingTab = () => {
                                     <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
                                         msg.sender === 'advisor' 
                                             ? 'bg-gradient-to-r from-blue-500 to-indigo-600 text-white' 
-                                            : 'bg-gradient-to-r from-gray-200 to-gray-300 text-gray-700'
+                                            : 'bg-gradient-to-r from-gray-200 to-gray-300 text-slate-700'
                                     }`}>
                                         <FiUser className="w-4 h-4" />
                                     </div>
                                     
                                     <div className="space-y-1">
                                         <div className={`flex items-center gap-2 ${msg.sender === 'advisor' ? 'justify-end' : ''}`}>
-                                            <span className="text-xs font-medium text-gray-500">{msg.name}</span>
-                                            <span className="text-xs text-gray-400">{formatTime(msg.timestamp)}</span>
+                                            <span className="text-xs font-medium text-slate-500">{msg.name}</span>
+                                            <span className="text-xs text-slate-400">{formatTime(msg.timestamp)}</span>
                                         </div>
                                         
                                         <div
                                             className={`rounded-2xl px-4 py-3 max-w-md ${
                                                 msg.sender === 'advisor'
                                                     ? 'bg-gradient-to-r from-blue-600 to-indigo-700 text-white rounded-br-none'
-                                                    : 'bg-gradient-to-r from-gray-100 to-gray-200 text-gray-800 rounded-bl-none'
-                                            } ${msg.type === 'file' ? '!bg-gradient-to-r from-green-50 to-emerald-50 !text-gray-800 border border-green-200' : ''}`}
+                                                    : 'bg-gradient-to-r from-gray-100 to-gray-200 text-slate-800 rounded-bl-none'
+                                            } ${msg.type === 'file' ? '!bg-gradient-to-r from-green-50 to-emerald-50 !text-slate-800 border border-green-200' : ''}`}
                                         >
                                             {msg.type === 'file' ? (
                                                 <div className="flex items-center gap-3">
@@ -230,8 +230,8 @@ const ChattingTab = () => {
                                                         <FiAttachment className="w-5 h-5 text-green-600" />
                                                     </div>
                                                     <div>
-                                                        <div className="font-medium text-gray-900">{msg.file.name}</div>
-                                                        <div className="text-xs text-gray-600">{msg.file.size} • PDF Document</div>
+                                                        <div className="font-medium text-slate-800">{msg.file.name}</div>
+                                                        <div className="text-xs text-slate-600">{msg.file.size} • PDF Document</div>
                                                         <motion.button
                                                             className="mt-2 px-3 py-1 text-xs bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-lg hover:shadow-md transition-all duration-200"
                                                             whileHover={{ scale: 1.05, y: -1 }}
@@ -249,7 +249,7 @@ const ChattingTab = () => {
                                         <div className={`flex items-center gap-1 ${msg.sender === 'advisor' ? 'justify-end' : ''}`}>
                                             {getMessageStatus(msg)}
                                             {msg.sender === 'advisor' && (
-                                                <span className="text-xs text-gray-400">{msg.read ? 'Read' : 'Sent'}</span>
+                                                <span className="text-xs text-slate-400">{msg.read ? 'Read' : 'Sent'}</span>
                                             )}
                                         </div>
                                     </div>
@@ -268,14 +268,14 @@ const ChattingTab = () => {
                             <div className="max-w-lg">
                                 <div className="flex items-end gap-2">
                                     <div className="w-8 h-8 rounded-full bg-gradient-to-r from-gray-200 to-gray-300 flex items-center justify-center">
-                                        <FiUser className="w-4 h-4 text-gray-700" />
+                                        <FiUser className="w-4 h-4 text-slate-700" />
                                     </div>
                                     <div className="space-y-1">
                                         <div className="flex items-center gap-2">
-                                            <span className="text-xs font-medium text-gray-500">Venkatesh R</span>
-                                            <span className="text-xs text-gray-400">typing...</span>
+                                            <span className="text-xs font-medium text-slate-500">Venkatesh R</span>
+                                            <span className="text-xs text-slate-400">typing...</span>
                                         </div>
-                                        <div className="bg-gradient-to-r from-gray-100 to-gray-200 text-gray-800 rounded-2xl rounded-bl-none px-4 py-3">
+                                        <div className="bg-gradient-to-r from-gray-100 to-gray-200 text-slate-800 rounded-2xl rounded-bl-none px-4 py-3">
                                             <div className="flex items-center gap-1">
                                                 <motion.div
                                                     className="w-2 h-2 bg-gray-500 rounded-full"
@@ -309,7 +309,7 @@ const ChattingTab = () => {
                         <div className="flex items-center gap-2">
                             <motion.button
                                 type="button"
-                                className="p-3 bg-gradient-to-r from-gray-100 to-gray-200 text-gray-600 hover:shadow-md rounded-xl transition-all duration-200"
+                                className="p-3 bg-gradient-to-r from-gray-100 to-gray-200 text-slate-600 hover:shadow-md rounded-xl transition-all duration-200"
                                 whileHover={{ scale: 1.1, rotate: 5 }}
                                 whileTap={{ scale: 0.9 }}
                             >
@@ -317,7 +317,7 @@ const ChattingTab = () => {
                             </motion.button>
                             <motion.button
                                 type="button"
-                                className="p-3 bg-gradient-to-r from-gray-100 to-gray-200 text-gray-600 hover:shadow-md rounded-xl transition-all duration-200"
+                                className="p-3 bg-gradient-to-r from-gray-100 to-gray-200 text-slate-600 hover:shadow-md rounded-xl transition-all duration-200"
                                 whileHover={{ scale: 1.1, rotate: -5 }}
                                 whileTap={{ scale: 0.9 }}
                             >
@@ -325,7 +325,7 @@ const ChattingTab = () => {
                             </motion.button>
                             <motion.button
                                 type="button"
-                                className="p-3 bg-gradient-to-r from-gray-100 to-gray-200 text-gray-600 hover:shadow-md rounded-xl transition-all duration-200"
+                                className="p-3 bg-gradient-to-r from-gray-100 to-gray-200 text-slate-600 hover:shadow-md rounded-xl transition-all duration-200"
                                 whileHover={{ scale: 1.1, rotate: 5 }}
                                 whileTap={{ scale: 0.9 }}
                             >
@@ -355,7 +355,7 @@ const ChattingTab = () => {
                             </div>
                         </div>
                         
-                        <div className="flex items-center justify-between text-xs text-gray-500 px-2">
+                        <div className="flex items-center justify-between text-xs text-slate-500 px-2">
                             <span>Press Enter to send message</span>
                             <span>Characters: {chatMessage.length}/1000</span>
                         </div>
@@ -366,21 +366,21 @@ const ChattingTab = () => {
             {/* Quick Actions Sidebar */}
             {/* <div className="absolute right-4 top-20 hidden lg:block">
                 <div className="bg-white rounded-2xl border border-gray-200 shadow-lg p-4 w-64">
-                    <h4 className="font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                    <h4 className="font-semibold text-slate-800 mb-4 flex items-center gap-2">
                         <FiInfo className="w-4 h-4 text-blue-600" />
                         Chat Information
                     </h4>
                     <div className="space-y-3">
                         <div className="space-y-2">
-                            <div className="text-sm font-medium text-gray-600">Client Details</div>
+                            <div className="text-xs font-semibold text-slate-600">Client Details</div>
                             <div className="p-3 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl">
-                                <div className="font-medium text-gray-900">Venkatesh R</div>
-                                <div className="text-sm text-gray-600">Client since Jan 2023</div>
+                                <div className="font-medium text-slate-800">Venkatesh R</div>
+                                <div className="text-sm text-slate-600">Client since Jan 2023</div>
                             </div>
                         </div>
                         
                         <div className="space-y-2">
-                            <div className="text-sm font-medium text-gray-600">Active Topics</div>
+                            <div className="text-xs font-semibold text-slate-600">Active Topics</div>
                             <div className="flex flex-wrap gap-2">
                                 <span className="px-2 py-1 bg-gradient-to-r from-blue-100 to-indigo-100 text-blue-700 text-xs rounded-full">
                                     GST Filing
@@ -392,13 +392,13 @@ const ChattingTab = () => {
                         </div>
                         
                         <div className="space-y-2">
-                            <div className="text-sm font-medium text-gray-600">Recent Files</div>
+                            <div className="text-xs font-semibold text-slate-600">Recent Files</div>
                             <div className="space-y-2">
                                 <div className="flex items-center gap-2 p-2 hover:bg-gray-50 rounded-lg">
-                                    <FiAttachment className="w-4 h-4 text-gray-400" />
+                                    <FiAttachment className="w-4 h-4 text-slate-400" />
                                     <div className="text-xs">
-                                        <div className="font-medium text-gray-900">GST_Invoice_Q3.pdf</div>
-                                        <div className="text-gray-500">2.4 MB • Today</div>
+                                        <div className="font-medium text-slate-800">GST_Invoice_Q3.pdf</div>
+                                        <div className="text-slate-500">2.4 MB • Today</div>
                                     </div>
                                 </div>
                             </div>

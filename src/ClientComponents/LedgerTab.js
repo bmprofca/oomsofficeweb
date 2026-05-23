@@ -493,7 +493,7 @@ const ClientLedger = () => {
             >
                 <div className="flex flex-wrap items-start justify-between gap-4">
                     <div className="min-w-0">
-                        <h2 className="text-xl sm:text-2xl font-bold text-slate-800">Client Ledger</h2>
+                        <h2 className="text-base sm:text-lg font-bold text-slate-800">Client Ledger</h2>
                         {clientProfile && (
                             <p className="text-sm text-slate-500 mt-1 truncate">
                                 {clientProfile.name} &middot; {clientProfile.email}

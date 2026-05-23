@@ -38,7 +38,7 @@ const RecurringTab = () => {
             case 'Active': 
                 return 'bg-gradient-to-r from-green-100 to-emerald-100 text-green-800 border border-green-200';
             case 'Inactive': 
-                return 'bg-gradient-to-r from-gray-100 to-slate-100 text-gray-800 border border-gray-200';
+                return 'bg-gradient-to-r from-gray-100 to-slate-100 text-slate-800 border border-gray-200';
             default: 
                 return 'bg-gradient-to-r from-yellow-100 to-amber-100 text-yellow-800 border border-yellow-200';
         }
@@ -53,7 +53,7 @@ const RecurringTab = () => {
             case 'Yearly': 
                 return 'bg-gradient-to-r from-green-50 to-emerald-50 text-green-700';
             default: 
-                return 'bg-gradient-to-r from-gray-50 to-slate-50 text-gray-700';
+                return 'bg-gradient-to-r from-gray-50 to-slate-50 text-slate-700';
         }
     };
 
@@ -63,7 +63,7 @@ const RecurringTab = () => {
             case 'Compliance': return 'bg-gradient-to-r from-blue-50 to-indigo-50 text-blue-700';
             case 'Accounting': return 'bg-gradient-to-r from-green-50 to-emerald-50 text-green-700';
             case 'HR': return 'bg-gradient-to-r from-purple-50 to-pink-50 text-purple-700';
-            default: return 'bg-gradient-to-r from-gray-50 to-slate-50 text-gray-700';
+            default: return 'bg-gradient-to-r from-gray-50 to-slate-50 text-slate-700';
         }
     };
 
@@ -100,10 +100,10 @@ const RecurringTab = () => {
             {/* Header Section */}
             <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center mb-8 gap-6">
                 <div className="space-y-2">
-                    <h3 className="text-2xl font-bold text-gray-900 bg-gradient-to-r from-blue-600 to-indigo-700 bg-clip-text text-transparent">
+                    <h3 className="text-base sm:text-lg font-bold text-slate-800 bg-gradient-to-r from-blue-600 to-indigo-700 bg-clip-text text-transparent">
                         Recurring Services Management
                     </h3>
-                    <p className="text-sm text-gray-600 font-medium">Automate and manage recurring client services efficiently</p>
+                    <p className="text-xs sm:text-sm text-slate-600">Automate and manage recurring client services efficiently</p>
                 </div>
                 <div className="flex items-center gap-3">
                     <motion.button
@@ -122,8 +122,8 @@ const RecurringTab = () => {
                 <div className="bg-white p-6 rounded-2xl border border-gray-200 shadow-sm">
                     <div className="flex items-center justify-between">
                         <div>
-                            <p className="text-sm font-medium text-gray-600">Total Services</p>
-                            <p className="text-3xl font-bold text-gray-900 mt-2">{stats.totalServices}</p>
+                            <p className="text-xs font-semibold text-slate-600">Total Services</p>
+                            <p className="text-base font-bold text-slate-800 mt-1">{stats.totalServices}</p>
                         </div>
                         <div className="w-12 h-12 bg-gradient-to-r from-blue-100 to-indigo-100 rounded-xl flex items-center justify-center">
                             <FiRepeat className="w-6 h-6 text-blue-600" />
@@ -134,8 +134,8 @@ const RecurringTab = () => {
                 <div className="bg-white p-6 rounded-2xl border border-gray-200 shadow-sm">
                     <div className="flex items-center justify-between">
                         <div>
-                            <p className="text-sm font-medium text-gray-600">Active Services</p>
-                            <p className="text-3xl font-bold text-gray-900 mt-2">{stats.activeServices}</p>
+                            <p className="text-xs font-semibold text-slate-600">Active Services</p>
+                            <p className="text-base font-bold text-slate-800 mt-1">{stats.activeServices}</p>
                         </div>
                         <div className="w-12 h-12 bg-gradient-to-r from-green-100 to-emerald-100 rounded-xl flex items-center justify-center">
                             <FiCheckCircle className="w-6 h-6 text-green-600" />
@@ -146,8 +146,8 @@ const RecurringTab = () => {
                 <div className="bg-white p-6 rounded-2xl border border-gray-200 shadow-sm">
                     <div className="flex items-center justify-between">
                         <div>
-                            <p className="text-sm font-medium text-gray-600">Monthly Revenue</p>
-                            <p className="text-3xl font-bold text-gray-900 mt-2">₹{stats.monthlyRevenue.toLocaleString()}</p>
+                            <p className="text-xs font-semibold text-slate-600">Monthly Revenue</p>
+                            <p className="text-base font-bold text-slate-800 mt-1">₹{stats.monthlyRevenue.toLocaleString()}</p>
                         </div>
                         <div className="w-12 h-12 bg-gradient-to-r from-green-100 to-emerald-100 rounded-xl flex items-center justify-center">
                             <FiTrendingUp className="w-6 h-6 text-green-600" />
@@ -158,8 +158,8 @@ const RecurringTab = () => {
                 <div className="bg-white p-6 rounded-2xl border border-gray-200 shadow-sm">
                     <div className="flex items-center justify-between">
                         <div>
-                            <p className="text-sm font-medium text-gray-600">Total Revenue</p>
-                            <p className="text-3xl font-bold text-gray-900 mt-2">₹{totalRevenue.toLocaleString()}</p>
+                            <p className="text-xs font-semibold text-slate-600">Total Revenue</p>
+                            <p className="text-base font-bold text-slate-800 mt-1">₹{totalRevenue.toLocaleString()}</p>
                         </div>
                         <div className="w-12 h-12 bg-gradient-to-r from-purple-100 to-pink-100 rounded-xl flex items-center justify-center">
                             <FiDollarSign className="w-6 h-6 text-purple-600" />
@@ -171,7 +171,7 @@ const RecurringTab = () => {
             {/* Search and Filter Bar */}
             <div className="flex flex-col md:flex-row gap-4 mb-6">
                 <div className="flex-1 relative">
-                    <FiSearch className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+                    <FiSearch className="absolute left-4 top-1/2 transform -translate-y-1/2 text-slate-400 w-5 h-5" />
                     <input
                         type="text"
                         placeholder="Search services, descriptions, or categories..."
@@ -208,10 +208,10 @@ const RecurringTab = () => {
                 {filteredServices.length === 0 ? (
                     <div className="text-center py-12">
                         <div className="w-20 h-20 mx-auto bg-gradient-to-r from-gray-100 to-gray-200 rounded-full flex items-center justify-center mb-4">
-                            <FiRepeat className="w-10 h-10 text-gray-400" />
+                            <FiRepeat className="w-10 h-10 text-slate-400" />
                         </div>
-                        <h3 className="text-lg font-semibold text-gray-900 mb-2">No recurring services found</h3>
-                        <p className="text-gray-600">Try adjusting your search or filter criteria</p>
+                        <h3 className="text-sm font-semibold text-slate-800 mb-2">No recurring services found</h3>
+                        <p className="text-slate-600">Try adjusting your search or filter criteria</p>
                     </div>
                 ) : (
                     filteredServices.map((service, index) => (
@@ -230,7 +230,7 @@ const RecurringTab = () => {
                                         </div>
                                         <div className="space-y-3 flex-1">
                                             <div className="flex flex-wrap items-center gap-3">
-                                                <h4 className="text-lg font-bold text-gray-900">{service.service}</h4>
+                                                <h4 className="text-base font-bold text-slate-800">{service.service}</h4>
                                                 <span className={`px-3 py-1 rounded-full text-xs font-semibold ${getCategoryColor(service.category)}`}>
                                                     {service.category}
                                                 </span>
@@ -239,29 +239,29 @@ const RecurringTab = () => {
                                                 </span>
                                             </div>
                                             
-                                            <p className="text-gray-600">{service.description}</p>
+                                            <p className="text-slate-600">{service.description}</p>
                                             
                                             <div className="flex flex-wrap items-center gap-6">
-                                                <div className="flex items-center gap-2 text-gray-600">
+                                                <div className="flex items-center gap-2 text-slate-600">
                                                     <FiCalendar className="w-4 h-4" />
-                                                    <span className="font-medium">Next Due: <span className="text-gray-900">{service.nextDue}</span></span>
+                                                    <span className="font-medium">Next Due: <span className="text-slate-800">{service.nextDue}</span></span>
                                                 </div>
-                                                <div className="flex items-center gap-2 text-gray-600">
+                                                <div className="flex items-center gap-2 text-slate-600">
                                                     <FiBell className="w-4 h-4" />
-                                                    <span className="font-medium">Reminder: <span className="text-gray-900">{service.reminder}</span></span>
+                                                    <span className="font-medium">Reminder: <span className="text-slate-800">{service.reminder}</span></span>
                                                 </div>
-                                                <div className="flex items-center gap-2 text-gray-600">
+                                                <div className="flex items-center gap-2 text-slate-600">
                                                     <FiDollarSign className="w-4 h-4" />
-                                                    <span className="font-medium">Amount: <span className="text-gray-900">₹{parseInt(service.amount).toLocaleString()}</span></span>
+                                                    <span className="font-medium">Amount: <span className="text-slate-800">₹{parseInt(service.amount).toLocaleString()}</span></span>
                                                 </div>
                                             </div>
                                             
                                             <div className="pt-3 border-t border-gray-200">
                                                 <div className="flex justify-between items-center">
-                                                    <div className="text-sm text-gray-600">
-                                                        Total Revenue: <span className="font-semibold text-gray-900">₹{parseInt(service.totalRevenue).toLocaleString()}</span>
+                                                    <div className="text-sm text-slate-600">
+                                                        Total Revenue: <span className="font-semibold text-slate-800">₹{parseInt(service.totalRevenue).toLocaleString()}</span>
                                                     </div>
-                                                    <div className="text-sm text-gray-600">
+                                                    <div className="text-sm text-slate-600">
                                                         Service {service.status === 'Active' ? 'active' : 'paused'}
                                                     </div>
                                                 </div>
@@ -306,8 +306,8 @@ const RecurringTab = () => {
                             <FiCalendar className="w-6 h-6 text-white" />
                         </div>
                         <div>
-                            <h4 className="font-semibold text-gray-900 mb-2">Upcoming Services</h4>
-                            <p className="text-sm text-gray-600">
+                            <h4 className="font-semibold text-slate-800 mb-2">Upcoming Services</h4>
+                            <p className="text-sm text-slate-600">
                                 {services.filter(s => s.status === 'Active').length} active services • 
                                 Next 7 days: {services.filter(s => {
                                     const dueDate = new Date(s.nextDue);
@@ -340,7 +340,7 @@ const RecurringTab = () => {
             {/* Frequency Distribution & Revenue Breakdown */}
             <div className="mt-6 grid grid-cols-1 lg:grid-cols-2 gap-6">
                 <div className="p-6 bg-white border border-gray-200 rounded-2xl shadow-sm">
-                    <h4 className="font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                    <h4 className="font-semibold text-slate-800 mb-4 flex items-center gap-2">
                         <FiRepeat className="w-5 h-5 text-purple-600" />
                         Service Frequency Distribution
                     </h4>
@@ -352,8 +352,8 @@ const RecurringTab = () => {
                             return (
                                 <div key={index} className="space-y-1">
                                     <div className="flex justify-between items-center">
-                                        <span className="text-gray-700">{frequency}</span>
-                                        <span className="font-semibold text-gray-900">{frequencyCount} services</span>
+                                        <span className="text-slate-700">{frequency}</span>
+                                        <span className="font-semibold text-slate-800">{frequencyCount} services</span>
                                     </div>
                                     <div className="w-full bg-gray-200 rounded-full h-2">
                                         <div 
@@ -368,7 +368,7 @@ const RecurringTab = () => {
                 </div>
                 
                 <div className="p-6 bg-white border border-gray-200 rounded-2xl shadow-sm">
-                    <h4 className="font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                    <h4 className="font-semibold text-slate-800 mb-4 flex items-center gap-2">
                         <FiDollarSign className="w-5 h-5 text-green-600" />
                         Revenue by Category
                     </h4>
@@ -382,8 +382,8 @@ const RecurringTab = () => {
                             return (
                                 <div key={index} className="space-y-1">
                                     <div className="flex justify-between items-center">
-                                        <span className="text-gray-700">{category}</span>
-                                        <span className="font-semibold text-gray-900">₹{categoryRevenue.toLocaleString()}</span>
+                                        <span className="text-slate-700">{category}</span>
+                                        <span className="font-semibold text-slate-800">₹{categoryRevenue.toLocaleString()}</span>
                                     </div>
                                     <div className="w-full bg-gray-200 rounded-full h-2">
                                         <div 
@@ -401,7 +401,7 @@ const RecurringTab = () => {
             {/* Service Performance */}
             <div className="mt-6 p-6 bg-white rounded-2xl border border-gray-200 shadow-sm">
                 <div className="flex justify-between items-center mb-4">
-                    <h4 className="font-semibold text-gray-900 flex items-center gap-2">
+                    <h4 className="font-semibold text-slate-800 flex items-center gap-2">
                         <FiTrendingUp className="w-5 h-5 text-blue-600" />
                         Service Performance Metrics
                     </h4>
@@ -416,29 +416,29 @@ const RecurringTab = () => {
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div className="p-4 bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-xl">
-                        <div className="text-sm text-gray-600">Active Service Rate</div>
-                        <div className="text-2xl font-bold text-gray-900">
+                        <div className="text-sm text-slate-600">Active Service Rate</div>
+                        <div className="text-base font-bold text-slate-800">
                             {((stats.activeServices / stats.totalServices) * 100).toFixed(0)}%
                         </div>
-                        <div className="text-xs text-gray-500 mt-1">
+                        <div className="text-xs text-slate-500 mt-1">
                             {stats.activeServices} of {stats.totalServices} services active
                         </div>
                     </div>
                     
                     <div className="p-4 bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 rounded-xl">
-                        <div className="text-sm text-gray-600">Monthly Recurring Revenue</div>
-                        <div className="text-2xl font-bold text-gray-900">₹{stats.monthlyRevenue.toLocaleString()}</div>
-                        <div className="text-xs text-gray-500 mt-1">
+                        <div className="text-sm text-slate-600">Monthly Recurring Revenue</div>
+                        <div className="text-base font-bold text-slate-800">₹{stats.monthlyRevenue.toLocaleString()}</div>
+                        <div className="text-xs text-slate-500 mt-1">
                             Projected annual: ₹{(stats.monthlyRevenue * 12).toLocaleString()}
                         </div>
                     </div>
                     
                     <div className="p-4 bg-gradient-to-r from-purple-50 to-pink-50 border border-purple-200 rounded-xl">
-                        <div className="text-sm text-gray-600">Average Service Value</div>
-                        <div className="text-2xl font-bold text-gray-900">
+                        <div className="text-sm text-slate-600">Average Service Value</div>
+                        <div className="text-base font-bold text-slate-800">
                             ₹{Math.round(totalRevenue / services.length).toLocaleString()}
                         </div>
-                        <div className="text-xs text-gray-500 mt-1">
+                        <div className="text-xs text-slate-500 mt-1">
                             Per service per year
                         </div>
                     </div>

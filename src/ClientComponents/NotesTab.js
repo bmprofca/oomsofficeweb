@@ -925,7 +925,7 @@ const NotesTab = ({ clientUsername }) => {
             case 'Low':
                 return 'bg-gradient-to-r from-green-100 to-emerald-100 text-green-800 border border-green-200';
             default:
-                return 'bg-gradient-to-r from-gray-100 to-slate-100 text-gray-800 border border-gray-200';
+                return 'bg-gradient-to-r from-gray-100 to-slate-100 text-slate-800 border border-gray-200';
         }
     };
 
@@ -942,7 +942,7 @@ const NotesTab = ({ clientUsername }) => {
             case 'cancelled':
                 return 'bg-gradient-to-r from-red-100 to-pink-100 text-red-800 border border-red-200';
             default:
-                return 'bg-gradient-to-r from-gray-100 to-slate-100 text-gray-800 border border-gray-200';
+                return 'bg-gradient-to-r from-gray-100 to-slate-100 text-slate-800 border border-gray-200';
         }
     };
 
@@ -1007,7 +1007,7 @@ const NotesTab = ({ clientUsername }) => {
             case 'webm':
                 return <FiVolume2 className="w-5 h-5 text-orange-600" />;
             default:
-                return <FiPaperclip className="w-5 h-5 text-gray-600" />;
+                return <FiPaperclip className="w-5 h-5 text-slate-600" />;
         }
     };
 
@@ -1022,7 +1022,7 @@ const NotesTab = ({ clientUsername }) => {
             case 'voice':
                 return 'bg-purple-50 text-purple-700 border border-purple-100';
             default:
-                return 'bg-gray-50 text-gray-700 border border-gray-100';
+                return 'bg-gray-50 text-slate-700 border border-gray-100';
         }
     };
 
@@ -1112,7 +1112,7 @@ const NotesTab = ({ clientUsername }) => {
                     <div className="w-8 h-8 bg-blue-50 rounded-lg flex items-center justify-center">
                         <FiMessageSquare className="w-4 h-4 text-blue-600" />
                     </div>
-                    <h3 className="text-base font-semibold text-gray-900">Client Notes & Communication</h3>
+                    <h3 className="text-base font-semibold text-slate-800">Client Notes & Communication</h3>
                 </div>
                 <button
                     onClick={openAddModal}
@@ -1133,7 +1133,7 @@ const NotesTab = ({ clientUsername }) => {
                     {clientUsername ? (
                         <button onClick={() => fetchNotes(1, '')} className="text-sm text-blue-600 hover:text-blue-700 font-medium">Try again</button>
                     ) : (
-                        <p className="text-sm text-gray-500">Please select a client to view notes</p>
+                        <p className="text-sm text-slate-500">Please select a client to view notes</p>
                     )}
                 </div>
             )}
@@ -1147,7 +1147,7 @@ const NotesTab = ({ clientUsername }) => {
                         placeholder="Search notes by content, author, or date…"
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
-                        className="w-full pl-10 pr-4 py-2 text-sm border border-gray-200 rounded-lg bg-gray-50 focus:bg-white focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none placeholder:text-gray-400 transition-colors"
+                        className="w-full pl-10 pr-4 py-2 text-sm border border-gray-200 rounded-lg bg-gray-50 focus:bg-white focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none placeholder:text-slate-400 transition-colors"
                     />
                     {loading && searchTerm && (
                         <span className="absolute inset-y-0 right-3 flex items-center">
@@ -1170,8 +1170,8 @@ const NotesTab = ({ clientUsername }) => {
                                 key={f.value}
                                 onClick={() => setActiveFilter(f.value)}
                                 className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md transition-all ${activeFilter === f.value
-                                    ? 'bg-white text-gray-900 shadow-sm'
-                                    : 'text-gray-500 hover:text-gray-800'
+                                    ? 'bg-white text-slate-800 shadow-sm'
+                                    : 'text-slate-500 hover:text-slate-800'
                                     }`}
                             >
                                 <f.icon className="w-3.5 h-3.5" />
@@ -1215,7 +1215,7 @@ const NotesTab = ({ clientUsername }) => {
                         {(statusFilter !== 'all' || priorityListFilter !== 'all' || activeFilter !== 'all') && (
                             <button
                                 onClick={() => { setStatusFilter('all'); setPriorityListFilter('all'); setActiveFilter('all'); }}
-                                className="px-2.5 text-xs text-gray-500 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors border border-gray-200 h-10 whitespace-nowrap"
+                                className="px-2.5 text-xs text-slate-500 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors border border-gray-200 h-10 whitespace-nowrap"
                             >
                                 Clear filters
                             </button>
@@ -1257,8 +1257,8 @@ const NotesTab = ({ clientUsername }) => {
                             <div className="inline-flex items-center justify-center w-14 h-14 rounded-full bg-blue-50 mb-4">
                                 <FiMessageSquare className="w-6 h-6 text-blue-400" />
                             </div>
-                            <p className="text-sm font-medium text-gray-700 mb-1">No notes found</p>
-                            <p className="text-xs text-gray-400 mb-4">
+                            <p className="text-sm font-medium text-slate-700 mb-1">No notes found</p>
+                            <p className="text-xs text-slate-400 mb-4">
                                 {notes.length === 0 ? 'Get started by creating your first note.' : 'Try adjusting your filters.'}
                             </p>
                             {notes.length === 0 && (
@@ -1302,11 +1302,11 @@ const NotesTab = ({ clientUsername }) => {
                                             <div className="flex items-start justify-between gap-2">
                                                 <div className="min-w-0 flex-1">
                                                     {/* Title */}
-                                                    <h4 className="text-sm font-semibold text-gray-800 truncate mb-0.5">
+                                                    <h4 className="text-sm font-semibold text-slate-800 truncate mb-0.5">
                                                         {getNoteTitle(note)}
                                                     </h4>
                                                     {/* Description */}
-                                                    <p className="text-xs text-gray-500 line-clamp-1 mb-2">
+                                                    <p className="text-xs text-slate-500 line-clamp-1 mb-2">
                                                         {getNoteDescription(note)}
                                                     </p>
                                                     {/* Badges row */}
@@ -1328,11 +1328,11 @@ const NotesTab = ({ clientUsername }) => {
                                                     </div>
                                                     {/* Meta */}
                                                     <div className="flex items-center gap-3 flex-wrap">
-                                                        <span className="flex items-center gap-1 text-xs text-gray-400">
+                                                        <span className="flex items-center gap-1 text-xs text-slate-400">
                                                             <FiUser className="w-3 h-3" />
                                                             {note.author}
                                                         </span>
-                                                        <span className="flex items-center gap-1 text-xs text-gray-400">
+                                                        <span className="flex items-center gap-1 text-xs text-slate-400">
                                                             <FiCalendar className="w-3 h-3" />
                                                             {note.formatted_create_date}
                                                         </span>
@@ -1343,21 +1343,21 @@ const NotesTab = ({ clientUsername }) => {
                                                 <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
                                                     <button
                                                         onClick={(e) => { e.stopPropagation(); openViewModal(note); }}
-                                                        className="p-1.5 rounded-lg text-gray-400 hover:text-blue-600 hover:bg-blue-50 transition-colors"
+                                                        className="p-1.5 rounded-lg text-slate-400 hover:text-blue-600 hover:bg-blue-50 transition-colors"
                                                         title="View"
                                                     >
                                                         <FiEye className="w-3.5 h-3.5" />
                                                     </button>
                                                     <button
                                                         onClick={(e) => { e.stopPropagation(); openEditModal(note); }}
-                                                        className="p-1.5 rounded-lg text-gray-400 hover:text-emerald-600 hover:bg-emerald-50 transition-colors"
+                                                        className="p-1.5 rounded-lg text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 transition-colors"
                                                         title="Edit"
                                                     >
                                                         <FiEdit className="w-3.5 h-3.5" />
                                                     </button>
                                                     <button
                                                         onClick={(e) => { e.stopPropagation(); openDeleteModal(note); }}
-                                                        className="p-1.5 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors"
+                                                        className="p-1.5 rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors"
                                                         title="Delete"
                                                     >
                                                         <FiTrash2 className="w-3.5 h-3.5" />
@@ -1438,18 +1438,18 @@ const NotesTab = ({ clientUsername }) => {
                                     {/* Note Header Info */}
                                     <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                                         <div className="space-y-2">
-                                            <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Subject</label>
-                                            <div className="text-lg font-semibold text-gray-900">{selectedNote.subject || 'No Subject'}</div>
+                                            <label className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Subject</label>
+                                            <div className="text-sm font-semibold text-slate-800">{selectedNote.subject || 'No Subject'}</div>
                                         </div>
                                         <div className="space-y-2">
-                                            <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Priority</label>
+                                            <label className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Priority</label>
                                             <div className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg font-medium ${getPriorityColor(selectedNote.priority)}`}>
                                                 <FiTag className="w-4 h-4" />
                                                 {selectedNote.priority} Priority
                                             </div>
                                         </div>
                                         <div className="space-y-2">
-                                            <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Status</label>
+                                            <label className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Status</label>
                                             <div className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg font-medium ${getStatusColor(selectedNote.status)}`}>
                                                 <FiCheckCircle className="w-4 h-4" />
                                                 {selectedNote.status}
@@ -1468,8 +1468,8 @@ const NotesTab = ({ clientUsername }) => {
                                                     {getTypeIcon(selectedNote.type)}
                                                 </div>
                                                 <div>
-                                                    <h3 className="font-semibold text-gray-900">Note Type</h3>
-                                                    <p className="text-sm text-gray-600">
+                                                    <h3 className="font-semibold text-slate-800">Note Type</h3>
+                                                    <p className="text-sm text-slate-600">
                                                         {selectedNote.type === 'text' ? 'Text Note' :
                                                             selectedNote.type === 'file' ? 'File Attachment' :
                                                                 'Voice Recording'}
@@ -1493,8 +1493,8 @@ const NotesTab = ({ clientUsername }) => {
                                                         <FiBell className="w-6 h-6 text-white" />
                                                     </div>
                                                     <div>
-                                                        <h3 className="font-semibold text-gray-900">Reminder</h3>
-                                                        <p className="text-sm text-gray-600">{selectedNote.formatted_reminder_date}</p>
+                                                        <h3 className="font-semibold text-slate-800">Reminder</h3>
+                                                        <p className="text-sm text-slate-600">{selectedNote.formatted_reminder_date}</p>
                                                     </div>
                                                 </div>
                                                 <div className={`px-4 py-2 rounded-lg font-medium ${getReminderStatus(selectedNote.reminder_date)?.color}`}>
@@ -1506,7 +1506,7 @@ const NotesTab = ({ clientUsername }) => {
 
                                     {/* Note Content */}
                                     <div className="space-y-4">
-                                        <label className="text-sm font-semibold text-gray-700">Note Content</label>
+                                        <label className="text-sm font-semibold text-slate-700">Note Content</label>
                                         <div className="bg-gray-50 border border-gray-200 rounded-xl p-6">
                                             {selectedNote.type === 'voice' ? (
                                                 <div className="space-y-4">
@@ -1515,8 +1515,8 @@ const NotesTab = ({ clientUsername }) => {
                                                             <FiVolume2 className="w-8 h-8 text-purple-600" />
                                                         </div>
                                                         <div>
-                                                            <h4 className="font-semibold text-gray-900">Voice Recording</h4>
-                                                            <p className="text-sm text-gray-600">{selectedNote.note}</p>
+                                                            <h4 className="font-semibold text-slate-800">Voice Recording</h4>
+                                                            <p className="text-sm text-slate-600">{selectedNote.note}</p>
                                                         </div>
                                                     </div>
                                                     {selectedNote.file && (
@@ -1556,8 +1556,8 @@ const NotesTab = ({ clientUsername }) => {
                                                             <FiFile className="w-8 h-8 text-green-600" />
                                                         </div>
                                                         <div>
-                                                            <h4 className="font-semibold text-gray-900">File Attachment</h4>
-                                                            <p className="text-sm text-gray-600">{selectedNote.note}</p>
+                                                            <h4 className="font-semibold text-slate-800">File Attachment</h4>
+                                                            <p className="text-sm text-slate-600">{selectedNote.note}</p>
                                                         </div>
                                                     </div>
                                                     {selectedNote.file && (
@@ -1568,10 +1568,10 @@ const NotesTab = ({ clientUsername }) => {
                                                                         {getFileIcon(selectedNote.file)}
                                                                     </div>
                                                                     <div>
-                                                                        <div className="font-medium text-gray-900">
+                                                                        <div className="font-medium text-slate-800">
                                                                             {selectedNote.file.split('/').pop()}
                                                                         </div>
-                                                                        <div className="text-sm text-gray-500">
+                                                                        <div className="text-sm text-slate-500">
                                                                             File attached
                                                                         </div>
                                                                     </div>
@@ -1590,7 +1590,7 @@ const NotesTab = ({ clientUsername }) => {
                                                     )}
                                                 </div>
                                             ) : (
-                                                <p className="text-gray-700 whitespace-pre-wrap leading-relaxed">{selectedNote.note}</p>
+                                                <p className="text-slate-700 whitespace-pre-wrap leading-relaxed">{selectedNote.note}</p>
                                             )}
                                         </div>
                                     </div>
@@ -1598,7 +1598,7 @@ const NotesTab = ({ clientUsername }) => {
                                     {/* Metadata Section */}
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-6 border-t">
                                         <div className="space-y-4">
-                                            <h4 className="font-semibold text-gray-900 flex items-center gap-2">
+                                            <h4 className="font-semibold text-slate-800 flex items-center gap-2">
                                                 <FiUser className="w-5 h-5 text-blue-600" />
                                                 Created Information
                                             </h4>
@@ -1607,15 +1607,15 @@ const NotesTab = ({ clientUsername }) => {
                                                     <FiUser className="w-5 h-5 text-blue-600" />
                                                 </div>
                                                 <div>
-                                                    <div className="font-medium text-gray-900">{selectedNote.created_by_name}</div>
-                                                    <div className="text-sm text-gray-600">{selectedNote.formatted_create_date}</div>
+                                                    <div className="font-medium text-slate-800">{selectedNote.created_by_name}</div>
+                                                    <div className="text-sm text-slate-600">{selectedNote.formatted_create_date}</div>
                                                 </div>
                                             </div>
                                         </div>
 
                                         {selectedNote.modified_by_name && (
                                             <div className="space-y-4">
-                                                <h4 className="font-semibold text-gray-900 flex items-center gap-2">
+                                                <h4 className="font-semibold text-slate-800 flex items-center gap-2">
                                                     <FiClock className="w-5 h-5 text-green-600" />
                                                     Last Updated
                                                 </h4>
@@ -1624,8 +1624,8 @@ const NotesTab = ({ clientUsername }) => {
                                                         <FiUser className="w-5 h-5 text-green-600" />
                                                     </div>
                                                     <div>
-                                                        <div className="font-medium text-gray-900">{selectedNote.modified_by_name}</div>
-                                                        <div className="text-sm text-gray-600">{selectedNote.formatted_modify_date}</div>
+                                                        <div className="font-medium text-slate-800">{selectedNote.modified_by_name}</div>
+                                                        <div className="text-sm text-slate-600">{selectedNote.formatted_modify_date}</div>
                                                     </div>
                                                 </div>
                                             </div>
@@ -1638,7 +1638,7 @@ const NotesTab = ({ clientUsername }) => {
                             <div className="shrink-0 border-t px-5 py-3 bg-gray-50 flex justify-end gap-3">
                                 <motion.button
                                     onClick={() => setShowViewModal(false)}
-                                    className="px-4 py-2 border border-gray-300 text-gray-700 hover:bg-gray-100 rounded-lg text-sm font-medium transition-all duration-300 flex items-center gap-2"
+                                    className="px-4 py-2 border border-gray-300 text-slate-700 hover:bg-gray-100 rounded-lg text-sm font-medium transition-all duration-300 flex items-center gap-2"
                                     whileHover={{ scale: 1.05, y: -2 }}
                                     whileTap={{ scale: 0.95 }}
                                 >
@@ -1731,14 +1731,14 @@ const NotesTab = ({ clientUsername }) => {
                                                     ? item.color === 'blue' ? 'text-blue-600'
                                                         : item.color === 'green' ? 'text-green-600'
                                                             : 'text-purple-600'
-                                                    : 'text-gray-600'
+                                                    : 'text-slate-600'
                                                     }`} />
                                             </div>
                                             <span className={`text-xs font-medium ${createNoteType === item.type
                                                 ? item.color === 'blue' ? 'text-blue-600'
                                                     : item.color === 'green' ? 'text-green-600'
                                                         : 'text-purple-600'
-                                                : 'text-gray-600'
+                                                : 'text-slate-600'
                                                 }`}>
                                                 {item.label}
                                             </span>
@@ -1815,7 +1815,7 @@ const NotesTab = ({ clientUsername }) => {
                                         {createForm.attachments.map((att, i) => (
                                             <div key={i} className="border border-gray-200 rounded-lg p-4 space-y-3">
                                                 <div className="flex justify-between items-center">
-                                                    <span className="text-sm font-medium text-gray-700">Attachment {i + 1}</span>
+                                                    <span className="text-sm font-medium text-slate-700">Attachment {i + 1}</span>
                                                     <button
                                                         onClick={() => removeAttachmentRow(i)}
                                                         className="p-1.5 text-red-500 hover:bg-red-50 rounded-lg transition-colors"
@@ -1835,11 +1835,11 @@ const NotesTab = ({ clientUsername }) => {
                                                         className="border-2 border-dashed border-gray-200 rounded-lg p-4 text-center hover:border-blue-500 transition-colors cursor-pointer"
                                                         onClick={() => attachmentInputRefs.current[i]?.click()}
                                                     >
-                                                        <FiUpload className="w-6 h-6 mx-auto mb-2 text-gray-400" />
-                                                        <p className="text-sm text-gray-600">
+                                                        <FiUpload className="w-6 h-6 mx-auto mb-2 text-slate-400" />
+                                                        <p className="text-sm text-slate-600">
                                                             {att.previewName ? att.previewName : 'Click to upload or drag and drop'}
                                                         </p>
-                                                        <p className="text-xs text-gray-400 mt-1">Maximum file size: 10MB</p>
+                                                        <p className="text-xs text-slate-400 mt-1">Maximum file size: 10MB</p>
                                                     </div>
                                                 </div>
                                                 <input
@@ -1864,7 +1864,7 @@ const NotesTab = ({ clientUsername }) => {
                                                 {uploadProgress[att.file?.name] && (
                                                     <div className="space-y-1">
                                                         <div className="flex justify-between text-xs">
-                                                            <span className="text-gray-600">Uploading...</span>
+                                                            <span className="text-slate-600">Uploading...</span>
                                                             <span className="text-blue-600 font-medium">{uploadProgress[att.file.name]}%</span>
                                                         </div>
                                                         <div className="w-full bg-gray-200 rounded-full h-1.5">
@@ -1896,8 +1896,8 @@ const NotesTab = ({ clientUsername }) => {
                                                 <div className="w-16 h-16 mx-auto mb-4 bg-purple-50 rounded-full flex items-center justify-center">
                                                     <FiMic className="w-6 h-6 text-purple-600" />
                                                 </div>
-                                                <h4 className="text-sm font-medium text-gray-900 mb-1">Record a voice note</h4>
-                                                <p className="text-xs text-gray-500 mb-4">Click the button below to start recording</p>
+                                                <h4 className="text-sm font-medium text-slate-800 mb-1">Record a voice note</h4>
+                                                <p className="text-xs text-slate-500 mb-4">Click the button below to start recording</p>
                                                 <button
                                                     onClick={startCreateRecording}
                                                     className="inline-flex items-center gap-2 px-4 py-2 bg-purple-600 text-white text-sm font-medium rounded-lg hover:bg-purple-700 transition-colors"
@@ -1926,7 +1926,7 @@ const NotesTab = ({ clientUsername }) => {
                                                     </button>
                                                     <button
                                                         onClick={cancelCreateRecording}
-                                                        className="px-4 py-2 border border-gray-200 text-gray-600 text-sm rounded-lg hover:bg-gray-50 transition-colors"
+                                                        className="px-4 py-2 border border-gray-200 text-slate-600 text-sm rounded-lg hover:bg-gray-50 transition-colors"
                                                     >
                                                         Cancel
                                                     </button>
@@ -1978,7 +1978,7 @@ const NotesTab = ({ clientUsername }) => {
                                 <button
                                     onClick={closeAddModal}
                                     disabled={creatingNote}
-                                    className="px-4 py-2 text-sm text-gray-600 hover:text-gray-900 font-medium disabled:opacity-50"
+                                    className="px-4 py-2 text-sm text-slate-600 hover:text-slate-800 font-medium disabled:opacity-50"
                                 >
                                     Cancel
                                 </button>
@@ -2049,7 +2049,7 @@ const NotesTab = ({ clientUsername }) => {
                                 <div className="space-y-8">
                                     {/* Note Type Selection */}
                                     <div className="space-y-3">
-                                        <label className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+                                        <label className="text-sm font-semibold text-slate-700 flex items-center gap-2">
                                             <FiType className="w-4 h-4" />
                                             Note Type *
                                         </label>
@@ -2071,8 +2071,8 @@ const NotesTab = ({ clientUsername }) => {
                                                     <FiMessageSquare className={`w-8 h-8 ${newNote.type === 'text' ? 'text-white' : 'text-blue-600'}`} />
                                                 </div>
                                                 <div className="text-center">
-                                                    <h4 className="font-semibold text-gray-900">Text Note</h4>
-                                                    <p className="text-sm text-gray-600 mt-1">Write a text note</p>
+                                                    <h4 className="font-semibold text-slate-800">Text Note</h4>
+                                                    <p className="text-sm text-slate-600 mt-1">Write a text note</p>
                                                 </div>
                                                 {newNote.type === 'text' && (
                                                     <div className="w-6 h-6 bg-blue-600 rounded-full flex items-center justify-center">
@@ -2098,8 +2098,8 @@ const NotesTab = ({ clientUsername }) => {
                                                     <FiFile className={`w-8 h-8 ${newNote.type === 'file' ? 'text-white' : 'text-green-600'}`} />
                                                 </div>
                                                 <div className="text-center">
-                                                    <h4 className="font-semibold text-gray-900">File Note</h4>
-                                                    <p className="text-sm text-gray-600 mt-1">Upload a document/file</p>
+                                                    <h4 className="font-semibold text-slate-800">File Note</h4>
+                                                    <p className="text-sm text-slate-600 mt-1">Upload a document/file</p>
                                                 </div>
                                                 {newNote.type === 'file' && (
                                                     <div className="w-6 h-6 bg-green-600 rounded-full flex items-center justify-center">
@@ -2125,8 +2125,8 @@ const NotesTab = ({ clientUsername }) => {
                                                     <FiMic className={`w-8 h-8 ${newNote.type === 'voice' ? 'text-white' : 'text-purple-600'}`} />
                                                 </div>
                                                 <div className="text-center">
-                                                    <h4 className="font-semibold text-gray-900">Voice Note</h4>
-                                                    <p className="text-sm text-gray-600 mt-1">Record a voice message</p>
+                                                    <h4 className="font-semibold text-slate-800">Voice Note</h4>
+                                                    <p className="text-sm text-slate-600 mt-1">Record a voice message</p>
                                                 </div>
                                                 {newNote.type === 'voice' && (
                                                     <div className="w-6 h-6 bg-purple-600 rounded-full flex items-center justify-center">
@@ -2140,7 +2140,7 @@ const NotesTab = ({ clientUsername }) => {
                                     {/* Basic Information */}
                                     <div className="space-y-4">
                                         <div className="space-y-2">
-                                            <label className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+                                            <label className="text-sm font-semibold text-slate-700 flex items-center gap-2">
                                                 <FiType className="w-4 h-4" />
                                                 Subject *
                                             </label>
@@ -2187,7 +2187,7 @@ const NotesTab = ({ clientUsername }) => {
                                     {/* Content based on type */}
                                     {newNote.type === 'text' && (
                                         <div className="space-y-3">
-                                            <label className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+                                            <label className="text-sm font-semibold text-slate-700 flex items-center gap-2">
                                                 <FiMessageSquare className="w-4 h-4" />
                                                 Note Content *
                                             </label>
@@ -2209,11 +2209,11 @@ const NotesTab = ({ clientUsername }) => {
                                     {newNote.type === 'file' && (
                                         <div className="space-y-4">
                                             <div className="flex items-center justify-between">
-                                                <label className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+                                                <label className="text-sm font-semibold text-slate-700 flex items-center gap-2">
                                                     <FiFile className="w-4 h-4" />
                                                     File Upload *
                                                 </label>
-                                                <span className="text-xs text-gray-500">
+                                                <span className="text-xs text-slate-500">
                                                     Max 10MB per file
                                                 </span>
                                             </div>
@@ -2232,8 +2232,8 @@ const NotesTab = ({ clientUsername }) => {
                                                     <div className="w-16 h-16 mx-auto mb-4 bg-gradient-to-r from-green-50 to-emerald-50 rounded-xl flex items-center justify-center">
                                                         <FiUpload className="w-8 h-8 text-green-600" />
                                                     </div>
-                                                    <h4 className="font-semibold text-gray-900 mb-2">Click to upload file</h4>
-                                                    <p className="text-sm text-gray-600">Supports PDF, Word, Excel, Images, and Text files</p>
+                                                    <h4 className="font-semibold text-slate-800 mb-2">Click to upload file</h4>
+                                                    <p className="text-sm text-slate-600">Supports PDF, Word, Excel, Images, and Text files</p>
                                                     {uploadingAttachment && (
                                                         <div className="mt-4">
                                                             <div className="w-full bg-gray-200 rounded-full h-2">
@@ -2242,7 +2242,7 @@ const NotesTab = ({ clientUsername }) => {
                                                                     style={{ width: `${Object.values(uploadProgress)[0] || 0}%` }}
                                                                 />
                                                             </div>
-                                                            <p className="text-xs text-gray-500 mt-2">
+                                                            <p className="text-xs text-slate-500 mt-2">
                                                                 Uploading... {Object.values(uploadProgress)[0] || 0}%
                                                             </p>
                                                         </div>
@@ -2256,8 +2256,8 @@ const NotesTab = ({ clientUsername }) => {
                                                                 <FiFile className="w-8 h-8 text-green-600" />
                                                             </div>
                                                             <div>
-                                                                <h4 className="font-semibold text-gray-900">File Selected</h4>
-                                                                <p className="text-sm text-gray-600">
+                                                                <h4 className="font-semibold text-slate-800">File Selected</h4>
+                                                                <p className="text-sm text-slate-600">
                                                                     {newNote.file.split('/').pop() || 'Uploaded file'}
                                                                 </p>
                                                             </div>
@@ -2288,7 +2288,7 @@ const NotesTab = ({ clientUsername }) => {
 
                                             {/* Note Description */}
                                             <div className="space-y-3">
-                                                <label className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+                                                <label className="text-sm font-semibold text-slate-700 flex items-center gap-2">
                                                     <FiMessageSquare className="w-4 h-4" />
                                                     Description
                                                 </label>
@@ -2305,7 +2305,7 @@ const NotesTab = ({ clientUsername }) => {
                                     {newNote.type === 'voice' && (
                                         <div className="space-y-4">
                                             <div className="flex items-center justify-between">
-                                                <label className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+                                                <label className="text-sm font-semibold text-slate-700 flex items-center gap-2">
                                                     <FiMic className="w-4 h-4" />
                                                     Voice Recording *
                                                 </label>
@@ -2317,8 +2317,8 @@ const NotesTab = ({ clientUsername }) => {
                                                     <div className="w-16 h-16 mx-auto mb-4 bg-gradient-to-r from-purple-50 to-pink-50 rounded-xl flex items-center justify-center">
                                                         <FiMic className="w-8 h-8 text-purple-600" />
                                                     </div>
-                                                    <h4 className="font-semibold text-gray-900 mb-2">Record a voice note</h4>
-                                                    <p className="text-sm text-gray-600 mb-4">Click the record button to start recording</p>
+                                                    <h4 className="font-semibold text-slate-800 mb-2">Record a voice note</h4>
+                                                    <p className="text-sm text-slate-600 mb-4">Click the record button to start recording</p>
                                                     <motion.button
                                                         onClick={startRecording}
                                                         className="px-8 py-3 bg-gradient-to-r from-purple-600 to-pink-700 text-white rounded-xl font-semibold hover:shadow-lg hover:shadow-purple-500/25 transition-all duration-300 flex items-center gap-2 mx-auto"
@@ -2328,7 +2328,7 @@ const NotesTab = ({ clientUsername }) => {
                                                         <FiMic className="w-5 h-5" />
                                                         Start Recording
                                                     </motion.button>
-                                                    <p className="text-xs text-gray-500 mt-4">
+                                                    <p className="text-xs text-slate-500 mt-4">
                                                         Note: You'll need to allow microphone access
                                                     </p>
                                                 </div>
@@ -2337,8 +2337,8 @@ const NotesTab = ({ clientUsername }) => {
                                                     <div className="w-20 h-20 mx-auto mb-4 bg-gradient-to-r from-red-600 to-pink-700 rounded-full flex items-center justify-center animate-pulse">
                                                         <FiMic className="w-10 h-10 text-white" />
                                                     </div>
-                                                    <h4 className="font-semibold text-gray-900 mb-2">Recording in progress...</h4>
-                                                    <div className="text-2xl font-bold text-red-600 mb-6">
+                                                    <h4 className="font-semibold text-slate-800 mb-2">Recording in progress...</h4>
+                                                    <div className="text-base font-bold text-rose-700 mb-6">
                                                         {formatRecordingTime(recordingTime)}
                                                     </div>
                                                     <div className="flex justify-center gap-4">
@@ -2353,7 +2353,7 @@ const NotesTab = ({ clientUsername }) => {
                                                         </motion.button>
                                                         <motion.button
                                                             onClick={cancelRecording}
-                                                            className="px-6 py-3 border border-gray-300 text-gray-700 hover:bg-gray-100 rounded-xl font-medium transition-all duration-300"
+                                                            className="px-6 py-3 border border-gray-300 text-slate-700 hover:bg-gray-100 rounded-xl font-medium transition-all duration-300"
                                                             whileHover={{ scale: 1.05, y: -2 }}
                                                             whileTap={{ scale: 0.95 }}
                                                         >
@@ -2369,8 +2369,8 @@ const NotesTab = ({ clientUsername }) => {
                                                                 <FiVolume2 className="w-8 h-8 text-purple-600" />
                                                             </div>
                                                             <div>
-                                                                <h4 className="font-semibold text-gray-900">Recording Complete</h4>
-                                                                <p className="text-sm text-gray-600">
+                                                                <h4 className="font-semibold text-slate-800">Recording Complete</h4>
+                                                                <p className="text-sm text-slate-600">
                                                                     Duration: {formatRecordingTime(recordingTime)}
                                                                 </p>
                                                             </div>
@@ -2401,7 +2401,7 @@ const NotesTab = ({ clientUsername }) => {
                                                                     style={{ width: `${Object.values(uploadProgress)[0] || 0}%` }}
                                                                 />
                                                             </div>
-                                                            <p className="text-xs text-gray-500 mt-2 text-center">
+                                                            <p className="text-xs text-slate-500 mt-2 text-center">
                                                                 Uploading audio... {Object.values(uploadProgress)[0] || 0}%
                                                             </p>
                                                         </div>
@@ -2411,7 +2411,7 @@ const NotesTab = ({ clientUsername }) => {
 
                                             {/* Note Description */}
                                             <div className="space-y-3">
-                                                <label className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+                                                <label className="text-sm font-semibold text-slate-700 flex items-center gap-2">
                                                     <FiMessageSquare className="w-4 h-4" />
                                                     Description
                                                 </label>
@@ -2429,7 +2429,7 @@ const NotesTab = ({ clientUsername }) => {
 
                             {/* Modal Footer */}
                             <div className="shrink-0 border-t px-5 py-3 bg-gray-50 flex justify-between items-center">
-                                <div className="text-sm text-gray-600">
+                                <div className="text-sm text-slate-600">
                                     <div className="flex items-center gap-2">
                                         <FiInfo className="w-4 h-4" />
                                         Fields marked with * are required
@@ -2446,7 +2446,7 @@ const NotesTab = ({ clientUsername }) => {
                                             setAudioBlob(null);
                                             setAudioURL('');
                                         }}
-                                        className="px-6 py-3 border border-gray-300 text-gray-700 hover:bg-gray-100 rounded-xl font-medium transition-all duration-300"
+                                        className="px-6 py-3 border border-gray-300 text-slate-700 hover:bg-gray-100 rounded-xl font-medium transition-all duration-300"
                                         whileHover={{ scale: 1.05, y: -2 }}
                                         whileTap={{ scale: 0.95 }}
                                     >
@@ -2505,7 +2505,7 @@ const NotesTab = ({ clientUsername }) => {
                                         <FiTrash2 className="w-6 h-6" />
                                     </div>
                                     <div>
-                                        <h2 className="text-2xl font-bold">Delete Note</h2>
+                                        <h2 className="text-base font-bold text-white">Delete Note</h2>
                                         <p className="text-red-100 text-sm mt-1">This action cannot be undone</p>
                                     </div>
                                 </div>
@@ -2518,19 +2518,19 @@ const NotesTab = ({ clientUsername }) => {
                                         <FiAlertTriangle className="w-10 h-10 text-red-600" />
                                     </div>
                                     <div className="space-y-4">
-                                        <h3 className="text-lg font-semibold text-gray-900">Confirm Deletion</h3>
-                                        <p className="text-gray-600">
+                                        <h3 className="text-sm font-semibold text-slate-800">Confirm Deletion</h3>
+                                        <p className="text-slate-600">
                                             Are you sure you want to delete the note titled
                                             <span className="font-bold text-red-600"> "{selectedNote.subject}"</span>?
                                         </p>
                                         <div className="p-4 bg-gradient-to-r from-gray-50 to-slate-50 rounded-xl text-left">
-                                            <div className="flex items-center gap-2 text-sm text-gray-600 mb-2">
+                                            <div className="flex items-center gap-2 text-sm text-slate-600 mb-2">
                                                 {getTypeIcon(selectedNote.type)}
                                                 <span>Type: {selectedNote.type === 'text' ? 'Text' : selectedNote.type === 'file' ? 'File' : 'Voice'}</span>
                                             </div>
-                                            <p className="text-sm text-gray-600 italic line-clamp-2">{selectedNote.note}</p>
+                                            <p className="text-sm text-slate-600 italic line-clamp-2">{selectedNote.note}</p>
                                         </div>
-                                        <p className="text-sm text-gray-500">
+                                        <p className="text-sm text-slate-500">
                                             This action is permanent and cannot be recovered.
                                         </p>
                                     </div>
@@ -2541,7 +2541,7 @@ const NotesTab = ({ clientUsername }) => {
                             <div className="border-t px-8 py-6 bg-gray-50 flex justify-center gap-4">
                                 <motion.button
                                     onClick={() => setShowDeleteModal(false)}
-                                    className="px-6 py-3 border border-gray-300 text-gray-700 hover:bg-gray-100 rounded-xl font-medium transition-all duration-300"
+                                    className="px-6 py-3 border border-gray-300 text-slate-700 hover:bg-gray-100 rounded-xl font-medium transition-all duration-300"
                                     whileHover={{ scale: 1.05, y: -2 }}
                                     whileTap={{ scale: 0.95 }}
                                 >

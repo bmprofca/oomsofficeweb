@@ -1,9 +1,31 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { motion } from 'framer-motion';
-import { FiBriefcase, FiEdit, FiTrash2, FiSearch, FiPlus, FiX, FiCheck, FiAlertCircle, FiEye, FiUser, FiMail, FiPhone, FiMapPin } from 'react-icons/fi';
+import { FiBriefcase, FiEdit, FiTrash2, FiSearch, FiPlus, FiX, FiCheck, FiAlertCircle, FiEye, FiMapPin } from 'react-icons/fi';
 import axios from 'axios';
+import toast from 'react-hot-toast';
 import API_BASE_URL from "../utils/api-controller";
 import getHeaders from "../utils/get-headers";
+import {
+    FirmModalShell,
+    FirmFormFields,
+    FirmViewDetails,
+    ModalFooterActions,
+} from '../components/Modals/FirmModalParts';
+
+const getApiErrorMessage = (error, fallback = 'Something went wrong') => {
+    if (error?.response?.data?.message) return String(error.response.data.message);
+    if (error?.response) {
+        const { status, data } = error.response;
+        if (status === 400) return data?.message || 'Please check all required fields';
+        if (status === 401) return 'Unauthorized. Please sign in again.';
+        if (status === 404) return 'Endpoint not found. Please contact support.';
+        if (status === 409) return 'A firm with these details already exists.';
+        if (status === 500) return 'Server error. Please try again later.';
+        return data?.message || `${fallback} (${status})`;
+    }
+    if (error?.request) return 'No response from server. Please check your connection.';
+    return error?.message || fallback;
+};
 
 const FirmsTab = ({ clientUsername }) => {
     const [firms, setFirms] = useState([]);
@@ -15,7 +37,9 @@ const FirmsTab = ({ clientUsername }) => {
     const [searchTerm, setSearchTerm] = useState('');
     const [statusFilter, setStatusFilter] = useState('active');
     const [loading, setLoading] = useState(false);
+    const [savingFirm, setSavingFirm] = useState(false);
     const [statesAndDistricts, setStatesAndDistricts] = useState([]);
+    const [statesLoading, setStatesLoading] = useState(true);
     const [newFirm, setNewFirm] = useState({
         name: '',
         type: 'proprietorship',
@@ -114,18 +138,18 @@ const FirmsTab = ({ clientUsername }) => {
             if (error.response) {
                 console.error('Response data:', error.response.data);
                 console.error('Response status:', error.response.status);
-                alert(`Error ${error.response.status}: ${error.response.data?.message || 'Failed to fetch firms'}`);
+                toast.error(getApiErrorMessage(error, 'Failed to fetch firms'));
             } else if (error.request) {
                 console.error('No response received:', error.request);
-                alert('No response from server. Please check your connection.');
+                toast.error('No response from server. Please check your connection.');
             } else {
                 console.error('Request setup error:', error.message);
-                alert(`Error: ${error.message}`);
+                toast.error(error.message || 'Failed to fetch firms');
             }
         } finally {
             setLoading(false);
         }
-    }, [clientUsername, getHeaders]);
+    }, [clientUsername]);
 
     // Initial fetch
     useEffect(() => {
@@ -148,6 +172,7 @@ const FirmsTab = ({ clientUsername }) => {
     useEffect(() => {
         let mounted = true;
         const fetchStatesAndDistricts = async () => {
+            setStatesLoading(true);
             try {
                 const headers = getHeaders();
                 if (!headers) return;
@@ -157,6 +182,8 @@ const FirmsTab = ({ clientUsername }) => {
                 }
             } catch (error) {
                 console.error('Error fetching states and districts:', error);
+            } finally {
+                if (mounted) setStatesLoading(false);
             }
         };
         fetchStatesAndDistricts();
@@ -167,12 +194,12 @@ const FirmsTab = ({ clientUsername }) => {
     const handleAddFirm = async () => {
         const headers = getHeaders();
         if (!headers) {
-            console.error('Cannot create firm: Missing authentication headers');
+            toast.error('Please sign in again.');
             return;
         }
 
         try {
-            // Prepare the request body according to the API specification
+            setSavingFirm(true);
             const requestBody = {
                 username: clientUsername, // Client username is required
                 type: newFirm.type,
@@ -226,57 +253,33 @@ const FirmsTab = ({ clientUsername }) => {
                     pincode: '',
                     country: ''
                 });
-                alert('Firm created successfully!');
+                toast.success(response.data?.message || 'Firm created successfully');
             } else {
-                alert(`Failed to create firm: ${response.data?.message || 'Unknown error'}`);
+                toast.error(response.data?.message || 'Failed to create firm');
             }
         } catch (error) {
             console.error('Error creating firm:', error);
-
-            // Detailed error logging
-            if (error.response) {
-                console.error('Response status:', error.response.status);
-                console.error('Response data:', error.response.data);
-                console.error('Response headers:', error.response.headers);
-
-                if (error.response.status === 400) {
-                    alert(`Bad request: ${error.response.data?.message || 'Please check all required fields'}`);
-                } else if (error.response.status === 401) {
-                    alert('Unauthorized: Please check your authentication');
-                } else if (error.response.status === 404) {
-                    alert('Endpoint not found. Please check the API URL.');
-                } else if (error.response.status === 409) {
-                    alert('Firm already exists with these details.');
-                } else if (error.response.status === 500) {
-                    alert('Server error. Please try again later.');
-                } else {
-                    alert(`Error ${error.response.status}: ${error.response.data?.message || 'Failed to create firm'}`);
-                }
-            } else if (error.request) {
-                console.error('No response received:', error.request);
-                alert('No response from server. Please check your internet connection.');
-            } else {
-                console.error('Request setup error:', error.message);
-                alert(`Error: ${error.message}`);
-            }
+            toast.error(getApiErrorMessage(error, 'Failed to create firm'));
+        } finally {
+            setSavingFirm(false);
         }
     };
 
     // Edit firm
     const handleEditFirm = async () => {
         if (!selectedFirm?.firm_id) {
-            alert('No firm selected for editing');
+            toast.error('No firm selected for editing');
             return;
         }
 
         const headers = getHeaders();
         if (!headers) {
-            console.error('Cannot update firm: Missing authentication headers');
+            toast.error('Please sign in again.');
             return;
         }
 
         try {
-            // Prepare the request body according to the API specification
+            setSavingFirm(true);
             const requestBody = {
                 firm_id: selectedFirm.firm_id,
                 username: clientUsername,
@@ -314,56 +317,33 @@ const FirmsTab = ({ clientUsername }) => {
                 // Refresh firms list
                 fetchFirms();
                 setShowEditModal(false);
-                alert('Firm updated successfully!');
+                toast.success(response.data?.message || 'Firm updated successfully');
             } else {
-                alert(`Failed to update firm: ${response.data?.message || 'Unknown error'}`);
+                toast.error(response.data?.message || 'Failed to update firm');
             }
         } catch (error) {
             console.error('Error updating firm:', error);
-
-            // Detailed error logging
-            if (error.response) {
-                console.error('Response status:', error.response.status);
-                console.error('Response data:', error.response.data);
-                console.error('Response headers:', error.response.headers);
-
-                if (error.response.status === 400) {
-                    alert(`Bad request: ${error.response.data?.message || 'Please check all required fields'}`);
-                } else if (error.response.status === 401) {
-                    alert('Unauthorized: Please check your authentication');
-                } else if (error.response.status === 404) {
-                    alert('Endpoint not found. Please check the API URL.');
-                } else if (error.response.status === 409) {
-                    alert('Firm already exists with these details.');
-                } else if (error.response.status === 500) {
-                    alert('Server error. Please try again later.');
-                } else {
-                    alert(`Error ${error.response.status}: ${error.response.data?.message || 'Failed to update firm'}`);
-                }
-            } else if (error.request) {
-                console.error('No response received:', error.request);
-                alert('No response from server. Please check your internet connection.');
-            } else {
-                console.error('Request setup error:', error.message);
-                alert(`Error: ${error.message}`);
-            }
+            toast.error(getApiErrorMessage(error, 'Failed to update firm'));
+        } finally {
+            setSavingFirm(false);
         }
     };
 
     // Delete firm
     const deleteFirm = async () => {
         if (!selectedFirm?.firm_id) {
-            alert('No firm selected for deletion');
+            toast.error('No firm selected for deletion');
             return;
         }
 
         const headers = getHeaders();
         if (!headers) {
-            console.error('Cannot delete firm: Missing authentication headers');
+            toast.error('Please sign in again.');
             return;
         }
 
         try {
+            setSavingFirm(true);
             const response = await axios.delete(
                 `${API_BASE_URL}/client/details/firms/delete/${selectedFirm.firm_id}`,
                 {
@@ -376,17 +356,15 @@ const FirmsTab = ({ clientUsername }) => {
                 // Remove from local state
                 setFirms(firms.filter(firm => firm.firm_id !== selectedFirm.firm_id));
                 setShowDeleteModal(false);
-                alert('Firm deleted successfully!');
+                toast.success(response.data?.message || 'Firm deleted successfully');
             } else {
-                alert(`Failed to delete firm: ${response.data?.message || 'Unknown error'}`);
+                toast.error(response.data?.message || 'Failed to delete firm');
             }
         } catch (error) {
             console.error('Error deleting firm:', error);
-            if (error.response) {
-                alert(`Error ${error.response.status}: ${error.response.data?.message || 'Failed to delete firm'}`);
-            } else {
-                alert('Error deleting firm. Please try again.');
-            }
+            toast.error(getApiErrorMessage(error, 'Failed to delete firm'));
+        } finally {
+            setSavingFirm(false);
         }
     };
 
@@ -394,7 +372,7 @@ const FirmsTab = ({ clientUsername }) => {
     const toggleStatus = async (firmId) => {
         const headers = getHeaders();
         if (!headers) {
-            console.error('Cannot update status: Missing authentication headers');
+            toast.error('Please sign in again.');
             return;
         }
 
@@ -415,16 +393,19 @@ const FirmsTab = ({ clientUsername }) => {
             );
 
             if (response.data && response.data.success) {
-                // Update local state
                 setFirms(firms.map(firm =>
                     firm.firm_id === firmId ? { ...firm, status: newStatus } : firm
                 ));
+                toast.success(
+                    response.data?.message ||
+                        `Firm marked as ${newStatus ? 'active' : 'inactive'}`
+                );
             } else {
-                alert(`Failed to update status: ${response.data?.message || 'Unknown error'}`);
+                toast.error(response.data?.message || 'Failed to update status');
             }
         } catch (error) {
             console.error('Error updating firm status:', error);
-            alert('Error updating firm status. Please try again.');
+            toast.error(getApiErrorMessage(error, 'Failed to update firm status'));
         }
     };
 
@@ -443,7 +424,7 @@ const FirmsTab = ({ clientUsername }) => {
             cin: firm.cin || '',
             address_line_1: firm.address?.address_line_1 || '',
             address_line_2: firm.address?.address_line_2 || '',
-            city: firm.address?.city || '',
+            city: firm.address?.district || firm.address?.city || '',
             state: firm.address?.state || '',
             pincode: firm.address?.pincode || '',
             country: firm.address?.country || ''
@@ -496,22 +477,22 @@ const FirmsTab = ({ clientUsername }) => {
             {/* Header Section */}
             <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center mb-5 gap-4">
                 <div className="space-y-2">
-                    <h3 className="text-xl font-bold text-gray-900 bg-gradient-to-r from-blue-600 to-indigo-700 bg-clip-text text-transparent">
+                    <h3 className="text-base sm:text-lg font-bold text-slate-800 bg-gradient-to-r from-blue-600 to-indigo-700 bg-clip-text text-transparent">
                         Business Firms
                     </h3>
-                    <p className="text-xs text-gray-600 font-medium">Manage and organize all client business entities in one place</p>
+                    <p className="text-xs text-slate-600">Manage and organize all client business entities in one place</p>
                 </div>
                 <div className="flex flex-col sm:flex-row gap-3 w-full lg:w-auto">
                     <div className="relative w-full sm:w-[18rem]">
                         <div className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2">
-                            <FiSearch className="h-4 w-4 text-gray-400" />
+                            <FiSearch className="h-4 w-4 text-slate-400" />
                         </div>
                         <input
                             type="text"
                             placeholder="Search by name or PAN..."
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
-                            className="w-full rounded-md border border-gray-300 pl-9 pr-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 shadow-sm transition-all duration-200"
+                            className="w-full rounded-md border border-gray-300 pl-9 pr-3 py-2 text-sm text-slate-700 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 shadow-sm transition-all duration-200"
                         />
                     </div>
                     <motion.button
@@ -535,8 +516,8 @@ const FirmsTab = ({ clientUsername }) => {
                 >
                     <div className="flex items-center justify-between">
                         <div>
-                            <p className="text-xs font-medium text-gray-600">Active Firms</p>
-                            <p className="text-2xl font-bold text-gray-900 mt-1">{activeFirms}</p>
+                            <p className="text-xs font-semibold text-slate-600">Active Firms</p>
+                            <p className="text-base font-bold text-slate-800 mt-1">{activeFirms}</p>
                         </div>
                         <div className="w-10 h-10 bg-gradient-to-r from-green-100 to-emerald-100 rounded-lg flex items-center justify-center">
                             <FiCheck className="w-5 h-5 text-green-600" />
@@ -550,11 +531,11 @@ const FirmsTab = ({ clientUsername }) => {
                 >
                     <div className="flex items-center justify-between">
                         <div>
-                            <p className="text-xs font-medium text-gray-600">Inactive Firms</p>
-                            <p className="text-2xl font-bold text-gray-900 mt-1">{inactiveFirms}</p>
+                            <p className="text-xs font-semibold text-slate-600">Inactive Firms</p>
+                            <p className="text-base font-bold text-slate-800 mt-1">{inactiveFirms}</p>
                         </div>
                         <div className="w-10 h-10 bg-gradient-to-r from-gray-100 to-slate-100 rounded-lg flex items-center justify-center">
-                            <FiAlertCircle className="w-5 h-5 text-gray-600" />
+                            <FiAlertCircle className="w-5 h-5 text-slate-600" />
                         </div>
                     </div>
                 </button>
@@ -565,8 +546,8 @@ const FirmsTab = ({ clientUsername }) => {
                 >
                     <div className="flex items-center justify-between">
                         <div>
-                            <p className="text-xs font-medium text-gray-600">All Firms</p>
-                            <p className="text-2xl font-bold text-gray-900 mt-1">{totalFirms}</p>
+                            <p className="text-xs font-semibold text-slate-600">All Firms</p>
+                            <p className="text-base font-bold text-slate-800 mt-1">{totalFirms}</p>
                         </div>
                         <div className="w-10 h-10 bg-gradient-to-r from-blue-100 to-indigo-100 rounded-lg flex items-center justify-center">
                             <FiBriefcase className="w-5 h-5 text-blue-600" />
@@ -581,8 +562,8 @@ const FirmsTab = ({ clientUsername }) => {
                     <div className="w-20 h-20 mx-auto bg-gradient-to-r from-gray-100 to-gray-200 rounded-full flex items-center justify-center mb-4">
                         <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600"></div>
                     </div>
-                    <h3 className="text-lg font-semibold text-gray-900 mb-2">Loading firms...</h3>
-                    <p className="text-gray-600">Please wait while we fetch your firm data</p>
+                    <h3 className="text-sm font-semibold text-slate-800 mb-2">Loading firms...</h3>
+                    <p className="text-slate-600">Please wait while we fetch your firm data</p>
                 </div>
             ) : (
                 /* Firms List */
@@ -590,12 +571,12 @@ const FirmsTab = ({ clientUsername }) => {
                     {filteredFirms.length === 0 ? (
                         <div className="text-center py-12">
                             <div className="w-20 h-20 mx-auto bg-gradient-to-r from-gray-100 to-gray-200 rounded-full flex items-center justify-center mb-4">
-                                <FiBriefcase className="w-10 h-10 text-gray-400" />
+                                <FiBriefcase className="w-10 h-10 text-slate-400" />
                             </div>
-                            <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                            <h3 className="text-sm font-semibold text-slate-800 mb-2">
                                 {firms.length === 0 ? 'No firms found' : 'No matching firms'}
                             </h3>
-                            <p className="text-gray-600">
+                            <p className="text-slate-600">
                                 {firms.length === 0 ? 'Add a new firm to get started' : 'Try adjusting your search'}
                             </p>
                         </div>
@@ -615,8 +596,8 @@ const FirmsTab = ({ clientUsername }) => {
                                         </div>
                                         <div className="min-w-0 space-y-2">
                                             <div className="flex flex-wrap items-center gap-2">
-                                                <h4 className="text-sm font-semibold text-gray-900 truncate">{firm.firm_name || 'Unnamed Firm'}</h4>
-                                                <span className={`px-2 py-0.5 rounded-full text-[11px] font-semibold ${firm.status ? 'bg-emerald-100 text-emerald-800' : 'bg-gray-100 text-gray-700'}`}>
+                                                <h4 className="text-sm font-semibold text-slate-800 truncate">{firm.firm_name || 'Unnamed Firm'}</h4>
+                                                <span className={`px-2 py-0.5 rounded-full text-[11px] font-semibold ${firm.status ? 'bg-emerald-100 text-emerald-800' : 'bg-gray-100 text-slate-700'}`}>
                                                     {firm.status ? 'Active' : 'Inactive'}
                                                 </span>
                                             </div>
@@ -637,7 +618,7 @@ const FirmsTab = ({ clientUsername }) => {
                                                 </div>
                                             </div>
                                             {firm.address && (
-                                                <div className="inline-flex items-center gap-1.5 text-xs text-gray-600 rounded-md border border-slate-200 bg-slate-50 px-2 py-1">
+                                                <div className="inline-flex items-center gap-1.5 text-xs text-slate-600 rounded-md border border-slate-200 bg-slate-50 px-2 py-1">
                                                     <FiMapPin className="h-3.5 w-3.5 text-slate-500 shrink-0" />
                                                     {[firm.address.address_line_1, firm.address.address_line_2, firm.address.city, firm.address.state, firm.address.pincode]
                                                         .filter(Boolean)
@@ -690,663 +671,115 @@ const FirmsTab = ({ clientUsername }) => {
                 </div>
             )}
 
-            {/* Add Firm Modal */}
-            {showAddModal && (
-                <motion.div
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
-                >
-                    <motion.div
-                        initial={{ scale: 0.9, opacity: 0 }}
-                        animate={{ scale: 1, opacity: 1 }}
-                        className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl overflow-hidden max-h-[90vh] flex flex-col"
-                    >
-                        <div className="bg-gradient-to-r from-blue-600 to-indigo-700 text-white px-6 py-4 shrink-0">
-                            <div className="flex justify-between items-center">
-                                <div>
-                                    <h2 className="text-2xl font-bold">Add New Firm</h2>
-                                    <p className="text-blue-100 text-sm mt-1">Enter firm details below</p>
-                                </div>
-                                <motion.button
-                                    onClick={() => setShowAddModal(false)}
-                                    className="p-2 hover:bg-white/10 rounded-xl transition-colors"
-                                    whileHover={{ rotate: 90 }}
-                                    whileTap={{ scale: 0.9 }}
-                                >
-                                    <FiX className="w-6 h-6" />
-                                </motion.button>
-                            </div>
-                        </div>
-                        <div className="min-h-0 flex-1 overflow-y-auto [&::-webkit-scrollbar]:hidden" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
-                        <div className="p-6 space-y-5">
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                <div className="space-y-2">
-                                    <label className="block text-sm font-semibold text-gray-700">Firm Name *</label>
-                                    <input
-                                        type="text"
-                                        value={newFirm.name}
-                                        onChange={(e) => setNewFirm({ ...newFirm, name: e.target.value })}
-                                        className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent shadow-sm transition-all duration-300"
-                                        placeholder="Enter firm name"
-                                    />
-                                </div>
-                                <div className="space-y-2">
-                                    <label className="block text-sm font-semibold text-gray-700">Business Type *</label>
-                                    <select
-                                        value={newFirm.type}
-                                        onChange={(e) => setNewFirm({ ...newFirm, type: e.target.value })}
-                                        className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent shadow-sm transition-all duration-300"
-                                    >
-                                        <option value="proprietorship">Proprietorship</option>
-                                        <option value="partnership">Partnership</option>
-                                        <option value="llp">LLP</option>
-                                        <option value="private_limited">Private Limited</option>
-                                        <option value="public_limited">Public Limited</option>
-                                    </select>
-                                </div>
-                            </div>
+            <FirmModalShell
+                open={showAddModal}
+                onClose={() => setShowAddModal(false)}
+                maxWidth="max-w-5xl"
+                headerClass="bg-gradient-to-r from-blue-600 via-blue-700 to-indigo-800"
+                icon={FiPlus}
+                title="Add new firm"
+                subtitle="Register a firm for this client"
+                footer={
+                    <ModalFooterActions
+                        onCancel={() => setShowAddModal(false)}
+                        onConfirm={handleAddFirm}
+                        confirmLabel="Add firm"
+                        loading={savingFirm}
+                        disabled={!newFirm.name?.trim() || !newFirm.pan?.trim()}
+                    />
+                }
+            >
+                <FirmFormFields
+                    formData={newFirm}
+                    setFormData={setNewFirm}
+                    stateOptions={stateOptions}
+                    districtOptions={addDistrictOptions}
+                    statesLoading={statesLoading}
+                />
+            </FirmModalShell>
 
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                <div className="space-y-2">
-                                    <label className="block text-sm font-semibold text-gray-700">PAN Number *</label>
-                                    <input
-                                        type="text"
-                                        value={newFirm.pan}
-                                        onChange={(e) => setNewFirm({ ...newFirm, pan: e.target.value })}
-                                        className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent shadow-sm transition-all duration-300"
-                                        placeholder="Enter PAN number"
-                                    />
-                                </div>
-                                <div className="space-y-2">
-                                    <label className="block text-sm font-semibold text-gray-700">GST Number</label>
-                                    <input
-                                        type="text"
-                                        value={newFirm.gst}
-                                        onChange={(e) => setNewFirm({ ...newFirm, gst: e.target.value })}
-                                        className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent shadow-sm transition-all duration-300"
-                                        placeholder="Enter GST number"
-                                    />
-                                </div>
-                            </div>
+            <FirmModalShell
+                open={showEditModal && !!selectedFirm}
+                onClose={() => setShowEditModal(false)}
+                maxWidth="max-w-5xl"
+                headerClass="bg-gradient-to-r from-amber-500 via-amber-600 to-orange-600"
+                icon={FiEdit}
+                title="Edit firm"
+                subtitle={selectedFirm?.firm_name ? `Updating ${selectedFirm.firm_name}` : 'Update firm details'}
+                footer={
+                    <ModalFooterActions
+                        onCancel={() => setShowEditModal(false)}
+                        onConfirm={handleEditFirm}
+                        confirmLabel="Save changes"
+                        confirmClass="bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 shadow-amber-200"
+                        loading={savingFirm}
+                        disabled={!editFirmData.name?.trim()}
+                    />
+                }
+            >
+                <FirmFormFields
+                    formData={editFirmData}
+                    setFormData={setEditFirmData}
+                    stateOptions={stateOptions}
+                    districtOptions={editDistrictOptions}
+                    statesLoading={statesLoading}
+                />
+            </FirmModalShell>
 
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                                <div className="space-y-2">
-                                    <label className="block text-sm font-semibold text-gray-700">File Number</label>
-                                    <input
-                                        type="text"
-                                        value={newFirm.file_no}
-                                        onChange={(e) => setNewFirm({ ...newFirm, file_no: e.target.value })}
-                                        className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent shadow-sm transition-all duration-300"
-                                        placeholder="Enter file number"
-                                    />
-                                </div>
-                                <div className="space-y-2">
-                                    <label className="block text-sm font-semibold text-gray-700">TAN Number</label>
-                                    <input
-                                        type="text"
-                                        value={newFirm.tan}
-                                        onChange={(e) => setNewFirm({ ...newFirm, tan: e.target.value })}
-                                        className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent shadow-sm transition-all duration-300"
-                                        placeholder="Enter TAN number"
-                                    />
-                                </div>
-                                <div className="space-y-2">
-                                    <label className="block text-sm font-semibold text-gray-700">CIN Number</label>
-                                    <input
-                                        type="text"
-                                        value={newFirm.cin}
-                                        onChange={(e) => setNewFirm({ ...newFirm, cin: e.target.value })}
-                                        className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent shadow-sm transition-all duration-300"
-                                        placeholder="Enter CIN number"
-                                    />
-                                </div>
-                            </div>
+            <FirmModalShell
+                open={showViewModal && !!selectedFirm}
+                onClose={() => setShowViewModal(false)}
+                maxWidth="max-w-5xl"
+                headerClass="bg-gradient-to-r from-slate-700 via-slate-800 to-slate-900"
+                icon={FiEye}
+                title="Firm details"
+                subtitle={selectedFirm?.firm_name || 'View firm information'}
+                footer={
+                    <ModalFooterActions
+                        onCancel={() => setShowViewModal(false)}
+                        onConfirm={() => {
+                            setShowViewModal(false);
+                            if (selectedFirm) openEditModal(selectedFirm);
+                        }}
+                        cancelLabel="Close"
+                        confirmLabel="Edit firm"
+                        confirmClass="bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-700 hover:to-indigo-800 shadow-indigo-200"
+                    />
+                }
+            >
+                {selectedFirm && <FirmViewDetails firm={selectedFirm} formatDate={formatDate} />}
+            </FirmModalShell>
 
-                            <div className="space-y-2">
-                                <label className="block text-sm font-semibold text-gray-700">Address Line 1</label>
-                                <input
-                                    type="text"
-                                    value={newFirm.address_line_1}
-                                    onChange={(e) => setNewFirm({ ...newFirm, address_line_1: e.target.value })}
-                                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent shadow-sm transition-all duration-300"
-                                    placeholder="Enter address line 1"
-                                />
-                            </div>
+            <FirmModalShell
+                open={showDeleteModal && !!selectedFirm}
+                onClose={() => setShowDeleteModal(false)}
+                maxWidth="max-w-md"
+                headerClass="bg-gradient-to-r from-red-500 to-rose-600"
+                icon={FiTrash2}
+                title="Delete firm"
+                subtitle="This action cannot be undone"
+                footer={
+                    <ModalFooterActions
+                        onCancel={() => setShowDeleteModal(false)}
+                        onConfirm={deleteFirm}
+                        confirmLabel="Delete firm"
+                        confirmClass="bg-gradient-to-r from-red-500 to-rose-600 hover:from-red-600 hover:to-rose-700 shadow-red-200"
+                        loading={savingFirm}
+                    />
+                }
+            >
+                <div className="py-2 text-center">
+                    <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-red-50">
+                        <FiAlertCircle className="h-8 w-8 text-red-600" />
+                    </div>
+                    <p className="text-sm text-slate-600">
+                        You are about to delete{' '}
+                        <span className="font-semibold text-slate-900">{selectedFirm?.firm_name}</span>.
+                        All associated data will be removed permanently.
+                    </p>
+                </div>
+            </FirmModalShell>
 
-                            <div className="space-y-2">
-                                <label className="block text-sm font-semibold text-gray-700">Address Line 2</label>
-                                <input
-                                    type="text"
-                                    value={newFirm.address_line_2}
-                                    onChange={(e) => setNewFirm({ ...newFirm, address_line_2: e.target.value })}
-                                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent shadow-sm transition-all duration-300"
-                                    placeholder="Enter address line 2"
-                                />
-                            </div>
-
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                                <div className="space-y-2">
-                                    <label className="block text-sm font-semibold text-gray-700">State</label>
-                                    <select
-                                        value={newFirm.state}
-                                        onChange={(e) => setNewFirm({ ...newFirm, state: e.target.value, city: '' })}
-                                        className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent shadow-sm transition-all duration-300"
-                                    >
-                                        <option value="">Select state</option>
-                                        {stateOptions.map((stateName) => (
-                                            <option key={stateName} value={stateName}>{stateName}</option>
-                                        ))}
-                                    </select>
-                                </div>
-                                <div className="space-y-2">
-                                    <label className="block text-sm font-semibold text-gray-700">District</label>
-                                    <select
-                                        value={newFirm.city}
-                                        onChange={(e) => setNewFirm({ ...newFirm, city: e.target.value })}
-                                        className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent shadow-sm transition-all duration-300"
-                                        disabled={!newFirm.state}
-                                    >
-                                        <option value="">{newFirm.state ? 'Select district' : 'Select state first'}</option>
-                                        {addDistrictOptions.map((district) => (
-                                            <option key={district} value={district}>{district}</option>
-                                        ))}
-                                    </select>
-                                </div>
-                                <div className="space-y-2">
-                                    <label className="block text-sm font-semibold text-gray-700">Pincode</label>
-                                    <input
-                                        type="text"
-                                        value={newFirm.pincode}
-                                        onChange={(e) => setNewFirm({ ...newFirm, pincode: e.target.value })}
-                                        className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent shadow-sm transition-all duration-300"
-                                        placeholder="Enter pincode"
-                                    />
-                                </div>
-                            </div>
-                        </div>
-                        </div>
-                        <div className="border-t px-6 py-4 bg-gray-50 flex justify-end gap-3 shrink-0">
-                            <motion.button
-                                onClick={() => setShowAddModal(false)}
-                                className="px-6 py-3 text-gray-600 hover:bg-gray-200 rounded-xl font-medium transition-colors"
-                                whileHover={{ scale: 1.05 }}
-                                whileTap={{ scale: 0.95 }}
-                            >
-                                Cancel
-                            </motion.button>
-                            <motion.button
-                                onClick={handleAddFirm}
-                                className="px-6 py-3 bg-gradient-to-r from-blue-600 to-indigo-700 text-white rounded-xl font-semibold hover:shadow-lg hover:shadow-blue-500/25 transition-all duration-300"
-                                whileHover={{ scale: 1.05, y: -2 }}
-                                whileTap={{ scale: 0.95 }}
-                            >
-                                Add Firm
-                            </motion.button>
-                        </div>
-                    </motion.div>
-                </motion.div>
-            )}
-
-            {/* Edit Firm Modal */}
-            {showEditModal && selectedFirm && (
-                <motion.div
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
-                >
-                    <motion.div
-                        initial={{ scale: 0.9, opacity: 0 }}
-                        animate={{ scale: 1, opacity: 1 }}
-                        className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl overflow-hidden max-h-[90vh] flex flex-col"
-                    >
-                        <div className="bg-gradient-to-r from-blue-600 to-indigo-700 text-white px-6 py-4 shrink-0">
-                            <div className="flex justify-between items-center">
-                                <div>
-                                    <h2 className="text-2xl font-bold">Edit Firm Details</h2>
-                                    <p className="text-blue-100 text-sm mt-1">Update firm information</p>
-                                </div>
-                                <motion.button
-                                    onClick={() => setShowEditModal(false)}
-                                    className="p-2 hover:bg-white/10 rounded-xl transition-colors"
-                                    whileHover={{ rotate: 90 }}
-                                    whileTap={{ scale: 0.9 }}
-                                >
-                                    <FiX className="w-6 h-6" />
-                                </motion.button>
-                            </div>
-                        </div>
-                        <div className="min-h-0 flex-1 overflow-y-auto [&::-webkit-scrollbar]:hidden" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
-                        <div className="p-6 space-y-5">
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                <div className="space-y-2">
-                                    <label className="block text-sm font-semibold text-gray-700">Firm Name</label>
-                                    <input
-                                        type="text"
-                                        value={editFirmData.name}
-                                        onChange={(e) => setEditFirmData({ ...editFirmData, name: e.target.value })}
-                                        className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent shadow-sm"
-                                    />
-                                </div>
-                                <div className="space-y-2">
-                                    <label className="block text-sm font-semibold text-gray-700">Business Type</label>
-                                    <select
-                                        value={editFirmData.type}
-                                        onChange={(e) => setEditFirmData({ ...editFirmData, type: e.target.value })}
-                                        className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent shadow-sm"
-                                    >
-                                        <option value="proprietorship">Proprietorship</option>
-                                        <option value="partnership">Partnership</option>
-                                        <option value="llp">LLP</option>
-                                        <option value="private_limited">Private Limited</option>
-                                        <option value="public_limited">Public Limited</option>
-                                    </select>
-                                </div>
-                            </div>
-
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                <div className="space-y-2">
-                                    <label className="block text-sm font-semibold text-gray-700">PAN Number</label>
-                                    <input
-                                        type="text"
-                                        value={editFirmData.pan}
-                                        onChange={(e) => setEditFirmData({ ...editFirmData, pan: e.target.value })}
-                                        className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent shadow-sm"
-                                    />
-                                </div>
-                                <div className="space-y-2">
-                                    <label className="block text-sm font-semibold text-gray-700">GST Number</label>
-                                    <input
-                                        type="text"
-                                        value={editFirmData.gst}
-                                        onChange={(e) => setEditFirmData({ ...editFirmData, gst: e.target.value })}
-                                        className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent shadow-sm"
-                                    />
-                                </div>
-                            </div>
-
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                                <div className="space-y-2">
-                                    <label className="block text-sm font-semibold text-gray-700">File Number</label>
-                                    <input
-                                        type="text"
-                                        value={editFirmData.file_no}
-                                        onChange={(e) => setEditFirmData({ ...editFirmData, file_no: e.target.value })}
-                                        className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent shadow-sm"
-                                    />
-                                </div>
-                                <div className="space-y-2">
-                                    <label className="block text-sm font-semibold text-gray-700">TAN Number</label>
-                                    <input
-                                        type="text"
-                                        value={editFirmData.tan}
-                                        onChange={(e) => setEditFirmData({ ...editFirmData, tan: e.target.value })}
-                                        className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent shadow-sm"
-                                    />
-                                </div>
-                                <div className="space-y-2">
-                                    <label className="block text-sm font-semibold text-gray-700">CIN Number</label>
-                                    <input
-                                        type="text"
-                                        value={editFirmData.cin}
-                                        onChange={(e) => setEditFirmData({ ...editFirmData, cin: e.target.value })}
-                                        className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent shadow-sm"
-                                    />
-                                </div>
-                            </div>
-
-                            <div className="space-y-2">
-                                <label className="block text-sm font-semibold text-gray-700">Address Line 1</label>
-                                <input
-                                    type="text"
-                                    value={editFirmData.address_line_1}
-                                    onChange={(e) => setEditFirmData({ ...editFirmData, address_line_1: e.target.value })}
-                                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent shadow-sm"
-                                />
-                            </div>
-
-                            <div className="space-y-2">
-                                <label className="block text-sm font-semibold text-gray-700">Address Line 2</label>
-                                <input
-                                    type="text"
-                                    value={editFirmData.address_line_2}
-                                    onChange={(e) => setEditFirmData({ ...editFirmData, address_line_2: e.target.value })}
-                                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent shadow-sm"
-                                />
-                            </div>
-
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                                <div className="space-y-2">
-                                    <label className="block text-sm font-semibold text-gray-700">State</label>
-                                    <select
-                                        value={editFirmData.state}
-                                        onChange={(e) => setEditFirmData({ ...editFirmData, state: e.target.value, city: '' })}
-                                        className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent shadow-sm"
-                                    >
-                                        <option value="">Select state</option>
-                                        {stateOptions.map((stateName) => (
-                                            <option key={stateName} value={stateName}>{stateName}</option>
-                                        ))}
-                                    </select>
-                                </div>
-                                <div className="space-y-2">
-                                    <label className="block text-sm font-semibold text-gray-700">District</label>
-                                    <select
-                                        value={editFirmData.city}
-                                        onChange={(e) => setEditFirmData({ ...editFirmData, city: e.target.value })}
-                                        className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent shadow-sm"
-                                        disabled={!editFirmData.state}
-                                    >
-                                        <option value="">{editFirmData.state ? 'Select district' : 'Select state first'}</option>
-                                        {editDistrictOptions.map((district) => (
-                                            <option key={district} value={district}>{district}</option>
-                                        ))}
-                                    </select>
-                                </div>
-                                <div className="space-y-2">
-                                    <label className="block text-sm font-semibold text-gray-700">Pincode</label>
-                                    <input
-                                        type="text"
-                                        value={editFirmData.pincode}
-                                        onChange={(e) => setEditFirmData({ ...editFirmData, pincode: e.target.value })}
-                                        className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent shadow-sm"
-                                    />
-                                </div>
-                            </div>
-                        </div>
-                        </div>
-                        <div className="border-t px-6 py-4 bg-gray-50 flex justify-end gap-3 shrink-0">
-                            <motion.button
-                                onClick={() => setShowEditModal(false)}
-                                className="px-6 py-3 text-gray-600 hover:bg-gray-200 rounded-xl font-medium"
-                                whileHover={{ scale: 1.05 }}
-                                whileTap={{ scale: 0.95 }}
-                            >
-                                Cancel
-                            </motion.button>
-                            <motion.button
-                                onClick={handleEditFirm}
-                                className="px-6 py-3 bg-gradient-to-r from-blue-600 to-indigo-700 text-white rounded-xl font-semibold hover:shadow-lg hover:shadow-blue-500/25 transition-all"
-                                whileHover={{ scale: 1.05, y: -2 }}
-                                whileTap={{ scale: 0.95 }}
-                            >
-                                Update Firm
-                            </motion.button>
-                        </div>
-                    </motion.div>
-                </motion.div>
-            )}
-
-            {/* View Firm Modal */}
-            {showViewModal && selectedFirm && (
-                <motion.div
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
-                >
-                    <motion.div
-                        initial={{ scale: 0.9, opacity: 0 }}
-                        animate={{ scale: 1, opacity: 1 }}
-                        className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl overflow-hidden max-h-[90vh] flex flex-col"
-                    >
-                        <div className="bg-gradient-to-r from-blue-600 to-indigo-700 text-white px-6 py-4 shrink-0">
-                            <div className="flex justify-between items-center">
-                                <div>
-                                    <h2 className="text-2xl font-bold">Firm Details</h2>
-                                    <p className="text-blue-100 text-sm mt-1">Complete information about the firm</p>
-                                </div>
-                                <motion.button
-                                    onClick={() => setShowViewModal(false)}
-                                    className="p-2 hover:bg-white/10 rounded-xl transition-colors"
-                                    whileHover={{ rotate: 90 }}
-                                    whileTap={{ scale: 0.9 }}
-                                >
-                                    <FiX className="w-6 h-6" />
-                                </motion.button>
-                            </div>
-                        </div>
-                        <div className="min-h-0 flex-1 overflow-y-auto [&::-webkit-scrollbar]:hidden" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
-                        <div className="p-6 space-y-6">
-                            {/* Firm Overview */}
-                            <div className="space-y-4">
-                                <h3 className="text-lg font-semibold text-gray-900 border-b pb-2">Firm Overview</h3>
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    <div className="space-y-2">
-                                        <label className="block text-sm font-medium text-gray-600">Firm Name</label>
-                                        <p className="text-gray-900 font-semibold">{selectedFirm.firm_name || 'N/A'}</p>
-                                    </div>
-                                    <div className="space-y-2">
-                                        <label className="block text-sm font-medium text-gray-600">Business Type</label>
-                                        <p className="text-gray-900 font-semibold capitalize">{selectedFirm.firm_type || 'N/A'}</p>
-                                    </div>
-                                    <div className="space-y-2">
-                                        <label className="block text-sm font-medium text-gray-600">Status</label>
-                                        <span className={`px-3 py-1 rounded-full text-xs font-semibold ${selectedFirm.status ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'}`}>
-                                            {selectedFirm.status ? 'Active' : 'Inactive'}
-                                        </span>
-                                    </div>
-                                    <div className="space-y-2">
-                                        <label className="block text-sm font-medium text-gray-600">Firm ID</label>
-                                        <p className="text-gray-900 font-mono text-sm">{selectedFirm.firm_id || 'N/A'}</p>
-                                    </div>
-                                    <div className="space-y-2">
-                                        <label className="block text-sm font-medium text-gray-600">Client Username</label>
-                                        <p className="text-gray-900 font-mono text-sm">{selectedFirm.username || 'N/A'}</p>
-                                    </div>
-                                </div>
-                            </div>
-
-                            {/* Registration Details */}
-                            <div className="space-y-4">
-                                <h3 className="text-lg font-semibold text-gray-900 border-b pb-2">Registration Details</h3>
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    <div className="space-y-2">
-                                        <label className="block text-sm font-medium text-gray-600">PAN Number</label>
-                                        <p className="text-gray-900 font-semibold">{selectedFirm.pan || 'N/A'}</p>
-                                    </div>
-                                    <div className="space-y-2">
-                                        <label className="block text-sm font-medium text-gray-600">GST Number</label>
-                                        <p className="text-gray-900 font-semibold">{selectedFirm.gst || 'N/A'}</p>
-                                    </div>
-                                    <div className="space-y-2">
-                                        <label className="block text-sm font-medium text-gray-600">TAN Number</label>
-                                        <p className="text-gray-900 font-semibold">{selectedFirm.tan || 'N/A'}</p>
-                                    </div>
-                                    <div className="space-y-2">
-                                        <label className="block text-sm font-medium text-gray-600">CIN Number</label>
-                                        <p className="text-gray-900 font-semibold">{selectedFirm.cin || 'N/A'}</p>
-                                    </div>
-                                    <div className="space-y-2">
-                                        <label className="block text-sm font-medium text-gray-600">File Number</label>
-                                        <p className="text-gray-900 font-semibold">{selectedFirm.file_no || 'N/A'}</p>
-                                    </div>
-                                    <div className="space-y-2">
-                                        <label className="block text-sm font-medium text-gray-600">VAT Number</label>
-                                        <p className="text-gray-900 font-semibold">{selectedFirm.vat || 'N/A'}</p>
-                                    </div>
-                                </div>
-                            </div>
-
-                            {/* Address Details */}
-                            {selectedFirm.address && (
-                                <div className="space-y-4">
-                                    <h3 className="text-lg font-semibold text-gray-900 border-b pb-2">Address Details</h3>
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                        <div className="space-y-2">
-                                            <label className="block text-sm font-medium text-gray-600">Address Line 1</label>
-                                            <p className="text-gray-900">{selectedFirm.address.address_line_1 || 'N/A'}</p>
-                                        </div>
-                                        <div className="space-y-2">
-                                            <label className="block text-sm font-medium text-gray-600">Address Line 2</label>
-                                            <p className="text-gray-900">{selectedFirm.address.address_line_2 || 'N/A'}</p>
-                                        </div>
-                                        <div className="space-y-2">
-                                            <label className="block text-sm font-medium text-gray-600">City</label>
-                                            <p className="text-gray-900">{selectedFirm.address.city || 'N/A'}</p>
-                                        </div>
-                                        <div className="space-y-2">
-                                            <label className="block text-sm font-medium text-gray-600">State</label>
-                                            <p className="text-gray-900">{selectedFirm.address.state || 'N/A'}</p>
-                                        </div>
-                                        <div className="space-y-2">
-                                            <label className="block text-sm font-medium text-gray-600">Pincode</label>
-                                            <p className="text-gray-900">{selectedFirm.address.pincode || 'N/A'}</p>
-                                        </div>
-                                        <div className="space-y-2">
-                                            <label className="block text-sm font-medium text-gray-600">Country</label>
-                                            <p className="text-gray-900">{selectedFirm.address.country || 'N/A'}</p>
-                                        </div>
-                                    </div>
-                                </div>
-                            )}
-
-                            {/* Created By Information */}
-                            {selectedFirm.create_by && Object.keys(selectedFirm.create_by).length > 0 && (
-                                <div className="space-y-4">
-                                    <h3 className="text-lg font-semibold text-gray-900 border-b pb-2">Created By</h3>
-                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                        <div className="space-y-2">
-                                            <div className="flex items-center gap-2">
-                                                <FiUser className="w-4 h-4 text-gray-400" />
-                                                <label className="block text-sm font-medium text-gray-600">Name</label>
-                                            </div>
-                                            <p className="text-gray-900">{selectedFirm.create_by.name || 'N/A'}</p>
-                                        </div>
-                                        {/* <div className="space-y-2">
-                                            <div className="flex items-center gap-2">
-                                                <FiMail className="w-4 h-4 text-gray-400" />
-                                                <label className="block text-sm font-medium text-gray-600">Email</label>
-                                            </div>
-                                            <p className="text-gray-900">{selectedFirm.create_by.email || 'N/A'}</p>
-                                        </div>
-                                        <div className="space-y-2">
-                                            <div className="flex items-center gap-2">
-                                                <FiPhone className="w-4 h-4 text-gray-400" />
-                                                <label className="block text-sm font-medium text-gray-600">Mobile</label>
-                                            </div>
-                                            <p className="text-gray-900">{selectedFirm.create_by.mobile || 'N/A'}</p>
-                                        </div> */}
-                                    </div>
-                                </div>
-                            )}
-
-                            {/* Modified By Information */}
-                            {selectedFirm.modify_by && Object.keys(selectedFirm.modify_by).length > 0 && (
-                                <div className="space-y-4">
-                                    <h3 className="text-lg font-semibold text-gray-900 border-b pb-2">Last Modified By</h3>
-                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                        <div className="space-y-2">
-                                            <div className="flex items-center gap-2">
-                                                <FiUser className="w-4 h-4 text-gray-400" />
-                                                <label className="block text-sm font-medium text-gray-600">Name</label>
-                                            </div>
-                                            <p className="text-gray-900">{selectedFirm.modify_by.name || 'N/A'}</p>
-                                        </div>
-                                        {/* <div className="space-y-2">
-                                            <div className="flex items-center gap-2">
-                                                <FiMail className="w-4 h-4 text-gray-400" />
-                                                <label className="block text-sm font-medium text-gray-600">Email</label>
-                                            </div>
-                                            <p className="text-gray-900">{selectedFirm.modify_by.email || 'N/A'}</p>
-                                        </div>
-                                        <div className="space-y-2">
-                                            <div className="flex items-center gap-2">
-                                                <FiPhone className="w-4 h-4 text-gray-400" />
-                                                <label className="block text-sm font-medium text-gray-600">Mobile</label>
-                                            </div>
-                                            <p className="text-gray-900">{selectedFirm.modify_by.mobile || 'N/A'}</p>
-                                        </div> */}
-                                    </div>
-                                </div>
-                            )}
-
-                            {/* Timeline Information */}
-                            <div className="space-y-4">
-                                <h3 className="text-lg font-semibold text-gray-900 border-b pb-2">Timeline</h3>
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    <div className="space-y-2">
-                                        <label className="block text-sm font-medium text-gray-600">Created Date</label>
-                                        <p className="text-gray-900">{formatDate(selectedFirm.create_date) || 'N/A'}</p>
-                                    </div>
-                                    <div className="space-y-2">
-                                        <label className="block text-sm font-medium text-gray-600">Last Updated</label>
-                                        <p className="text-gray-900">{formatDate(selectedFirm.modify_date) || 'N/A'}</p>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                        </div>
-                        <div className="border-t px-6 py-4 bg-gray-50 flex justify-end gap-3 shrink-0">
-                            <motion.button
-                                onClick={() => setShowViewModal(false)}
-                                className="px-6 py-3 bg-gradient-to-r from-blue-600 to-indigo-700 text-white rounded-xl font-semibold hover:shadow-lg hover:shadow-blue-500/25 transition-all duration-300"
-                                whileHover={{ scale: 1.05, y: -2 }}
-                                whileTap={{ scale: 0.95 }}
-                            >
-                                Close
-                            </motion.button>
-                        </div>
-                    </motion.div>
-                </motion.div>
-            )}
-
-            {/* Delete Confirmation Modal */}
-            {showDeleteModal && selectedFirm && (
-                <motion.div
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
-                >
-                    <motion.div
-                        initial={{ scale: 0.9, opacity: 0 }}
-                        animate={{ scale: 1, opacity: 1 }}
-                        className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden"
-                    >
-                        <div className="bg-gradient-to-r from-red-500 to-pink-600 text-white px-8 py-6">
-                            <div className="flex items-center gap-3">
-                                <div className="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center">
-                                    <FiTrash2 className="w-6 h-6" />
-                                </div>
-                                <div>
-                                    <h2 className="text-2xl font-bold">Delete Firm</h2>
-                                    <p className="text-red-100 text-sm mt-1">This action cannot be undone</p>
-                                </div>
-                            </div>
-                        </div>
-                        <div className="p-8">
-                            <div className="text-center space-y-4">
-                                <div className="w-20 h-20 mx-auto bg-gradient-to-r from-red-100 to-pink-100 rounded-full flex items-center justify-center">
-                                    <FiAlertCircle className="w-10 h-10 text-red-600" />
-                                </div>
-                                <div>
-                                    <h3 className="text-lg font-semibold text-gray-900">Are you sure?</h3>
-                                    <p className="text-gray-600 mt-2">
-                                        You're about to delete <span className="font-semibold text-red-600">{selectedFirm.firm_name}</span>. This will permanently remove all associated data.
-                                    </p>
-                                </div>
-                            </div>
-                        </div>
-                        <div className="border-t px-8 py-6 bg-gray-50 flex justify-center gap-4">
-                            <motion.button
-                                onClick={() => setShowDeleteModal(false)}
-                                className="px-6 py-3 text-gray-600 hover:bg-gray-200 rounded-xl font-medium"
-                                whileHover={{ scale: 1.05 }}
-                                whileTap={{ scale: 0.95 }}
-                            >
-                                Cancel
-                            </motion.button>
-                            <motion.button
-                                onClick={deleteFirm}
-                                className="px-6 py-3 bg-gradient-to-r from-red-500 to-pink-600 text-white rounded-xl font-semibold hover:shadow-lg hover:shadow-red-500/25 transition-all"
-                                whileHover={{ scale: 1.05, y: -2 }}
-                                whileTap={{ scale: 0.95 }}
-                            >
-                                Delete Firm
-                            </motion.button>
-                        </div>
-                    </motion.div>
-                </motion.div>
-            )}
         </motion.div>
     );
 };
