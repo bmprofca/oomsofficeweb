@@ -461,170 +461,335 @@ const QuickStatsDetailsPage = () => {
                     <div className="inline-flex items-center justify-center w-16 h-16 bg-gray-100 rounded-full mb-4">
                         <FiDollarSign className="w-8 h-8 text-gray-400" />
                     </div>
-                    <p className="text-gray-500">No debtors found</p>
+                    <p className="text-gray-500 font-medium">No debtors found</p>
                 </div>
             );
         }
 
         const menuItems = getMenuItems();
 
-        return (
-            <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-gray-200">
-                    <thead className="bg-gray-50 sticky top-0">
-                        <tr>
-                            <th className="w-10 p-4">
+        // Mobile Debtor Card Component
+        const MobileDebtorCard = ({ item, index }) => {
+            const isSelected = selectedDebtors.has(item.username);
+            
+            return (
+                <motion.div
+                    className={`bg-white border border-gray-200 rounded-xl p-4 mb-3 md:hidden ${isSelected ? 'ring-2 ring-purple-500 bg-purple-50/10' : ''}`}
+                    initial={{ opacity: 0, y: 5 }}
+                    animate={{ opacity: 1, y: 0 }}
+                >
+                    <div className="flex items-start justify-between mb-3">
+                        <div className="flex items-center gap-2">
+                            <label className="relative inline-flex items-center cursor-pointer">
                                 <input
                                     type="checkbox"
-                                    checked={selectAll}
-                                    onChange={handleSelectAll}
-                                    className="w-4 h-4 text-purple-600 rounded border-gray-300 focus:ring-purple-500"
+                                    className="sr-only peer"
+                                    checked={isSelected}
+                                    onChange={() => handleSelectDebtor(item.username)}
                                 />
-                            </th>
-                            <th className="w-10 p-4"></th>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Firm Details</th>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Balance</th>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Last Transaction</th>
-                            <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Action</th>
-                        </tr>
-                    </thead>
-                    <tbody className="bg-white divide-y divide-gray-200">
-                        {list.map((item, index) => (
-                            <React.Fragment key={item.username || index}>
-                                <tr className={`hover:bg-gray-50 transition-colors ${selectedDebtors.has(item.username) ? 'bg-purple-50' : ''}`}>
-                                    <td className="p-4">
-                                        <input
-                                            type="checkbox"
-                                            checked={selectedDebtors.has(item.username)}
-                                            onChange={() => handleSelectDebtor(item.username)}
-                                            className="w-4 h-4 text-purple-600 rounded border-gray-300 focus:ring-purple-500"
-                                        />
-                                    </td>
-                                    <td className="p-4">
-                                        <button
-                                            onClick={() => toggleRowExpand(item.username || index)}
-                                            className="p-1 hover:bg-gray-100 rounded transition-colors"
-                                        >
-                                            {expandedRows.has(item.username || index) ? 
-                                                <FiChevronRight className="w-4 h-4 transform rotate-90" /> : 
-                                                <FiChevronRight className="w-4 h-4" />
-                                            }
-                                        </button>
-                                    </td>
-                                    <td className="px-6 py-4">
-                                        <div className="text-sm font-medium text-gray-900">{item.name}</div>
-                                        <div className="text-xs text-gray-500">{item.email || 'No email'}</div>
-                                    </td>
-                                    <td className="px-6 py-4">
-                                        <div className="text-sm text-gray-900">{item.firm?.firm_name || 'Individual'}</div>
-                                        <div className="text-xs text-gray-500">
-                                            {item.firm?.gst_no && <span>GST: {item.firm.gst_no}</span>}
-                                        </div>
-                                    </td>
-                                    <td className="px-6 py-4 whitespace-nowrap">
-                                        <span className="text-sm font-semibold text-green-600">
-                                            {formatCurrency(Math.abs(item.balance))}
-                                        </span>
-                                        <div className="text-xs text-gray-500">{item.balance_type}</div>
-                                    </td>
-                                    <td className="px-6 py-4">
-                                        {item.last_transaction ? (
-                                            <>
-                                                <div className="text-sm text-gray-900">{formatDate(item.last_transaction.date)}</div>
-                                                <div className="text-xs text-gray-500">{item.last_transaction.period}</div>
-                                            </>
-                                        ) : (
-                                            <span className="text-sm text-gray-400">No transactions</span>
-                                        )}
-                                    </td>
-                                    <td className="px-6 py-4 whitespace-nowrap text-center relative">
-                                        <div className="flex items-center justify-center gap-2">
-                                            {/* Single Reminder Button */}
+                                <div className={`w-8 h-4 ${isSelected ? 'bg-purple-600' : 'bg-gray-300'} peer-focus:outline-none rounded-full peer after:content-[''] after:absolute after:top-[1px] after:left-[1px] after:bg-white after:rounded-full after:h-3 after:w-3 after:transition-all ${isSelected ? 'after:translate-x-full' : ''}`}></div>
+                            </label>
+                            <span className="font-bold text-gray-800 text-xs">{index + 1}</span>
+                            <div className="w-8 h-8 bg-purple-50 text-purple-600 rounded-lg flex items-center justify-center">
+                                <FiUser className="w-4 h-4" />
+                            </div>
+                            <div>
+                                <p className="font-semibold text-gray-800 text-xs truncate max-w-[120px]">{item.name}</p>
+                                <p className="text-[10px] text-gray-400">@{item.username}</p>
+                            </div>
+                        </div>
+                        <button
+                            onClick={() => toggleRowExpand(item.username || index)}
+                            className="p-1 hover:bg-gray-100 rounded transition-colors text-gray-500"
+                        >
+                            {expandedRows.has(item.username || index) ? (
+                                <FiChevronRight className="w-4 h-4 transform rotate-90" />
+                            ) : (
+                                <FiChevronRight className="w-4 h-4" />
+                            )}
+                        </button>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3 text-xs mt-2 border-t border-gray-100 pt-3">
+                        <div>
+                            <span className="text-gray-400 block text-[10px] uppercase font-semibold tracking-wider">Firm</span>
+                            <span className="text-gray-700 font-medium truncate block mt-0.5">{item.firm?.firm_name || 'Individual'}</span>
+                        </div>
+                        <div>
+                            <span className="text-gray-400 block text-[10px] uppercase font-semibold tracking-wider">Balance</span>
+                            <span className="text-green-600 font-bold block mt-0.5">{formatCurrency(Math.abs(item.balance))} ({item.balance_type})</span>
+                        </div>
+                    </div>
+
+                    <div className="flex items-center justify-between gap-2 mt-4 pt-3 border-t border-gray-100">
+                        <button
+                            onClick={() => openSingleReminderModal(item.username, item.name)}
+                            disabled={sendingReminder}
+                            className="flex-1 inline-flex items-center justify-center gap-1.5 py-1.5 bg-purple-50 text-purple-700 border border-purple-100 rounded-lg hover:bg-purple-100 transition-colors text-xs font-semibold disabled:opacity-50"
+                        >
+                            <FiMailIcon className="w-3.5 h-3.5" />
+                            Reminder
+                        </button>
+                        
+                        <div className="relative flex-1">
+                            <button
+                                onClick={(e) => toggleMenu(item.username || index, e)}
+                                className="w-full inline-flex items-center justify-center gap-1.5 py-1.5 bg-gray-50 text-gray-700 border border-gray-200 rounded-lg hover:bg-gray-100 transition-colors text-xs font-semibold"
+                            >
+                                <FiMenu className="w-3.5 h-3.5" />
+                                Menu
+                            </button>
+                            <AnimatePresence>
+                                {openMenuId === (item.username || index) && (
+                                    <motion.div
+                                        initial={{ opacity: 0, scale: 0.95, y: -10 }}
+                                        animate={{ opacity: 1, scale: 1, y: 0 }}
+                                        exit={{ opacity: 0, scale: 0.95, y: -10 }}
+                                        className="absolute right-0 bottom-full mb-2 w-48 bg-white rounded-lg shadow-xl border border-gray-200 z-50 py-1"
+                                    >
+                                        {menuItems.map((menuItem, idx) => (
                                             <button
-                                                onClick={() => openSingleReminderModal(item.username, item.name)}
-                                                disabled={sendingReminder}
-                                                className="inline-flex items-center gap-1 px-3 py-1 bg-purple-100 text-purple-700 rounded-lg hover:bg-purple-200 transition-colors text-sm disabled:opacity-50"
+                                                key={idx}
+                                                onClick={() => handleMenuAction(item.username, menuItem.path)}
+                                                className="w-full px-4 py-2.5 text-left text-xs text-gray-700 hover:bg-gray-100 transition-colors flex items-center gap-3 font-medium"
                                             >
-                                                {sendingReminder && paymentReminderModal.type === 'single' && paymentReminderModal.username === item.username ? (
-                                                    <div className="animate-spin rounded-full h-3 w-3 border-2 border-purple-600 border-t-transparent"></div>
-                                                ) : (
-                                                    <FiMailIcon className="w-3 h-3" />
-                                                )}
-                                                Reminder
+                                                {menuItem.icon}
+                                                {menuItem.label}
                                             </button>
-                                            
-                                            {/* Menu Button */}
-                                            <div className="relative" ref={menuRef}>
+                                        ))}
+                                    </motion.div>
+                                )}
+                            </AnimatePresence>
+                        </div>
+                    </div>
+                </motion.div>
+            );
+        };
+
+        return (
+            <div className="flex-1 flex flex-col overflow-hidden border border-gray-200 bg-white rounded-xl shadow-xs">
+                {/* Mobile Cards (shown on mobile, hidden on desktop) */}
+                <div className="md:hidden p-3 bg-gray-50/50">
+                    {list.map((item, index) => (
+                        <MobileDebtorCard key={item.username || index} item={item} index={index} />
+                    ))}
+                </div>
+
+                {/* Desktop Grid-based Table (hidden on mobile, shown on desktop) */}
+                <div className="hidden md:block overflow-x-auto custom-scroll">
+                    <div className="min-w-[1000px] flex flex-col bg-white">
+                        
+                        {/* Table Header */}
+                        <div className="border-b border-gray-200 bg-gradient-to-r from-gray-50 to-white sticky top-0 z-10 flex items-center bg-white">
+                            {/* Checkbox */}
+                            <div className="w-12 p-3 flex-shrink-0 flex justify-start">
+                                <label className="relative inline-flex items-center cursor-pointer">
+                                    <input
+                                        type="checkbox"
+                                        className="sr-only peer"
+                                        checked={selectAll}
+                                        onChange={handleSelectAll}
+                                    />
+                                    <div className={`w-8 h-4 ${selectAll ? 'bg-purple-600' : 'bg-gray-300'} peer-focus:outline-none rounded-full peer after:content-[''] after:absolute after:top-[1px] after:left-[1px] after:bg-white after:rounded-full after:h-3 after:w-3 after:transition-all ${selectAll ? 'after:translate-x-full' : ''}`}></div>
+                                </label>
+                            </div>
+
+                            {/* Expand Chevron Column Header Placeholder */}
+                            <div className="w-12 p-3 flex-shrink-0 border-l border-gray-100 text-left"></div>
+
+                            {/* SL No Header */}
+                            <div className="w-12 p-3 font-bold text-gray-700 text-[11px] uppercase tracking-wide flex-shrink-0 text-left border-l border-gray-100">
+                                SL
+                            </div>
+
+                            {/* Dynamic Column Headers */}
+                            <div className="flex-[1.5] p-3 font-bold text-gray-700 text-[11px] uppercase tracking-wide text-left border-l border-gray-100">
+                                Name
+                            </div>
+                            <div className="flex-[1.5] p-3 font-bold text-gray-700 text-[11px] uppercase tracking-wide text-left border-l border-gray-100">
+                                Firm Details
+                            </div>
+                            <div className="flex-[1] p-3 font-bold text-gray-700 text-[11px] uppercase tracking-wide text-left border-l border-gray-100">
+                                Balance
+                            </div>
+                            <div className="flex-[1.2] p-3 font-bold text-gray-700 text-[11px] uppercase tracking-wide text-left border-l border-gray-100">
+                                Last Transaction
+                            </div>
+                            <div className="flex-[1.2] p-3 font-bold text-gray-700 text-[11px] uppercase tracking-wide text-center border-l border-gray-100">
+                                Actions
+                            </div>
+                        </div>
+
+                        {/* Table Body */}
+                        <div className="divide-y divide-gray-100">
+                            {list.map((item, index) => {
+                                const isSelected = selectedDebtors.has(item.username);
+                                const isExpanded = expandedRows.has(item.username || index);
+
+                                return (
+                                    <React.Fragment key={item.username || index}>
+                                        <motion.div
+                                            className={`flex items-center hover:bg-gray-50 transition-colors group bg-white ${
+                                                isSelected ? 'bg-purple-50/30' : ''
+                                            }`}
+                                            initial={{ opacity: 0, y: 5 }}
+                                            animate={{ opacity: 1, y: 0 }}
+                                            transition={{ delay: index * 0.02 }}
+                                        >
+                                            {/* Checkbox */}
+                                            <div className="w-12 p-3 flex-shrink-0 flex justify-start">
+                                                <label className="relative inline-flex items-center cursor-pointer">
+                                                    <input
+                                                        type="checkbox"
+                                                        className="sr-only peer"
+                                                        checked={isSelected}
+                                                        onChange={() => handleSelectDebtor(item.username)}
+                                                    />
+                                                    <div className={`w-8 h-4 ${isSelected ? 'bg-purple-600' : 'bg-gray-300'} peer-focus:outline-none rounded-full peer after:content-[''] after:absolute after:top-[1px] after:left-[1px] after:bg-white after:rounded-full after:h-3 after:w-3 after:transition-all ${isSelected ? 'after:translate-x-full' : ''}`}></div>
+                                                </label>
+                                            </div>
+
+                                            {/* Expand Button */}
+                                            <div className="w-12 p-3 flex-shrink-0 flex justify-center border-l border-gray-100">
                                                 <button
-                                                    onClick={(e) => toggleMenu(item.username || index, e)}
-                                                    className="inline-flex items-center gap-1 px-3 py-1 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors text-sm"
+                                                    onClick={() => toggleRowExpand(item.username || index)}
+                                                    className="p-1 hover:bg-gray-100 rounded transition-colors text-gray-500"
                                                 >
-                                                    <FiMenu className="w-3 h-3" />
-                                                    Menu
+                                                    {isExpanded ? (
+                                                        <FiChevronRight className="w-4 h-4 transform rotate-90 transition-transform duration-200" />
+                                                    ) : (
+                                                        <FiChevronRight className="w-4 h-4 transition-transform duration-200" />
+                                                    )}
                                                 </button>
-                                                <AnimatePresence>
-                                                    {openMenuId === (item.username || index) && (
-                                                        <motion.div
-                                                            initial={{ opacity: 0, scale: 0.95, y: -10 }}
-                                                            animate={{ opacity: 1, scale: 1, y: 0 }}
-                                                            exit={{ opacity: 0, scale: 0.95, y: -10 }}
-                                                            className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-xl border border-gray-200 z-50"
-                                                        >
-                                                            <div className="py-2">
+                                            </div>
+
+                                            {/* SL No */}
+                                            <div className="w-12 p-3 flex-shrink-0 text-left border-l border-gray-100">
+                                                <span className="font-bold text-gray-800 text-[11px]">{index + 1}</span>
+                                            </div>
+
+                                            {/* Name */}
+                                            <div className="flex-[1.5] p-3 text-left border-l border-gray-100 min-w-0">
+                                                <div className="text-xs font-semibold text-gray-800 truncate">{item.name}</div>
+                                                <div className="text-[10px] text-gray-400 truncate mt-0.5">{item.email || 'No email'}</div>
+                                            </div>
+
+                                            {/* Firm Details */}
+                                            <div className="flex-[1.5] p-3 text-left border-l border-gray-100 min-w-0">
+                                                <div className="text-xs text-gray-700 font-medium truncate">{item.firm?.firm_name || 'Individual'}</div>
+                                                {item.firm?.gst_no && (
+                                                    <div className="text-[10px] text-gray-400 mt-0.5 truncate">GST: {item.firm.gst_no}</div>
+                                                )}
+                                            </div>
+
+                                            {/* Balance */}
+                                            <div className="flex-[1] p-3 text-left border-l border-gray-100 min-w-0">
+                                                <span className="text-xs font-bold text-green-600">
+                                                    {formatCurrency(Math.abs(item.balance))}
+                                                </span>
+                                                <div className="text-[10px] text-gray-400 mt-0.5 capitalize">{item.balance_type}</div>
+                                            </div>
+
+                                            {/* Last Transaction */}
+                                            <div className="flex-[1.2] p-3 text-left border-l border-gray-100 min-w-0">
+                                                {item.last_transaction ? (
+                                                    <>
+                                                        <div className="text-xs text-gray-700 font-medium">{formatDate(item.last_transaction.date)}</div>
+                                                        <div className="text-[10px] text-gray-400 mt-0.5">{item.last_transaction.period}</div>
+                                                    </>
+                                                ) : (
+                                                    <span className="text-xs text-gray-400">No transactions</span>
+                                                )}
+                                            </div>
+
+                                            {/* Action Buttons */}
+                                            <div className="flex-[1.2] p-3 text-center border-l border-gray-100 relative min-w-0 flex items-center justify-center gap-2">
+                                                <button
+                                                    onClick={() => openSingleReminderModal(item.username, item.name)}
+                                                    disabled={sendingReminder}
+                                                    className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-purple-50 text-purple-700 border border-purple-100 hover:bg-purple-100 transition-colors text-[11px] font-semibold rounded-lg disabled:opacity-50"
+                                                >
+                                                    {sendingReminder && paymentReminderModal.type === 'single' && paymentReminderModal.username === item.username ? (
+                                                        <div className="animate-spin rounded-full h-3 w-3 border-2 border-purple-600 border-t-transparent"></div>
+                                                    ) : (
+                                                        <FiMailIcon className="w-3.5 h-3.5" />
+                                                    )}
+                                                    Reminder
+                                                </button>
+                                                
+                                                <div className="relative">
+                                                    <button
+                                                        onClick={(e) => toggleMenu(item.username || index, e)}
+                                                        className="inline-flex items-center gap-1 px-2.5 py-1 bg-gray-50 text-gray-700 border border-gray-200 hover:bg-gray-100 transition-colors text-[11px] font-semibold rounded-lg"
+                                                    >
+                                                        <FiMenu className="w-3.5 h-3.5" />
+                                                        Menu
+                                                    </button>
+                                                    <AnimatePresence>
+                                                        {openMenuId === (item.username || index) && (
+                                                            <motion.div
+                                                                initial={{ opacity: 0, scale: 0.95, y: -10 }}
+                                                                animate={{ opacity: 1, scale: 1, y: 0 }}
+                                                                exit={{ opacity: 0, scale: 0.95, y: -10 }}
+                                                                className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-xl border border-gray-200 z-50 py-1"
+                                                            >
                                                                 {menuItems.map((menuItem, idx) => (
                                                                     <button
                                                                         key={idx}
                                                                         onClick={() => handleMenuAction(item.username, menuItem.path)}
-                                                                        className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 transition-colors flex items-center gap-3"
+                                                                        className="w-full px-4 py-2.5 text-left text-xs text-gray-700 hover:bg-gray-100 transition-colors flex items-center gap-3 font-medium"
                                                                     >
                                                                         {menuItem.icon}
                                                                         {menuItem.label}
                                                                     </button>
                                                                 ))}
-                                                            </div>
-                                                        </motion.div>
-                                                    )}
-                                                </AnimatePresence>
-                                            </div>
-                                        </div>
-                                    </td>
-                                </tr>
-                                <AnimatePresence>
-                                    {expandedRows.has(item.username || index) && (
-                                        <motion.tr
-                                            initial={{ opacity: 0, height: 0 }}
-                                            animate={{ opacity: 1, height: 'auto' }}
-                                            exit={{ opacity: 0, height: 0 }}
-                                            className="bg-gray-50"
-                                        >
-                                            <td colSpan={7} className="px-6 py-4">
-                                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                                    <div className="bg-white p-4 rounded-lg shadow-sm">
-                                                        <h4 className="font-semibold text-gray-700 mb-2">Firm Details</h4>
-                                                        <div className="space-y-1 text-sm">
-                                                            <p><span className="text-gray-500">Firm Name:</span> {item.firm?.firm_name || 'N/A'}</p>
-                                                            <p><span className="text-gray-500">PAN No:</span> {item.firm?.pan_no || 'N/A'}</p>
-                                                            <p><span className="text-gray-500">GST No:</span> {item.firm?.gst_no || 'N/A'}</p>
-                                                        </div>
-                                                    </div>
-                                                    <div className="bg-white p-4 rounded-lg shadow-sm">
-                                                        <h4 className="font-semibold text-gray-700 mb-2">Contact Details</h4>
-                                                        <div className="space-y-1 text-sm">
-                                                            <p><span className="text-gray-500">Guardian Name:</span> {item.guardian_name || 'N/A'}</p>
-                                                            <p><span className="text-gray-500">Care Of:</span> {item.care_of || 'N/A'}</p>
-                                                            <p><span className="text-gray-500">Country Code:</span> {item.country_code || 'N/A'}</p>
-                                                        </div>
-                                                    </div>
+                                                            </motion.div>
+                                                        )}
+                                                    </AnimatePresence>
                                                 </div>
-                                            </td>
-                                        </motion.tr>
-                                    )}
-                                </AnimatePresence>
-                            </React.Fragment>
-                        ))}
-                    </tbody>
-                </table>
+                                            </div>
+                                        </motion.div>
+
+                                        {/* Expanded Details Panel */}
+                                        <AnimatePresence>
+                                            {isExpanded && (
+                                                <motion.div
+                                                    initial={{ opacity: 0, height: 0 }}
+                                                    animate={{ opacity: 1, height: 'auto' }}
+                                                    exit={{ opacity: 0, height: 0 }}
+                                                    className="bg-gray-50/50 border-b border-gray-150 p-4 border-l-4 border-l-purple-500"
+                                                >
+                                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                                        <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-xs">
+                                                            <h4 className="font-bold text-gray-800 text-xs mb-3 uppercase tracking-wider flex items-center gap-1.5">
+                                                                <FiBriefcase className="w-3.5 h-3.5 text-indigo-500" /> Firm Details
+                                                            </h4>
+                                                            <div className="space-y-1.5 text-xs text-gray-600">
+                                                                <p><span className="text-gray-400 font-medium">Firm Name:</span> {item.firm?.firm_name || 'N/A'}</p>
+                                                                <p><span className="text-gray-400 font-medium">PAN No:</span> {item.firm?.pan_no || 'N/A'}</p>
+                                                                <p><span className="text-gray-400 font-medium">GST No:</span> {item.firm?.gst_no || 'N/A'}</p>
+                                                            </div>
+                                                        </div>
+                                                        <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-xs">
+                                                            <h4 className="font-bold text-gray-800 text-xs mb-3 uppercase tracking-wider flex items-center gap-1.5">
+                                                                <FiUser className="w-3.5 h-3.5 text-indigo-500" /> Contact Details
+                                                            </h4>
+                                                            <div className="space-y-1.5 text-xs text-gray-600">
+                                                                <p><span className="text-gray-400 font-medium">Guardian Name:</span> {item.guardian_name || 'N/A'}</p>
+                                                                <p><span className="text-gray-400 font-medium">Care Of:</span> {item.care_of || 'N/A'}</p>
+                                                                <p><span className="text-gray-400 font-medium">Country Code:</span> {item.country_code || 'N/A'}</p>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </motion.div>
+                                            )}
+                                        </AnimatePresence>
+                                    </React.Fragment>
+                                );
+                            })}
+                        </div>
+                    </div>
+                </div>
             </div>
         );
     };
