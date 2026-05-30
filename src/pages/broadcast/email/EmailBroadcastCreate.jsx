@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState, useCallback } from 'react';
 import { Button, Card, Col, Form, Row, Spinner, Table, Badge, Modal, Tab, Tabs, InputGroup, Dropdown } from 'react-bootstrap';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { toast } from 'react-hot-toast';
 import {
   FaUsers, FaFileExcel,FaLayerGroup, FaTasks, FaPlus, FaTrash, FaFileImport,
@@ -12,6 +12,7 @@ import {
   FaExclamationCircle, FaInfoCircle, FaCheckCircle, FaShieldAlt,
   FaSlidersH 
 } from 'react-icons/fa';
+import { FiHome, FiChevronRight, FiSend } from 'react-icons/fi';
 import { Header, Sidebar } from '../../../components/header';
 import { emailApi, normalizeList } from './emailApi';
 import axios from 'axios';
@@ -1447,6 +1448,27 @@ const buildPayload = async () => {
 
         <div className={`pt-16 ${isMinimized ? 'md:pl-20' : 'md:pl-[260px]'}`}>
           <div style={{ maxWidth: 1100, margin: '0 auto', padding: '28px 20px 40px' }}>
+
+            {/* Breadcrumbs */}
+            <div className="mb-4">
+              <nav className="flex items-center text-sm text-gray-600">
+                <Link to="/" className="flex items-center gap-1 hover:text-blue-600 transition-colors">
+                  <FiHome className="w-4 h-4" />
+                  <span>Dashboard</span>
+                </Link>
+                <FiChevronRight className="w-4 h-4 mx-2 text-gray-400" />
+                <Link to="/broadcast/email-channel" className="flex items-center gap-1 hover:text-blue-600 transition-colors">
+                  <FiSend className="w-4 h-4" />
+                  <span>Broadcast</span>
+                </Link>
+                <FiChevronRight className="w-4 h-4 mx-2 text-gray-400" />
+                <Link to="/broadcast/email" className="flex items-center gap-1 hover:text-blue-600 transition-colors">
+                  <span>Email</span>
+                </Link>
+                <FiChevronRight className="w-4 h-4 mx-2 text-gray-400" />
+                <span className="text-gray-900 font-medium">Create</span>
+              </nav>
+            </div>
 
            <div className="ebc-header-card">
   <div>

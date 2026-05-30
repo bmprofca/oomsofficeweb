@@ -14,9 +14,12 @@ import {
     FiCalendar,
     FiSearch,
     FiFilter,
-    FiDownload
+    FiDownload,
+    FiHome,
+    FiChevronRight,
+    FiSend
 } from 'react-icons/fi';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams, Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'react-hot-toast';
 import API_BASE_URL from '../../../utils/api-controller';
@@ -459,9 +462,30 @@ const BroadcastReport = () => {
 
             {/* Main content */}
             <div className={`pt-16 transition-all duration-300 ease-in-out ${isMinimized ? 'md:pl-20' : 'md:pl-[260px]'}`}>
-                <div className="h-full flex flex-col">
+                <div className="h-full flex flex-col px-4 sm:px-6 md:px-8 pt-6">
+                    {/* Breadcrumbs */}
+                    <div className="mb-4">
+                      <nav className="flex items-center text-sm text-gray-600">
+                        <Link to="/" className="flex items-center gap-1 hover:text-blue-600 transition-colors">
+                          <FiHome className="w-4 h-4" />
+                          <span>Dashboard</span>
+                        </Link>
+                        <FiChevronRight className="w-4 h-4 mx-2 text-gray-400" />
+                        <Link to="/broadcast/email-channel" className="flex items-center gap-1 hover:text-blue-600 transition-colors">
+                          <FiSend className="w-4 h-4" />
+                          <span>Broadcast</span>
+                        </Link>
+                        <FiChevronRight className="w-4 h-4 mx-2 text-gray-400" />
+                        <Link to="/broadcast/email" className="flex items-center gap-1 hover:text-blue-600 transition-colors">
+                          <span>Email</span>
+                        </Link>
+                        <FiChevronRight className="w-4 h-4 mx-2 text-gray-400" />
+                        <span className="text-gray-900 font-medium">Reports</span>
+                      </nav>
+                    </div>
+
                     <motion.div 
-                        className="bg-white rounded-lg shadow-sm border border-gray-200 flex flex-col h-full mx-4 sm:mx-6 md:mx-8 my-6"
+                        className="bg-white rounded-lg shadow-sm border border-gray-200 flex flex-col h-full mb-6"
                         initial={{ opacity: 0, y: 20 }}
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ duration: 0.3 }}

@@ -10,18 +10,21 @@ import {
     FiDatabase,
     FiLayers,
     FiMail,
+    FiHome,
+    FiChevronRight,
 } from 'react-icons/fi';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useParams, Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 
 const Broadcast = () => {
     const navigate = useNavigate();
+    const { tab } = useParams();
+    const activeTab = tab || 'text-message';
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
     const [isMinimized, setIsMinimized] = useState(() => {
         const saved = localStorage.getItem('sidebarMinimized');
         return saved ? JSON.parse(saved) : false;
     });
-    const [activeTab, setActiveTab] = useState('text-message');
 
     // Channel states
     const [textMessageChannel, setTextMessageChannel] = useState('ooms');
@@ -61,38 +64,38 @@ const Broadcast = () => {
     // Text Message Cards data
     const textMessageCards = [
         {
-            title: "Send Message",
-            description: "Send text messages to clients",
-            icon: <FiSend className="w-5 h-5" />,
-            link: "./text-message/ooms?tab=send",
-            color: "bg-blue-100 text-blue-600"
-        },
-        {
-            title: "Static Templates",
-            description: "Manage static message templates",
-            icon: <FiFileText className="w-5 h-5" />,
-            link: "./text-message/ooms?tab=static-template",
-            color: "bg-blue-100 text-blue-600"
-        },
-        {
-            title: "Dynamic Templates",
-            description: "Manage dynamic templates with variables",
-            icon: <FiDatabase className="w-5 h-5" />,
-            link: "./text-message/ooms?tab=dynamic-template",
-            color: "bg-blue-100 text-blue-600"
-        },
-        {
-            title: "Configuration",
-            description: "SMS settings and credit management",
+            title: "SMS Gateways",
+            description: "Manage SMS configurations",
             icon: <FiSettings className="w-5 h-5" />,
-            link: "./text-message/ooms?tab=configuration",
+            link: "/broadcast/sms/configs",
+            color: "bg-blue-100 text-blue-600"
+        },
+        {
+            title: "Templates",
+            description: "Manage text template messages",
+            icon: <FiFileText className="w-5 h-5" />,
+            link: "/broadcast/sms/templates",
+            color: "bg-blue-100 text-blue-600"
+        },
+        {
+            title: "Campaigns",
+            description: "View all text message campaigns",
+            icon: <FiLayers className="w-5 h-5" />,
+            link: "/broadcast/sms",
+            color: "bg-blue-100 text-blue-600"
+        },
+        {
+            title: "Launch Broadcast",
+            description: "Send a new text message broadcast",
+            icon: <FiSend className="w-5 h-5" />,
+            link: "/broadcast/sms/create",
             color: "bg-blue-100 text-blue-600"
         },
         {
             title: "Reports",
-            description: "View SMS delivery reports",
+            description: "View SMS delivery logs and stats",
             icon: <FiBarChart2 className="w-5 h-5" />,
-            link: "./report?tab=text-message",
+            link: "/broadcast/report?tab=text-message",
             color: "bg-blue-100 text-blue-600"
         }
     ];
@@ -415,6 +418,40 @@ const Broadcast = () => {
             {/* Main content */}
             <div className={`pt-16 transition-all duration-300 ease-in-out ${isMinimized ? 'md:pl-20' : 'md:pl-[260px]'}`}>
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 md:px-8 py-6">
+                    {/* Breadcrumbs */}
+                    <motion.div 
+                        className="mb-4"
+                        initial={{ opacity: 0, x: -20 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ duration: 0.3 }}
+                    >
+                        <nav className="flex items-center text-sm text-gray-600">
+                            <Link 
+                                to="/" 
+                                className="flex items-center gap-1 hover:text-blue-600 transition-colors"
+                            >
+                                <FiHome className="w-4 h-4" />
+                                <span>Dashboard</span>
+                            </Link>
+                            <FiChevronRight className="w-4 h-4 mx-2 text-gray-400" />
+                            <Link
+                                to="/broadcast"
+                                className="flex items-center gap-1 hover:text-blue-600 transition-colors"
+                            >
+                                <FiSend className="w-4 h-4" />
+                                <span>Broadcast</span>
+                            </Link>
+                            {tab && (
+                                <>
+                                    <FiChevronRight className="w-4 h-4 mx-2 text-gray-400" />
+                                    <span className="text-gray-900 font-medium capitalize">
+                                        {tab === 'email-channel' ? 'Email' : tab.replace('-', ' ')}
+                                    </span>
+                                </>
+                            )}
+                        </nav>
+                    </motion.div>
+
                     <motion.div
                         initial={{ opacity: 0, y: 20 }}
                         animate={{ opacity: 1, y: 0 }}
@@ -441,7 +478,7 @@ const Broadcast = () => {
                                 <div className="border-b border-gray-200">
                                     <nav className="-mb-px flex space-x-8 overflow-x-auto">
                                         <button
-                                            onClick={() => setActiveTab('text-message')}
+                                            onClick={() => navigate('/broadcast/text-message')}
                                             className={`py-2 px-1 border-b-2 font-medium text-sm whitespace-nowrap transition-colors ${activeTab === 'text-message'
                                                 ? 'border-blue-500 text-blue-600'
                                                 : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
@@ -450,7 +487,7 @@ const Broadcast = () => {
                                             Text Message
                                         </button>
                                         <button
-                                            onClick={() => setActiveTab('whatsapp')}
+                                            onClick={() => navigate('/broadcast/whatsapp')}
                                             className={`py-2 px-1 border-b-2 font-medium text-sm whitespace-nowrap transition-colors ${activeTab === 'whatsapp'
                                                 ? 'border-green-500 text-green-600'
                                                 : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
@@ -459,7 +496,7 @@ const Broadcast = () => {
                                             WhatsApp
                                         </button>
                                         <button
-                                            onClick={() => setActiveTab('push')}
+                                            onClick={() => navigate('/broadcast/push')}
                                             className={`py-2 px-1 border-b-2 font-medium text-sm whitespace-nowrap transition-colors ${activeTab === 'push'
                                                 ? 'border-purple-500 text-purple-600'
                                                 : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
@@ -468,8 +505,8 @@ const Broadcast = () => {
                                             Push Notification
                                         </button>
                                         <button
-                                            onClick={() => setActiveTab('email')}
-                                            className={`py-2 px-1 border-b-2 font-medium text-sm whitespace-nowrap transition-colors ${activeTab === 'email'
+                                            onClick={() => navigate('/broadcast/email-channel')}
+                                            className={`py-2 px-1 border-b-2 font-medium text-sm whitespace-nowrap transition-colors ${activeTab === 'email-channel'
                                                 ? 'border-indigo-500 text-indigo-600'
                                                 : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
                                                 }`}
@@ -505,7 +542,7 @@ const Broadcast = () => {
                                 {activeTab === 'whatsapp' && renderWhatsappSection()}
 
                                 {activeTab === 'push' && renderPushNotificationSection()}
-                                {activeTab === 'email' && renderEmailSection()}
+                                {activeTab === 'email-channel' && renderEmailSection()}
                             </div>
                         </div>
                     </motion.div>

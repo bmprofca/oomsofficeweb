@@ -8,6 +8,8 @@ import {
   FiMail, FiZap, FiCpu, FiLock, FiChevronRight, FiX, FiHome, FiBarChart2
 } from 'react-icons/fi';
 import { NavLink, useLocation } from 'react-router-dom';
+import getHeaders from '../utils/get-headers';
+import API_BASE_URL from '../utils/api-controller';
 
 // ==========================================
 // 1. Constants & Styles (Modern Indigo Theme)
@@ -403,7 +405,26 @@ export const Header = ({ mobileMenuOpen, setMobileMenuOpen, isMinimized, setIsMi
   const [userProfile, setUserProfile] = useState({ name: 'John Doe', email: 'john@example.com' });
 
   const navigate = useNavigate();
-  const walletBalance = mockState.project?.walletBalance || 0;
+  const [walletBalance, setWalletBalance] = useState(0);
+
+  useEffect(() => {
+    const fetchBalance = async () => {
+      try {
+        const headers = await getHeaders();
+        const res = await fetch(`${API_BASE_URL}/wallet/balance`, { headers });
+        const result = await res.json();
+        if (result.success) {
+          setWalletBalance(result.data.balance);
+        }
+      } catch (error) {
+        console.error('Failed to fetch wallet balance', error);
+      }
+    };
+    fetchBalance();
+    
+    const interval = setInterval(fetchBalance, 15000);
+    return () => clearInterval(interval);
+  }, []);
 
   const toggleSidebar = () => {
     if (setIsMinimized) setIsMinimized(!isMinimized);

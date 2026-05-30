@@ -1,6 +1,6 @@
-import React, { useState, useCallback, useRef } from 'react';
+import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { Button, Card, Row, Col, Spinner, Table, Badge, Modal, Alert, ProgressBar } from 'react-bootstrap';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { toast } from 'react-hot-toast';
 import {
   FaUpload, FaFileExcel, FaFileCsv, FaCheck, FaTimes, 
@@ -8,11 +8,17 @@ import {
   FaExclamationTriangle, FaTrash, FaDownload, FaDatabase,
   FaEnvelope,FaUsers, FaCalendarAlt, FaClock,FaGlobe, FaServer
 } from 'react-icons/fa';
+import { FiHome, FiChevronRight, FiSend } from 'react-icons/fi';
+import { Header, Sidebar } from '../../../components/header';
 import { emailApi } from './emailApi';
 
 const BulkEmailImport = () => {
   const navigate = useNavigate();
   const fileInputRef = useRef(null);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [isMinimized, setIsMinimized] = useState(() => JSON.parse(localStorage.getItem('sidebarMinimized') || 'false'));
+
+  useEffect(() => { localStorage.setItem('sidebarMinimized', JSON.stringify(isMinimized)); }, [isMinimized]);
   
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -222,7 +228,33 @@ const BulkEmailImport = () => {
   };
   
   return (
-    <div style={{ maxWidth: 1200, margin: '0 auto', padding: '24px 20px' }}>
+    <>
+      <div className="ebc-root">
+        <Header mobileMenuOpen={mobileMenuOpen} setMobileMenuOpen={setMobileMenuOpen} isMinimized={isMinimized} setIsMinimized={setIsMinimized} />
+        <Sidebar mobileMenuOpen={mobileMenuOpen} setMobileMenuOpen={setMobileMenuOpen} isMinimized={isMinimized} setIsMinimized={setIsMinimized} />
+
+        <div className={`pt-16 ${isMinimized ? 'md:pl-20' : 'md:pl-[260px]'}`}>
+          <div style={{ maxWidth: 1200, margin: '0 auto', padding: '24px 20px 48px' }}>
+            {/* Breadcrumbs */}
+            <div className="mb-4">
+              <nav className="flex items-center text-sm text-gray-600">
+                <Link to="/" className="flex items-center gap-1 hover:text-blue-600 transition-colors">
+                  <FiHome className="w-4 h-4" />
+                  <span>Dashboard</span>
+                </Link>
+                <FiChevronRight className="w-4 h-4 mx-2 text-gray-400" />
+                <Link to="/broadcast/email-channel" className="flex items-center gap-1 hover:text-blue-600 transition-colors">
+                  <FiSend className="w-4 h-4" />
+                  <span>Broadcast</span>
+                </Link>
+                <FiChevronRight className="w-4 h-4 mx-2 text-gray-400" />
+                <Link to="/broadcast/email" className="flex items-center gap-1 hover:text-blue-600 transition-colors">
+                  <span>Email</span>
+                </Link>
+                <FiChevronRight className="w-4 h-4 mx-2 text-gray-400" />
+                <span className="text-gray-900 font-medium">Bulk Import</span>
+              </nav>
+            </div>
       {/* Header */}
       <div style={{ 
         background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
@@ -710,7 +742,10 @@ const BulkEmailImport = () => {
           </Button>
         </Modal.Footer>
       </Modal>
-    </div>
+          </div>
+        </div>
+      </div>
+    </>
   );
 };
 
