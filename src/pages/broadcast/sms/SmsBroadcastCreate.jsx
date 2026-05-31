@@ -36,7 +36,34 @@ const SmsBroadcastCreate = () => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [isMinimized, setIsMinimized] = useState(() => JSON.parse(localStorage.getItem('sidebarMinimized') || 'false'));
   const [loading, setLoading] = useState(false);
-  const [activeTab, setActiveTab] = useState('manual'); // manual, clients, groups
+  const [activeTab, setActiveTab] = useState('manual'); // manual, clients, groups, upload
+
+  // Bulk upload states
+  const [uploadedFileInfo, setUploadedFileInfo] = useState(null); // { headers, total_rows, detected_mappings, sample_rows }
+  const [uploadedFileName, setUploadedFileName] = useState('');
+  const [selectedUploadFile, setSelectedUploadFile] = useState(null);
+  const [uploadingFile, setUploadingFile] = useState(false);
+  const [columnMappings, setColumnMappings] = useState({
+    recipient_mobile: '',
+    recipient_name: '',
+    variables: {}
+  });
+
+  // Helper to auto-map template variables to headers case-insensitively
+  const autoMapVariables = useCallback((variablesList, headersList) => {
+    const mappingsObj = {};
+    if (!variablesList || !headersList) return mappingsObj;
+    
+    variablesList.forEach(v => {
+      const matchingHeader = headersList.find(h => {
+        const cleanH = h.toLowerCase().replace(/[^a-z0-9]/g, '');
+        const cleanV = v.toLowerCase().replace(/[^a-z0-9]/g, '');
+        return cleanH === cleanV || cleanH.includes(cleanV) || cleanV.includes(cleanH);
+      });
+      mappingsObj[v] = matchingHeader || '';
+    });
+    return mappingsObj;
+  }, []);
 
   // Config and Templates lists
   const [configs, setConfigs] = useState([]);
@@ -98,6 +125,25 @@ const SmsBroadcastCreate = () => {
       setConfigs(normalizeList(c?.data).filter(x => x.status === 'active'));
       setTemplates(normalizeList(t?.data).filter(x => x.status === 'active'));
       setGroups(g?.data?.data?.groups || []);
+
+      // Check for active upload session
+      try {
+        const uploadRes = await smsApi.getUploadedRecipientsInfo();
+        if (uploadRes?.success && uploadRes?.data && uploadRes?.data?.total_rows > 0) {
+          setUploadedFileInfo(uploadRes.data);
+          setUploadedFileName(uploadRes.data.filename || 'Previously Uploaded File');
+          
+          // Prepopulate column mappings if detected
+          const detected = uploadRes.data.detected_mappings || {};
+          setColumnMappings(prev => ({
+            ...prev,
+            recipient_mobile: detected.mobile || '',
+            recipient_name: detected.name || ''
+          }));
+        }
+      } catch (uploadError) {
+        console.error('Failed to load active upload session:', uploadError);
+      }
     } catch (e) {
       console.error(e);
       toast.error('Failed to load initial form data');
@@ -171,6 +217,15 @@ const SmsBroadcastCreate = () => {
         global_variables_json: JSON.stringify(globalVars, null, 2)
       }));
 
+      // Auto-detect template variable mappings from uploaded file headers
+      if (uploadedFileInfo?.headers) {
+        const autoMapped = autoMapVariables(varList, uploadedFileInfo.headers);
+        setColumnMappings(prev => ({
+          ...prev,
+          variables: autoMapped
+        }));
+      }
+
     } catch (e) {
       toast.error('Failed to load template variables');
     } finally {
@@ -212,6 +267,134 @@ const SmsBroadcastCreate = () => {
       next[index].variable_values_json = JSON.stringify(vars);
       return next;
     });
+  };
+
+  // Bulk Upload File Handlers
+  const handleFileChange = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    const extension = '.' + file.name.split('.').pop().toLowerCase();
+    const allowed = ['.csv', '.xls', '.xlsx'];
+    if (!allowed.includes(extension)) {
+      toast.error('Only CSV or Excel spreadsheets (.csv, .xls, .xlsx) are supported.');
+      return;
+    }
+
+    setSelectedUploadFile(file);
+    setUploadedFileName(file.name);
+  };
+
+  const handleDragOver = (e) => {
+    e.preventDefault();
+  };
+
+  const handleDrop = (e) => {
+    e.preventDefault();
+    const file = e.dataTransfer.files[0];
+    if (!file) return;
+
+    const extension = '.' + file.name.split('.').pop().toLowerCase();
+    const allowed = ['.csv', '.xls', '.xlsx'];
+    if (!allowed.includes(extension)) {
+      toast.error('Only CSV or Excel spreadsheets (.csv, .xls, .xlsx) are supported.');
+      return;
+    }
+
+    setSelectedUploadFile(file);
+    setUploadedFileName(file.name);
+  };
+
+  const handleUploadFile = async () => {
+    if (!selectedUploadFile) {
+      toast.error('Please select a file to upload first.');
+      return;
+    }
+
+    setUploadingFile(true);
+    try {
+      const res = await smsApi.uploadRecipients(selectedUploadFile);
+      toast.success(res?.message || 'Spreadsheet uploaded and parsed successfully');
+      setUploadedFileInfo(res.data);
+      
+      const headersList = res.data.headers || [];
+      const detected = res.data.detected_mappings || {};
+      const autoMappedVars = autoMapVariables(templateVariables, headersList);
+      
+      setColumnMappings({
+        recipient_mobile: detected.mobile || (headersList.find(h => /mobile|phone|num/i.test(h)) || ''),
+        recipient_name: detected.name || (headersList.find(h => /name|client/i.test(h)) || ''),
+        variables: autoMappedVars
+      });
+      setSelectedUploadFile(null);
+    } catch (e) {
+      console.error(e);
+      toast.error(e?.response?.data?.message || e.message || 'Failed to upload and parse file');
+    } finally {
+      setUploadingFile(false);
+    }
+  };
+
+  const handleClearUpload = async () => {
+    setLoading(true);
+    try {
+      await smsApi.clearUploadedRecipients();
+      setUploadedFileInfo(null);
+      setUploadedFileName('');
+      setSelectedUploadFile(null);
+      setColumnMappings({
+        recipient_mobile: '',
+        recipient_name: '',
+        variables: {}
+      });
+      toast.success('Uploaded recipient spreadsheet discarded.');
+    } catch (e) {
+      console.error(e);
+      toast.error('Failed to clear uploaded file session.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const downloadSampleSmsCSV = () => {
+    const headers = ['Client Name', 'Mobile No'];
+    templateVariables.forEach(v => {
+      if (!headers.includes(v)) {
+        headers.push(v);
+      }
+    });
+    
+    const row1 = ['John Doe', '9876543210'];
+    const row2 = ['Jane Smith', '9123456789'];
+    templateVariables.forEach(v => {
+      if (v === 'amount' || v === 'pending') {
+        row1.push('500');
+        row2.push('1200');
+      } else if (v === 'date' || v === 'due_date') {
+        row1.push('2026-06-15');
+        row2.push('2026-06-20');
+      } else {
+        row1.push(`Value_${v}1`);
+        row2.push(`Value_${v}2`);
+      }
+    });
+
+    const csvContent = [
+      headers.join(','),
+      row1.join(','),
+      row2.join(',')
+    ].join('\n');
+
+    const blob = new Blob([csvContent], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = 'sms_recipient_sample.csv';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+    toast.success('Sample CSV downloaded successfully');
   };
 
   // Bulk input parser
@@ -291,7 +474,38 @@ const SmsBroadcastCreate = () => {
       errors.global_variables_json = 'Invalid JSON object format';
     }
 
-    if (activeTab === 'manual') {
+    if (activeTab === 'upload') {
+      if (!uploadedFileInfo) {
+        errors.upload = 'Please upload a CSV or Excel file';
+      } else {
+        if (!columnMappings.recipient_mobile) {
+          errors.recipient_mobile = 'Mobile number column mapping is required';
+        } else if (!uploadedFileInfo.headers.includes(columnMappings.recipient_mobile)) {
+          errors.recipient_mobile = `Mapped mobile column "${columnMappings.recipient_mobile}" not found in uploaded file headers`;
+        }
+
+        // Validate template variables mappings
+        let parsedGlobalVars = {};
+        try {
+          parsedGlobalVars = JSON.parse(form.global_variables_json || '{}');
+        } catch {}
+
+        templateVariables.forEach(v => {
+          const isGloballyResolved = parsedGlobalVars[v] !== undefined && parsedGlobalVars[v] !== null && parsedGlobalVars[v] !== '';
+          const mappedCol = columnMappings.variables?.[v];
+          
+          if (!isGloballyResolved) {
+            if (!mappedCol) {
+              errors[`var_${v}`] = `Template variable "${v}" must be mapped to a column in your file or defined in global_variables_json`;
+            } else if (!uploadedFileInfo.headers.includes(mappedCol)) {
+              errors[`var_${v}`] = `Mapped column "${mappedCol}" for template variable "${v}" not found in uploaded file headers: ${uploadedFileInfo.headers.join(', ')}`;
+            }
+          } else if (mappedCol && !uploadedFileInfo.headers.includes(mappedCol)) {
+            errors[`var_${v}`] = `Mapped column "${mappedCol}" for template variable "${v}" not found in uploaded file headers: ${uploadedFileInfo.headers.join(', ')}`;
+          }
+        });
+      }
+    } else if (activeTab === 'manual') {
       const filled = recipients.filter(r => r.recipient_mobile);
       if (filled.length === 0) errors.recipients = 'Add at least one recipient with a mobile number';
       
@@ -307,7 +521,7 @@ const SmsBroadcastCreate = () => {
     }
 
     return errors;
-  }, [form, recipients, activeTab, selectedClients, selectedGroups]);
+  }, [form, recipients, activeTab, selectedClients, selectedGroups, uploadedFileInfo, columnMappings, templateVariables]);
 
   // Build API payload
   const buildPayload = async () => {
@@ -332,6 +546,15 @@ const SmsBroadcastCreate = () => {
 
     if (form.schedule_type === 'scheduled') {
       payload.scheduled_at = form.scheduled_at;
+    }
+
+    if (activeTab === 'upload') {
+      payload.column_mappings = {
+        recipient_mobile: columnMappings.recipient_mobile,
+        recipient_name: columnMappings.recipient_name || null,
+        variables: columnMappings.variables
+      };
+      return payload;
     }
 
     let recipientsList = [];
@@ -430,6 +653,22 @@ const SmsBroadcastCreate = () => {
       if (active) {
         firstRecipientVars = { name: active.name || active.username, mobile: active.mobile };
       }
+    } else if (activeTab === 'upload') {
+      const sampleRow = uploadedFileInfo?.sample_rows?.[0];
+      if (sampleRow) {
+        if (columnMappings.recipient_mobile && sampleRow[columnMappings.recipient_mobile]) {
+          firstRecipientVars.mobile = sampleRow[columnMappings.recipient_mobile];
+        }
+        if (columnMappings.recipient_name && sampleRow[columnMappings.recipient_name]) {
+          firstRecipientVars.name = sampleRow[columnMappings.recipient_name];
+        }
+        templateVariables.forEach(v => {
+          const col = columnMappings.variables?.[v];
+          if (col && sampleRow[col] !== undefined) {
+            firstRecipientVars[v] = sampleRow[col];
+          }
+        });
+      }
     }
 
     // Combine global variables with recipient-specific variables
@@ -468,7 +707,18 @@ const SmsBroadcastCreate = () => {
       const payload = await buildPayload();
       if (!payload) return;
 
-      const res = await smsApi.createBroadcast(payload);
+      let res;
+      if (activeTab === 'upload') {
+        res = await smsApi.createBroadcastFromUpload(payload);
+        try {
+          await smsApi.clearUploadedRecipients();
+        } catch (clearErr) {
+          console.error('Failed to clear upload session after creation:', clearErr);
+        }
+      } else {
+        res = await smsApi.createBroadcast(payload);
+      }
+
       toast.success(res?.message || 'SMS Broadcast created successfully!');
       
       if (form.schedule_type === 'now') {
@@ -604,7 +854,7 @@ const SmsBroadcastCreate = () => {
                   </h3>
                   
                   {/* Tabs selector */}
-                  <div className="flex bg-slate-100/80 p-1 rounded-xl text-xs font-semibold gap-1">
+                  <div className="flex bg-slate-100/80 p-1 rounded-xl text-xs font-semibold gap-1 flex-wrap md:flex-nowrap">
                     <button
                       onClick={() => setActiveTab('manual')}
                       className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-all ${activeTab === 'manual' ? 'bg-white text-blue-600 font-bold shadow-sm' : 'text-slate-600 hover:text-slate-800'}`}
@@ -625,6 +875,13 @@ const SmsBroadcastCreate = () => {
                     >
                       <FiUsers className="w-3.5 h-3.5" />
                       Client Groups
+                    </button>
+                    <button
+                      onClick={() => setActiveTab('upload')}
+                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-all ${activeTab === 'upload' ? 'bg-white text-blue-600 font-bold shadow-sm' : 'text-slate-600 hover:text-slate-800'}`}
+                    >
+                      <FiFileText className="w-3.5 h-3.5" />
+                      Excel/CSV Upload
                     </button>
                   </div>
                 </div>
@@ -814,6 +1071,272 @@ const SmsBroadcastCreate = () => {
                             </div>
                           );
                         })}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Tab Content 4: Excel/CSV Upload */}
+                {activeTab === 'upload' && (
+                  <div className="space-y-6">
+                    {/* Drag and Drop Zone */}
+                    {!uploadedFileInfo ? (
+                      <div className="space-y-4">
+                        <div
+                          onDragOver={handleDragOver}
+                          onDrop={handleDrop}
+                          onClick={() => document.getElementById('sms-csv-upload-input').click()}
+                          className="border-2 border-dashed border-slate-350 hover:border-blue-550 bg-slate-50 hover:bg-blue-50/20 rounded-2xl p-8 text-center cursor-pointer transition-all duration-300 group flex flex-col items-center justify-center min-h-[220px]"
+                        >
+                          <div className="p-4 bg-white rounded-2xl shadow-sm border border-slate-100 group-hover:scale-110 group-hover:shadow-md transition-all duration-300 text-blue-500 mb-4">
+                            <FiFileText className="w-8 h-8" />
+                          </div>
+                          <span className="text-sm font-bold text-slate-700 block">
+                            {selectedUploadFile ? selectedUploadFile.name : 'Drag and drop your spreadsheet here'}
+                          </span>
+                          <span className="text-xs text-slate-400 mt-1 block">
+                            {selectedUploadFile 
+                              ? `${(selectedUploadFile.size / 1024).toFixed(1)} KB • Ready to upload` 
+                              : 'Supports CSV or Excel spreadsheets (.csv, .xls, .xlsx)'}
+                          </span>
+                          <input
+                            id="sms-csv-upload-input"
+                            type="file"
+                            accept=".csv,.xls,.xlsx"
+                            onChange={handleFileChange}
+                            className="hidden"
+                          />
+                        </div>
+
+                        {selectedUploadFile && (
+                          <div className="flex gap-3 justify-end">
+                            <button
+                              onClick={() => { setSelectedUploadFile(null); setUploadedFileName(''); }}
+                              className="px-4 py-2 border border-slate-200 text-slate-605 hover:bg-slate-50 rounded-xl text-xs font-semibold transition-all"
+                            >
+                              Discard Selection
+                            </button>
+                            <button
+                              onClick={handleUploadFile}
+                              disabled={uploadingFile}
+                              className="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 shadow-sm disabled:opacity-60"
+                            >
+                              {uploadingFile ? (
+                                <>
+                                  <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                                  Uploading...
+                                </>
+                              ) : (
+                                <>
+                                  <FiSend className="w-3.5 h-3.5" />
+                                  Upload & Parse
+                                </>
+                              )}
+                            </button>
+                          </div>
+                        )}
+
+                        <div className="text-center pt-2">
+                          <button
+                            onClick={downloadSampleSmsCSV}
+                            className="text-xs font-semibold text-blue-600 hover:text-blue-700 transition-colors inline-flex items-center gap-1"
+                          >
+                            <FiSend className="w-3.5 h-3.5 rotate-90" /> Download sample CSV template
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      /* Active Spreadsheet Mappings & Details */
+                      <div className="space-y-6">
+                        {/* File details card */}
+                        <div className="p-4 bg-emerald-50/50 border border-emerald-100 rounded-2xl flex flex-wrap justify-between items-center gap-4">
+                          <div className="flex items-center gap-3">
+                            <div className="p-2 bg-emerald-500 text-white rounded-xl">
+                              <FiCheck className="w-5 h-5" />
+                            </div>
+                            <div>
+                              <h4 className="text-xs font-bold text-slate-800">
+                                Active Spreadsheet: <span className="font-mono text-emerald-800">{uploadedFileName || 'Uploaded List'}</span>
+                              </h4>
+                              <p className="text-[10px] text-slate-505 mt-0.5">
+                                Contains <strong className="text-emerald-700 font-semibold">{uploadedFileInfo.total_rows || 0} rows</strong> ready for campaign creation.
+                              </p>
+                            </div>
+                          </div>
+                          <button
+                            onClick={handleClearUpload}
+                            disabled={loading}
+                            className="px-3 py-1.5 text-red-600 hover:bg-red-50 rounded-xl text-xs font-semibold transition-all flex items-center gap-1 border border-transparent hover:border-red-100"
+                          >
+                            <FiTrash2 className="w-3.5 h-3.5" /> Discard Spreadsheet
+                          </button>
+                        </div>
+
+                        {/* Mappings card */}
+                        <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 md:p-5 space-y-4">
+                          <h4 className="text-xs font-bold text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
+                            <FiSettings className="w-4 h-4 text-blue-500" />
+                            Define Column Mappings
+                          </h4>
+                          
+                          {/* Core fields */}
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 border-b border-slate-200/60 pb-4">
+                            <div>
+                              <label className="block text-xs font-bold text-slate-600 uppercase mb-1 flex items-center gap-0.5">
+                                Mobile Number Column <span className="text-red-500">*</span>
+                              </label>
+                              <select
+                                value={columnMappings.recipient_mobile}
+                                onChange={(e) => setColumnMappings(prev => ({ ...prev, recipient_mobile: e.target.value }))}
+                                className={`w-full px-3 py-2 border rounded-lg text-sm bg-white outline-none focus:ring-2 focus:ring-blue-500 ${validationErrors.recipient_mobile ? 'border-red-500' : 'border-gray-350'}`}
+                              >
+                                <option value="">-- Select Column --</option>
+                                {(uploadedFileInfo.headers || []).map(h => (
+                                  <option key={h} value={h}>{h}</option>
+                                ))}
+                              </select>
+                              {validationErrors.recipient_mobile && <p className="text-[10px] text-red-500 mt-1">{validationErrors.recipient_mobile}</p>}
+                            </div>
+
+                            <div>
+                              <label className="block text-xs font-bold text-slate-600 uppercase mb-1">
+                                Recipient Name Column <span className="text-slate-400 lowercase italic">(optional)</span>
+                              </label>
+                              <select
+                                value={columnMappings.recipient_name}
+                                onChange={(e) => setColumnMappings(prev => ({ ...prev, recipient_name: e.target.value }))}
+                                className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm bg-white outline-none focus:ring-2 focus:ring-blue-500"
+                              >
+                                <option value="">-- Select Column (Defaults to 'Recipient') --</option>
+                                {(uploadedFileInfo.headers || []).map(h => (
+                                  <option key={h} value={h}>{h}</option>
+                                ))}
+                              </select>
+                            </div>
+                          </div>
+
+                          {/* Template Variables */}
+                          <div className="space-y-3 pt-1">
+                            <div className="flex justify-between items-center">
+                              <h5 className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Template Dynamic Variables</h5>
+                              {templateVariables.length > 0 && (
+                                <span className="text-[10px] font-semibold text-slate-400 bg-white px-2 py-0.5 rounded-full border border-slate-200">{templateVariables.length} variables detected</span>
+                              )}
+                            </div>
+
+                            {!form.template_id ? (
+                              <p className="text-xs text-amber-600 italic bg-amber-50 border border-amber-100 rounded-xl p-3">
+                                Please select an SMS template in the campaign settings to map template variables.
+                              </p>
+                            ) : templateVariables.length === 0 ? (
+                              <p className="text-xs text-slate-400 italic bg-white border border-slate-200 rounded-xl p-3">
+                                Selected template doesn't contain any variable placeholders (e.g. {"{{name}}"}).
+                              </p>
+                            ) : (
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                {templateVariables.map(v => {
+                                  const globalVarsParsed = (() => {
+                                    try { return JSON.parse(form.global_variables_json || '{}'); } catch { return {}; }
+                                  })();
+                                  const globalVal = globalVarsParsed[v];
+                                  const isGloballyResolved = globalVal !== undefined && globalVal !== null && globalVal !== '';
+                                  const errorMsg = validationErrors[`var_${v}`];
+                                  
+                                  return (
+                                    <div key={v} className="bg-white p-3 border border-slate-200 rounded-xl space-y-2">
+                                      <div className="flex justify-between items-start gap-2">
+                                        <label className="text-xs font-bold text-slate-700 flex items-center gap-1">
+                                          {"{{"}{v}{"}}"}
+                                          {!isGloballyResolved && <span className="text-red-500">*</span>}
+                                        </label>
+                                        
+                                        {isGloballyResolved && (
+                                          <span
+                                            title={`Global fallback value: "${globalVal}"`}
+                                            className="px-1.5 py-0.5 rounded bg-green-55 text-green-750 text-[10px] font-semibold border border-green-200 truncate max-w-[150px]"
+                                          >
+                                            Global: "{globalVal}"
+                                          </span>
+                                        )}
+                                      </div>
+
+                                      <select
+                                        value={columnMappings.variables?.[v] || ''}
+                                        onChange={(e) => setColumnMappings(prev => ({
+                                          ...prev,
+                                          variables: {
+                                            ...prev.variables,
+                                            [v]: e.target.value
+                                          }
+                                        }))}
+                                        className={`w-full px-2 py-1.5 border rounded text-xs bg-white outline-none focus:ring-1 focus:ring-blue-500 ${errorMsg ? 'border-red-500' : 'border-slate-300'}`}
+                                      >
+                                        <option value="">{isGloballyResolved ? '-- Bypass using Global Fallback --' : '-- Select File Column --'}</option>
+                                        {(uploadedFileInfo.headers || []).map(h => (
+                                          <option key={h} value={h}>{h}</option>
+                                        ))}
+                                      </select>
+                                      {errorMsg && <p className="text-[9px] text-red-500 leading-tight">{errorMsg}</p>}
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Sample Rows table */}
+                        {uploadedFileInfo.sample_rows && uploadedFileInfo.sample_rows.length > 0 && (
+                          <div className="space-y-2">
+                            <span className="text-xs font-bold text-slate-500 uppercase tracking-wider block">Spreadsheet Sample Rows Preview</span>
+                            <div className="overflow-x-auto border border-slate-200 rounded-2xl max-h-[220px]">
+                              <table className="w-full text-xs text-left bg-white">
+                                <thead className="bg-slate-50 sticky top-0 border-b border-slate-200 z-10 font-bold text-slate-650">
+                                  <tr>
+                                    <th className="px-3 py-2 w-10 text-center">#</th>
+                                    {(uploadedFileInfo.headers || []).map(h => {
+                                      const isMobileMapped = columnMappings.recipient_mobile === h;
+                                      const isNameMapped = columnMappings.recipient_name === h;
+                                      const isVarMapped = Object.values(columnMappings.variables || {}).includes(h);
+                                      
+                                      let badge = '';
+                                      if (isMobileMapped) badge = 'Mobile';
+                                      else if (isNameMapped) badge = 'Name';
+                                      else if (isVarMapped) badge = 'Var';
+                                      
+                                      return (
+                                        <th key={h} className="px-3 py-2 whitespace-nowrap">
+                                          <div className="flex items-center gap-1.5">
+                                            <span>{h}</span>
+                                            {badge && (
+                                              <span className={`px-1 py-0.2 rounded text-[8px] font-extrabold uppercase tracking-wider ${
+                                                badge === 'Mobile' ? 'bg-blue-100 text-blue-700' :
+                                                badge === 'Name' ? 'bg-purple-100 text-purple-700' :
+                                                'bg-amber-100 text-amber-700'
+                                              }`}>
+                                                {badge}
+                                              </span>
+                                            )}
+                                          </div>
+                                        </th>
+                                      );
+                                    })}
+                                  </tr>
+                                </thead>
+                                <tbody className="divide-y divide-slate-100">
+                                  {uploadedFileInfo.sample_rows.map((row, idx) => (
+                                    <tr key={idx} className="hover:bg-slate-50/50">
+                                      <td className="px-3 py-2 text-center text-slate-400 font-mono">{idx + 1}</td>
+                                      {(uploadedFileInfo.headers || []).map(h => (
+                                        <td key={h} className="px-3 py-2 text-slate-700 whitespace-nowrap max-w-[200px] truncate">{row[h] !== undefined ? String(row[h]) : '-'}</td>
+                                      ))}
+                                    </tr>
+                                  ))}
+                                </tbody>
+                              </table>
+                            </div>
+                          </div>
+                        )}
                       </div>
                     )}
                   </div>

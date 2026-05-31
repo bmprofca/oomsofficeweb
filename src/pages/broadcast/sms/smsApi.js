@@ -8,12 +8,17 @@ const smsAxios = axios.create({
 });
 
 smsAxios.interceptors.request.use((config) => {
-  const headers = getHeaders();
+  const isFormData = config.data instanceof FormData;
+  const headers = getHeaders(isFormData);
   if (!headers) {
     return Promise.reject(new Error('Missing authentication headers. Please sign in again.'));
   }
 
   config.headers = { ...(config.headers || {}), ...headers };
+
+  if (isFormData) {
+    delete config.headers['Content-Type'];
+  }
 
   return config;
 });
@@ -52,6 +57,16 @@ export const smsApi = {
   // Dynamic Variables
   getVariableKeys: (type) => smsAxios.get(`/broadcast/sms/variable-keys/${type}`).then(unwrap),
   getDynamicVariables: (type, identifier) => smsAxios.get(`/broadcast/sms/dynamic-variables/${type}/${identifier}`).then(unwrap),
+
+  // Bulk Upload & Mappings
+  uploadRecipients: (file) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    return smsAxios.post('/broadcast/sms/upload-recipients', formData).then(unwrap);
+  },
+  createBroadcastFromUpload: (payload) => smsAxios.post('/broadcast/sms/broadcast/create-from-upload', payload).then(unwrap),
+  getUploadedRecipientsInfo: () => smsAxios.get('/broadcast/sms/uploaded-recipients-info').then(unwrap),
+  clearUploadedRecipients: () => smsAxios.post('/broadcast/sms/clear-uploaded-recipients', {}).then(unwrap),
 };
 
 export const normalizeList = (data) => (Array.isArray(data) ? data : []);
