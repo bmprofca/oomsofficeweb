@@ -24,7 +24,9 @@ import {
   FiLayers,
   FiDatabase,
   FiHelpCircle,
-  FiX
+  FiX,
+  FiEdit,
+  FiUser
 } from 'react-icons/fi';
 
 const newRecipient = () => ({ recipient_name: '', recipient_mobile: '', variable_values_json: '{}' });
@@ -602,23 +604,26 @@ const SmsBroadcastCreate = () => {
                   </h3>
                   
                   {/* Tabs selector */}
-                  <div className="flex bg-slate-100 p-1 rounded-xl text-xs font-semibold">
+                  <div className="flex bg-slate-100/80 p-1 rounded-xl text-xs font-semibold gap-1">
                     <button
                       onClick={() => setActiveTab('manual')}
-                      className={`px-3 py-1.5 rounded-lg transition-all ${activeTab === 'manual' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-600 hover:text-slate-800'}`}
+                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-all ${activeTab === 'manual' ? 'bg-white text-blue-600 font-bold shadow-sm' : 'text-slate-600 hover:text-slate-800'}`}
                     >
+                      <FiEdit className="w-3.5 h-3.5" />
                       Direct Input
                     </button>
                     <button
                       onClick={() => setActiveTab('clients')}
-                      className={`px-3 py-1.5 rounded-lg transition-all ${activeTab === 'clients' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-600 hover:text-slate-800'}`}
+                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-all ${activeTab === 'clients' ? 'bg-white text-blue-600 font-bold shadow-sm' : 'text-slate-600 hover:text-slate-800'}`}
                     >
+                      <FiUser className="w-3.5 h-3.5" />
                       Select Clients
                     </button>
                     <button
                       onClick={() => setActiveTab('groups')}
-                      className={`px-3 py-1.5 rounded-lg transition-all ${activeTab === 'groups' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-600 hover:text-slate-800'}`}
+                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-all ${activeTab === 'groups' ? 'bg-white text-blue-600 font-bold shadow-sm' : 'text-slate-600 hover:text-slate-800'}`}
                     >
+                      <FiUsers className="w-3.5 h-3.5" />
                       Client Groups
                     </button>
                   </div>
@@ -936,18 +941,23 @@ const SmsBroadcastCreate = () => {
 
       {/* Preview rendering modal */}
       {showPreview && (
-        <div className="fixed inset-0 z-50 overflow-y-auto">
-          <div className="flex min-h-screen items-center justify-center p-4">
-            <div className="fixed inset-0 bg-black bg-opacity-50 transition-opacity" onClick={() => setShowPreview(false)}></div>
-            <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-lg p-6 transform transition-all border border-slate-200 space-y-4">
-              <div className="flex justify-between items-center border-b border-slate-100 pb-3">
-                <h3 className="text-sm font-bold text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
-                  <FiSend className="text-blue-500" />
-                  Substitute Variable Output
-                </h3>
-                <button onClick={() => setShowPreview(false)} className="p-1 hover:bg-slate-100 rounded-lg"><FiX /></button>
-              </div>
+        <div className="fixed inset-0 z-50 flex items-center justify-center overflow-hidden overscroll-none p-3 sm:p-4 pointer-events-none">
+          {/* Backdrop */}
+          <div className="absolute inset-0 bg-black/50 backdrop-blur-sm pointer-events-auto" onClick={() => setShowPreview(false)}></div>
 
+          {/* Modal Panel */}
+          <div className="relative z-[1] pointer-events-auto bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[calc(100vh-1.5rem)] sm:max-h-[calc(100vh-2rem)] overflow-hidden flex flex-col border border-slate-200">
+            {/* Header */}
+            <div className="shrink-0 flex items-center justify-between px-5 py-3.5 border-b border-slate-200 bg-gradient-to-r from-blue-50 to-indigo-50">
+              <h3 className="text-sm font-bold text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
+                <FiSend className="text-blue-500" />
+                Substitute Variable Output
+              </h3>
+              <button onClick={() => setShowPreview(false)} className="p-1 hover:bg-slate-100 rounded-lg"><FiX /></button>
+            </div>
+
+            {/* Scrollable Body */}
+            <div className="px-5 py-4 flex-1 min-h-0 overflow-y-auto overscroll-y-contain [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden space-y-4">
               {/* Standard text representation */}
               <div className="space-y-1">
                 <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Fully substitution message output</span>
@@ -972,12 +982,13 @@ const SmsBroadcastCreate = () => {
                   </div>
                 </div>
               </div>
+            </div>
 
-              <div className="flex justify-end pt-3">
-                <button onClick={() => setShowPreview(false)} className="px-4 py-1.5 bg-slate-200 hover:bg-slate-300 text-slate-700 rounded-lg text-xs font-semibold transition-all">
-                  Close Preview
-                </button>
-              </div>
+            {/* Footer */}
+            <div className="shrink-0 flex justify-end px-5 py-3 border-t border-slate-200 bg-slate-50">
+              <button onClick={() => setShowPreview(false)} className="px-4 py-1.5 bg-slate-200 hover:bg-slate-300 text-slate-700 rounded-lg text-xs font-semibold transition-all">
+                Close Preview
+              </button>
             </div>
           </div>
         </div>

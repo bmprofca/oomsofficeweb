@@ -16,8 +16,31 @@ import {
   FiUser,
   FiFileText,
   FiChevronLeft,
-  FiChevronRight
+  FiChevronRight,
+  FiChevronsLeft,
+  FiChevronsRight,
+  FiCornerDownLeft
 } from 'react-icons/fi';
+
+const RecipientsTableSkeleton = ({ cols = 5, rows = 5 }) => (
+  <>
+    {Array.from({ length: rows }).map((_, rIdx) => (
+      <tr key={rIdx} className="animate-pulse border-b border-slate-100">
+        {Array.from({ length: cols }).map((_, cIdx) => (
+          <td key={cIdx} className="px-4 py-3">
+            <div className={`h-3 bg-slate-200 rounded ${
+              cIdx === 0 ? 'w-2/3' :
+              cIdx === 1 ? 'w-3/4 font-mono' :
+              cIdx === 2 ? 'w-1/2 mx-auto' :
+              cIdx === 3 ? 'w-1/4 mx-auto' :
+              'w-5/6'
+            }`}></div>
+          </td>
+        ))}
+      </tr>
+    ))}
+  </>
+);
 
 const SmsBroadcastDetails = () => {
   const { broadcast_id } = useParams();
@@ -35,6 +58,7 @@ const SmsBroadcastDetails = () => {
   const [recipientsLoading, setRecipientsLoading] = useState(false);
   const [searchFilter, setSearchFilter] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
+  const [jumpPage, setJumpPage] = useState('');
   
   const [retrying, setRetrying] = useState(false);
 
@@ -52,12 +76,12 @@ const SmsBroadcastDetails = () => {
   };
 
   // Fetch recipients list
-  const fetchRecipients = async (page = 1) => {
+  const fetchRecipients = async (page = 1, limit = recipientsPagination.limit) => {
     setRecipientsLoading(true);
     try {
       const params = {
         page_no: page,
-        limit: recipientsPagination.limit,
+        limit: limit,
         ...(searchFilter && { search: searchFilter }),
         ...(statusFilter && { status: statusFilter })
       };
@@ -65,7 +89,7 @@ const SmsBroadcastDetails = () => {
       setRecipients(res?.data || []);
       setRecipientsPagination({
         page_no: Number(res?.pagination?.page_no || page),
-        limit: Number(res?.pagination?.limit || 15),
+        limit: Number(res?.pagination?.limit || limit),
         total: Number(res?.pagination?.total || 0),
         total_pages: Number(res?.pagination?.total_pages || 1)
       });
@@ -76,12 +100,18 @@ const SmsBroadcastDetails = () => {
     }
   };
 
+  const handleLimitChange = (newLimit) => {
+    const val = Number(newLimit);
+    setRecipientsPagination(prev => ({ ...prev, limit: val, page_no: 1 }));
+    fetchRecipients(1, val);
+  };
+
   useEffect(() => {
     fetchCampaignDetails();
   }, [broadcast_id]);
 
   useEffect(() => {
-    fetchRecipients(1);
+    fetchRecipients(1, recipientsPagination.limit);
   }, [broadcast_id, searchFilter, statusFilter]);
 
   const handleRetryFailed = async () => {
@@ -90,7 +120,7 @@ const SmsBroadcastDetails = () => {
       await smsApi.retryFailed({ broadcast_id });
       toast.success('Failed SMS entries reset to pending successfully!');
       fetchCampaignDetails();
-      fetchRecipients(1);
+      fetchRecipients(1, recipientsPagination.limit);
     } catch (e) {
       toast.error(e?.response?.data?.message || 'Failed to queue retries');
     } finally {
@@ -131,7 +161,7 @@ const SmsBroadcastDetails = () => {
             
             <div className="flex gap-2">
               <button
-                onClick={() => { fetchCampaignDetails(); fetchRecipients(recipientsPagination.page_no); }}
+                onClick={() => { fetchCampaignDetails(); fetchRecipients(recipientsPagination.page_no, recipientsPagination.limit); }}
                 className="p-2 bg-white border border-slate-200 text-slate-600 rounded-xl hover:bg-slate-50 transition-all"
                 title="Refresh stats"
               >
@@ -209,20 +239,12 @@ const SmsBroadcastDetails = () => {
               
               <div className="space-y-3 text-xs">
                 <div className="flex justify-between">
-                  <span className="text-slate-400">Broadcast ID</span>
-                  <span className="font-mono font-medium text-slate-800">{campaign?.broadcast_id}</span>
-                </div>
-                <div className="flex justify-between">
                   <span className="text-slate-400">Status</span>
                   <span className="font-semibold text-blue-600 uppercase">{campaign?.status}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-slate-400">Timezone</span>
                   <span className="text-slate-800">{campaign?.timezone}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-slate-400">Gateway configuration ID</span>
-                  <span className="font-mono text-slate-800">{campaign?.config_id || 'Fallback System gateway'}</span>
                 </div>
                 {campaign?.dlt_template_id_snapshot && (
                   <div className="flex justify-between">
@@ -302,29 +324,30 @@ const SmsBroadcastDetails = () => {
 
                 {/* Recipients Table */}
                 <div className="overflow-x-auto">
-                  {recipientsLoading ? (
-                    <div className="py-16 text-center">
-                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
-                    </div>
-                  ) : recipients.length === 0 ? (
-                    <div className="py-16 text-center text-xs text-slate-400 italic">No recipient logs found match filters</div>
-                  ) : (
-                    <table className="w-full text-xs">
-                      <thead className="bg-slate-50 border-b border-slate-200">
+                  <table className="w-full text-xs">
+                    <thead className="bg-slate-50 border-b border-slate-200">
+                      <tr>
+                        <th className="px-4 py-2 text-left font-semibold text-slate-500 uppercase">Recipient</th>
+                        <th className="px-4 py-2 text-left font-semibold text-slate-500 uppercase">Mobile</th>
+                        <th className="px-4 py-2 text-center font-semibold text-slate-500 uppercase w-20">Status</th>
+                        <th className="px-4 py-2 text-center font-semibold text-slate-500 uppercase w-12">Try</th>
+                        <th className="px-4 py-2 text-left font-semibold text-slate-500 uppercase">Error/Delivery info</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 bg-white">
+                      {recipientsLoading ? (
+                        <RecipientsTableSkeleton cols={5} rows={5} />
+                      ) : recipients.length === 0 ? (
                         <tr>
-                          <th className="px-4 py-2 text-left font-semibold text-slate-500 uppercase">Recipient</th>
-                          <th className="px-4 py-2 text-left font-semibold text-slate-500 uppercase">Mobile</th>
-                          <th className="px-4 py-2 text-center font-semibold text-slate-500 uppercase w-20">Status</th>
-                          <th className="px-4 py-2 text-center font-semibold text-slate-500 uppercase w-12">Try</th>
-                          <th className="px-4 py-2 text-left font-semibold text-slate-500 uppercase">Error/Delivery info</th>
+                          <td colSpan={5} className="px-4 py-8 text-center text-xs text-slate-400 italic">
+                            No recipient logs found matching filters
+                          </td>
                         </tr>
-                      </thead>
-                      <tbody className="divide-y divide-slate-100 bg-white">
-                        {recipients.map(r => (
+                      ) : (
+                        recipients.map(r => (
                           <tr key={r.recipient_id} className="hover:bg-slate-50/50 transition-colors">
                             <td className="px-4 py-3">
                               <span className="font-semibold text-slate-700 block">{r.recipient_name}</span>
-                              <span className="text-[9px] text-slate-400 font-mono">ID: {r.recipient_id.substring(0, 12)}...</span>
                             </td>
                             <td className="px-4 py-3 font-mono">{r.recipient_mobile}</td>
                             <td className="px-4 py-3 text-center">
@@ -342,35 +365,113 @@ const SmsBroadcastDetails = () => {
                               {r.status === 'pending' && <span className="text-slate-400">Awaiting cron queue...</span>}
                             </td>
                           </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  )}
+                        ))
+                      )}
+                    </tbody>
+                  </table>
                 </div>
               </div>
 
               {/* Recipients Pagination */}
               {recipients.length > 0 && (
-                <div className="px-4 py-3 border-t border-slate-200 bg-slate-50 flex items-center justify-between">
-                  <div className="text-[10px] text-slate-500">
-                    Showing <span className="font-semibold">{recipients.length}</span> of <span className="font-semibold">{recipientsPagination.total}</span> entries
+                <div className="px-4 py-3 border-t border-slate-200 bg-slate-50 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 text-xs">
+                  {/* Range & Limit */}
+                  <div className="flex flex-wrap items-center gap-3 text-slate-500">
+                    <div>
+                      Showing <span className="font-semibold text-slate-800">{recipientsPagination.total === 0 ? 0 : (recipientsPagination.page_no - 1) * recipientsPagination.limit + 1}</span> to{' '}
+                      <span className="font-semibold text-slate-800">{Math.min(recipientsPagination.page_no * recipientsPagination.limit, recipientsPagination.total)}</span> of{' '}
+                      <span className="font-semibold text-slate-800">{recipientsPagination.total}</span> entries
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <span>Show</span>
+                      <select
+                        value={recipientsPagination.limit}
+                        onChange={(e) => handleLimitChange(e.target.value)}
+                        className="px-1.5 py-0.5 border border-slate-300 rounded bg-white text-slate-700 outline-none focus:ring-1 focus:ring-blue-500 text-xs"
+                      >
+                        <option value={5}>5</option>
+                        <option value={10}>10</option>
+                        <option value={15}>15</option>
+                        <option value={30}>30</option>
+                        <option value={50}>50</option>
+                      </select>
+                      <span>per page</span>
+                    </div>
                   </div>
-                  <div className="flex items-center gap-1.5">
-                    <button
-                      onClick={() => fetchRecipients(recipientsPagination.page_no - 1)}
-                      disabled={recipientsPagination.page_no <= 1 || recipientsLoading}
-                      className="p-1 border border-slate-300 bg-white rounded hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+
+                  {/* Controls & Jump */}
+                  <div className="flex flex-wrap items-center gap-3">
+                    <div className="flex items-center gap-1">
+                      <button
+                        onClick={() => fetchRecipients(1, recipientsPagination.limit)}
+                        disabled={recipientsPagination.page_no <= 1 || recipientsLoading}
+                        className="p-1 text-xs rounded border border-slate-300 bg-white text-slate-700 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
+                        title="First Page"
+                      >
+                        <FiChevronsLeft size={12} />
+                      </button>
+                      <button
+                        onClick={() => fetchRecipients(recipientsPagination.page_no - 1, recipientsPagination.limit)}
+                        disabled={recipientsPagination.page_no <= 1 || recipientsLoading}
+                        className="inline-flex items-center gap-1 px-2.5 py-1 text-xs rounded border border-slate-300 bg-white text-slate-700 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
+                      >
+                        <FiChevronLeft size={12} />
+                        <span>Prev</span>
+                      </button>
+
+                      <span className="text-xs font-semibold text-blue-600 bg-blue-50 px-2.5 py-1 rounded border border-blue-200">
+                        {recipientsPagination.page_no} / {recipientsPagination.total_pages}
+                      </span>
+
+                      <button
+                        onClick={() => fetchRecipients(recipientsPagination.page_no + 1, recipientsPagination.limit)}
+                        disabled={recipientsPagination.page_no >= recipientsPagination.total_pages || recipientsLoading}
+                        className="inline-flex items-center gap-1 px-2.5 py-1 text-xs rounded border border-slate-300 bg-white text-slate-700 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
+                      >
+                        <span>Next</span>
+                        <FiChevronRight size={12} />
+                      </button>
+                      <button
+                        onClick={() => fetchRecipients(recipientsPagination.total_pages, recipientsPagination.limit)}
+                        disabled={recipientsPagination.page_no >= recipientsPagination.total_pages || recipientsLoading}
+                        className="p-1 text-xs rounded border border-slate-300 bg-white text-slate-700 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
+                        title="Last Page"
+                      >
+                        <FiChevronsRight size={12} />
+                      </button>
+                    </div>
+
+                    {/* Jump to page */}
+                    <form
+                      onSubmit={(e) => {
+                        e.preventDefault();
+                        const pageNum = parseInt(jumpPage, 10);
+                        if (!isNaN(pageNum) && pageNum >= 1 && pageNum <= recipientsPagination.total_pages) {
+                          fetchRecipients(pageNum, recipientsPagination.limit);
+                          setJumpPage('');
+                        } else {
+                          toast.error(`Please enter a valid page number between 1 and ${recipientsPagination.total_pages}`);
+                        }
+                      }}
+                      className="flex items-center gap-1"
                     >
-                      <FiChevronLeft className="w-3.5 h-3.5" />
-                    </button>
-                    <span className="text-[10px] text-slate-600">Page {recipientsPagination.page_no} of {recipientsPagination.total_pages}</span>
-                    <button
-                      onClick={() => fetchRecipients(recipientsPagination.page_no + 1)}
-                      disabled={recipientsPagination.page_no >= recipientsPagination.total_pages || recipientsLoading}
-                      className="p-1 border border-slate-300 bg-white rounded hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
-                    >
-                      <FiChevronRight className="w-3.5 h-3.5" />
-                    </button>
+                      <input
+                        type="number"
+                        min={1}
+                        max={recipientsPagination.total_pages}
+                        placeholder="Go..."
+                        value={jumpPage}
+                        onChange={(e) => setJumpPage(e.target.value)}
+                        className="w-12 px-1.5 py-1 text-xs border border-slate-300 rounded outline-none focus:ring-1 focus:ring-blue-500 bg-white text-center"
+                      />
+                      <button
+                        type="submit"
+                        className="p-1 bg-blue-600 hover:bg-blue-700 text-white rounded transition-colors flex items-center justify-center shadow"
+                        title="Jump to Page"
+                      >
+                        <FiCornerDownLeft size={10} />
+                      </button>
+                    </form>
                   </div>
                 </div>
               )}
