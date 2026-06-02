@@ -1,0 +1,4 @@
+Client Name,Mobile,Email,PAN,Gender,DOB,State,District,City,Pincode,Care Of,Guardian,Firm Name,Business Type,GSTIN,Firm PAN,Opening Balance,Opening Balance Type,Opening Balance Date
+Alice Smith,9876543210,alice@example.com,ABCDE1234F,female,1993-04-12,West Bengal,Cooch Behar,Cooch Behar,736134,S/O,Robert Smith,Alice Smith,Individual,19ABCDE1234F1Z5,ABCDE1234F,500,credit,2026-06-02
+John Doe,9998887776,john.doe@example.com,WXYZS9876Q,male,1988-11-23,Delhi,New Delhi,New Delhi,110001,S/O,Arthur Doe,Doe Consulting,Proprietorship,07WXYZS9876Q1Z9,WXYZS9876Q,1200,debit,2026-06-02
+Jane Miller,9112223334,jane.miller@example.com,PLMKO5432B,female,1995-07-08,Maharashtra,Mumbai,Mumbai,400001,D/O,James Miller,Miller Exports,LLP,27PLMKO5432B1ZA,PLMKO5432B,2500,credit,2026-06-02
