@@ -41,6 +41,7 @@ import ViewFileIndex from './pages/office-assistance/file-index';
 import PasswordGroups from './pages/office-assistance/password-group';
 import ImportantLinks from './pages/office-assistance/important-link';
 import Services from './pages/office-assistance/services';
+import ComplianceServices from './pages/office-assistance/compliance';
 import RecurringGroups from './pages/office-assistance/recurring-group';
 import Groups from './pages/office-assistance/groups';
 import GroupFirms from './pages/office-assistance/group-firms';
@@ -371,6 +372,12 @@ root.render(
         <Route path="/staff/office-assistance/services" element={
           <ProtectedRoute>
             <Services />
+          </ProtectedRoute>
+        } />
+
+        <Route path="/staff/office-assistance/compliance" element={
+          <ProtectedRoute>
+            <ComplianceServices />
           </ProtectedRoute>
         } />
 
