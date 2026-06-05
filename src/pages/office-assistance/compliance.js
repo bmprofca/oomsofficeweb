@@ -79,25 +79,73 @@ const ComplianceServices = () => {
 
     // Assign Form states
     const [assignForm, setAssignForm] = useState({
+        targetType: 'single',
         firm_id: '',
+        firms: [],
+        groups: [],
         service_id: '',
         financial_year: '2026-2027',
-        custom_amount: ''
+        custom_amount: '',
+        employee_username: '',
+        ca_id: '',
+        pay_from_month: '',
+        quarters: []
     });
+
+    // Staff and CA states for assigning compliance
+    const [staffList, setStaffList] = useState([]);
+    const [staffLoading, setStaffLoading] = useState(false);
+    const [caSearchQuery, setCaSearchQuery] = useState('');
+    const [caSearchResults, setCaSearchResults] = useState([]);
+    const [caSearchLoading, setCaSearchLoading] = useState(false);
+    const [selectedCa, setSelectedCa] = useState(null);
+    const [showCaDropdown, setShowCaDropdown] = useState(false);
+    const caAbortRef = useRef(null);
 
     // Searchable Firm Dropdown states
     const [firmSearchQuery, setFirmSearchQuery] = useState('');
     const [firmSearchResults, setFirmSearchResults] = useState([]);
     const [firmSearchLoading, setFirmSearchLoading] = useState(false);
     const [selectedFirm, setSelectedFirm] = useState(null);
+    const [selectedFirmsData, setSelectedFirmsData] = useState([]);
     const [showFirmDropdown, setShowFirmDropdown] = useState(false);
     const [selectedFY, setSelectedFY] = useState('2026-2027');
     const firmAbortRef = useRef(null);
 
+    // Firm groups states
+    const [groupsList, setGroupsList] = useState([]);
+    const [groupsLoading, setGroupsLoading] = useState(false);
+
+    const fetchGroups = useCallback(async () => {
+        setGroupsLoading(true);
+        try {
+            const res = await axios.get(`${API_BASE_URL}/group/list`, {
+                headers: getHeaders()
+            });
+            if (res.data?.success) {
+                setGroupsList(res.data.data || []);
+            }
+        } catch (err) {
+            console.error('Error fetching groups list:', err);
+        } finally {
+            setGroupsLoading(false);
+        }
+    }, []);
+
     // Filter assignments inline
-    const filteredAssignments = assignments.filter(assign =>
-        selectedFY === '' || assign.financial_year === selectedFY
-    );
+    const filteredAssignments = assignments.filter(assign => {
+        if (selectedFY === '') return true;
+        const normalizeFY = (fy) => {
+            if (!fy) return '';
+            let clean = fy.toLowerCase().replace(/fy/g, '').trim().replace(/\s+/g, '');
+            const parts = clean.split('-');
+            if (parts.length !== 2) return fy;
+            let start = parts[0].length === 2 ? '20' + parts[0] : parts[0];
+            let end = parts[1].length === 2 ? '20' + parts[1] : parts[1];
+            return start.length === 4 && end.length === 4 ? `${start}-${end}` : fy;
+        };
+        return normalizeFY(assign.financial_year) === normalizeFY(selectedFY);
+    });
 
     // Dynamic stats
     const [stats, setStats] = useState({
@@ -172,10 +220,41 @@ const ComplianceServices = () => {
         }
     }, []);
 
+    // Fetch Staff List for assigning
+    const fetchStaff = useCallback(async () => {
+        setStaffLoading(true);
+        const base = API_BASE_URL.replace(/\/$/, '');
+        let page = 1;
+        const limit = 100;
+        const all = [];
+        try {
+            for (; ;) {
+                const res = await axios.get(`${base}/settings/staff/list`, {
+                    headers: getHeaders(),
+                    params: { search: '', page, limit }
+                });
+                const list = res.data?.data || [];
+                all.push(...list);
+                if (res.data?.meta?.is_last_page || list.length < limit) break;
+                page += 1;
+            }
+            setStaffList(all.map(item => ({
+                username: item.username,
+                name: item.profile?.name ?? item.username
+            })));
+        } catch (err) {
+            console.error('Failed to fetch staff list:', err);
+        } finally {
+            setStaffLoading(false);
+        }
+    }, []);
+
     // Load initial data
     useEffect(() => {
         fetchServices();
         fetchAssignments();
+        fetchStaff();
+        fetchGroups();
 
         // Fetch all schedules to compute total sales amount and pending counts
         const fetchAllStats = async () => {
@@ -201,7 +280,45 @@ const ComplianceServices = () => {
             }
         };
         fetchAllStats();
-    }, [fetchServices, fetchAssignments]);
+    }, [fetchServices, fetchAssignments, fetchStaff, fetchGroups]);
+
+    // Handle CA search autocomplete
+    useEffect(() => {
+        const term = caSearchQuery.trim();
+        if (term.length < 3) {
+            setCaSearchResults([]);
+            return;
+        }
+
+        const t = setTimeout(async () => {
+            setCaSearchLoading(true);
+            caAbortRef.current?.abort();
+            const ctrl = new AbortController();
+            caAbortRef.current = ctrl;
+
+            try {
+                const res = await fetch(`${API_BASE_URL.replace(/\/$/, '')}/ca/search?search=${encodeURIComponent(term)}`, {
+                    headers: getHeaders(),
+                    signal: ctrl.signal
+                });
+                const data = await res.json();
+                if (data.success && Array.isArray(data.data)) {
+                    setCaSearchResults(data.data);
+                } else {
+                    setCaSearchResults([]);
+                }
+            } catch (e) {
+                if (e?.name !== 'AbortError') setCaSearchResults([]);
+            } finally {
+                setCaSearchLoading(false);
+            }
+        }, 350);
+
+        return () => {
+            clearTimeout(t);
+            caAbortRef.current?.abort();
+        };
+    }, [caSearchQuery]);
 
     // Handle service search change
     useEffect(() => {
@@ -295,14 +412,56 @@ const ComplianceServices = () => {
     // Submit Assign Form
     const handleAssignSubmit = async (e) => {
         e.preventDefault();
-        if (!assignForm.firm_id || !assignForm.service_id || !assignForm.custom_amount) {
-            toast.error('Please fill in all required fields');
+        const isSingle = assignForm.targetType === 'single';
+        const isMultiple = assignForm.targetType === 'multiple';
+        const isGroup = assignForm.targetType === 'group';
+
+        if (isSingle && !assignForm.firm_id) {
+            toast.error('Please select a client firm');
+            return;
+        }
+        if (isMultiple && (!assignForm.firms || assignForm.firms.length === 0)) {
+            toast.error('Please select at least one firm');
+            return;
+        }
+        if (isGroup && (!assignForm.groups || assignForm.groups.length === 0)) {
+            toast.error('Please select at least one firm group');
+            return;
+        }
+        if (!assignForm.service_id || !assignForm.custom_amount || !assignForm.employee_username) {
+            toast.error('Please fill in all required fields (Service, Custom Fees, and Assigned Staff)');
             return;
         }
 
         setSubmittingAssign(true);
         try {
-            const res = await axios.post(`${API_BASE_URL}/compliance/assign`, assignForm, {
+            const selectedService = services.find(s => s.service_id === assignForm.service_id);
+            const payload = {
+                service_id: assignForm.service_id,
+                financial_year: assignForm.financial_year,
+                employee_username: assignForm.employee_username,
+                employee_id: assignForm.employee_username,
+                custom_amount: parseFloat(assignForm.custom_amount)
+            };
+            if (isSingle) {
+                payload.firm_id = assignForm.firm_id;
+            } else if (isMultiple) {
+                payload.firms = assignForm.firms;
+            } else if (isGroup) {
+                payload.groups = assignForm.groups;
+            }
+
+            if (assignForm.ca_id) {
+                payload.ca_id = assignForm.ca_id;
+            }
+            if (selectedService?.frequency === 'monthly' && assignForm.pay_from_month) {
+                payload.pay_from_month = assignForm.pay_from_month;
+            }
+            if (selectedService?.frequency === 'quarterly' && assignForm.quarters?.length > 0) {
+                payload.quarters = assignForm.quarters;
+            }
+
+            const res = await axios.post(`${API_BASE_URL}/compliance/assign`, payload, {
                 headers: getHeaders()
             });
 
@@ -310,12 +469,22 @@ const ComplianceServices = () => {
                 toast.success('Compliance service assigned successfully');
                 setShowAssignModal(false);
                 setAssignForm({
+                    targetType: 'single',
                     firm_id: '',
+                    firms: [],
+                    groups: [],
                     service_id: '',
                     financial_year: '2026-2027',
-                    custom_amount: ''
+                    custom_amount: '',
+                    employee_username: '',
+                    ca_id: '',
+                    pay_from_month: '',
+                    quarters: []
                 });
                 setSelectedFirm(null);
+                setSelectedFirmsData([]);
+                setSelectedCa(null);
+                setCaSearchQuery('');
                 fetchAssignments();
             }
         } catch (err) {
@@ -575,29 +744,55 @@ const ComplianceServices = () => {
                                                                         </div>
                                                                     ) : (
                                                                         <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 gap-3">
-                                                                            {schedules.map((period) => (
-                                                                                <div
-                                                                                    key={period.schedule_id}
-                                                                                    onClick={() => openStatusModal(period)}
-                                                                                    className="bg-white border border-slate-200 rounded-xl p-3 shadow-xs hover:border-indigo-300 hover:shadow-sm cursor-pointer transition-all flex flex-col justify-between min-h-[90px] group"
-                                                                                >
-                                                                                    <div className="flex items-start justify-between gap-1.5">
-                                                                                        <span className="text-xs font-semibold text-slate-700 leading-tight group-hover:text-indigo-600 truncate">
-                                                                                            {period.period_name}
-                                                                                        </span>
-                                                                                        <FiInfo className="w-3 h-3 text-slate-300 group-hover:text-indigo-400 shrink-0" />
+                                                                            {(() => {
+                                                                                const filteredSchedules = (() => {
+                                                                                    const normalizeFY = (fy) => {
+                                                                                        if (!fy) return '';
+                                                                                        let clean = fy.toLowerCase().replace(/fy/g, '').trim().replace(/\s+/g, '');
+                                                                                        const parts = clean.split('-');
+                                                                                        if (parts.length !== 2) return fy;
+                                                                                        let start = parts[0].length === 2 ? '20' + parts[0] : parts[0];
+                                                                                        let end = parts[1].length === 2 ? '20' + parts[1] : parts[1];
+                                                                                        return start.length === 4 && end.length === 4 ? `${start}-${end}` : fy;
+                                                                                    };
+
+                                                                                    const targetFY = normalizeFY(assign.financial_year);
+                                                                                    let list = schedules.filter(p => normalizeFY(p.financial_year) === targetFY);
+
+                                                                                    if (!assign.pay_from_month || assign.frequency !== 'monthly') return list;
+                                                                                    const MONTHS = ['April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December', 'January', 'February', 'March'];
+                                                                                    const startIndex = MONTHS.indexOf(assign.pay_from_month);
+                                                                                    if (startIndex === -1) return list;
+                                                                                    return list.filter(p => {
+                                                                                        const pIndex = MONTHS.indexOf(p.period_name);
+                                                                                        return pIndex >= startIndex;
+                                                                                    });
+                                                                                })();
+
+                                                                                return filteredSchedules.map((period) => (
+                                                                                    <div
+                                                                                        key={period.schedule_id}
+                                                                                        onClick={() => openStatusModal(period)}
+                                                                                        className="bg-white border border-slate-200 rounded-xl p-3 shadow-xs hover:border-indigo-300 hover:shadow-sm cursor-pointer transition-all flex flex-col justify-between min-h-[90px] group"
+                                                                                    >
+                                                                                        <div className="flex items-start justify-between gap-1.5">
+                                                                                            <span className="text-xs font-semibold text-slate-700 leading-tight group-hover:text-indigo-600 truncate">
+                                                                                                {period.period_name}
+                                                                                            </span>
+                                                                                            <FiInfo className="w-3 h-3 text-slate-300 group-hover:text-indigo-400 shrink-0" />
+                                                                                        </div>
+                                                                                        <div className="mt-2.5 space-y-1.5">
+                                                                                            <span className="text-[11px] font-bold text-slate-800 block">
+                                                                                                ₹{formatCurrency(period.amount)}
+                                                                                            </span>
+                                                                                            <span className={`inline-flex px-1.5 py-0.5 rounded text-[9px] font-bold border uppercase tracking-wider ${STATUS_BADGES[period.status] || 'bg-slate-50'
+                                                                                                }`}>
+                                                                                                {period.status}
+                                                                                            </span>
+                                                                                        </div>
                                                                                     </div>
-                                                                                    <div className="mt-2.5 space-y-1.5">
-                                                                                        <span className="text-[11px] font-bold text-slate-800 block">
-                                                                                            ₹{formatCurrency(period.amount)}
-                                                                                        </span>
-                                                                                        <span className={`inline-flex px-1.5 py-0.5 rounded text-[9px] font-bold border uppercase tracking-wider ${STATUS_BADGES[period.status] || 'bg-slate-50'
-                                                                                            }`}>
-                                                                                            {period.status}
-                                                                                        </span>
-                                                                                    </div>
-                                                                                </div>
-                                                                            ))}
+                                                                                ));
+                                                                            })()}
                                                                         </div>
                                                                     )}
                                                                 </td>
@@ -636,9 +831,7 @@ const ComplianceServices = () => {
 
                                 <div className="p-4 bg-indigo-50/50 border-b border-slate-100 flex items-start gap-3">
                                     <FiInfo className="w-4 h-4 text-indigo-600 shrink-0 mt-0.5" />
-                                    <p className="text-xs text-indigo-700 leading-relaxed font-medium">
-                                        Compliance services represent globally predefined operations configured with frequencies and default amounts. To register or create new compliance templates, insert entries directly in the database using SQL commands.
-                                    </p>
+
                                 </div>
 
                                 <div className="overflow-x-auto">
@@ -650,13 +843,15 @@ const ComplianceServices = () => {
                                                 <th className="px-4 py-3">SAC Code</th>
                                                 <th className="px-4 py-3">Frequency</th>
                                                 <th className="px-4 py-3">Default Fee</th>
-                                                <th className="px-4 py-3">Remark</th>
+                                                <th className="px-4 py-3">Assigned Clients</th>
+                                                <th className="px-4 py-3">Pending Periods</th>
+                                                <th className="px-4 py-3">Overdue Periods</th>
                                             </tr>
                                         </thead>
                                         <tbody className="divide-y divide-slate-50">
                                             {servicesLoading ? (
                                                 <tr>
-                                                    <td colSpan={6} className="px-4 py-8 text-center">
+                                                    <td colSpan={8} className="px-4 py-8 text-center">
                                                         <div className="animate-pulse flex flex-col gap-2">
                                                             <div className="h-4 bg-slate-100 rounded w-1/3 mx-auto"></div>
                                                             <div className="h-4 bg-slate-100 rounded w-1/4 mx-auto"></div>
@@ -665,7 +860,7 @@ const ComplianceServices = () => {
                                                 </tr>
                                             ) : services.length === 0 ? (
                                                 <tr>
-                                                    <td colSpan={6} className="px-4 py-12 text-center text-slate-400">
+                                                    <td colSpan={8} className="px-4 py-12 text-center text-slate-400">
                                                         <FiLayers className="w-8 h-8 mx-auto mb-2 opacity-50" />
                                                         <p className="text-xs font-medium text-slate-500">No compliance services found</p>
                                                         <p className="text-[11px] mt-0.5">Define compliance services in the database to see them listed</p>
@@ -692,8 +887,20 @@ const ComplianceServices = () => {
                                                         <td className="px-4 py-3 font-bold text-slate-700 text-xs">
                                                             ₹{formatCurrency(svc.default_amount)}
                                                         </td>
-                                                        <td className="px-4 py-3 text-slate-500 text-xs truncate max-w-[200px]" title={svc.remark || undefined}>
-                                                            {svc.remark || '—'}
+                                                        <td className="px-4 py-3 text-slate-700 text-xs font-semibold">
+                                                            {svc.assigned_count ?? 0}
+                                                        </td>
+                                                        <td className="px-4 py-3">
+                                                            <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold border ${(svc.pending_count ?? 0) > 0 ? 'bg-amber-50 text-amber-700 border-amber-200' : 'bg-slate-50 text-slate-500 border-slate-200'
+                                                                }`}>
+                                                                {svc.pending_count ?? 0}
+                                                            </span>
+                                                        </td>
+                                                        <td className="px-4 py-3">
+                                                            <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold border ${(svc.overdue_count ?? 0) > 0 ? 'bg-rose-50 text-rose-700 border-rose-200 animate-pulse' : 'bg-slate-50 text-slate-500 border-slate-200'
+                                                                }`}>
+                                                                {svc.overdue_count ?? 0}
+                                                            </span>
                                                         </td>
                                                     </tr>
                                                 ))
@@ -732,25 +939,115 @@ const ComplianceServices = () => {
                                 </button>
                             </div>
 
-                            <form onSubmit={handleAssignSubmit} className="p-5 space-y-4">
-                                {/* Searchable Firm Dropdown */}
-                                <div className="space-y-1 relative">
-                                    <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Client Firm *</label>
-                                    {selectedFirm ? (
-                                        <div className="flex items-center justify-between border border-slate-200 rounded-xl p-3 bg-slate-50">
-                                            <div>
-                                                <p className="text-xs font-bold text-slate-800">{selectedFirm.name}</p>
-                                                <p className="text-[10px] text-slate-400">Client: {selectedFirm.client_name} · PAN: {selectedFirm.pan_no}</p>
-                                            </div>
+                            <form onSubmit={handleAssignSubmit} className="p-5 space-y-4 max-h-[80vh] overflow-y-auto">
+                                {/* Target Type Selector */}
+                                <div className="space-y-1">
+                                    <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Assign To *</label>
+                                    <div className="flex gap-2">
+                                        {['single', 'multiple', 'group'].map((t) => (
                                             <button
+                                                key={t}
                                                 type="button"
-                                                onClick={() => setSelectedFirm(null)}
-                                                className="text-slate-400 hover:text-slate-600 p-1 rounded-md"
+                                                onClick={() => setAssignForm(prev => ({ ...prev, targetType: t }))}
+                                                className={`flex-1 py-2 text-xs font-semibold rounded-xl border transition-colors ${assignForm.targetType === t
+                                                    ? 'bg-indigo-50 border-indigo-300 text-indigo-705'
+                                                    : 'border-slate-200 text-slate-500 hover:bg-slate-50'
+                                                    }`}
                                             >
-                                                <FiX className="w-4 h-4" />
+                                                {t === 'single' ? 'Single Firm' : t === 'multiple' ? 'Multiple Firms' : 'Firm Groups'}
                                             </button>
-                                        </div>
-                                    ) : (
+                                        ))}
+                                    </div>
+                                </div>
+
+                                {/* Target selection */}
+                                {assignForm.targetType === 'single' && (
+                                    <div className="space-y-1 relative">
+                                        <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Client Firm *</label>
+                                        {selectedFirm ? (
+                                            <div className="flex items-center justify-between border border-slate-200 rounded-xl p-3 bg-slate-50">
+                                                <div>
+                                                    <p className="text-xs font-bold text-slate-800">{selectedFirm.name}</p>
+                                                    <p className="text-[10px] text-slate-400">Client: {selectedFirm.client_name} · PAN: {selectedFirm.pan_no}</p>
+                                                </div>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => {
+                                                        setSelectedFirm(null);
+                                                        setAssignForm(prev => ({ ...prev, firm_id: '' }));
+                                                    }}
+                                                    className="text-slate-400 hover:text-slate-650 p-1 rounded-md"
+                                                >
+                                                    <FiX className="w-4 h-4" />
+                                                </button>
+                                            </div>
+                                        ) : (
+                                            <div className="relative">
+                                                <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4 pointer-events-none" />
+                                                <input
+                                                    type="text"
+                                                    value={firmSearchQuery}
+                                                    onChange={(e) => {
+                                                        setFirmSearchQuery(e.target.value);
+                                                        setShowFirmDropdown(true);
+                                                    }}
+                                                    onFocus={() => setShowFirmDropdown(true)}
+                                                    placeholder="Search client firm (min 3 chars)…"
+                                                    className="w-full pl-9 pr-3 py-2.5 text-xs text-slate-700 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none bg-white"
+                                                />
+                                                {showFirmDropdown && firmSearchResults.length > 0 && (
+                                                    <div className="absolute z-50 left-0 right-0 top-full mt-1 bg-white border border-slate-200 rounded-xl shadow-lg max-h-56 overflow-y-auto">
+                                                        {firmSearchResults.map(f => (
+                                                            <button
+                                                                key={f.id}
+                                                                type="button"
+                                                                onClick={() => {
+                                                                    setSelectedFirm(f);
+                                                                    setAssignForm(prev => ({ ...prev, firm_id: f.id }));
+                                                                    setFirmSearchQuery('');
+                                                                    setFirmSearchResults([]);
+                                                                    setShowFirmDropdown(false);
+                                                                }}
+                                                                className="w-full text-left px-4 py-2.5 hover:bg-slate-50 border-b border-slate-100 last:border-0 text-xs flex flex-col"
+                                                            >
+                                                                <span className="font-semibold text-slate-800">{f.name}</span>
+                                                                <span className="text-[10px] text-slate-400 mt-0.5">Client: {f.client_name} · PAN: {f.pan_no}</span>
+                                                            </button>
+                                                        ))}
+                                                    </div>
+                                                )}
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
+
+                                {assignForm.targetType === 'multiple' && (
+                                    <div className="space-y-1 relative">
+                                        <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Client Firms *</label>
+                                        {assignForm.firms?.length > 0 && (
+                                            <div className="flex flex-wrap gap-2 mb-2 p-2 border border-slate-200 rounded-xl bg-slate-50">
+                                                {assignForm.firms.map(firmId => {
+                                                    const firmInfo = selectedFirmsData.find(f => f.id === firmId);
+                                                    return (
+                                                        <span key={firmId} className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-white border border-slate-200 rounded-lg text-xs font-medium text-slate-705 shadow-xs">
+                                                            <span>{firmInfo?.name || firmId}</span>
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => {
+                                                                    setAssignForm(prev => ({
+                                                                        ...prev,
+                                                                        firms: prev.firms.filter(x => x !== firmId)
+                                                                    }));
+                                                                }}
+                                                                className="text-slate-400 hover:text-slate-655"
+                                                            >
+                                                                <FiX className="w-3.5 h-3.5" />
+                                                            </button>
+                                                        </span>
+                                                    );
+                                                })}
+                                            </div>
+                                        )}
                                         <div className="relative">
                                             <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4 pointer-events-none" />
                                             <input
@@ -761,27 +1058,76 @@ const ComplianceServices = () => {
                                                     setShowFirmDropdown(true);
                                                 }}
                                                 onFocus={() => setShowFirmDropdown(true)}
-                                                placeholder="Search client firm (min 3 chars)…"
+                                                placeholder="Search and add client firms (min 3 chars)…"
                                                 className="w-full pl-9 pr-3 py-2.5 text-xs text-slate-700 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none bg-white"
                                             />
                                             {showFirmDropdown && firmSearchResults.length > 0 && (
                                                 <div className="absolute z-50 left-0 right-0 top-full mt-1 bg-white border border-slate-200 rounded-xl shadow-lg max-h-56 overflow-y-auto">
-                                                    {firmSearchResults.map(f => (
-                                                        <button
-                                                            key={f.id}
-                                                            type="button"
-                                                            onClick={() => handleSelectFirm(f)}
-                                                            className="w-full text-left px-4 py-2.5 hover:bg-slate-50 border-b border-slate-100 last:border-0 text-xs flex flex-col"
-                                                        >
-                                                            <span className="font-semibold text-slate-800">{f.name}</span>
-                                                            <span className="text-[10px] text-slate-400 mt-0.5">Client: {f.client_name} · PAN: {f.pan_no}</span>
-                                                        </button>
-                                                    ))}
+                                                    {firmSearchResults
+                                                        .filter(f => !assignForm.firms?.includes(f.id))
+                                                        .map(f => (
+                                                            <button
+                                                                key={f.id}
+                                                                type="button"
+                                                                onClick={() => {
+                                                                    setSelectedFirmsData(prev => {
+                                                                        if (!prev.find(x => x.id === f.id)) {
+                                                                            return [...prev, f];
+                                                                        }
+                                                                        return prev;
+                                                                    });
+                                                                    setAssignForm(prev => ({
+                                                                        ...prev,
+                                                                        firms: [...(prev.firms || []), f.id]
+                                                                    }));
+                                                                    setFirmSearchQuery('');
+                                                                    setFirmSearchResults([]);
+                                                                    setShowFirmDropdown(false);
+                                                                }}
+                                                                className="w-full text-left px-4 py-2.5 hover:bg-slate-50 border-b border-slate-100 last:border-0 text-xs flex flex-col"
+                                                            >
+                                                                <span className="font-semibold text-slate-800">{f.name}</span>
+                                                                <span className="text-[10px] text-slate-400 mt-0.5">Client: {f.client_name} · PAN: {f.pan_no}</span>
+                                                            </button>
+                                                        ))}
                                                 </div>
                                             )}
                                         </div>
-                                    )}
-                                </div>
+                                    </div>
+                                )}
+
+                                {assignForm.targetType === 'group' && (
+                                    <div className="space-y-2">
+                                        <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Select Firm Groups *</label>
+                                        {groupsLoading ? (
+                                            <div className="text-xs text-slate-400 p-2">Loading groups…</div>
+                                        ) : groupsList.length === 0 ? (
+                                            <div className="text-xs text-slate-500 p-2 border border-slate-200 rounded-xl bg-slate-50">No groups defined.</div>
+                                        ) : (
+                                            <div className="max-h-40 overflow-y-auto border border-slate-200 rounded-xl p-3 space-y-2 bg-white">
+                                                {groupsList.map(g => (
+                                                    <label key={g.group_id} className="flex items-center gap-2 text-xs text-slate-700 cursor-pointer">
+                                                        <input
+                                                            type="checkbox"
+                                                            checked={assignForm.groups?.includes(g.group_id)}
+                                                            onChange={(e) => {
+                                                                setAssignForm(prev => {
+                                                                    const current = prev.groups || [];
+                                                                    const updated = e.target.checked
+                                                                        ? [...current, g.group_id]
+                                                                        : current.filter(x => x !== g.group_id);
+                                                                    return { ...prev, groups: updated };
+                                                                });
+                                                            }}
+                                                            className="rounded border-slate-350 text-indigo-650 focus:ring-indigo-500 h-4 w-4"
+                                                        />
+                                                        {g.name} ({g.firm_count || g.count || 0} firms)
+                                                    </label>
+                                                ))}
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
 
                                 {/* Compliance Service Select */}
                                 <div className="space-y-1">
@@ -833,6 +1179,129 @@ const ComplianceServices = () => {
                                     />
                                 </div>
 
+                                {/* Assigned Staff */}
+                                <div className="space-y-1">
+                                    <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Assigned Staff *</label>
+                                    <select
+                                        value={assignForm.employee_username}
+                                        onChange={(e) => setAssignForm(prev => ({ ...prev, employee_username: e.target.value }))}
+                                        className="w-full px-3 py-2.5 text-xs text-slate-700 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none bg-white"
+                                    >
+                                        <option value="">Select staff member…</option>
+                                        {staffList.map(emp => (
+                                            <option key={emp.username} value={emp.username}>{emp.name}</option>
+                                        ))}
+                                    </select>
+                                </div>
+
+                                {/* Assigned CA */}
+                                <div className="space-y-1 relative">
+                                    <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Assigned CA (Optional)</label>
+                                    {selectedCa ? (
+                                        <div className="flex items-center justify-between border border-slate-200 rounded-xl p-3 bg-slate-50">
+                                            <div>
+                                                <p className="text-xs font-bold text-slate-800">{selectedCa.name}</p>
+                                                <p className="text-[10px] text-slate-400">Username: {selectedCa.username} · PAN: {selectedCa.pan_no || '—'}</p>
+                                            </div>
+                                            <button
+                                                type="button"
+                                                onClick={() => {
+                                                    setSelectedCa(null);
+                                                    setAssignForm(prev => ({ ...prev, ca_id: '' }));
+                                                }}
+                                                className="text-slate-400 hover:text-slate-600 p-1 rounded-md"
+                                            >
+                                                <FiX className="w-4 h-4" />
+                                            </button>
+                                        </div>
+                                    ) : (
+                                        <div className="relative">
+                                            <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4 pointer-events-none" />
+                                            <input
+                                                type="text"
+                                                value={caSearchQuery}
+                                                onChange={(e) => {
+                                                    setCaSearchQuery(e.target.value);
+                                                    setShowCaDropdown(true);
+                                                }}
+                                                onFocus={() => setShowCaDropdown(true)}
+                                                placeholder="Search CA (min 3 chars)…"
+                                                className="w-full pl-9 pr-3 py-2.5 text-xs text-slate-700 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none bg-white"
+                                            />
+                                            {showCaDropdown && caSearchResults.length > 0 && (
+                                                <div className="absolute z-50 left-0 right-0 top-full mt-1 bg-white border border-slate-200 rounded-xl shadow-lg max-h-56 overflow-y-auto">
+                                                    {caSearchResults.map(c => (
+                                                        <button
+                                                            key={c.username}
+                                                            type="button"
+                                                            onClick={() => {
+                                                                setSelectedCa(c);
+                                                                setAssignForm(prev => ({ ...prev, ca_id: c.username }));
+                                                                setCaSearchQuery('');
+                                                                setCaSearchResults([]);
+                                                                setShowCaDropdown(false);
+                                                            }}
+                                                            className="w-full text-left px-4 py-2.5 hover:bg-slate-50 border-b border-slate-100 last:border-0 text-xs flex flex-col"
+                                                        >
+                                                            <span className="font-semibold text-slate-800">{c.name}</span>
+                                                            <span className="text-[10px] text-slate-400 mt-0.5">Username: {c.username}</span>
+                                                        </button>
+                                                    ))}
+                                                </div>
+                                            )}
+                                        </div>
+                                    )}
+                                </div>
+
+                                {/* pay_from_month (for monthly frequency only) */}
+                                {services.find(s => s.service_id === assignForm.service_id)?.frequency?.toLowerCase() === 'monthly' && (
+                                    <div className="space-y-1">
+                                        <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Start Generating From Month (Optional)</label>
+                                        <select
+                                            value={assignForm.pay_from_month}
+                                            onChange={(e) => setAssignForm(prev => ({ ...prev, pay_from_month: e.target.value }))}
+                                            className="w-full px-3 py-2.5 text-xs text-slate-700 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none bg-white"
+                                        >
+                                            <option value="">Default (April)</option>
+                                            {['April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December', 'January', 'February', 'March'].map(m => (
+                                                <option key={m} value={m}>{m}</option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                )}
+
+                                {/* quarters (for quarterly frequency only) */}
+                                {services.find(s => s.service_id === assignForm.service_id)?.frequency?.toLowerCase() === 'quarterly' && (
+                                    <div className="space-y-2">
+                                        <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Select Quarters (Optional)</label>
+                                        <div className="flex gap-4">
+                                            {[1, 2, 3, 4].map(q => {
+                                                const checked = assignForm.quarters?.includes(q);
+                                                return (
+                                                    <label key={q} className="flex items-center gap-1.5 text-xs text-slate-700 cursor-pointer">
+                                                        <input
+                                                            type="checkbox"
+                                                            checked={checked}
+                                                            onChange={(e) => {
+                                                                setAssignForm(prev => {
+                                                                    const current = prev.quarters || [];
+                                                                    const updated = e.target.checked
+                                                                        ? [...current, q]
+                                                                        : current.filter(x => x !== q);
+                                                                    return { ...prev, quarters: updated };
+                                                                });
+                                                            }}
+                                                            className="rounded border-slate-350 text-indigo-600 focus:ring-indigo-500 h-4 w-4"
+                                                        />
+                                                        Q{q}
+                                                    </label>
+                                                );
+                                            })}
+                                        </div>
+                                        <p className="text-[10px] text-slate-400">Leave unselected to generate all quarters.</p>
+                                    </div>
+                                )}
+
                                 <div className="flex gap-2 pt-2">
                                     <button
                                         type="button"
@@ -843,7 +1312,15 @@ const ComplianceServices = () => {
                                     </button>
                                     <button
                                         type="submit"
-                                        disabled={submittingAssign || !assignForm.firm_id || !assignForm.service_id || !assignForm.custom_amount}
+                                        disabled={
+                                            submittingAssign ||
+                                            !assignForm.service_id ||
+                                            !assignForm.custom_amount ||
+                                            !assignForm.employee_username ||
+                                            (assignForm.targetType === 'single' && !assignForm.firm_id) ||
+                                            (assignForm.targetType === 'multiple' && (!assignForm.firms || assignForm.firms.length === 0)) ||
+                                            (assignForm.targetType === 'group' && (!assignForm.groups || assignForm.groups.length === 0))
+                                        }
                                         className="flex-1 py-2 text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl disabled:opacity-50 transition-colors flex items-center justify-center gap-1.5"
                                     >
                                         {submittingAssign && <span className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin"></span>}
@@ -890,6 +1367,17 @@ const ComplianceServices = () => {
                                         }`}>
                                         {selectedPeriod.status}
                                     </span>
+                                </div>
+                                <div className="flex flex-col gap-1.5 mt-3 bg-white/70 border border-indigo-100/50 rounded-xl p-3 text-slate-700 text-[11px] font-medium leading-relaxed">
+                                    {selectedPeriod.employee && (
+                                        <p><strong>Assigned Staff:</strong> {selectedPeriod.employee.name} {selectedPeriod.employee.mobile ? `(${selectedPeriod.employee.mobile})` : ''}</p>
+                                    )}
+                                    {selectedPeriod.ca && (
+                                        <p><strong>Assigned CA:</strong> {selectedPeriod.ca.name || selectedPeriod.ca.username}</p>
+                                    )}
+                                    {selectedPeriod.completed_by_user && (
+                                        <p><strong>Completed By:</strong> {selectedPeriod.completed_by_user.name} on {new Date(selectedPeriod.completed_at).toLocaleDateString('en-IN', { hour: '2-digit', minute: '2-digit' })}</p>
+                                    )}
                                 </div>
                             </div>
 
