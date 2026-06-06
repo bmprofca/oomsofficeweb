@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
     FiLayers, FiPlus, FiRefreshCw, FiCheckCircle, FiAlertCircle,
@@ -9,6 +9,7 @@ import axios from 'axios';
 import { toast } from 'react-hot-toast';
 import getHeaders from '../utils/get-headers';
 import API_BASE_URL from '../utils/api-controller';
+import AssignedStaffList from '../components/Modals/AssignedStaffList';
 
 const formatCurrency = (amount) => {
     const num = parseFloat(amount || 0);
@@ -63,6 +64,10 @@ const ComplianceTab = ({ clientUsername }) => {
 
     // Status Modal states
     const [selectedPeriod, setSelectedPeriod] = useState(null);
+    const [selectedStaffDetails, setSelectedStaffDetails] = useState(null);
+    const [staffListModal, setStaffListModal] = useState({ open: false, staffs: [], serviceName: '' });
+    const [staffSearchQuery, setStaffSearchQuery] = useState('');
+    const [showStaffDropdown, setShowStaffDropdown] = useState(false);
     const [statusForm, setStatusForm] = useState({ status: 'Pending', amount: '' });
 
     // Assign Form states
@@ -74,7 +79,7 @@ const ComplianceTab = ({ clientUsername }) => {
         service_id: '',
         financial_year: '2026-2027',
         custom_amount: '',
-        employee_username: '',
+        employee_usernames: [],
         ca_id: '',
         pay_from_month: '',
         quarters: []
@@ -87,6 +92,25 @@ const ComplianceTab = ({ clientUsername }) => {
     const [groupsList, setGroupsList] = useState([]);
     const [groupsLoading, setGroupsLoading] = useState(false);
 
+    // Helper to extract assigned staff list
+    const getAssignedStaffList = useCallback((assign) => {
+        if (!assign) return [];
+        if (assign.employees && Array.isArray(assign.employees)) {
+            return assign.employees;
+        }
+        if (assign.employee) {
+            return [assign.employee];
+        }
+        const usernamesStr = assign.employee_username || assign.employee_id || '';
+        if (usernamesStr) {
+            return String(usernamesStr).split(',').map(u => u.trim()).filter(Boolean).map(username => {
+                const matched = staffList.find(s => s.username === username);
+                return matched || { username, name: username };
+            });
+        }
+        return [];
+    }, [staffList]);
+
     // CA Search Autocomplete states
     const [caSearchQuery, setCaSearchQuery] = useState('');
     const [caSearchResults, setCaSearchResults] = useState([]);
@@ -94,6 +118,15 @@ const ComplianceTab = ({ clientUsername }) => {
     const [selectedCa, setSelectedCa] = useState(null);
     const [showCaDropdown, setShowCaDropdown] = useState(false);
     const caAbortRef = useRef(null);
+
+    const filteredStaffResults = useMemo(() => {
+        const query = staffSearchQuery.trim().toLowerCase();
+        if (!query) return [];
+        return staffList.filter(s => 
+            (s.name || '').toLowerCase().includes(query) || 
+            (s.username || '').toLowerCase().includes(query)
+        );
+    }, [staffList, staffSearchQuery]);
 
     // Fetch compliance details for client
     const fetchComplianceData = useCallback(async () => {
@@ -183,7 +216,9 @@ const ComplianceTab = ({ clientUsername }) => {
             }
             setStaffList(allStaff.map(item => ({
                 username: item.username,
-                name: item.profile?.name ?? item.username
+                name: item.profile?.name ?? item.username,
+                email: item.profile?.email ?? item.email ?? '—',
+                mobile: item.profile?.mobile ?? item.profile?.phone ?? item.phone ?? '—'
             })));
 
             // 4. Fetch Active Groups
@@ -279,7 +314,6 @@ const ComplianceTab = ({ clientUsername }) => {
         e.preventDefault();
         const isSingle = assignForm.targetType === 'single';
         const isMultiple = assignForm.targetType === 'multiple';
-        const isGroup = assignForm.targetType === 'group';
 
         if (isSingle && !assignForm.firm_id) {
             toast.error('Please select a client firm');
@@ -289,11 +323,7 @@ const ComplianceTab = ({ clientUsername }) => {
             toast.error('Please select at least one firm');
             return;
         }
-        if (isGroup && (!assignForm.groups || assignForm.groups.length === 0)) {
-            toast.error('Please select at least one firm group');
-            return;
-        }
-        if (!assignForm.service_id || !assignForm.custom_amount || !assignForm.employee_username) {
+        if (!assignForm.service_id || !assignForm.custom_amount || (!assignForm.employee_usernames || assignForm.employee_usernames.length === 0)) {
             toast.error('Please fill in all required fields (Service, Custom Fees, and Assigned Staff)');
             return;
         }
@@ -301,28 +331,29 @@ const ComplianceTab = ({ clientUsername }) => {
         setSubmittingAssign(true);
         try {
             const selectedService = globalServices.find(s => s.service_id === assignForm.service_id);
+            const isGstr1 = assignForm.service_id === 'GSTR-1' || (selectedService?.name && /gstr-1/i.test(selectedService.name));
+            const effectiveFreq = isGstr1 ? 'monthly' : selectedService?.frequency?.toLowerCase();
+
             const payload = {
                 service_id: assignForm.service_id,
                 financial_year: assignForm.financial_year,
-                employee_username: assignForm.employee_username,
-                employee_id: assignForm.employee_username,
+                employee_username: assignForm.employee_usernames,
+                employee_id: assignForm.employee_usernames,
                 custom_amount: parseFloat(assignForm.custom_amount)
             };
             if (isSingle) {
                 payload.firm_id = assignForm.firm_id;
             } else if (isMultiple) {
                 payload.firms = assignForm.firms;
-            } else if (isGroup) {
-                payload.groups = assignForm.groups;
             }
 
             if (assignForm.ca_id) {
                 payload.ca_id = assignForm.ca_id;
             }
-            if (selectedService?.frequency === 'monthly' && assignForm.pay_from_month) {
+            if (effectiveFreq === 'monthly' && assignForm.pay_from_month) {
                 payload.pay_from_month = assignForm.pay_from_month;
             }
-            if (selectedService?.frequency === 'quarterly' && assignForm.quarters?.length > 0) {
+            if (effectiveFreq === 'quarterly' && assignForm.quarters?.length > 0) {
                 payload.quarters = assignForm.quarters;
             }
 
@@ -341,7 +372,7 @@ const ComplianceTab = ({ clientUsername }) => {
                     service_id: '',
                     financial_year: '2026-2027',
                     custom_amount: '',
-                    employee_username: '',
+                    employee_usernames: [],
                     ca_id: '',
                     pay_from_month: '',
                     quarters: []
@@ -360,6 +391,16 @@ const ComplianceTab = ({ clientUsername }) => {
 
     const handleStatusSubmit = async (e) => {
         e.preventDefault();
+        const currentUsername = (localStorage.getItem('user_username') || '').toLowerCase().trim();
+        const assignedStaffs = getAssignedStaffList(selectedPeriod);
+        const assignedStaffUsernames = assignedStaffs.map(emp => (emp.username || '').toLowerCase().trim());
+
+        if (currentUsername && assignedStaffUsernames.length > 0 && !assignedStaffUsernames.includes(currentUsername)) {
+            const allowedNames = assignedStaffs.map(emp => emp.name || emp.username).join(', ');
+            toast.error(`Only the assigned staff members (${allowedNames}) are permitted to update the payment status.`);
+            return;
+        }
+
         if (!statusForm.amount || isNaN(parseFloat(statusForm.amount))) {
             toast.error('Please enter a valid amount');
             return;
@@ -499,7 +540,7 @@ const ComplianceTab = ({ clientUsername }) => {
                                     <tr className="bg-slate-50 border-b border-slate-100 text-slate-500 uppercase text-[9px] font-bold tracking-wider">
                                         <th className="px-4 py-3">Service Name</th>
                                         <th className="px-4 py-3">Firm</th>
-                                        <th className="px-4 py-3">Assigned Employee</th>
+                                        <th className="px-4 py-3">STAFFS</th>
                                         <th className="px-4 py-3">Assigned CA</th>
                                         <th className="px-4 py-3">Fees</th>
                                         <th className="px-4 py-3">Start Date</th>
@@ -537,7 +578,50 @@ const ComplianceTab = ({ clientUsername }) => {
                                                         {assign.firm_name}
                                                     </td>
                                                     <td className="px-4 py-3 text-slate-600 text-xs">
-                                                        {assign.employee?.name || '—'}
+                                                        {(() => {
+                                                            const assignedStaffs = getAssignedStaffList(assign);
+                                                            if (assignedStaffs.length === 0) return '—';
+                                                            
+                                                            const onAvatarClick = (e) => {
+                                                                e.stopPropagation();
+                                                                setStaffListModal({
+                                                                    open: true,
+                                                                    staffs: assignedStaffs.map(emp => ({
+                                                                        username: emp.username,
+                                                                        name: emp.name || emp.username,
+                                                                        email: emp.email || '—',
+                                                                        mobile: emp.mobile || emp.phone || '—'
+                                                                    })),
+                                                                    serviceName: assign.service_name || assign.service_id
+                                                                });
+                                                            };
+
+                                                            return (
+                                                                <div className="flex -space-x-2.5">
+                                                                    {assignedStaffs.slice(0, 2).map((emp, idx) => (
+                                                                        <button
+                                                                            key={emp.username || idx}
+                                                                            type="button"
+                                                                            onClick={onAvatarClick}
+                                                                            className="w-8 h-8 rounded-full bg-gradient-to-br from-indigo-500 to-indigo-600 border-2 border-white flex items-center justify-center text-[10px] font-bold text-white hover:opacity-90 hover:scale-105 hover:z-10 transition-all shadow-xs cursor-pointer"
+                                                                            title={`Click to view details of assigned staff`}
+                                                                        >
+                                                                            {(emp.name || emp.username || 'S').charAt(0).toUpperCase()}
+                                                                        </button>
+                                                                    ))}
+                                                                    {assignedStaffs.length > 2 && (
+                                                                        <button
+                                                                            type="button"
+                                                                            onClick={onAvatarClick}
+                                                                            className="w-8 h-8 rounded-full bg-gradient-to-br from-indigo-500 to-indigo-600 border-2 border-white flex items-center justify-center text-[10px] font-bold text-white hover:opacity-90 hover:scale-105 hover:z-10 transition-all shadow-xs cursor-pointer"
+                                                                            title="Click to view all assigned staff"
+                                                                        >
+                                                                            +{assignedStaffs.length - 2}
+                                                                        </button>
+                                                                    )}
+                                                                </div>
+                                                            );
+                                                        })()}
                                                     </td>
                                                     <td className="px-4 py-3 text-slate-600 text-xs">
                                                         {assign.ca?.name || '—'}
@@ -564,11 +648,24 @@ const ComplianceTab = ({ clientUsername }) => {
                                                                 <h6 className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
                                                                     Generated Schedules ({assign.financial_year})
                                                                 </h6>
-                                                                {assign.employee && (
-                                                                    <span className="text-[10px] text-slate-500 bg-white border border-slate-100 rounded-md px-2 py-1">
-                                                                        Staff: <strong>{assign.employee.name}</strong>
-                                                                    </span>
-                                                                )}
+                                                                {(() => {
+                                                                    const assignedStaffs = getAssignedStaffList(assign);
+                                                                    if (assignedStaffs.length === 0) return null;
+                                                                    return (
+                                                                        <div className="flex flex-wrap gap-1 items-center">
+                                                                            <span className="text-[10px] text-slate-400 uppercase tracking-wider mr-1">Staff:</span>
+                                                                            {assignedStaffs.map((emp, idx) => (
+                                                                                <button
+                                                                                    key={emp.username || idx}
+                                                                                    onClick={() => setSelectedStaffDetails(emp)}
+                                                                                    className="text-[10px] text-slate-655 bg-white border border-slate-200 rounded-md px-2 py-0.5 hover:border-indigo-300 hover:text-indigo-650 transition-colors font-medium shadow-2xs cursor-pointer"
+                                                                                >
+                                                                                    {emp.name}
+                                                                                </button>
+                                                                            ))}
+                                                                        </div>
+                                                                    );
+                                                                })()}
                                                             </div>
                                                             {schedulesLoading ? (
                                                                 <div className="flex items-center gap-2 text-xs text-slate-400 py-3">
@@ -648,7 +745,7 @@ const ComplianceTab = ({ clientUsername }) => {
                                         <th className="px-4 py-3">Period</th>
                                         <th className="px-4 py-3">Firm</th>
                                         <th className="px-4 py-3">Amount</th>
-                                        <th className="px-4 py-3">Assigned Employee</th>
+                                        <th className="px-4 py-3">STAFFS</th>
                                         <th className="px-4 py-3">Action</th>
                                     </tr>
                                 </thead>
@@ -677,7 +774,50 @@ const ComplianceTab = ({ clientUsername }) => {
                                                     ₹{formatCurrency(p.amount)}
                                                 </td>
                                                 <td className="px-4 py-3 text-slate-600 text-xs">
-                                                    {p.employee?.name || '—'}
+                                                    {(() => {
+                                                        const assignedStaffs = getAssignedStaffList(p);
+                                                        if (assignedStaffs.length === 0) return '—';
+                                                        
+                                                        const onAvatarClick = (e) => {
+                                                            e.stopPropagation();
+                                                            setStaffListModal({
+                                                                open: true,
+                                                                staffs: assignedStaffs.map(emp => ({
+                                                                    username: emp.username,
+                                                                    name: emp.name || emp.username,
+                                                                    email: emp.email || '—',
+                                                                    mobile: emp.mobile || emp.phone || '—'
+                                                                })),
+                                                                serviceName: p.service_name || p.service_id
+                                                            });
+                                                        };
+
+                                                        return (
+                                                            <div className="flex -space-x-2.5">
+                                                                {assignedStaffs.slice(0, 2).map((emp, idx) => (
+                                                                    <button
+                                                                        key={emp.username || idx}
+                                                                        type="button"
+                                                                        onClick={onAvatarClick}
+                                                                        className="w-8 h-8 rounded-full bg-gradient-to-br from-indigo-500 to-indigo-600 border-2 border-white flex items-center justify-center text-[10px] font-bold text-white hover:opacity-90 hover:scale-105 hover:z-10 transition-all shadow-xs cursor-pointer"
+                                                                        title={`Click to view details of assigned staff`}
+                                                                    >
+                                                                        {(emp.name || emp.username || 'S').charAt(0).toUpperCase()}
+                                                                    </button>
+                                                                ))}
+                                                                {assignedStaffs.length > 2 && (
+                                                                    <button
+                                                                        type="button"
+                                                                        onClick={onAvatarClick}
+                                                                        className="w-8 h-8 rounded-full bg-gradient-to-br from-indigo-500 to-indigo-600 border-2 border-white flex items-center justify-center text-[10px] font-bold text-white hover:opacity-90 hover:scale-105 hover:z-10 transition-all shadow-xs cursor-pointer"
+                                                                        title="Click to view all assigned staff"
+                                                                    >
+                                                                        +{assignedStaffs.length - 2}
+                                                                    </button>
+                                                                )}
+                                                            </div>
+                                                        );
+                                                    })()}
                                                 </td>
                                                 <td className="px-4 py-3">
                                                     <button
@@ -801,7 +941,7 @@ const ComplianceTab = ({ clientUsername }) => {
                                 <div className="space-y-1">
                                     <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Assign To *</label>
                                     <div className="flex gap-2">
-                                        {['single', 'multiple', 'group'].map((t) => (
+                                        {['single', 'multiple'].map((t) => (
                                             <button
                                                 key={t}
                                                 type="button"
@@ -811,7 +951,7 @@ const ComplianceTab = ({ clientUsername }) => {
                                                     : 'border-slate-200 text-slate-500 hover:bg-slate-50'
                                                     }`}
                                             >
-                                                {t === 'single' ? 'Single Firm' : t === 'multiple' ? 'Multiple Firms' : 'Firm Groups'}
+                                                {t === 'single' ? 'Single Firm' : 'Multiple Firms'}
                                             </button>
                                         ))}
                                     </div>
@@ -866,39 +1006,6 @@ const ComplianceTab = ({ clientUsername }) => {
                                     </div>
                                 )}
 
-                                {assignForm.targetType === 'group' && (
-                                    <div className="space-y-2">
-                                        <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Select Firm Groups *</label>
-                                        {groupsLoading ? (
-                                            <div className="text-xs text-slate-400 p-2">Loading groups…</div>
-                                        ) : groupsList.length === 0 ? (
-                                            <div className="text-xs text-slate-500 p-2 border border-slate-200 rounded-xl bg-slate-50">No groups defined.</div>
-                                        ) : (
-                                            <div className="max-h-40 overflow-y-auto border border-slate-200 rounded-xl p-3 space-y-2 bg-white">
-                                                {groupsList.map(g => (
-                                                    <label key={g.group_id} className="flex items-center gap-2 text-xs text-slate-700 cursor-pointer">
-                                                        <input
-                                                            type="checkbox"
-                                                            checked={assignForm.groups?.includes(g.group_id)}
-                                                            onChange={(e) => {
-                                                                setAssignForm(prev => {
-                                                                    const current = prev.groups || [];
-                                                                    const updated = e.target.checked
-                                                                        ? [...current, g.group_id]
-                                                                        : current.filter(x => x !== g.group_id);
-                                                                    return { ...prev, groups: updated };
-                                                                });
-                                                            }}
-                                                            className="rounded border-slate-350 text-indigo-650 focus:ring-indigo-500 h-4 w-4"
-                                                        />
-                                                        {g.name} ({g.firm_count || g.count || 0} firms)
-                                                    </label>
-                                                ))}
-                                            </div>
-                                        )}
-                                    </div>
-                                )}
-
                                 {/* Compliance Service Select */}
                                 <div className="space-y-1">
                                     <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Compliance Service *</label>
@@ -922,6 +1029,65 @@ const ComplianceTab = ({ clientUsername }) => {
                                         ))}
                                     </select>
                                 </div>
+
+                                {/* pay_from_month (for monthly frequency only) */}
+                                {(() => {
+                                    const selectedService = globalServices.find(s => s.service_id === assignForm.service_id);
+                                    const isGstr1 = assignForm.service_id === 'GSTR-1' || (selectedService?.name && /gstr-1/i.test(selectedService.name));
+                                    const effectiveFreq = isGstr1 ? 'monthly' : selectedService?.frequency?.toLowerCase();
+                                    return effectiveFreq === 'monthly' && (
+                                        <div className="space-y-1">
+                                            <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Start Generating From Month (Optional)</label>
+                                            <select
+                                                value={assignForm.pay_from_month}
+                                                onChange={(e) => setAssignForm(prev => ({ ...prev, pay_from_month: e.target.value }))}
+                                                className="w-full px-3 py-2.5 text-xs text-slate-700 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none bg-white"
+                                            >
+                                                <option value="">Default (April)</option>
+                                                {['April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December', 'January', 'February', 'March'].map(m => (
+                                                    <option key={m} value={m}>{m}</option>
+                                                ))}
+                                            </select>
+                                        </div>
+                                    );
+                                })()}
+
+                                {/* quarters (for quarterly frequency only) */}
+                                {(() => {
+                                    const selectedService = globalServices.find(s => s.service_id === assignForm.service_id);
+                                    const isGstr1 = assignForm.service_id === 'GSTR-1' || (selectedService?.name && /gstr-1/i.test(selectedService.name));
+                                    const effectiveFreq = isGstr1 ? 'monthly' : selectedService?.frequency?.toLowerCase();
+                                    return effectiveFreq === 'quarterly' && (
+                                        <div className="space-y-2">
+                                            <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Select Quarters (Optional)</label>
+                                            <div className="flex gap-4">
+                                                {[1, 2, 3, 4].map(q => {
+                                                    const checked = assignForm.quarters?.includes(q);
+                                                    return (
+                                                        <label key={q} className="flex items-center gap-1.5 text-xs text-slate-700 cursor-pointer">
+                                                            <input
+                                                                type="checkbox"
+                                                                checked={checked}
+                                                                onChange={(e) => {
+                                                                    setAssignForm(prev => {
+                                                                        const current = prev.quarters || [];
+                                                                        const updated = e.target.checked
+                                                                            ? [...current, q]
+                                                                            : current.filter(x => x !== q);
+                                                                        return { ...prev, quarters: updated };
+                                                                    });
+                                                                }}
+                                                                className="rounded border-slate-350 text-indigo-600 focus:ring-indigo-500 h-4 w-4"
+                                                            />
+                                                            Q{q}
+                                                        </label>
+                                                    );
+                                                })}
+                                            </div>
+                                            <p className="text-[10px] text-slate-400">Leave unselected to generate all quarters.</p>
+                                        </div>
+                                    );
+                                })()}
 
                                 {/* Financial Year */}
                                 <div className="space-y-1">
@@ -951,20 +1117,81 @@ const ComplianceTab = ({ clientUsername }) => {
                                     />
                                 </div>
 
-                                {/* Assigned Staff */}
-                                <div className="space-y-1">
+                                {/* Assigned Staff Selector */}
+                                <div className="space-y-1 relative">
                                     <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Assigned Staff *</label>
-                                    <select
-                                        value={assignForm.employee_username}
-                                        onChange={(e) => setAssignForm(prev => ({ ...prev, employee_username: e.target.value }))}
-                                        className="w-full px-3 py-2.5 text-xs text-slate-700 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none bg-white"
-                                        required
-                                    >
-                                        <option value="">Select staff member…</option>
-                                        {staffList.map(emp => (
-                                            <option key={emp.username} value={emp.username}>{emp.name}</option>
-                                        ))}
-                                    </select>
+                                    
+                                    {/* Selected Staff Tags */}
+                                    {assignForm.employee_usernames?.length > 0 && (
+                                        <div className="flex flex-wrap gap-2 mb-2 p-2 border border-slate-200 rounded-xl bg-slate-50">
+                                            {assignForm.employee_usernames.map(username => {
+                                                const staffInfo = staffList.find(s => s.username === username) || { username, name: username };
+                                                return (
+                                                    <span key={username} className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-white border border-slate-200 rounded-lg text-xs font-medium text-slate-705 shadow-xs">
+                                                        <span>{staffInfo.name}</span>
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => {
+                                                                setAssignForm(prev => ({
+                                                                    ...prev,
+                                                                    employee_usernames: prev.employee_usernames.filter(x => x !== username)
+                                                                }));
+                                                            }}
+                                                            className="text-slate-400 hover:text-slate-655"
+                                                        >
+                                                            <FiX className="w-3.5 h-3.5" />
+                                                        </button>
+                                                    </span>
+                                                );
+                                            })}
+                                        </div>
+                                    )}
+
+                                    {/* Search Input and Suggestions */}
+                                    <div className="relative">
+                                        <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4 pointer-events-none" />
+                                        <input
+                                            type="text"
+                                            value={staffSearchQuery}
+                                            onChange={(e) => {
+                                                setStaffSearchQuery(e.target.value);
+                                                setShowStaffDropdown(true);
+                                            }}
+                                            onFocus={() => setShowStaffDropdown(true)}
+                                            onBlur={() => setTimeout(() => setShowStaffDropdown(false), 200)}
+                                            placeholder="Search and add staff member..."
+                                            className="w-full pl-9 pr-3 py-2.5 text-xs text-slate-700 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none bg-white"
+                                        />
+                                        {showStaffDropdown && filteredStaffResults.length > 0 && (
+                                            <div className="absolute z-50 left-0 right-0 top-full mt-1 bg-white border border-slate-200 rounded-xl shadow-lg max-h-56 overflow-y-auto">
+                                                {filteredStaffResults
+                                                    .filter(s => !assignForm.employee_usernames?.includes(s.username))
+                                                    .map(s => (
+                                                        <button
+                                                            key={s.username}
+                                                            type="button"
+                                                            onClick={() => {
+                                                                setAssignForm(prev => ({
+                                                                    ...prev,
+                                                                    employee_usernames: [...(prev.employee_usernames || []), s.username]
+                                                                }));
+                                                                setStaffSearchQuery('');
+                                                                setShowStaffDropdown(false);
+                                                            }}
+                                                            className="w-full text-left px-4 py-2.5 hover:bg-slate-50 border-b border-slate-100 last:border-0 text-xs flex flex-col"
+                                                        >
+                                                            <span className="font-semibold text-slate-800">{s.name}</span>
+                                                            <span className="text-[10px] text-slate-400 mt-0.5">Username: {s.username}</span>
+                                                        </button>
+                                                    ))}
+                                            </div>
+                                        )}
+                                        {showStaffDropdown && staffSearchQuery.trim().length >= 1 && filteredStaffResults.length === 0 && (
+                                            <div className="absolute z-50 left-0 right-0 top-full mt-1 bg-white border border-slate-200 rounded-xl shadow-lg p-3 text-center text-xs text-slate-400">
+                                                No staff matching query found
+                                            </div>
+                                        )}
+                                    </div>
                                 </div>
 
                                 {/* Assigned CA */}
@@ -982,7 +1209,7 @@ const ComplianceTab = ({ clientUsername }) => {
                                                     setSelectedCa(null);
                                                     setAssignForm(prev => ({ ...prev, ca_id: '' }));
                                                 }}
-                                                className="text-slate-400 hover:text-slate-600 p-1 rounded-md"
+                                                className="text-slate-400 hover:text-slate-650 p-1 rounded-md"
                                             >
                                                 <FiX className="w-4 h-4" />
                                             </button>
@@ -1026,55 +1253,6 @@ const ComplianceTab = ({ clientUsername }) => {
                                     )}
                                 </div>
 
-                                {/* pay_from_month (for monthly frequency only) */}
-                                {globalServices.find(s => s.service_id === assignForm.service_id)?.frequency?.toLowerCase() === 'monthly' && (
-                                    <div className="space-y-1">
-                                        <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Start Generating From Month (Optional)</label>
-                                        <select
-                                            value={assignForm.pay_from_month}
-                                            onChange={(e) => setAssignForm(prev => ({ ...prev, pay_from_month: e.target.value }))}
-                                            className="w-full px-3 py-2.5 text-xs text-slate-700 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none bg-white"
-                                        >
-                                            <option value="">Default (April)</option>
-                                            {['April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December', 'January', 'February', 'March'].map(m => (
-                                                <option key={m} value={m}>{m}</option>
-                                            ))}
-                                        </select>
-                                    </div>
-                                )}
-
-                                {/* quarters (for quarterly frequency only) */}
-                                {globalServices.find(s => s.service_id === assignForm.service_id)?.frequency?.toLowerCase() === 'quarterly' && (
-                                    <div className="space-y-2">
-                                        <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Select Quarters (Optional)</label>
-                                        <div className="flex gap-4">
-                                            {[1, 2, 3, 4].map(q => {
-                                                const checked = assignForm.quarters?.includes(q);
-                                                return (
-                                                    <label key={q} className="flex items-center gap-1.5 text-xs text-slate-700 cursor-pointer">
-                                                        <input
-                                                            type="checkbox"
-                                                            checked={checked}
-                                                            onChange={(e) => {
-                                                                setAssignForm(prev => {
-                                                                    const current = prev.quarters || [];
-                                                                    const updated = e.target.checked
-                                                                        ? [...current, q]
-                                                                        : current.filter(x => x !== q);
-                                                                    return { ...prev, quarters: updated };
-                                                                });
-                                                            }}
-                                                            className="rounded border-slate-350 text-indigo-600 focus:ring-indigo-500 h-4 w-4"
-                                                        />
-                                                        Q{q}
-                                                    </label>
-                                                );
-                                            })}
-                                        </div>
-                                        <p className="text-[10px] text-slate-400">Leave unselected to generate all quarters.</p>
-                                    </div>
-                                )}
-
                                 <div className="flex gap-2 pt-2 border-t border-slate-100">
                                     <button
                                         type="button"
@@ -1089,10 +1267,9 @@ const ComplianceTab = ({ clientUsername }) => {
                                             submittingAssign ||
                                             !assignForm.service_id ||
                                             !assignForm.custom_amount ||
-                                            !assignForm.employee_username ||
+                                            (!assignForm.employee_usernames || assignForm.employee_usernames.length === 0) ||
                                             (assignForm.targetType === 'single' && !assignForm.firm_id) ||
-                                            (assignForm.targetType === 'multiple' && (!assignForm.firms || assignForm.firms.length === 0)) ||
-                                            (assignForm.targetType === 'group' && (!assignForm.groups || assignForm.groups.length === 0))
+                                            (assignForm.targetType === 'multiple' && (!assignForm.firms || assignForm.firms.length === 0))
                                         }
                                         className="flex-1 py-2.5 text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl disabled:opacity-50 transition-colors flex items-center justify-center gap-1.5"
                                     >
@@ -1108,120 +1285,219 @@ const ComplianceTab = ({ clientUsername }) => {
 
             {/* Modal: Update Schedule Period Status */}
             <AnimatePresence>
-                {showStatusModal && selectedPeriod && (
-                    <div className="fixed inset-0 bg-black/60 flex items-start justify-center p-4 z-[200] backdrop-blur-xs overflow-y-auto">
+                {showStatusModal && selectedPeriod && (() => {
+                    const currentUsername = (localStorage.getItem('user_username') || '').toLowerCase().trim();
+                    const assignedStaffs = getAssignedStaffList(selectedPeriod);
+                    const assignedStaffUsernames = assignedStaffs.map(emp => (emp.username || '').toLowerCase().trim());
+                    const isUpdatePermitted = !currentUsername || assignedStaffUsernames.length === 0 || assignedStaffUsernames.includes(currentUsername);
+
+                    return (
+                        <div className="fixed inset-0 bg-black/60 flex items-start justify-center p-4 z-[200] backdrop-blur-xs overflow-y-auto">
+                            <motion.div
+                                initial={{ opacity: 0, scale: 0.97, y: 20 }}
+                                animate={{ opacity: 1, scale: 1, y: 0 }}
+                                exit={{ opacity: 0, scale: 0.97, y: 20 }}
+                                className="bg-white rounded-2xl shadow-xl w-full max-w-sm my-16 overflow-hidden flex flex-col"
+                                onClick={(e) => e.stopPropagation()}
+                            >
+                                <div className="flex items-center justify-between px-5 py-4 bg-gradient-to-r from-indigo-600 to-violet-600 text-white">
+                                    <div className="flex items-center gap-2">
+                                        <FiCalendar className="w-5 h-5" />
+                                        <h3 className="text-sm font-bold">Update Period Status</h3>
+                                    </div>
+                                    <button
+                                        onClick={() => setShowStatusModal(false)}
+                                        className="p-1 hover:bg-white/10 rounded-lg text-white/80 hover:text-white"
+                                    >
+                                        <FiX className="w-5 h-5" />
+                                    </button>
+                                </div>
+
+                                <div className="bg-indigo-50 border-b border-indigo-100 p-4">
+                                    <div className="flex justify-between items-start">
+                                        <div>
+                                            <p className="text-[10px] uppercase tracking-wider text-indigo-500 font-bold">Current Period</p>
+                                            <h4 className="text-xs font-bold text-slate-800 mt-0.5">{selectedPeriod.period_name}</h4>
+                                        </div>
+                                        <span className={`px-2 py-0.5 rounded text-[9px] font-bold border uppercase tracking-wider ${STATUS_BADGES[selectedPeriod.status] || 'bg-slate-50'}`}>
+                                            {selectedPeriod.status}
+                                        </span>
+                                    </div>
+                                    <div className="flex flex-col gap-1.5 mt-3 bg-white/70 border border-indigo-100/50 rounded-xl p-3 text-slate-700 text-[11px] font-medium leading-relaxed">
+                                        {assignedStaffs.length > 0 && (
+                                            <p className="flex flex-wrap items-center gap-1">
+                                                <strong>Assigned Staff:</strong>
+                                                {assignedStaffs.map((emp, idx) => (
+                                                    <span key={emp.username || idx} className="inline-flex items-center gap-0.5">
+                                                        <span 
+                                                            onClick={() => setSelectedStaffDetails(emp)}
+                                                            className="text-indigo-600 hover:underline cursor-pointer font-bold"
+                                                        >
+                                                            {emp.name}
+                                                        </span>
+                                                        {emp.mobile ? <span className="text-slate-400">({emp.mobile})</span> : ''}
+                                                        {idx < assignedStaffs.length - 1 ? <span className="text-slate-300">,</span> : ''}
+                                                    </span>
+                                                ))}
+                                            </p>
+                                        )}
+                                        {selectedPeriod.ca && (
+                                            <p><strong>Assigned CA:</strong> {selectedPeriod.ca.name || selectedPeriod.ca.username}</p>
+                                        )}
+                                        {selectedPeriod.completed_by_user && (
+                                            <p><strong>Completed By:</strong> {selectedPeriod.completed_by_user.name} on {new Date(selectedPeriod.completed_at).toLocaleDateString('en-IN', { hour: '2-digit', minute: '2-digit' })}</p>
+                                        )}
+                                    </div>
+                                </div>
+
+                                <form onSubmit={handleStatusSubmit} className="p-5 space-y-4">
+                                    {!isUpdatePermitted && (
+                                        <div className="flex gap-2.5 bg-rose-50 border border-rose-150 rounded-xl p-3 text-rose-800 animate-pulse">
+                                            <FiAlertCircle className="w-4 h-4 shrink-0 mt-0.5 text-rose-600" />
+                                            <p className="text-[10px] leading-relaxed font-semibold">
+                                                Restricted: Only the assigned staff member ({assignedStaffs.map(emp => emp.name || emp.username).join(', ')}) can update the payment/status of this period.
+                                            </p>
+                                        </div>
+                                    )}
+
+                                    {/* Select Status */}
+                                    <div className="space-y-1">
+                                        <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Select Status *</label>
+                                        <select
+                                            value={statusForm.status}
+                                            disabled={!isUpdatePermitted}
+                                            onChange={(e) => setStatusForm(prev => ({ ...prev, status: e.target.value }))}
+                                            className="w-full px-3 py-2.5 text-xs text-slate-700 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none bg-white disabled:opacity-60 disabled:cursor-not-allowed"
+                                        >
+                                            <option value="Pending">Pending</option>
+                                            <option value="N/A">N/A</option>
+                                            <option value="Sale">Sale (Posts to Client Ledger)</option>
+                                            <option value="Outsource">Outsource</option>
+                                        </select>
+                                    </div>
+
+                                    {/* Amount Field */}
+                                    <div className="space-y-1">
+                                        <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Fees Amount (₹) *</label>
+                                        <input
+                                            type="number"
+                                            step="0.01"
+                                            value={statusForm.amount}
+                                            disabled={!isUpdatePermitted}
+                                            onChange={(e) => setStatusForm(prev => ({ ...prev, amount: e.target.value }))}
+                                            placeholder="0.00"
+                                            className="w-full px-3 py-2.5 text-xs text-slate-700 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none bg-white disabled:opacity-60 disabled:cursor-not-allowed"
+                                        />
+                                    </div>
+
+                                    {/* Ledger notice info */}
+                                    {statusForm.status === 'Sale' && (
+                                        <div className="flex gap-2.5 bg-emerald-50 border border-emerald-150 rounded-xl p-3 text-emerald-800">
+                                            <FiCheckCircle className="w-4.5 h-4.5 shrink-0 mt-0.5 text-emerald-600" />
+                                            <p className="text-[10.5px] leading-relaxed font-medium">
+                                                Updating status to <strong>Sale</strong> will automatically generate a sales invoice and post it to this client firm's ledger.
+                                            </p>
+                                        </div>
+                                    )}
+                                    {selectedPeriod.status === 'Sale' && statusForm.status !== 'Sale' && (
+                                        <div className="flex gap-2.5 bg-amber-50 border border-amber-150 rounded-xl p-3 text-amber-800">
+                                            <FiAlertCircle className="w-4.5 h-4.5 shrink-0 mt-0.5 text-amber-650" />
+                                            <p className="text-[10.5px] leading-relaxed font-medium">
+                                                Changing status away from <strong>Sale</strong> will automatically delete and reverse the posted ledger entry for this period.
+                                            </p>
+                                        </div>
+                                    )}
+
+                                    <div className="flex gap-2 pt-2">
+                                        <button
+                                            type="button"
+                                            onClick={() => setShowStatusModal(false)}
+                                            className="flex-1 py-2 text-xs font-semibold text-slate-600 border border-slate-250 rounded-xl hover:bg-slate-50 transition-colors"
+                                        >
+                                            Cancel
+                                        </button>
+                                        <button
+                                            type="submit"
+                                            disabled={submittingStatus || !statusForm.amount || !isUpdatePermitted}
+                                            className="flex-1 py-2 text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl disabled:opacity-50 transition-colors flex items-center justify-center gap-1.5"
+                                        >
+                                            {submittingStatus && <span className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin"></span>}
+                                            Update Period
+                                        </button>
+                                    </div>
+                                </form>
+                            </motion.div>
+                        </div>
+                    );
+                })()}
+            </AnimatePresence>
+
+            {/* Modal: Staff Details Popup */}
+            <AnimatePresence>
+                {selectedStaffDetails && (
+                    <div className="fixed inset-0 bg-black/60 flex items-center justify-center p-4 z-[210] backdrop-blur-xs">
                         <motion.div
-                            initial={{ opacity: 0, scale: 0.97, y: 20 }}
-                            animate={{ opacity: 1, scale: 1, y: 0 }}
-                            exit={{ opacity: 0, scale: 0.97, y: 20 }}
-                            className="bg-white rounded-2xl shadow-xl w-full max-w-sm my-16 overflow-hidden flex flex-col"
+                            initial={{ opacity: 0, scale: 0.95 }}
+                            animate={{ opacity: 1, scale: 1 }}
+                            exit={{ opacity: 0, scale: 0.95 }}
+                            className="bg-white rounded-2xl shadow-xl w-full max-w-sm overflow-hidden flex flex-col border border-slate-100"
                             onClick={(e) => e.stopPropagation()}
                         >
-                            <div className="flex items-center justify-between px-5 py-4 bg-gradient-to-r from-indigo-600 to-violet-600 text-white">
+                            <div className="flex items-center justify-between px-5 py-4 bg-gradient-to-r from-blue-600 to-indigo-600 text-white">
                                 <div className="flex items-center gap-2">
-                                    <FiCalendar className="w-5 h-5" />
-                                    <h3 className="text-sm font-bold">Update Period Status</h3>
+                                    <FiUser className="w-5 h-5" />
+                                    <h3 className="text-sm font-bold">Staff Details</h3>
                                 </div>
                                 <button
-                                    onClick={() => setShowStatusModal(false)}
+                                    onClick={() => setSelectedStaffDetails(null)}
                                     className="p-1 hover:bg-white/10 rounded-lg text-white/80 hover:text-white"
                                 >
                                     <FiX className="w-5 h-5" />
                                 </button>
                             </div>
-
-                            <div className="bg-indigo-50 border-b border-indigo-100 p-4">
-                                <div className="flex justify-between items-start">
-                                    <div>
-                                        <p className="text-[10px] uppercase tracking-wider text-indigo-500 font-bold">Current Period</p>
-                                        <h4 className="text-xs font-bold text-slate-800 mt-0.5">{selectedPeriod.period_name}</h4>
-                                    </div>
-                                    <span className={`px-2 py-0.5 rounded text-[9px] font-bold border uppercase tracking-wider ${STATUS_BADGES[selectedPeriod.status] || 'bg-slate-50'}`}>
-                                        {selectedPeriod.status}
-                                    </span>
+                            <div className="p-6 flex flex-col items-center">
+                                <div className="w-16 h-16 bg-indigo-100 text-indigo-700 rounded-full flex items-center justify-center text-xl font-bold mb-4 shadow-inner border border-indigo-200">
+                                    {selectedStaffDetails.name ? selectedStaffDetails.name.charAt(0).toUpperCase() : '?'}
                                 </div>
-                                <div className="flex flex-col gap-1.5 mt-3 bg-white/70 border border-indigo-100/50 rounded-xl p-3 text-slate-700 text-[11px] font-medium leading-relaxed">
-                                    {selectedPeriod.employee && (
-                                        <p><strong>Assigned Staff:</strong> {selectedPeriod.employee.name} {selectedPeriod.employee.mobile ? `(${selectedPeriod.employee.mobile})` : ''}</p>
-                                    )}
-                                    {selectedPeriod.ca && (
-                                        <p><strong>Assigned CA:</strong> {selectedPeriod.ca.name || selectedPeriod.ca.username}</p>
-                                    )}
-                                    {selectedPeriod.completed_by_user && (
-                                        <p><strong>Completed By:</strong> {selectedPeriod.completed_by_user.name} on {new Date(selectedPeriod.completed_at).toLocaleDateString('en-IN', { hour: '2-digit', minute: '2-digit' })}</p>
-                                    )}
+                                <h4 className="text-sm font-bold text-slate-800 mb-1">{selectedStaffDetails.name || 'N/A'}</h4>
+                                <p className="text-xs text-slate-400 font-mono mb-4">@{selectedStaffDetails.username || 'N/A'}</p>
+                                
+                                <div className="w-full space-y-3 bg-slate-50 p-4 rounded-xl border border-slate-100 text-xs text-slate-700">
+                                    <div className="flex justify-between items-center py-1 border-b border-slate-200/50">
+                                        <span className="font-semibold text-slate-500 uppercase tracking-wider text-[10px]">Mobile</span>
+                                        <span className="font-bold text-slate-800">{selectedStaffDetails.mobile || selectedStaffDetails.phone || 'N/A'}</span>
+                                    </div>
+                                    <div className="flex justify-between items-center py-1 border-b border-slate-200/50">
+                                        <span className="font-semibold text-slate-500 uppercase tracking-wider text-[10px]">Email</span>
+                                        <span className="font-bold text-slate-850 break-all">{selectedStaffDetails.email || 'N/A'}</span>
+                                    </div>
+                                    <div className="flex justify-between items-center py-1">
+                                        <span className="font-semibold text-slate-500 uppercase tracking-wider text-[10px]">Role</span>
+                                        <span className="font-bold text-indigo-650 uppercase text-[10px] tracking-wide bg-indigo-50 border border-indigo-100 px-1.5 py-0.5 rounded">
+                                            {selectedStaffDetails.role || 'Staff'}
+                                        </span>
+                                    </div>
                                 </div>
                             </div>
-
-                            <form onSubmit={handleStatusSubmit} className="p-5 space-y-4">
-                                {/* Select Status */}
-                                <div className="space-y-1">
-                                    <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Select Status *</label>
-                                    <select
-                                        value={statusForm.status}
-                                        onChange={(e) => setStatusForm(prev => ({ ...prev, status: e.target.value }))}
-                                        className="w-full px-3 py-2.5 text-xs text-slate-700 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none bg-white"
-                                    >
-                                        <option value="Pending">Pending</option>
-                                        <option value="N/A">N/A</option>
-                                        <option value="Sale">Sale (Posts to Client Ledger)</option>
-                                        <option value="Outsource">Outsource</option>
-                                    </select>
-                                </div>
-
-                                {/* Amount Field */}
-                                <div className="space-y-1">
-                                    <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Fees Amount (₹) *</label>
-                                    <input
-                                        type="number"
-                                        step="0.01"
-                                        value={statusForm.amount}
-                                        onChange={(e) => setStatusForm(prev => ({ ...prev, amount: e.target.value }))}
-                                        placeholder="0.00"
-                                        className="w-full px-3 py-2.5 text-xs text-slate-700 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none bg-white"
-                                    />
-                                </div>
-
-                                {/* Ledger notice info */}
-                                {statusForm.status === 'Sale' && (
-                                    <div className="flex gap-2.5 bg-emerald-50 border border-emerald-150 rounded-xl p-3 text-emerald-800">
-                                        <FiCheckCircle className="w-4.5 h-4.5 shrink-0 mt-0.5 text-emerald-600" />
-                                        <p className="text-[10.5px] leading-relaxed font-medium">
-                                            Updating status to <strong>Sale</strong> will automatically generate a sales invoice and post it to this client firm's ledger.
-                                        </p>
-                                    </div>
-                                )}
-                                {selectedPeriod.status === 'Sale' && statusForm.status !== 'Sale' && (
-                                    <div className="flex gap-2.5 bg-amber-50 border border-amber-150 rounded-xl p-3 text-amber-800">
-                                        <FiAlertCircle className="w-4.5 h-4.5 shrink-0 mt-0.5 text-amber-650" />
-                                        <p className="text-[10.5px] leading-relaxed font-medium">
-                                            Changing status away from <strong>Sale</strong> will automatically delete and reverse the posted ledger entry for this period.
-                                        </p>
-                                    </div>
-                                )}
-
-                                <div className="flex gap-2 pt-2">
-                                    <button
-                                        type="button"
-                                        onClick={() => setShowStatusModal(false)}
-                                        className="flex-1 py-2 text-xs font-semibold text-slate-600 border border-slate-250 rounded-xl hover:bg-slate-50 transition-colors"
-                                    >
-                                        Cancel
-                                    </button>
-                                    <button
-                                        type="submit"
-                                        disabled={submittingStatus || !statusForm.amount}
-                                        className="flex-1 py-2 text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl disabled:opacity-50 transition-colors flex items-center justify-center gap-1.5"
-                                    >
-                                        {submittingStatus && <span className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin"></span>}
-                                        Update Period
-                                    </button>
-                                </div>
-                            </form>
+                            <div className="px-5 py-3.5 bg-slate-50 border-t border-slate-100 flex justify-end">
+                                <button
+                                    onClick={() => setSelectedStaffDetails(null)}
+                                    className="px-4 py-2 text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-705 rounded-xl shadow-xs transition-colors"
+                                >
+                                    Close
+                                </button>
+                            </div>
                         </motion.div>
                     </div>
                 )}
             </AnimatePresence>
+
+            <AssignedStaffList
+                isOpen={staffListModal.open}
+                onClose={() => setStaffListModal({ open: false, staffs: [], serviceName: '' })}
+                users={staffListModal.staffs}
+                taskName={staffListModal.serviceName}
+            />
         </motion.div>
     );
 };

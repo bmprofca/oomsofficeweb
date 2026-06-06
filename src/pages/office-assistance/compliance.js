@@ -1,8 +1,9 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import {
     FiSearch, FiPlus, FiRefreshCw, FiCheckCircle, FiAlertCircle,
     FiLayers, FiChevronRight, FiChevronDown, FiDollarSign, FiCheck,
-    FiX, FiEye, FiInfo, FiBookOpen, FiBriefcase, FiCalendar, FiArrowRight
+    FiX, FiEye, FiInfo, FiBookOpen, FiBriefcase, FiCalendar, FiArrowRight,
+    FiUser
 } from 'react-icons/fi';
 import { motion, AnimatePresence } from 'framer-motion';
 import axios from 'axios';
@@ -10,6 +11,7 @@ import { toast } from 'react-hot-toast';
 import { Header, Sidebar } from '../../components/header';
 import getHeaders from '../../utils/get-headers';
 import API_BASE_URL from '../../utils/api-controller';
+import AssignedStaffList from '../../components/Modals/AssignedStaffList';
 
 /* ─── Helpers ────────────────────────────────────────────────────── */
 const formatCurrency = (amount) => {
@@ -75,6 +77,10 @@ const ComplianceServices = () => {
 
     // Status Modal target period
     const [selectedPeriod, setSelectedPeriod] = useState(null); // { schedule_id, period_name, status, amount }
+    const [selectedStaffDetails, setSelectedStaffDetails] = useState(null);
+    const [staffListModal, setStaffListModal] = useState({ open: false, staffs: [], serviceName: '' });
+    const [staffSearchQuery, setStaffSearchQuery] = useState('');
+    const [showStaffDropdown, setShowStaffDropdown] = useState(false);
     const [statusForm, setStatusForm] = useState({ status: 'Pending', amount: '' });
 
     // Assign Form states
@@ -86,7 +92,7 @@ const ComplianceServices = () => {
         service_id: '',
         financial_year: '2026-2027',
         custom_amount: '',
-        employee_username: '',
+        employee_usernames: [],
         ca_id: '',
         pay_from_month: '',
         quarters: []
@@ -95,12 +101,40 @@ const ComplianceServices = () => {
     // Staff and CA states for assigning compliance
     const [staffList, setStaffList] = useState([]);
     const [staffLoading, setStaffLoading] = useState(false);
+
+    // Helper to extract assigned staff list
+    const getAssignedStaffList = useCallback((assign) => {
+        if (!assign) return [];
+        if (assign.employees && Array.isArray(assign.employees)) {
+            return assign.employees;
+        }
+        if (assign.employee) {
+            return [assign.employee];
+        }
+        const usernamesStr = assign.employee_username || assign.employee_id || '';
+        if (usernamesStr) {
+            return String(usernamesStr).split(',').map(u => u.trim()).filter(Boolean).map(username => {
+                const matched = staffList.find(s => s.username === username);
+                return matched || { username, name: username };
+            });
+        }
+        return [];
+    }, [staffList]);
     const [caSearchQuery, setCaSearchQuery] = useState('');
     const [caSearchResults, setCaSearchResults] = useState([]);
     const [caSearchLoading, setCaSearchLoading] = useState(false);
     const [selectedCa, setSelectedCa] = useState(null);
     const [showCaDropdown, setShowCaDropdown] = useState(false);
     const caAbortRef = useRef(null);
+
+    const filteredStaffResults = useMemo(() => {
+        const query = staffSearchQuery.trim().toLowerCase();
+        if (!query) return [];
+        return staffList.filter(s => 
+            (s.name || '').toLowerCase().includes(query) || 
+            (s.username || '').toLowerCase().includes(query)
+        );
+    }, [staffList, staffSearchQuery]);
 
     // Searchable Firm Dropdown states
     const [firmSearchQuery, setFirmSearchQuery] = useState('');
@@ -110,6 +144,7 @@ const ComplianceServices = () => {
     const [selectedFirmsData, setSelectedFirmsData] = useState([]);
     const [showFirmDropdown, setShowFirmDropdown] = useState(false);
     const [selectedFY, setSelectedFY] = useState('2026-2027');
+    const [selectedServiceFilter, setSelectedServiceFilter] = useState('');
     const firmAbortRef = useRef(null);
 
     // Firm groups states
@@ -134,17 +169,24 @@ const ComplianceServices = () => {
 
     // Filter assignments inline
     const filteredAssignments = assignments.filter(assign => {
-        if (selectedFY === '') return true;
-        const normalizeFY = (fy) => {
-            if (!fy) return '';
-            let clean = fy.toLowerCase().replace(/fy/g, '').trim().replace(/\s+/g, '');
-            const parts = clean.split('-');
-            if (parts.length !== 2) return fy;
-            let start = parts[0].length === 2 ? '20' + parts[0] : parts[0];
-            let end = parts[1].length === 2 ? '20' + parts[1] : parts[1];
-            return start.length === 4 && end.length === 4 ? `${start}-${end}` : fy;
-        };
-        return normalizeFY(assign.financial_year) === normalizeFY(selectedFY);
+        const fyMatch = selectedFY === '' || (() => {
+            const normalizeFY = (fy) => {
+                if (!fy) return '';
+                let clean = fy.toLowerCase().replace(/fy/g, '').trim().replace(/\s+/g, '');
+                const parts = clean.split('-');
+                if (parts.length !== 2) return fy;
+                let start = parts[0].length === 2 ? '20' + parts[0] : parts[0];
+                let end = parts[1].length === 2 ? '20' + parts[1] : parts[1];
+                return start.length === 4 && end.length === 4 ? `${start}-${end}` : fy;
+            };
+            return normalizeFY(assign.financial_year) === normalizeFY(selectedFY);
+        })();
+
+        const serviceMatch = selectedServiceFilter === '' || 
+            String(assign.service_id) === String(selectedServiceFilter) || 
+            String(assign.service_name) === String(selectedServiceFilter);
+
+        return fyMatch && serviceMatch;
     });
 
     // Dynamic stats
@@ -240,7 +282,9 @@ const ComplianceServices = () => {
             }
             setStaffList(all.map(item => ({
                 username: item.username,
-                name: item.profile?.name ?? item.username
+                name: item.profile?.name ?? item.username,
+                email: item.profile?.email ?? item.email ?? '—',
+                mobile: item.profile?.mobile ?? item.profile?.phone ?? item.phone ?? '—'
             })));
         } catch (err) {
             console.error('Failed to fetch staff list:', err);
@@ -428,7 +472,7 @@ const ComplianceServices = () => {
             toast.error('Please select at least one firm group');
             return;
         }
-        if (!assignForm.service_id || !assignForm.custom_amount || !assignForm.employee_username) {
+        if (!assignForm.service_id || !assignForm.custom_amount || (!assignForm.employee_usernames || assignForm.employee_usernames.length === 0)) {
             toast.error('Please fill in all required fields (Service, Custom Fees, and Assigned Staff)');
             return;
         }
@@ -439,8 +483,8 @@ const ComplianceServices = () => {
             const payload = {
                 service_id: assignForm.service_id,
                 financial_year: assignForm.financial_year,
-                employee_username: assignForm.employee_username,
-                employee_id: assignForm.employee_username,
+                employee_username: assignForm.employee_usernames,
+                employee_id: assignForm.employee_usernames,
                 custom_amount: parseFloat(assignForm.custom_amount)
             };
             if (isSingle) {
@@ -454,10 +498,13 @@ const ComplianceServices = () => {
             if (assignForm.ca_id) {
                 payload.ca_id = assignForm.ca_id;
             }
-            if (selectedService?.frequency === 'monthly' && assignForm.pay_from_month) {
+            const isGstr1 = assignForm.service_id === 'GSTR-1' || (selectedService?.name && /gstr-1/i.test(selectedService.name));
+            const effectiveFreq = isGstr1 ? 'monthly' : selectedService?.frequency?.toLowerCase();
+
+            if (effectiveFreq === 'monthly' && assignForm.pay_from_month) {
                 payload.pay_from_month = assignForm.pay_from_month;
             }
-            if (selectedService?.frequency === 'quarterly' && assignForm.quarters?.length > 0) {
+            if (effectiveFreq === 'quarterly' && assignForm.quarters?.length > 0) {
                 payload.quarters = assignForm.quarters;
             }
 
@@ -476,7 +523,7 @@ const ComplianceServices = () => {
                     service_id: '',
                     financial_year: '2026-2027',
                     custom_amount: '',
-                    employee_username: '',
+                    employee_usernames: [],
                     ca_id: '',
                     pay_from_month: '',
                     quarters: []
@@ -498,6 +545,16 @@ const ComplianceServices = () => {
     // Submit Status Update Form
     const handleStatusSubmit = async (e) => {
         e.preventDefault();
+        const currentUsername = (localStorage.getItem('user_username') || '').toLowerCase().trim();
+        const assignedStaffs = getAssignedStaffList(selectedPeriod);
+        const assignedStaffUsernames = assignedStaffs.map(emp => (emp.username || '').toLowerCase().trim());
+
+        if (currentUsername && assignedStaffUsernames.length > 0 && !assignedStaffUsernames.includes(currentUsername)) {
+            const allowedNames = assignedStaffs.map(emp => emp.name || emp.username).join(', ');
+            toast.error(`Only the assigned staff members (${allowedNames}) are permitted to update the payment status.`);
+            return;
+        }
+
         if (!statusForm.amount || isNaN(parseFloat(statusForm.amount))) {
             toast.error('Please enter a valid amount');
             return;
@@ -654,6 +711,21 @@ const ComplianceServices = () => {
                                         </select>
                                     </div>
 
+                                    {/* Service Selector Dropdown */}
+                                    <div className="flex items-center gap-1.5 text-xs text-slate-500 font-medium">
+                                        <span>Service:</span>
+                                        <select
+                                            value={selectedServiceFilter}
+                                            onChange={(e) => setSelectedServiceFilter(e.target.value)}
+                                            className="px-2 py-1.5 text-xs text-slate-700 border border-slate-200 rounded-lg bg-white focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none max-w-[200px]"
+                                        >
+                                            <option value="">All Services</option>
+                                            {services.map(s => (
+                                                <option key={s.id} value={s.service_id || s.name}>{s.name}</option>
+                                            ))}
+                                        </select>
+                                    </div>
+
                                     <button
                                         onClick={() => fetchAssignments(assignmentSearch)}
                                         className="p-2 text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors border border-slate-200 bg-white"
@@ -670,6 +742,7 @@ const ComplianceServices = () => {
                                                 <th className="px-4 py-3">Compliance Service</th>
                                                 <th className="px-4 py-3">Frequency</th>
                                                 <th className="px-4 py-3">FY</th>
+                                                <th className="px-4 py-3">STAFFS</th>
                                                 <th className="px-4 py-3">Amount</th>
                                                 <th className="px-4 py-3 w-16"></th>
                                             </tr>
@@ -677,7 +750,7 @@ const ComplianceServices = () => {
                                         <tbody className="divide-y divide-slate-50">
                                             {assignmentsLoading ? (
                                                 <tr>
-                                                    <td colSpan={6} className="px-4 py-8 text-center">
+                                                    <td colSpan={7} className="px-4 py-8 text-center">
                                                         <div className="animate-pulse flex flex-col gap-2">
                                                             <div className="h-4 bg-slate-100 rounded w-1/3 mx-auto"></div>
                                                             <div className="h-4 bg-slate-100 rounded w-1/4 mx-auto"></div>
@@ -686,7 +759,7 @@ const ComplianceServices = () => {
                                                 </tr>
                                             ) : filteredAssignments.length === 0 ? (
                                                 <tr>
-                                                    <td colSpan={6} className="px-4 py-12 text-center text-slate-400">
+                                                    <td colSpan={7} className="px-4 py-12 text-center text-slate-400">
                                                         <FiBriefcase className="w-8 h-8 mx-auto mb-2 opacity-50" />
                                                         <p className="text-xs font-medium text-slate-500">No compliance assignments found</p>
                                                         <p className="text-[11px] mt-0.5">Click "Assign Compliance Service" above to link a firm</p>
@@ -715,6 +788,52 @@ const ComplianceServices = () => {
                                                             <td className="px-4 py-3 text-slate-500 text-xs font-mono">
                                                                 {assign.financial_year}
                                                             </td>
+                                                            <td className="px-4 py-3 text-slate-655 text-xs">
+                                                                {(() => {
+                                                                    const assignedStaffs = getAssignedStaffList(assign);
+                                                                    if (assignedStaffs.length === 0) return '—';
+                                                                    
+                                                                    const onAvatarClick = (e) => {
+                                                                        e.stopPropagation();
+                                                                        setStaffListModal({
+                                                                            open: true,
+                                                                            staffs: assignedStaffs.map(emp => ({
+                                                                                username: emp.username,
+                                                                                name: emp.name || emp.username,
+                                                                                email: emp.email || '—',
+                                                                                mobile: emp.mobile || emp.phone || '—'
+                                                                            })),
+                                                                            serviceName: assign.service_name || assign.service_id
+                                                                        });
+                                                                    };
+
+                                                                    return (
+                                                                        <div className="flex -space-x-2.5">
+                                                                            {assignedStaffs.slice(0, 2).map((emp, idx) => (
+                                                                                <button
+                                                                                    key={emp.username || idx}
+                                                                                    type="button"
+                                                                                    onClick={onAvatarClick}
+                                                                                    className="w-8 h-8 rounded-full bg-gradient-to-br from-indigo-500 to-indigo-600 border-2 border-white flex items-center justify-center text-[10px] font-bold text-white hover:opacity-90 hover:scale-105 hover:z-10 transition-all shadow-xs cursor-pointer"
+                                                                                    title={`Click to view details of assigned staff`}
+                                                                                >
+                                                                                    {(emp.name || emp.username || 'S').charAt(0).toUpperCase()}
+                                                                                </button>
+                                                                            ))}
+                                                                            {assignedStaffs.length > 2 && (
+                                                                                <button
+                                                                                    type="button"
+                                                                                    onClick={onAvatarClick}
+                                                                                    className="w-8 h-8 rounded-full bg-gradient-to-br from-indigo-500 to-indigo-600 border-2 border-white flex items-center justify-center text-[10px] font-bold text-white hover:opacity-90 hover:scale-105 hover:z-10 transition-all shadow-xs cursor-pointer"
+                                                                                    title="Click to view all assigned staff"
+                                                                                >
+                                                                                    +{assignedStaffs.length - 2}
+                                                                                </button>
+                                                                            )}
+                                                                        </div>
+                                                                    );
+                                                                })()}
+                                                            </td>
                                                             <td className="px-4 py-3 font-bold text-slate-700 text-xs">
                                                                 ₹{formatCurrency(assign.custom_amount)}
                                                             </td>
@@ -732,10 +851,31 @@ const ComplianceServices = () => {
                                                         {/* Expanded Schedule Details */}
                                                         {selectedAssignmentId === assign.assignment_id && (
                                                             <tr>
-                                                                <td colSpan={6} className="bg-slate-50/40 p-4 border-t border-b border-indigo-100/50">
-                                                                    <h6 className="text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-3">
-                                                                        Schedule Details for {assign.financial_year}
-                                                                    </h6>
+                                                                <td colSpan={7} className="bg-slate-50/40 p-4 border-t border-b border-indigo-100/50">
+                                                                    <div className="mb-3 flex justify-between items-center">
+                                                                        <h6 className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+                                                                            Schedule Details for {assign.financial_year}
+                                                                        </h6>
+                                                                        {(() => {
+                                                                            const assignedStaffs = getAssignedStaffList(assign);
+                                                                            if (assignedStaffs.length === 0) return null;
+                                                                            return (
+                                                                                <div className="flex flex-wrap gap-1 items-center">
+                                                                                    <span className="text-[10px] text-slate-400 uppercase tracking-wider mr-1">Staff:</span>
+                                                                                    {assignedStaffs.map((emp, idx) => (
+                                                                                        <button
+                                                                                            type="button"
+                                                                                            key={emp.username || idx}
+                                                                                            onClick={() => setSelectedStaffDetails(emp)}
+                                                                                            className="text-[10px] text-slate-655 bg-white border border-slate-200 rounded-md px-2 py-0.5 hover:border-indigo-300 hover:text-indigo-650 transition-colors font-medium shadow-2xs cursor-pointer animate-pulse"
+                                                                                        >
+                                                                                            {emp.name}
+                                                                                        </button>
+                                                                                    ))}
+                                                                                </div>
+                                                                            );
+                                                                        })()}
+                                                                    </div>
 
                                                                     {schedulesLoading ? (
                                                                         <div className="flex items-center gap-2 text-xs text-slate-400 py-4">
@@ -1152,6 +1292,65 @@ const ComplianceServices = () => {
                                     </select>
                                 </div>
 
+                                {/* pay_from_month (for monthly frequency only) */}
+                                {(() => {
+                                    const selectedService = services.find(s => s.service_id === assignForm.service_id);
+                                    const isGstr1 = assignForm.service_id === 'GSTR-1' || (selectedService?.name && /gstr-1/i.test(selectedService.name));
+                                    const effectiveFreq = isGstr1 ? 'monthly' : selectedService?.frequency?.toLowerCase();
+                                    return effectiveFreq === 'monthly' && (
+                                        <div className="space-y-1">
+                                            <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Start Generating From Month (Optional)</label>
+                                            <select
+                                                value={assignForm.pay_from_month}
+                                                onChange={(e) => setAssignForm(prev => ({ ...prev, pay_from_month: e.target.value }))}
+                                                className="w-full px-3 py-2.5 text-xs text-slate-700 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none bg-white"
+                                            >
+                                                <option value="">Default (April)</option>
+                                                {['April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December', 'January', 'February', 'March'].map(m => (
+                                                    <option key={m} value={m}>{m}</option>
+                                                ))}
+                                            </select>
+                                        </div>
+                                    );
+                                })()}
+
+                                {/* quarters (for quarterly frequency only) */}
+                                {(() => {
+                                    const selectedService = services.find(s => s.service_id === assignForm.service_id);
+                                    const isGstr1 = assignForm.service_id === 'GSTR-1' || (selectedService?.name && /gstr-1/i.test(selectedService.name));
+                                    const effectiveFreq = isGstr1 ? 'monthly' : selectedService?.frequency?.toLowerCase();
+                                    return effectiveFreq === 'quarterly' && (
+                                        <div className="space-y-2">
+                                            <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Select Quarters (Optional)</label>
+                                            <div className="flex gap-4">
+                                                {[1, 2, 3, 4].map(q => {
+                                                    const checked = assignForm.quarters?.includes(q);
+                                                    return (
+                                                        <label key={q} className="flex items-center gap-1.5 text-xs text-slate-700 cursor-pointer">
+                                                            <input
+                                                                type="checkbox"
+                                                                checked={checked}
+                                                                onChange={(e) => {
+                                                                    setAssignForm(prev => {
+                                                                        const current = prev.quarters || [];
+                                                                        const updated = e.target.checked
+                                                                            ? [...current, q]
+                                                                            : current.filter(x => x !== q);
+                                                                        return { ...prev, quarters: updated };
+                                                                    });
+                                                                }}
+                                                                className="rounded border-slate-350 text-indigo-600 focus:ring-indigo-500 h-4 w-4"
+                                                            />
+                                                            Q{q}
+                                                        </label>
+                                                    );
+                                                })}
+                                            </div>
+                                            <p className="text-[10px] text-slate-400">Leave unselected to generate all quarters.</p>
+                                        </div>
+                                    );
+                                })()}
+
                                 {/* Financial Year */}
                                 <div className="space-y-1">
                                     <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Financial Year *</label>
@@ -1179,19 +1378,81 @@ const ComplianceServices = () => {
                                     />
                                 </div>
 
-                                {/* Assigned Staff */}
-                                <div className="space-y-1">
+                                {/* Assigned Staff Selector */}
+                                <div className="space-y-1 relative">
                                     <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Assigned Staff *</label>
-                                    <select
-                                        value={assignForm.employee_username}
-                                        onChange={(e) => setAssignForm(prev => ({ ...prev, employee_username: e.target.value }))}
-                                        className="w-full px-3 py-2.5 text-xs text-slate-700 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none bg-white"
-                                    >
-                                        <option value="">Select staff member…</option>
-                                        {staffList.map(emp => (
-                                            <option key={emp.username} value={emp.username}>{emp.name}</option>
-                                        ))}
-                                    </select>
+                                    
+                                    {/* Selected Staff Tags */}
+                                    {assignForm.employee_usernames?.length > 0 && (
+                                        <div className="flex flex-wrap gap-2 mb-2 p-2 border border-slate-200 rounded-xl bg-slate-50">
+                                            {assignForm.employee_usernames.map(username => {
+                                                const staffInfo = staffList.find(s => s.username === username) || { username, name: username };
+                                                return (
+                                                    <span key={username} className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-white border border-slate-200 rounded-lg text-xs font-medium text-slate-705 shadow-xs">
+                                                        <span>{staffInfo.name}</span>
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => {
+                                                                setAssignForm(prev => ({
+                                                                    ...prev,
+                                                                    employee_usernames: prev.employee_usernames.filter(x => x !== username)
+                                                                }));
+                                                            }}
+                                                            className="text-slate-400 hover:text-slate-655"
+                                                        >
+                                                            <FiX className="w-3.5 h-3.5" />
+                                                        </button>
+                                                    </span>
+                                                );
+                                            })}
+                                        </div>
+                                    )}
+
+                                    {/* Search Input and Suggestions */}
+                                    <div className="relative">
+                                        <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4 pointer-events-none" />
+                                        <input
+                                            type="text"
+                                            value={staffSearchQuery}
+                                            onChange={(e) => {
+                                                setStaffSearchQuery(e.target.value);
+                                                setShowStaffDropdown(true);
+                                            }}
+                                            onFocus={() => setShowStaffDropdown(true)}
+                                            onBlur={() => setTimeout(() => setShowStaffDropdown(false), 200)}
+                                            placeholder="Search and add staff member..."
+                                            className="w-full pl-9 pr-3 py-2.5 text-xs text-slate-700 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none bg-white"
+                                        />
+                                        {showStaffDropdown && filteredStaffResults.length > 0 && (
+                                            <div className="absolute z-50 left-0 right-0 top-full mt-1 bg-white border border-slate-200 rounded-xl shadow-lg max-h-56 overflow-y-auto">
+                                                {filteredStaffResults
+                                                    .filter(s => !assignForm.employee_usernames?.includes(s.username))
+                                                    .map(s => (
+                                                        <button
+                                                            key={s.username}
+                                                            type="button"
+                                                            onClick={() => {
+                                                                setAssignForm(prev => ({
+                                                                    ...prev,
+                                                                    employee_usernames: [...(prev.employee_usernames || []), s.username]
+                                                                }));
+                                                                setStaffSearchQuery('');
+                                                                setShowStaffDropdown(false);
+                                                            }}
+                                                            className="w-full text-left px-4 py-2.5 hover:bg-slate-50 border-b border-slate-100 last:border-0 text-xs flex flex-col"
+                                                        >
+                                                            <span className="font-semibold text-slate-800">{s.name}</span>
+                                                            <span className="text-[10px] text-slate-400 mt-0.5">Username: {s.username}</span>
+                                                        </button>
+                                                    ))}
+                                            </div>
+                                        )}
+                                        {showStaffDropdown && staffSearchQuery.trim().length >= 1 && filteredStaffResults.length === 0 && (
+                                            <div className="absolute z-50 left-0 right-0 top-full mt-1 bg-white border border-slate-200 rounded-xl shadow-lg p-3 text-center text-xs text-slate-400">
+                                                No staff matching query found
+                                            </div>
+                                        )}
+                                    </div>
                                 </div>
 
                                 {/* Assigned CA */}
@@ -1253,55 +1514,6 @@ const ComplianceServices = () => {
                                     )}
                                 </div>
 
-                                {/* pay_from_month (for monthly frequency only) */}
-                                {services.find(s => s.service_id === assignForm.service_id)?.frequency?.toLowerCase() === 'monthly' && (
-                                    <div className="space-y-1">
-                                        <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Start Generating From Month (Optional)</label>
-                                        <select
-                                            value={assignForm.pay_from_month}
-                                            onChange={(e) => setAssignForm(prev => ({ ...prev, pay_from_month: e.target.value }))}
-                                            className="w-full px-3 py-2.5 text-xs text-slate-700 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none bg-white"
-                                        >
-                                            <option value="">Default (April)</option>
-                                            {['April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December', 'January', 'February', 'March'].map(m => (
-                                                <option key={m} value={m}>{m}</option>
-                                            ))}
-                                        </select>
-                                    </div>
-                                )}
-
-                                {/* quarters (for quarterly frequency only) */}
-                                {services.find(s => s.service_id === assignForm.service_id)?.frequency?.toLowerCase() === 'quarterly' && (
-                                    <div className="space-y-2">
-                                        <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Select Quarters (Optional)</label>
-                                        <div className="flex gap-4">
-                                            {[1, 2, 3, 4].map(q => {
-                                                const checked = assignForm.quarters?.includes(q);
-                                                return (
-                                                    <label key={q} className="flex items-center gap-1.5 text-xs text-slate-700 cursor-pointer">
-                                                        <input
-                                                            type="checkbox"
-                                                            checked={checked}
-                                                            onChange={(e) => {
-                                                                setAssignForm(prev => {
-                                                                    const current = prev.quarters || [];
-                                                                    const updated = e.target.checked
-                                                                        ? [...current, q]
-                                                                        : current.filter(x => x !== q);
-                                                                    return { ...prev, quarters: updated };
-                                                                });
-                                                            }}
-                                                            className="rounded border-slate-350 text-indigo-600 focus:ring-indigo-500 h-4 w-4"
-                                                        />
-                                                        Q{q}
-                                                    </label>
-                                                );
-                                            })}
-                                        </div>
-                                        <p className="text-[10px] text-slate-400">Leave unselected to generate all quarters.</p>
-                                    </div>
-                                )}
-
                                 <div className="flex gap-2 pt-2">
                                     <button
                                         type="button"
@@ -1316,7 +1528,7 @@ const ComplianceServices = () => {
                                             submittingAssign ||
                                             !assignForm.service_id ||
                                             !assignForm.custom_amount ||
-                                            !assignForm.employee_username ||
+                                            (!assignForm.employee_usernames || assignForm.employee_usernames.length === 0) ||
                                             (assignForm.targetType === 'single' && !assignForm.firm_id) ||
                                             (assignForm.targetType === 'multiple' && (!assignForm.firms || assignForm.firms.length === 0)) ||
                                             (assignForm.targetType === 'group' && (!assignForm.groups || assignForm.groups.length === 0))
@@ -1335,121 +1547,220 @@ const ComplianceServices = () => {
 
             {/* Modal: Update Schedule Period Status */}
             <AnimatePresence>
-                {showStatusModal && selectedPeriod && (
-                    <div className="fixed inset-0 bg-black/60 flex items-start justify-center p-4 z-[200] backdrop-blur-xs overflow-y-auto">
+                {showStatusModal && selectedPeriod && (() => {
+                    const currentUsername = (localStorage.getItem('user_username') || '').toLowerCase().trim();
+                    const assignedStaffs = getAssignedStaffList(selectedPeriod);
+                    const assignedStaffUsernames = assignedStaffs.map(emp => (emp.username || '').toLowerCase().trim());
+                    const isUpdatePermitted = !currentUsername || assignedStaffUsernames.length === 0 || assignedStaffUsernames.includes(currentUsername);
+
+                    return (
+                        <div className="fixed inset-0 bg-black/60 flex items-start justify-center p-4 z-[200] backdrop-blur-xs overflow-y-auto">
+                            <motion.div
+                                initial={{ opacity: 0, scale: 0.97, y: 20 }}
+                                animate={{ opacity: 1, scale: 1, y: 0 }}
+                                exit={{ opacity: 0, scale: 0.97, y: 20 }}
+                                className="bg-white rounded-2xl shadow-xl w-full max-w-sm my-16 overflow-hidden flex flex-col"
+                                onClick={(e) => e.stopPropagation()}
+                            >
+                                <div className="flex items-center justify-between px-5 py-4 bg-gradient-to-r from-indigo-600 to-violet-600 text-white">
+                                    <div className="flex items-center gap-2">
+                                        <FiCalendar className="w-5 h-5" />
+                                        <h3 className="text-sm font-bold">Update Period Status</h3>
+                                    </div>
+                                    <button
+                                        onClick={() => setShowStatusModal(false)}
+                                        className="p-1 hover:bg-white/10 rounded-lg text-white/80 hover:text-white"
+                                    >
+                                        <FiX className="w-5 h-5" />
+                                    </button>
+                                </div>
+
+                                <div className="bg-indigo-50 border-b border-indigo-100 p-4">
+                                    <div className="flex justify-between items-start">
+                                        <div>
+                                            <p className="text-[10px] uppercase tracking-wider text-indigo-500 font-bold">Current Period</p>
+                                            <h4 className="text-xs font-bold text-slate-800 mt-0.5">{selectedPeriod.period_name}</h4>
+                                        </div>
+                                        <span className={`px-2 py-0.5 rounded text-[9px] font-bold border uppercase tracking-wider ${STATUS_BADGES[selectedPeriod.status] || 'bg-slate-50'
+                                            }`}>
+                                            {selectedPeriod.status}
+                                        </span>
+                                    </div>
+                                    <div className="flex flex-col gap-1.5 mt-3 bg-white/70 border border-indigo-100/50 rounded-xl p-3 text-slate-700 text-[11px] font-medium leading-relaxed">
+                                        {assignedStaffs.length > 0 && (
+                                            <p className="flex flex-wrap items-center gap-1">
+                                                <strong>Assigned Staff:</strong>
+                                                {assignedStaffs.map((emp, idx) => (
+                                                    <span key={emp.username || idx} className="inline-flex items-center gap-0.5">
+                                                        <span
+                                                            onClick={() => setSelectedStaffDetails(emp)}
+                                                            className="text-indigo-600 hover:underline cursor-pointer font-bold"
+                                                        >
+                                                            {emp.name}
+                                                        </span>
+                                                        {emp.mobile ? <span className="text-slate-400">({emp.mobile})</span> : ''}
+                                                        {idx < assignedStaffs.length - 1 ? <span className="text-slate-300">,</span> : ''}
+                                                    </span>
+                                                ))}
+                                            </p>
+                                        )}
+                                        {selectedPeriod.ca && (
+                                            <p><strong>Assigned CA:</strong> {selectedPeriod.ca.name || selectedPeriod.ca.username}</p>
+                                        )}
+                                        {selectedPeriod.completed_by_user && (
+                                            <p><strong>Completed By:</strong> {selectedPeriod.completed_by_user.name} on {new Date(selectedPeriod.completed_at).toLocaleDateString('en-IN', { hour: '2-digit', minute: '2-digit' })}</p>
+                                        )}
+                                    </div>
+                                </div>
+
+                                <form onSubmit={handleStatusSubmit} className="p-5 space-y-4">
+                                    {!isUpdatePermitted && (
+                                        <div className="flex gap-2.5 bg-rose-50 border border-rose-150 rounded-xl p-3 text-rose-800 animate-pulse">
+                                            <FiAlertCircle className="w-4 h-4 shrink-0 mt-0.5 text-rose-600" />
+                                            <p className="text-[10px] leading-relaxed font-semibold">
+                                                Restricted: Only the assigned staff member ({assignedStaffs.map(emp => emp.name || emp.username).join(', ')}) can update the payment/status of this period.
+                                            </p>
+                                        </div>
+                                    )}
+
+                                    {/* Select Status */}
+                                    <div className="space-y-1">
+                                        <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Select Status *</label>
+                                        <select
+                                            value={statusForm.status}
+                                            disabled={!isUpdatePermitted}
+                                            onChange={(e) => setStatusForm(prev => ({ ...prev, status: e.target.value }))}
+                                            className="w-full px-3 py-2.5 text-xs text-slate-700 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none bg-white disabled:opacity-60 disabled:cursor-not-allowed"
+                                        >
+                                            <option value="Pending">Pending</option>
+                                            <option value="N/A">N/A</option>
+                                            <option value="Sale">Sale (Posts to Client Ledger)</option>
+                                            <option value="Outsource">Outsource</option>
+                                        </select>
+                                    </div>
+
+                                    {/* Amount Field */}
+                                    <div className="space-y-1">
+                                        <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Fees Amount (₹) *</label>
+                                        <input
+                                            type="number"
+                                            step="0.01"
+                                            value={statusForm.amount}
+                                            disabled={!isUpdatePermitted}
+                                            onChange={(e) => setStatusForm(prev => ({ ...prev, amount: e.target.value }))}
+                                            placeholder="0.00"
+                                            className="w-full px-3 py-2.5 text-xs text-slate-700 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none bg-white disabled:opacity-60 disabled:cursor-not-allowed"
+                                        />
+                                    </div>
+
+                                    {/* Ledger notice info */}
+                                    {statusForm.status === 'Sale' && (
+                                        <div className="flex gap-2.5 bg-emerald-50 border border-emerald-150 rounded-xl p-3 text-emerald-800">
+                                            <FiCheckCircle className="w-4.5 h-4.5 shrink-0 mt-0.5 text-emerald-600" />
+                                            <p className="text-[10.5px] leading-relaxed font-medium">
+                                                Updating status to <strong>Sale</strong> will automatically generate a sales invoice and post it to this client firm's ledger.
+                                            </p>
+                                        </div>
+                                    )}
+                                    {selectedPeriod.status === 'Sale' && statusForm.status !== 'Sale' && (
+                                        <div className="flex gap-2.5 bg-amber-50 border border-amber-150 rounded-xl p-3 text-amber-800">
+                                            <FiAlertCircle className="w-4.5 h-4.5 shrink-0 mt-0.5 text-amber-600" />
+                                            <p className="text-[10.5px] leading-relaxed font-medium">
+                                                Changing status away from <strong>Sale</strong> will automatically delete and reverse the posted ledger entry for this period.
+                                            </p>
+                                        </div>
+                                    )}
+
+                                    <div className="flex gap-2 pt-2">
+                                        <button
+                                            type="button"
+                                            onClick={() => setShowStatusModal(false)}
+                                            className="flex-1 py-2 text-xs font-semibold text-slate-600 border border-slate-250 rounded-xl hover:bg-slate-50 transition-colors"
+                                        >
+                                            Cancel
+                                        </button>
+                                        <button
+                                            type="submit"
+                                            disabled={submittingStatus || !statusForm.amount || !isUpdatePermitted}
+                                            className="flex-1 py-2 text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl disabled:opacity-50 transition-colors flex items-center justify-center gap-1.5"
+                                        >
+                                            {submittingStatus && <span className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin"></span>}
+                                            Update Period
+                                        </button>
+                                    </div>
+                                </form>
+                            </motion.div>
+                        </div>
+                    );
+                })()}
+            </AnimatePresence>
+
+            {/* Modal: Staff Details Popup */}
+            <AnimatePresence>
+                {selectedStaffDetails && (
+                    <div className="fixed inset-0 bg-black/60 flex items-center justify-center p-4 z-[210] backdrop-blur-xs">
                         <motion.div
-                            initial={{ opacity: 0, scale: 0.97, y: 20 }}
-                            animate={{ opacity: 1, scale: 1, y: 0 }}
-                            exit={{ opacity: 0, scale: 0.97, y: 20 }}
-                            className="bg-white rounded-2xl shadow-xl w-full max-w-sm my-16 overflow-hidden flex flex-col"
+                            initial={{ opacity: 0, scale: 0.95 }}
+                            animate={{ opacity: 1, scale: 1 }}
+                            exit={{ opacity: 0, scale: 0.95 }}
+                            className="bg-white rounded-2xl shadow-xl w-full max-w-sm overflow-hidden flex flex-col border border-slate-100"
                             onClick={(e) => e.stopPropagation()}
                         >
-                            <div className="flex items-center justify-between px-5 py-4 bg-gradient-to-r from-indigo-600 to-violet-600 text-white">
+                            <div className="flex items-center justify-between px-5 py-4 bg-gradient-to-r from-blue-600 to-indigo-600 text-white">
                                 <div className="flex items-center gap-2">
-                                    <FiCalendar className="w-5 h-5" />
-                                    <h3 className="text-sm font-bold">Update Period Status</h3>
+                                    <FiUser className="w-5 h-5" />
+                                    <h3 className="text-sm font-bold">Staff Details</h3>
                                 </div>
                                 <button
-                                    onClick={() => setShowStatusModal(false)}
+                                    onClick={() => setSelectedStaffDetails(null)}
                                     className="p-1 hover:bg-white/10 rounded-lg text-white/80 hover:text-white"
                                 >
                                     <FiX className="w-5 h-5" />
                                 </button>
                             </div>
-
-                            <div className="bg-indigo-50 border-b border-indigo-100 p-4">
-                                <div className="flex justify-between items-start">
-                                    <div>
-                                        <p className="text-[10px] uppercase tracking-wider text-indigo-500 font-bold">Current Period</p>
-                                        <h4 className="text-xs font-bold text-slate-800 mt-0.5">{selectedPeriod.period_name}</h4>
-                                    </div>
-                                    <span className={`px-2 py-0.5 rounded text-[9px] font-bold border uppercase tracking-wider ${STATUS_BADGES[selectedPeriod.status] || 'bg-slate-50'
-                                        }`}>
-                                        {selectedPeriod.status}
-                                    </span>
+                            <div className="p-6 flex flex-col items-center">
+                                <div className="w-16 h-16 bg-indigo-100 text-indigo-700 rounded-full flex items-center justify-center text-xl font-bold mb-4 shadow-inner border border-indigo-200">
+                                    {selectedStaffDetails.name ? selectedStaffDetails.name.charAt(0).toUpperCase() : '?'}
                                 </div>
-                                <div className="flex flex-col gap-1.5 mt-3 bg-white/70 border border-indigo-100/50 rounded-xl p-3 text-slate-700 text-[11px] font-medium leading-relaxed">
-                                    {selectedPeriod.employee && (
-                                        <p><strong>Assigned Staff:</strong> {selectedPeriod.employee.name} {selectedPeriod.employee.mobile ? `(${selectedPeriod.employee.mobile})` : ''}</p>
-                                    )}
-                                    {selectedPeriod.ca && (
-                                        <p><strong>Assigned CA:</strong> {selectedPeriod.ca.name || selectedPeriod.ca.username}</p>
-                                    )}
-                                    {selectedPeriod.completed_by_user && (
-                                        <p><strong>Completed By:</strong> {selectedPeriod.completed_by_user.name} on {new Date(selectedPeriod.completed_at).toLocaleDateString('en-IN', { hour: '2-digit', minute: '2-digit' })}</p>
-                                    )}
+                                <h4 className="text-sm font-bold text-slate-800 mb-1">{selectedStaffDetails.name || 'N/A'}</h4>
+                                <p className="text-xs text-slate-400 font-mono mb-4">@{selectedStaffDetails.username || 'N/A'}</p>
+                                
+                                <div className="w-full space-y-3 bg-slate-50 p-4 rounded-xl border border-slate-100 text-xs text-slate-700">
+                                    <div className="flex justify-between items-center py-1 border-b border-slate-200/50">
+                                        <span className="font-semibold text-slate-500 uppercase tracking-wider text-[10px]">Mobile</span>
+                                        <span className="font-bold text-slate-800">{selectedStaffDetails.mobile || selectedStaffDetails.phone || 'N/A'}</span>
+                                    </div>
+                                    <div className="flex justify-between items-center py-1 border-b border-slate-200/50">
+                                        <span className="font-semibold text-slate-500 uppercase tracking-wider text-[10px]">Email</span>
+                                        <span className="font-bold text-slate-850 break-all">{selectedStaffDetails.email || 'N/A'}</span>
+                                    </div>
+                                    <div className="flex justify-between items-center py-1">
+                                        <span className="font-semibold text-slate-500 uppercase tracking-wider text-[10px]">Role</span>
+                                        <span className="font-bold text-indigo-650 uppercase text-[10px] tracking-wide bg-indigo-50 border border-indigo-100 px-1.5 py-0.5 rounded">
+                                            {selectedStaffDetails.role || 'Staff'}
+                                        </span>
+                                    </div>
                                 </div>
                             </div>
-
-                            <form onSubmit={handleStatusSubmit} className="p-5 space-y-4">
-                                {/* Select Status */}
-                                <div className="space-y-1">
-                                    <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Select Status *</label>
-                                    <select
-                                        value={statusForm.status}
-                                        onChange={(e) => setStatusForm(prev => ({ ...prev, status: e.target.value }))}
-                                        className="w-full px-3 py-2.5 text-xs text-slate-700 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none bg-white"
-                                    >
-                                        <option value="Pending">Pending</option>
-                                        <option value="N/A">N/A</option>
-                                        <option value="Sale">Sale (Posts to Client Ledger)</option>
-                                        <option value="Outsource">Outsource</option>
-                                    </select>
-                                </div>
-
-                                {/* Amount Field */}
-                                <div className="space-y-1">
-                                    <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Fees Amount (₹) *</label>
-                                    <input
-                                        type="number"
-                                        step="0.01"
-                                        value={statusForm.amount}
-                                        onChange={(e) => setStatusForm(prev => ({ ...prev, amount: e.target.value }))}
-                                        placeholder="0.00"
-                                        className="w-full px-3 py-2.5 text-xs text-slate-700 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none bg-white"
-                                    />
-                                </div>
-
-                                {/* Ledger notice info */}
-                                {statusForm.status === 'Sale' && (
-                                    <div className="flex gap-2.5 bg-emerald-50 border border-emerald-150 rounded-xl p-3 text-emerald-800">
-                                        <FiCheckCircle className="w-4.5 h-4.5 shrink-0 mt-0.5 text-emerald-600" />
-                                        <p className="text-[10.5px] leading-relaxed font-medium">
-                                            Updating status to <strong>Sale</strong> will automatically generate a sales invoice and post it to this client firm's ledger.
-                                        </p>
-                                    </div>
-                                )}
-                                {selectedPeriod.status === 'Sale' && statusForm.status !== 'Sale' && (
-                                    <div className="flex gap-2.5 bg-amber-50 border border-amber-150 rounded-xl p-3 text-amber-800">
-                                        <FiAlertCircle className="w-4.5 h-4.5 shrink-0 mt-0.5 text-amber-600" />
-                                        <p className="text-[10.5px] leading-relaxed font-medium">
-                                            Changing status away from <strong>Sale</strong> will automatically delete and reverse the posted ledger entry for this period.
-                                        </p>
-                                    </div>
-                                )}
-
-                                <div className="flex gap-2 pt-2">
-                                    <button
-                                        type="button"
-                                        onClick={() => setShowStatusModal(false)}
-                                        className="flex-1 py-2 text-xs font-semibold text-slate-600 border border-slate-250 rounded-xl hover:bg-slate-50 transition-colors"
-                                    >
-                                        Cancel
-                                    </button>
-                                    <button
-                                        type="submit"
-                                        disabled={submittingStatus || !statusForm.amount}
-                                        className="flex-1 py-2 text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl disabled:opacity-50 transition-colors flex items-center justify-center gap-1.5"
-                                    >
-                                        {submittingStatus && <span className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin"></span>}
-                                        Update Period
-                                    </button>
-                                </div>
-                            </form>
+                            <div className="px-5 py-3.5 bg-slate-50 border-t border-slate-100 flex justify-end">
+                                <button
+                                    onClick={() => setSelectedStaffDetails(null)}
+                                    className="px-4 py-2 text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-705 rounded-xl shadow-xs transition-colors"
+                                >
+                                    Close
+                                </button>
+                            </div>
                         </motion.div>
                     </div>
                 )}
             </AnimatePresence>
+
+            <AssignedStaffList
+                isOpen={staffListModal.open}
+                onClose={() => setStaffListModal({ open: false, staffs: [], serviceName: '' })}
+                users={staffListModal.staffs}
+                taskName={staffListModal.serviceName}
+            />
         </div>
     );
 };
