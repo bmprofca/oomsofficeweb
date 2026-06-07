@@ -19,21 +19,19 @@ const AssignedStaffList = ({ isOpen, onClose, users = [], taskName = '' }) => {
     return (
         <AnimatePresence>
             {isOpen && (
-                <motion.div
-                    className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[100] p-4"
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    exit={{ opacity: 0 }}
-                    onClick={onClose}
-                >
+                <div className="fixed inset-0 z-[100] flex items-center justify-center overflow-hidden overscroll-none p-4 pointer-events-none">
+                    <div 
+                        className="absolute inset-0 bg-black/50 pointer-events-auto"
+                        onClick={onClose}
+                    />
                     <motion.div
-                        className="bg-white rounded-2xl shadow-2xl max-w-lg w-full mx-auto overflow-hidden border border-gray-100"
+                        className="relative z-[1] pointer-events-auto bg-white rounded-2xl shadow-2xl max-w-lg w-full mx-auto overflow-hidden border border-gray-100 max-h-[calc(100vh-2rem)] flex flex-col"
                         initial={{ scale: 0.95, opacity: 0, y: 20 }}
                         animate={{ scale: 1, opacity: 1, y: 0 }}
                         exit={{ scale: 0.95, opacity: 0, y: 20 }}
                         onClick={(e) => e.stopPropagation()}
                     >
-                        <div className="bg-gradient-to-r from-indigo-600 via-indigo-700 to-violet-700 text-white px-4 py-2.5">
+                        <div className="bg-gradient-to-r from-indigo-600 via-indigo-700 to-violet-700 text-white px-4 py-2.5 shrink-0">
                             <div className="flex items-center justify-between">
                                 <div className="flex items-center gap-2.5 min-w-0">
                                     <div className="w-8 h-8 bg-white/20 rounded-lg flex items-center justify-center backdrop-blur-sm">
@@ -55,7 +53,7 @@ const AssignedStaffList = ({ isOpen, onClose, users = [], taskName = '' }) => {
                             </div>
                         </div>
 
-                        <div className="p-3 pb-2 bg-gradient-to-b from-white to-gray-50/60 border-b border-gray-100">
+                        <div className="p-3 pb-2 bg-gradient-to-b from-white to-gray-50/60 border-b border-gray-100 shrink-0">
                             <div className="relative">
                                 <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
                                 <input
@@ -69,7 +67,7 @@ const AssignedStaffList = ({ isOpen, onClose, users = [], taskName = '' }) => {
                         </div>
 
                         <div
-                            className="p-3 max-h-[52vh] overflow-y-auto bg-gradient-to-b from-white to-gray-50/60 [&::-webkit-scrollbar]:hidden"
+                            className="p-3 flex-1 min-h-0 overflow-y-auto overscroll-y-contain bg-gradient-to-b from-white to-gray-50/60 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden"
                             style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
                         >
                             <div className="space-y-2">
@@ -112,7 +110,7 @@ const AssignedStaffList = ({ isOpen, onClose, users = [], taskName = '' }) => {
                             </div>
                         </div>
 
-                        <div className="px-4 py-2.5 bg-white border-t border-gray-200">
+                        <div className="px-4 py-2.5 bg-white border-t border-gray-200 shrink-0">
                             <div className="flex justify-between items-center">
                                 <div className="text-xs text-gray-600">
                                     <span className="font-semibold">{filteredUsers.length}</span> of {users.length} staff member{users.length !== 1 ? 's' : ''} shown
@@ -128,7 +126,7 @@ const AssignedStaffList = ({ isOpen, onClose, users = [], taskName = '' }) => {
                             </div>
                         </div>
                     </motion.div>
-                </motion.div>
+                </div>
             )}
         </AnimatePresence>
     );
