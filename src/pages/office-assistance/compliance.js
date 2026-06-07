@@ -51,6 +51,32 @@ const MONTH_MAP = {
     'Mar': 'March'
 };
 
+const isQ1 = (name) => {
+    const n = name?.toLowerCase() || '';
+    return n.includes('q1') || n.includes('1q') || n.includes('apr-jun') || n.includes('apr - jun') || n.includes('quarter 1') || n.includes('quarter-1') || n.includes('quarter_1') || n.includes('1st quarter');
+};
+const isQ2 = (name) => {
+    const n = name?.toLowerCase() || '';
+    return n.includes('q2') || n.includes('2q') || n.includes('jul-sep') || n.includes('jul - sep') || n.includes('quarter 2') || n.includes('quarter-2') || n.includes('quarter_2') || n.includes('2nd quarter');
+};
+const isQ3 = (name) => {
+    const n = name?.toLowerCase() || '';
+    return n.includes('q3') || n.includes('3q') || n.includes('oct-dec') || n.includes('oct - dec') || n.includes('quarter 3') || n.includes('quarter-3') || n.includes('quarter_3') || n.includes('3rd quarter');
+};
+const isQ4 = (name) => {
+    const n = name?.toLowerCase() || '';
+    return n.includes('q4') || n.includes('4q') || n.includes('jan-mar') || n.includes('jan - mar') || n.includes('quarter 4') || n.includes('quarter-4') || n.includes('quarter_4') || n.includes('4th quarter');
+};
+
+const isH1 = (name) => {
+    const n = name?.toLowerCase() || '';
+    return n.includes('h1') || n.includes('1h') || n.includes('apr-sep') || n.includes('apr - sep') || n.includes('half yearly 1') || n.includes('half-yearly-1');
+};
+const isH2 = (name) => {
+    const n = name?.toLowerCase() || '';
+    return n.includes('h2') || n.includes('2h') || n.includes('oct-mar') || n.includes('oct - mar') || n.includes('half yearly 2') || n.includes('half-yearly-2');
+};
+
 const getPeriodDueDate = (period) => {
     if (period.due_date) {
         return new Date(period.due_date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
@@ -72,10 +98,10 @@ const getPeriodDueDate = (period) => {
         return `${dueDay} ${MONTH_NAMES[mIdx]} ${dueYear}`;
     }
 
-    if (pName === 'Q1' || pName === '1Q') return `31 Jul ${startYear}`;
-    if (pName === 'Q2' || pName === '2Q') return `31 Oct ${startYear}`;
-    if (pName === 'Q3' || pName === '3Q') return `31 Jan ${endYear}`;
-    if (pName === 'Q4' || pName === '4Q') return `30 Apr ${endYear}`;
+    if (isQ1(pName)) return `31 Jul ${startYear}`;
+    if (isQ2(pName)) return `31 Oct ${startYear}`;
+    if (isQ3(pName)) return `31 Jan ${endYear}`;
+    if (isQ4(pName)) return `30 Apr ${endYear}`;
 
     if (pName === 'Yearly' || pName === 'Year' || pName?.toLowerCase().includes('yearly')) return `31 Dec ${endYear}`;
 
@@ -107,24 +133,24 @@ const getPeriodSchedule = (assignmentSchedules, headerText, frequency) => {
     }
     if (freq === 'quarterly') {
         if (headerText === 'APR-JUN') {
-            return assignmentSchedules.find(p => ['q1', '1q', 'apr-jun'].includes(p.period_name?.toLowerCase()));
+            return assignmentSchedules.find(p => isQ1(p.period_name));
         }
         if (headerText === 'JUL-SEP') {
-            return assignmentSchedules.find(p => ['q2', '2q', 'jul-sep'].includes(p.period_name?.toLowerCase()));
+            return assignmentSchedules.find(p => isQ2(p.period_name));
         }
         if (headerText === 'OCT-DEC') {
-            return assignmentSchedules.find(p => ['q3', '3q', 'oct-dec'].includes(p.period_name?.toLowerCase()));
+            return assignmentSchedules.find(p => isQ3(p.period_name));
         }
         if (headerText === 'JAN-MAR') {
-            return assignmentSchedules.find(p => ['q4', '4q', 'jan-mar'].includes(p.period_name?.toLowerCase()));
+            return assignmentSchedules.find(p => isQ4(p.period_name));
         }
     }
     if (freq === 'halfyearly') {
         if (headerText === 'APR-SEP') {
-            return assignmentSchedules.find(p => ['h1', '1h', 'apr-sep'].includes(p.period_name?.toLowerCase()));
+            return assignmentSchedules.find(p => isH1(p.period_name));
         }
         if (headerText === 'OCT-MAR') {
-            return assignmentSchedules.find(p => ['h2', '2h', 'oct-mar'].includes(p.period_name?.toLowerCase()));
+            return assignmentSchedules.find(p => isH2(p.period_name));
         }
     }
     if (freq === 'yearly') {
@@ -206,19 +232,34 @@ const ComplianceServices = () => {
     // Helper to extract assigned staff list
     const getAssignedStaffList = useCallback((assign) => {
         if (!assign) return [];
+        
+        let usernames = [];
         if (assign.employees && Array.isArray(assign.employees)) {
-            return assign.employees;
+            assign.employees.forEach(emp => {
+                const u = emp.username || emp.employee_id || '';
+                if (String(u).includes(',')) {
+                    usernames.push(...String(u).split(',').map(x => x.trim()).filter(Boolean));
+                } else if (u) {
+                    usernames.push(String(u).trim());
+                }
+            });
+        } else {
+            const empUser = assign.employee?.username || assign.employee?.employee_id || '';
+            const usernamesStr = assign.employee_username || assign.employee_id || (typeof assign.employee === 'string' ? assign.employee : empUser);
+            if (usernamesStr) {
+                usernames = String(usernamesStr).split(',').map(u => u.trim()).filter(Boolean);
+            } else if (assign.employee) {
+                return [assign.employee];
+            }
         }
-        if (assign.employee) {
-            return [assign.employee];
-        }
-        const usernamesStr = assign.employee_username || assign.employee_id || '';
-        if (usernamesStr) {
-            return String(usernamesStr).split(',').map(u => u.trim()).filter(Boolean).map(username => {
+
+        if (usernames.length > 0) {
+            return usernames.map(username => {
                 const matched = staffList.find(s => s.username === username);
                 return matched || { username, name: username };
             });
         }
+        
         return [];
     }, [staffList]);
     const [caSearchQuery, setCaSearchQuery] = useState('');
