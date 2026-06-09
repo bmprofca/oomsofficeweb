@@ -10,7 +10,7 @@ import {
   FaBuilding, FaMoneyBillWave, FaCalendarAlt, FaGlobe,
   FaServer, FaCode, FaBolt, FaClipboardList, FaArrowLeft,
   FaExclamationCircle, FaInfoCircle, FaCheckCircle, FaShieldAlt,
-  FaSlidersH , FaFileExcel  
+  FaSlidersH
 } from 'react-icons/fa';
 import { Header, Sidebar } from '../../../components/header';
 import { emailApi, normalizeList } from './emailApi';

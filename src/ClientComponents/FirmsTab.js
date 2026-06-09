@@ -398,7 +398,7 @@ const FirmsTab = ({ clientUsername }) => {
                 ));
                 toast.success(
                     response.data?.message ||
-                        `Firm marked as ${newStatus ? 'active' : 'inactive'}`
+                    `Firm marked as ${newStatus ? 'active' : 'inactive'}`
                 );
             } else {
                 toast.error(response.data?.message || 'Failed to update status');
