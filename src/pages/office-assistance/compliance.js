@@ -1,10 +1,12 @@
-import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+﻿import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import {
     FiSearch, FiPlus, FiRefreshCw, FiCheckCircle, FiAlertCircle,
     FiLayers, FiChevronRight, FiChevronDown, FiDollarSign, FiCheck,
     FiX, FiEye, FiInfo, FiBookOpen, FiBriefcase, FiCalendar, FiArrowRight,
-    FiUser
+    FiUser, FiEdit2, FiTrash2, FiShare2, FiChevronLeft
 } from 'react-icons/fi';
+import { FaWhatsapp } from 'react-icons/fa6';
+import { MdEmail } from 'react-icons/md';
 import { motion, AnimatePresence } from 'framer-motion';
 import axios from 'axios';
 import { toast } from 'react-hot-toast';
@@ -23,9 +25,12 @@ const formatCurrency = (amount) => {
 };
 
 const STATUS_BADGES = {
+    'Pending From The Department': 'bg-amber-100 text-amber-800 border-amber-200',
+    'Pending From Client': 'bg-orange-100 text-orange-800 border-orange-200',
     'Pending': 'bg-amber-100 text-amber-800 border-amber-200',
-    'N/A': 'bg-slate-100 text-slate-500 border-slate-200',
+    'Complete': 'bg-emerald-100 text-emerald-800 border-emerald-200',
     'Sale': 'bg-emerald-100 text-emerald-800 border-emerald-200',
+    'N/A': 'bg-slate-100 text-slate-500 border-slate-200',
     'Outsource': 'bg-blue-100 text-blue-800 border-blue-200'
 };
 
@@ -175,13 +180,51 @@ const ComplianceServices = () => {
         localStorage.setItem('sidebarMinimized', JSON.stringify(isMinimized));
     }, [isMinimized]);
 
-    // Tab control: 'assignments' or 'services'
+    // Tab control: 'assignments' only now
     const [activeTab, setActiveTab] = useState('assignments');
 
-    // Predefined Services list states
+    // Predefined Services list states (still fetched for the assign form dropdown)
     const [services, setServices] = useState([]);
     const [servicesLoading, setServicesLoading] = useState(false);
     const [serviceSearch, setServiceSearch] = useState('');
+
+    // Monthly 6-month window toggle: offset in blocks of 6 (0 = Apr–Sep, 1 = Oct–Mar)
+    const [monthWindowOffset, setMonthWindowOffset] = useState(0);
+    const ALL_MONTHS = ['Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec', 'Jan', 'Feb', 'Mar'];
+    const visibleMonths = ALL_MONTHS.slice(monthWindowOffset * 6, monthWindowOffset * 6 + 6);
+
+    // Edit / Delete assignment state
+    const [editAssignment, setEditAssignment] = useState(null); // assignment object being edited
+    const [showEditModal, setShowEditModal] = useState(false);
+    const [deletingAssignmentId, setDeletingAssignmentId] = useState(null);
+    const [confirmDeleteId, setConfirmDeleteId] = useState(null);
+    const [submittingEdit, setSubmittingEdit] = useState(false);
+
+    // Edit form state
+    const [editForm, setEditForm] = useState({
+        custom_amount: '',
+        employee_usernames: [],
+        ca_id: '',
+        pay_from_month: '',
+        quarters: [],
+        status: 'active'
+    });
+
+    // Edit modal - CA search states
+    const [editCaSearchQuery, setEditCaSearchQuery] = useState('');
+    const [editCaSearchResults, setEditCaSearchResults] = useState([]);
+    const [editCaSearchLoading, setEditCaSearchLoading] = useState(false);
+    const [editSelectedCa, setEditSelectedCa] = useState(null);
+    const [showEditCaDropdown, setShowEditCaDropdown] = useState(false);
+    const editCaAbortRef = useRef(null);
+
+    // Edit modal - staff search state
+    const [editStaffSearchQuery, setEditStaffSearchQuery] = useState('');
+
+    // Share Invoice modal state
+    const [shareModal, setShareModal] = useState({ open: false, period: null, assign: null });
+    const [sharePhone, setSharePhone] = useState('');
+    const [shareEmail, setShareEmail] = useState('');
 
     // Assignments states
     const [assignments, setAssignments] = useState([]);
@@ -232,7 +275,7 @@ const ComplianceServices = () => {
     // Helper to extract assigned staff list
     const getAssignedStaffList = useCallback((assign) => {
         if (!assign) return [];
-        
+
         let usernames = [];
         if (assign.employees && Array.isArray(assign.employees)) {
             assign.employees.forEach(emp => {
@@ -259,7 +302,7 @@ const ComplianceServices = () => {
                 return matched || { username, name: username };
             });
         }
-        
+
         return [];
     }, [staffList]);
     const [caSearchQuery, setCaSearchQuery] = useState('');
@@ -268,6 +311,56 @@ const ComplianceServices = () => {
     const [selectedCa, setSelectedCa] = useState(null);
     const [showCaDropdown, setShowCaDropdown] = useState(false);
     const caAbortRef = useRef(null);
+
+    // Open edit modal — pre-fill form from assignment object
+    const openEditModal = useCallback((assign) => {
+        setEditAssignment(assign);
+
+        // Resolve employee_usernames from the assignment
+        let empUsernames = [];
+        if (assign.employees && Array.isArray(assign.employees)) {
+            assign.employees.forEach(emp => {
+                const u = emp.username || emp.employee_id || '';
+                String(u).split(',').map(x => x.trim()).filter(Boolean).forEach(x => empUsernames.push(x));
+            });
+        } else {
+            const raw = assign.employee_username || assign.employee_id || '';
+            empUsernames = String(raw).split(',').map(u => u.trim()).filter(Boolean);
+        }
+
+        // Resolve quarters (may come back as e.g. "2,3,4" or [2,3,4])
+        let quarters = [];
+        if (assign.quarters) {
+            if (Array.isArray(assign.quarters)) {
+                quarters = assign.quarters.map(Number);
+            } else {
+                quarters = String(assign.quarters).split(',').map(x => parseInt(x.trim(), 10)).filter(n => !isNaN(n));
+            }
+        }
+
+        setEditForm({
+            custom_amount: String(assign.custom_amount || ''),
+            employee_usernames: empUsernames,
+            ca_id: assign.ca_id || assign.ca?.username || '',
+            pay_from_month: assign.pay_from_month || '',
+            quarters,
+            status: assign.status || 'active'
+        });
+
+        // Pre-fill CA if present
+        if (assign.ca) {
+            setEditSelectedCa(assign.ca);
+        } else if (assign.ca_id) {
+            setEditSelectedCa({ username: assign.ca_id, name: assign.ca_id });
+        } else {
+            setEditSelectedCa(null);
+        }
+
+        setEditCaSearchQuery('');
+        setEditCaSearchResults([]);
+        setEditStaffSearchQuery('');
+        setShowEditModal(true);
+    }, []);
 
     const filteredStaffResults = useMemo(() => {
         const query = staffSearchQuery.trim().toLowerCase();
@@ -297,15 +390,22 @@ const ComplianceServices = () => {
 
         let statusLetter = 'P';
         let cellClass = 'bg-amber-50 text-amber-700 border-amber-200';
-        if (period.status === 'Sale') {
-            statusLetter = 'S';
+        const st = period.status;
+        if (st === 'Complete' || st === 'Sale') {
+            statusLetter = 'C';
             cellClass = 'bg-emerald-50 text-emerald-700 border-emerald-200';
-        } else if (period.status === 'Outsource') {
+        } else if (st === 'Pending From Client' || st === 'PFC') {
+            statusLetter = 'C̈';
+            cellClass = 'bg-orange-50 text-orange-700 border-orange-200';
+        } else if (st === 'Outsource') {
             statusLetter = 'O';
             cellClass = 'bg-blue-50 text-blue-700 border-blue-200';
-        } else if (period.status === 'N/A') {
+        } else if (st === 'N/A') {
             statusLetter = 'N';
             cellClass = 'bg-slate-50 text-slate-400 border-slate-200';
+        } else if (st === 'Pending From The Department' || st === 'Pending') {
+            statusLetter = 'P';
+            cellClass = 'bg-amber-50 text-amber-700 border-amber-200';
         }
 
         const dueDateText = getPeriodDueDate(period);
@@ -314,37 +414,32 @@ const ComplianceServices = () => {
         const assignedStaffs = getAssignedStaffList(assign);
         const assignedStaffUsernames = assignedStaffs.map(emp => (emp.username || '').toLowerCase().trim());
         const isUpdatePermitted = !currentUsername || assignedStaffUsernames.length === 0 || assignedStaffUsernames.includes(currentUsername);
+        const isComplete = st === 'Complete' || st === 'Sale';
 
         return (
             <td key={period.schedule_id} className="px-2 py-2 text-center align-middle">
-                <div
-                    onClick={() => isUpdatePermitted && openStatusModal(period, assign)}
-                    className={`inline-flex items-center justify-center gap-1 min-w-[32px] h-[26px] rounded border text-[10px] font-bold select-none ${isUpdatePermitted
+                <div className="flex flex-col items-center gap-0.5">
+                    <div
+                        onClick={() => isUpdatePermitted && !isComplete && openStatusModal(period, assign)}
+                        className={`inline-flex items-center justify-center gap-1 min-w-[32px] h-[26px] rounded border text-[10px] font-bold select-none ${isUpdatePermitted && !isComplete
                             ? `cursor-pointer transition-all hover:scale-105 ${cellClass}`
-                            : "bg-slate-50 text-slate-300 border-slate-100 cursor-not-allowed opacity-50"
-                        }`}
-                    title={
-                        isUpdatePermitted
-                            ? (showDirectDueDate ? `Due Date: ${dueDateText}` : `Status: ${period.status}`)
-                            : `Restricted (Only assigned staff: ${assignedStaffs.map(e => e.name || e.username).join(', ')})`
-                    }
-                >
-                    <span className="px-1.5 h-full flex items-center justify-center flex-grow text-center">
-                        {statusLetter}
-                    </span>
-                    {!showDirectDueDate && (
-                        <button
-                            type="button"
-                            onClick={(e) => {
-                                e.stopPropagation();
-                                toast(`Due Date: ${dueDateText}`, { icon: '📅' });
-                            }}
-                            className="pr-1 text-amber-500 hover:text-amber-600 transition-colors shrink-0"
-                            title="Click to view due date"
-                        >
-                            <FiAlertCircle className="w-3 h-3 animate-pulse" />
-                        </button>
-                    )}
+                            : isComplete
+                                ? `${cellClass} cursor-default`
+                                : "bg-slate-50 text-slate-300 border-slate-100 cursor-not-allowed opacity-50"
+                            }`}
+                        title={
+                            isComplete
+                                ? `Completed — locked`
+                                : isUpdatePermitted
+                                    ? (showDirectDueDate ? `Due Date: ${dueDateText}` : `Status: ${period.status}`)
+                                    : `Restricted (Only assigned staff: ${assignedStaffs.map(e => e.name || e.username).join(', ')})`
+                        }
+                    >
+                        <span className="px-1.5 h-full flex items-center justify-center flex-grow text-center">
+                            {statusLetter}
+                        </span>
+                    </div>
+                    <span className="text-[8px] text-slate-400 font-mono leading-none">{dueDateText.split(' ').slice(0, 2).join(' ')}</span>
                 </div>
             </td>
         );
@@ -536,7 +631,7 @@ const ComplianceServices = () => {
         fetchAllStats();
     }, [fetchServices, fetchAssignments, fetchStaff, fetchGroups]);
 
-    // Handle CA search autocomplete
+    // Handle CA search autocomplete (Assign modal)
     useEffect(() => {
         const term = caSearchQuery.trim();
         if (term.length < 3) {
@@ -573,6 +668,44 @@ const ComplianceServices = () => {
             caAbortRef.current?.abort();
         };
     }, [caSearchQuery]);
+
+    // Handle CA search autocomplete (Edit modal)
+    useEffect(() => {
+        const term = editCaSearchQuery.trim();
+        if (term.length < 3) {
+            setEditCaSearchResults([]);
+            return;
+        }
+
+        const t = setTimeout(async () => {
+            setEditCaSearchLoading(true);
+            editCaAbortRef.current?.abort();
+            const ctrl = new AbortController();
+            editCaAbortRef.current = ctrl;
+
+            try {
+                const res = await fetch(`${API_BASE_URL.replace(/\/$/, '')}/ca/search?search=${encodeURIComponent(term)}`, {
+                    headers: getHeaders(),
+                    signal: ctrl.signal
+                });
+                const data = await res.json();
+                if (data.success && Array.isArray(data.data)) {
+                    setEditCaSearchResults(data.data);
+                } else {
+                    setEditCaSearchResults([]);
+                }
+            } catch (e) {
+                if (e?.name !== 'AbortError') setEditCaSearchResults([]);
+            } finally {
+                setEditCaSearchLoading(false);
+            }
+        }, 350);
+
+        return () => {
+            clearTimeout(t);
+            editCaAbortRef.current?.abort();
+        };
+    }, [editCaSearchQuery]);
 
     // Handle service search change
     useEffect(() => {
@@ -753,6 +886,51 @@ const ComplianceServices = () => {
         }
     };
 
+    // Submit Edit Assignment Form
+    const handleEditSubmit = async (e) => {
+        e.preventDefault();
+        if (!editAssignment) return;
+
+        if (!editForm.custom_amount || isNaN(parseFloat(editForm.custom_amount))) {
+            toast.error('Please enter a valid custom fees amount');
+            return;
+        }
+        if (!editForm.employee_usernames || editForm.employee_usernames.length === 0) {
+            toast.error('Please select at least one assigned staff member');
+            return;
+        }
+
+        setSubmittingEdit(true);
+        try {
+            const payload = {
+                custom_amount: parseFloat(editForm.custom_amount),
+                employee_username: editForm.employee_usernames.join(','),
+                status: editForm.status
+            };
+            if (editForm.ca_id) payload.ca_id = editForm.ca_id;
+            if (editForm.pay_from_month) payload.pay_from_month = editForm.pay_from_month;
+            if (editForm.quarters && editForm.quarters.length > 0) {
+                payload.quarters = editForm.quarters.join(',');
+            }
+
+            await axios.put(
+                `${API_BASE_URL}/compliance/assignments/${editAssignment.assignment_id}`,
+                payload,
+                { headers: getHeaders() }
+            );
+
+            toast.success('Assignment updated successfully');
+            setShowEditModal(false);
+            setEditAssignment(null);
+            fetchAssignments();
+        } catch (err) {
+            console.error('Error updating assignment:', err);
+            toast.error(err.response?.data?.message || 'Failed to update assignment');
+        } finally {
+            setSubmittingEdit(false);
+        }
+    };
+
     // Submit Status Update Form
     const handleStatusSubmit = async (e) => {
         e.preventDefault();
@@ -830,7 +1008,7 @@ const ComplianceServices = () => {
                                 <FiLayers className="w-5 h-5" />
                             </div>
                             <div>
-                                <h1 className="text-xl font-bold text-slate-800 leading-tight">Compliance Services</h1>
+                                <h1 className="text-xl font-bold text-slate-800 leading-tight">Recurring Tasks</h1>
                                 <p className="text-xs text-slate-500">Manage client regulatory schedules, assignment frequencies, and automatic ledger sales</p>
                             </div>
                         </div>
@@ -842,7 +1020,7 @@ const ComplianceServices = () => {
                                 whileTap={{ scale: 0.98 }}
                             >
                                 <FiPlus className="w-4 h-4" />
-                                Assign Compliance Service
+                                Assign Recurring Task
                             </motion.button>
                         )}
                     </div>
@@ -869,248 +1047,97 @@ const ComplianceServices = () => {
 
                     {/* Main Workspace Card */}
                     <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden mb-8">
-                        {/* Tab Switcher */}
-                        <div className="flex border-b border-slate-100 px-4 pt-3 gap-1 bg-slate-50/55">
-                            {[
-                                { id: 'assignments', label: 'Client Assignments', icon: <FiBriefcase className="w-3.5 h-3.5" /> },
-                                { id: 'services', label: 'Predefined Services', icon: <FiBookOpen className="w-3.5 h-3.5" /> }
-                            ].map((tab) => (
-                                <button
-                                    key={tab.id}
-                                    onClick={() => {
-                                        setActiveTab(tab.id);
-                                        setSelectedAssignmentId(null);
-                                        setSchedules([]);
-                                    }}
-                                    className={`flex items-center gap-1.5 px-4 py-2.5 text-xs font-semibold rounded-t-xl border-b-2 transition-all -mb-px ${activeTab === tab.id
-                                        ? 'border-indigo-600 text-indigo-600 bg-white shadow-sm'
-                                        : 'border-transparent text-slate-500 hover:text-slate-700 hover:bg-slate-50'
-                                        }`}
-                                >
-                                    {tab.icon}
-                                    {tab.label}
-                                </button>
-                            ))}
-                        </div>
+                    </div>
 
-                        {/* Assignments Workspace */}
-                        {activeTab === 'assignments' && (
-                            <div>
-                                <div className="flex flex-wrap items-center gap-3 px-4 py-3 border-b border-slate-100 bg-slate-50/20">
-                                    <div className="relative flex-1 max-w-xs">
-                                        <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 pointer-events-none" />
-                                        <input
-                                            type="text"
-                                            placeholder="Search assignments or firms…"
-                                            value={assignmentSearch}
-                                            onChange={(e) => setAssignmentSearch(e.target.value)}
-                                            className="w-full pl-9 pr-3 py-2 text-xs text-slate-700 border border-slate-200 rounded-lg bg-white focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none"
-                                        />
-                                    </div>
-
-                                    {/* Financial Year Selector */}
-                                    <div className="flex items-center gap-1.5 text-xs text-slate-500 font-medium">
-                                        <span>FY:</span>
-                                        <select
-                                            value={selectedFY}
-                                            onChange={(e) => setSelectedFY(e.target.value)}
-                                            className="px-2 py-1.5 text-xs text-slate-700 border border-slate-200 rounded-lg bg-white focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none"
-                                        >
-                                            <option value="">All Years</option>
-                                            <option value="2025-2026">2025-2026</option>
-                                            <option value="2026-2027">2026-2027</option>
-                                            <option value="2027-2028">2027-2028</option>
-                                        </select>
-                                    </div>
-
-                                    {/* Service Selector Dropdown */}
-                                    <div className="flex items-center gap-1.5 text-xs text-slate-500 font-medium">
-                                        <span>Service:</span>
-                                        <select
-                                            value={selectedServiceFilter}
-                                            onChange={(e) => setSelectedServiceFilter(e.target.value)}
-                                            className="px-2 py-1.5 text-xs text-slate-700 border border-slate-200 rounded-lg bg-white focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none max-w-[200px]"
-                                        >
-                                            <option value="">All Services</option>
-                                            {services.map(s => (
-                                                <option key={s.id} value={s.service_id || s.name}>{s.name}</option>
-                                            ))}
-                                        </select>
-                                    </div>
-
-                                    {/* Filing Status Selector Dropdown */}
-                                    <div className="flex items-center gap-1.5 text-xs text-slate-500 font-medium">
-                                        <span>Filing Status:</span>
-                                        <select
-                                            value={selectedFilingStatus}
-                                            onChange={(e) => setSelectedFilingStatus(e.target.value)}
-                                            className="px-2 py-1.5 text-xs text-slate-700 border border-slate-200 rounded-lg bg-white focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none font-medium"
-                                        >
-                                            <option value="">All Status</option>
-                                            <option value="Pending">Pending</option>
-                                            <option value="Sale">Sale (Filed)</option>
-                                            <option value="Outsource">Outsource</option>
-                                            <option value="N/A">N/A</option>
-                                        </select>
-                                    </div>
-
-                                    <button
-                                        onClick={() => fetchAssignments(assignmentSearch)}
-                                        className="p-2 text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors border border-slate-200 bg-white"
-                                    >
-                                        <FiRefreshCw className={`w-3.5 h-3.5 ${assignmentsLoading ? 'animate-spin' : ''}`} />
-                                    </button>
+                    {/* Assignments Workspace */}
+                    {activeTab === 'assignments' && (
+                        <div>
+                            <div className="flex flex-wrap items-center gap-3 px-4 py-3 border-b border-slate-100 bg-slate-50/20">
+                                <div className="relative flex-1 max-w-xs">
+                                    <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 pointer-events-none" />
+                                    <input
+                                        type="text"
+                                        placeholder="Search assignments or firms…"
+                                        value={assignmentSearch}
+                                        onChange={(e) => setAssignmentSearch(e.target.value)}
+                                        className="w-full pl-9 pr-3 py-2 text-xs text-slate-700 border border-slate-200 rounded-lg bg-white focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none"
+                                    />
                                 </div>
 
-                                <div className="overflow-x-auto">
-                                    {isServiceFiltered ? (
-                                        <div className="min-w-[800px]">
-                                            <table className="w-full text-sm text-left border-collapse">
-                                                <thead>
-                                                    <tr className="bg-slate-50 border-b border-slate-100 text-slate-600 uppercase text-[10px] font-semibold tracking-wider">
-                                                        <th className="px-4 py-3 text-center w-12">SR</th>
-                                                        <th className="px-4 py-3">Firm Name</th>
-                                                        <th className="px-4 py-3 text-center">Staffs</th>
-                                                        <th className="px-4 py-3 text-right pr-6">Amount</th>
-                                                        {periodHeaders.map((header) => (
-                                                            <th key={header} className="px-2 py-3 text-center uppercase tracking-wider">{header}</th>
-                                                        ))}
-                                                    </tr>
-                                                </thead>
-                                                <tbody className="divide-y divide-slate-100">
-                                                    {assignmentsLoading ? (
-                                                        <tr>
-                                                            <td colSpan={4 + periodHeaders.length} className="px-4 py-8 text-center">
-                                                                <div className="animate-pulse flex flex-col gap-2">
-                                                                    <div className="h-4 bg-slate-100 rounded w-1/3 mx-auto"></div>
-                                                                    <div className="h-4 bg-slate-100 rounded w-1/4 mx-auto"></div>
-                                                                </div>
-                                                            </td>
-                                                        </tr>
-                                                    ) : filteredAssignments.length === 0 ? (
-                                                        <tr>
-                                                            <td colSpan={4 + periodHeaders.length} className="px-4 py-12 text-center text-slate-400">
-                                                                <FiBriefcase className="w-8 h-8 mx-auto mb-2 opacity-50" />
-                                                                <p className="text-xs font-medium text-slate-500">No compliance assignments found</p>
-                                                            </td>
-                                                        </tr>
-                                                    ) : (
-                                                        filteredAssignments.map((assign, idx) => {
-                                                            const assignSchedules = allSchedules.filter(s => s.assignment_id === assign.assignment_id);
-                                                            return (
-                                                                <tr key={assign.assignment_id} className="hover:bg-slate-50/50 transition-colors">
-                                                                    <td className="px-4 py-3 text-center font-mono text-xs text-slate-400">
-                                                                        {idx + 1}
-                                                                    </td>
-                                                                    <td className="px-4 py-3 font-semibold text-slate-800 text-xs">
-                                                                        <div>{assign.firm_name}</div>
-                                                                        <div className="text-[10px] text-slate-450 font-normal mt-0.5">{assign.service_name}</div>
-                                                                    </td>
-                                                                    <td className="px-4 py-3 text-center align-middle">
-                                                                        {(() => {
-                                                                            const assignedStaffs = getAssignedStaffList(assign);
-                                                                            if (assignedStaffs.length === 0) return '—';
+                                {/* Financial Year Selector */}
+                                <div className="flex items-center gap-1.5 text-xs text-slate-500 font-medium">
+                                    <span>FY:</span>
+                                    <select
+                                        value={selectedFY}
+                                        onChange={(e) => setSelectedFY(e.target.value)}
+                                        className="px-2 py-1.5 text-xs text-slate-700 border border-slate-200 rounded-lg bg-white focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none"
+                                    >
+                                        <option value="">All Years</option>
+                                        <option value="2025-2026">2025-2026</option>
+                                        <option value="2026-2027">2026-2027</option>
+                                        <option value="2027-2028">2027-2028</option>
+                                    </select>
+                                </div>
 
-                                                                            const onAvatarClick = (e) => {
-                                                                                e.stopPropagation();
-                                                                                setStaffListModal({
-                                                                                    open: true,
-                                                                                    staffs: assignedStaffs.map(emp => ({
-                                                                                        username: emp.username,
-                                                                                        name: emp.name || emp.username,
-                                                                                        email: emp.email || '—',
-                                                                                        mobile: emp.mobile || emp.phone || '—'
-                                                                                    })),
-                                                                                    serviceName: assign.service_name || assign.service_id
-                                                                                });
-                                                                            };
+                                {/* Service Selector Dropdown */}
+                                <div className="flex items-center gap-1.5 text-xs text-slate-500 font-medium">
+                                    <span>Service:</span>
+                                    <select
+                                        value={selectedServiceFilter}
+                                        onChange={(e) => setSelectedServiceFilter(e.target.value)}
+                                        className="px-2 py-1.5 text-xs text-slate-700 border border-slate-200 rounded-lg bg-white focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none max-w-[200px]"
+                                    >
+                                        <option value="">All Services</option>
+                                        {services.map(s => (
+                                            <option key={s.id} value={s.service_id || s.name}>{s.name}</option>
+                                        ))}
+                                    </select>
+                                </div>
 
-                                                                            return (
-                                                                                <div className="flex justify-center -space-x-2.5">
-                                                                                    {assignedStaffs.slice(0, 2).map((emp, idx) => (
-                                                                                        <button
-                                                                                            key={emp.username || idx}
-                                                                                            type="button"
-                                                                                            onClick={onAvatarClick}
-                                                                                            className="w-7 h-7 rounded-full bg-gradient-to-br from-indigo-500 to-indigo-600 border-2 border-white flex items-center justify-center text-[10px] font-bold text-white hover:opacity-90 hover:scale-105 hover:z-10 transition-all shadow-xs cursor-pointer"
-                                                                                            title={`Click to view details of assigned staff`}
-                                                                                        >
-                                                                                            {(emp.name || emp.username || 'S').charAt(0).toUpperCase()}
-                                                                                        </button>
-                                                                                    ))}
-                                                                                    {assignedStaffs.length > 2 && (
-                                                                                        <button
-                                                                                            type="button"
-                                                                                            onClick={onAvatarClick}
-                                                                                            className="w-7 h-7 rounded-full bg-gradient-to-br from-indigo-500 to-indigo-600 border-2 border-white flex items-center justify-center text-[10px] font-bold text-white hover:opacity-90 hover:scale-105 hover:z-10 transition-all shadow-xs cursor-pointer"
-                                                                                            title="Click to view all assigned staff"
-                                                                                        >
-                                                                                            +{assignedStaffs.length - 2}
-                                                                                        </button>
-                                                                                    )}
-                                                                                </div>
-                                                                            );
-                                                                        })()}
-                                                                    </td>
-                                                                    <td className="px-4 py-3 font-bold text-slate-705 text-xs text-right pr-6">
-                                                                        ₹{formatCurrency(assign.custom_amount)}
-                                                                    </td>
-                                                                    {periodHeaders.map((headerText) => {
-                                                                        const period = getPeriodSchedule(assignSchedules, headerText, activeFrequency);
-                                                                        return renderCell(period, assign);
-                                                                    })}
-                                                                </tr>
-                                                            );
-                                                        })
-                                                    )}
-                                                </tbody>
-                                            </table>
+                                {/* Filing Status Selector Dropdown */}
+                                <div className="flex items-center gap-1.5 text-xs text-slate-500 font-medium">
+                                    <span>Filing Status:</span>
+                                    <select
+                                        value={selectedFilingStatus}
+                                        onChange={(e) => setSelectedFilingStatus(e.target.value)}
+                                        className="px-2 py-1.5 text-xs text-slate-700 border border-slate-200 rounded-lg bg-white focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none font-medium"
+                                    >
+                                        <option value="">All Status</option>
+                                        <option value="Pending From The Department">Pending (Dept)</option>
+                                        <option value="Pending From Client">Pending (Client)</option>
+                                        <option value="Complete">Complete</option>
+                                        <option value="Outsource">Outsource</option>
+                                        <option value="N/A">N/A</option>
+                                    </select>
+                                </div>
 
-                                            {/* Footer Legend */}
-                                            <div className="flex flex-wrap items-center justify-between gap-4 px-4 py-3 bg-slate-50 border-t border-slate-100 text-xs text-slate-500">
-                                                <div className="flex items-center gap-1">
-                                                    <span className="font-semibold text-slate-700">Filing Status Legend:</span>
-                                                </div>
-                                                <div className="flex flex-wrap gap-4 font-medium">
-                                                    <span className="flex items-center gap-1.5">
-                                                        <span className="w-5 h-5 rounded border bg-amber-50 text-amber-700 border-amber-200 flex items-center justify-center text-[10px] font-bold">P</span>
-                                                        Pending
-                                                    </span>
-                                                    <span className="flex items-center gap-1.5">
-                                                        <span className="w-5 h-5 rounded border bg-emerald-50 text-emerald-700 border-emerald-200 flex items-center justify-center text-[10px] font-bold">S</span>
-                                                        Sale (Filed)
-                                                    </span>
-                                                    <span className="flex items-center gap-1.5">
-                                                        <span className="w-5 h-5 rounded border bg-blue-50 text-blue-700 border-blue-200 flex items-center justify-center text-[10px] font-bold">O</span>
-                                                        Outsource
-                                                    </span>
-                                                    <span className="flex items-center gap-1.5">
-                                                        <span className="w-5 h-5 rounded border bg-slate-50 text-slate-400 border-slate-200 flex items-center justify-center text-[10px] font-bold">N</span>
-                                                        N/A
-                                                    </span>
-                                                </div>
-                                                <div className="text-[10px] text-slate-400 font-medium">
-                                                    * Click status badge to update payment status
-                                                </div>
-                                            </div>
-                                        </div>
-                                    ) : (
-                                        <table className="w-full text-sm text-left">
+                                <button
+                                    onClick={() => fetchAssignments(assignmentSearch)}
+                                    className="p-2 text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors border border-slate-200 bg-white"
+                                >
+                                    <FiRefreshCw className={`w-3.5 h-3.5 ${assignmentsLoading ? 'animate-spin' : ''}`} />
+                                </button>
+                            </div>
+
+                            <div className="overflow-x-auto">
+                                {isServiceFiltered ? (
+                                    <div className="min-w-[800px]">
+                                        <table className="w-full text-sm text-left border-collapse">
                                             <thead>
                                                 <tr className="bg-slate-50 border-b border-slate-100 text-slate-600 uppercase text-[10px] font-semibold tracking-wider">
+                                                    <th className="px-4 py-3 text-center w-12">SR</th>
                                                     <th className="px-4 py-3">Firm Name</th>
-                                                    <th className="px-4 py-3">Compliance Service</th>
-                                                    <th className="px-4 py-3">Frequency</th>
-                                                    <th className="px-4 py-3">FY</th>
-                                                    <th className="px-4 py-3">STAFFS</th>
-                                                    <th className="px-4 py-3">Amount</th>
-                                                    <th className="px-4 py-3 w-16"></th>
+                                                    <th className="px-4 py-3 text-center">Staffs</th>
+                                                    <th className="px-4 py-3 text-right pr-6">Amount</th>
+                                                    {periodHeaders.map((header) => (
+                                                        <th key={header} className="px-2 py-3 text-center uppercase tracking-wider">{header}</th>
+                                                    ))}
                                                 </tr>
                                             </thead>
-                                            <tbody className="divide-y divide-slate-50">
+                                            <tbody className="divide-y divide-slate-100">
                                                 {assignmentsLoading ? (
                                                     <tr>
-                                                        <td colSpan={7} className="px-4 py-8 text-center">
+                                                        <td colSpan={4 + periodHeaders.length} className="px-4 py-8 text-center">
                                                             <div className="animate-pulse flex flex-col gap-2">
                                                                 <div className="h-4 bg-slate-100 rounded w-1/3 mx-auto"></div>
                                                                 <div className="h-4 bg-slate-100 rounded w-1/4 mx-auto"></div>
@@ -1119,36 +1146,24 @@ const ComplianceServices = () => {
                                                     </tr>
                                                 ) : filteredAssignments.length === 0 ? (
                                                     <tr>
-                                                        <td colSpan={7} className="px-4 py-12 text-center text-slate-400">
+                                                        <td colSpan={4 + periodHeaders.length} className="px-4 py-12 text-center text-slate-400">
                                                             <FiBriefcase className="w-8 h-8 mx-auto mb-2 opacity-50" />
                                                             <p className="text-xs font-medium text-slate-500">No compliance assignments found</p>
-                                                            <p className="text-[11px] mt-0.5">Click "Assign Compliance Service" above to link a firm</p>
                                                         </td>
                                                     </tr>
                                                 ) : (
-                                                    filteredAssignments.map((assign) => (
-                                                        <React.Fragment key={assign.assignment_id}>
-                                                            <tr
-                                                                onClick={() => handleSelectAssignment(assign.assignment_id)}
-                                                                className={`hover:bg-slate-50/50 cursor-pointer transition-colors ${selectedAssignmentId === assign.assignment_id ? 'bg-indigo-50/20' : ''
-                                                                    }`}
-                                                            >
+                                                    filteredAssignments.map((assign, idx) => {
+                                                        const assignSchedules = allSchedules.filter(s => s.assignment_id === assign.assignment_id);
+                                                        return (
+                                                            <tr key={assign.assignment_id} className="hover:bg-slate-50/50 transition-colors">
+                                                                <td className="px-4 py-3 text-center font-mono text-xs text-slate-400">
+                                                                    {idx + 1}
+                                                                </td>
                                                                 <td className="px-4 py-3 font-semibold text-slate-800 text-xs">
-                                                                    {assign.firm_name}
+                                                                    <div>{assign.firm_name}</div>
+                                                                    <div className="text-[10px] text-slate-450 font-normal mt-0.5">{assign.service_name}</div>
                                                                 </td>
-                                                                <td className="px-4 py-3 text-slate-600 text-xs">
-                                                                    {assign.service_name}
-                                                                </td>
-                                                                <td className="px-4 py-3">
-                                                                    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium border uppercase tracking-wider ${FREQ_BADGES[String(assign.frequency).toLowerCase()] || 'bg-slate-50'
-                                                                        }`}>
-                                                                        {assign.frequency}
-                                                                    </span>
-                                                                </td>
-                                                                <td className="px-4 py-3 text-slate-500 text-xs font-mono">
-                                                                    {assign.financial_year}
-                                                                </td>
-                                                                <td className="px-4 py-3 text-slate-655 text-xs">
+                                                                <td className="px-4 py-3 text-center align-middle">
                                                                     {(() => {
                                                                         const assignedStaffs = getAssignedStaffList(assign);
                                                                         if (assignedStaffs.length === 0) return '—';
@@ -1168,13 +1183,13 @@ const ComplianceServices = () => {
                                                                         };
 
                                                                         return (
-                                                                            <div className="flex -space-x-2.5">
+                                                                            <div className="flex justify-center -space-x-2.5">
                                                                                 {assignedStaffs.slice(0, 2).map((emp, idx) => (
                                                                                     <button
                                                                                         key={emp.username || idx}
                                                                                         type="button"
                                                                                         onClick={onAvatarClick}
-                                                                                        className="w-8 h-8 rounded-full bg-gradient-to-br from-indigo-500 to-indigo-600 border-2 border-white flex items-center justify-center text-[10px] font-bold text-white hover:opacity-90 hover:scale-105 hover:z-10 transition-all shadow-xs cursor-pointer"
+                                                                                        className="w-7 h-7 rounded-full bg-gradient-to-br from-indigo-500 to-indigo-600 border-2 border-white flex items-center justify-center text-[10px] font-bold text-white hover:opacity-90 hover:scale-105 hover:z-10 transition-all shadow-xs cursor-pointer"
                                                                                         title={`Click to view details of assigned staff`}
                                                                                     >
                                                                                         {(emp.name || emp.username || 'S').charAt(0).toUpperCase()}
@@ -1184,7 +1199,7 @@ const ComplianceServices = () => {
                                                                                     <button
                                                                                         type="button"
                                                                                         onClick={onAvatarClick}
-                                                                                        className="w-8 h-8 rounded-full bg-gradient-to-br from-indigo-500 to-indigo-600 border-2 border-white flex items-center justify-center text-[10px] font-bold text-white hover:opacity-90 hover:scale-105 hover:z-10 transition-all shadow-xs cursor-pointer"
+                                                                                        className="w-7 h-7 rounded-full bg-gradient-to-br from-indigo-500 to-indigo-600 border-2 border-white flex items-center justify-center text-[10px] font-bold text-white hover:opacity-90 hover:scale-105 hover:z-10 transition-all shadow-xs cursor-pointer"
                                                                                         title="Click to view all assigned staff"
                                                                                     >
                                                                                         +{assignedStaffs.length - 2}
@@ -1194,55 +1209,236 @@ const ComplianceServices = () => {
                                                                         );
                                                                     })()}
                                                                 </td>
-                                                                <td className="px-4 py-3 font-bold text-slate-700 text-xs">
+                                                                <td className="px-4 py-3 font-bold text-slate-705 text-xs text-right pr-6">
                                                                     ₹{formatCurrency(assign.custom_amount)}
                                                                 </td>
-                                                                <td className="px-4 py-3 text-right">
-                                                                    <button className="text-slate-400 hover:text-indigo-600 transition-colors p-1">
+                                                                {periodHeaders.map((headerText) => {
+                                                                    const period = getPeriodSchedule(assignSchedules, headerText, activeFrequency);
+                                                                    return renderCell(period, assign);
+                                                                })}
+                                                            </tr>
+                                                        );
+                                                    })
+                                                )}
+                                            </tbody>
+                                        </table>
+
+                                        {/* Footer Legend */}
+                                        <div className="flex flex-wrap items-center justify-between gap-4 px-4 py-3 bg-slate-50 border-t border-slate-100 text-xs text-slate-500">
+                                            <div className="flex items-center gap-1">
+                                                <span className="font-semibold text-slate-700">Filing Status Legend:</span>
+                                            </div>
+                                            <div className="flex flex-wrap gap-4 font-medium">
+                                                <span className="flex items-center gap-1.5">
+                                                    <span className="w-5 h-5 rounded border bg-amber-50 text-amber-700 border-amber-200 flex items-center justify-center text-[10px] font-bold">P</span>
+                                                    Pending (Dept)
+                                                </span>
+                                                <span className="flex items-center gap-1.5">
+                                                    <span className="w-5 h-5 rounded border bg-orange-50 text-orange-700 border-orange-200 flex items-center justify-center text-[10px] font-bold">PC</span>
+                                                    Pending (Client)
+                                                </span>
+                                                <span className="flex items-center gap-1.5">
+                                                    <span className="w-5 h-5 rounded border bg-emerald-50 text-emerald-700 border-emerald-200 flex items-center justify-center text-[10px] font-bold">C</span>
+                                                    Complete (Locked)
+                                                </span>
+                                                <span className="flex items-center gap-1.5">
+                                                    <span className="w-5 h-5 rounded border bg-blue-50 text-blue-700 border-blue-200 flex items-center justify-center text-[10px] font-bold">O</span>
+                                                    Outsource
+                                                </span>
+                                                <span className="flex items-center gap-1.5">
+                                                    <span className="w-5 h-5 rounded border bg-slate-50 text-slate-400 border-slate-200 flex items-center justify-center text-[10px] font-bold">N</span>
+                                                    N/A
+                                                </span>
+                                            </div>
+                                            <div className="text-[10px] text-slate-400 font-medium">
+                                                * Click badge to update status · Complete periods are locked
+                                            </div>
+                                        </div>
+                                    </div>
+                                ) : (
+                                    <table className="w-full text-sm text-left">
+                                        <thead>
+                                            <tr className="bg-slate-50 border-b border-slate-100 text-slate-600 uppercase text-[10px] font-semibold tracking-wider">
+                                                <th className="px-4 py-3">Firm Name</th>
+                                                <th className="px-4 py-3">Recurring Task</th>
+                                                <th className="px-4 py-3">Frequency</th>
+                                                <th className="px-4 py-3">FY</th>
+                                                <th className="px-4 py-3">Staffs</th>
+                                                <th className="px-4 py-3 w-28">Actions</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className="divide-y divide-slate-50">
+                                            {assignmentsLoading ? (
+                                                <tr>
+                                                    <td colSpan={7} className="px-4 py-8 text-center">
+                                                        <div className="animate-pulse flex flex-col gap-2">
+                                                            <div className="h-4 bg-slate-100 rounded w-1/3 mx-auto"></div>
+                                                            <div className="h-4 bg-slate-100 rounded w-1/4 mx-auto"></div>
+                                                        </div>
+                                                    </td>
+                                                </tr>
+                                            ) : filteredAssignments.length === 0 ? (
+                                                <tr>
+                                                    <td colSpan={6} className="px-4 py-12 text-center text-slate-400">
+                                                        <FiBriefcase className="w-8 h-8 mx-auto mb-2 opacity-50" />
+                                                        <p className="text-xs font-medium text-slate-500">No recurring tasks found</p>
+                                                        <p className="text-[11px] mt-0.5">Click "Assign Recurring Task" above to link a firm</p>
+                                                    </td>
+                                                </tr>
+                                            ) : (
+                                                filteredAssignments.map((assign) => (
+                                                    <React.Fragment key={assign.assignment_id}>
+                                                        <tr
+                                                            onClick={() => handleSelectAssignment(assign.assignment_id)}
+                                                            className={`hover:bg-slate-50/50 cursor-pointer transition-colors ${selectedAssignmentId === assign.assignment_id ? 'bg-indigo-50/20' : ''
+                                                                }`}
+                                                        >
+                                                            <td className="px-4 py-3 font-semibold text-slate-800 text-xs">
+                                                                {assign.firm_name}
+                                                            </td>
+                                                            <td className="px-4 py-3 text-slate-600 text-xs">
+                                                                {assign.service_name}
+                                                            </td>
+                                                            <td className="px-4 py-3">
+                                                                <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium border uppercase tracking-wider ${FREQ_BADGES[String(assign.frequency).toLowerCase()] || 'bg-slate-50'
+                                                                    }`}>
+                                                                    {assign.frequency}
+                                                                </span>
+                                                            </td>
+                                                            <td className="px-4 py-3 text-slate-500 text-xs font-mono">
+                                                                {assign.financial_year}
+                                                            </td>
+                                                            <td className="px-4 py-3 text-slate-655 text-xs">
+                                                                {(() => {
+                                                                    const assignedStaffs = getAssignedStaffList(assign);
+                                                                    if (assignedStaffs.length === 0) return '—';
+
+                                                                    const onAvatarClick = (e) => {
+                                                                        e.stopPropagation();
+                                                                        setStaffListModal({
+                                                                            open: true,
+                                                                            staffs: assignedStaffs.map(emp => ({
+                                                                                username: emp.username,
+                                                                                name: emp.name || emp.username,
+                                                                                email: emp.email || '—',
+                                                                                mobile: emp.mobile || emp.phone || '—'
+                                                                            })),
+                                                                            serviceName: assign.service_name || assign.service_id
+                                                                        });
+                                                                    };
+
+                                                                    return (
+                                                                        <div className="flex -space-x-2.5">
+                                                                            {assignedStaffs.slice(0, 2).map((emp, idx) => (
+                                                                                <button
+                                                                                    key={emp.username || idx}
+                                                                                    type="button"
+                                                                                    onClick={onAvatarClick}
+                                                                                    className="w-8 h-8 rounded-full bg-gradient-to-br from-indigo-500 to-indigo-600 border-2 border-white flex items-center justify-center text-[10px] font-bold text-white hover:opacity-90 hover:scale-105 hover:z-10 transition-all shadow-xs cursor-pointer"
+                                                                                    title={`Click to view details of assigned staff`}
+                                                                                >
+                                                                                    {(emp.name || emp.username || 'S').charAt(0).toUpperCase()}
+                                                                                </button>
+                                                                            ))}
+                                                                            {assignedStaffs.length > 2 && (
+                                                                                <button
+                                                                                    type="button"
+                                                                                    onClick={onAvatarClick}
+                                                                                    className="w-8 h-8 rounded-full bg-gradient-to-br from-indigo-500 to-indigo-600 border-2 border-white flex items-center justify-center text-[10px] font-bold text-white hover:opacity-90 hover:scale-105 hover:z-10 transition-all shadow-xs cursor-pointer"
+                                                                                    title="Click to view all assigned staff"
+                                                                                >
+                                                                                    +{assignedStaffs.length - 2}
+                                                                                </button>
+                                                                            )}
+                                                                        </div>
+                                                                    );
+                                                                })()}
+                                                            </td>
+                                                            <td className="px-3 py-3 text-right">
+                                                                <div className="flex items-center justify-end gap-1">
+                                                                    <button
+                                                                        type="button"
+                                                                        onClick={(e) => { e.stopPropagation(); openEditModal(assign); }}
+                                                                        className="p-1.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
+                                                                        title="Edit assignment"
+                                                                    >
+                                                                        <FiEdit2 className="w-3.5 h-3.5" />
+                                                                    </button>
+                                                                    <button
+                                                                        type="button"
+                                                                        onClick={(e) => { e.stopPropagation(); setConfirmDeleteId(assign.assignment_id); }}
+                                                                        className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
+                                                                        title="Delete assignment"
+                                                                    >
+                                                                        <FiTrash2 className="w-3.5 h-3.5" />
+                                                                    </button>
+                                                                    <button
+                                                                        type="button"
+                                                                        onClick={(e) => { e.stopPropagation(); handleSelectAssignment(assign.assignment_id); }}
+                                                                        className="text-slate-400 hover:text-indigo-600 transition-colors p-1"
+                                                                    >
                                                                         {selectedAssignmentId === assign.assignment_id ? (
                                                                             <FiChevronDown className="w-4 h-4" />
                                                                         ) : (
                                                                             <FiChevronRight className="w-4 h-4" />
                                                                         )}
                                                                     </button>
-                                                                </td>
-                                                            </tr>
+                                                                </div>
+                                                            </td>
+                                                        </tr>
 
-                                                            {/* Expanded Schedule Details */}
-                                                            {selectedAssignmentId === assign.assignment_id && (
-                                                                <tr>
-                                                                    <td colSpan={7} className="bg-slate-50/40 p-4 border-t border-b border-indigo-100/50">
-                                                                        <div className="mb-3 flex justify-between items-center">
-                                                                            <h6 className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">
-                                                                                Schedule Details for {assign.financial_year}
-                                                                            </h6>
-                                                                            {(() => {
-                                                                                const assignedStaffs = getAssignedStaffList(assign);
-                                                                                if (assignedStaffs.length === 0) return null;
-                                                                                return (
-                                                                                    <div className="flex flex-wrap gap-1 items-center">
-                                                                                        <span className="text-[10px] text-slate-400 uppercase tracking-wider mr-1">Staff:</span>
-                                                                                        {assignedStaffs.map((emp, idx) => (
-                                                                                            <button
-                                                                                                type="button"
-                                                                                                key={emp.username || idx}
-                                                                                                onClick={() => setSelectedStaffDetails(emp)}
-                                                                                                className="text-[10px] text-slate-655 bg-white border border-slate-200 rounded-md px-2 py-0.5 hover:border-indigo-300 hover:text-indigo-650 transition-colors font-medium shadow-2xs cursor-pointer animate-pulse"
-                                                                                            >
-                                                                                                {emp.name}
-                                                                                            </button>
-                                                                                        ))}
-                                                                                    </div>
-                                                                                );
-                                                                            })()}
+                                                        {/* Expanded Schedule Details */}
+                                                        {selectedAssignmentId === assign.assignment_id && (
+                                                            <tr>
+                                                                <td colSpan={6} className="bg-slate-50/40 p-4 border-t border-b border-indigo-100/50">
+                                                                    <div className="mb-3 flex justify-between items-center">
+                                                                        <h6 className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+                                                                            Schedule Details for {assign.financial_year}
+                                                                        </h6>
+                                                                        {(() => {
+                                                                            const assignedStaffs = getAssignedStaffList(assign);
+                                                                            if (assignedStaffs.length === 0) return null;
+                                                                            return (
+                                                                                <div className="flex flex-wrap gap-1 items-center">
+                                                                                    <span className="text-[10px] text-slate-400 uppercase tracking-wider mr-1">Staff:</span>
+                                                                                    {assignedStaffs.map((emp, idx) => (
+                                                                                        <button
+                                                                                            type="button"
+                                                                                            key={emp.username || idx}
+                                                                                            onClick={() => setSelectedStaffDetails(emp)}
+                                                                                            className="text-[10px] text-slate-655 bg-white border border-slate-200 rounded-md px-2 py-0.5 hover:border-indigo-300 hover:text-indigo-650 transition-colors font-medium shadow-2xs cursor-pointer animate-pulse"
+                                                                                        >
+                                                                                            {emp.name}
+                                                                                        </button>
+                                                                                    ))}
+                                                                                </div>
+                                                                            );
+                                                                        })()}
+                                                                    </div>
+
+                                                                    {schedulesLoading ? (
+                                                                        <div className="flex items-center gap-2 text-xs text-slate-400 py-4">
+                                                                            <span className="w-3.5 h-3.5 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin"></span>
+                                                                            Loading periods…
                                                                         </div>
-
-                                                                        {schedulesLoading ? (
-                                                                            <div className="flex items-center gap-2 text-xs text-slate-400 py-4">
-                                                                                <span className="w-3.5 h-3.5 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin"></span>
-                                                                                Loading periods…
-                                                                            </div>
-                                                                        ) : (
+                                                                    ) : (
+                                                                        <div>
+                                                                            {/* Monthly 6-month window toggle */}
+                                                                            {assign.frequency === 'monthly' && (
+                                                                                <div className="flex items-center justify-between mb-3">
+                                                                                    <span className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider">
+                                                                                        {monthWindowOffset === 0 ? 'Apr – Sep' : 'Oct – Mar'}
+                                                                                    </span>
+                                                                                    <div className="flex gap-1">
+                                                                                        <button type="button" onClick={() => setMonthWindowOffset(0)}
+                                                                                            className={`px-2 py-0.5 text-[10px] font-semibold rounded border transition-colors ${monthWindowOffset === 0 ? 'bg-indigo-600 text-white border-indigo-600' : 'text-slate-500 border-slate-200 hover:bg-slate-50'
+                                                                                                }`}>Apr–Sep</button>
+                                                                                        <button type="button" onClick={() => setMonthWindowOffset(1)}
+                                                                                            className={`px-2 py-0.5 text-[10px] font-semibold rounded border transition-colors ${monthWindowOffset === 1 ? 'bg-indigo-600 text-white border-indigo-600' : 'text-slate-500 border-slate-200 hover:bg-slate-50'
+                                                                                                }`}>Oct–Mar</button>
+                                                                                    </div>
+                                                                                </div>
+                                                                            )}
                                                                             <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 gap-3">
                                                                                 {(() => {
                                                                                     const filteredSchedules = (() => {
@@ -1269,185 +1465,105 @@ const ComplianceServices = () => {
                                                                                         });
                                                                                     })();
 
-                                                                                    return filteredSchedules.map((period) => {
-                                                                                        const assignedStaffs = getAssignedStaffList(assign);
-                                                                                        const assignedStaffUsernames = assignedStaffs.map(emp => (emp.username || '').toLowerCase().trim());
-                                                                                        const isUpdatePermitted = !currentUsername || assignedStaffUsernames.length === 0 || assignedStaffUsernames.includes(currentUsername);
+                                                                                    return filteredSchedules
+                                                                                        .filter(p => {
+                                                                                            // For monthly frequency, filter to only visible 6 months
+                                                                                            if (assign.frequency !== 'monthly') return true;
+                                                                                            const MONTH_ABBR = ['Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec', 'Jan', 'Feb', 'Mar'];
+                                                                                            const MONTH_FULL = ['April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December', 'January', 'February', 'March'];
+                                                                                            const abbr = MONTH_FULL.indexOf(p.period_name);
+                                                                                            if (abbr === -1) return true;
+                                                                                            const visM = visibleMonths;
+                                                                                            return visM.includes(MONTH_ABBR[abbr]);
+                                                                                        })
+                                                                                        .map((period) => {
+                                                                                            const assignedStaffs = getAssignedStaffList(assign);
+                                                                                            const assignedStaffUsernames = assignedStaffs.map(emp => (emp.username || '').toLowerCase().trim());
+                                                                                            const isUpdatePermitted = !currentUsername || assignedStaffUsernames.length === 0 || assignedStaffUsernames.includes(currentUsername);
+                                                                                            const isComplete = period.status === 'Complete' || period.status === 'Sale';
 
-                                                                                        return (
-                                                                                            <div
-                                                                                                key={period.schedule_id}
-                                                                                                onClick={() => isUpdatePermitted && openStatusModal(period, assign)}
-                                                                                                className={`border rounded-xl p-3 shadow-xs transition-all flex flex-col justify-between min-h-[90px] group ${isUpdatePermitted
+                                                                                            return (
+                                                                                                <div
+                                                                                                    key={period.schedule_id}
+                                                                                                    onClick={() => isUpdatePermitted && !isComplete && openStatusModal(period, assign)}
+                                                                                                    className={`border rounded-xl p-3 shadow-xs transition-all flex flex-col justify-between min-h-[90px] group ${isUpdatePermitted && !isComplete
                                                                                                         ? "bg-white border-slate-200 hover:border-indigo-300 hover:shadow-sm cursor-pointer"
-                                                                                                        : "bg-slate-50/50 border-slate-200/60 opacity-60 cursor-not-allowed"
-                                                                                                    }`}
-                                                                                                title={isUpdatePermitted ? undefined : `Restricted (Only assigned staff: ${assignedStaffs.map(e => e.name || e.username).join(', ')})`}
-                                                                                            >
-                                                                                                <div className="flex items-start justify-between gap-1.5">
-                                                                                                    <span className={`text-xs font-semibold leading-tight truncate ${isUpdatePermitted ? "text-slate-700 group-hover:text-indigo-600" : "text-slate-400"
-                                                                                                        }`}>
-                                                                                                        {period.period_name}
-                                                                                                    </span>
-                                                                                                    <FiInfo className={`w-3 h-3 shrink-0 ${isUpdatePermitted ? "text-slate-350 group-hover:text-indigo-400" : "text-slate-200"
-                                                                                                        }`} />
-                                                                                                </div>
-                                                                                                <div className="mt-2.5 space-y-1.5">
-                                                                                                    <span className={`text-[11px] font-bold block ${isUpdatePermitted ? "text-slate-808" : "text-slate-400"
-                                                                                                        }`}>
-                                                                                                        ₹{formatCurrency(period.amount)}
-                                                                                                    </span>
-                                                                                                    <span className={`inline-flex px-1.5 py-0.5 rounded text-[9px] font-bold border uppercase tracking-wider ${isUpdatePermitted
+                                                                                                        : isComplete
+                                                                                                            ? "bg-emerald-50/40 border-emerald-200 cursor-default"
+                                                                                                            : "bg-slate-50/50 border-slate-200/60 opacity-60 cursor-not-allowed"
+                                                                                                        }`}
+                                                                                                    title={isComplete ? `Completed — record locked` : (isUpdatePermitted ? undefined : `Restricted (Only assigned staff: ${assignedStaffs.map(e => e.name || e.username).join(', ')})`)}
+                                                                                                >
+                                                                                                    <div className="flex items-start justify-between gap-1.5">
+                                                                                                        <span className={`text-xs font-semibold leading-tight truncate ${isUpdatePermitted ? "text-slate-700 group-hover:text-indigo-600" : "text-slate-400"
+                                                                                                            }`}>
+                                                                                                            {period.period_name}
+                                                                                                        </span>
+                                                                                                        <FiInfo className={`w-3 h-3 shrink-0 ${isUpdatePermitted ? "text-slate-350 group-hover:text-indigo-400" : "text-slate-200"
+                                                                                                            }`} />
+                                                                                                    </div>
+                                                                                                    <div className="mt-2.5 space-y-1.5">
+                                                                                                        <span className={`text-[11px] font-bold block ${isUpdatePermitted ? "text-slate-808" : "text-slate-400"
+                                                                                                            }`}>
+                                                                                                            ₹{formatCurrency(period.amount)}
+                                                                                                        </span>
+                                                                                                        <span className={`inline-flex px-1.5 py-0.5 rounded text-[9px] font-bold border uppercase tracking-wider ${isUpdatePermitted
                                                                                                             ? (STATUS_BADGES[period.status] || 'bg-slate-50')
                                                                                                             : 'bg-slate-100/70 border-slate-200/50 text-slate-400'
-                                                                                                        }`}>
-                                                                                                        {period.status}
-                                                                                                    </span>
-                                                                                                    {selectedFilingStatus === '' ? (
-                                                                                                        <div className="text-[10px] text-slate-400 font-mono mt-1">
-                                                                                                            Due: {getPeriodDueDate(period)}
-                                                                                                        </div>
-                                                                                                    ) : (
-                                                                                                        <div className="flex items-center gap-1 mt-1 justify-between">
-                                                                                                            <span className="text-[10px] text-slate-400">Due Date</span>
+                                                                                                            }`}>
+                                                                                                            {period.status}
+                                                                                                        </span>
+                                                                                                        {selectedFilingStatus === '' ? (
+                                                                                                            <div className="text-[10px] text-slate-400 font-mono mt-1">
+                                                                                                                Due: {getPeriodDueDate(period)}
+                                                                                                            </div>
+                                                                                                        ) : (
+                                                                                                            <div className="flex items-center gap-1 mt-1 justify-between">
+                                                                                                                <span className="text-[10px] text-slate-400">Due Date</span>
+                                                                                                                <button
+                                                                                                                    type="button"
+                                                                                                                    onClick={(e) => {
+                                                                                                                        e.stopPropagation();
+                                                                                                                        toast(`Due Date: ${getPeriodDueDate(period)}`, { icon: '📅' });
+                                                                                                                    }}
+                                                                                                                    className="text-amber-500 hover:text-amber-600 transition-colors"
+                                                                                                                    title="Click to view due date"
+                                                                                                                >
+                                                                                                                    <FiAlertCircle className="w-3.5 h-3.5 animate-pulse" />
+                                                                                                                </button>
+                                                                                                            </div>
+                                                                                                        )}
+                                                                                                        {/* Share Invoice button for Complete periods */}
+                                                                                                        {isComplete && (
                                                                                                             <button
                                                                                                                 type="button"
-                                                                                                                onClick={(e) => {
-                                                                                                                    e.stopPropagation();
-                                                                                                                    toast(`Due Date: ${getPeriodDueDate(period)}`, { icon: '📅' });
-                                                                                                                }}
-                                                                                                                className="text-amber-500 hover:text-amber-600 transition-colors"
-                                                                                                                title="Click to view due date"
+                                                                                                                onClick={(e) => { e.stopPropagation(); setShareModal({ open: true, period, assign }); setSharePhone(''); setShareEmail(''); }}
+                                                                                                                className="mt-1.5 w-full flex items-center justify-center gap-1 py-1 rounded-lg text-[9px] font-bold uppercase tracking-wider bg-emerald-600 text-white hover:bg-emerald-700 transition-colors"
                                                                                                             >
-                                                                                                                <FiAlertCircle className="w-3.5 h-3.5 animate-pulse" />
+                                                                                                                <FiShare2 className="w-2.5 h-2.5" />
+                                                                                                                Share Invoice
                                                                                                             </button>
-                                                                                                        </div>
-                                                                                                    )}
+                                                                                                        )}
+                                                                                                    </div>
                                                                                                 </div>
-                                                                                            </div>
-                                                                                        );
-                                                                                    });
+                                                                                            );
+                                                                                        });
                                                                                 })()}
                                                                             </div>
-                                                                        )}
-                                                                    </td>
-                                                                </tr>
-                                                            )}
-                                                        </React.Fragment>
-                                                    ))
-                                                )}
-                                            </tbody>
-                                        </table>
-                                    )}
-                                </div>
-                            </div>
-                        )}
-
-                        {/* Predefined Global Services Tab */}
-                        {activeTab === 'services' && (
-                            <div>
-                                <div className="flex items-center gap-3 px-4 py-3 border-b border-slate-100 bg-slate-50/20">
-                                    <div className="relative flex-1 max-w-xs">
-                                        <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 pointer-events-none" />
-                                        <input
-                                            type="text"
-                                            placeholder="Search global catalog…"
-                                            value={serviceSearch}
-                                            onChange={(e) => setServiceSearch(e.target.value)}
-                                            className="w-full pl-9 pr-3 py-2 text-xs text-slate-700 border border-slate-200 rounded-lg bg-white focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none"
-                                        />
-                                    </div>
-                                    <button
-                                        onClick={() => fetchServices(serviceSearch)}
-                                        className="p-2 text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors border border-slate-200 bg-white"
-                                    >
-                                        <FiRefreshCw className={`w-3.5 h-3.5 ${servicesLoading ? 'animate-spin' : ''}`} />
-                                    </button>
-                                </div>
-
-                                <div className="p-4 bg-indigo-50/50 border-b border-slate-100 flex items-start gap-3">
-                                    <FiInfo className="w-4 h-4 text-indigo-600 shrink-0 mt-0.5" />
-
-                                </div>
-
-                                <div className="overflow-x-auto">
-                                    <table className="w-full text-sm text-left">
-                                        <thead>
-                                            <tr className="bg-slate-50 border-b border-slate-100 text-slate-600 uppercase text-[10px] font-semibold tracking-wider">
-                                                <th className="px-4 py-3">ID</th>
-                                                <th className="px-4 py-3">Service Name</th>
-                                                <th className="px-4 py-3">SAC Code</th>
-                                                <th className="px-4 py-3">Frequency</th>
-                                                <th className="px-4 py-3">Default Fee</th>
-                                                <th className="px-4 py-3">Assigned Clients</th>
-                                                <th className="px-4 py-3">Pending Periods</th>
-                                                <th className="px-4 py-3">Overdue Periods</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody className="divide-y divide-slate-50">
-                                            {servicesLoading ? (
-                                                <tr>
-                                                    <td colSpan={8} className="px-4 py-8 text-center">
-                                                        <div className="animate-pulse flex flex-col gap-2">
-                                                            <div className="h-4 bg-slate-100 rounded w-1/3 mx-auto"></div>
-                                                            <div className="h-4 bg-slate-100 rounded w-1/4 mx-auto"></div>
-                                                        </div>
-                                                    </td>
-                                                </tr>
-                                            ) : services.length === 0 ? (
-                                                <tr>
-                                                    <td colSpan={8} className="px-4 py-12 text-center text-slate-400">
-                                                        <FiLayers className="w-8 h-8 mx-auto mb-2 opacity-50" />
-                                                        <p className="text-xs font-medium text-slate-500">No compliance services found</p>
-                                                        <p className="text-[11px] mt-0.5">Define compliance services in the database to see them listed</p>
-                                                    </td>
-                                                </tr>
-                                            ) : (
-                                                services.map((svc) => (
-                                                    <tr key={svc.id} className="hover:bg-slate-50/50 transition-colors">
-                                                        <td className="px-4 py-3 font-semibold text-slate-800 text-xs font-mono">
-                                                            {svc.service_id}
-                                                        </td>
-                                                        <td className="px-4 py-3 text-slate-700 text-xs font-semibold">
-                                                            {svc.name}
-                                                        </td>
-                                                        <td className="px-4 py-3 text-slate-500 text-xs font-mono">
-                                                            {svc.sac_code || '—'}
-                                                        </td>
-                                                        <td className="px-4 py-3">
-                                                            <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium border uppercase tracking-wider ${FREQ_BADGES[String(svc.frequency).toLowerCase()] || 'bg-slate-50'
-                                                                }`}>
-                                                                {svc.frequency}
-                                                            </span>
-                                                        </td>
-                                                        <td className="px-4 py-3 font-bold text-slate-700 text-xs">
-                                                            ₹{formatCurrency(svc.default_amount)}
-                                                        </td>
-                                                        <td className="px-4 py-3 text-slate-700 text-xs font-semibold">
-                                                            {svc.assigned_count ?? 0}
-                                                        </td>
-                                                        <td className="px-4 py-3">
-                                                            <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold border ${(svc.pending_count ?? 0) > 0 ? 'bg-amber-50 text-amber-700 border-amber-200' : 'bg-slate-50 text-slate-500 border-slate-200'
-                                                                }`}>
-                                                                {svc.pending_count ?? 0}
-                                                            </span>
-                                                        </td>
-                                                        <td className="px-4 py-3">
-                                                            <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold border ${(svc.overdue_count ?? 0) > 0 ? 'bg-rose-50 text-rose-700 border-rose-200 animate-pulse' : 'bg-slate-50 text-slate-500 border-slate-200'
-                                                                }`}>
-                                                                {svc.overdue_count ?? 0}
-                                                            </span>
-                                                        </td>
-                                                    </tr>
+                                                                        </div>
+                                                                    )}
+                                                                </td>
+                                                            </tr>
+                                                        )}
+                                                    </React.Fragment>
                                                 ))
                                             )}
                                         </tbody>
                                     </table>
-                                </div>
+                                )}
                             </div>
-                        )}
-                    </div>
-
+                        </div>
+                    )}
                 </div>
             </div>
 
@@ -1904,7 +2020,6 @@ const ComplianceServices = () => {
                                             </div>
                                         )}
                                     </div>
-
                                 </div>
                                 <div className="px-5 py-3 bg-slate-50 border-t border-slate-100 flex gap-2 shrink-0">
                                     <button
@@ -2027,8 +2142,9 @@ const ComplianceServices = () => {
                                             <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Select Status *</label>
                                             <div className="grid grid-cols-2 gap-3">
                                                 {[
-                                                    { value: 'Pending', label: 'Pending', badge: 'P', color: 'border-amber-200 hover:border-amber-300 text-amber-700 bg-amber-50/10', activeColor: 'bg-amber-500 text-white border-amber-500 shadow-sm ring-2 ring-amber-200' },
-                                                    { value: 'Sale', label: 'Sale (Filed)', badge: 'S', color: 'border-emerald-200 hover:border-emerald-300 text-emerald-700 bg-emerald-50/10', activeColor: 'bg-emerald-500 text-white border-emerald-500 shadow-sm ring-2 ring-emerald-200' },
+                                                    { value: 'Pending From The Department', label: 'Pending (Dept)', badge: 'P', color: 'border-amber-200 hover:border-amber-300 text-amber-700 bg-amber-50/10', activeColor: 'bg-amber-500 text-white border-amber-500 shadow-sm ring-2 ring-amber-200' },
+                                                    { value: 'Pending From Client', label: 'Pending (Client)', badge: 'PC', color: 'border-orange-200 hover:border-orange-300 text-orange-700 bg-orange-50/10', activeColor: 'bg-orange-500 text-white border-orange-500 shadow-sm ring-2 ring-orange-200' },
+                                                    { value: 'Complete', label: 'Complete', badge: 'C', color: 'border-emerald-200 hover:border-emerald-300 text-emerald-700 bg-emerald-50/10', activeColor: 'bg-emerald-500 text-white border-emerald-500 shadow-sm ring-2 ring-emerald-200' },
                                                     { value: 'Outsource', label: 'Outsource', badge: 'O', color: 'border-blue-200 hover:border-blue-300 text-blue-700 bg-blue-50/10', activeColor: 'bg-blue-500 text-white border-blue-500 shadow-sm ring-2 ring-blue-200' },
                                                     { value: 'N/A', label: 'N/A', badge: 'N', color: 'border-slate-200 hover:border-slate-300 text-slate-505 bg-slate-50/10', activeColor: 'bg-slate-500 text-white border-slate-500 shadow-sm ring-2 ring-slate-200' }
                                                 ].map((opt) => {
@@ -2065,19 +2181,19 @@ const ComplianceServices = () => {
                                         </div>
 
                                         {/* Ledger notice info */}
-                                        {statusForm.status === 'Sale' && (
+                                        {statusForm.status === 'Complete' && (
                                             <div className="flex gap-2.5 bg-emerald-50 border border-emerald-150 rounded-xl p-3 text-emerald-800">
                                                 <FiCheckCircle className="w-4.5 h-4.5 shrink-0 mt-0.5 text-emerald-600" />
                                                 <p className="text-[10.5px] leading-relaxed font-medium">
-                                                    Updating status to <strong>Sale</strong> will automatically generate a sales invoice and post it to this client firm's ledger.
+                                                    Marking as <strong>Complete</strong> will automatically generate a sales invoice and post it to this client firm's ledger. This action <strong>locks</strong> the record.
                                                 </p>
                                             </div>
                                         )}
-                                        {selectedPeriod.status === 'Sale' && statusForm.status !== 'Sale' && (
+                                        {(selectedPeriod.status === 'Complete' || selectedPeriod.status === 'Sale') && statusForm.status !== 'Complete' && statusForm.status !== 'Sale' && (
                                             <div className="flex gap-2.5 bg-amber-50 border border-amber-150 rounded-xl p-3 text-amber-800">
                                                 <FiAlertCircle className="w-4.5 h-4.5 shrink-0 mt-0.5 text-amber-655" />
                                                 <p className="text-[10.5px] leading-relaxed font-medium">
-                                                    Changing status away from <strong>Sale</strong> will automatically delete and reverse the posted ledger entry for this period.
+                                                    Changing status away from <strong>Complete</strong> will automatically delete and reverse the posted ledger entry for this period.
                                                 </p>
                                             </div>
                                         )}
@@ -2177,6 +2293,422 @@ const ComplianceServices = () => {
                 users={staffListModal.staffs}
                 taskName={staffListModal.serviceName}
             />
+
+            {/* Modal: Edit Assignment */}
+            <AnimatePresence>
+                {showEditModal && editAssignment && (() => {
+                    const svc = services.find(s => String(s.service_id) === String(editAssignment.service_id));
+                    const isGstr1 = editAssignment.service_id === 'GSTR-1' || (svc?.name && /gstr-1/i.test(svc.name));
+                    const editFreq = isGstr1 ? 'monthly' : (svc?.frequency?.toLowerCase() || editAssignment.frequency?.toLowerCase() || '');
+
+                    return (
+                        <div className="fixed inset-0 z-[200] flex items-start justify-center overflow-hidden overscroll-none p-3 sm:p-4 pointer-events-none">
+                            <div
+                                className="absolute inset-0 bg-black/60 backdrop-blur-xs pointer-events-auto"
+                                onClick={() => setShowEditModal(false)}
+                            />
+                            <motion.div
+                                initial={{ opacity: 0, scale: 0.97, y: 20 }}
+                                animate={{ opacity: 1, scale: 1, y: 0 }}
+                                exit={{ opacity: 0, scale: 0.97, y: 20 }}
+                                className="relative z-[1] pointer-events-auto bg-white rounded-2xl shadow-xl w-full max-w-md my-2 sm:my-4 max-h-[calc(100vh-1.5rem)] sm:max-h-[calc(100vh-2rem)] overflow-hidden flex flex-col"
+                                onClick={(e) => e.stopPropagation()}
+                            >
+                                {/* Header */}
+                                <div className="flex items-center justify-between px-5 py-3.5 bg-gradient-to-r from-violet-600 to-indigo-600 text-white shrink-0">
+                                    <div className="flex items-center gap-2">
+                                        <FiEdit2 className="w-5 h-5" />
+                                        <h3 className="text-sm font-bold">Edit Assignment</h3>
+                                    </div>
+                                    <button
+                                        onClick={() => setShowEditModal(false)}
+                                        className="p-1 hover:bg-white/10 rounded-lg text-white/80 hover:text-white"
+                                    >
+                                        <FiX className="w-5 h-5" />
+                                    </button>
+                                </div>
+
+                                {/* Info Banner */}
+                                <div className="bg-violet-50 border-b border-violet-100 px-5 py-3 shrink-0">
+                                    <p className="text-[11px] font-bold text-violet-700">{editAssignment.firm_name}</p>
+                                    <p className="text-[10px] text-violet-500 mt-0.5">{editAssignment.service_name} · {editAssignment.financial_year}</p>
+                                </div>
+
+                                <form onSubmit={handleEditSubmit} className="flex-1 min-h-0 flex flex-col overflow-hidden">
+                                    <div
+                                        className="px-5 py-4 flex-1 min-h-0 overflow-y-auto overscroll-y-contain [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden space-y-4"
+                                        style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+                                    >
+                                        {/* Custom Amount */}
+                                        <div className="space-y-1">
+                                            <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Custom Fees Amount (₹) *</label>
+                                            <input
+                                                type="number"
+                                                step="0.01"
+                                                placeholder="0.00"
+                                                value={editForm.custom_amount}
+                                                onChange={(e) => setEditForm(prev => ({ ...prev, custom_amount: e.target.value }))}
+                                                className="w-full px-3 py-2.5 text-xs text-slate-700 border border-slate-200 rounded-xl focus:ring-2 focus:ring-violet-500 focus:border-transparent outline-none bg-white"
+                                            />
+                                        </div>
+
+                                        {/* Pay From Month (monthly only) */}
+                                        {editFreq === 'monthly' && (
+                                            <div className="space-y-1">
+                                                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Start Generating From Month (Optional)</label>
+                                                <select
+                                                    value={editForm.pay_from_month}
+                                                    onChange={(e) => setEditForm(prev => ({ ...prev, pay_from_month: e.target.value }))}
+                                                    className="w-full px-3 py-2.5 text-xs text-slate-700 border border-slate-200 rounded-xl focus:ring-2 focus:ring-violet-500 focus:border-transparent outline-none bg-white"
+                                                >
+                                                    <option value="">Default (April)</option>
+                                                    {['April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December', 'January', 'February', 'March'].map(m => (
+                                                        <option key={m} value={m}>{m}</option>
+                                                    ))}
+                                                </select>
+                                            </div>
+                                        )}
+
+                                        {/* Quarters (quarterly only) */}
+                                        {editFreq === 'quarterly' && (
+                                            <div className="space-y-2">
+                                                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Select Quarters (Optional)</label>
+                                                <div className="flex gap-4">
+                                                    {[1, 2, 3, 4].map(q => (
+                                                        <label key={q} className="flex items-center gap-1.5 text-xs text-slate-700 cursor-pointer">
+                                                            <input
+                                                                type="checkbox"
+                                                                checked={editForm.quarters?.includes(q)}
+                                                                onChange={(e) => {
+                                                                    setEditForm(prev => {
+                                                                        const current = prev.quarters || [];
+                                                                        const updated = e.target.checked
+                                                                            ? [...current, q]
+                                                                            : current.filter(x => x !== q);
+                                                                        return { ...prev, quarters: updated };
+                                                                    });
+                                                                }}
+                                                                className="rounded border-slate-350 text-violet-600 focus:ring-violet-500 h-4 w-4"
+                                                            />
+                                                            Q{q}
+                                                        </label>
+                                                    ))}
+                                                </div>
+                                                <p className="text-[10px] text-slate-400">Leave unselected to keep all quarters.</p>
+                                            </div>
+                                        )}
+
+                                        {/* Assigned Staff */}
+                                        <div className="space-y-2">
+                                            <div className="flex justify-between items-center">
+                                                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Assigned Staff *</label>
+                                                {editForm.employee_usernames?.length > 0 && (
+                                                    <span className="text-[10px] font-semibold text-violet-650 bg-violet-50 px-2 py-0.5 rounded-full">
+                                                        {editForm.employee_usernames.length} selected
+                                                    </span>
+                                                )}
+                                            </div>
+                                            <div className="border border-slate-200 rounded-xl bg-white overflow-hidden">
+                                                <div className="relative border-b border-slate-100 px-3 py-2 bg-slate-50">
+                                                    <FiSearch className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 w-3.5 h-3.5 pointer-events-none" />
+                                                    <input
+                                                        type="text"
+                                                        placeholder="Filter staff list..."
+                                                        value={editStaffSearchQuery}
+                                                        onChange={(e) => setEditStaffSearchQuery(e.target.value)}
+                                                        className="w-full pl-6 pr-2 py-1 text-xs text-slate-700 bg-transparent outline-none placeholder-slate-400 focus:ring-0"
+                                                    />
+                                                </div>
+                                                <div className="max-h-36 overflow-y-auto p-3 space-y-2">
+                                                    {(() => {
+                                                        const query = editStaffSearchQuery.trim().toLowerCase();
+                                                        const filtered = query
+                                                            ? staffList.filter(s =>
+                                                                (s.name || '').toLowerCase().includes(query) ||
+                                                                (s.username || '').toLowerCase().includes(query)
+                                                            )
+                                                            : staffList;
+
+                                                        if (filtered.length === 0) {
+                                                            return <div className="text-xs text-slate-400">No staff members found.</div>;
+                                                        }
+
+                                                        return filtered.map(s => {
+                                                            const checked = editForm.employee_usernames?.includes(s.username);
+                                                            return (
+                                                                <label key={s.username} className="flex items-center gap-2 text-xs text-slate-700 cursor-pointer hover:text-slate-900">
+                                                                    <input
+                                                                        type="checkbox"
+                                                                        checked={checked}
+                                                                        onChange={(e) => {
+                                                                            setEditForm(prev => {
+                                                                                const current = prev.employee_usernames || [];
+                                                                                const updated = e.target.checked
+                                                                                    ? [...current, s.username]
+                                                                                    : current.filter(x => x !== s.username);
+                                                                                return { ...prev, employee_usernames: updated };
+                                                                            });
+                                                                        }}
+                                                                        className="rounded border-slate-350 text-violet-650 focus:ring-violet-500 h-4 w-4"
+                                                                    />
+                                                                    <span className="font-medium">{s.name}</span>
+                                                                    <span className="text-[10px] text-slate-400">({s.username})</span>
+                                                                </label>
+                                                            );
+                                                        });
+                                                    })()}
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        {/* Assigned CA */}
+                                        <div className="space-y-1 relative">
+                                            <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Assigned CA (Optional)</label>
+                                            {editSelectedCa ? (
+                                                <div className="flex items-center justify-between border border-slate-200 rounded-xl p-3 bg-slate-50">
+                                                    <div>
+                                                        <p className="text-xs font-bold text-slate-800">{editSelectedCa.name}</p>
+                                                        <p className="text-[10px] text-slate-400">Username: {editSelectedCa.username}</p>
+                                                    </div>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => {
+                                                            setEditSelectedCa(null);
+                                                            setEditForm(prev => ({ ...prev, ca_id: '' }));
+                                                        }}
+                                                        className="text-slate-400 hover:text-slate-600 p-1 rounded-md"
+                                                    >
+                                                        <FiX className="w-4 h-4" />
+                                                    </button>
+                                                </div>
+                                            ) : (
+                                                <div className="relative">
+                                                    <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4 pointer-events-none" />
+                                                    <input
+                                                        type="text"
+                                                        value={editCaSearchQuery}
+                                                        onChange={(e) => {
+                                                            setEditCaSearchQuery(e.target.value);
+                                                            setShowEditCaDropdown(true);
+                                                        }}
+                                                        onFocus={() => setShowEditCaDropdown(true)}
+                                                        placeholder="Search CA (min 3 chars)…"
+                                                        className="w-full pl-9 pr-3 py-2.5 text-xs text-slate-700 border border-slate-200 rounded-xl focus:ring-2 focus:ring-violet-500 focus:border-transparent outline-none bg-white"
+                                                    />
+                                                    {showEditCaDropdown && editCaSearchResults.length > 0 && (
+                                                        <div className="absolute z-50 left-0 right-0 top-full mt-1 bg-white border border-slate-200 rounded-xl shadow-lg max-h-56 overflow-y-auto">
+                                                            {editCaSearchResults.map(c => (
+                                                                <button
+                                                                    key={c.username}
+                                                                    type="button"
+                                                                    onClick={() => {
+                                                                        setEditSelectedCa(c);
+                                                                        setEditForm(prev => ({ ...prev, ca_id: c.username }));
+                                                                        setEditCaSearchQuery('');
+                                                                        setEditCaSearchResults([]);
+                                                                        setShowEditCaDropdown(false);
+                                                                    }}
+                                                                    className="w-full text-left px-4 py-2.5 hover:bg-slate-50 border-b border-slate-100 last:border-0 text-xs flex flex-col"
+                                                                >
+                                                                    <span className="font-semibold text-slate-800">{c.name}</span>
+                                                                    <span className="text-[10px] text-slate-400 mt-0.5">Username: {c.username}</span>
+                                                                </button>
+                                                            ))}
+                                                        </div>
+                                                    )}
+                                                    {editCaSearchLoading && (
+                                                        <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                                                            <span className="w-3 h-3 border-2 border-violet-500 border-t-transparent rounded-full animate-spin block" />
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            )}
+                                        </div>
+
+                                        {/* Status */}
+                                        <div className="space-y-1">
+                                            <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Assignment Status</label>
+                                            <select
+                                                value={editForm.status}
+                                                onChange={(e) => setEditForm(prev => ({ ...prev, status: e.target.value }))}
+                                                className="w-full px-3 py-2.5 text-xs text-slate-700 border border-slate-200 rounded-xl focus:ring-2 focus:ring-violet-500 focus:border-transparent outline-none bg-white"
+                                            >
+                                                <option value="active">Active</option>
+                                                <option value="inactive">Inactive</option>
+                                                <option value="paused">Paused</option>
+                                            </select>
+                                        </div>
+                                    </div>
+
+                                    <div className="px-5 py-3 bg-slate-50 border-t border-slate-100 flex gap-2 shrink-0">
+                                        <button
+                                            type="button"
+                                            onClick={() => setShowEditModal(false)}
+                                            className="flex-1 py-2.5 text-xs font-semibold text-slate-605 border border-slate-200 rounded-xl hover:bg-slate-50 transition-colors"
+                                        >
+                                            Cancel
+                                        </button>
+                                        <button
+                                            type="submit"
+                                            disabled={
+                                                submittingEdit ||
+                                                !editForm.custom_amount ||
+                                                (!editForm.employee_usernames || editForm.employee_usernames.length === 0)
+                                            }
+                                            className="flex-1 py-2.5 text-xs font-semibold text-white bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-700 hover:to-indigo-700 rounded-xl disabled:opacity-50 transition-colors flex items-center justify-center gap-1.5"
+                                        >
+                                            {submittingEdit && <span className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />}
+                                            Save Changes
+                                        </button>
+                                    </div>
+                                </form>
+                            </motion.div>
+                        </div>
+                    );
+                })()}
+            </AnimatePresence>
+
+            {/* Modal: Delete Assignment Confirmation */}
+            <AnimatePresence>
+                {confirmDeleteId && (
+                    <div className="fixed inset-0 z-[220] flex items-center justify-center p-4 pointer-events-none">
+                        <div className="absolute inset-0 bg-black/60 backdrop-blur-xs pointer-events-auto" onClick={() => setConfirmDeleteId(null)} />
+                        <motion.div
+                            initial={{ opacity: 0, scale: 0.95 }}
+                            animate={{ opacity: 1, scale: 1 }}
+                            exit={{ opacity: 0, scale: 0.95 }}
+                            className="relative z-[1] pointer-events-auto bg-white rounded-2xl shadow-xl w-full max-w-sm overflow-hidden"
+                            onClick={(e) => e.stopPropagation()}
+                        >
+                            <div className="px-5 py-4 flex flex-col items-center gap-3 text-center">
+                                <div className="w-12 h-12 rounded-full bg-rose-50 flex items-center justify-center">
+                                    <FiTrash2 className="w-5 h-5 text-rose-600" />
+                                </div>
+                                <h3 className="text-sm font-bold text-slate-800">Delete Assignment?</h3>
+                                <p className="text-xs text-slate-500 leading-relaxed">
+                                    This will permanently delete the recurring task assignment and all its schedule periods. This action cannot be undone.
+                                </p>
+                            </div>
+                            <div className="px-5 py-3 bg-slate-50 border-t border-slate-100 flex gap-2">
+                                <button
+                                    type="button"
+                                    onClick={() => setConfirmDeleteId(null)}
+                                    className="flex-1 py-2 text-xs font-semibold text-slate-600 border border-slate-200 rounded-xl hover:bg-white transition-colors"
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    type="button"
+                                    disabled={deletingAssignmentId === confirmDeleteId}
+                                    onClick={async () => {
+                                        setDeletingAssignmentId(confirmDeleteId);
+                                        try {
+                                            await axios.delete(`${API_BASE_URL}/compliance/assignments/${confirmDeleteId}`, { headers: getHeaders() });
+                                            toast.success('Assignment deleted successfully');
+                                            setConfirmDeleteId(null);
+                                            setSelectedAssignmentId(null);
+                                            fetchAssignments();
+                                        } catch (err) {
+                                            toast.error(err?.response?.data?.message || 'Failed to delete assignment');
+                                        } finally {
+                                            setDeletingAssignmentId(null);
+                                        }
+                                    }}
+                                    className="flex-1 py-2 text-xs font-semibold text-white bg-rose-600 hover:bg-rose-700 rounded-xl disabled:opacity-50 transition-colors flex items-center justify-center gap-1.5"
+                                >
+                                    {deletingAssignmentId === confirmDeleteId && (
+                                        <span className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                                    )}
+                                    Delete
+                                </button>
+                            </div>
+                        </motion.div>
+                    </div>
+                )}
+            </AnimatePresence>
+
+            {/* Modal: Share Invoice */}
+            <AnimatePresence>
+                {shareModal.open && shareModal.period && (
+                    <div className="fixed inset-0 z-[220] flex items-center justify-center p-4 pointer-events-none">
+                        <div className="absolute inset-0 bg-black/60 backdrop-blur-xs pointer-events-auto" onClick={() => setShareModal({ open: false, period: null, assign: null })} />
+                        <motion.div
+                            initial={{ opacity: 0, scale: 0.95 }}
+                            animate={{ opacity: 1, scale: 1 }}
+                            exit={{ opacity: 0, scale: 0.95 }}
+                            className="relative z-[1] pointer-events-auto bg-white rounded-2xl shadow-xl w-full max-w-sm overflow-hidden"
+                            onClick={(e) => e.stopPropagation()}
+                        >
+                            <div className="flex items-center justify-between px-5 py-3.5 bg-gradient-to-r from-emerald-600 to-teal-600 text-white">
+                                <div className="flex items-center gap-2">
+                                    <FiShare2 className="w-5 h-5" />
+                                    <h3 className="text-sm font-bold">Share Invoice</h3>
+                                </div>
+                                <button onClick={() => setShareModal({ open: false, period: null, assign: null })} className="p-1 hover:bg-white/10 rounded-lg">
+                                    <FiX className="w-5 h-5" />
+                                </button>
+                            </div>
+                            <div className="p-5 space-y-4">
+                                <div className="bg-emerald-50 border border-emerald-100 rounded-xl p-3 text-xs text-emerald-800">
+                                    <p className="font-bold">{shareModal.assign?.firm_name}</p>
+                                    <p className="text-[11px] text-emerald-600 mt-0.5">{shareModal.period?.period_name} — {shareModal.assign?.service_name}</p>
+                                    <p className="text-[11px] text-emerald-600">Amount: ₹{formatCurrency(shareModal.period?.amount)}</p>
+                                </div>
+                                <div className="space-y-1">
+                                    <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">WhatsApp Number</label>
+                                    <div className="relative">
+                                        <FaWhatsapp className="absolute left-3 top-1/2 -translate-y-1/2 text-green-500 w-4 h-4" />
+                                        <input
+                                            type="tel"
+                                            value={sharePhone}
+                                            onChange={(e) => setSharePhone(e.target.value)}
+                                            placeholder="+91 9876543210"
+                                            className="w-full pl-9 pr-3 py-2.5 text-xs text-slate-700 border border-slate-200 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-transparent outline-none bg-white"
+                                        />
+                                    </div>
+                                </div>
+                                <div className="space-y-1">
+                                    <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Email Address</label>
+                                    <div className="relative">
+                                        <MdEmail className="absolute left-3 top-1/2 -translate-y-1/2 text-blue-400 w-4 h-4" />
+                                        <input
+                                            type="email"
+                                            value={shareEmail}
+                                            onChange={(e) => setShareEmail(e.target.value)}
+                                            placeholder="client@example.com"
+                                            className="w-full pl-9 pr-3 py-2.5 text-xs text-slate-700 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none bg-white"
+                                        />
+                                    </div>
+                                </div>
+                            </div>
+                            <div className="px-5 py-3 bg-slate-50 border-t border-slate-100 flex gap-2">
+                                <button
+                                    type="button"
+                                    onClick={() => setShareModal({ open: false, period: null, assign: null })}
+                                    className="flex-1 py-2 text-xs font-semibold text-slate-600 border border-slate-200 rounded-xl hover:bg-white transition-colors"
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        if (!sharePhone && !shareEmail) { toast.error('Enter at least one contact'); return; }
+                                        const msg = `Hi, your invoice for ${shareModal.assign?.service_name} (${shareModal.period?.period_name}) is ₹${formatCurrency(shareModal.period?.amount)}. Status: Complete.`;
+                                        if (sharePhone) window.open(`https://wa.me/${sharePhone.replace(/[^0-9]/g, '')}?text=${encodeURIComponent(msg)}`, '_blank');
+                                        if (shareEmail) window.open(`mailto:${shareEmail}?subject=Invoice - ${shareModal.assign?.service_name}&body=${encodeURIComponent(msg)}`);
+                                        setShareModal({ open: false, period: null, assign: null });
+                                        toast.success('Shared successfully!');
+                                    }}
+                                    className="flex-1 py-2 text-xs font-semibold text-white bg-emerald-600 hover:bg-emerald-700 rounded-xl transition-colors flex items-center justify-center gap-1.5"
+                                >
+                                    <FiShare2 className="w-3.5 h-3.5" />
+                                    Send
+                                </button>
+                            </div>
+                        </motion.div>
+                    </div>
+                )}
+            </AnimatePresence>
         </div>
     );
 };

@@ -25,7 +25,8 @@ import {
     FiCreditCard,
     FiShield,
     FiMail,
-    FiPlus
+    FiPlus,
+    FiRepeat
 } from 'react-icons/fi';
 
 // Sidebar Component
@@ -64,6 +65,13 @@ export const Sidebar = ({ sidebarOpen, setSidebarOpen, sidebarCollapsed, setSide
                     path: '/task/view'
                 }
             ]
+        },
+        {
+            id: 'recurring-tasks',
+            label: 'Recurring Tasks',
+            icon: <FiRepeat className="text-base" />,
+            badge: null,
+            path: '/staff/recurring-tasks'
         },
         {
             id: 'client',
@@ -514,6 +522,7 @@ export const Header = ({ setSidebarOpen, sidebarCollapsed, setSidebarCollapsed, 
             '/staff/team-report': 'Team Report',
             '/staff/attendance': 'Staff Attendance',
             '/staff/office-assistance': 'Office Assistance',
+            '/staff/recurring-tasks': 'Recurring Tasks',
             '/broadcast': 'Broadcast',
             '/settings': 'Settings',
             '/subscription': 'Subscription'
@@ -530,6 +539,7 @@ export const Header = ({ setSidebarOpen, sidebarCollapsed, setSidebarCollapsed, 
             '/billing': 'Billing and invoicing management',
             '/finance': 'Financial management and reporting',
             '/staff': 'Staff management and coordination',
+            '/staff/recurring-tasks': 'Manage client regulatory schedules and compliance frequencies',
             '/broadcast': 'Broadcast messages and announcements',
             '/settings': 'System configuration and preferences',
             '/subscription': 'Subscription and billing management'

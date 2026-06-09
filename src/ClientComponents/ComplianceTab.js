@@ -87,14 +87,14 @@ const getPeriodDueDate = (period) => {
     if (period.due_date) {
         return new Date(period.due_date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
     }
-    
+
     const MONTHS = ['April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December', 'January', 'February', 'March'];
     const pName = period.period_name;
     const fy = period.financial_year || '2026-2027';
     const parts = fy.split('-');
     const startYear = parseInt(parts[0]) || 2026;
     const endYear = parseInt(parts[1]) || 2027;
-    
+
     if (pName && MONTHS.includes(pName)) {
         const mIdx = MONTHS.indexOf(pName);
         const year = mIdx < 9 ? startYear : endYear;
@@ -103,14 +103,14 @@ const getPeriodDueDate = (period) => {
         const dueDay = (period.service_id === 'GSTR-1' || /gstr-1/i.test(period.service_name || '')) ? 11 : 20;
         return `${dueDay} ${MONTH_NAMES[mIdx]} ${dueYear}`;
     }
-    
+
     if (isQ1(pName)) return `31 Jul ${startYear}`;
     if (isQ2(pName)) return `31 Oct ${startYear}`;
     if (isQ3(pName)) return `31 Jan ${endYear}`;
     if (isQ4(pName)) return `30 Apr ${endYear}`;
-    
+
     if (pName === 'Yearly' || pName === 'Year' || pName?.toLowerCase().includes('yearly')) return `31 Dec ${endYear}`;
-    
+
     return '—';
 };
 
@@ -225,7 +225,7 @@ const ComplianceTab = ({ clientUsername }) => {
     // Helper to extract assigned staff list
     const getAssignedStaffList = useCallback((assign) => {
         if (!assign) return [];
-        
+
         let usernames = [];
         if (assign.employees && Array.isArray(assign.employees)) {
             assign.employees.forEach(emp => {
@@ -252,7 +252,7 @@ const ComplianceTab = ({ clientUsername }) => {
                 return matched || { username, name: username };
             });
         }
-        
+
         return [];
     }, [staffList]);
 
@@ -633,7 +633,7 @@ const ComplianceTab = ({ clientUsername }) => {
 
     const renderCell = (period, assign) => {
         if (!period) return <td key={Math.random()} className="px-2 py-3 text-center text-slate-350 font-mono">—</td>;
-        
+
         let statusLetter = 'P';
         let cellClass = 'bg-amber-50 text-amber-700 border-amber-200';
         if (period.status === 'Sale') {
@@ -656,15 +656,14 @@ const ComplianceTab = ({ clientUsername }) => {
 
         return (
             <td key={period.schedule_id} className="px-2 py-2 text-center align-middle">
-                <div 
+                <div
                     onClick={() => isUpdatePermitted && openStatusModal(period, assign)}
-                    className={`inline-flex items-center justify-center gap-1 min-w-[32px] h-[26px] rounded border text-[10px] font-bold select-none ${
-                        isUpdatePermitted 
+                    className={`inline-flex items-center justify-center gap-1 min-w-[32px] h-[26px] rounded border text-[10px] font-bold select-none ${isUpdatePermitted
                             ? `cursor-pointer transition-all hover:scale-105 ${cellClass}`
                             : "bg-slate-50 text-slate-300 border-slate-100 cursor-not-allowed opacity-50"
-                    }`}
+                        }`}
                     title={
-                        isUpdatePermitted 
+                        isUpdatePermitted
                             ? (showDirectDueDate ? `Due Date: ${dueDateText}` : `Status: ${period.status}`)
                             : `Restricted (Only assigned staff: ${assignedStaffs.map(e => e.name || e.username).join(', ')})`
                     }
@@ -1138,34 +1137,29 @@ const ComplianceTab = ({ clientUsername }) => {
                                                                                         <div
                                                                                             key={period.schedule_id}
                                                                                             onClick={() => isUpdatePermitted && openStatusModal(period, assign)}
-                                                                                            className={`border rounded-xl p-3 shadow-xs transition-all flex flex-col justify-between min-h-[90px] group ${
-                                                                                                isUpdatePermitted
+                                                                                            className={`border rounded-xl p-3 shadow-xs transition-all flex flex-col justify-between min-h-[90px] group ${isUpdatePermitted
                                                                                                     ? "bg-white border-slate-200 hover:border-indigo-300 hover:shadow-sm cursor-pointer"
                                                                                                     : "bg-slate-50/50 border-slate-200/60 opacity-60 cursor-not-allowed"
-                                                                                            }`}
+                                                                                                }`}
                                                                                             title={isUpdatePermitted ? undefined : `Restricted (Only assigned staff: ${assignedStaffs.map(e => e.name || e.username).join(', ')})`}
                                                                                         >
                                                                                             <div className="flex items-start justify-between gap-1.5">
-                                                                                                <span className={`text-xs font-bold leading-tight truncate ${
-                                                                                                    isUpdatePermitted ? "text-slate-700 group-hover:text-indigo-600" : "text-slate-400"
-                                                                                                }`}>
+                                                                                                <span className={`text-xs font-bold leading-tight truncate ${isUpdatePermitted ? "text-slate-700 group-hover:text-indigo-600" : "text-slate-400"
+                                                                                                    }`}>
                                                                                                     {period.period_name}
                                                                                                 </span>
-                                                                                                <FiInfo className={`w-3 h-3 shrink-0 ${
-                                                                                                    isUpdatePermitted ? "text-slate-300 group-hover:text-indigo-400" : "text-slate-200"
-                                                                                                }`} />
+                                                                                                <FiInfo className={`w-3 h-3 shrink-0 ${isUpdatePermitted ? "text-slate-300 group-hover:text-indigo-400" : "text-slate-200"
+                                                                                                    }`} />
                                                                                             </div>
                                                                                             <div className="mt-2 space-y-1">
-                                                                                                <span className={`text-[10px] font-black block ${
-                                                                                                    isUpdatePermitted ? "text-slate-800" : "text-slate-400"
-                                                                                                }`}>
+                                                                                                <span className={`text-[10px] font-black block ${isUpdatePermitted ? "text-slate-800" : "text-slate-400"
+                                                                                                    }`}>
                                                                                                     ₹{formatCurrency(period.amount)}
                                                                                                 </span>
-                                                                                                <span className={`inline-flex px-1.5 py-0.5 rounded text-[8px] font-bold border uppercase tracking-wider ${
-                                                                                                    isUpdatePermitted 
+                                                                                                <span className={`inline-flex px-1.5 py-0.5 rounded text-[8px] font-bold border uppercase tracking-wider ${isUpdatePermitted
                                                                                                         ? (STATUS_BADGES[period.status] || 'bg-slate-50')
                                                                                                         : 'bg-slate-100/70 border-slate-200/50 text-slate-400'
-                                                                                                }`}>
+                                                                                                    }`}>
                                                                                                     {period.status}
                                                                                                 </span>
                                                                                                 {selectedFilingStatus === '' ? (
@@ -1291,7 +1285,7 @@ const ComplianceTab = ({ clientUsername }) => {
             <AnimatePresence>
                 {showAssignModal && (
                     <div className="fixed inset-0 z-[200] flex items-start justify-center overflow-hidden overscroll-none p-3 sm:p-4 pointer-events-none">
-                        <div 
+                        <div
                             className="absolute inset-0 bg-black/60 backdrop-blur-xs pointer-events-auto"
                             onClick={() => setShowAssignModal(false)}
                         />
@@ -1316,312 +1310,312 @@ const ComplianceTab = ({ clientUsername }) => {
                             </div>
 
                             <form onSubmit={handleAssignSubmit} className="flex-1 min-h-0 flex flex-col overflow-hidden">
-                                <div 
+                                <div
                                     className="px-5 py-4 flex-1 min-h-0 overflow-y-auto overscroll-y-contain [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden space-y-4"
                                     style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
                                 >
-                                {/* Target Type Selector */}
-                                <div className="space-y-1">
-                                    <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Assign To *</label>
-                                    <div className="flex gap-2">
-                                        {['single', 'multiple'].map((t) => (
-                                            <button
-                                                key={t}
-                                                type="button"
-                                                onClick={() => setAssignForm(prev => ({ ...prev, targetType: t }))}
-                                                className={`flex-1 py-2 text-xs font-semibold rounded-xl border transition-colors ${assignForm.targetType === t
-                                                    ? 'bg-indigo-50 border-indigo-300 text-indigo-705'
-                                                    : 'border-slate-200 text-slate-500 hover:bg-slate-50'
-                                                    }`}
-                                            >
-                                                {t === 'single' ? 'Single Firm' : 'Multiple Firms'}
-                                            </button>
-                                        ))}
-                                    </div>
-                                </div>
-
-                                {/* Target selection */}
-                                {assignForm.targetType === 'single' && (
+                                    {/* Target Type Selector */}
                                     <div className="space-y-1">
-                                        <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Client Firm *</label>
-                                        <select
-                                            value={assignForm.firm_id}
-                                            onChange={(e) => setAssignForm(prev => ({ ...prev, firm_id: e.target.value }))}
-                                            className="w-full px-3 py-2.5 text-xs text-slate-700 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none bg-white"
-                                            required
-                                        >
-                                            <option value="">Select one of client's firms…</option>
-                                            {clientFirms.map(f => (
-                                                <option key={f.firm_id} value={f.firm_id}>{f.firm_name} (PAN: {f.pan_no || '—'})</option>
+                                        <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Assign To *</label>
+                                        <div className="flex gap-2">
+                                            {['single', 'multiple'].map((t) => (
+                                                <button
+                                                    key={t}
+                                                    type="button"
+                                                    onClick={() => setAssignForm(prev => ({ ...prev, targetType: t }))}
+                                                    className={`flex-1 py-2 text-xs font-semibold rounded-xl border transition-colors ${assignForm.targetType === t
+                                                        ? 'bg-indigo-50 border-indigo-300 text-indigo-705'
+                                                        : 'border-slate-200 text-slate-500 hover:bg-slate-50'
+                                                        }`}
+                                                >
+                                                    {t === 'single' ? 'Single Firm' : 'Multiple Firms'}
+                                                </button>
                                             ))}
-                                        </select>
-                                    </div>
-                                )}
-
-                                {assignForm.targetType === 'multiple' && (
-                                    <div className="space-y-2">
-                                        <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Select Client Firms *</label>
-                                        <div className="max-h-40 overflow-y-auto border border-slate-200 rounded-xl p-3 space-y-2 bg-white">
-                                            {clientFirms.length === 0 ? (
-                                                <div className="text-xs text-slate-400">No client firms found.</div>
-                                            ) : (
-                                                clientFirms.map(f => (
-                                                    <label key={f.firm_id} className="flex items-center gap-2 text-xs text-slate-700 cursor-pointer animate-fade-in">
-                                                        <input
-                                                            type="checkbox"
-                                                            checked={assignForm.firms?.includes(f.firm_id)}
-                                                            onChange={(e) => {
-                                                                setAssignForm(prev => {
-                                                                    const current = prev.firms || [];
-                                                                    const updated = e.target.checked
-                                                                        ? [...current, f.firm_id]
-                                                                        : current.filter(x => x !== f.firm_id);
-                                                                    return { ...prev, firms: updated };
-                                                                });
-                                                            }}
-                                                            className="rounded border-slate-350 text-indigo-650 focus:ring-indigo-500 h-4 w-4"
-                                                        />
-                                                        {f.firm_name} {f.pan_no ? `(PAN: ${f.pan_no})` : ''}
-                                                    </label>
-                                                ))
-                                            )}
                                         </div>
                                     </div>
-                                )}
 
-                                {/* Compliance Service Select */}
-                                <div className="space-y-1">
-                                    <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Compliance Service *</label>
-                                    <select
-                                        value={assignForm.service_id}
-                                        onChange={(e) => {
-                                            const svcId = e.target.value;
-                                            const matched = globalServices.find(s => s.service_id === svcId);
-                                            setAssignForm(prev => ({
-                                                ...prev,
-                                                service_id: svcId,
-                                                custom_amount: matched ? String(matched.default_amount) : ''
-                                            }));
-                                        }}
-                                        className="w-full px-3 py-2.5 text-xs text-slate-700 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none bg-white"
-                                        required
-                                    >
-                                        <option value="">Select compliance template…</option>
-                                        {globalServices.map(s => (
-                                            <option key={s.id} value={s.service_id}>{s.name} (₹{formatCurrency(s.default_amount)})</option>
-                                        ))}
-                                    </select>
-                                </div>
-
-                                {/* pay_from_month (for monthly frequency only) */}
-                                {(() => {
-                                    const selectedService = globalServices.find(s => s.service_id === assignForm.service_id);
-                                    const isGstr1 = assignForm.service_id === 'GSTR-1' || (selectedService?.name && /gstr-1/i.test(selectedService.name));
-                                    const effectiveFreq = isGstr1 ? 'monthly' : selectedService?.frequency?.toLowerCase();
-                                    return effectiveFreq === 'monthly' && (
+                                    {/* Target selection */}
+                                    {assignForm.targetType === 'single' && (
                                         <div className="space-y-1">
-                                            <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Start Generating From Month (Optional)</label>
+                                            <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Client Firm *</label>
                                             <select
-                                                value={assignForm.pay_from_month}
-                                                onChange={(e) => setAssignForm(prev => ({ ...prev, pay_from_month: e.target.value }))}
+                                                value={assignForm.firm_id}
+                                                onChange={(e) => setAssignForm(prev => ({ ...prev, firm_id: e.target.value }))}
                                                 className="w-full px-3 py-2.5 text-xs text-slate-700 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none bg-white"
+                                                required
                                             >
-                                                <option value="">Default (April)</option>
-                                                {['April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December', 'January', 'February', 'March'].map(m => (
-                                                    <option key={m} value={m}>{m}</option>
+                                                <option value="">Select one of client's firms…</option>
+                                                {clientFirms.map(f => (
+                                                    <option key={f.firm_id} value={f.firm_id}>{f.firm_name} (PAN: {f.pan_no || '—'})</option>
                                                 ))}
                                             </select>
                                         </div>
-                                    );
-                                })()}
+                                    )}
 
-                                {/* quarters (for quarterly frequency only) */}
-                                {(() => {
-                                    const selectedService = globalServices.find(s => s.service_id === assignForm.service_id);
-                                    const isGstr1 = assignForm.service_id === 'GSTR-1' || (selectedService?.name && /gstr-1/i.test(selectedService.name));
-                                    const effectiveFreq = isGstr1 ? 'monthly' : selectedService?.frequency?.toLowerCase();
-                                    return effectiveFreq === 'quarterly' && (
+                                    {assignForm.targetType === 'multiple' && (
                                         <div className="space-y-2">
-                                            <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Select Quarters (Optional)</label>
-                                            <div className="flex gap-4">
-                                                {[1, 2, 3, 4].map(q => {
-                                                    const checked = assignForm.quarters?.includes(q);
-                                                    return (
-                                                        <label key={q} className="flex items-center gap-1.5 text-xs text-slate-700 cursor-pointer">
+                                            <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Select Client Firms *</label>
+                                            <div className="max-h-40 overflow-y-auto border border-slate-200 rounded-xl p-3 space-y-2 bg-white">
+                                                {clientFirms.length === 0 ? (
+                                                    <div className="text-xs text-slate-400">No client firms found.</div>
+                                                ) : (
+                                                    clientFirms.map(f => (
+                                                        <label key={f.firm_id} className="flex items-center gap-2 text-xs text-slate-700 cursor-pointer animate-fade-in">
                                                             <input
                                                                 type="checkbox"
-                                                                checked={checked}
+                                                                checked={assignForm.firms?.includes(f.firm_id)}
                                                                 onChange={(e) => {
                                                                     setAssignForm(prev => {
-                                                                        const current = prev.quarters || [];
+                                                                        const current = prev.firms || [];
                                                                         const updated = e.target.checked
-                                                                            ? [...current, q]
-                                                                            : current.filter(x => x !== q);
-                                                                        return { ...prev, quarters: updated };
-                                                                    });
-                                                                }}
-                                                                className="rounded border-slate-350 text-indigo-600 focus:ring-indigo-500 h-4 w-4"
-                                                            />
-                                                            Q{q}
-                                                        </label>
-                                                    );
-                                                })}
-                                            </div>
-                                            <p className="text-[10px] text-slate-400">Leave unselected to generate all quarters.</p>
-                                        </div>
-                                    );
-                                })()}
-
-                                {/* Financial Year */}
-                                <div className="space-y-1">
-                                    <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Financial Year *</label>
-                                    <select
-                                        value={assignForm.financial_year}
-                                        onChange={(e) => setAssignForm(prev => ({ ...prev, financial_year: e.target.value }))}
-                                        className="w-full px-3 py-2.5 text-xs text-slate-700 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none bg-white"
-                                    >
-                                        <option value="2025-2026">2025-2026</option>
-                                        <option value="2026-2027">2026-2027</option>
-                                        <option value="2027-2028">2027-2028</option>
-                                    </select>
-                                </div>
-
-                                {/* Custom Amount */}
-                                <div className="space-y-1">
-                                    <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Custom Fees Amount (₹) *</label>
-                                    <input
-                                        type="number"
-                                        step="0.01"
-                                        placeholder="0.00"
-                                        value={assignForm.custom_amount}
-                                        onChange={(e) => setAssignForm(prev => ({ ...prev, custom_amount: e.target.value }))}
-                                        className="w-full px-3 py-2.5 text-xs text-slate-700 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none bg-white"
-                                        required
-                                    />
-                                </div>
-
-                                {/* Assigned Staff Selector */}
-                                <div className="space-y-2">
-                                    <div className="flex justify-between items-center">
-                                        <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Assigned Staff *</label>
-                                        {assignForm.employee_usernames?.length > 0 && (
-                                            <span className="text-[10px] font-semibold text-indigo-650 bg-indigo-50 px-2 py-0.5 rounded-full">
-                                                {assignForm.employee_usernames.length} selected
-                                            </span>
-                                        )}
-                                    </div>
-                                    <div className="border border-slate-200 rounded-xl bg-white overflow-hidden">
-                                        {/* Filter input */}
-                                        <div className="relative border-b border-slate-100 px-3 py-2 bg-slate-50">
-                                            <FiSearch className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 w-3.5 h-3.5 pointer-events-none" />
-                                            <input
-                                                type="text"
-                                                placeholder="Filter staff list..."
-                                                value={staffSearchQuery}
-                                                onChange={(e) => setStaffSearchQuery(e.target.value)}
-                                                className="w-full pl-6 pr-2 py-1 text-xs text-slate-700 bg-transparent outline-none placeholder-slate-400 focus:ring-0"
-                                            />
-                                        </div>
-                                        <div className="max-h-36 overflow-y-auto p-3 space-y-2">
-                                            {(() => {
-                                                const query = staffSearchQuery.trim().toLowerCase();
-                                                const filtered = query
-                                                    ? staffList.filter(s =>
-                                                        (s.name || '').toLowerCase().includes(query) ||
-                                                        (s.username || '').toLowerCase().includes(query)
-                                                      )
-                                                    : staffList;
-
-                                                if (filtered.length === 0) {
-                                                    return <div className="text-xs text-slate-400">No staff members found.</div>;
-                                                }
-
-                                                return filtered.map(s => {
-                                                    const checked = assignForm.employee_usernames?.includes(s.username);
-                                                    return (
-                                                        <label key={s.username} className="flex items-center gap-2 text-xs text-slate-700 cursor-pointer animate-fade-in hover:text-slate-900">
-                                                            <input
-                                                                type="checkbox"
-                                                                checked={checked}
-                                                                onChange={(e) => {
-                                                                    setAssignForm(prev => {
-                                                                        const current = prev.employee_usernames || [];
-                                                                        const updated = e.target.checked
-                                                                            ? [...current, s.username]
-                                                                            : current.filter(x => x !== s.username);
-                                                                        return { ...prev, employee_usernames: updated };
+                                                                            ? [...current, f.firm_id]
+                                                                            : current.filter(x => x !== f.firm_id);
+                                                                        return { ...prev, firms: updated };
                                                                     });
                                                                 }}
                                                                 className="rounded border-slate-350 text-indigo-650 focus:ring-indigo-500 h-4 w-4"
                                                             />
-                                                            <span className="font-medium">{s.name}</span>
-                                                            <span className="text-[10px] text-slate-400">({s.username})</span>
+                                                            {f.firm_name} {f.pan_no ? `(PAN: ${f.pan_no})` : ''}
                                                         </label>
-                                                    );
-                                                });
-                                            })()}
-                                        </div>
-                                    </div>
-                                </div>
-
-                                {/* Assigned CA */}
-                                <div className="space-y-1 relative">
-                                    <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Assigned CA (Optional)</label>
-                                    {selectedCa ? (
-                                        <div className="flex items-center justify-between border border-slate-200 rounded-xl p-3 bg-slate-50">
-                                            <div>
-                                                <p className="text-xs font-bold text-slate-800">{selectedCa.name}</p>
-                                                <p className="text-[10px] text-slate-400">Username: {selectedCa.username} · PAN: {selectedCa.pan_no || '—'}</p>
+                                                    ))
+                                                )}
                                             </div>
-                                            <button
-                                                type="button"
-                                                onClick={() => {
-                                                    setSelectedCa(null);
-                                                    setAssignForm(prev => ({ ...prev, ca_id: '' }));
-                                                }}
-                                                className="text-slate-400 hover:text-slate-650 p-1 rounded-md"
-                                            >
-                                                <FiX className="w-4 h-4" />
-                                            </button>
-                                        </div>
-                                    ) : (
-                                        <div className="relative">
-                                            <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4 pointer-events-none" />
-                                            <input
-                                                type="text"
-                                                value={caSearchQuery}
-                                                onChange={(e) => {
-                                                    setCaSearchQuery(e.target.value);
-                                                    setShowCaDropdown(true);
-                                                }}
-                                                onFocus={() => setShowCaDropdown(true)}
-                                                placeholder="Search CA (min 3 chars)…"
-                                                className="w-full pl-9 pr-3 py-2.5 text-xs text-slate-700 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none bg-white"
-                                            />
-                                            {showCaDropdown && caSearchResults.length > 0 && (
-                                                <div className="absolute z-50 left-0 right-0 top-full mt-1 bg-white border border-slate-200 rounded-xl shadow-lg max-h-56 overflow-y-auto">
-                                                    {caSearchResults.map(c => (
-                                                        <button
-                                                            key={c.username}
-                                                            type="button"
-                                                            onClick={() => {
-                                                                setSelectedCa(c);
-                                                                setAssignForm(prev => ({ ...prev, ca_id: c.username }));
-                                                                setCaSearchQuery('');
-                                                                setCaSearchResults([]);
-                                                                setShowCaDropdown(false);
-                                                            }}
-                                                            className="w-full text-left px-4 py-2.5 hover:bg-slate-50 border-b border-slate-100 last:border-0 text-xs flex flex-col"
-                                                        >
-                                                            <span className="font-semibold text-slate-800">{c.name}</span>
-                                                            <span className="text-[10px] text-slate-400 mt-0.5">Username: {c.username}</span>
-                                                        </button>
-                                                    ))}
-                                                </div>
-                                            )}
                                         </div>
                                     )}
-                                </div>
+
+                                    {/* Compliance Service Select */}
+                                    <div className="space-y-1">
+                                        <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Compliance Service *</label>
+                                        <select
+                                            value={assignForm.service_id}
+                                            onChange={(e) => {
+                                                const svcId = e.target.value;
+                                                const matched = globalServices.find(s => s.service_id === svcId);
+                                                setAssignForm(prev => ({
+                                                    ...prev,
+                                                    service_id: svcId,
+                                                    custom_amount: matched ? String(matched.default_amount) : ''
+                                                }));
+                                            }}
+                                            className="w-full px-3 py-2.5 text-xs text-slate-700 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none bg-white"
+                                            required
+                                        >
+                                            <option value="">Select compliance template…</option>
+                                            {globalServices.map(s => (
+                                                <option key={s.id} value={s.service_id}>{s.name} (₹{formatCurrency(s.default_amount)})</option>
+                                            ))}
+                                        </select>
+                                    </div>
+
+                                    {/* pay_from_month (for monthly frequency only) */}
+                                    {(() => {
+                                        const selectedService = globalServices.find(s => s.service_id === assignForm.service_id);
+                                        const isGstr1 = assignForm.service_id === 'GSTR-1' || (selectedService?.name && /gstr-1/i.test(selectedService.name));
+                                        const effectiveFreq = isGstr1 ? 'monthly' : selectedService?.frequency?.toLowerCase();
+                                        return effectiveFreq === 'monthly' && (
+                                            <div className="space-y-1">
+                                                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Start Generating From Month (Optional)</label>
+                                                <select
+                                                    value={assignForm.pay_from_month}
+                                                    onChange={(e) => setAssignForm(prev => ({ ...prev, pay_from_month: e.target.value }))}
+                                                    className="w-full px-3 py-2.5 text-xs text-slate-700 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none bg-white"
+                                                >
+                                                    <option value="">Default (April)</option>
+                                                    {['April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December', 'January', 'February', 'March'].map(m => (
+                                                        <option key={m} value={m}>{m}</option>
+                                                    ))}
+                                                </select>
+                                            </div>
+                                        );
+                                    })()}
+
+                                    {/* quarters (for quarterly frequency only) */}
+                                    {(() => {
+                                        const selectedService = globalServices.find(s => s.service_id === assignForm.service_id);
+                                        const isGstr1 = assignForm.service_id === 'GSTR-1' || (selectedService?.name && /gstr-1/i.test(selectedService.name));
+                                        const effectiveFreq = isGstr1 ? 'monthly' : selectedService?.frequency?.toLowerCase();
+                                        return effectiveFreq === 'quarterly' && (
+                                            <div className="space-y-2">
+                                                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Select Quarters (Optional)</label>
+                                                <div className="flex gap-4">
+                                                    {[1, 2, 3, 4].map(q => {
+                                                        const checked = assignForm.quarters?.includes(q);
+                                                        return (
+                                                            <label key={q} className="flex items-center gap-1.5 text-xs text-slate-700 cursor-pointer">
+                                                                <input
+                                                                    type="checkbox"
+                                                                    checked={checked}
+                                                                    onChange={(e) => {
+                                                                        setAssignForm(prev => {
+                                                                            const current = prev.quarters || [];
+                                                                            const updated = e.target.checked
+                                                                                ? [...current, q]
+                                                                                : current.filter(x => x !== q);
+                                                                            return { ...prev, quarters: updated };
+                                                                        });
+                                                                    }}
+                                                                    className="rounded border-slate-350 text-indigo-600 focus:ring-indigo-500 h-4 w-4"
+                                                                />
+                                                                Q{q}
+                                                            </label>
+                                                        );
+                                                    })}
+                                                </div>
+                                                <p className="text-[10px] text-slate-400">Leave unselected to generate all quarters.</p>
+                                            </div>
+                                        );
+                                    })()}
+
+                                    {/* Financial Year */}
+                                    <div className="space-y-1">
+                                        <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Financial Year *</label>
+                                        <select
+                                            value={assignForm.financial_year}
+                                            onChange={(e) => setAssignForm(prev => ({ ...prev, financial_year: e.target.value }))}
+                                            className="w-full px-3 py-2.5 text-xs text-slate-700 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none bg-white"
+                                        >
+                                            <option value="2025-2026">2025-2026</option>
+                                            <option value="2026-2027">2026-2027</option>
+                                            <option value="2027-2028">2027-2028</option>
+                                        </select>
+                                    </div>
+
+                                    {/* Custom Amount */}
+                                    <div className="space-y-1">
+                                        <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Custom Fees Amount (₹) *</label>
+                                        <input
+                                            type="number"
+                                            step="0.01"
+                                            placeholder="0.00"
+                                            value={assignForm.custom_amount}
+                                            onChange={(e) => setAssignForm(prev => ({ ...prev, custom_amount: e.target.value }))}
+                                            className="w-full px-3 py-2.5 text-xs text-slate-700 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none bg-white"
+                                            required
+                                        />
+                                    </div>
+
+                                    {/* Assigned Staff Selector */}
+                                    <div className="space-y-2">
+                                        <div className="flex justify-between items-center">
+                                            <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Assigned Staff *</label>
+                                            {assignForm.employee_usernames?.length > 0 && (
+                                                <span className="text-[10px] font-semibold text-indigo-650 bg-indigo-50 px-2 py-0.5 rounded-full">
+                                                    {assignForm.employee_usernames.length} selected
+                                                </span>
+                                            )}
+                                        </div>
+                                        <div className="border border-slate-200 rounded-xl bg-white overflow-hidden">
+                                            {/* Filter input */}
+                                            <div className="relative border-b border-slate-100 px-3 py-2 bg-slate-50">
+                                                <FiSearch className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 w-3.5 h-3.5 pointer-events-none" />
+                                                <input
+                                                    type="text"
+                                                    placeholder="Filter staff list..."
+                                                    value={staffSearchQuery}
+                                                    onChange={(e) => setStaffSearchQuery(e.target.value)}
+                                                    className="w-full pl-6 pr-2 py-1 text-xs text-slate-700 bg-transparent outline-none placeholder-slate-400 focus:ring-0"
+                                                />
+                                            </div>
+                                            <div className="max-h-36 overflow-y-auto p-3 space-y-2">
+                                                {(() => {
+                                                    const query = staffSearchQuery.trim().toLowerCase();
+                                                    const filtered = query
+                                                        ? staffList.filter(s =>
+                                                            (s.name || '').toLowerCase().includes(query) ||
+                                                            (s.username || '').toLowerCase().includes(query)
+                                                        )
+                                                        : staffList;
+
+                                                    if (filtered.length === 0) {
+                                                        return <div className="text-xs text-slate-400">No staff members found.</div>;
+                                                    }
+
+                                                    return filtered.map(s => {
+                                                        const checked = assignForm.employee_usernames?.includes(s.username);
+                                                        return (
+                                                            <label key={s.username} className="flex items-center gap-2 text-xs text-slate-700 cursor-pointer animate-fade-in hover:text-slate-900">
+                                                                <input
+                                                                    type="checkbox"
+                                                                    checked={checked}
+                                                                    onChange={(e) => {
+                                                                        setAssignForm(prev => {
+                                                                            const current = prev.employee_usernames || [];
+                                                                            const updated = e.target.checked
+                                                                                ? [...current, s.username]
+                                                                                : current.filter(x => x !== s.username);
+                                                                            return { ...prev, employee_usernames: updated };
+                                                                        });
+                                                                    }}
+                                                                    className="rounded border-slate-350 text-indigo-650 focus:ring-indigo-500 h-4 w-4"
+                                                                />
+                                                                <span className="font-medium">{s.name}</span>
+                                                                <span className="text-[10px] text-slate-400">({s.username})</span>
+                                                            </label>
+                                                        );
+                                                    });
+                                                })()}
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {/* Assigned CA */}
+                                    <div className="space-y-1 relative">
+                                        <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Assigned CA (Optional)</label>
+                                        {selectedCa ? (
+                                            <div className="flex items-center justify-between border border-slate-200 rounded-xl p-3 bg-slate-50">
+                                                <div>
+                                                    <p className="text-xs font-bold text-slate-800">{selectedCa.name}</p>
+                                                    <p className="text-[10px] text-slate-400">Username: {selectedCa.username} · PAN: {selectedCa.pan_no || '—'}</p>
+                                                </div>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => {
+                                                        setSelectedCa(null);
+                                                        setAssignForm(prev => ({ ...prev, ca_id: '' }));
+                                                    }}
+                                                    className="text-slate-400 hover:text-slate-650 p-1 rounded-md"
+                                                >
+                                                    <FiX className="w-4 h-4" />
+                                                </button>
+                                            </div>
+                                        ) : (
+                                            <div className="relative">
+                                                <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4 pointer-events-none" />
+                                                <input
+                                                    type="text"
+                                                    value={caSearchQuery}
+                                                    onChange={(e) => {
+                                                        setCaSearchQuery(e.target.value);
+                                                        setShowCaDropdown(true);
+                                                    }}
+                                                    onFocus={() => setShowCaDropdown(true)}
+                                                    placeholder="Search CA (min 3 chars)…"
+                                                    className="w-full pl-9 pr-3 py-2.5 text-xs text-slate-700 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none bg-white"
+                                                />
+                                                {showCaDropdown && caSearchResults.length > 0 && (
+                                                    <div className="absolute z-50 left-0 right-0 top-full mt-1 bg-white border border-slate-200 rounded-xl shadow-lg max-h-56 overflow-y-auto">
+                                                        {caSearchResults.map(c => (
+                                                            <button
+                                                                key={c.username}
+                                                                type="button"
+                                                                onClick={() => {
+                                                                    setSelectedCa(c);
+                                                                    setAssignForm(prev => ({ ...prev, ca_id: c.username }));
+                                                                    setCaSearchQuery('');
+                                                                    setCaSearchResults([]);
+                                                                    setShowCaDropdown(false);
+                                                                }}
+                                                                className="w-full text-left px-4 py-2.5 hover:bg-slate-50 border-b border-slate-100 last:border-0 text-xs flex flex-col"
+                                                            >
+                                                                <span className="font-semibold text-slate-800">{c.name}</span>
+                                                                <span className="text-[10px] text-slate-400 mt-0.5">Username: {c.username}</span>
+                                                            </button>
+                                                        ))}
+                                                    </div>
+                                                )}
+                                            </div>
+                                        )}
+                                    </div>
 
                                 </div>
                                 <div className="px-5 py-3 bg-slate-50 border-t border-slate-100 flex gap-2 shrink-0">
@@ -1664,7 +1658,7 @@ const ComplianceTab = ({ clientUsername }) => {
 
                     return (
                         <div className="fixed inset-0 z-[200] flex items-start justify-center overflow-hidden overscroll-none p-3 sm:p-4 pointer-events-none">
-                            <div 
+                            <div
                                 className="absolute inset-0 bg-black/60 backdrop-blur-xs pointer-events-auto"
                                 onClick={() => setShowStatusModal(false)}
                             />
@@ -1726,7 +1720,7 @@ const ComplianceTab = ({ clientUsername }) => {
                                 </div>
 
                                 <form onSubmit={handleStatusSubmit} className="flex-1 min-h-0 flex flex-col overflow-hidden">
-                                    <div 
+                                    <div
                                         className="px-5 py-4 flex-1 min-h-0 overflow-y-auto overscroll-y-contain [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden space-y-4"
                                         style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
                                     >
@@ -1756,9 +1750,8 @@ const ComplianceTab = ({ clientUsername }) => {
                                                             type="button"
                                                             disabled={!isUpdatePermitted}
                                                             onClick={() => setStatusForm(prev => ({ ...prev, status: opt.value }))}
-                                                            className={`flex flex-col items-center justify-center p-3 rounded-xl border-2 text-center transition-all select-none cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed ${
-                                                                isSelected ? opt.activeColor : `bg-white ${opt.color}`
-                                                            }`}
+                                                            className={`flex flex-col items-center justify-center p-3 rounded-xl border-2 text-center transition-all select-none cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed ${isSelected ? opt.activeColor : `bg-white ${opt.color}`
+                                                                }`}
                                                         >
                                                             <span className="text-lg font-black tracking-wider mb-1">{opt.badge}</span>
                                                             <span className="text-[10px] font-bold uppercase tracking-wider">{opt.label}</span>
@@ -1829,7 +1822,7 @@ const ComplianceTab = ({ clientUsername }) => {
             <AnimatePresence>
                 {selectedStaffDetails && (
                     <div className="fixed inset-0 z-[210] flex items-center justify-center overflow-hidden overscroll-none p-3 sm:p-4 pointer-events-none">
-                        <div 
+                        <div
                             className="absolute inset-0 bg-black/60 backdrop-blur-xs pointer-events-auto"
                             onClick={() => setSelectedStaffDetails(null)}
                         />

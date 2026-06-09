@@ -381,6 +381,12 @@ root.render(
           </ProtectedRoute>
         } />
 
+        <Route path="/staff/recurring-tasks" element={
+          <ProtectedRoute>
+            <ComplianceServices />
+          </ProtectedRoute>
+        } />
+
         <Route path="/staff/office-assistance/recurring-groups" element={
           <ProtectedRoute>
             <RecurringGroups />
