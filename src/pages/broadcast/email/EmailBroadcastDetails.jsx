@@ -1,13 +1,13 @@
 import React, { useEffect, useState } from 'react';
 import { Badge, Button, Card, Col, Row, Spinner, Table } from 'react-bootstrap';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, Link } from 'react-router-dom';
 import { toast } from 'react-hot-toast';
 import { Header, Sidebar } from '../../../components/header';
 import { emailApi, normalizeList } from './emailApi';
 import {
   FiArrowLeft, FiMail, FiClock, FiSend, FiAlertCircle, FiCheckCircle,
   FiX, FiPause, FiPlay, FiRefreshCw, FiUsers, FiCalendar, FiEye,
-  FiZap, FiHash, FiInfo, FiUser, FiAtSign, FiActivity
+  FiZap, FiHash, FiInfo, FiUser, FiAtSign, FiActivity, FiHome, FiChevronRight
 } from 'react-icons/fi';
 
 // ─── Styles ──────────────────────────────────────────────────────────────────
@@ -314,6 +314,27 @@ const EmailBroadcastDetails = () => {
 
         <div className={`pt-16 ${isMinimized ? 'md:pl-20' : 'md:pl-[260px]'}`}>
           <div className="ebd-page">
+
+            {/* Breadcrumbs */}
+            <div className="mb-4">
+              <nav className="flex items-center text-sm text-gray-600">
+                <Link to="/" className="flex items-center gap-1 hover:text-blue-600 transition-colors">
+                  <FiHome className="w-4 h-4" />
+                  <span>Dashboard</span>
+                </Link>
+                <FiChevronRight className="w-4 h-4 mx-2 text-gray-400" />
+                <Link to="/broadcast/email-channel" className="flex items-center gap-1 hover:text-blue-600 transition-colors">
+                  <FiSend className="w-4 h-4" />
+                  <span>Broadcast</span>
+                </Link>
+                <FiChevronRight className="w-4 h-4 mx-2 text-gray-400" />
+                <Link to="/broadcast/email" className="flex items-center gap-1 hover:text-blue-600 transition-colors">
+                  <span>Email</span>
+                </Link>
+                <FiChevronRight className="w-4 h-4 mx-2 text-gray-400" />
+                <span className="text-gray-900 font-medium">Details</span>
+              </nav>
+            </div>
 
             {/* ── Top bar ── */}
             <div className="ebd-topbar">

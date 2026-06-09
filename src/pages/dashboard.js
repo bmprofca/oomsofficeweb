@@ -57,6 +57,7 @@ import TopClients from '../DashboardComponents/TopClients';
 import { useNavigate } from 'react-router-dom';
 import SalesOverviewWidget from '../DashboardComponents/SalesOverviewWidget';
 import BranchSetupModal from '../../src/DashboardComponents/BranchSetupModal';
+import OmiFloatingBot from '../components/OmiFloatingBot';
 
 // Version constants for localStorage migration
 const DASHBOARD_VERSION = '3';
@@ -1345,6 +1346,8 @@ const Dashboard = () => {
                     />
                 )}
             </AnimatePresence>
+
+            <OmiFloatingBot />
 
             <style jsx>{`
                 @keyframes float {

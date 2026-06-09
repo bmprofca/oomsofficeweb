@@ -2,7 +2,9 @@
 
 import React, { useEffect, useState } from 'react';
 import { toast } from 'react-hot-toast';
+import { Link } from 'react-router-dom';
 import { Mail, FileText, Search, Plus, Edit, Eye, RefreshCw, Trash2, CheckCircle, XCircle, Filter, ChevronLeft, ChevronRight, Calendar, Hash, Type, CreditCard } from 'react-feather';
+import { FiHome, FiChevronRight as FiChevronRightIcon, FiSend } from 'react-icons/fi';
 import { Header, Sidebar } from '../../../components/header';
 import EmailTemplateFormModal from './EmailTemplateFormModal';
 import StaticTemplateFormModal from './StaticTemplateFormModal';
@@ -164,6 +166,23 @@ const EmailTemplateList = () => {
       
       <div className={`pt-16 transition-all duration-300 ${isMinimized ? 'md:pl-20' : 'md:pl-[260px]'}`}>
         <div className="p-4 md:p-6 lg:p-8">
+          {/* Breadcrumbs */}
+          <div className="mb-4">
+            <nav className="flex items-center text-sm text-gray-600">
+              <Link to="/" className="flex items-center gap-1 hover:text-blue-600 transition-colors">
+                <FiHome className="w-4 h-4" />
+                <span>Dashboard</span>
+              </Link>
+              <FiChevronRightIcon className="w-4 h-4 mx-2 text-gray-400" />
+              <Link to="/broadcast/email-channel" className="flex items-center gap-1 hover:text-blue-600 transition-colors">
+                <FiSend className="w-4 h-4" />
+                <span>Broadcast</span>
+              </Link>
+              <FiChevronRightIcon className="w-4 h-4 mx-2 text-gray-400" />
+              <span className="text-gray-900 font-medium">Templates</span>
+            </nav>
+          </div>
+
           {/* Header Section */}
           <div className="mb-6">
             <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">

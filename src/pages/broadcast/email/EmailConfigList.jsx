@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { toast } from 'react-hot-toast';
+import { useNavigate, Link } from 'react-router-dom';
 import { Header, Sidebar } from '../../../components/header';
 import EmailConfigFormModal from './EmailConfigFormModal';
 import { emailApi, normalizeList, normalizePagination } from './emailApi';
@@ -15,7 +16,9 @@ import {
   FiServer,
   FiDatabase,
   FiCalendar,
-  FiAtSign
+  FiAtSign,
+  FiHome,
+  FiSend
 } from 'react-icons/fi';
 
 const EmailConfigList = () => {
@@ -96,6 +99,23 @@ const EmailConfigList = () => {
       
       <div className={`pt-16 transition-all duration-300 ${isMinimized ? 'md:pl-20' : 'md:pl-[260px]'}`}>
         <div className="p-4 md:p-6 lg:p-8">
+          {/* Breadcrumbs */}
+          <div className="mb-4">
+            <nav className="flex items-center text-sm text-gray-600">
+              <Link to="/" className="flex items-center gap-1 hover:text-blue-600 transition-colors">
+                <FiHome className="w-4 h-4" />
+                <span>Dashboard</span>
+              </Link>
+              <FiChevronRight className="w-4 h-4 mx-2 text-gray-400" />
+              <Link to="/broadcast/email-channel" className="flex items-center gap-1 hover:text-blue-600 transition-colors">
+                <FiSend className="w-4 h-4" />
+                <span>Broadcast</span>
+              </Link>
+              <FiChevronRight className="w-4 h-4 mx-2 text-gray-400" />
+              <span className="text-gray-900 font-medium">SMTP Configs</span>
+            </nav>
+          </div>
+
           {/* Header Section */}
           <div className="mb-6">
             <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">

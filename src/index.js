@@ -41,6 +41,7 @@ import ViewFileIndex from './pages/office-assistance/file-index';
 import PasswordGroups from './pages/office-assistance/password-group';
 import ImportantLinks from './pages/office-assistance/important-link';
 import Services from './pages/office-assistance/services';
+import ComplianceServices from './pages/office-assistance/compliance';
 import RecurringGroups from './pages/office-assistance/recurring-group';
 import Groups from './pages/office-assistance/groups';
 import GroupFirms from './pages/office-assistance/group-firms';
@@ -58,6 +59,11 @@ import EmailTemplateList from './pages/broadcast/email/EmailTemplateList';
 import EmailBroadcastList from './pages/broadcast/email/EmailBroadcastList';
 import EmailBroadcastCreate from './pages/broadcast/email/EmailBroadcastCreate';
 import EmailBroadcastDetails from './pages/broadcast/email/EmailBroadcastDetails';
+import SmsConfigList from './pages/broadcast/sms/SmsConfigList';
+import SmsTemplateList from './pages/broadcast/sms/SmsTemplateList';
+import SmsBroadcastList from './pages/broadcast/sms/SmsBroadcastList';
+import SmsBroadcastCreate from './pages/broadcast/sms/SmsBroadcastCreate';
+import SmsBroadcastDetails from './pages/broadcast/sms/SmsBroadcastDetails';
 import Settings from './pages/settings';
 import StaffList from './pages/settings/staff-list';
 import PermissionList from './pages/settings/permission';
@@ -78,6 +84,7 @@ import DiscountVoucherDetails from './pages/discount';
 import MyProfile from './components/myProfile';
 import PasswordGroupFirms from './pages/office-assistance/PasswordGroupFirms';
 import TransactionHistory from './finance/bank/transaction-history';
+import WalletRecharge from './pages/WalletRecharge';
 //Dashboard Components
 import TaskDetailedPage from './DashboardComponents/TaskDetailedPage';
 import ClientDetailPage from './DashboardComponents/ClientDetailPage';
@@ -368,6 +375,12 @@ root.render(
           </ProtectedRoute>
         } />
 
+        <Route path="/staff/office-assistance/compliance" element={
+          <ProtectedRoute>
+            <ComplianceServices />
+          </ProtectedRoute>
+        } />
+
         <Route path="/staff/office-assistance/recurring-groups" element={
           <ProtectedRoute>
             <RecurringGroups />
@@ -405,6 +418,11 @@ root.render(
         } />
 
         <Route path="/broadcast" element={
+          <ProtectedRoute>
+            <Navigate to="/broadcast/text-message" replace />
+          </ProtectedRoute>
+        } />
+        <Route path="/broadcast/:tab" element={
           <ProtectedRoute>
             <Broadcast />
           </ProtectedRoute>
@@ -472,6 +490,33 @@ root.render(
         <Route path="/broadcast/email/details/:broadcast_id" element={
           <ProtectedRoute>
             <EmailBroadcastDetails />
+          </ProtectedRoute>
+        } />
+
+        {/* SMS Broadcast Module */}
+        <Route path="/broadcast/sms/configs" element={
+          <ProtectedRoute>
+            <SmsConfigList />
+          </ProtectedRoute>
+        } />
+        <Route path="/broadcast/sms/templates" element={
+          <ProtectedRoute>
+            <SmsTemplateList />
+          </ProtectedRoute>
+        } />
+        <Route path="/broadcast/sms" element={
+          <ProtectedRoute>
+            <SmsBroadcastList />
+          </ProtectedRoute>
+        } />
+        <Route path="/broadcast/sms/create" element={
+          <ProtectedRoute>
+            <SmsBroadcastCreate />
+          </ProtectedRoute>
+        } />
+        <Route path="/broadcast/sms/details/:broadcast_id" element={
+          <ProtectedRoute>
+            <SmsBroadcastDetails />
           </ProtectedRoute>
         } />
 
@@ -556,6 +601,12 @@ root.render(
         <Route path="/subscription" element={
           <ProtectedRoute>
             <Subscription />
+          </ProtectedRoute>
+        } />
+
+        <Route path="/wallet-recharge" element={
+          <ProtectedRoute>
+            <WalletRecharge />
           </ProtectedRoute>
         } />
 

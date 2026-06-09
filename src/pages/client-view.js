@@ -74,10 +74,261 @@ import {
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 
+// ==================== PAYMENT REMINDER MODAL COMPONENT ====================
+const PaymentReminderModal = ({ isOpen, onClose, selectedClients, clientsData }) => {
+    const [loading, setLoading] = useState(false);
+    const [results, setResults] = useState(null);
+    const [selectedClientUsernames, setSelectedClientUsernames] = useState([]);
+    const [selectedClientsList, setSelectedClientsList] = useState([]);
 
-const CLIENT_LIST_API = `${API_BASE_URL}/client/list`;
+    useEffect(() => {
+        if (isOpen && selectedClients.size > 0) {
+            // Get client details from selected clients
+            const clients = Array.from(selectedClients).map(clientId => {
+                const client = clientsData.find(c => c._id === clientId);
+                return client;
+            }).filter(Boolean);
+            
+            setSelectedClientsList(clients);
+            
+            // Get usernames from selected clients
+            const usernames = clients.map(client => client?.username).filter(Boolean);
+            setSelectedClientUsernames(usernames);
+        }
+    }, [isOpen, selectedClients, clientsData]);
 
-// Status Change Modal Component
+    const handleSendReminders = async () => {
+        if (selectedClientUsernames.length === 0) {
+            toast.error('No clients selected');
+            return;
+        }
+
+        setLoading(true);
+        setResults(null);
+
+        const headers = getHeaders();
+        
+        try {
+            const response = await axios.post(
+                `${API_BASE_URL}/payment-reminder/payment-reminder/bulk-send`,
+                { usernames: selectedClientUsernames },
+                { headers }
+            );
+            
+            if (response.data.success) {
+                setResults(response.data.data);
+                
+                const result = response.data.data;
+                if (result.sent > 0) {
+                    toast.success(`✅ ${result.sent} payment reminder(s) sent successfully!`);
+                }
+                if (result.skipped > 0) {
+                    toast(`ℹ️ ${result.skipped} client(s) skipped (no debit balance)`, { icon: 'ℹ️' });
+                }
+                if (result.failed > 0) {
+                    toast.error(`❌ ${result.failed} client(s) failed`);
+                }
+            } else {
+                toast.error(response.data.message || 'Failed to send reminders');
+            }
+        } catch (error) {
+            console.error('Error sending reminders:', error);
+            toast.error(error.response?.data?.message || 'Failed to send payment reminders');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleClose = () => {
+        setResults(null);
+        setSelectedClientsList([]);
+        setSelectedClientUsernames([]);
+        onClose();
+    };
+
+    if (!isOpen) return null;
+
+    return (
+        <AnimatePresence>
+            {isOpen && (
+                <motion.div
+                    className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[200] p-4"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    onClick={handleClose}
+                >
+                    <motion.div
+                        className="bg-white rounded-xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-hidden flex flex-col"
+                        initial={{ scale: 0.95, opacity: 0, y: 20 }}
+                        animate={{ scale: 1, opacity: 1, y: 0 }}
+                        exit={{ scale: 0.95, opacity: 0, y: 20 }}
+                        transition={{ duration: 0.2 }}
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        {/* Header */}
+                        <div className="bg-gradient-to-r from-purple-600 to-purple-700 text-white px-6 py-4 flex justify-between items-center shrink-0">
+                            <div className="flex items-center gap-3">
+                                <div className="w-10 h-10 bg-white/20 rounded-lg flex items-center justify-center">
+                                    <FiMail className="w-5 h-5" />
+                                </div>
+                                <div>
+                                    <h2 className="text-lg font-bold">Payment Reminder</h2>
+                                    <p className="text-purple-100 text-sm">
+                                        Send payment reminders to selected clients
+                                    </p>
+                                </div>
+                            </div>
+                            <motion.button
+                                onClick={handleClose}
+                                className="text-white hover:text-purple-200 transition-colors p-2 rounded-lg hover:bg-white/10"
+                                whileHover={{ scale: 1.1 }}
+                                whileTap={{ scale: 0.9 }}
+                            >
+                                <FiX className="w-5 h-5" />
+                            </motion.button>
+                        </div>
+
+                        {/* Content */}
+                        <div className="flex-1 overflow-y-auto p-6">
+                            {/* Selected Clients Summary */}
+                            <div className="mb-6 bg-gradient-to-r from-gray-50 to-white rounded-xl p-4 border border-gray-200">
+                                <h3 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
+                                    <FiUsers className="w-4 h-4 text-purple-600" />
+                                    Selected Clients ({selectedClientsList.length})
+                                </h3>
+                                
+                                {selectedClientsList.length > 0 ? (
+                                    <div className="space-y-2 max-h-48 overflow-y-auto">
+                                        {selectedClientsList.map((client, index) => (
+                                            <div key={client._id} className="flex items-center justify-between p-2 bg-white rounded-lg border border-gray-100">
+                                                <div className="flex items-center gap-2">
+                                                    <div className="w-6 h-6 bg-purple-100 rounded-full flex items-center justify-center">
+                                                        <span className="text-xs font-bold text-purple-600">{index + 1}</span>
+                                                    </div>
+                                                    <div>
+                                                        <div className="font-medium text-gray-800 text-sm">{client.name || 'N/A'}</div>
+                                                        <div className="text-xs text-gray-500">@{client.username}</div>
+                                                    </div>
+                                                </div>
+                                                <div className="text-xs text-gray-400">
+                                                    {client.mobile || 'No mobile'}
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                ) : (
+                                    <div className="text-center py-6 text-gray-400">
+                                        <FiUser className="w-8 h-8 mx-auto mb-2 opacity-50" />
+                                        <p className="text-sm">No clients selected</p>
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* Results Section */}
+                            {results && (
+                                <div className="mb-6 bg-gradient-to-r from-gray-50 to-white rounded-xl p-4 border border-gray-200">
+                                    <h3 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
+                                        <FiCheckCircle className="w-4 h-4 text-green-600" />
+                                        Send Results
+                                    </h3>
+                                    <div className="grid grid-cols-3 gap-3 mb-4">
+                                        <div className="bg-green-50 rounded-lg p-3 text-center border border-green-200">
+                                            <div className="text-2xl font-bold text-green-600">{results.sent}</div>
+                                            <div className="text-xs text-green-700">Sent</div>
+                                        </div>
+                                        <div className="bg-yellow-50 rounded-lg p-3 text-center border border-yellow-200">
+                                            <div className="text-2xl font-bold text-yellow-600">{results.skipped}</div>
+                                            <div className="text-xs text-yellow-700">Skipped</div>
+                                        </div>
+                                        <div className="bg-red-50 rounded-lg p-3 text-center border border-red-200">
+                                            <div className="text-2xl font-bold text-red-600">{results.failed}</div>
+                                            <div className="text-xs text-red-700">Failed</div>
+                                        </div>
+                                    </div>
+                                    
+                                    {results.details && results.details.length > 0 && (
+                                        <div className="space-y-1 max-h-32 overflow-y-auto">
+                                            {results.details.slice(0, 5).map((detail, idx) => (
+                                                <div key={idx} className="text-xs p-1 rounded flex justify-between">
+                                                    <span className="font-mono">{detail.username}</span>
+                                                    <span className={`font-medium ${
+                                                        detail.status === 'sent' ? 'text-green-600' : 
+                                                        detail.status === 'skipped' ? 'text-yellow-600' : 'text-red-600'
+                                                    }`}>
+                                                        {detail.status}
+                                                        {detail.reason && ` (${detail.reason})`}
+                                                    </span>
+                                                </div>
+                                            ))}
+                                            {results.details.length > 5 && (
+                                                <div className="text-xs text-gray-400 text-center pt-1">
+                                                    +{results.details.length - 5} more...
+                                                </div>
+                                            )}
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+
+                            {/* Info Note */}
+                            <div className="bg-blue-50 rounded-lg p-3 border border-blue-200">
+                                <div className="flex items-start gap-2">
+                                    <FiInfo className="w-4 h-4 text-blue-600 mt-0.5 flex-shrink-0" />
+                                    <div className="text-xs text-blue-800">
+                                        <p className="font-medium mb-1">Note:</p>
+                                        <ul className="list-disc list-inside space-y-1">
+                                            <li>Reminders are only sent to clients with debit balance</li>
+                                            <li>Each client receives an email with their outstanding amount</li>
+                                            <li>You can check logs in the payment reminder section</li>
+                                        </ul>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Footer */}
+                        <div className="border-t px-6 py-4 bg-gray-50 shrink-0">
+                            <div className="flex flex-col sm:flex-row gap-3">
+                                <motion.button
+                                    onClick={handleClose}
+                                    className="flex-1 px-4 py-2.5 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-100 font-medium text-sm"
+                                    whileHover={{ scale: 1.02 }}
+                                    whileTap={{ scale: 0.98 }}
+                                >
+                                    Cancel
+                                </motion.button>
+                                <motion.button
+                                    onClick={handleSendReminders}
+                                    disabled={loading || selectedClientUsernames.length === 0}
+                                    className={`flex-1 px-4 py-2.5 bg-gradient-to-r from-purple-600 to-purple-700 text-white rounded-lg font-medium text-sm flex items-center justify-center gap-2 ${
+                                        (loading || selectedClientUsernames.length === 0) ? 'opacity-50 cursor-not-allowed' : 'hover:from-purple-700 hover:to-purple-800'
+                                    }`}
+                                    whileHover={(loading || selectedClientUsernames.length === 0) ? {} : { scale: 1.02 }}
+                                    whileTap={(loading || selectedClientUsernames.length === 0) ? {} : { scale: 0.98 }}
+                                >
+                                    {loading ? (
+                                        <>
+                                            <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
+                                            Sending...
+                                        </>
+                                    ) : (
+                                        <>
+                                            <FiMail className="w-4 h-4" />
+                                            Send Reminders ({selectedClientUsernames.length})
+                                        </>
+                                    )}
+                                </motion.button>
+                            </div>
+                        </div>
+                    </motion.div>
+                </motion.div>
+            )}
+        </AnimatePresence>
+    );
+};
+
+// Status Change Modal Component (keep your existing code)
 const StatusChangeModal = ({ isOpen, onClose, clientId, currentStatus, onStatusChange, statusOptions }) => {
     const [selectedStatus, setSelectedStatus] = useState(currentStatus);
 
@@ -206,7 +457,7 @@ const StatusChangeModal = ({ isOpen, onClose, clientId, currentStatus, onStatusC
     );
 };
 
-// Firms Details Modal Component
+// Firms Details Modal Component (keep your existing code)
 const FirmsDetailsModal = ({ isOpen, onClose, firms, clientName }) => {
     const [expandedFirm, setExpandedFirm] = useState(null);
 
@@ -480,7 +731,7 @@ const FirmsDetailsModal = ({ isOpen, onClose, firms, clientName }) => {
     );
 };
 
-// View Mode Toggle Component
+// View Mode Toggle Component (keep your existing code)
 const TableViewSwitch = ({ viewMode, setViewMode }) => {
     return (
         <div className="flex items-center gap-1 bg-gray-100 rounded-lg p-1">
@@ -507,7 +758,7 @@ const TableViewSwitch = ({ viewMode, setViewMode }) => {
     );
 };
 
-// Client Table Component
+// Client Table Component (keep your existing code but remove the actions dropdown payment reminder - we'll add it in the main component)
 const ClientTable = ({
     clients,
     selectedClients,
@@ -524,7 +775,8 @@ const ClientTable = ({
     openStatusModal,
     navigate,
     handleExport,
-    showFirmsModal
+    showFirmsModal,
+    openPaymentReminderModal // Add this prop
 }) => {
     const SkeletonRow = () => (
         <div className="flex items-center border-b border-gray-100 animate-pulse p-3">
@@ -829,7 +1081,7 @@ const ClientTable = ({
                                             }}
                                         >
                                             <div className="flex items-center justify-center">
-                                                {renderCellContent(client, column.items && column.items[0] ? column.items[0].id : 'name', openStatusModal, showFirmsModal)}
+                                                {renderCellContent(client, column.items && column.items[0] ? column.items[0].id : 'name', openStatusModal, showFirmsModal, openPaymentReminderModal)}
                                             </div>
                                         </div>
                                     ))}
@@ -843,7 +1095,7 @@ const ClientTable = ({
     );
 };
 
-// Client Cards Component
+// Client Cards Component (keep your existing code)
 const ClientCards = ({
     clients,
     selectedClients,
@@ -1091,6 +1343,7 @@ const ClientCards = ({
     );
 };
 
+// Main ViewClients Component
 const ViewClients = () => {
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
     const [isMinimized, setIsMinimized] = useState(() => {
@@ -1119,6 +1372,9 @@ const ViewClients = () => {
     const [isMobile, setIsMobile] = useState(false);
     const [statusModal, setStatusModal] = useState({ open: false, clientId: null, currentStatus: '' });
     const [firmsModal, setFirmsModal] = useState({ open: false, firms: [], clientName: '' });
+    
+    // Payment Reminder Modal State
+    const [paymentReminderModalOpen, setPaymentReminderModalOpen] = useState(false);
     
     // Export Modal State
     const [exportModalOpen, setExportModalOpen] = useState(false);
@@ -1165,7 +1421,7 @@ const ViewClients = () => {
                 ...(selectedGroup && { group: selectedGroup })
             });
 
-            const response = await axios.get(`${CLIENT_LIST_API}?${params}`, {
+            const response = await axios.get(`${API_BASE_URL}/client/list?${params}`, {
                 headers: headers,
                 timeout: 10000
             });
@@ -1386,90 +1642,90 @@ const ViewClients = () => {
         { value: 'company', name: 'Company' }
     ]);
 
- // Prepare data for export - Uses existing clients state
-const prepareExportData = () => {
-    const exportDataList = [];
-    const exportColumnsConfig = [];
+    // Prepare data for export - Uses existing clients state
+    const prepareExportData = () => {
+        const exportDataList = [];
+        const exportColumnsConfig = [];
 
-    // Use already fetched clients data from state
-    const clientsToExport = selectedClients.size > 0
-        ? clients.filter(client => selectedClients.has(client._id))
-        : clients;
+        // Use already fetched clients data from state
+        const clientsToExport = selectedClients.size > 0
+            ? clients.filter(client => selectedClients.has(client._id))
+            : clients;
 
-    // Build columns from visible column config
-    const visibleColumns = columnConfig;
+        // Build columns from visible column config
+        const visibleColumns = columnConfig;
 
-    visibleColumns.forEach(col => {
-        col.items.forEach(item => {
-            if (item.id === 'actions') return;
-            
-            exportColumnsConfig.push({
-                header: item.label,
-                key: item.id,
-                width: 20
-            });
-        });
-    });
-
-    // Build data rows from clients state
-    clientsToExport.forEach(client => {
-        const row = {};
-        
         visibleColumns.forEach(col => {
             col.items.forEach(item => {
                 if (item.id === 'actions') return;
                 
-                let value = '';
-                switch (item.id) {
-                    case 'name':
-                        value = client.name || 'N/A';
-                        break;
-                    case 'mobile':
-                        value = client.mobile || 'N/A';
-                        break;
-                    case 'firms':
-                        // Get firm names from the firms array
-                        value = client.firms?.map(f => f.firm_name).join(', ') || 'N/A';
-                        break;
-                    case 'balance':
-                        value = client.balance || 0;
-                        break;
-                    case 'status':
-                        value = client.status === 'ACTIVE' ? 'Active' : 
-                                client.status === 'INACTIVE' ? 'Inactive' : 'Pending';
-                        break;
-                    case 'guardian_name':
-                        value = client.guardian_name || 'N/A';
-                        break;
-                    case 'username':
-                        value = client.username || 'N/A';
-                        break;
-                    case 'email':
-                        value = client.email || 'N/A';
-                        break;
-                    case 'pan_number':
-                        value = client.pan_number || 'N/A';
-                        break;
-                    case 'city':
-                        value = client.city || 'N/A';
-                        break;
-                    case 'state':
-                        value = client.state || 'N/A';
-                        break;
-                    case 'pincode':
-                        value = client.pincode || 'N/A';
-                        break;
-                    default:
-                        value = client[item.id] || '-';
-                }
-                row[item.id] = value;
+                exportColumnsConfig.push({
+                    header: item.label,
+                    key: item.id,
+                    width: 20
+                });
             });
         });
-        exportDataList.push(row);
-    });
 
-    return { data: exportDataList, columns: exportColumnsConfig };
-};
+        // Build data rows from clients state
+        clientsToExport.forEach(client => {
+            const row = {};
+            
+            visibleColumns.forEach(col => {
+                col.items.forEach(item => {
+                    if (item.id === 'actions') return;
+                    
+                    let value = '';
+                    switch (item.id) {
+                        case 'name':
+                            value = client.name || 'N/A';
+                            break;
+                        case 'mobile':
+                            value = client.mobile || 'N/A';
+                            break;
+                        case 'firms':
+                            // Get firm names from the firms array
+                            value = client.firms?.map(f => f.firm_name).join(', ') || 'N/A';
+                            break;
+                        case 'balance':
+                            value = client.balance || 0;
+                            break;
+                        case 'status':
+                            value = client.status === 'ACTIVE' ? 'Active' : 
+                                    client.status === 'INACTIVE' ? 'Inactive' : 'Pending';
+                            break;
+                        case 'guardian_name':
+                            value = client.guardian_name || 'N/A';
+                            break;
+                        case 'username':
+                            value = client.username || 'N/A';
+                            break;
+                        case 'email':
+                            value = client.email || 'N/A';
+                            break;
+                        case 'pan_number':
+                            value = client.pan_number || 'N/A';
+                            break;
+                        case 'city':
+                            value = client.city || 'N/A';
+                            break;
+                        case 'state':
+                            value = client.state || 'N/A';
+                            break;
+                        case 'pincode':
+                            value = client.pincode || 'N/A';
+                            break;
+                        default:
+                            value = client[item.id] || '-';
+                    }
+                    row[item.id] = value;
+                });
+            });
+            exportDataList.push(row);
+        });
+
+        return { data: exportDataList, columns: exportColumnsConfig };
+    };
 
     const handleExportClick = () => {
         const { data, columns } = prepareExportData();
@@ -1555,6 +1811,18 @@ const prepareExportData = () => {
         });
     };
 
+    const openPaymentReminderModal = () => {
+        if (selectedClients.size === 0) {
+            toast.error('Please select at least one client first');
+            return;
+        }
+        setPaymentReminderModalOpen(true);
+    };
+
+    const closePaymentReminderModal = () => {
+        setPaymentReminderModalOpen(false);
+    };
+
     const toggleRowDropdown = (clientId) => {
         setActiveRowDropdown(activeRowDropdown === clientId ? null : clientId);
     };
@@ -1605,7 +1873,7 @@ const prepareExportData = () => {
         return sortedFirms[0];
     };
 
-    const renderCellContent = (client, fieldId, openStatusModal, showFirmsModal) => {
+    const renderCellContent = (client, fieldId, openStatusModal, showFirmsModal, openPaymentReminderModal) => {
         switch (fieldId) {
             case 'name':
                 return (
@@ -1696,7 +1964,7 @@ const prepareExportData = () => {
                         <AnimatePresence>
                             {activeRowDropdown === client._id && (
                                 <motion.div
-                                    className="absolute right-0 mt-1 w-48 bg-white rounded-lg
+                                    className="absolute right-0 mt-1 w-56 bg-white rounded-lg
                                    shadow-xl border border-gray-200 z-50 overflow-hidden"
                                     initial={{ opacity: 0, y: -8, scale: 0.96 }}
                                     animate={{ opacity: 1, y: 0, scale: 1 }}
@@ -2626,6 +2894,7 @@ const prepareExportData = () => {
                                     navigate={navigate}
                                     handleExport={handleExport}
                                     showFirmsModal={openFirmsModal}
+                                    openPaymentReminderModal={openPaymentReminderModal}
                                 />
                             ) : (
                                 <ClientCards
@@ -2662,6 +2931,7 @@ const prepareExportData = () => {
                 </div>
             </div>
 
+            {/* Floating Action Bar */}
             <AnimatePresence>
                 {selectedClients.size > 0 && (
                     <motion.div
@@ -2672,16 +2942,30 @@ const prepareExportData = () => {
                         transition={{ duration: 0.2 }}
                     >
                         <div className="flex flex-col md:flex-row items-center gap-2 md:gap-3">
+                            {/* Payment Reminder Button - NEW */}
+                            <motion.button
+                                onClick={openPaymentReminderModal}
+                                className="px-3 py-2.5 bg-gradient-to-r from-purple-600 to-purple-700 text-white rounded-lg text-sm font-semibold hover:from-purple-700 hover:to-purple-800 flex items-center gap-2 shadow-xl"
+                                whileHover={{ scale: 1.05 }}
+                                whileTap={{ scale: 0.95 }}
+                            >
+                                <FiMail className="w-4 h-4" />
+                                <span className="hidden sm:inline">Payment Reminder</span>
+                                <span className="sm:hidden">({selectedClients.size})</span>
+                            </motion.button>
+
+                            {/* Send Message Button */}
                             <motion.button
                                 className="px-3 py-2.5 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-lg text-sm font-semibold hover:from-blue-700 hover:to-blue-800 flex items-center gap-2 shadow-xl"
                                 whileHover={{ scale: 1.05 }}
                                 whileTap={{ scale: 0.95 }}
                             >
-                                <FiMail className="w-4 h-4" />
+                                <FiMessageSquare className="w-4 h-4" />
                                 <span className="hidden sm:inline">Send Message</span>
                                 <span className="sm:hidden">({selectedClients.size})</span>
                             </motion.button>
 
+                            {/* Export Button */}
                             <motion.button
                                 className="px-3 py-2.5 bg-gradient-to-r from-green-600 to-green-700 text-white rounded-lg text-sm font-semibold hover:from-green-700 hover:to-green-800 flex items-center gap-2 shadow-xl"
                                 whileHover={{ scale: 1.05 }}
@@ -2697,8 +2981,14 @@ const prepareExportData = () => {
                 )}
             </AnimatePresence>
 
+            {/* Modals */}
             <SettingsModal />
-
+            <PaymentReminderModal
+                isOpen={paymentReminderModalOpen}
+                onClose={closePaymentReminderModal}
+                selectedClients={selectedClients}
+                clientsData={clients}
+            />
             <StatusChangeModal
                 isOpen={statusModal.open}
                 onClose={closeStatusModal}
@@ -2707,7 +2997,6 @@ const prepareExportData = () => {
                 onStatusChange={handleStatusChange}
                 statusOptions={statusOptions}
             />
-
             <FirmsDetailsModal
                 isOpen={firmsModal.open}
                 onClose={closeFirmsModal}

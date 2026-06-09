@@ -18,6 +18,7 @@ import {
     FiArchive,
     FiMessageSquare,
     FiRepeat,
+    FiLayers,
     FiCheckSquare,
     FiPlus,
     FiTrash2,
@@ -59,7 +60,7 @@ import TaskTab from "../ClientComponents/TaskTab";
 import BillingTab from "../ClientComponents/BillingTab";
 import LedgerTab from "../ClientComponents/LedgerTab";
 import NotesTab from "../ClientComponents/NotesTab";
-import RecurringTab from "../ClientComponents/RecurringTab";
+import ComplianceTab from "../ClientComponents/ComplianceTab";
 import DocumentsTab from "../ClientComponents/DocumentsTab";
 import ChattingTab from "../ClientComponents/ChattingTab";
 import AutomationTab from "../ClientComponents/AutomationTab";
@@ -1271,7 +1272,7 @@ const ClientProfile = () => {
         { id: 'billing', name: 'Billing', icon: FiFileText },
         { id: 'ledger', name: 'Ledger', icon: FiDollarSign },
         { id: 'notes', name: 'Notes', icon: FiFile },
-        { id: 'recurring', name: 'Recurring', icon: FiRepeat },
+        { id: 'compliance', name: 'Compliance', icon: FiLayers },
         { id: 'documents', name: 'Documents', icon: FiArchive },
         { id: 'chatting', name: 'Chatting', icon: FiMessageSquare },
         { id: 'automation', name: 'Automation', icon: FiSettings }
@@ -1332,7 +1333,7 @@ const ClientProfile = () => {
             'billing': 'billing',
             'ledger': 'ledger',
             'notes': 'notes',
-            'recurring': 'recurring',
+            'compliance': 'compliance',
             'documents': 'documents',
             'chatting': 'chatting',
             'automation': 'automation'
@@ -1355,7 +1356,7 @@ const ClientProfile = () => {
             billing: <BillingTab clientUsername={username} />,
             ledger: <LedgerTab clientUsername={username} />,
             notes: <NotesTab clientUsername={username} />,
-            recurring: <RecurringTab clientUsername={username} />,
+            compliance: <ComplianceTab clientUsername={username} />,
             documents: <DocumentsTab clientUsername={username} />,
             chatting: <ChattingTab clientUsername={username} />,
             automation: <AutomationTab clientUsername={username} />

@@ -1,11 +1,11 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { Badge, Button, Card, Form, Spinner, Table, Overlay, Popover } from 'react-bootstrap';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { toast } from 'react-hot-toast';
 import { 
   FiPlus, FiMoreVertical, FiEye, FiPause, FiPlay, FiX, FiRefreshCw, 
   FiChevronLeft, FiChevronRight, FiMail, FiCalendar, FiUsers,
-  FiSend, FiClock, FiAlertCircle, FiCheckCircle, FiZap
+  FiSend, FiClock, FiAlertCircle, FiCheckCircle, FiZap, FiHome
 } from 'react-icons/fi';
 import { Header, Sidebar } from '../../../components/header';
 import { emailApi, normalizeList, normalizePagination } from './emailApi';
@@ -440,6 +440,23 @@ const EmailBroadcastList = () => {
 
         <div className={`pt-16 ${isMinimized ? 'md:pl-20' : 'md:pl-[260px]'}`}>
           <div className="ebl-page">
+
+            {/* ── Breadcrumbs ── */}
+            <div className="mb-4">
+              <nav className="flex items-center text-sm text-gray-600">
+                <Link to="/" className="flex items-center gap-1 hover:text-blue-600 transition-colors">
+                  <FiHome className="w-4 h-4" />
+                  <span>Dashboard</span>
+                </Link>
+                <FiChevronRight className="w-4 h-4 mx-2 text-gray-400" />
+                <Link to="/broadcast/email-channel" className="flex items-center gap-1 hover:text-blue-600 transition-colors">
+                  <FiSend className="w-4 h-4" />
+                  <span>Broadcast</span>
+                </Link>
+                <FiChevronRight className="w-4 h-4 mx-2 text-gray-400" />
+                <span className="text-gray-900 font-medium">Email</span>
+              </nav>
+            </div>
 
             {/* ── Header ── */}
             <div className="ebl-header-card">
