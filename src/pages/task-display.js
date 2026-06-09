@@ -17,7 +17,7 @@ import {
 
 import { AiOutlineMail } from "react-icons/ai";
 import { FaWhatsapp, FaFileCsv } from "react-icons/fa6";
-import { PiMicrosoftExcelLogoDuotone, PiFilePdfDuotone } from 'react-icons/pi';
+import { PiFilePdfDuotone, PiMicrosoftExcelLogoDuotone } from "react-icons/pi";
 import toast from 'react-hot-toast';
 
 // Import components

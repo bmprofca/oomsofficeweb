@@ -10,7 +10,7 @@ import {
   FaBuilding, FaMoneyBillWave, FaCalendarAlt, FaGlobe,
   FaServer, FaCode, FaBolt, FaClipboardList, FaArrowLeft,
   FaExclamationCircle, FaInfoCircle, FaCheckCircle, FaShieldAlt,
-  FaSlidersH 
+  FaSlidersH
 } from 'react-icons/fa';
 import { FiHome, FiChevronRight, FiSend } from 'react-icons/fi';
 import { Header, Sidebar } from '../../../components/header';
