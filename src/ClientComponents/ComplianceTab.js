@@ -30,9 +30,12 @@ const formatDateTime = (dateStr) => {
 };
 
 const STATUS_BADGES = {
+    'Pending From The Department': 'bg-amber-100 text-amber-800 border-amber-200',
+    'Pending From Client': 'bg-orange-100 text-orange-850 border-orange-200',
     'Pending': 'bg-amber-100 text-amber-800 border-amber-200',
-    'N/A': 'bg-slate-100 text-slate-500 border-slate-200',
+    'Complete': 'bg-emerald-100 text-emerald-800 border-emerald-200',
     'Sale': 'bg-emerald-100 text-emerald-800 border-emerald-200',
+    'N/A': 'bg-slate-100 text-slate-500 border-slate-200',
     'Outsource': 'bg-blue-100 text-blue-800 border-blue-200'
 };
 
@@ -872,15 +875,22 @@ const ComplianceTab = ({ clientUsername }) => {
 
         let statusLetter = 'P';
         let cellClass = 'bg-amber-50 text-amber-700 border-amber-200';
-        if (period.status === 'Sale') {
-            statusLetter = 'S';
+        const st = period.status;
+        if (st === 'Complete' || st === 'Sale') {
+            statusLetter = 'C';
             cellClass = 'bg-emerald-50 text-emerald-700 border-emerald-200';
-        } else if (period.status === 'Outsource') {
+        } else if (st === 'Pending From Client' || st === 'PFC') {
+            statusLetter = 'PC';
+            cellClass = 'bg-orange-50 text-orange-700 border-orange-200';
+        } else if (st === 'Outsource') {
             statusLetter = 'O';
             cellClass = 'bg-blue-50 text-blue-700 border-blue-200';
-        } else if (period.status === 'N/A') {
+        } else if (st === 'N/A') {
             statusLetter = 'N';
             cellClass = 'bg-slate-50 text-slate-400 border-slate-200';
+        } else if (st === 'Pending From The Department' || st === 'Pending') {
+            statusLetter = 'P';
+            cellClass = 'bg-amber-50 text-amber-700 border-amber-200';
         }
 
         const dueDateText = getPeriodDueDate(period);
@@ -889,36 +899,34 @@ const ComplianceTab = ({ clientUsername }) => {
         const assignedStaffs = getAssignedStaffList(assign);
         const assignedStaffUsernames = assignedStaffs.map(emp => (emp.username || '').toLowerCase().trim());
         const isUpdatePermitted = !currentUsername || assignedStaffUsernames.length === 0 || assignedStaffUsernames.includes(currentUsername);
+        const isComplete = st === 'Complete' || st === 'Sale';
+        const shortDueDate = dueDateText === '—' ? '' : dueDateText.split(' ').slice(0, 2).join(' ');
 
         return (
             <td key={period.schedule_id} className="px-2 py-2 text-center align-middle">
-                <div
-                    onClick={() => isUpdatePermitted && openStatusModal(period, assign)}
-                    className={`inline-flex items-center justify-center gap-1 min-w-[32px] h-[26px] rounded border text-[10px] font-bold select-none ${isUpdatePermitted
-                        ? `cursor-pointer transition-all hover:scale-105 ${cellClass}`
-                        : "bg-slate-50 text-slate-300 border-slate-100 cursor-not-allowed opacity-50"
-                        }`}
-                    title={
-                        isUpdatePermitted
-                            ? (showDirectDueDate ? `Due Date: ${dueDateText}` : `Status: ${period.status}`)
-                            : `Restricted (Only assigned staff: ${assignedStaffs.map(e => e.name || e.username).join(', ')})`
-                    }
-                >
-                    <span className="px-1.5 h-full flex items-center justify-center flex-grow text-center">
-                        {statusLetter}
-                    </span>
-                    {!showDirectDueDate && (
-                        <button
-                            type="button"
-                            onClick={(e) => {
-                                e.stopPropagation();
-                                toast(`Due Date: ${dueDateText}`, { icon: '📅' });
-                            }}
-                            className="pr-1 text-amber-500 hover:text-amber-600 transition-colors shrink-0"
-                            title="Click to view due date"
-                        >
-                            <FiAlertCircle className="w-3 h-3 animate-pulse" />
-                        </button>
+                <div className="flex flex-col items-center gap-0.5">
+                    <div
+                        onClick={() => isUpdatePermitted && !isComplete && openStatusModal(period, assign)}
+                        className={`inline-flex items-center justify-center gap-1 min-w-[32px] h-[26px] rounded border text-[10px] font-bold select-none ${isUpdatePermitted && !isComplete
+                            ? `cursor-pointer transition-all hover:scale-105 ${cellClass}`
+                            : isComplete
+                                ? `${cellClass} cursor-default`
+                                : "bg-slate-50 text-slate-300 border-slate-100 cursor-not-allowed opacity-50"
+                            }`}
+                        title={
+                            isComplete
+                                ? `Completed — locked`
+                                : isUpdatePermitted
+                                    ? (showDirectDueDate ? `Due Date: ${dueDateText}` : `Status: ${period.status}`)
+                                    : `Restricted (Only assigned staff: ${assignedStaffs.map(e => e.name || e.username).join(', ')})`
+                        }
+                    >
+                        <span className="px-1.5 h-full flex items-center justify-center flex-grow text-center">
+                            {statusLetter}
+                        </span>
+                    </div>
+                    {shortDueDate && (
+                        <span className="text-[8px] text-slate-400 font-mono leading-none mt-1">{shortDueDate}</span>
                     )}
                 </div>
             </td>
@@ -1519,23 +1527,26 @@ const ComplianceTab = ({ clientUsername }) => {
                                                                                     const assignedStaffs = getAssignedStaffList(assign);
                                                                                     const assignedStaffUsernames = assignedStaffs.map(emp => (emp.username || '').toLowerCase().trim());
                                                                                     const isUpdatePermitted = !currentUsername || assignedStaffUsernames.length === 0 || assignedStaffUsernames.includes(currentUsername);
+                                                                                    const isComplete = period.status === 'Complete' || period.status === 'Sale';
 
                                                                                     return (
                                                                                         <div
                                                                                             key={period.schedule_id}
-                                                                                            onClick={() => isUpdatePermitted && openStatusModal(period, assign)}
-                                                                                            className={`border rounded-xl p-3 shadow-xs transition-all flex flex-col justify-between min-h-[90px] group ${isUpdatePermitted
+                                                                                            onClick={() => isUpdatePermitted && !isComplete && openStatusModal(period, assign)}
+                                                                                            className={`border rounded-xl p-3 shadow-xs transition-all flex flex-col justify-between min-h-[90px] group ${isUpdatePermitted && !isComplete
                                                                                                 ? "bg-white border-slate-200 hover:border-indigo-300 hover:shadow-sm cursor-pointer"
-                                                                                                : "bg-slate-50/50 border-slate-200/60 opacity-60 cursor-not-allowed"
+                                                                                                : isComplete
+                                                                                                    ? "bg-emerald-50/40 border-emerald-200 cursor-default"
+                                                                                                    : "bg-slate-50/50 border-slate-200/60 opacity-60 cursor-not-allowed"
                                                                                                 }`}
-                                                                                            title={isUpdatePermitted ? undefined : `Restricted (Only assigned staff: ${assignedStaffs.map(e => e.name || e.username).join(', ')})`}
+                                                                                            title={isComplete ? `Completed — record locked` : (isUpdatePermitted ? undefined : `Restricted (Only assigned staff: ${assignedStaffs.map(e => e.name || e.username).join(', ')})`)}
                                                                                         >
                                                                                             <div className="flex items-start justify-between gap-1.5">
                                                                                                 <span className={`text-xs font-bold leading-tight truncate ${isUpdatePermitted ? "text-slate-700 group-hover:text-indigo-600" : "text-slate-400"
                                                                                                     }`}>
                                                                                                     {period.period_name}
                                                                                                 </span>
-                                                                                                <FiInfo className={`w-3 h-3 shrink-0 ${isUpdatePermitted ? "text-slate-300 group-hover:text-indigo-400" : "text-slate-200"
+                                                                                                <FiInfo className={`w-3 h-3 shrink-0 ${isUpdatePermitted ? "text-slate-350 group-hover:text-indigo-400" : "text-slate-200"
                                                                                                     }`} />
                                                                                             </div>
                                                                                             <div className="mt-2 space-y-1">
@@ -2121,31 +2132,20 @@ const ComplianceTab = ({ clientUsername }) => {
                                         )}
 
                                         {/* Select Status */}
-                                        <div className="space-y-2">
+                                        <div className="space-y-1.5">
                                             <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Select Status *</label>
-                                            <div className="grid grid-cols-2 gap-3">
-                                                {[
-                                                    { value: 'Pending', label: 'Pending', badge: 'P', color: 'border-amber-200 hover:border-amber-300 text-amber-700 bg-amber-50/10', activeColor: 'bg-amber-500 text-white border-amber-500 shadow-sm ring-2 ring-amber-200' },
-                                                    { value: 'Sale', label: 'Sale (Filed)', badge: 'S', color: 'border-emerald-200 hover:border-emerald-300 text-emerald-700 bg-emerald-50/10', activeColor: 'bg-emerald-500 text-white border-emerald-500 shadow-sm ring-2 ring-emerald-200' },
-                                                    { value: 'Outsource', label: 'Outsource', badge: 'O', color: 'border-blue-200 hover:border-blue-300 text-blue-700 bg-blue-50/10', activeColor: 'bg-blue-500 text-white border-blue-500 shadow-sm ring-2 ring-blue-200' },
-                                                    { value: 'N/A', label: 'N/A', badge: 'N', color: 'border-slate-200 hover:border-slate-300 text-slate-500 bg-slate-50/10', activeColor: 'bg-slate-500 text-white border-slate-500 shadow-sm ring-2 ring-slate-200' }
-                                                ].map((opt) => {
-                                                    const isSelected = statusForm.status === opt.value;
-                                                    return (
-                                                        <button
-                                                            key={opt.value}
-                                                            type="button"
-                                                            disabled={!isUpdatePermitted}
-                                                            onClick={() => setStatusForm(prev => ({ ...prev, status: opt.value }))}
-                                                            className={`flex flex-col items-center justify-center p-3 rounded-xl border-2 text-center transition-all select-none cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed ${isSelected ? opt.activeColor : `bg-white ${opt.color}`
-                                                                }`}
-                                                        >
-                                                            <span className="text-lg font-black tracking-wider mb-1">{opt.badge}</span>
-                                                            <span className="text-[10px] font-bold uppercase tracking-wider">{opt.label}</span>
-                                                        </button>
-                                                    );
-                                                })}
-                                            </div>
+                                            <select
+                                                value={statusForm.status}
+                                                disabled={!isUpdatePermitted}
+                                                onChange={(e) => setStatusForm(prev => ({ ...prev, status: e.target.value }))}
+                                                className="w-full px-3 py-2.5 text-xs text-slate-750 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none bg-white disabled:opacity-60 disabled:cursor-not-allowed font-semibold"
+                                            >
+                                                <option value="Pending From The Department">Pending (Dept)</option>
+                                                <option value="Pending From Client">Pending (Client)</option>
+                                                <option value="Complete">Complete</option>
+                                                <option value="Outsource">Outsource</option>
+                                                <option value="N/A">N/A</option>
+                                            </select>
                                         </div>
 
                                         {/* Amount Field */}
@@ -2163,19 +2163,19 @@ const ComplianceTab = ({ clientUsername }) => {
                                         </div>
 
                                         {/* Ledger notice info */}
-                                        {statusForm.status === 'Sale' && (
+                                        {statusForm.status === 'Complete' && (
                                             <div className="flex gap-2.5 bg-emerald-50 border border-emerald-150 rounded-xl p-3 text-emerald-800">
                                                 <FiCheckCircle className="w-4.5 h-4.5 shrink-0 mt-0.5 text-emerald-600" />
                                                 <p className="text-[10.5px] leading-relaxed font-medium">
-                                                    Updating status to <strong>Sale</strong> will automatically generate a sales invoice and post it to this client firm's ledger.
+                                                    Marking as <strong>Complete</strong> will automatically generate a sales invoice and post it to this client firm's ledger. This action <strong>locks</strong> the record.
                                                 </p>
                                             </div>
                                         )}
-                                        {selectedPeriod.status === 'Sale' && statusForm.status !== 'Sale' && (
+                                        {(selectedPeriod.status === 'Complete' || selectedPeriod.status === 'Sale') && statusForm.status !== 'Complete' && statusForm.status !== 'Sale' && (
                                             <div className="flex gap-2.5 bg-amber-50 border border-amber-150 rounded-xl p-3 text-amber-800">
-                                                <FiAlertCircle className="w-4.5 h-4.5 shrink-0 mt-0.5 text-amber-650" />
+                                                <FiAlertCircle className="w-4.5 h-4.5 shrink-0 mt-0.5 text-amber-655" />
                                                 <p className="text-[10.5px] leading-relaxed font-medium">
-                                                    Changing status away from <strong>Sale</strong> will automatically delete and reverse the posted ledger entry for this period.
+                                                    Changing status away from <strong>Complete</strong> will automatically delete and reverse the posted ledger entry for this period.
                                                 </p>
                                             </div>
                                         )}

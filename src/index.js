@@ -87,6 +87,7 @@ import TransactionHistory from './finance/bank/transaction-history';
 import WalletRecharge from './pages/WalletRecharge';
 //Dashboard Components
 import TaskDetailedPage from './DashboardComponents/TaskDetailedPage';
+import RecurringTaskDetailedPage from './DashboardComponents/RecurringTaskDetailedPage';
 import ClientDetailPage from './DashboardComponents/ClientDetailPage';
 import TaskDashboardDetailPage from './DashboardComponents/TaskDashboardDetailPage';
 import QuickStatsDetailsPage from './DashboardComponents/quick-stats-details';
@@ -187,6 +188,12 @@ root.render(
         <Route path="/task/detailed" element={
           <ProtectedRoute>
             <TaskDetailedPage />
+          </ProtectedRoute>
+        } />
+
+        <Route path="/recurring-task/detailed" element={
+          <ProtectedRoute>
+            <RecurringTaskDetailedPage />
           </ProtectedRoute>
         } />
 

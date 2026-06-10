@@ -446,7 +446,7 @@ const ComplianceServices = () => {
             statusLetter = 'C';
             cellClass = 'bg-emerald-50 text-emerald-700 border-emerald-200';
         } else if (st === 'Pending From Client' || st === 'PFC') {
-            statusLetter = 'C̈';
+            statusLetter = 'PC';
             cellClass = 'bg-orange-50 text-orange-700 border-orange-200';
         } else if (st === 'Outsource') {
             statusLetter = 'O';
@@ -2326,32 +2326,20 @@ const ComplianceServices = () => {
                                         )}
 
                                         {/* Select Status */}
-                                        <div className="space-y-2">
+                                        <div className="space-y-1.5">
                                             <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Select Status *</label>
-                                            <div className="grid grid-cols-2 gap-3">
-                                                {[
-                                                    { value: 'Pending From The Department', label: 'Pending (Dept)', badge: 'P', color: 'border-amber-200 hover:border-amber-300 text-amber-700 bg-amber-50/10', activeColor: 'bg-amber-500 text-white border-amber-500 shadow-sm ring-2 ring-amber-200' },
-                                                    { value: 'Pending From Client', label: 'Pending (Client)', badge: 'PC', color: 'border-orange-200 hover:border-orange-300 text-orange-700 bg-orange-50/10', activeColor: 'bg-orange-500 text-white border-orange-500 shadow-sm ring-2 ring-orange-200' },
-                                                    { value: 'Complete', label: 'Complete', badge: 'C', color: 'border-emerald-200 hover:border-emerald-300 text-emerald-700 bg-emerald-50/10', activeColor: 'bg-emerald-500 text-white border-emerald-500 shadow-sm ring-2 ring-emerald-200' },
-                                                    { value: 'Outsource', label: 'Outsource', badge: 'O', color: 'border-blue-200 hover:border-blue-300 text-blue-700 bg-blue-50/10', activeColor: 'bg-blue-500 text-white border-blue-500 shadow-sm ring-2 ring-blue-200' },
-                                                    { value: 'N/A', label: 'N/A', badge: 'N', color: 'border-slate-200 hover:border-slate-300 text-slate-505 bg-slate-50/10', activeColor: 'bg-slate-500 text-white border-slate-500 shadow-sm ring-2 ring-slate-200' }
-                                                ].map((opt) => {
-                                                    const isSelected = statusForm.status === opt.value;
-                                                    return (
-                                                        <button
-                                                            key={opt.value}
-                                                            type="button"
-                                                            disabled={!isUpdatePermitted}
-                                                            onClick={() => setStatusForm(prev => ({ ...prev, status: opt.value }))}
-                                                            className={`flex flex-col items-center justify-center p-3 rounded-xl border-2 text-center transition-all select-none cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed ${isSelected ? opt.activeColor : `bg-white ${opt.color}`
-                                                                }`}
-                                                        >
-                                                            <span className="text-lg font-black tracking-wider mb-1">{opt.badge}</span>
-                                                            <span className="text-[10px] font-bold uppercase tracking-wider">{opt.label}</span>
-                                                        </button>
-                                                    );
-                                                })}
-                                            </div>
+                                            <select
+                                                value={statusForm.status}
+                                                disabled={!isUpdatePermitted}
+                                                onChange={(e) => setStatusForm(prev => ({ ...prev, status: e.target.value }))}
+                                                className="w-full px-3 py-2.5 text-xs text-slate-750 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none bg-white disabled:opacity-60 disabled:cursor-not-allowed font-semibold"
+                                            >
+                                                <option value="Pending From The Department">Pending (Dept)</option>
+                                                <option value="Pending From Client">Pending (Client)</option>
+                                                <option value="Complete">Complete</option>
+                                                <option value="Outsource">Outsource</option>
+                                                <option value="N/A">N/A</option>
+                                            </select>
                                         </div>
 
                                         {/* Amount Field */}
