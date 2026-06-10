@@ -1,9 +1,9 @@
-﻿import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import {
     FiSearch, FiPlus, FiRefreshCw, FiCheckCircle, FiAlertCircle,
     FiLayers, FiChevronRight, FiChevronDown, FiDollarSign, FiCheck,
     FiX, FiEye, FiInfo, FiBookOpen, FiBriefcase, FiCalendar, FiArrowRight,
-    FiUser, FiEdit2, FiTrash2, FiShare2, FiChevronLeft
+    FiUser, FiEdit2, FiTrash2, FiShare2, FiChevronLeft, FiMenu
 } from 'react-icons/fi';
 import { FaWhatsapp } from 'react-icons/fa6';
 import { MdEmail } from 'react-icons/md';
@@ -130,6 +130,44 @@ const getPeriodHeaders = (frequency) => {
     return [];
 };
 
+const getVisible6Months = (financialYear) => {
+    const ALL_MONTHS = ['Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec', 'Jan', 'Feb', 'Mar'];
+    const today = new Date();
+    const currentMonth = today.getMonth(); // 0-11
+    
+    // Map JS month to index in ALL_MONTHS (starting in April)
+    const jsMonthToFyIndex = [9, 10, 11, 0, 1, 2, 3, 4, 5, 6, 7, 8];
+    const fyIndex = jsMonthToFyIndex[currentMonth];
+    
+    // Parse FY
+    const fyParts = (financialYear || '2026-2027').split('-');
+    const startYear = parseInt(fyParts[0], 10) || 2026;
+    const endYear = parseInt(fyParts[1], 10) || 2027;
+    
+    const fyStart = new Date(startYear, 3, 1); // April 1st
+    const fyEnd = new Date(endYear, 2, 31, 23, 59, 59); // March 31st
+    
+    if (today < fyStart) {
+        return ALL_MONTHS.slice(0, 6);
+    } else if (today > fyEnd) {
+        return ALL_MONTHS.slice(6, 12);
+    } else {
+        if (fyIndex < 5) {
+            return ALL_MONTHS.slice(0, 6);
+        } else {
+            return ALL_MONTHS.slice(fyIndex - 5, fyIndex + 1);
+        }
+    }
+};
+
+const getPeriodHeadersForFreq = (frequency, financialYear) => {
+    const freq = frequency?.toLowerCase();
+    if (freq === 'monthly') {
+        return getVisible6Months(financialYear);
+    }
+    return getPeriodHeaders(frequency);
+};
+
 const getPeriodSchedule = (assignmentSchedules, headerText, frequency) => {
     const freq = frequency?.toLowerCase();
     if (freq === 'monthly') {
@@ -188,10 +226,23 @@ const ComplianceServices = () => {
     const [servicesLoading, setServicesLoading] = useState(false);
     const [serviceSearch, setServiceSearch] = useState('');
 
-    // Monthly 6-month window toggle: offset in blocks of 6 (0 = Apr–Sep, 1 = Oct–Mar)
-    const [monthWindowOffset, setMonthWindowOffset] = useState(0);
-    const ALL_MONTHS = ['Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec', 'Jan', 'Feb', 'Mar'];
-    const visibleMonths = ALL_MONTHS.slice(monthWindowOffset * 6, monthWindowOffset * 6 + 6);
+    // Active dropdown, broadcast, and calendar modal states
+    const [activeDropdownId, setActiveDropdownId] = useState(null);
+    const [broadcastModal, setBroadcastModal] = useState({ open: false, assign: null });
+    const [broadcastPhone, setBroadcastPhone] = useState('');
+    const [broadcastEmail, setBroadcastEmail] = useState('');
+    const [showFullCalendarModal, setShowFullCalendarModal] = useState(false);
+    const [fullCalendarAssignment, setFullCalendarAssignment] = useState(null);
+
+    useEffect(() => {
+        const handleOutsideClick = (e) => {
+            if (!e.target.closest('.dropdown-container')) {
+                setActiveDropdownId(null);
+            }
+        };
+        document.addEventListener('click', handleOutsideClick);
+        return () => document.removeEventListener('click', handleOutsideClick);
+    }, []);
 
     // Edit / Delete assignment state
     const [editAssignment, setEditAssignment] = useState(null); // assignment object being edited
@@ -383,7 +434,7 @@ const ComplianceServices = () => {
     const selectedServiceObj = services.find(s => String(s.service_id) === String(selectedServiceFilter) || String(s.name) === String(selectedServiceFilter));
     const activeFrequency = selectedServiceObj ? selectedServiceObj.frequency?.toLowerCase() : 'monthly';
     const isServiceFiltered = selectedServiceFilter !== '';
-    const periodHeaders = isServiceFiltered ? getPeriodHeaders(activeFrequency) : [];
+    const periodHeaders = isServiceFiltered ? getPeriodHeadersForFreq(activeFrequency, selectedFY) : [];
 
     const renderCell = (period, assign) => {
         if (!period) return <td key={Math.random()} className="px-2 py-3 text-center text-slate-350 font-mono">—</td>;
@@ -797,6 +848,18 @@ const ComplianceServices = () => {
         setShowStatusModal(true);
     };
 
+    const handleOpenBroadcast = (assign) => {
+        setBroadcastModal({ open: true, assign });
+        setBroadcastPhone(assign.client_mobile || assign.client_phone || assign.mobile || assign.phone || '');
+        setBroadcastEmail(assign.client_email || assign.email || '');
+    };
+
+    const handleOpenFullCalendar = (assign) => {
+        setFullCalendarAssignment(assign);
+        fetchSchedules(assign.assignment_id);
+        setShowFullCalendarModal(true);
+    };
+
     // Submit Assign Form
     const handleAssignSubmit = async (e) => {
         e.preventDefault();
@@ -1128,10 +1191,10 @@ const ComplianceServices = () => {
                                                     <th className="px-4 py-3 text-center w-12">SR</th>
                                                     <th className="px-4 py-3">Firm Name</th>
                                                     <th className="px-4 py-3 text-center">Staffs</th>
-                                                    <th className="px-4 py-3 text-right pr-6">Amount</th>
                                                     {periodHeaders.map((header) => (
                                                         <th key={header} className="px-2 py-3 text-center uppercase tracking-wider">{header}</th>
                                                     ))}
+                                                    <th className="px-4 py-3 text-center w-24">Action</th>
                                                 </tr>
                                             </thead>
                                             <tbody className="divide-y divide-slate-100">
@@ -1209,13 +1272,87 @@ const ComplianceServices = () => {
                                                                         );
                                                                     })()}
                                                                 </td>
-                                                                <td className="px-4 py-3 font-bold text-slate-705 text-xs text-right pr-6">
-                                                                    ₹{formatCurrency(assign.custom_amount)}
-                                                                </td>
                                                                 {periodHeaders.map((headerText) => {
                                                                     const period = getPeriodSchedule(assignSchedules, headerText, activeFrequency);
                                                                     return renderCell(period, assign);
                                                                 })}
+                                                                <td className="px-4 py-3 text-center align-middle">
+                                                                    <div className={`dropdown-container relative flex justify-center ${activeDropdownId === assign.assignment_id ? 'z-50' : 'z-0'}`}>
+                                                                        <button
+                                                                            type="button"
+                                                                            onClick={(e) => {
+                                                                                e.stopPropagation();
+                                                                                setActiveDropdownId(activeDropdownId === assign.assignment_id ? null : assign.assignment_id);
+                                                                            }}
+                                                                            className="p-1.5 text-slate-500 hover:text-indigo-600 rounded-lg hover:bg-indigo-50 border border-slate-200 transition-colors"
+                                                                        >
+                                                                            <FiMenu className="w-3.5 h-3.5" />
+                                                                        </button>
+                                                                        <AnimatePresence>
+                                                                            {activeDropdownId === assign.assignment_id && (
+                                                                                <motion.div
+                                                                                    initial={{ opacity: 0, scale: 0.95, y: 5 }}
+                                                                                    animate={{ opacity: 1, scale: 1, y: 0 }}
+                                                                                    exit={{ opacity: 0, scale: 0.95, y: 5 }}
+                                                                                    className="absolute right-0 mt-1 w-40 bg-white rounded-xl shadow-xl border border-slate-200 z-55 overflow-hidden text-left"
+                                                                                >
+                                                                                    <div className="py-1">
+                                                                                        <button
+                                                                                            type="button"
+                                                                                            onClick={(e) => {
+                                                                                                e.stopPropagation();
+                                                                                                openEditModal(assign);
+                                                                                                setActiveDropdownId(null);
+                                                                                            }}
+                                                                                            className="flex items-center w-full px-3 py-2 text-xs text-slate-700 hover:bg-indigo-50 transition-colors"
+                                                                                        >
+                                                                                            <FiEdit2 className="w-3.5 h-3.5 text-slate-400 mr-2" />
+                                                                                            Edit
+                                                                                        </button>
+                                                                                        <button
+                                                                                            type="button"
+                                                                                            onClick={(e) => {
+                                                                                                e.stopPropagation();
+                                                                                                setConfirmDeleteId(assign.assignment_id);
+                                                                                                setActiveDropdownId(null);
+                                                                                            }}
+                                                                                            className="flex items-center w-full px-3 py-2 text-xs text-slate-700 hover:bg-indigo-50 transition-colors"
+                                                                                        >
+                                                                                            <FiTrash2 className="w-3.5 h-3.5 text-slate-400 mr-2" />
+                                                                                            Delete
+                                                                                        </button>
+                                                                                        <button
+                                                                                            type="button"
+                                                                                            onClick={(e) => {
+                                                                                                e.stopPropagation();
+                                                                                                handleOpenBroadcast(assign);
+                                                                                                setActiveDropdownId(null);
+                                                                                            }}
+                                                                                            className="flex items-center w-full px-3 py-2 text-xs text-slate-700 hover:bg-indigo-50 transition-colors"
+                                                                                        >
+                                                                                            <FiShare2 className="w-3.5 h-3.5 text-slate-400 mr-2" />
+                                                                                            Broadcast
+                                                                                        </button>
+                                                                                        {assign.frequency === 'monthly' && (
+                                                                                            <button
+                                                                                                type="button"
+                                                                                                onClick={(e) => {
+                                                                                                    e.stopPropagation();
+                                                                                                    handleOpenFullCalendar(assign);
+                                                                                                    setActiveDropdownId(null);
+                                                                                                }}
+                                                                                                className="flex items-center w-full px-3 py-2 text-xs text-slate-700 hover:bg-indigo-50 transition-colors border-t border-slate-100"
+                                                                                            >
+                                                                                                <FiEye className="w-3.5 h-3.5 text-slate-400 mr-2" />
+                                                                                                Show Full
+                                                                                            </button>
+                                                                                        )}
+                                                                                    </div>
+                                                                                </motion.div>
+                                                                            )}
+                                                                        </AnimatePresence>
+                                                                    </div>
+                                                                </td>
                                                             </tr>
                                                         );
                                                     })
@@ -1355,27 +1492,86 @@ const ComplianceServices = () => {
                                                                 })()}
                                                             </td>
                                                             <td className="px-3 py-3 text-right">
-                                                                <div className="flex items-center justify-end gap-1">
-                                                                    <button
-                                                                        type="button"
-                                                                        onClick={(e) => { e.stopPropagation(); openEditModal(assign); }}
-                                                                        className="p-1.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
-                                                                        title="Edit assignment"
-                                                                    >
-                                                                        <FiEdit2 className="w-3.5 h-3.5" />
-                                                                    </button>
-                                                                    <button
-                                                                        type="button"
-                                                                        onClick={(e) => { e.stopPropagation(); setConfirmDeleteId(assign.assignment_id); }}
-                                                                        className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
-                                                                        title="Delete assignment"
-                                                                    >
-                                                                        <FiTrash2 className="w-3.5 h-3.5" />
-                                                                    </button>
+                                                                <div className="flex items-center justify-end gap-2">
+                                                                    <div className={`dropdown-container relative flex justify-center ${activeDropdownId === assign.assignment_id ? 'z-50' : 'z-0'}`}>
+                                                                        <button
+                                                                            type="button"
+                                                                            onClick={(e) => {
+                                                                                e.stopPropagation();
+                                                                                setActiveDropdownId(activeDropdownId === assign.assignment_id ? null : assign.assignment_id);
+                                                                            }}
+                                                                            className="p-1.5 text-slate-500 hover:text-indigo-650 rounded-lg hover:bg-indigo-50 border border-slate-200 transition-colors"
+                                                                        >
+                                                                            <FiMenu className="w-3.5 h-3.5" />
+                                                                        </button>
+                                                                        <AnimatePresence>
+                                                                            {activeDropdownId === assign.assignment_id && (
+                                                                                <motion.div
+                                                                                    initial={{ opacity: 0, scale: 0.95, y: 5 }}
+                                                                                    animate={{ opacity: 1, scale: 1, y: 0 }}
+                                                                                    exit={{ opacity: 0, scale: 0.95, y: 5 }}
+                                                                                    className="absolute right-0 mt-1 w-40 bg-white rounded-xl shadow-xl border border-slate-200 z-55 overflow-hidden text-left"
+                                                                                >
+                                                                                    <div className="py-1">
+                                                                                        <button
+                                                                                            type="button"
+                                                                                            onClick={(e) => {
+                                                                                                e.stopPropagation();
+                                                                                                openEditModal(assign);
+                                                                                                setActiveDropdownId(null);
+                                                                                            }}
+                                                                                            className="flex items-center w-full px-3 py-2 text-xs text-slate-700 hover:bg-indigo-50 transition-colors"
+                                                                                        >
+                                                                                            <FiEdit2 className="w-3.5 h-3.5 text-slate-400 mr-2" />
+                                                                                            Edit
+                                                                                        </button>
+                                                                                        <button
+                                                                                            type="button"
+                                                                                            onClick={(e) => {
+                                                                                                e.stopPropagation();
+                                                                                                setConfirmDeleteId(assign.assignment_id);
+                                                                                                setActiveDropdownId(null);
+                                                                                            }}
+                                                                                            className="flex items-center w-full px-3 py-2 text-xs text-slate-700 hover:bg-indigo-50 transition-colors"
+                                                                                        >
+                                                                                            <FiTrash2 className="w-3.5 h-3.5 text-slate-400 mr-2" />
+                                                                                            Delete
+                                                                                        </button>
+                                                                                        <button
+                                                                                            type="button"
+                                                                                            onClick={(e) => {
+                                                                                                e.stopPropagation();
+                                                                                                handleOpenBroadcast(assign);
+                                                                                                setActiveDropdownId(null);
+                                                                                            }}
+                                                                                            className="flex items-center w-full px-3 py-2 text-xs text-slate-700 hover:bg-indigo-50 transition-colors"
+                                                                                        >
+                                                                                            <FiShare2 className="w-3.5 h-3.5 text-slate-400 mr-2" />
+                                                                                            Broadcast
+                                                                                        </button>
+                                                                                        {assign.frequency === 'monthly' && (
+                                                                                            <button
+                                                                                                type="button"
+                                                                                                onClick={(e) => {
+                                                                                                    e.stopPropagation();
+                                                                                                    handleOpenFullCalendar(assign);
+                                                                                                    setActiveDropdownId(null);
+                                                                                                }}
+                                                                                                className="flex items-center w-full px-3 py-2 text-xs text-slate-705 hover:bg-indigo-50 transition-colors border-t border-slate-100"
+                                                                                            >
+                                                                                                <FiEye className="w-3.5 h-3.5 text-slate-400 mr-2" />
+                                                                                                Show Full
+                                                                                            </button>
+                                                                                        )}
+                                                                                    </div>
+                                                                                </motion.div>
+                                                                            )}
+                                                                        </AnimatePresence>
+                                                                    </div>
                                                                     <button
                                                                         type="button"
                                                                         onClick={(e) => { e.stopPropagation(); handleSelectAssignment(assign.assignment_id); }}
-                                                                        className="text-slate-400 hover:text-indigo-600 transition-colors p-1"
+                                                                        className="text-slate-400 hover:text-indigo-650 transition-colors p-1"
                                                                     >
                                                                         {selectedAssignmentId === assign.assignment_id ? (
                                                                             <FiChevronDown className="w-4 h-4" />
@@ -1423,20 +1619,12 @@ const ComplianceServices = () => {
                                                                         </div>
                                                                     ) : (
                                                                         <div>
-                                                                            {/* Monthly 6-month window toggle */}
+                                                                            {/* Monthly 6-month window label */}
                                                                             {assign.frequency === 'monthly' && (
                                                                                 <div className="flex items-center justify-between mb-3">
                                                                                     <span className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider">
-                                                                                        {monthWindowOffset === 0 ? 'Apr – Sep' : 'Oct – Mar'}
+                                                                                        Showing: {getVisible6Months(assign.financial_year).join(', ')}
                                                                                     </span>
-                                                                                    <div className="flex gap-1">
-                                                                                        <button type="button" onClick={() => setMonthWindowOffset(0)}
-                                                                                            className={`px-2 py-0.5 text-[10px] font-semibold rounded border transition-colors ${monthWindowOffset === 0 ? 'bg-indigo-600 text-white border-indigo-600' : 'text-slate-500 border-slate-200 hover:bg-slate-50'
-                                                                                                }`}>Apr–Sep</button>
-                                                                                        <button type="button" onClick={() => setMonthWindowOffset(1)}
-                                                                                            className={`px-2 py-0.5 text-[10px] font-semibold rounded border transition-colors ${monthWindowOffset === 1 ? 'bg-indigo-600 text-white border-indigo-600' : 'text-slate-500 border-slate-200 hover:bg-slate-50'
-                                                                                                }`}>Oct–Mar</button>
-                                                                                    </div>
                                                                                 </div>
                                                                             )}
                                                                             <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 gap-3">
@@ -1473,7 +1661,7 @@ const ComplianceServices = () => {
                                                                                             const MONTH_FULL = ['April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December', 'January', 'February', 'March'];
                                                                                             const abbr = MONTH_FULL.indexOf(p.period_name);
                                                                                             if (abbr === -1) return true;
-                                                                                            const visM = visibleMonths;
+                                                                                            const visM = getVisible6Months(assign.financial_year);
                                                                                             return visM.includes(MONTH_ABBR[abbr]);
                                                                                         })
                                                                                         .map((period) => {
@@ -2703,6 +2891,179 @@ const ComplianceServices = () => {
                                 >
                                     <FiShare2 className="w-3.5 h-3.5" />
                                     Send
+                                </button>
+                            </div>
+                        </motion.div>
+                    </div>
+                )}
+            </AnimatePresence>
+
+            {/* Modal: Broadcast Reminder */}
+            <AnimatePresence>
+                {broadcastModal.open && broadcastModal.assign && (
+                    <div className="fixed inset-0 z-[220] flex items-center justify-center p-4 pointer-events-none">
+                        <div className="absolute inset-0 bg-black/60 backdrop-blur-xs pointer-events-auto" onClick={() => setBroadcastModal({ open: false, assign: null })} />
+                        <motion.div
+                            initial={{ opacity: 0, scale: 0.95 }}
+                            animate={{ opacity: 1, scale: 1 }}
+                            exit={{ opacity: 0, scale: 0.95 }}
+                            className="relative z-[1] pointer-events-auto bg-white rounded-2xl shadow-xl w-full max-w-sm overflow-hidden"
+                            onClick={(e) => e.stopPropagation()}
+                        >
+                            <div className="flex items-center justify-between px-5 py-3.5 bg-gradient-to-r from-indigo-600 to-violet-600 text-white">
+                                <div className="flex items-center gap-2">
+                                    <FiShare2 className="w-5 h-5" />
+                                    <h3 className="text-sm font-bold">Broadcast Compliance Reminder</h3>
+                                </div>
+                                <button onClick={() => setBroadcastModal({ open: false, assign: null })} className="p-1 hover:bg-white/10 rounded-lg">
+                                    <FiX className="w-5 h-5" />
+                                </button>
+                            </div>
+                            <div className="p-5 space-y-4">
+                                <div className="bg-indigo-50 border border-indigo-100 rounded-xl p-3 text-xs text-indigo-800">
+                                    <p className="font-bold">{broadcastModal.assign?.firm_name}</p>
+                                    <p className="text-[11px] text-indigo-650 mt-0.5">{broadcastModal.assign?.service_name}</p>
+                                    <p className="text-[11px] text-indigo-605">Financial Year: {broadcastModal.assign?.financial_year}</p>
+                                </div>
+                                <div className="space-y-1">
+                                    <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">WhatsApp Number</label>
+                                    <div className="relative">
+                                        <FaWhatsapp className="absolute left-3 top-1/2 -translate-y-1/2 text-green-500 w-4 h-4" />
+                                        <input
+                                            type="tel"
+                                            value={broadcastPhone}
+                                            onChange={(e) => setBroadcastPhone(e.target.value)}
+                                            placeholder="+91 9876543210"
+                                            className="w-full pl-9 pr-3 py-2.5 text-xs text-slate-700 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none bg-white"
+                                        />
+                                    </div>
+                                </div>
+                                <div className="space-y-1">
+                                    <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Email Address</label>
+                                    <div className="relative">
+                                        <MdEmail className="absolute left-3 top-1/2 -translate-y-1/2 text-blue-400 w-4 h-4" />
+                                        <input
+                                            type="email"
+                                            value={broadcastEmail}
+                                            onChange={(e) => setBroadcastEmail(e.target.value)}
+                                            placeholder="client@example.com"
+                                            className="w-full pl-9 pr-3 py-2.5 text-xs text-slate-700 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none bg-white"
+                                        />
+                                    </div>
+                                </div>
+                            </div>
+                            <div className="px-5 py-3 bg-slate-50 border-t border-slate-100 flex gap-2">
+                                <button
+                                    type="button"
+                                    onClick={() => setBroadcastModal({ open: false, assign: null })}
+                                    className="flex-1 py-2 text-xs font-semibold text-slate-600 border border-slate-200 rounded-xl hover:bg-white transition-colors"
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        if (!broadcastPhone && !broadcastEmail) { toast.error('Enter at least one contact'); return; }
+                                        const msg = `Dear Client, this is a friendly reminder regarding your compliance service "${broadcastModal.assign?.service_name}" for the financial year ${broadcastModal.assign?.financial_year}. Please ensure any pending requirements are shared with us so we can proceed. Thank you!`;
+                                        if (broadcastPhone) window.open(`https://wa.me/${broadcastPhone.replace(/[^0-9]/g, '')}?text=${encodeURIComponent(msg)}`, '_blank');
+                                        if (broadcastEmail) window.open(`mailto:${broadcastEmail}?subject=Compliance Reminder - ${broadcastModal.assign?.service_name}&body=${encodeURIComponent(msg)}`);
+                                        setBroadcastModal({ open: false, assign: null });
+                                        toast.success('Reminder broadcasted successfully!');
+                                    }}
+                                    className="flex-1 py-2 text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl transition-colors flex items-center justify-center gap-1.5"
+                                >
+                                    <FiShare2 className="w-3.5 h-3.5" />
+                                    Send Broadcast
+                                </button>
+                            </div>
+                        </motion.div>
+                    </div>
+                )}
+            </AnimatePresence>
+
+            {/* Modal: Show Full 12-Month Calendar */}
+            <AnimatePresence>
+                {showFullCalendarModal && fullCalendarAssignment && (
+                    <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 pointer-events-none">
+                        <div className="absolute inset-0 bg-black/60 backdrop-blur-xs pointer-events-auto" onClick={() => { setShowFullCalendarModal(false); setFullCalendarAssignment(null); }} />
+                        <motion.div
+                            initial={{ opacity: 0, scale: 0.95 }}
+                            animate={{ opacity: 1, scale: 1 }}
+                            exit={{ opacity: 0, scale: 0.95 }}
+                            className="relative z-[1] pointer-events-auto bg-white rounded-2xl shadow-xl w-full max-w-4xl max-h-[85vh] overflow-hidden flex flex-col"
+                            onClick={(e) => e.stopPropagation()}
+                        >
+                            <div className="flex items-center justify-between px-6 py-4 bg-gradient-to-r from-indigo-600 to-violet-600 text-white shrink-0">
+                                <div className="flex items-center gap-3">
+                                    <FiCalendar className="w-5 h-5" />
+                                    <div>
+                                        <h3 className="text-sm font-bold">Full Calendar: {fullCalendarAssignment.firm_name}</h3>
+                                        <p className="text-[11px] text-white/85">{fullCalendarAssignment.service_name} · FY {fullCalendarAssignment.financial_year}</p>
+                                    </div>
+                                </div>
+                                <button onClick={() => { setShowFullCalendarModal(false); setFullCalendarAssignment(null); }} className="p-1.5 hover:bg-white/10 rounded-lg text-white">
+                                    <FiX className="w-5 h-5" />
+                                </button>
+                            </div>
+
+                            <div className="p-6 overflow-y-auto flex-1 min-h-0">
+                                {schedulesLoading ? (
+                                    <div className="text-center py-12 text-slate-400">
+                                        <div className="w-8 h-8 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin mx-auto mb-3"></div>
+                                        <p className="text-xs">Loading all schedules...</p>
+                                    </div>
+                                ) : (
+                                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                                        {schedules.map((period) => {
+                                            const assignedStaffs = getAssignedStaffList(fullCalendarAssignment);
+                                            const assignedStaffUsernames = assignedStaffs.map(emp => (emp.username || '').toLowerCase().trim());
+                                            const isUpdatePermitted = !currentUsername || assignedStaffUsernames.length === 0 || assignedStaffUsernames.includes(currentUsername);
+                                            const isComplete = period.status === 'Complete' || period.status === 'Sale';
+
+                                            return (
+                                                <div
+                                                    key={period.schedule_id}
+                                                    onClick={() => isUpdatePermitted && !isComplete && openStatusModal(period, fullCalendarAssignment)}
+                                                    className={`border rounded-xl p-4 transition-all flex flex-col justify-between min-h-[105px] group ${isUpdatePermitted && !isComplete
+                                                        ? "bg-white border-slate-200 hover:border-indigo-300 hover:shadow-md cursor-pointer"
+                                                        : isComplete
+                                                            ? "bg-emerald-50/40 border-emerald-200 cursor-default"
+                                                            : "bg-slate-50/50 border-slate-200/60 opacity-60 cursor-not-allowed"
+                                                        }`}
+                                                >
+                                                    <div className="flex items-start justify-between gap-1">
+                                                        <span className="text-xs font-bold text-slate-705 group-hover:text-indigo-600">
+                                                            {period.period_name}
+                                                        </span>
+                                                        <FiInfo className="w-3.5 h-3.5 text-slate-300 group-hover:text-indigo-400 shrink-0" />
+                                                    </div>
+                                                    <div className="mt-3 space-y-2">
+                                                        <span className="text-xs font-extrabold text-slate-850 block">
+                                                            ₹{formatCurrency(period.amount)}
+                                                        </span>
+                                                        <div className="flex items-center justify-between gap-2">
+                                                            <span className={`inline-flex px-2 py-0.5 rounded text-[9px] font-bold border uppercase tracking-wider ${STATUS_BADGES[period.status] || 'bg-slate-50'}`}>
+                                                                {period.status}
+                                                            </span>
+                                                        </div>
+                                                        <div className="text-[9px] text-slate-400 font-semibold">
+                                                            Due: {getPeriodDueDate(period)}
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                )}
+                            </div>
+
+                            <div className="px-6 py-3.5 bg-slate-50 border-t border-slate-100 flex justify-end shrink-0">
+                                <button
+                                    type="button"
+                                    onClick={() => { setShowFullCalendarModal(false); setFullCalendarAssignment(null); }}
+                                    className="px-5 py-2 text-xs font-semibold text-slate-700 border border-slate-200 rounded-xl hover:bg-white transition-colors"
+                                >
+                                    Close
                                 </button>
                             </div>
                         </motion.div>
