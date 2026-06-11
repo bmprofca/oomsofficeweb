@@ -119,6 +119,55 @@ const getPeriodDueDate = (period) => {
     return '—';
 };
 
+const getUpcomingDueDateInfo = (assign, allSchedules) => {
+    const assignSchedules = allSchedules.filter(s => s.assignment_id === assign.assignment_id);
+    if (assignSchedules.length === 0) return { text: '—', color: 'text-slate-400' };
+
+    const MONTH_ORDER = ['April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December', 'January', 'February', 'March'];
+    
+    const sorted = [...assignSchedules].sort((a, b) => {
+        const freq = assign.frequency?.toLowerCase();
+        if (freq === 'monthly') {
+            return MONTH_ORDER.indexOf(a.period_name) - MONTH_ORDER.indexOf(b.period_name);
+        }
+        if (freq === 'quarterly') {
+            const getQIdx = (name) => {
+                if (isQ1(name)) return 0;
+                if (isQ2(name)) return 1;
+                if (isQ3(name)) return 2;
+                if (isQ4(name)) return 3;
+                return -1;
+            };
+            return getQIdx(a.period_name) - getQIdx(b.period_name);
+        }
+        if (freq === 'halfyearly') {
+            const getHIdx = (name) => {
+                if (isH1(name)) return 0;
+                if (isH2(name)) return 1;
+                return -1;
+            };
+            return getHIdx(a.period_name) - getHIdx(b.period_name);
+        }
+        return 0;
+    });
+
+    const pending = sorted.find(s => s.status !== 'Complete' && s.status !== 'Sale' && s.status !== 'N/A');
+    if (pending) {
+        const dateStr = getPeriodDueDate(pending);
+        return {
+            text: `${dateStr} (${pending.period_name})`,
+            color: 'text-amber-600 font-semibold',
+            allDates: sorted.map(s => `${s.period_name}: ${getPeriodDueDate(s)} (${s.status})`).join('\n')
+        };
+    }
+
+    return {
+        text: 'All Completed',
+        color: 'text-emerald-600 font-semibold',
+        allDates: sorted.map(s => `${s.period_name}: ${getPeriodDueDate(s)} (${s.status})`).join('\n')
+    };
+};
+
 const getPeriodHeaders = (frequency) => {
     const freq = frequency?.toLowerCase();
     if (freq === 'monthly') {
@@ -1291,6 +1340,7 @@ const ComplianceTab = ({ clientUsername }) => {
                                                 <th className="px-4 py-3">STAFFS</th>
                                                 <th className="px-4 py-3">Assigned CA</th>
                                                 <th className="px-4 py-3">Fees</th>
+                                                <th className="px-4 py-3">Due Date</th>
                                                 <th className="px-4 py-3">Start Date</th>
                                                 <th className="px-4 py-3 w-28 text-right">Actions</th>
                                             </tr>
@@ -1298,7 +1348,7 @@ const ComplianceTab = ({ clientUsername }) => {
                                         <tbody className="divide-y divide-slate-50">
                                             {filteredActiveAssignments.length === 0 ? (
                                                 <tr>
-                                                    <td colSpan={7} className="px-4 py-10 text-center text-slate-400">
+                                                    <td colSpan={8} className="px-4 py-10 text-center text-slate-400">
                                                         <FiBriefcase className="w-8 h-8 mx-auto mb-2 opacity-40" />
                                                         <p className="text-xs font-medium text-slate-500">No active compliance assignments matching filters</p>
                                                     </td>
@@ -1370,13 +1420,23 @@ const ComplianceTab = ({ clientUsername }) => {
                                                                     );
                                                                 })()}
                                                             </td>
-                                                            <td className="px-4 py-3 text-slate-600 text-xs">
+                                                            <td className="px-4 py-3 text-slate-605 text-xs">
                                                                 {assign.ca?.name || '—'}
                                                             </td>
                                                             <td className="px-4 py-3 font-bold text-slate-700 text-xs">
                                                                 ₹{formatCurrency(assign.custom_amount)}
                                                             </td>
-                                                            <td className="px-4 py-3 text-slate-500 text-xs font-mono">
+                                                            <td className="px-4 py-3 text-xs">
+                                                                {(() => {
+                                                                    const info = getUpcomingDueDateInfo(assign, allSchedules);
+                                                                    return (
+                                                                        <span className={info.color} title={info.allDates || ''}>
+                                                                            {info.text}
+                                                                        </span>
+                                                                    );
+                                                                })()}
+                                                            </td>
+                                                            <td className="px-4 py-3 text-slate-505 text-xs font-mono">
                                                                 {assign.create_date ? new Date(assign.create_date).toLocaleDateString('en-IN') : '—'}
                                                             </td>
                                                             <td className="px-4 py-3 text-right">
@@ -1467,7 +1527,7 @@ const ComplianceTab = ({ clientUsername }) => {
                                                         {/* Expanded Details - Schedules Grid */}
                                                         {selectedAssignmentId === assign.assignment_id && (
                                                             <tr>
-                                                                <td colSpan={7} className="bg-slate-50/30 p-4 border-t border-b border-indigo-50">
+                                                                <td colSpan={8} className="bg-slate-50/30 p-4 border-t border-b border-indigo-50">
                                                                     <div className="mb-3 flex justify-between items-center">
                                                                         <h6 className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
                                                                             Generated Schedules ({assign.financial_year})
@@ -1560,26 +1620,9 @@ const ComplianceTab = ({ clientUsername }) => {
                                                                                                     }`}>
                                                                                                     {period.status}
                                                                                                 </span>
-                                                                                                {selectedFilingStatus === '' ? (
-                                                                                                    <div className="text-[9px] text-slate-400 font-mono mt-1">
-                                                                                                        Due: {getPeriodDueDate(period)}
-                                                                                                    </div>
-                                                                                                ) : (
-                                                                                                    <div className="flex items-center gap-1 mt-1 justify-between">
-                                                                                                        <span className="text-[9px] text-slate-400">Due Date</span>
-                                                                                                        <button
-                                                                                                            type="button"
-                                                                                                            onClick={(e) => {
-                                                                                                                e.stopPropagation();
-                                                                                                                toast(`Due Date: ${getPeriodDueDate(period)}`, { icon: '📅' });
-                                                                                                            }}
-                                                                                                            className="text-amber-500 hover:text-amber-600 transition-colors"
-                                                                                                            title="Click to view due date"
-                                                                                                        >
-                                                                                                            <FiAlertCircle className="w-3.5 h-3.5 animate-pulse" />
-                                                                                                        </button>
-                                                                                                    </div>
-                                                                                                )}
+                                                                                                <div className="text-[9px] text-slate-400 font-mono mt-1">
+                                                                                                    Due: {getPeriodDueDate(period)}
+                                                                                                </div>
                                                                                             </div>
                                                                                         </div>
                                                                                     );
@@ -1610,6 +1653,7 @@ const ComplianceTab = ({ clientUsername }) => {
                                     <tr className="bg-slate-50 border-b border-slate-100 text-slate-500 uppercase text-[9px] font-bold tracking-wider">
                                         <th className="px-4 py-3">Service Name</th>
                                         <th className="px-4 py-3">Period</th>
+                                        <th className="px-4 py-3">Due Date</th>
                                         <th className="px-4 py-3">Firm</th>
                                         <th className="px-4 py-3">Status</th>
                                         <th className="px-4 py-3">Amount</th>
@@ -1621,7 +1665,7 @@ const ComplianceTab = ({ clientUsername }) => {
                                 <tbody className="divide-y divide-slate-50">
                                     {complianceData.history.length === 0 ? (
                                         <tr>
-                                            <td colSpan={8} className="px-4 py-10 text-center text-slate-400">
+                                            <td colSpan={9} className="px-4 py-10 text-center text-slate-400">
                                                 <FiClock className="w-8 h-8 mx-auto mb-2 opacity-40" />
                                                 <p className="text-xs font-medium text-slate-500">No filing history logged yet</p>
                                                 <p className="text-[10px] mt-0.5">Historical and completed items appear here once marked</p>
@@ -1635,6 +1679,9 @@ const ComplianceTab = ({ clientUsername }) => {
                                                 </td>
                                                 <td className="px-4 py-3 text-slate-700 text-xs font-bold">
                                                     {hist.period_name} ({hist.financial_year})
+                                                </td>
+                                                <td className="px-4 py-3 text-slate-500 text-xs font-mono">
+                                                    {getPeriodDueDate(hist)}
                                                 </td>
                                                 <td className="px-4 py-3 text-slate-600 text-xs">
                                                     {hist.firm_name}

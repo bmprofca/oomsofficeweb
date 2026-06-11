@@ -113,6 +113,55 @@ const getPeriodDueDate = (period) => {
     return '—';
 };
 
+const getUpcomingDueDateInfo = (assign, allSchedules) => {
+    const assignSchedules = allSchedules.filter(s => s.assignment_id === assign.assignment_id);
+    if (assignSchedules.length === 0) return { text: '—', color: 'text-slate-400' };
+
+    const MONTH_ORDER = ['April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December', 'January', 'February', 'March'];
+    
+    const sorted = [...assignSchedules].sort((a, b) => {
+        const freq = assign.frequency?.toLowerCase();
+        if (freq === 'monthly') {
+            return MONTH_ORDER.indexOf(a.period_name) - MONTH_ORDER.indexOf(b.period_name);
+        }
+        if (freq === 'quarterly') {
+            const getQIdx = (name) => {
+                if (isQ1(name)) return 0;
+                if (isQ2(name)) return 1;
+                if (isQ3(name)) return 2;
+                if (isQ4(name)) return 3;
+                return -1;
+            };
+            return getQIdx(a.period_name) - getQIdx(b.period_name);
+        }
+        if (freq === 'halfyearly') {
+            const getHIdx = (name) => {
+                if (isH1(name)) return 0;
+                if (isH2(name)) return 1;
+                return -1;
+            };
+            return getHIdx(a.period_name) - getHIdx(b.period_name);
+        }
+        return 0;
+    });
+
+    const pending = sorted.find(s => s.status !== 'Complete' && s.status !== 'Sale' && s.status !== 'N/A');
+    if (pending) {
+        const dateStr = getPeriodDueDate(pending);
+        return {
+            text: `${dateStr} (${pending.period_name})`,
+            color: 'text-amber-600 font-semibold',
+            allDates: sorted.map(s => `${s.period_name}: ${getPeriodDueDate(s)} (${s.status})`).join('\n')
+        };
+    }
+
+    return {
+        text: 'All Completed',
+        color: 'text-emerald-600 font-semibold',
+        allDates: sorted.map(s => `${s.period_name}: ${getPeriodDueDate(s)} (${s.status})`).join('\n')
+    };
+};
+
 const getPeriodHeaders = (frequency) => {
     const freq = frequency?.toLowerCase();
     if (freq === 'monthly') {
@@ -1400,6 +1449,7 @@ const ComplianceServices = () => {
                                                 <th className="px-4 py-3">Recurring Task</th>
                                                 <th className="px-4 py-3">Frequency</th>
                                                 <th className="px-4 py-3">FY</th>
+                                                <th className="px-4 py-3">Due Date</th>
                                                 <th className="px-4 py-3">Staffs</th>
                                                 <th className="px-4 py-3 w-28">Actions</th>
                                             </tr>
@@ -1407,7 +1457,7 @@ const ComplianceServices = () => {
                                         <tbody className="divide-y divide-slate-50">
                                             {assignmentsLoading ? (
                                                 <tr>
-                                                    <td colSpan={7} className="px-4 py-8 text-center">
+                                                    <td colSpan={8} className="px-4 py-8 text-center">
                                                         <div className="animate-pulse flex flex-col gap-2">
                                                             <div className="h-4 bg-slate-100 rounded w-1/3 mx-auto"></div>
                                                             <div className="h-4 bg-slate-100 rounded w-1/4 mx-auto"></div>
@@ -1416,7 +1466,7 @@ const ComplianceServices = () => {
                                                 </tr>
                                             ) : filteredAssignments.length === 0 ? (
                                                 <tr>
-                                                    <td colSpan={6} className="px-4 py-12 text-center text-slate-400">
+                                                    <td colSpan={7} className="px-4 py-12 text-center text-slate-400">
                                                         <FiBriefcase className="w-8 h-8 mx-auto mb-2 opacity-50" />
                                                         <p className="text-xs font-medium text-slate-500">No recurring tasks found</p>
                                                         <p className="text-[11px] mt-0.5">Click "Assign Recurring Task" above to link a firm</p>
@@ -1444,6 +1494,16 @@ const ComplianceServices = () => {
                                                             </td>
                                                             <td className="px-4 py-3 text-slate-500 text-xs font-mono">
                                                                 {assign.financial_year}
+                                                            </td>
+                                                            <td className="px-4 py-3 text-xs">
+                                                                {(() => {
+                                                                    const info = getUpcomingDueDateInfo(assign, allSchedules);
+                                                                    return (
+                                                                        <span className={info.color} title={info.allDates || ''}>
+                                                                            {info.text}
+                                                                        </span>
+                                                                    );
+                                                                })()}
                                                             </td>
                                                             <td className="px-4 py-3 text-slate-655 text-xs">
                                                                 {(() => {
@@ -1586,7 +1646,7 @@ const ComplianceServices = () => {
                                                         {/* Expanded Schedule Details */}
                                                         {selectedAssignmentId === assign.assignment_id && (
                                                             <tr>
-                                                                <td colSpan={6} className="bg-slate-50/40 p-4 border-t border-b border-indigo-100/50">
+                                                                <td colSpan={7} className="bg-slate-50/40 p-4 border-t border-b border-indigo-100/50">
                                                                     <div className="mb-3 flex justify-between items-center">
                                                                         <h6 className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">
                                                                             Schedule Details for {assign.financial_year}
@@ -1701,26 +1761,9 @@ const ComplianceServices = () => {
                                                                                                             }`}>
                                                                                                             {period.status}
                                                                                                         </span>
-                                                                                                        {selectedFilingStatus === '' ? (
-                                                                                                            <div className="text-[10px] text-slate-400 font-mono mt-1">
-                                                                                                                Due: {getPeriodDueDate(period)}
-                                                                                                            </div>
-                                                                                                        ) : (
-                                                                                                            <div className="flex items-center gap-1 mt-1 justify-between">
-                                                                                                                <span className="text-[10px] text-slate-400">Due Date</span>
-                                                                                                                <button
-                                                                                                                    type="button"
-                                                                                                                    onClick={(e) => {
-                                                                                                                        e.stopPropagation();
-                                                                                                                        toast(`Due Date: ${getPeriodDueDate(period)}`, { icon: '📅' });
-                                                                                                                    }}
-                                                                                                                    className="text-amber-500 hover:text-amber-600 transition-colors"
-                                                                                                                    title="Click to view due date"
-                                                                                                                >
-                                                                                                                    <FiAlertCircle className="w-3.5 h-3.5 animate-pulse" />
-                                                                                                                </button>
-                                                                                                            </div>
-                                                                                                        )}
+                                                                                                        <div className="text-[10px] text-slate-400 font-mono mt-1">
+                                                                                                            Due: {getPeriodDueDate(period)}
+                                                                                                        </div>
                                                                                                         {/* Share Invoice button for Complete periods */}
                                                                                                         {isComplete && (
                                                                                                             <button
