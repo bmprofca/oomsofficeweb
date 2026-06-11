@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
     FiPlus, FiEdit, FiTrash2, FiX, FiSearch,
     FiAlertTriangle, FiCheck, FiRefreshCw, FiLayers,
-    FiCheckCircle, FiFileText, FiMoreVertical, FiEye,
+    FiCheckCircle, FiFileText, FiMoreVertical, FiEye, FiRepeat,
 } from 'react-icons/fi';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -34,6 +34,25 @@ const isApiSuccess = (payload) => {
     );
 };
 const apiMessage = (payload, fallback) => payload?.message || fallback;
+
+const getDueDayLabel = (frequency) => {
+    const f = String(frequency || '').toLowerCase();
+    switch (f) {
+        case 'monthly':
+            return 'Due In Month (Day) *';
+        case 'quarterly':
+            return 'Due Day after Quarter *';
+        case 'half-yearly':
+        case 'halfyearly':
+            return 'Due Day after Half Year *';
+        case 'yearly':
+        case 'annual':
+        case 'annually':
+            return 'Due Day after Year *';
+        default:
+            return 'Due Day *';
+    }
+};
 
 const GST_RATE_OPTIONS = [
     { value: 0, label: '0%' },
@@ -425,6 +444,96 @@ const Services = () => {
     /* ── tabs ── */
     const [activeTab, setActiveTab] = useState('branch');
 
+    /* ── recurring task templates ── */
+    const [rtList, setRtList] = useState([]);
+    const [rtLoading, setRtLoading] = useState(false);
+    const [rtSearch, setRtSearch] = useState('');
+    const [rtShowModal, setRtShowModal] = useState(false);
+    const [rtEditTarget, setRtEditTarget] = useState(null); // null = add mode, object = edit mode
+    const [rtForm, setRtForm] = useState({ service_id: '', name: '', frequency: 'monthly', default_amount: '', due_day: '' });
+    const [rtSubmitting, setRtSubmitting] = useState(false);
+    const [rtDeleteTarget, setRtDeleteTarget] = useState(null);
+    const [rtDeleting, setRtDeleting] = useState(false);
+
+    const fetchRt = useCallback(async () => {
+        setRtLoading(true);
+        try {
+            const res = await axios.get(`${API_BASE_URL}/compliance/services`, { headers: getHeaders() });
+            const data = res.data?.data || res.data || [];
+            setRtList(Array.isArray(data) ? data : []);
+        } catch (err) {
+            toast.error(err.response?.data?.message || 'Failed to load recurring task templates');
+        } finally { setRtLoading(false); }
+    }, []);
+
+    useEffect(() => { if (activeTab === 'recurring') fetchRt(); }, [activeTab, fetchRt]);
+
+    const openRtModal = (svc = null) => {
+        setRtEditTarget(svc);
+        setRtForm(svc
+            ? { service_id: svc.service_id || '', name: svc.name || '', frequency: svc.frequency || 'monthly', default_amount: String(svc.default_amount ?? ''), due_day: String(svc.due_day ?? '') }
+            : { service_id: '', name: '', frequency: 'monthly', default_amount: '', due_day: '' }
+        );
+        setRtShowModal(true);
+    };
+
+    const handleRtSubmit = async () => {
+        if (!rtForm.name.trim()) { toast.error('Service name is required'); return; }
+        if (!rtForm.default_amount) { toast.error('Default fee is required'); return; }
+        setRtSubmitting(true);
+        try {
+            const payload = {
+                name: rtForm.name,
+                frequency: rtForm.frequency,
+                default_amount: parseFloat(rtForm.default_amount),
+                due_day: rtForm.due_day ? parseInt(rtForm.due_day) : null
+            };
+            if (rtForm.service_id) {
+                payload.service_id = rtForm.service_id;
+            }
+            let res;
+            if (rtEditTarget) {
+                res = await axios.put(`${API_BASE_URL}/compliance/services/${rtEditTarget.service_id || rtEditTarget.id}`, payload, { headers: getHeaders() });
+            } else {
+                res = await axios.post(`${API_BASE_URL}/compliance/services`, payload, { headers: getHeaders() });
+            }
+            if (res.data?.success !== false) {
+                toast.success(rtEditTarget ? 'Template updated' : 'Template created');
+                setRtShowModal(false);
+                fetchRt();
+            } else {
+                toast.error(res.data?.message || 'Operation failed');
+            }
+        } catch (err) {
+            toast.error(err.response?.data?.message || 'Error saving template');
+        } finally { setRtSubmitting(false); }
+    };
+
+    const handleRtDelete = async () => {
+        if (!rtDeleteTarget) return;
+        setRtDeleting(true);
+        try {
+            await axios.delete(`${API_BASE_URL}/compliance/services/${rtDeleteTarget.service_id || rtDeleteTarget.id}`, { headers: getHeaders() });
+            toast.success('Template deleted');
+            setRtDeleteTarget(null);
+            fetchRt();
+        } catch (err) {
+            toast.error(err.response?.data?.message || 'Error deleting template');
+        } finally { setRtDeleting(false); }
+    };
+
+    const filteredRtList = rtList.filter(s =>
+        !rtSearch || (s.name || '').toLowerCase().includes(rtSearch.toLowerCase()) || (s.service_id || '').toLowerCase().includes(rtSearch.toLowerCase())
+    );
+
+    const FREQ_BADGE_COLORS = {
+        monthly: 'bg-indigo-100 text-indigo-700 border-indigo-200',
+        quarterly: 'bg-violet-100 text-violet-700 border-violet-200',
+        yearly: 'bg-teal-100 text-teal-700 border-teal-200',
+        annual: 'bg-teal-100 text-teal-700 border-teal-200',
+        'half-yearly': 'bg-amber-100 text-amber-700 border-amber-200',
+    };
+
     /* ── branch services ── */
     const [branchList, setBranchList] = useState([]);
     const [branchLoading, setBranchLoading] = useState(false);
@@ -455,6 +564,54 @@ const Services = () => {
 
     const [removeTarget, setRemoveTarget] = useState(null);
     const [removeLoading, setRemoveLoading] = useState(false);
+
+    const [customServiceShowModal, setCustomServiceShowModal] = useState(false);
+    const [customServiceForm, setCustomServiceForm] = useState({ service_id: '', name: '', sac_code: '', fees: '', gst_rate: null, remark: '' });
+    const [customServiceSubmitting, setCustomServiceSubmitting] = useState(false);
+
+    const openCustomServiceModal = () => {
+        setCustomServiceForm({ service_id: '', name: '', sac_code: '', fees: '', gst_rate: 18, remark: '' });
+        setCustomServiceShowModal(true);
+    };
+
+    const handleCustomServiceSubmit = async () => {
+        if (!customServiceForm.name.trim()) { toast.error('Service name is required'); return; }
+        const fees = parseFloat(customServiceForm.fees);
+        if (isNaN(fees) || fees < 0) { toast.error('Enter a valid fees amount'); return; }
+        if (customServiceForm.gst_rate === null) { toast.error('Select a GST rate'); return; }
+
+        setCustomServiceSubmitting(true);
+        try {
+            const payload = {
+                name: customServiceForm.name.trim(),
+                fees,
+                gst_rate: Number(customServiceForm.gst_rate)
+            };
+            if (customServiceForm.service_id.trim()) {
+                payload.service_id = customServiceForm.service_id.trim();
+            }
+            if (customServiceForm.sac_code.trim()) {
+                payload.sac_code = customServiceForm.sac_code.trim();
+            }
+            if (customServiceForm.remark.trim()) {
+                payload.remark = customServiceForm.remark.trim();
+            }
+
+            const res = await axios.post(`${API_BASE_URL}/service/create`, payload, { headers: getHeaders() });
+            if (res.data?.success) {
+                toast.success('Custom service created and enabled successfully');
+                setCustomServiceShowModal(false);
+                fetchBranch(branchSearch, branchPage, branchLimit);
+                fetchAll(allSearch, allPage, allLimit);
+            } else {
+                toast.error(res.data?.message || 'Failed to create custom service');
+            }
+        } catch (err) {
+            toast.error(err.response?.data?.message || 'Error creating custom service');
+        } finally {
+            setCustomServiceSubmitting(false);
+        }
+    };
 
     const branchTimer = useRef(null);
     const allTimer = useRef(null);
@@ -620,8 +777,9 @@ const Services = () => {
                         {/* tabs */}
                         <div className="flex border-b border-gray-100 px-4 pt-3 gap-1">
                             {[
-                                { id: 'branch', label: 'Branch Services', icon: <FiCheckCircle className="w-3.5 h-3.5" /> },
+                                { id: 'branch', label: 'Active Services', icon: <FiCheckCircle className="w-3.5 h-3.5" /> },
                                 { id: 'all', label: 'Add Services', icon: <FiPlus className="w-3.5 h-3.5" /> },
+                                { id: 'recurring', label: 'Recurring Task Templates', icon: <FiRepeat className="w-3.5 h-3.5" /> },
                             ].map((tab) => (
                                 <button key={tab.id} onClick={() => setActiveTab(tab.id)}
                                     className={`flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold rounded-t-lg border-b-2 transition-all -mb-px ${activeTab === tab.id
@@ -735,6 +893,10 @@ const Services = () => {
                                             <FiRefreshCw className={`w-3.5 h-3.5 ${allLoading ? 'animate-spin' : ''}`} />
                                         </button>
                                     </ViewportTooltip>
+                                    <button onClick={openCustomServiceModal}
+                                        className="flex items-center gap-1.5 px-3 py-2 text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg transition-colors">
+                                        <FiPlus className="w-3.5 h-3.5" /> Custom Service
+                                    </button>
                                 </div>
 
                                 <div className="overflow-x-auto">
@@ -804,6 +966,75 @@ const Services = () => {
                                 )}
                             </div>
                         )}
+
+                        {/* ── RECURRING TASK TEMPLATES TAB ── */}
+                        {activeTab === 'recurring' && (
+                            <div>
+                                <div className="flex items-center gap-3 px-4 py-3 border-b border-gray-100">
+                                    <div className="relative flex-1 max-w-xs">
+                                        <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 pointer-events-none" />
+                                        <input type="text" placeholder="Search templates…" value={rtSearch}
+                                            onChange={(e) => setRtSearch(e.target.value)}
+                                            className="w-full pl-9 pr-3 py-2 text-sm text-slate-700 border border-gray-200 rounded-lg bg-gray-50 focus:bg-white focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none placeholder:text-slate-400"
+                                        />
+                                    </div>
+                                    <button onClick={fetchRt}
+                                        className="p-2 text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors border border-gray-200">
+                                        <FiRefreshCw className={`w-3.5 h-3.5 ${rtLoading ? 'animate-spin' : ''}`} />
+                                    </button>
+                                    <button onClick={() => openRtModal()}
+                                        className="flex items-center gap-1.5 px-3 py-2 text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg transition-colors">
+                                        <FiPlus className="w-3.5 h-3.5" /> New Template
+                                    </button>
+                                </div>
+
+                                <div className="overflow-x-auto">
+                                    <table className="w-full text-sm">
+                                        <thead>
+                                            <tr className="bg-gray-50 border-b border-gray-100">
+                                                {['#', 'Service Name', 'Frequency', 'Due Day', 'Default Fee', ''].map((h) => (
+                                                    <th key={h} className="px-4 py-2.5 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider whitespace-nowrap">{h}</th>
+                                                ))}
+                                            </tr>
+                                        </thead>
+                                        <tbody className="divide-y divide-gray-50">
+                                            {rtLoading
+                                                ? Array.from({ length: 5 }).map((_, i) => <SkeletonRow key={i} cols={6} />)
+                                                : filteredRtList.length === 0
+                                                    ? <EmptyState icon={<FiRepeat className="w-5 h-5 text-slate-400" />} title="No recurring task templates" desc={rtSearch ? 'No match found.' : 'Click "New Template" to create one.'} />
+                                                    : filteredRtList.map((svc, idx) => (
+                                                        <motion.tr key={svc.service_id || svc.id || idx} initial={{ opacity: 0 }} animate={{ opacity: 1 }}
+                                                            className="hover:bg-indigo-50/30 transition-colors">
+                                                            <td className="px-4 py-3 text-xs text-slate-400 font-medium w-10">{idx + 1}</td>
+                                                            <td className="px-4 py-3 max-w-[200px]">
+                                                                <p className="font-semibold text-slate-800 text-xs leading-snug truncate">{svc.name}</p>
+                                                            </td>
+                                                            <td className="px-4 py-3">
+                                                                <span className={`inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-semibold border uppercase tracking-wide ${FREQ_BADGE_COLORS[String(svc.frequency).toLowerCase()] || 'bg-gray-100 text-slate-600 border-gray-200'}`}>
+                                                                    {svc.frequency}
+                                                                </span>
+                                                            </td>
+                                                            <td className="px-4 py-3 text-xs text-slate-600">
+                                                                {svc.due_day ? `Day ${svc.due_day}` : '—'}
+                                                            </td>
+                                                            <td className="px-4 py-3">
+                                                                <span className="text-xs font-semibold text-slate-800">₹{fmt(svc.default_amount)}</span>
+                                                            </td>
+                                                            <td className="px-4 py-3">
+                                                                <ActionMenu items={[
+                                                                    { label: 'Edit', icon: <FiEdit className="w-3.5 h-3.5" />, onClick: () => openRtModal(svc) },
+                                                                    { label: 'Delete', icon: <FiTrash2 className="w-3.5 h-3.5" />, onClick: () => setRtDeleteTarget(svc), danger: true },
+                                                                ]} />
+                                                            </td>
+                                                        </motion.tr>
+                                                    ))
+                                            }
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        )}
+
                     </div>
                 </div>
             </div>
@@ -888,6 +1119,169 @@ const Services = () => {
                         onCancel={() => !removeLoading && setRemoveTarget(null)}
                         loading={removeLoading}
                     />
+                )}
+            </AnimatePresence>
+
+            {/* ── RECURRING TEMPLATE MODAL (Create / Edit) ── */}
+            <AnimatePresence>
+                {rtShowModal && (
+                    <div className="fixed inset-0 bg-black/50 flex items-start justify-center p-3 sm:p-4 z-[210] backdrop-blur-sm overflow-y-auto" onClick={() => !rtSubmitting && setRtShowModal(false)}>
+                        <motion.div
+                            initial={{ opacity: 0, scale: 0.97 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.97 }}
+                            transition={{ duration: 0.15 }}
+                            className="bg-white rounded-2xl shadow-2xl w-full max-w-md my-2 sm:my-8 overflow-hidden flex flex-col"
+                            onClick={(e) => e.stopPropagation()}
+                        >
+                            <div className="flex items-center justify-between px-5 py-3.5 bg-gradient-to-r from-indigo-600 to-violet-600 text-white shrink-0">
+                                <div className="flex items-center gap-2">
+                                    <FiRepeat className="w-4 h-4" />
+                                    <h3 className="text-sm font-bold">{rtEditTarget ? 'Edit Template' : 'New Recurring Task Template'}</h3>
+                                </div>
+                                <button onClick={() => setRtShowModal(false)} disabled={rtSubmitting} className="p-1 hover:bg-white/10 rounded-lg">
+                                    <FiX className="w-4 h-4" />
+                                </button>
+                            </div>
+                            <div className="p-5 space-y-4 overflow-y-auto [scrollbar-width:none]">
+                                <div>
+                                    <label className="block text-xs font-semibold text-slate-600 mb-1.5">Service Name *</label>
+                                    <input type="text" value={rtForm.name} onChange={(e) => setRtForm(f => ({ ...f, name: e.target.value }))} placeholder="e.g. GSTR-1 Filing"
+                                        className="w-full px-3 py-2 text-xs border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none" />
+                                </div>
+                                <div className="grid grid-cols-2 gap-3">
+                                    <div className={rtForm.frequency === 'one-time' ? 'col-span-2' : ''}>
+                                        <label className="block text-xs font-semibold text-slate-600 mb-1.5">Frequency *</label>
+                                        <select value={rtForm.frequency} onChange={(e) => setRtForm(f => ({ ...f, frequency: e.target.value }))}
+                                            className="w-full px-3 py-2 text-xs border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none bg-white">
+                                            {['monthly', 'quarterly', 'half-yearly', 'yearly', 'annual', 'one-time'].map(f => (
+                                                <option key={f} value={f}>{f.charAt(0).toUpperCase() + f.slice(1)}</option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                    {rtForm.frequency !== 'one-time' && (
+                                        <div>
+                                            <label className="block text-xs font-semibold text-slate-600 mb-1.5">
+                                                {getDueDayLabel(rtForm.frequency)}
+                                            </label>
+                                            <input type="number" min="1" max="31" value={rtForm.due_day} onChange={(e) => setRtForm(f => ({ ...f, due_day: e.target.value }))} placeholder="e.g. 11"
+                                                className="w-full px-3 py-2 text-xs border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none" />
+                                        </div>
+                                    )}
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-semibold text-slate-600 mb-1.5">Default Fee (₹) *</label>
+                                    <div className="relative">
+                                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm">₹</span>
+                                        <input type="text" inputMode="decimal" value={rtForm.default_amount}
+                                            onChange={(e) => { const v = e.target.value; if (v === '' || isValidAmountInput(v)) setRtForm(f => ({ ...f, default_amount: v })); }}
+                                            placeholder="0.00"
+                                            className="w-full pl-7 pr-3 py-2 text-xs border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none" />
+                                    </div>
+                                </div>
+                            </div>
+                            <div className="shrink-0 px-5 py-3 border-t border-gray-100 bg-gray-50 flex gap-2">
+                                <button onClick={() => setRtShowModal(false)} disabled={rtSubmitting}
+                                    className="flex-1 px-4 py-2 text-sm font-medium text-slate-600 border border-gray-200 rounded-lg hover:bg-gray-100 disabled:opacity-50 transition-colors">
+                                    Cancel
+                                </button>
+                                <button onClick={handleRtSubmit} disabled={rtSubmitting}
+                                    className="flex-1 px-4 py-2 text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg disabled:opacity-50 transition-colors inline-flex items-center justify-center gap-1.5">
+                                    {rtSubmitting && <span className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />}
+                                    {rtEditTarget ? 'Save Changes' : 'Create Template'}
+                                </button>
+                            </div>
+                        </motion.div>
+                    </div>
+                )}
+            </AnimatePresence>
+
+            {/* ── RECURRING TEMPLATE DELETE CONFIRM ── */}
+            <AnimatePresence>
+                {rtDeleteTarget && (
+                    <ConfirmModal
+                        title="Delete Template"
+                        message={`Delete "${rtDeleteTarget.name}" template? This cannot be undone.`}
+                        onConfirm={handleRtDelete}
+                        onCancel={() => !rtDeleting && setRtDeleteTarget(null)}
+                        loading={rtDeleting}
+                    />
+                )}
+            </AnimatePresence>
+
+            {/* ── CUSTOM SERVICE MODAL ── */}
+            <AnimatePresence>
+                {customServiceShowModal && (
+                    <Modal
+                        title="Create Custom Service"
+                        icon={<FiPlus className="w-4 h-4" />}
+                        onClose={() => !customServiceSubmitting && setCustomServiceShowModal(false)}
+                        footer={
+                            <div className="flex justify-end gap-2">
+                                <button
+                                    onClick={() => setCustomServiceShowModal(false)}
+                                    disabled={customServiceSubmitting}
+                                    className="px-4 py-2 text-sm font-medium text-slate-650 border border-gray-250 rounded-xl hover:bg-slate-50 transition-colors"
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    onClick={handleCustomServiceSubmit}
+                                    disabled={
+                                        customServiceSubmitting ||
+                                        !customServiceForm.name.trim() ||
+                                        customServiceForm.fees === '' ||
+                                        customServiceForm.gst_rate === null
+                                    }
+                                    className="px-4 py-2 text-sm font-semibold text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl disabled:opacity-50 transition-colors inline-flex items-center gap-1.5"
+                                >
+                                    {customServiceSubmitting && <span className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />}
+                                    Create Service
+                                </button>
+                            </div>
+                        }
+                    >
+                        <div className="space-y-4">
+                            <div>
+                                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Service Name *</label>
+                                <input
+                                    type="text"
+                                    value={customServiceForm.name}
+                                    onChange={(e) => setCustomServiceForm(f => ({ ...f, name: e.target.value }))}
+                                    disabled={customServiceSubmitting}
+                                    className="w-full px-3 py-2.5 text-xs text-slate-700 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none disabled:opacity-60 bg-white"
+                                    placeholder="e.g. My Custom Local Consult Service"
+                                />
+                            </div>
+                            <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5 font-semibold">Service ID (Optional)</label>
+                                    <input
+                                        type="text"
+                                        value={customServiceForm.service_id}
+                                        onChange={(e) => setCustomServiceForm(f => ({ ...f, service_id: e.target.value }))}
+                                        disabled={customServiceSubmitting}
+                                        className="w-full px-3 py-2.5 text-xs text-slate-700 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none disabled:opacity-60 bg-white font-mono"
+                                        placeholder="e.g. CUSTOM-SERVICE"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5 font-semibold">SAC Code (Optional)</label>
+                                    <input
+                                        type="text"
+                                        value={customServiceForm.sac_code}
+                                        onChange={(e) => setCustomServiceForm(f => ({ ...f, sac_code: e.target.value }))}
+                                        disabled={customServiceSubmitting}
+                                        className="w-full px-3 py-2.5 text-xs text-slate-700 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none disabled:opacity-60 bg-white"
+                                        placeholder="e.g. 998412"
+                                    />
+                                </div>
+                            </div>
+                            <FeeForm
+                                form={customServiceForm}
+                                onChange={(k, v) => setCustomServiceForm(f => ({ ...f, [k]: v }))}
+                                loading={customServiceSubmitting}
+                            />
+                        </div>
+                    </Modal>
                 )}
             </AnimatePresence>
         </div>

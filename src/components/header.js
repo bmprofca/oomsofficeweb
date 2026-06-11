@@ -4,7 +4,7 @@ import { Outlet, useNavigate } from 'react-router-dom';
 import {
   FiMenu, FiBriefcase, FiChevronDown, FiCreditCard,
   FiPlus, FiBell, FiUser, FiSettings, FiHelpCircle,
-  FiLogOut, FiPieChart, FiMessageSquare, FiUsers,
+  FiLogOut, FiPieChart, FiMessageSquare, FiUsers, FiRepeat,
   FiMail, FiZap, FiCpu, FiLock, FiChevronRight, FiX, FiHome, FiBarChart2
 } from 'react-icons/fi';
 import { NavLink, useLocation } from 'react-router-dom';
@@ -421,7 +421,7 @@ export const Header = ({ mobileMenuOpen, setMobileMenuOpen, isMinimized, setIsMi
       }
     };
     fetchBalance();
-    
+
     const interval = setInterval(fetchBalance, 15000);
     return () => clearInterval(interval);
   }, []);
@@ -647,6 +647,10 @@ export const Sidebar = ({ mobileMenuOpen, setMobileMenuOpen, isMinimized, setIsM
         { title: 'New Task', path: '/task/create' },
         { title: 'View Task', path: '/task/view' }
       ]
+    },
+    {
+      key: 'recurring-tasks', title: 'Recurring Tasks', icon: <FiRepeat size={18} />,
+      path: '/staff/recurring-tasks'
     },
     {
       key: 'clients', title: 'Clients', icon: <FiUsers size={18} />,

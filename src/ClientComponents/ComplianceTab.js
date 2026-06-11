@@ -3,8 +3,10 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
     FiLayers, FiPlus, FiRefreshCw, FiCheckCircle, FiAlertCircle,
     FiChevronRight, FiChevronDown, FiCalendar, FiDollarSign, FiClock,
-    FiX, FiInfo, FiSearch, FiBriefcase, FiUser, FiSliders
+    FiX, FiInfo, FiSearch, FiBriefcase, FiUser, FiSliders, FiMenu, FiEdit2, FiTrash2, FiShare2, FiEye
 } from 'react-icons/fi';
+import { FaWhatsapp } from 'react-icons/fa6';
+import { MdEmail } from 'react-icons/md';
 import axios from 'axios';
 import { toast } from 'react-hot-toast';
 import getHeaders from '../utils/get-headers';
@@ -28,9 +30,12 @@ const formatDateTime = (dateStr) => {
 };
 
 const STATUS_BADGES = {
+    'Pending From The Department': 'bg-amber-100 text-amber-800 border-amber-200',
+    'Pending From Client': 'bg-orange-100 text-orange-850 border-orange-200',
     'Pending': 'bg-amber-100 text-amber-800 border-amber-200',
-    'N/A': 'bg-slate-100 text-slate-500 border-slate-200',
+    'Complete': 'bg-emerald-100 text-emerald-800 border-emerald-200',
     'Sale': 'bg-emerald-100 text-emerald-800 border-emerald-200',
+    'N/A': 'bg-slate-100 text-slate-500 border-slate-200',
     'Outsource': 'bg-blue-100 text-blue-800 border-blue-200'
 };
 
@@ -87,14 +92,14 @@ const getPeriodDueDate = (period) => {
     if (period.due_date) {
         return new Date(period.due_date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
     }
-    
+
     const MONTHS = ['April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December', 'January', 'February', 'March'];
     const pName = period.period_name;
     const fy = period.financial_year || '2026-2027';
     const parts = fy.split('-');
     const startYear = parseInt(parts[0]) || 2026;
     const endYear = parseInt(parts[1]) || 2027;
-    
+
     if (pName && MONTHS.includes(pName)) {
         const mIdx = MONTHS.indexOf(pName);
         const year = mIdx < 9 ? startYear : endYear;
@@ -103,14 +108,14 @@ const getPeriodDueDate = (period) => {
         const dueDay = (period.service_id === 'GSTR-1' || /gstr-1/i.test(period.service_name || '')) ? 11 : 20;
         return `${dueDay} ${MONTH_NAMES[mIdx]} ${dueYear}`;
     }
-    
+
     if (isQ1(pName)) return `31 Jul ${startYear}`;
     if (isQ2(pName)) return `31 Oct ${startYear}`;
     if (isQ3(pName)) return `31 Jan ${endYear}`;
     if (isQ4(pName)) return `30 Apr ${endYear}`;
-    
+
     if (pName === 'Yearly' || pName === 'Year' || pName?.toLowerCase().includes('yearly')) return `31 Dec ${endYear}`;
-    
+
     return '—';
 };
 
@@ -129,6 +134,44 @@ const getPeriodHeaders = (frequency) => {
         return ['APR-MAR'];
     }
     return [];
+};
+
+const getVisible6Months = (financialYear) => {
+    const ALL_MONTHS = ['Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec', 'Jan', 'Feb', 'Mar'];
+    const today = new Date();
+    const currentMonth = today.getMonth(); // 0-11
+
+    // Map JS month to index in ALL_MONTHS (starting in April)
+    const jsMonthToFyIndex = [9, 10, 11, 0, 1, 2, 3, 4, 5, 6, 7, 8];
+    const fyIndex = jsMonthToFyIndex[currentMonth];
+
+    // Parse FY
+    const fyParts = (financialYear || '2026-2027').split('-');
+    const startYear = parseInt(fyParts[0], 10) || 2026;
+    const endYear = parseInt(fyParts[1], 10) || 2027;
+
+    const fyStart = new Date(startYear, 3, 1); // April 1st
+    const fyEnd = new Date(endYear, 2, 31, 23, 59, 59); // March 31st
+
+    if (today < fyStart) {
+        return ALL_MONTHS.slice(0, 6);
+    } else if (today > fyEnd) {
+        return ALL_MONTHS.slice(6, 12);
+    } else {
+        if (fyIndex < 5) {
+            return ALL_MONTHS.slice(0, 6);
+        } else {
+            return ALL_MONTHS.slice(fyIndex - 5, fyIndex + 1);
+        }
+    }
+};
+
+const getPeriodHeadersForFreq = (frequency, financialYear) => {
+    const freq = frequency?.toLowerCase();
+    if (freq === 'monthly') {
+        return getVisible6Months(financialYear);
+    }
+    return getPeriodHeaders(frequency);
 };
 
 const getPeriodSchedule = (assignmentSchedules, headerText, frequency) => {
@@ -222,10 +265,52 @@ const ComplianceTab = ({ clientUsername }) => {
     const [groupsList, setGroupsList] = useState([]);
     const [groupsLoading, setGroupsLoading] = useState(false);
 
+    // Active dropdown, broadcast, and calendar modal states
+    const [activeDropdownId, setActiveDropdownId] = useState(null);
+    const [broadcastModal, setBroadcastModal] = useState({ open: false, assign: null });
+    const [broadcastPhone, setBroadcastPhone] = useState('');
+    const [broadcastEmail, setBroadcastEmail] = useState('');
+    const [showFullCalendarModal, setShowFullCalendarModal] = useState(false);
+    const [fullCalendarAssignment, setFullCalendarAssignment] = useState(null);
+
+    // Edit/Delete compliance assignment states
+    const [editAssignment, setEditAssignment] = useState(null);
+    const [showEditModal, setShowEditModal] = useState(false);
+    const [deletingAssignmentId, setDeletingAssignmentId] = useState(null);
+    const [confirmDeleteId, setConfirmDeleteId] = useState(null);
+    const [submittingEdit, setSubmittingEdit] = useState(false);
+    const [editForm, setEditForm] = useState({
+        custom_amount: '',
+        employee_usernames: [],
+        ca_id: '',
+        pay_from_month: '',
+        quarters: [],
+        status: 'active'
+    });
+
+    const [editCaSearchQuery, setEditCaSearchQuery] = useState('');
+    const [editCaSearchResults, setEditCaSearchResults] = useState([]);
+    const [editCaSearchLoading, setEditCaSearchLoading] = useState(false);
+    const [editSelectedCa, setEditSelectedCa] = useState(null);
+    const [showEditCaDropdown, setShowEditCaDropdown] = useState(false);
+    const editCaAbortRef = useRef(null);
+    const [editStaffSearchQuery, setEditStaffSearchQuery] = useState('');
+    const [clientProfile, setClientProfile] = useState(null);
+
+    useEffect(() => {
+        const handleOutsideClick = (e) => {
+            if (!e.target.closest('.dropdown-container')) {
+                setActiveDropdownId(null);
+            }
+        };
+        document.addEventListener('click', handleOutsideClick);
+        return () => document.removeEventListener('click', handleOutsideClick);
+    }, []);
+
     // Helper to extract assigned staff list
     const getAssignedStaffList = useCallback((assign) => {
         if (!assign) return [];
-        
+
         let usernames = [];
         if (assign.employees && Array.isArray(assign.employees)) {
             assign.employees.forEach(emp => {
@@ -252,7 +337,7 @@ const ComplianceTab = ({ clientUsername }) => {
                 return matched || { username, name: username };
             });
         }
-        
+
         return [];
     }, [staffList]);
 
@@ -283,13 +368,16 @@ const ComplianceTab = ({ clientUsername }) => {
                 headers: getHeaders(),
                 params: { username: clientUsername }
             });
-            if (res.data?.success && res.data?.data?.compliance) {
-                const compliance = res.data.data.compliance;
-                setComplianceData({
-                    active: compliance.active || [],
-                    pending: compliance.pending || [],
-                    history: compliance.history || []
-                });
+            if (res.data?.success) {
+                setClientProfile(res.data.data);
+                if (res.data.data.compliance) {
+                    const compliance = res.data.data.compliance;
+                    setComplianceData({
+                        active: compliance.active || [],
+                        pending: compliance.pending || [],
+                        history: compliance.history || []
+                    });
+                }
             } else {
                 setComplianceData({ active: [], pending: [], history: [] });
             }
@@ -300,6 +388,157 @@ const ComplianceTab = ({ clientUsername }) => {
             setLoading(false);
         }
     }, [clientUsername]);
+
+    // Handle CA search autocomplete (Edit modal)
+    useEffect(() => {
+        const term = editCaSearchQuery.trim();
+        if (term.length < 3) {
+            setEditCaSearchResults([]);
+            return;
+        }
+
+        const t = setTimeout(async () => {
+            setEditCaSearchLoading(true);
+            editCaAbortRef.current?.abort();
+            const ctrl = new AbortController();
+            editCaAbortRef.current = ctrl;
+
+            try {
+                const res = await fetch(`${API_BASE_URL.replace(/\/$/, '')}/ca/search?search=${encodeURIComponent(term)}`, {
+                    headers: getHeaders(),
+                    signal: ctrl.signal
+                });
+                const data = await res.json();
+                if (data.success && Array.isArray(data.data)) {
+                    setEditCaSearchResults(data.data);
+                } else {
+                    setEditCaSearchResults([]);
+                }
+            } catch (e) {
+                if (e?.name !== 'AbortError') setEditCaSearchResults([]);
+            } finally {
+                setEditCaSearchLoading(false);
+            }
+        }, 350);
+
+        return () => {
+            clearTimeout(t);
+            editCaAbortRef.current?.abort();
+        };
+    }, [editCaSearchQuery]);
+
+    // Open edit modal — pre-fill form from assignment object
+    const openEditModal = useCallback((assign) => {
+        setEditAssignment(assign);
+
+        // Resolve employee_usernames from the assignment
+        let empUsernames = [];
+        if (assign.employees && Array.isArray(assign.employees)) {
+            assign.employees.forEach(emp => {
+                const u = emp.username || emp.employee_id || '';
+                String(u).split(',').map(x => x.trim()).filter(Boolean).forEach(x => empUsernames.push(x));
+            });
+        } else {
+            const raw = assign.employee_username || assign.employee_id || '';
+            empUsernames = String(raw).split(',').map(u => u.trim()).filter(Boolean);
+        }
+
+        // Resolve quarters (may come back as e.g. "2,3,4" or [2,3,4])
+        let quarters = [];
+        if (assign.quarters) {
+            if (Array.isArray(assign.quarters)) {
+                quarters = assign.quarters.map(Number);
+            } else {
+                quarters = String(assign.quarters).split(',').map(x => parseInt(x.trim(), 10)).filter(n => !isNaN(n));
+            }
+        }
+
+        setEditForm({
+            custom_amount: String(assign.custom_amount || ''),
+            employee_usernames: empUsernames,
+            ca_id: assign.ca_id || assign.ca?.username || '',
+            pay_from_month: assign.pay_from_month || '',
+            quarters,
+            status: assign.status || 'active'
+        });
+
+        // Pre-fill CA if present
+        if (assign.ca) {
+            setEditSelectedCa(assign.ca);
+        } else if (assign.ca_id) {
+            setEditSelectedCa({ username: assign.ca_id, name: assign.ca_id });
+        } else {
+            setEditSelectedCa(null);
+        }
+
+        setEditCaSearchQuery('');
+        setEditCaSearchResults([]);
+        setEditStaffSearchQuery('');
+        setShowEditModal(true);
+    }, []);
+
+    // Submit Edit Assignment Form
+    const handleEditSubmit = async (e) => {
+        e.preventDefault();
+        if (!editAssignment) return;
+
+        if (!editForm.custom_amount || isNaN(parseFloat(editForm.custom_amount))) {
+            toast.error('Please enter a valid custom fees amount');
+            return;
+        }
+        if (!editForm.employee_usernames || editForm.employee_usernames.length === 0) {
+            toast.error('Please select at least one assigned staff member');
+            return;
+        }
+
+        setSubmittingEdit(true);
+        try {
+            const payload = {
+                custom_amount: parseFloat(editForm.custom_amount),
+                employee_username: editForm.employee_usernames.join(','),
+                status: editForm.status
+            };
+            if (editForm.ca_id) payload.ca_id = editForm.ca_id;
+            if (editForm.pay_from_month) payload.pay_from_month = editForm.pay_from_month;
+            if (editForm.quarters && editForm.quarters.length > 0) {
+                payload.quarters = editForm.quarters.join(',');
+            }
+
+            await axios.put(
+                `${API_BASE_URL}/compliance/assignments/${editAssignment.assignment_id}`,
+                payload,
+                { headers: getHeaders() }
+            );
+
+            toast.success('Assignment updated successfully');
+            setShowEditModal(false);
+            setEditAssignment(null);
+
+            // Refresh data
+            fetchComplianceData();
+            fetchAllSchedules();
+        } catch (err) {
+            console.error('Error updating assignment:', err);
+            toast.error(err.response?.data?.message || 'Failed to update assignment');
+        } finally {
+            setSubmittingEdit(false);
+        }
+    };
+
+    const handleOpenBroadcast = (assign) => {
+        setBroadcastModal({ open: true, assign });
+        // Prefill using client profile details if available
+        const profileMobile = clientProfile?.profile?.mobile || clientProfile?.profile?.phone || '';
+        const profileEmail = clientProfile?.profile?.email || '';
+        setBroadcastPhone(profileMobile);
+        setBroadcastEmail(profileEmail);
+    };
+
+    const handleOpenFullCalendar = (assign) => {
+        setFullCalendarAssignment(assign);
+        fetchAssignmentSchedules(assign.assignment_id);
+        setShowFullCalendarModal(true);
+    };
 
     // Fetch schedules for an assignment
     const fetchAssignmentSchedules = useCallback(async (assignmentId) => {
@@ -629,22 +868,29 @@ const ComplianceTab = ({ clientUsername }) => {
 
     const activeFrequency = activeAssignmentForFreq ? activeAssignmentForFreq.frequency?.toLowerCase() : 'monthly';
     const isServiceFiltered = selectedServiceFilter !== '';
-    const periodHeaders = isServiceFiltered ? getPeriodHeaders(activeFrequency) : [];
+    const periodHeaders = isServiceFiltered ? getPeriodHeadersForFreq(activeFrequency, activeAssignmentForFreq?.financial_year) : [];
 
     const renderCell = (period, assign) => {
         if (!period) return <td key={Math.random()} className="px-2 py-3 text-center text-slate-350 font-mono">—</td>;
-        
+
         let statusLetter = 'P';
         let cellClass = 'bg-amber-50 text-amber-700 border-amber-200';
-        if (period.status === 'Sale') {
-            statusLetter = 'S';
+        const st = period.status;
+        if (st === 'Complete' || st === 'Sale') {
+            statusLetter = 'C';
             cellClass = 'bg-emerald-50 text-emerald-700 border-emerald-200';
-        } else if (period.status === 'Outsource') {
+        } else if (st === 'Pending From Client' || st === 'PFC') {
+            statusLetter = 'PC';
+            cellClass = 'bg-orange-50 text-orange-700 border-orange-200';
+        } else if (st === 'Outsource') {
             statusLetter = 'O';
             cellClass = 'bg-blue-50 text-blue-700 border-blue-200';
-        } else if (period.status === 'N/A') {
+        } else if (st === 'N/A') {
             statusLetter = 'N';
             cellClass = 'bg-slate-50 text-slate-400 border-slate-200';
+        } else if (st === 'Pending From The Department' || st === 'Pending') {
+            statusLetter = 'P';
+            cellClass = 'bg-amber-50 text-amber-700 border-amber-200';
         }
 
         const dueDateText = getPeriodDueDate(period);
@@ -653,37 +899,34 @@ const ComplianceTab = ({ clientUsername }) => {
         const assignedStaffs = getAssignedStaffList(assign);
         const assignedStaffUsernames = assignedStaffs.map(emp => (emp.username || '').toLowerCase().trim());
         const isUpdatePermitted = !currentUsername || assignedStaffUsernames.length === 0 || assignedStaffUsernames.includes(currentUsername);
+        const isComplete = st === 'Complete' || st === 'Sale';
+        const shortDueDate = dueDateText === '—' ? '' : dueDateText.split(' ').slice(0, 2).join(' ');
 
         return (
             <td key={period.schedule_id} className="px-2 py-2 text-center align-middle">
-                <div 
-                    onClick={() => isUpdatePermitted && openStatusModal(period, assign)}
-                    className={`inline-flex items-center justify-center gap-1 min-w-[32px] h-[26px] rounded border text-[10px] font-bold select-none ${
-                        isUpdatePermitted 
+                <div className="flex flex-col items-center gap-0.5">
+                    <div
+                        onClick={() => isUpdatePermitted && !isComplete && openStatusModal(period, assign)}
+                        className={`inline-flex items-center justify-center gap-1 min-w-[32px] h-[26px] rounded border text-[10px] font-bold select-none ${isUpdatePermitted && !isComplete
                             ? `cursor-pointer transition-all hover:scale-105 ${cellClass}`
-                            : "bg-slate-50 text-slate-300 border-slate-100 cursor-not-allowed opacity-50"
-                    }`}
-                    title={
-                        isUpdatePermitted 
-                            ? (showDirectDueDate ? `Due Date: ${dueDateText}` : `Status: ${period.status}`)
-                            : `Restricted (Only assigned staff: ${assignedStaffs.map(e => e.name || e.username).join(', ')})`
-                    }
-                >
-                    <span className="px-1.5 h-full flex items-center justify-center flex-grow text-center">
-                        {statusLetter}
-                    </span>
-                    {!showDirectDueDate && (
-                        <button
-                            type="button"
-                            onClick={(e) => {
-                                e.stopPropagation();
-                                toast(`Due Date: ${dueDateText}`, { icon: '📅' });
-                            }}
-                            className="pr-1 text-amber-500 hover:text-amber-600 transition-colors shrink-0"
-                            title="Click to view due date"
-                        >
-                            <FiAlertCircle className="w-3 h-3 animate-pulse" />
-                        </button>
+                            : isComplete
+                                ? `${cellClass} cursor-default`
+                                : "bg-slate-50 text-slate-300 border-slate-100 cursor-not-allowed opacity-50"
+                            }`}
+                        title={
+                            isComplete
+                                ? `Completed — locked`
+                                : isUpdatePermitted
+                                    ? (showDirectDueDate ? `Due Date: ${dueDateText}` : `Status: ${period.status}`)
+                                    : `Restricted (Only assigned staff: ${assignedStaffs.map(e => e.name || e.username).join(', ')})`
+                        }
+                    >
+                        <span className="px-1.5 h-full flex items-center justify-center flex-grow text-center">
+                            {statusLetter}
+                        </span>
+                    </div>
+                    {shortDueDate && (
+                        <span className="text-[8px] text-slate-400 font-mono leading-none mt-1">{shortDueDate}</span>
                     )}
                 </div>
             </td>
@@ -705,7 +948,7 @@ const ComplianceTab = ({ clientUsername }) => {
                     </div>
                     <div>
                         <h3 className="text-base sm:text-lg font-bold text-slate-800 leading-tight">
-                            Compliance Management
+                            Recurring Task
                         </h3>
                         <p className="text-xs text-slate-500">Track and assign global regulatory filings for this client</p>
                     </div>
@@ -842,10 +1085,10 @@ const ComplianceTab = ({ clientUsername }) => {
                                                     <th className="px-4 py-3 text-center w-12">SR</th>
                                                     <th className="px-4 py-3">Firm Name</th>
                                                     <th className="px-4 py-3 text-center">Staffs</th>
-                                                    <th className="px-4 py-3 text-right pr-6">Amount</th>
                                                     {periodHeaders.map((header) => (
                                                         <th key={header} className="px-2 py-3 text-center uppercase tracking-wider">{header}</th>
                                                     ))}
+                                                    <th className="px-4 py-3 text-center w-16">Action</th>
                                                 </tr>
                                             </thead>
                                             <tbody className="divide-y divide-slate-100">
@@ -923,13 +1166,87 @@ const ComplianceTab = ({ clientUsername }) => {
                                                                         );
                                                                     })()}
                                                                 </td>
-                                                                <td className="px-4 py-3 font-bold text-slate-705 text-xs text-right pr-6">
-                                                                    ₹{formatCurrency(assign.custom_amount)}
-                                                                </td>
                                                                 {periodHeaders.map((headerText) => {
                                                                     const period = getPeriodSchedule(assignSchedules, headerText, activeFrequency);
                                                                     return renderCell(period, assign);
                                                                 })}
+                                                                <td className="px-4 py-3 text-center align-middle">
+                                                                    <div className={`dropdown-container relative flex justify-center ${activeDropdownId === assign.assignment_id ? 'z-50' : 'z-0'}`}>
+                                                                        <button
+                                                                            type="button"
+                                                                            onClick={(e) => {
+                                                                                e.stopPropagation();
+                                                                                setActiveDropdownId(activeDropdownId === assign.assignment_id ? null : assign.assignment_id);
+                                                                            }}
+                                                                            className="p-1.5 text-slate-500 hover:text-indigo-650 rounded-lg hover:bg-indigo-50 border border-slate-200 transition-colors"
+                                                                        >
+                                                                            <FiMenu className="w-3.5 h-3.5" />
+                                                                        </button>
+                                                                        <AnimatePresence>
+                                                                            {activeDropdownId === assign.assignment_id && (
+                                                                                <motion.div
+                                                                                    initial={{ opacity: 0, scale: 0.95, y: 5 }}
+                                                                                    animate={{ opacity: 1, scale: 1, y: 0 }}
+                                                                                    exit={{ opacity: 0, scale: 0.95, y: 5 }}
+                                                                                    className="absolute right-0 mt-1 w-40 bg-white rounded-xl shadow-xl border border-slate-200 z-55 overflow-hidden text-left"
+                                                                                >
+                                                                                    <div className="py-1">
+                                                                                        <button
+                                                                                            type="button"
+                                                                                            onClick={(e) => {
+                                                                                                e.stopPropagation();
+                                                                                                openEditModal(assign);
+                                                                                                setActiveDropdownId(null);
+                                                                                            }}
+                                                                                            className="flex items-center w-full px-3 py-2 text-xs text-slate-700 hover:bg-indigo-50 transition-colors"
+                                                                                        >
+                                                                                            <FiEdit2 className="w-3.5 h-3.5 text-slate-400 mr-2" />
+                                                                                            Edit
+                                                                                        </button>
+                                                                                        <button
+                                                                                            type="button"
+                                                                                            onClick={(e) => {
+                                                                                                e.stopPropagation();
+                                                                                                setConfirmDeleteId(assign.assignment_id);
+                                                                                                setActiveDropdownId(null);
+                                                                                            }}
+                                                                                            className="flex items-center w-full px-3 py-2 text-xs text-slate-700 hover:bg-indigo-50 transition-colors"
+                                                                                        >
+                                                                                            <FiTrash2 className="w-3.5 h-3.5 text-slate-400 mr-2" />
+                                                                                            Delete
+                                                                                        </button>
+                                                                                        <button
+                                                                                            type="button"
+                                                                                            onClick={(e) => {
+                                                                                                e.stopPropagation();
+                                                                                                handleOpenBroadcast(assign);
+                                                                                                setActiveDropdownId(null);
+                                                                                            }}
+                                                                                            className="flex items-center w-full px-3 py-2 text-xs text-slate-700 hover:bg-indigo-50 transition-colors"
+                                                                                        >
+                                                                                            <FiShare2 className="w-3.5 h-3.5 text-slate-400 mr-2" />
+                                                                                            Broadcast
+                                                                                        </button>
+                                                                                        {assign.frequency === 'monthly' && (
+                                                                                            <button
+                                                                                                type="button"
+                                                                                                onClick={(e) => {
+                                                                                                    e.stopPropagation();
+                                                                                                    handleOpenFullCalendar(assign);
+                                                                                                    setActiveDropdownId(null);
+                                                                                                }}
+                                                                                                className="flex items-center w-full px-3 py-2 text-xs text-slate-700 hover:bg-indigo-50 transition-colors border-t border-slate-100"
+                                                                                            >
+                                                                                                <FiEye className="w-3.5 h-3.5 text-slate-400 mr-2" />
+                                                                                                Show Full
+                                                                                            </button>
+                                                                                        )}
+                                                                                    </div>
+                                                                                </motion.div>
+                                                                            )}
+                                                                        </AnimatePresence>
+                                                                    </div>
+                                                                </td>
                                                             </tr>
                                                         );
                                                     })
@@ -975,7 +1292,7 @@ const ComplianceTab = ({ clientUsername }) => {
                                                 <th className="px-4 py-3">Assigned CA</th>
                                                 <th className="px-4 py-3">Fees</th>
                                                 <th className="px-4 py-3">Start Date</th>
-                                                <th className="px-4 py-3 w-12"></th>
+                                                <th className="px-4 py-3 w-28 text-right">Actions</th>
                                             </tr>
                                         </thead>
                                         <tbody className="divide-y divide-slate-50">
@@ -1063,11 +1380,88 @@ const ComplianceTab = ({ clientUsername }) => {
                                                                 {assign.create_date ? new Date(assign.create_date).toLocaleDateString('en-IN') : '—'}
                                                             </td>
                                                             <td className="px-4 py-3 text-right">
-                                                                {selectedAssignmentId === assign.assignment_id ? (
-                                                                    <FiChevronDown className="w-4 h-4 text-slate-400" />
-                                                                ) : (
-                                                                    <FiChevronRight className="w-4 h-4 text-slate-400" />
-                                                                )}
+                                                                <div className="flex items-center justify-end gap-2">
+                                                                    <div className={`dropdown-container relative flex justify-center ${activeDropdownId === assign.assignment_id ? 'z-50' : 'z-0'}`}>
+                                                                        <button
+                                                                            type="button"
+                                                                            onClick={(e) => {
+                                                                                e.stopPropagation();
+                                                                                setActiveDropdownId(activeDropdownId === assign.assignment_id ? null : assign.assignment_id);
+                                                                            }}
+                                                                            className="p-1.5 text-slate-500 hover:text-indigo-650 rounded-lg hover:bg-indigo-50 border border-slate-200 transition-colors"
+                                                                        >
+                                                                            <FiMenu className="w-3.5 h-3.5" />
+                                                                        </button>
+                                                                        <AnimatePresence>
+                                                                            {activeDropdownId === assign.assignment_id && (
+                                                                                <motion.div
+                                                                                    initial={{ opacity: 0, scale: 0.95, y: 5 }}
+                                                                                    animate={{ opacity: 1, scale: 1, y: 0 }}
+                                                                                    exit={{ opacity: 0, scale: 0.95, y: 5 }}
+                                                                                    className="absolute right-0 mt-1 w-40 bg-white rounded-xl shadow-xl border border-slate-200 z-55 overflow-hidden text-left"
+                                                                                >
+                                                                                    <div className="py-1">
+                                                                                        <button
+                                                                                            type="button"
+                                                                                            onClick={(e) => {
+                                                                                                e.stopPropagation();
+                                                                                                openEditModal(assign);
+                                                                                                setActiveDropdownId(null);
+                                                                                            }}
+                                                                                            className="flex items-center w-full px-3 py-2 text-xs text-slate-700 hover:bg-indigo-50 transition-colors"
+                                                                                        >
+                                                                                            <FiEdit2 className="w-3.5 h-3.5 text-slate-400 mr-2" />
+                                                                                            Edit
+                                                                                        </button>
+                                                                                        <button
+                                                                                            type="button"
+                                                                                            onClick={(e) => {
+                                                                                                e.stopPropagation();
+                                                                                                setConfirmDeleteId(assign.assignment_id);
+                                                                                                setActiveDropdownId(null);
+                                                                                            }}
+                                                                                            className="flex items-center w-full px-3 py-2 text-xs text-slate-700 hover:bg-indigo-50 transition-colors"
+                                                                                        >
+                                                                                            <FiTrash2 className="w-3.5 h-3.5 text-slate-400 mr-2" />
+                                                                                            Delete
+                                                                                        </button>
+                                                                                        <button
+                                                                                            type="button"
+                                                                                            onClick={(e) => {
+                                                                                                e.stopPropagation();
+                                                                                                handleOpenBroadcast(assign);
+                                                                                                setActiveDropdownId(null);
+                                                                                            }}
+                                                                                            className="flex items-center w-full px-3 py-2 text-xs text-slate-700 hover:bg-indigo-50 transition-colors"
+                                                                                        >
+                                                                                            <FiShare2 className="w-3.5 h-3.5 text-slate-400 mr-2" />
+                                                                                            Broadcast
+                                                                                        </button>
+                                                                                        {assign.frequency === 'monthly' && (
+                                                                                            <button
+                                                                                                type="button"
+                                                                                                onClick={(e) => {
+                                                                                                    e.stopPropagation();
+                                                                                                    handleOpenFullCalendar(assign);
+                                                                                                    setActiveDropdownId(null);
+                                                                                                }}
+                                                                                                className="flex items-center w-full px-3 py-2 text-xs text-slate-700 hover:bg-indigo-50 transition-colors border-t border-slate-100"
+                                                                                            >
+                                                                                                <FiEye className="w-3.5 h-3.5 text-slate-400 mr-2" />
+                                                                                                Show Full
+                                                                                            </button>
+                                                                                        )}
+                                                                                    </div>
+                                                                                </motion.div>
+                                                                            )}
+                                                                        </AnimatePresence>
+                                                                    </div>
+                                                                    {selectedAssignmentId === assign.assignment_id ? (
+                                                                        <FiChevronDown className="w-4 h-4 text-slate-400" />
+                                                                    ) : (
+                                                                        <FiChevronRight className="w-4 h-4 text-slate-400" />
+                                                                    )}
+                                                                </div>
                                                             </td>
                                                         </tr>
                                                         {/* Expanded Details - Schedules Grid */}
@@ -1133,39 +1527,37 @@ const ComplianceTab = ({ clientUsername }) => {
                                                                                     const assignedStaffs = getAssignedStaffList(assign);
                                                                                     const assignedStaffUsernames = assignedStaffs.map(emp => (emp.username || '').toLowerCase().trim());
                                                                                     const isUpdatePermitted = !currentUsername || assignedStaffUsernames.length === 0 || assignedStaffUsernames.includes(currentUsername);
+                                                                                    const isComplete = period.status === 'Complete' || period.status === 'Sale';
 
                                                                                     return (
                                                                                         <div
                                                                                             key={period.schedule_id}
-                                                                                            onClick={() => isUpdatePermitted && openStatusModal(period, assign)}
-                                                                                            className={`border rounded-xl p-3 shadow-xs transition-all flex flex-col justify-between min-h-[90px] group ${
-                                                                                                isUpdatePermitted
-                                                                                                    ? "bg-white border-slate-200 hover:border-indigo-300 hover:shadow-sm cursor-pointer"
+                                                                                            onClick={() => isUpdatePermitted && !isComplete && openStatusModal(period, assign)}
+                                                                                            className={`border rounded-xl p-3 shadow-xs transition-all flex flex-col justify-between min-h-[90px] group ${isUpdatePermitted && !isComplete
+                                                                                                ? "bg-white border-slate-200 hover:border-indigo-300 hover:shadow-sm cursor-pointer"
+                                                                                                : isComplete
+                                                                                                    ? "bg-emerald-50/40 border-emerald-200 cursor-default"
                                                                                                     : "bg-slate-50/50 border-slate-200/60 opacity-60 cursor-not-allowed"
-                                                                                            }`}
-                                                                                            title={isUpdatePermitted ? undefined : `Restricted (Only assigned staff: ${assignedStaffs.map(e => e.name || e.username).join(', ')})`}
+                                                                                                }`}
+                                                                                            title={isComplete ? `Completed — record locked` : (isUpdatePermitted ? undefined : `Restricted (Only assigned staff: ${assignedStaffs.map(e => e.name || e.username).join(', ')})`)}
                                                                                         >
                                                                                             <div className="flex items-start justify-between gap-1.5">
-                                                                                                <span className={`text-xs font-bold leading-tight truncate ${
-                                                                                                    isUpdatePermitted ? "text-slate-700 group-hover:text-indigo-600" : "text-slate-400"
-                                                                                                }`}>
+                                                                                                <span className={`text-xs font-bold leading-tight truncate ${isUpdatePermitted ? "text-slate-700 group-hover:text-indigo-600" : "text-slate-400"
+                                                                                                    }`}>
                                                                                                     {period.period_name}
                                                                                                 </span>
-                                                                                                <FiInfo className={`w-3 h-3 shrink-0 ${
-                                                                                                    isUpdatePermitted ? "text-slate-300 group-hover:text-indigo-400" : "text-slate-200"
-                                                                                                }`} />
+                                                                                                <FiInfo className={`w-3 h-3 shrink-0 ${isUpdatePermitted ? "text-slate-350 group-hover:text-indigo-400" : "text-slate-200"
+                                                                                                    }`} />
                                                                                             </div>
                                                                                             <div className="mt-2 space-y-1">
-                                                                                                <span className={`text-[10px] font-black block ${
-                                                                                                    isUpdatePermitted ? "text-slate-800" : "text-slate-400"
-                                                                                                }`}>
+                                                                                                <span className={`text-[10px] font-black block ${isUpdatePermitted ? "text-slate-800" : "text-slate-400"
+                                                                                                    }`}>
                                                                                                     ₹{formatCurrency(period.amount)}
                                                                                                 </span>
-                                                                                                <span className={`inline-flex px-1.5 py-0.5 rounded text-[8px] font-bold border uppercase tracking-wider ${
-                                                                                                    isUpdatePermitted 
-                                                                                                        ? (STATUS_BADGES[period.status] || 'bg-slate-50')
-                                                                                                        : 'bg-slate-100/70 border-slate-200/50 text-slate-400'
-                                                                                                }`}>
+                                                                                                <span className={`inline-flex px-1.5 py-0.5 rounded text-[8px] font-bold border uppercase tracking-wider ${isUpdatePermitted
+                                                                                                    ? (STATUS_BADGES[period.status] || 'bg-slate-50')
+                                                                                                    : 'bg-slate-100/70 border-slate-200/50 text-slate-400'
+                                                                                                    }`}>
                                                                                                     {period.status}
                                                                                                 </span>
                                                                                                 {selectedFilingStatus === '' ? (
@@ -1291,7 +1683,7 @@ const ComplianceTab = ({ clientUsername }) => {
             <AnimatePresence>
                 {showAssignModal && (
                     <div className="fixed inset-0 z-[200] flex items-start justify-center overflow-hidden overscroll-none p-3 sm:p-4 pointer-events-none">
-                        <div 
+                        <div
                             className="absolute inset-0 bg-black/60 backdrop-blur-xs pointer-events-auto"
                             onClick={() => setShowAssignModal(false)}
                         />
@@ -1316,312 +1708,312 @@ const ComplianceTab = ({ clientUsername }) => {
                             </div>
 
                             <form onSubmit={handleAssignSubmit} className="flex-1 min-h-0 flex flex-col overflow-hidden">
-                                <div 
+                                <div
                                     className="px-5 py-4 flex-1 min-h-0 overflow-y-auto overscroll-y-contain [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden space-y-4"
                                     style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
                                 >
-                                {/* Target Type Selector */}
-                                <div className="space-y-1">
-                                    <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Assign To *</label>
-                                    <div className="flex gap-2">
-                                        {['single', 'multiple'].map((t) => (
-                                            <button
-                                                key={t}
-                                                type="button"
-                                                onClick={() => setAssignForm(prev => ({ ...prev, targetType: t }))}
-                                                className={`flex-1 py-2 text-xs font-semibold rounded-xl border transition-colors ${assignForm.targetType === t
-                                                    ? 'bg-indigo-50 border-indigo-300 text-indigo-705'
-                                                    : 'border-slate-200 text-slate-500 hover:bg-slate-50'
-                                                    }`}
-                                            >
-                                                {t === 'single' ? 'Single Firm' : 'Multiple Firms'}
-                                            </button>
-                                        ))}
-                                    </div>
-                                </div>
-
-                                {/* Target selection */}
-                                {assignForm.targetType === 'single' && (
+                                    {/* Target Type Selector */}
                                     <div className="space-y-1">
-                                        <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Client Firm *</label>
-                                        <select
-                                            value={assignForm.firm_id}
-                                            onChange={(e) => setAssignForm(prev => ({ ...prev, firm_id: e.target.value }))}
-                                            className="w-full px-3 py-2.5 text-xs text-slate-700 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none bg-white"
-                                            required
-                                        >
-                                            <option value="">Select one of client's firms…</option>
-                                            {clientFirms.map(f => (
-                                                <option key={f.firm_id} value={f.firm_id}>{f.firm_name} (PAN: {f.pan_no || '—'})</option>
+                                        <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Assign To *</label>
+                                        <div className="flex gap-2">
+                                            {['single', 'multiple'].map((t) => (
+                                                <button
+                                                    key={t}
+                                                    type="button"
+                                                    onClick={() => setAssignForm(prev => ({ ...prev, targetType: t }))}
+                                                    className={`flex-1 py-2 text-xs font-semibold rounded-xl border transition-colors ${assignForm.targetType === t
+                                                        ? 'bg-indigo-50 border-indigo-300 text-indigo-705'
+                                                        : 'border-slate-200 text-slate-500 hover:bg-slate-50'
+                                                        }`}
+                                                >
+                                                    {t === 'single' ? 'Single Firm' : 'Multiple Firms'}
+                                                </button>
                                             ))}
-                                        </select>
-                                    </div>
-                                )}
-
-                                {assignForm.targetType === 'multiple' && (
-                                    <div className="space-y-2">
-                                        <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Select Client Firms *</label>
-                                        <div className="max-h-40 overflow-y-auto border border-slate-200 rounded-xl p-3 space-y-2 bg-white">
-                                            {clientFirms.length === 0 ? (
-                                                <div className="text-xs text-slate-400">No client firms found.</div>
-                                            ) : (
-                                                clientFirms.map(f => (
-                                                    <label key={f.firm_id} className="flex items-center gap-2 text-xs text-slate-700 cursor-pointer animate-fade-in">
-                                                        <input
-                                                            type="checkbox"
-                                                            checked={assignForm.firms?.includes(f.firm_id)}
-                                                            onChange={(e) => {
-                                                                setAssignForm(prev => {
-                                                                    const current = prev.firms || [];
-                                                                    const updated = e.target.checked
-                                                                        ? [...current, f.firm_id]
-                                                                        : current.filter(x => x !== f.firm_id);
-                                                                    return { ...prev, firms: updated };
-                                                                });
-                                                            }}
-                                                            className="rounded border-slate-350 text-indigo-650 focus:ring-indigo-500 h-4 w-4"
-                                                        />
-                                                        {f.firm_name} {f.pan_no ? `(PAN: ${f.pan_no})` : ''}
-                                                    </label>
-                                                ))
-                                            )}
                                         </div>
                                     </div>
-                                )}
 
-                                {/* Compliance Service Select */}
-                                <div className="space-y-1">
-                                    <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Compliance Service *</label>
-                                    <select
-                                        value={assignForm.service_id}
-                                        onChange={(e) => {
-                                            const svcId = e.target.value;
-                                            const matched = globalServices.find(s => s.service_id === svcId);
-                                            setAssignForm(prev => ({
-                                                ...prev,
-                                                service_id: svcId,
-                                                custom_amount: matched ? String(matched.default_amount) : ''
-                                            }));
-                                        }}
-                                        className="w-full px-3 py-2.5 text-xs text-slate-700 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none bg-white"
-                                        required
-                                    >
-                                        <option value="">Select compliance template…</option>
-                                        {globalServices.map(s => (
-                                            <option key={s.id} value={s.service_id}>{s.name} (₹{formatCurrency(s.default_amount)})</option>
-                                        ))}
-                                    </select>
-                                </div>
-
-                                {/* pay_from_month (for monthly frequency only) */}
-                                {(() => {
-                                    const selectedService = globalServices.find(s => s.service_id === assignForm.service_id);
-                                    const isGstr1 = assignForm.service_id === 'GSTR-1' || (selectedService?.name && /gstr-1/i.test(selectedService.name));
-                                    const effectiveFreq = isGstr1 ? 'monthly' : selectedService?.frequency?.toLowerCase();
-                                    return effectiveFreq === 'monthly' && (
+                                    {/* Target selection */}
+                                    {assignForm.targetType === 'single' && (
                                         <div className="space-y-1">
-                                            <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Start Generating From Month (Optional)</label>
+                                            <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Client Firm *</label>
                                             <select
-                                                value={assignForm.pay_from_month}
-                                                onChange={(e) => setAssignForm(prev => ({ ...prev, pay_from_month: e.target.value }))}
+                                                value={assignForm.firm_id}
+                                                onChange={(e) => setAssignForm(prev => ({ ...prev, firm_id: e.target.value }))}
                                                 className="w-full px-3 py-2.5 text-xs text-slate-700 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none bg-white"
+                                                required
                                             >
-                                                <option value="">Default (April)</option>
-                                                {['April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December', 'January', 'February', 'March'].map(m => (
-                                                    <option key={m} value={m}>{m}</option>
+                                                <option value="">Select one of client's firms…</option>
+                                                {clientFirms.map(f => (
+                                                    <option key={f.firm_id} value={f.firm_id}>{f.firm_name} (PAN: {f.pan_no || '—'})</option>
                                                 ))}
                                             </select>
                                         </div>
-                                    );
-                                })()}
+                                    )}
 
-                                {/* quarters (for quarterly frequency only) */}
-                                {(() => {
-                                    const selectedService = globalServices.find(s => s.service_id === assignForm.service_id);
-                                    const isGstr1 = assignForm.service_id === 'GSTR-1' || (selectedService?.name && /gstr-1/i.test(selectedService.name));
-                                    const effectiveFreq = isGstr1 ? 'monthly' : selectedService?.frequency?.toLowerCase();
-                                    return effectiveFreq === 'quarterly' && (
+                                    {assignForm.targetType === 'multiple' && (
                                         <div className="space-y-2">
-                                            <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Select Quarters (Optional)</label>
-                                            <div className="flex gap-4">
-                                                {[1, 2, 3, 4].map(q => {
-                                                    const checked = assignForm.quarters?.includes(q);
-                                                    return (
-                                                        <label key={q} className="flex items-center gap-1.5 text-xs text-slate-700 cursor-pointer">
+                                            <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Select Client Firms *</label>
+                                            <div className="max-h-40 overflow-y-auto border border-slate-200 rounded-xl p-3 space-y-2 bg-white">
+                                                {clientFirms.length === 0 ? (
+                                                    <div className="text-xs text-slate-400">No client firms found.</div>
+                                                ) : (
+                                                    clientFirms.map(f => (
+                                                        <label key={f.firm_id} className="flex items-center gap-2 text-xs text-slate-700 cursor-pointer animate-fade-in">
                                                             <input
                                                                 type="checkbox"
-                                                                checked={checked}
+                                                                checked={assignForm.firms?.includes(f.firm_id)}
                                                                 onChange={(e) => {
                                                                     setAssignForm(prev => {
-                                                                        const current = prev.quarters || [];
+                                                                        const current = prev.firms || [];
                                                                         const updated = e.target.checked
-                                                                            ? [...current, q]
-                                                                            : current.filter(x => x !== q);
-                                                                        return { ...prev, quarters: updated };
-                                                                    });
-                                                                }}
-                                                                className="rounded border-slate-350 text-indigo-600 focus:ring-indigo-500 h-4 w-4"
-                                                            />
-                                                            Q{q}
-                                                        </label>
-                                                    );
-                                                })}
-                                            </div>
-                                            <p className="text-[10px] text-slate-400">Leave unselected to generate all quarters.</p>
-                                        </div>
-                                    );
-                                })()}
-
-                                {/* Financial Year */}
-                                <div className="space-y-1">
-                                    <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Financial Year *</label>
-                                    <select
-                                        value={assignForm.financial_year}
-                                        onChange={(e) => setAssignForm(prev => ({ ...prev, financial_year: e.target.value }))}
-                                        className="w-full px-3 py-2.5 text-xs text-slate-700 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none bg-white"
-                                    >
-                                        <option value="2025-2026">2025-2026</option>
-                                        <option value="2026-2027">2026-2027</option>
-                                        <option value="2027-2028">2027-2028</option>
-                                    </select>
-                                </div>
-
-                                {/* Custom Amount */}
-                                <div className="space-y-1">
-                                    <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Custom Fees Amount (₹) *</label>
-                                    <input
-                                        type="number"
-                                        step="0.01"
-                                        placeholder="0.00"
-                                        value={assignForm.custom_amount}
-                                        onChange={(e) => setAssignForm(prev => ({ ...prev, custom_amount: e.target.value }))}
-                                        className="w-full px-3 py-2.5 text-xs text-slate-700 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none bg-white"
-                                        required
-                                    />
-                                </div>
-
-                                {/* Assigned Staff Selector */}
-                                <div className="space-y-2">
-                                    <div className="flex justify-between items-center">
-                                        <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Assigned Staff *</label>
-                                        {assignForm.employee_usernames?.length > 0 && (
-                                            <span className="text-[10px] font-semibold text-indigo-650 bg-indigo-50 px-2 py-0.5 rounded-full">
-                                                {assignForm.employee_usernames.length} selected
-                                            </span>
-                                        )}
-                                    </div>
-                                    <div className="border border-slate-200 rounded-xl bg-white overflow-hidden">
-                                        {/* Filter input */}
-                                        <div className="relative border-b border-slate-100 px-3 py-2 bg-slate-50">
-                                            <FiSearch className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 w-3.5 h-3.5 pointer-events-none" />
-                                            <input
-                                                type="text"
-                                                placeholder="Filter staff list..."
-                                                value={staffSearchQuery}
-                                                onChange={(e) => setStaffSearchQuery(e.target.value)}
-                                                className="w-full pl-6 pr-2 py-1 text-xs text-slate-700 bg-transparent outline-none placeholder-slate-400 focus:ring-0"
-                                            />
-                                        </div>
-                                        <div className="max-h-36 overflow-y-auto p-3 space-y-2">
-                                            {(() => {
-                                                const query = staffSearchQuery.trim().toLowerCase();
-                                                const filtered = query
-                                                    ? staffList.filter(s =>
-                                                        (s.name || '').toLowerCase().includes(query) ||
-                                                        (s.username || '').toLowerCase().includes(query)
-                                                      )
-                                                    : staffList;
-
-                                                if (filtered.length === 0) {
-                                                    return <div className="text-xs text-slate-400">No staff members found.</div>;
-                                                }
-
-                                                return filtered.map(s => {
-                                                    const checked = assignForm.employee_usernames?.includes(s.username);
-                                                    return (
-                                                        <label key={s.username} className="flex items-center gap-2 text-xs text-slate-700 cursor-pointer animate-fade-in hover:text-slate-900">
-                                                            <input
-                                                                type="checkbox"
-                                                                checked={checked}
-                                                                onChange={(e) => {
-                                                                    setAssignForm(prev => {
-                                                                        const current = prev.employee_usernames || [];
-                                                                        const updated = e.target.checked
-                                                                            ? [...current, s.username]
-                                                                            : current.filter(x => x !== s.username);
-                                                                        return { ...prev, employee_usernames: updated };
+                                                                            ? [...current, f.firm_id]
+                                                                            : current.filter(x => x !== f.firm_id);
+                                                                        return { ...prev, firms: updated };
                                                                     });
                                                                 }}
                                                                 className="rounded border-slate-350 text-indigo-650 focus:ring-indigo-500 h-4 w-4"
                                                             />
-                                                            <span className="font-medium">{s.name}</span>
-                                                            <span className="text-[10px] text-slate-400">({s.username})</span>
+                                                            {f.firm_name} {f.pan_no ? `(PAN: ${f.pan_no})` : ''}
                                                         </label>
-                                                    );
-                                                });
-                                            })()}
-                                        </div>
-                                    </div>
-                                </div>
-
-                                {/* Assigned CA */}
-                                <div className="space-y-1 relative">
-                                    <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Assigned CA (Optional)</label>
-                                    {selectedCa ? (
-                                        <div className="flex items-center justify-between border border-slate-200 rounded-xl p-3 bg-slate-50">
-                                            <div>
-                                                <p className="text-xs font-bold text-slate-800">{selectedCa.name}</p>
-                                                <p className="text-[10px] text-slate-400">Username: {selectedCa.username} · PAN: {selectedCa.pan_no || '—'}</p>
+                                                    ))
+                                                )}
                                             </div>
-                                            <button
-                                                type="button"
-                                                onClick={() => {
-                                                    setSelectedCa(null);
-                                                    setAssignForm(prev => ({ ...prev, ca_id: '' }));
-                                                }}
-                                                className="text-slate-400 hover:text-slate-650 p-1 rounded-md"
-                                            >
-                                                <FiX className="w-4 h-4" />
-                                            </button>
-                                        </div>
-                                    ) : (
-                                        <div className="relative">
-                                            <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4 pointer-events-none" />
-                                            <input
-                                                type="text"
-                                                value={caSearchQuery}
-                                                onChange={(e) => {
-                                                    setCaSearchQuery(e.target.value);
-                                                    setShowCaDropdown(true);
-                                                }}
-                                                onFocus={() => setShowCaDropdown(true)}
-                                                placeholder="Search CA (min 3 chars)…"
-                                                className="w-full pl-9 pr-3 py-2.5 text-xs text-slate-700 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none bg-white"
-                                            />
-                                            {showCaDropdown && caSearchResults.length > 0 && (
-                                                <div className="absolute z-50 left-0 right-0 top-full mt-1 bg-white border border-slate-200 rounded-xl shadow-lg max-h-56 overflow-y-auto">
-                                                    {caSearchResults.map(c => (
-                                                        <button
-                                                            key={c.username}
-                                                            type="button"
-                                                            onClick={() => {
-                                                                setSelectedCa(c);
-                                                                setAssignForm(prev => ({ ...prev, ca_id: c.username }));
-                                                                setCaSearchQuery('');
-                                                                setCaSearchResults([]);
-                                                                setShowCaDropdown(false);
-                                                            }}
-                                                            className="w-full text-left px-4 py-2.5 hover:bg-slate-50 border-b border-slate-100 last:border-0 text-xs flex flex-col"
-                                                        >
-                                                            <span className="font-semibold text-slate-800">{c.name}</span>
-                                                            <span className="text-[10px] text-slate-400 mt-0.5">Username: {c.username}</span>
-                                                        </button>
-                                                    ))}
-                                                </div>
-                                            )}
                                         </div>
                                     )}
-                                </div>
+
+                                    {/* Compliance Service Select */}
+                                    <div className="space-y-1">
+                                        <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Compliance Service *</label>
+                                        <select
+                                            value={assignForm.service_id}
+                                            onChange={(e) => {
+                                                const svcId = e.target.value;
+                                                const matched = globalServices.find(s => s.service_id === svcId);
+                                                setAssignForm(prev => ({
+                                                    ...prev,
+                                                    service_id: svcId,
+                                                    custom_amount: matched ? String(matched.default_amount) : ''
+                                                }));
+                                            }}
+                                            className="w-full px-3 py-2.5 text-xs text-slate-700 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none bg-white"
+                                            required
+                                        >
+                                            <option value="">Select compliance template…</option>
+                                            {globalServices.map(s => (
+                                                <option key={s.id} value={s.service_id}>{s.name} (₹{formatCurrency(s.default_amount)})</option>
+                                            ))}
+                                        </select>
+                                    </div>
+
+                                    {/* pay_from_month (for monthly frequency only) */}
+                                    {(() => {
+                                        const selectedService = globalServices.find(s => s.service_id === assignForm.service_id);
+                                        const isGstr1 = assignForm.service_id === 'GSTR-1' || (selectedService?.name && /gstr-1/i.test(selectedService.name));
+                                        const effectiveFreq = isGstr1 ? 'monthly' : selectedService?.frequency?.toLowerCase();
+                                        return effectiveFreq === 'monthly' && (
+                                            <div className="space-y-1">
+                                                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Start Generating From Month (Optional)</label>
+                                                <select
+                                                    value={assignForm.pay_from_month}
+                                                    onChange={(e) => setAssignForm(prev => ({ ...prev, pay_from_month: e.target.value }))}
+                                                    className="w-full px-3 py-2.5 text-xs text-slate-700 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none bg-white"
+                                                >
+                                                    <option value="">Default (April)</option>
+                                                    {['April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December', 'January', 'February', 'March'].map(m => (
+                                                        <option key={m} value={m}>{m}</option>
+                                                    ))}
+                                                </select>
+                                            </div>
+                                        );
+                                    })()}
+
+                                    {/* quarters (for quarterly frequency only) */}
+                                    {(() => {
+                                        const selectedService = globalServices.find(s => s.service_id === assignForm.service_id);
+                                        const isGstr1 = assignForm.service_id === 'GSTR-1' || (selectedService?.name && /gstr-1/i.test(selectedService.name));
+                                        const effectiveFreq = isGstr1 ? 'monthly' : selectedService?.frequency?.toLowerCase();
+                                        return effectiveFreq === 'quarterly' && (
+                                            <div className="space-y-2">
+                                                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Select Quarters (Optional)</label>
+                                                <div className="flex gap-4">
+                                                    {[1, 2, 3, 4].map(q => {
+                                                        const checked = assignForm.quarters?.includes(q);
+                                                        return (
+                                                            <label key={q} className="flex items-center gap-1.5 text-xs text-slate-700 cursor-pointer">
+                                                                <input
+                                                                    type="checkbox"
+                                                                    checked={checked}
+                                                                    onChange={(e) => {
+                                                                        setAssignForm(prev => {
+                                                                            const current = prev.quarters || [];
+                                                                            const updated = e.target.checked
+                                                                                ? [...current, q]
+                                                                                : current.filter(x => x !== q);
+                                                                            return { ...prev, quarters: updated };
+                                                                        });
+                                                                    }}
+                                                                    className="rounded border-slate-350 text-indigo-600 focus:ring-indigo-500 h-4 w-4"
+                                                                />
+                                                                Q{q}
+                                                            </label>
+                                                        );
+                                                    })}
+                                                </div>
+                                                <p className="text-[10px] text-slate-400">Leave unselected to generate all quarters.</p>
+                                            </div>
+                                        );
+                                    })()}
+
+                                    {/* Financial Year */}
+                                    <div className="space-y-1">
+                                        <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Financial Year *</label>
+                                        <select
+                                            value={assignForm.financial_year}
+                                            onChange={(e) => setAssignForm(prev => ({ ...prev, financial_year: e.target.value }))}
+                                            className="w-full px-3 py-2.5 text-xs text-slate-700 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none bg-white"
+                                        >
+                                            <option value="2025-2026">2025-2026</option>
+                                            <option value="2026-2027">2026-2027</option>
+                                            <option value="2027-2028">2027-2028</option>
+                                        </select>
+                                    </div>
+
+                                    {/* Custom Amount */}
+                                    <div className="space-y-1">
+                                        <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Custom Fees Amount (₹) *</label>
+                                        <input
+                                            type="number"
+                                            step="0.01"
+                                            placeholder="0.00"
+                                            value={assignForm.custom_amount}
+                                            onChange={(e) => setAssignForm(prev => ({ ...prev, custom_amount: e.target.value }))}
+                                            className="w-full px-3 py-2.5 text-xs text-slate-700 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none bg-white"
+                                            required
+                                        />
+                                    </div>
+
+                                    {/* Assigned Staff Selector */}
+                                    <div className="space-y-2">
+                                        <div className="flex justify-between items-center">
+                                            <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Assigned Staff *</label>
+                                            {assignForm.employee_usernames?.length > 0 && (
+                                                <span className="text-[10px] font-semibold text-indigo-650 bg-indigo-50 px-2 py-0.5 rounded-full">
+                                                    {assignForm.employee_usernames.length} selected
+                                                </span>
+                                            )}
+                                        </div>
+                                        <div className="border border-slate-200 rounded-xl bg-white overflow-hidden">
+                                            {/* Filter input */}
+                                            <div className="relative border-b border-slate-100 px-3 py-2 bg-slate-50">
+                                                <FiSearch className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 w-3.5 h-3.5 pointer-events-none" />
+                                                <input
+                                                    type="text"
+                                                    placeholder="Filter staff list..."
+                                                    value={staffSearchQuery}
+                                                    onChange={(e) => setStaffSearchQuery(e.target.value)}
+                                                    className="w-full pl-6 pr-2 py-1 text-xs text-slate-700 bg-transparent outline-none placeholder-slate-400 focus:ring-0"
+                                                />
+                                            </div>
+                                            <div className="max-h-36 overflow-y-auto p-3 space-y-2">
+                                                {(() => {
+                                                    const query = staffSearchQuery.trim().toLowerCase();
+                                                    const filtered = query
+                                                        ? staffList.filter(s =>
+                                                            (s.name || '').toLowerCase().includes(query) ||
+                                                            (s.username || '').toLowerCase().includes(query)
+                                                        )
+                                                        : staffList;
+
+                                                    if (filtered.length === 0) {
+                                                        return <div className="text-xs text-slate-400">No staff members found.</div>;
+                                                    }
+
+                                                    return filtered.map(s => {
+                                                        const checked = assignForm.employee_usernames?.includes(s.username);
+                                                        return (
+                                                            <label key={s.username} className="flex items-center gap-2 text-xs text-slate-700 cursor-pointer animate-fade-in hover:text-slate-900">
+                                                                <input
+                                                                    type="checkbox"
+                                                                    checked={checked}
+                                                                    onChange={(e) => {
+                                                                        setAssignForm(prev => {
+                                                                            const current = prev.employee_usernames || [];
+                                                                            const updated = e.target.checked
+                                                                                ? [...current, s.username]
+                                                                                : current.filter(x => x !== s.username);
+                                                                            return { ...prev, employee_usernames: updated };
+                                                                        });
+                                                                    }}
+                                                                    className="rounded border-slate-350 text-indigo-650 focus:ring-indigo-500 h-4 w-4"
+                                                                />
+                                                                <span className="font-medium">{s.name}</span>
+                                                                <span className="text-[10px] text-slate-400">({s.username})</span>
+                                                            </label>
+                                                        );
+                                                    });
+                                                })()}
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {/* Assigned CA */}
+                                    <div className="space-y-1 relative">
+                                        <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Assigned CA (Optional)</label>
+                                        {selectedCa ? (
+                                            <div className="flex items-center justify-between border border-slate-200 rounded-xl p-3 bg-slate-50">
+                                                <div>
+                                                    <p className="text-xs font-bold text-slate-800">{selectedCa.name}</p>
+                                                    <p className="text-[10px] text-slate-400">Username: {selectedCa.username} · PAN: {selectedCa.pan_no || '—'}</p>
+                                                </div>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => {
+                                                        setSelectedCa(null);
+                                                        setAssignForm(prev => ({ ...prev, ca_id: '' }));
+                                                    }}
+                                                    className="text-slate-400 hover:text-slate-650 p-1 rounded-md"
+                                                >
+                                                    <FiX className="w-4 h-4" />
+                                                </button>
+                                            </div>
+                                        ) : (
+                                            <div className="relative">
+                                                <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4 pointer-events-none" />
+                                                <input
+                                                    type="text"
+                                                    value={caSearchQuery}
+                                                    onChange={(e) => {
+                                                        setCaSearchQuery(e.target.value);
+                                                        setShowCaDropdown(true);
+                                                    }}
+                                                    onFocus={() => setShowCaDropdown(true)}
+                                                    placeholder="Search CA (min 3 chars)…"
+                                                    className="w-full pl-9 pr-3 py-2.5 text-xs text-slate-700 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none bg-white"
+                                                />
+                                                {showCaDropdown && caSearchResults.length > 0 && (
+                                                    <div className="absolute z-50 left-0 right-0 top-full mt-1 bg-white border border-slate-200 rounded-xl shadow-lg max-h-56 overflow-y-auto">
+                                                        {caSearchResults.map(c => (
+                                                            <button
+                                                                key={c.username}
+                                                                type="button"
+                                                                onClick={() => {
+                                                                    setSelectedCa(c);
+                                                                    setAssignForm(prev => ({ ...prev, ca_id: c.username }));
+                                                                    setCaSearchQuery('');
+                                                                    setCaSearchResults([]);
+                                                                    setShowCaDropdown(false);
+                                                                }}
+                                                                className="w-full text-left px-4 py-2.5 hover:bg-slate-50 border-b border-slate-100 last:border-0 text-xs flex flex-col"
+                                                            >
+                                                                <span className="font-semibold text-slate-800">{c.name}</span>
+                                                                <span className="text-[10px] text-slate-400 mt-0.5">Username: {c.username}</span>
+                                                            </button>
+                                                        ))}
+                                                    </div>
+                                                )}
+                                            </div>
+                                        )}
+                                    </div>
 
                                 </div>
                                 <div className="px-5 py-3 bg-slate-50 border-t border-slate-100 flex gap-2 shrink-0">
@@ -1664,7 +2056,7 @@ const ComplianceTab = ({ clientUsername }) => {
 
                     return (
                         <div className="fixed inset-0 z-[200] flex items-start justify-center overflow-hidden overscroll-none p-3 sm:p-4 pointer-events-none">
-                            <div 
+                            <div
                                 className="absolute inset-0 bg-black/60 backdrop-blur-xs pointer-events-auto"
                                 onClick={() => setShowStatusModal(false)}
                             />
@@ -1726,7 +2118,7 @@ const ComplianceTab = ({ clientUsername }) => {
                                 </div>
 
                                 <form onSubmit={handleStatusSubmit} className="flex-1 min-h-0 flex flex-col overflow-hidden">
-                                    <div 
+                                    <div
                                         className="px-5 py-4 flex-1 min-h-0 overflow-y-auto overscroll-y-contain [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden space-y-4"
                                         style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
                                     >
@@ -1740,32 +2132,20 @@ const ComplianceTab = ({ clientUsername }) => {
                                         )}
 
                                         {/* Select Status */}
-                                        <div className="space-y-2">
+                                        <div className="space-y-1.5">
                                             <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Select Status *</label>
-                                            <div className="grid grid-cols-2 gap-3">
-                                                {[
-                                                    { value: 'Pending', label: 'Pending', badge: 'P', color: 'border-amber-200 hover:border-amber-300 text-amber-700 bg-amber-50/10', activeColor: 'bg-amber-500 text-white border-amber-500 shadow-sm ring-2 ring-amber-200' },
-                                                    { value: 'Sale', label: 'Sale (Filed)', badge: 'S', color: 'border-emerald-200 hover:border-emerald-300 text-emerald-700 bg-emerald-50/10', activeColor: 'bg-emerald-500 text-white border-emerald-500 shadow-sm ring-2 ring-emerald-200' },
-                                                    { value: 'Outsource', label: 'Outsource', badge: 'O', color: 'border-blue-200 hover:border-blue-300 text-blue-700 bg-blue-50/10', activeColor: 'bg-blue-500 text-white border-blue-500 shadow-sm ring-2 ring-blue-200' },
-                                                    { value: 'N/A', label: 'N/A', badge: 'N', color: 'border-slate-200 hover:border-slate-300 text-slate-500 bg-slate-50/10', activeColor: 'bg-slate-500 text-white border-slate-500 shadow-sm ring-2 ring-slate-200' }
-                                                ].map((opt) => {
-                                                    const isSelected = statusForm.status === opt.value;
-                                                    return (
-                                                        <button
-                                                            key={opt.value}
-                                                            type="button"
-                                                            disabled={!isUpdatePermitted}
-                                                            onClick={() => setStatusForm(prev => ({ ...prev, status: opt.value }))}
-                                                            className={`flex flex-col items-center justify-center p-3 rounded-xl border-2 text-center transition-all select-none cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed ${
-                                                                isSelected ? opt.activeColor : `bg-white ${opt.color}`
-                                                            }`}
-                                                        >
-                                                            <span className="text-lg font-black tracking-wider mb-1">{opt.badge}</span>
-                                                            <span className="text-[10px] font-bold uppercase tracking-wider">{opt.label}</span>
-                                                        </button>
-                                                    );
-                                                })}
-                                            </div>
+                                            <select
+                                                value={statusForm.status}
+                                                disabled={!isUpdatePermitted}
+                                                onChange={(e) => setStatusForm(prev => ({ ...prev, status: e.target.value }))}
+                                                className="w-full px-3 py-2.5 text-xs text-slate-750 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none bg-white disabled:opacity-60 disabled:cursor-not-allowed font-semibold"
+                                            >
+                                                <option value="Pending From The Department">Pending (Dept)</option>
+                                                <option value="Pending From Client">Pending (Client)</option>
+                                                <option value="Complete">Complete</option>
+                                                <option value="Outsource">Outsource</option>
+                                                <option value="N/A">N/A</option>
+                                            </select>
                                         </div>
 
                                         {/* Amount Field */}
@@ -1783,19 +2163,19 @@ const ComplianceTab = ({ clientUsername }) => {
                                         </div>
 
                                         {/* Ledger notice info */}
-                                        {statusForm.status === 'Sale' && (
+                                        {statusForm.status === 'Complete' && (
                                             <div className="flex gap-2.5 bg-emerald-50 border border-emerald-150 rounded-xl p-3 text-emerald-800">
                                                 <FiCheckCircle className="w-4.5 h-4.5 shrink-0 mt-0.5 text-emerald-600" />
                                                 <p className="text-[10.5px] leading-relaxed font-medium">
-                                                    Updating status to <strong>Sale</strong> will automatically generate a sales invoice and post it to this client firm's ledger.
+                                                    Marking as <strong>Complete</strong> will automatically generate a sales invoice and post it to this client firm's ledger. This action <strong>locks</strong> the record.
                                                 </p>
                                             </div>
                                         )}
-                                        {selectedPeriod.status === 'Sale' && statusForm.status !== 'Sale' && (
+                                        {(selectedPeriod.status === 'Complete' || selectedPeriod.status === 'Sale') && statusForm.status !== 'Complete' && statusForm.status !== 'Sale' && (
                                             <div className="flex gap-2.5 bg-amber-50 border border-amber-150 rounded-xl p-3 text-amber-800">
-                                                <FiAlertCircle className="w-4.5 h-4.5 shrink-0 mt-0.5 text-amber-650" />
+                                                <FiAlertCircle className="w-4.5 h-4.5 shrink-0 mt-0.5 text-amber-655" />
                                                 <p className="text-[10.5px] leading-relaxed font-medium">
-                                                    Changing status away from <strong>Sale</strong> will automatically delete and reverse the posted ledger entry for this period.
+                                                    Changing status away from <strong>Complete</strong> will automatically delete and reverse the posted ledger entry for this period.
                                                 </p>
                                             </div>
                                         )}
@@ -1829,7 +2209,7 @@ const ComplianceTab = ({ clientUsername }) => {
             <AnimatePresence>
                 {selectedStaffDetails && (
                     <div className="fixed inset-0 z-[210] flex items-center justify-center overflow-hidden overscroll-none p-3 sm:p-4 pointer-events-none">
-                        <div 
+                        <div
                             className="absolute inset-0 bg-black/60 backdrop-blur-xs pointer-events-auto"
                             onClick={() => setSelectedStaffDetails(null)}
                         />
@@ -1887,6 +2267,516 @@ const ComplianceTab = ({ clientUsername }) => {
                         </motion.div>
                     </div>
                 )}
+            </AnimatePresence>
+
+            {/* Modal: Edit Assignment */}
+            <AnimatePresence>
+                {showEditModal && editAssignment && (() => {
+                    const svc = globalServices.find(s => String(s.service_id) === String(editAssignment.service_id));
+                    const isGstr1 = editAssignment.service_id === 'GSTR-1' || (svc?.name && /gstr-1/i.test(svc.name));
+                    const editFreq = isGstr1 ? 'monthly' : (svc?.frequency?.toLowerCase() || editAssignment.frequency?.toLowerCase() || '');
+
+                    return (
+                        <div className="fixed inset-0 z-[200] flex items-start justify-center overflow-hidden overscroll-none p-3 sm:p-4 pointer-events-none">
+                            <div
+                                className="absolute inset-0 bg-black/60 backdrop-blur-xs pointer-events-auto"
+                                onClick={() => setShowEditModal(false)}
+                            />
+                            <motion.div
+                                initial={{ opacity: 0, scale: 0.97, y: 20 }}
+                                animate={{ opacity: 1, scale: 1, y: 0 }}
+                                exit={{ opacity: 0, scale: 0.97, y: 20 }}
+                                className="relative z-[1] pointer-events-auto bg-white rounded-2xl shadow-xl w-full max-w-md my-2 sm:my-4 max-h-[calc(100vh-1.5rem)] sm:max-h-[calc(100vh-2rem)] overflow-hidden flex flex-col"
+                                onClick={(e) => e.stopPropagation()}
+                            >
+                                {/* Header */}
+                                <div className="flex items-center justify-between px-5 py-3.5 bg-gradient-to-r from-violet-600 to-indigo-600 text-white shrink-0">
+                                    <div className="flex items-center gap-2">
+                                        <FiEdit2 className="w-5 h-5" />
+                                        <h3 className="text-sm font-bold">Edit Assignment</h3>
+                                    </div>
+                                    <button
+                                        onClick={() => setShowEditModal(false)}
+                                        className="p-1 hover:bg-white/10 rounded-lg text-white/80 hover:text-white"
+                                    >
+                                        <FiX className="w-5 h-5" />
+                                    </button>
+                                </div>
+
+                                {/* Info Banner */}
+                                <div className="bg-violet-50 border-b border-violet-100 px-5 py-3 shrink-0">
+                                    <p className="text-[11px] font-bold text-violet-700">{editAssignment.firm_name}</p>
+                                    <p className="text-[10px] text-violet-500 mt-0.5">{editAssignment.service_name} · {editAssignment.financial_year}</p>
+                                </div>
+
+                                <form onSubmit={handleEditSubmit} className="flex-1 min-h-0 flex flex-col overflow-hidden">
+                                    <div
+                                        className="px-5 py-4 flex-1 min-h-0 overflow-y-auto overscroll-y-contain [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden space-y-4"
+                                        style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+                                    >
+                                        {/* Custom Amount */}
+                                        <div className="space-y-1">
+                                            <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Custom Fees Amount (₹) *</label>
+                                            <input
+                                                type="number"
+                                                step="0.01"
+                                                placeholder="0.00"
+                                                value={editForm.custom_amount}
+                                                onChange={(e) => setEditForm(prev => ({ ...prev, custom_amount: e.target.value }))}
+                                                className="w-full px-3 py-2.5 text-xs text-slate-700 border border-slate-200 rounded-xl focus:ring-2 focus:ring-violet-500 focus:border-transparent outline-none bg-white"
+                                            />
+                                        </div>
+
+                                        {/* Pay From Month (monthly only) */}
+                                        {editFreq === 'monthly' && (
+                                            <div className="space-y-1">
+                                                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Start Generating From Month (Optional)</label>
+                                                <select
+                                                    value={editForm.pay_from_month}
+                                                    onChange={(e) => setEditForm(prev => ({ ...prev, pay_from_month: e.target.value }))}
+                                                    className="w-full px-3 py-2.5 text-xs text-slate-700 border border-slate-200 rounded-xl focus:ring-2 focus:ring-violet-500 focus:border-transparent outline-none bg-white"
+                                                >
+                                                    <option value="">Default (April)</option>
+                                                    {['April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December', 'January', 'February', 'March'].map(m => (
+                                                        <option key={m} value={m}>{m}</option>
+                                                    ))}
+                                                </select>
+                                            </div>
+                                        )}
+
+                                        {/* Quarters (quarterly only) */}
+                                        {editFreq === 'quarterly' && (
+                                            <div className="space-y-2">
+                                                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Select Quarters (Optional)</label>
+                                                <div className="flex gap-4">
+                                                    {[1, 2, 3, 4].map(q => (
+                                                        <label key={q} className="flex items-center gap-1.5 text-xs text-slate-700 cursor-pointer">
+                                                            <input
+                                                                type="checkbox"
+                                                                checked={editForm.quarters?.includes(q)}
+                                                                onChange={(e) => {
+                                                                    setEditForm(prev => {
+                                                                        const current = prev.quarters || [];
+                                                                        const updated = e.target.checked
+                                                                            ? [...current, q]
+                                                                            : current.filter(x => x !== q);
+                                                                        return { ...prev, quarters: updated };
+                                                                    });
+                                                                }}
+                                                                className="rounded border-slate-350 text-violet-600 focus:ring-violet-500 h-4 w-4"
+                                                            />
+                                                            Q{q}
+                                                        </label>
+                                                    ))}
+                                                </div>
+                                                <p className="text-[10px] text-slate-400">Leave unselected to keep all quarters.</p>
+                                            </div>
+                                        )}
+
+                                        {/* Assigned Staff */}
+                                        <div className="space-y-2">
+                                            <div className="flex justify-between items-center">
+                                                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Assigned Staff *</label>
+                                                {editForm.employee_usernames?.length > 0 && (
+                                                    <span className="text-[10px] font-semibold text-violet-650 bg-violet-50 px-2 py-0.5 rounded-full">
+                                                        {editForm.employee_usernames.length} selected
+                                                    </span>
+                                                )}
+                                            </div>
+                                            <div className="border border-slate-200 rounded-xl bg-white overflow-hidden">
+                                                <div className="relative border-b border-slate-100 px-3 py-2 bg-slate-50">
+                                                    <FiSearch className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 w-3.5 h-3.5 pointer-events-none" />
+                                                    <input
+                                                        type="text"
+                                                        placeholder="Filter staff list..."
+                                                        value={editStaffSearchQuery}
+                                                        onChange={(e) => setEditStaffSearchQuery(e.target.value)}
+                                                        className="w-full pl-6 pr-2 py-1 text-xs text-slate-700 bg-transparent outline-none placeholder-slate-400 focus:ring-0"
+                                                    />
+                                                </div>
+                                                <div className="max-h-36 overflow-y-auto p-3 space-y-2">
+                                                    {(() => {
+                                                        const query = editStaffSearchQuery.trim().toLowerCase();
+                                                        const filtered = query
+                                                            ? staffList.filter(s =>
+                                                                (s.name || '').toLowerCase().includes(query) ||
+                                                                (s.username || '').toLowerCase().includes(query)
+                                                            )
+                                                            : staffList;
+
+                                                        if (filtered.length === 0) {
+                                                            return <div className="text-xs text-slate-400">No staff members found.</div>;
+                                                        }
+
+                                                        return filtered.map(s => {
+                                                            const checked = editForm.employee_usernames?.includes(s.username);
+                                                            return (
+                                                                <label key={s.username} className="flex items-center gap-2 text-xs text-slate-700 cursor-pointer hover:text-slate-900">
+                                                                    <input
+                                                                        type="checkbox"
+                                                                        checked={checked}
+                                                                        onChange={(e) => {
+                                                                            setEditForm(prev => {
+                                                                                const current = prev.employee_usernames || [];
+                                                                                const updated = e.target.checked
+                                                                                    ? [...current, s.username]
+                                                                                    : current.filter(x => x !== s.username);
+                                                                                return { ...prev, employee_usernames: updated };
+                                                                            });
+                                                                        }}
+                                                                        className="rounded border-slate-355 text-violet-650 focus:ring-violet-550 h-4 w-4"
+                                                                    />
+                                                                    <span className="font-medium">{s.name}</span>
+                                                                    <span className="text-[10px] text-slate-400">({s.username})</span>
+                                                                </label>
+                                                            );
+                                                        });
+                                                    })()}
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        {/* Assigned CA */}
+                                        <div className="space-y-1 relative">
+                                            <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Assigned CA (Optional)</label>
+                                            {editSelectedCa ? (
+                                                <div className="flex items-center justify-between border border-slate-200 rounded-xl p-3 bg-slate-50">
+                                                    <div>
+                                                        <p className="text-xs font-bold text-slate-800">{editSelectedCa.name}</p>
+                                                        <p className="text-[10px] text-slate-400">Username: {editSelectedCa.username}</p>
+                                                    </div>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => {
+                                                            setEditSelectedCa(null);
+                                                            setEditForm(prev => ({ ...prev, ca_id: '' }));
+                                                        }}
+                                                        className="text-slate-400 hover:text-slate-600 p-1 rounded-md"
+                                                    >
+                                                        <FiX className="w-4 h-4" />
+                                                    </button>
+                                                </div>
+                                            ) : (
+                                                <div className="relative">
+                                                    <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4 pointer-events-none" />
+                                                    <input
+                                                        type="text"
+                                                        value={editCaSearchQuery}
+                                                        onChange={(e) => {
+                                                            setEditCaSearchQuery(e.target.value);
+                                                            setShowEditCaDropdown(true);
+                                                        }}
+                                                        onFocus={() => setShowEditCaDropdown(true)}
+                                                        placeholder="Search CA (min 3 chars)…"
+                                                        className="w-full pl-9 pr-3 py-2.5 text-xs text-slate-700 border border-slate-200 rounded-xl focus:ring-2 focus:ring-violet-500 focus:border-transparent outline-none bg-white"
+                                                    />
+                                                    {showEditCaDropdown && editCaSearchResults.length > 0 && (
+                                                        <div className="absolute z-50 left-0 right-0 top-full mt-1 bg-white border border-slate-200 rounded-xl shadow-lg max-h-56 overflow-y-auto">
+                                                            {editCaSearchResults.map(c => (
+                                                                <button
+                                                                    key={c.username}
+                                                                    type="button"
+                                                                    onClick={() => {
+                                                                        setEditSelectedCa(c);
+                                                                        setEditForm(prev => ({ ...prev, ca_id: c.username }));
+                                                                        setEditCaSearchQuery('');
+                                                                        setEditCaSearchResults([]);
+                                                                        setShowEditCaDropdown(false);
+                                                                    }}
+                                                                    className="w-full text-left px-4 py-2.5 hover:bg-slate-50 border-b border-slate-100 last:border-0 text-xs flex flex-col"
+                                                                >
+                                                                    <span className="font-semibold text-slate-800">{c.name}</span>
+                                                                    <span className="text-[10px] text-slate-400 mt-0.5">Username: {c.username}</span>
+                                                                </button>
+                                                            ))}
+                                                        </div>
+                                                    )}
+                                                    {editCaSearchLoading && (
+                                                        <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                                                            <span className="w-3 h-3 border-2 border-violet-500 border-t-transparent rounded-full animate-spin block" />
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            )}
+                                        </div>
+
+                                        {/* Status */}
+                                        <div className="space-y-1">
+                                            <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Assignment Status</label>
+                                            <select
+                                                value={editForm.status}
+                                                onChange={(e) => setEditForm(prev => ({ ...prev, status: e.target.value }))}
+                                                className="w-full px-3 py-2.5 text-xs text-slate-700 border border-slate-200 rounded-xl focus:ring-2 focus:ring-violet-500 focus:border-transparent outline-none bg-white"
+                                            >
+                                                <option value="active">Active</option>
+                                                <option value="inactive">Inactive</option>
+                                                <option value="paused">Paused</option>
+                                            </select>
+                                        </div>
+                                    </div>
+
+                                    <div className="px-5 py-3 bg-slate-50 border-t border-slate-100 flex gap-2 shrink-0">
+                                        <button
+                                            type="button"
+                                            onClick={() => setShowEditModal(false)}
+                                            className="flex-1 py-2.5 text-xs font-semibold text-slate-605 border border-slate-200 rounded-xl hover:bg-slate-50 transition-colors"
+                                        >
+                                            Cancel
+                                        </button>
+                                        <button
+                                            type="submit"
+                                            disabled={
+                                                submittingEdit ||
+                                                !editForm.custom_amount ||
+                                                (!editForm.employee_usernames || editForm.employee_usernames.length === 0)
+                                            }
+                                            className="flex-1 py-2.5 text-xs font-semibold text-white bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-700 hover:to-indigo-700 rounded-xl disabled:opacity-50 transition-colors flex items-center justify-center gap-1.5"
+                                        >
+                                            {submittingEdit && <span className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />}
+                                            Save Changes
+                                        </button>
+                                    </div>
+                                </form>
+                            </motion.div>
+                        </div>
+                    );
+                })()}
+            </AnimatePresence>
+
+            {/* Modal: Delete Assignment Confirmation */}
+            <AnimatePresence>
+                {confirmDeleteId && (
+                    <div className="fixed inset-0 z-[220] flex items-center justify-center p-4 pointer-events-none">
+                        <div className="absolute inset-0 bg-black/60 backdrop-blur-xs pointer-events-auto" onClick={() => setConfirmDeleteId(null)} />
+                        <motion.div
+                            initial={{ opacity: 0, scale: 0.95 }}
+                            animate={{ opacity: 1, scale: 1 }}
+                            exit={{ opacity: 0, scale: 0.95 }}
+                            className="relative z-[1] pointer-events-auto bg-white rounded-2xl shadow-xl w-full max-w-sm overflow-hidden"
+                            onClick={(e) => e.stopPropagation()}
+                        >
+                            <div className="px-5 py-4 flex flex-col items-center gap-3 text-center">
+                                <div className="w-12 h-12 rounded-full bg-rose-50 flex items-center justify-center">
+                                    <FiTrash2 className="w-5 h-5 text-rose-600" />
+                                </div>
+                                <h3 className="text-sm font-bold text-slate-800">Delete Assignment?</h3>
+                                <p className="text-xs text-slate-500 leading-relaxed">
+                                    This will permanently delete the recurring task assignment and all its schedule periods. This action cannot be undone.
+                                </p>
+                            </div>
+                            <div className="px-5 py-3 bg-slate-50 border-t border-slate-100 flex gap-2">
+                                <button
+                                    type="button"
+                                    onClick={() => setConfirmDeleteId(null)}
+                                    className="flex-1 py-2 text-xs font-semibold text-slate-600 border border-slate-200 rounded-xl hover:bg-white transition-colors"
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    type="button"
+                                    disabled={deletingAssignmentId === confirmDeleteId}
+                                    onClick={async () => {
+                                        setDeletingAssignmentId(confirmDeleteId);
+                                        try {
+                                            await axios.delete(`${API_BASE_URL}/compliance/assignments/${confirmDeleteId}`, { headers: getHeaders() });
+                                            toast.success('Assignment deleted successfully');
+                                            setConfirmDeleteId(null);
+                                            setSelectedAssignmentId(null);
+                                            fetchComplianceData();
+                                            fetchAllSchedules();
+                                        } catch (err) {
+                                            toast.error(err?.response?.data?.message || 'Failed to delete assignment');
+                                        } finally {
+                                            setDeletingAssignmentId(null);
+                                        }
+                                    }}
+                                    className="flex-1 py-2 text-xs font-semibold text-white bg-rose-600 hover:bg-rose-700 rounded-xl disabled:opacity-50 transition-colors flex items-center justify-center gap-1.5"
+                                >
+                                    {deletingAssignmentId === confirmDeleteId && (
+                                        <span className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                                    )}
+                                    Delete
+                                </button>
+                            </div>
+                        </motion.div>
+                    </div>
+                )}
+            </AnimatePresence>
+
+            {/* Modal: Broadcast Reminder */}
+            <AnimatePresence>
+                {broadcastModal.open && broadcastModal.assign && (
+                    <div className="fixed inset-0 z-[220] flex items-center justify-center p-4 pointer-events-none">
+                        <div className="absolute inset-0 bg-black/60 backdrop-blur-xs pointer-events-auto" onClick={() => setBroadcastModal({ open: false, assign: null })} />
+                        <motion.div
+                            initial={{ opacity: 0, scale: 0.95 }}
+                            animate={{ opacity: 1, scale: 1 }}
+                            exit={{ opacity: 0, scale: 0.95 }}
+                            className="relative z-[1] pointer-events-auto bg-white rounded-2xl shadow-xl w-full max-w-sm overflow-hidden"
+                            onClick={(e) => e.stopPropagation()}
+                        >
+                            <div className="flex items-center justify-between px-5 py-3.5 bg-gradient-to-r from-indigo-600 to-violet-600 text-white">
+                                <div className="flex items-center gap-2">
+                                    <FiShare2 className="w-5 h-5" />
+                                    <h3 className="text-sm font-bold">Broadcast Compliance Reminder</h3>
+                                </div>
+                                <button onClick={() => setBroadcastModal({ open: false, assign: null })} className="p-1 hover:bg-white/10 rounded-lg">
+                                    <FiX className="w-5 h-5" />
+                                </button>
+                            </div>
+                            <div className="p-5 space-y-4">
+                                <div className="bg-indigo-50 border border-indigo-100 rounded-xl p-3 text-xs text-indigo-800">
+                                    <p className="font-bold">{broadcastModal.assign?.firm_name}</p>
+                                    <p className="text-[11px] text-indigo-650 mt-0.5">{broadcastModal.assign?.service_name}</p>
+                                    <p className="text-[11px] text-indigo-605">Financial Year: {broadcastModal.assign?.financial_year}</p>
+                                </div>
+                                <div className="space-y-1">
+                                    <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">WhatsApp Number</label>
+                                    <div className="relative">
+                                        <FaWhatsapp className="absolute left-3 top-1/2 -translate-y-1/2 text-green-500 w-4 h-4" />
+                                        <input
+                                            type="tel"
+                                            value={broadcastPhone}
+                                            onChange={(e) => setBroadcastPhone(e.target.value)}
+                                            placeholder="+91 9876543210"
+                                            className="w-full pl-9 pr-3 py-2.5 text-xs text-slate-700 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none bg-white"
+                                        />
+                                    </div>
+                                </div>
+                                <div className="space-y-1">
+                                    <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Email Address</label>
+                                    <div className="relative">
+                                        <MdEmail className="absolute left-3 top-1/2 -translate-y-1/2 text-blue-400 w-4 h-4" />
+                                        <input
+                                            type="email"
+                                            value={broadcastEmail}
+                                            onChange={(e) => setBroadcastEmail(e.target.value)}
+                                            placeholder="client@example.com"
+                                            className="w-full pl-9 pr-3 py-2.5 text-xs text-slate-700 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none bg-white"
+                                        />
+                                    </div>
+                                </div>
+                            </div>
+                            <div className="px-5 py-3 bg-slate-50 border-t border-slate-100 flex gap-2">
+                                <button
+                                    type="button"
+                                    onClick={() => setBroadcastModal({ open: false, assign: null })}
+                                    className="flex-1 py-2 text-xs font-semibold text-slate-600 border border-slate-200 rounded-xl hover:bg-white transition-colors"
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        if (!broadcastPhone && !broadcastEmail) { toast.error('Enter at least one contact'); return; }
+                                        const msg = `Dear Client, this is a friendly reminder regarding your compliance service "${broadcastModal.assign?.service_name}" for the financial year ${broadcastModal.assign?.financial_year}. Please ensure any pending requirements are shared with us so we can proceed. Thank you!`;
+                                        if (broadcastPhone) window.open(`https://wa.me/${broadcastPhone.replace(/[^0-9]/g, '')}?text=${encodeURIComponent(msg)}`, '_blank');
+                                        if (broadcastEmail) window.open(`mailto:${broadcastEmail}?subject=Compliance Reminder - ${broadcastModal.assign?.service_name}&body=${encodeURIComponent(msg)}`);
+                                        setBroadcastModal({ open: false, assign: null });
+                                        toast.success('Reminder broadcasted successfully!');
+                                    }}
+                                    className="flex-1 py-2 text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl transition-colors flex items-center justify-center gap-1.5"
+                                >
+                                    <FiShare2 className="w-3.5 h-3.5" />
+                                    Send Broadcast
+                                </button>
+                            </div>
+                        </motion.div>
+                    </div>
+                )}
+            </AnimatePresence>
+
+            {/* Modal: Show Full 12-Month Calendar */}
+            <AnimatePresence>
+                {showFullCalendarModal && fullCalendarAssignment && (() => {
+                    const currentUsername = (localStorage.getItem('user_username') || '').toLowerCase().trim();
+                    return (
+                        <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 pointer-events-none">
+                            <div className="absolute inset-0 bg-black/60 backdrop-blur-xs pointer-events-auto" onClick={() => { setShowFullCalendarModal(false); setFullCalendarAssignment(null); }} />
+                            <motion.div
+                                initial={{ opacity: 0, scale: 0.95 }}
+                                animate={{ opacity: 1, scale: 1 }}
+                                exit={{ opacity: 0, scale: 0.95 }}
+                                className="relative z-[1] pointer-events-auto bg-white rounded-2xl shadow-xl w-full max-w-4xl max-h-[85vh] overflow-hidden flex flex-col"
+                                onClick={(e) => e.stopPropagation()}
+                            >
+                                <div className="flex items-center justify-between px-6 py-4 bg-gradient-to-r from-indigo-600 to-violet-600 text-white shrink-0">
+                                    <div className="flex items-center gap-3">
+                                        <FiCalendar className="w-5 h-5" />
+                                        <div>
+                                            <h3 className="text-sm font-bold">Full Calendar: {fullCalendarAssignment.firm_name}</h3>
+                                            <p className="text-[11px] text-white/85">{fullCalendarAssignment.service_name} · FY {fullCalendarAssignment.financial_year}</p>
+                                        </div>
+                                    </div>
+                                    <button onClick={() => { setShowFullCalendarModal(false); setFullCalendarAssignment(null); }} className="p-1.5 hover:bg-white/10 rounded-lg text-white">
+                                        <FiX className="w-5 h-5" />
+                                    </button>
+                                </div>
+
+                                <div className="p-6 overflow-y-auto flex-1 min-h-0">
+                                    {schedulesLoading ? (
+                                        <div className="text-center py-12 text-slate-400">
+                                            <div className="w-8 h-8 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin mx-auto mb-3"></div>
+                                            <p className="text-xs">Loading all schedules...</p>
+                                        </div>
+                                    ) : (
+                                        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                                            {schedules.map((period) => {
+                                                const assignedStaffs = getAssignedStaffList(fullCalendarAssignment);
+                                                const assignedStaffUsernames = assignedStaffs.map(emp => (emp.username || '').toLowerCase().trim());
+                                                const isUpdatePermitted = !currentUsername || assignedStaffUsernames.length === 0 || assignedStaffUsernames.includes(currentUsername);
+                                                const isComplete = period.status === 'Complete' || period.status === 'Sale';
+
+                                                return (
+                                                    <div
+                                                        key={period.schedule_id}
+                                                        onClick={() => isUpdatePermitted && !isComplete && openStatusModal(period, fullCalendarAssignment)}
+                                                        className={`border rounded-xl p-4 transition-all flex flex-col justify-between min-h-[105px] group ${isUpdatePermitted && !isComplete
+                                                            ? "bg-white border-slate-200 hover:border-indigo-300 hover:shadow-md cursor-pointer"
+                                                            : isComplete
+                                                                ? "bg-emerald-50/40 border-emerald-200 cursor-default"
+                                                                : "bg-slate-50/50 border-slate-200/60 opacity-60 cursor-not-allowed"
+                                                            }`}
+                                                    >
+                                                        <div className="flex items-start justify-between gap-1">
+                                                            <span className="text-xs font-bold text-slate-750 group-hover:text-indigo-600">
+                                                                {period.period_name}
+                                                            </span>
+                                                            <FiInfo className="w-3.5 h-3.5 text-slate-300 group-hover:text-indigo-400 shrink-0" />
+                                                        </div>
+                                                        <div className="mt-3 space-y-2">
+                                                            <span className="text-xs font-extrabold text-slate-850 block">
+                                                                ₹{formatCurrency(period.amount)}
+                                                            </span>
+                                                            <div className="flex items-center justify-between gap-2">
+                                                                <span className={`inline-flex px-2 py-0.5 rounded text-[9px] font-bold border uppercase tracking-wider ${STATUS_BADGES[period.status] || 'bg-slate-50'}`}>
+                                                                    {period.status}
+                                                                </span>
+                                                            </div>
+                                                            <div className="text-[9px] text-slate-400 font-semibold">
+                                                                Due: {getPeriodDueDate(period)}
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
+                                    )}
+                                </div>
+
+                                <div className="px-6 py-3.5 bg-slate-50 border-t border-slate-100 flex justify-end shrink-0">
+                                    <button
+                                        type="button"
+                                        onClick={() => { setShowFullCalendarModal(false); setFullCalendarAssignment(null); }}
+                                        className="px-5 py-2 text-xs font-semibold text-slate-700 border border-slate-200 rounded-xl hover:bg-white transition-colors"
+                                    >
+                                        Close
+                                    </button>
+                                </div>
+                            </motion.div>
+                        </div>
+                    );
+                })()}
             </AnimatePresence>
 
             <AssignedStaffList

@@ -1272,7 +1272,7 @@ const ClientProfile = () => {
         { id: 'billing', name: 'Billing', icon: FiFileText },
         { id: 'ledger', name: 'Ledger', icon: FiDollarSign },
         { id: 'notes', name: 'Notes', icon: FiFile },
-        { id: 'compliance', name: 'Compliance', icon: FiLayers },
+        { id: 'compliance', name: 'Recurring', icon: FiLayers },
         { id: 'documents', name: 'Documents', icon: FiArchive },
         { id: 'chatting', name: 'Chatting', icon: FiMessageSquare },
         { id: 'automation', name: 'Automation', icon: FiSettings }

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { motion } from 'framer-motion';
-import { FiCalendar, FiPlus, FiRefreshCw, FiLoader } from 'react-icons/fi';
+import { FiCalendar, FiPlus, FiRefreshCw, FiLoader, FiChevronDown, FiChevronUp } from 'react-icons/fi';
 import { useNavigate } from 'react-router-dom';
 import getHeaders from "../utils/get-headers";
 import API_BASE_URL from "../utils/api-controller";
@@ -36,6 +36,7 @@ const TaskSummary = ({ onRefresh: externalRefresh, onCreateTask }) => {
     const [loading, setLoading] = useState(false);
     const [summary, setSummary] = useState(null);
     const [categoryLegend, setCategoryLegend] = useState({});
+    const [isExpanded, setIsExpanded] = useState(false);
 
     // Fetch services list
     const fetchServices = useCallback(async () => {
@@ -465,7 +466,7 @@ const TaskSummary = ({ onRefresh: externalRefresh, onCreateTask }) => {
                                         </td>
                                     </tr>
                                 ) : (
-                                    taskStats.map((service) => (
+                                    (isExpanded ? taskStats : taskStats.slice(0, 3)).map((service) => (
                                         <tr key={service.id} className="hover:bg-gray-50/50 transition-colors">
                                             <td 
                                                 className="p-4 cursor-pointer hover:text-indigo-600 transition-colors"
@@ -561,6 +562,24 @@ const TaskSummary = ({ onRefresh: externalRefresh, onCreateTask }) => {
                             </tbody>
                         </table>
                     </div>
+                    {taskStats.length > 3 && (
+                        <div className="flex justify-center mt-5">
+                            <button
+                                onClick={() => setIsExpanded(!isExpanded)}
+                                className="flex items-center gap-1.5 px-4 py-2 text-sm font-semibold text-indigo-600 bg-indigo-50 hover:bg-indigo-100 rounded-xl transition-colors duration-300 shadow-sm hover:shadow"
+                            >
+                                {isExpanded ? (
+                                    <>
+                                        Show Less <FiChevronUp className="w-4 h-4" />
+                                    </>
+                                ) : (
+                                    <>
+                                        Show More ({taskStats.length - 3} More) <FiChevronDown className="w-4 h-4" />
+                                    </>
+                                )}
+                            </button>
+                        </div>
+                    )}
                     
                     {summary && (
                         <div className="mt-4 p-4 bg-gray-50 rounded-lg">
