@@ -467,7 +467,7 @@ root.render(
           </ProtectedRoute>
         } />
 
-        <Route path="/broadcast/whatsapp/onechatting/live-chat" element={
+        <Route path="/broadcast/whatsapp/onechatting/live-chat/:number?" element={
           <ProtectedRoute>
             <OneChattingLiveChat />
           </ProtectedRoute>

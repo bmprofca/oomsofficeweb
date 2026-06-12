@@ -41,6 +41,22 @@ export const whatsappApi = {
     whatsappAxios.get('/broadcast/whatsapp/onechatting/chat-list', { params }).then(unwrap),
   getChatHistory: (params) =>
     whatsappAxios.get('/broadcast/whatsapp/onechatting/chat-history', { params }).then(unwrap),
+  sendTextMessage: (payload) =>
+    whatsappAxios.post('/broadcast/whatsapp/onechatting/send-text-message', payload).then(unwrap),
+  sendImageMessage: (payload) =>
+    whatsappAxios.post('/broadcast/whatsapp/onechatting/send-image-message', payload).then(unwrap),
+  sendVideoMessage: (payload) =>
+    whatsappAxios.post('/broadcast/whatsapp/onechatting/send-video-message', payload).then(unwrap),
+  sendDocumentMessage: (payload) =>
+    whatsappAxios.post('/broadcast/whatsapp/onechatting/send-document-message', payload).then(unwrap),
+  sendAudioMessage: (payload) =>
+    whatsappAxios.post('/broadcast/whatsapp/onechatting/send-audio-message', payload).then(unwrap),
+  sendTemplateMessage: (payload) =>
+    whatsappAxios.post('/broadcast/whatsapp/onechatting/send-template', payload).then(unwrap),
+  getTemplateList: (params) =>
+    whatsappAxios.get('/broadcast/whatsapp/onechatting/template-list', { params }).then(unwrap),
+  getTemplateDetails: (params) =>
+    whatsappAxios.get('/broadcast/whatsapp/onechatting/template-details', { params }).then(unwrap),
 };
 
 export const normalizeList = (data) => (Array.isArray(data) ? data : []);

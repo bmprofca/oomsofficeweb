@@ -88,6 +88,57 @@ export const isPdfMedia = (url, name) => {
   return value.includes('.pdf');
 };
 
+export const getFileExtension = (name, url) => {
+  const fromName = (name || '').trim();
+  if (fromName.includes('.')) {
+    const ext = fromName.split('.').pop()?.toLowerCase();
+    if (ext && /^[a-z0-9]{1,8}$/.test(ext)) return ext;
+  }
+
+  try {
+    const pathname = new URL(url).pathname;
+    const segment = decodeURIComponent(pathname.split('/').pop() || '');
+    if (segment.includes('.')) {
+      const ext = segment.split('.').pop()?.toLowerCase();
+      if (ext && /^[a-z0-9]{1,8}$/.test(ext)) return ext;
+    }
+  } catch {
+    /* ignore invalid url */
+  }
+
+  return '';
+};
+
+const DOCUMENT_TYPE_META = {
+  pdf: { label: 'PDF', color: 'text-red-600', bg: 'bg-red-50' },
+  doc: { label: 'DOC', color: 'text-blue-700', bg: 'bg-blue-50' },
+  docx: { label: 'DOC', color: 'text-blue-700', bg: 'bg-blue-50' },
+  xls: { label: 'XLS', color: 'text-green-700', bg: 'bg-green-50' },
+  xlsx: { label: 'XLS', color: 'text-green-700', bg: 'bg-green-50' },
+  ppt: { label: 'PPT', color: 'text-orange-700', bg: 'bg-orange-50' },
+  pptx: { label: 'PPT', color: 'text-orange-700', bg: 'bg-orange-50' },
+  txt: { label: 'TXT', color: 'text-gray-700', bg: 'bg-gray-100' },
+  zip: { label: 'ZIP', color: 'text-amber-700', bg: 'bg-amber-50' },
+  rar: { label: 'RAR', color: 'text-amber-700', bg: 'bg-amber-50' },
+};
+
+export const getDocumentTypeMeta = (extension) => {
+  const ext = (extension || '').toLowerCase();
+  if (DOCUMENT_TYPE_META[ext]) return DOCUMENT_TYPE_META[ext];
+  return {
+    label: ext ? ext.slice(0, 4).toUpperCase() : 'FILE',
+    color: 'text-gray-700',
+    bg: 'bg-gray-100',
+  };
+};
+
+export const formatAudioDuration = (seconds) => {
+  if (!Number.isFinite(seconds) || seconds < 0) return '0:00';
+  const mins = Math.floor(seconds / 60);
+  const secs = Math.floor(seconds % 60);
+  return `${mins}:${secs.toString().padStart(2, '0')}`;
+};
+
 export const getMediaPreviewType = (messageType, url, name) => {
   if (messageType === 'image') return 'image';
   if (messageType === 'video') return 'video';

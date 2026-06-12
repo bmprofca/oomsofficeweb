@@ -7,40 +7,83 @@ import React, {
 } from "react";
 import debounce from "lodash.debounce";
 import { toast } from "react-hot-toast";
+import { Document, Page, pdfjs } from "react-pdf";
 import {
   FiArrowLeft,
   FiCheck,
+  FiChevronDown,
   FiClock,
+  FiCornerUpLeft,
+  FiDownload,
+  FiFile,
   FiFileText,
+  FiImage,
+  FiLayout,
   FiLoader,
+  FiMapPin,
   FiMaximize2,
   FiMessageCircle,
+  FiMic,
   FiMinimize2,
-  FiMusic,
+  FiPaperclip,
+  FiPause,
   FiPlay,
   FiRefreshCw,
   FiSearch,
+  FiSend,
   FiStar,
   FiUser,
+  FiVideo,
   FiX,
 } from "react-icons/fi";
+import { useNavigate, useParams } from "react-router-dom";
 import { Header, Sidebar } from "../../../components/header";
+import OneChattingAttachModal from "./OneChattingAttachModal";
 import OneChattingMediaModal from "./OneChattingMediaModal";
+import OneChattingTemplateModal from "./OneChattingTemplateModal";
 import { whatsappApi } from "./whatsappApi";
 import {
+  buildReplyPayload,
+  enrichSentMessage,
+  extractApiError,
+  normalizeRecipientNumber,
+} from "./oneChattingSendUtils";
+import {
   canPreviewMedia,
+  formatAudioDuration,
   formatChatDate,
   getAssigneeLabel,
   getDisplayName,
+  getDocumentTypeMeta,
+  getFileExtension,
   getMediaPreviewType,
   getMessageCaption,
   getMessageContentLabel,
   getMessagePreview,
+  isPdfMedia,
   WhatsAppFormattedText,
 } from "./oneChattingChatUtils";
+import {
+  clearChatUnreadCount,
+  normalizeSocketAssignment,
+  updateChatListForMessage,
+  updateChatListLastMessageStatus,
+  updateMessageStatus,
+  upsertMessage,
+} from "./oneChattingSocketUtils";
+import { extractDeveloperToken } from "./developerSocket";
+import useDeveloperSocket from "./useDeveloperSocket";
+import "react-pdf/dist/Page/AnnotationLayer.css";
+import "react-pdf/dist/Page/TextLayer.css";
+
+pdfjs.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`;
+
+const LIVE_CHAT_PATH = "/broadcast/whatsapp/onechatting/live-chat";
 const CHAT_LIST_LIMIT = 20;
 const HISTORY_LIMIT = 50;
 const SEARCH_DEBOUNCE_MS = 500;
+const SCROLL_TO_BOTTOM_THRESHOLD = 120;
+const MESSAGE_DRAFT_MAX_LENGTH = 4096;
 const BUBBLE_MAX_WIDTH_CLASS = "max-w-[65%]";
 const MEDIA_PREVIEW_WIDTH_CLASS = "w-[330px] max-w-full";
 const MEDIA_PREVIEW_HEIGHT_CLASS = "h-[200px]";
@@ -233,7 +276,304 @@ const ChatVisualMediaPreview = ({
   );
 };
 
+const ChatPdfPreview = ({ src, name, onClick, clickable = true }) => {
+  const [loadState, setLoadState] = useState("loading");
+  const [numPages, setNumPages] = useState(null);
+
+  const preview = (
+    <div className={`relative ${MEDIA_PREVIEW_BOX_CLASS}`}>
+      {loadState === "loading" && (
+        <div className="absolute inset-0 z-10 flex items-center justify-center">
+          <div className="absolute inset-0 animate-pulse bg-gradient-to-r from-[#cfd4d6] via-[#e9edef] to-[#cfd4d6]" />
+          <FiLoader className="relative w-6 h-6 animate-spin text-gray-500" />
+        </div>
+      )}
+
+      {loadState === "error" && (
+        <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-2 px-3 text-center">
+          <FiFileText className="w-8 h-8 text-red-500" />
+          <span className="text-xs text-gray-500">PDF preview unavailable</span>
+        </div>
+      )}
+
+      <Document
+        file={src}
+        onLoadSuccess={({ numPages: pages }) => {
+          setNumPages(pages);
+          setLoadState("loaded");
+        }}
+        onLoadError={() => setLoadState("error")}
+        loading=""
+        className={loadState === "loaded" ? "flex justify-center" : "hidden"}
+      >
+        <Page
+          pageNumber={1}
+          height={158}
+          renderTextLayer={false}
+          renderAnnotationLayer={false}
+        />
+      </Document>
+
+      <div className="absolute bottom-0 left-0 right-0 z-[2] flex items-center gap-2 bg-[#f0f2f5]/95 px-2.5 py-1.5 border-t border-black/5">
+        <span className="w-7 h-7 rounded bg-red-500 text-white text-[9px] font-bold flex items-center justify-center shrink-0">
+          PDF
+        </span>
+        <div className="min-w-0 flex-1">
+          <p className="text-xs text-gray-800 truncate m-0 leading-tight">
+            {name || "Document"}
+          </p>
+          {numPages ? (
+            <p className="text-[10px] text-gray-500 m-0 leading-tight">
+              {numPages} {numPages === 1 ? "page" : "pages"}
+            </p>
+          ) : null}
+        </div>
+      </div>
+    </div>
+  );
+
+  if (!clickable) return preview;
+
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`block ${MEDIA_PREVIEW_WIDTH_CLASS} shrink-0 text-left rounded-md overflow-hidden focus:outline-none focus:ring-2 focus:ring-green-400/50`}
+    >
+      {preview}
+    </button>
+  );
+};
+
+const ChatDocumentFilePreview = ({ url, name, isOutgoing }) => {
+  const extension = getFileExtension(name, url);
+  const meta = getDocumentTypeMeta(extension);
+
+  const handleDownload = async (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+
+    const filename = name?.trim() || `document.${extension || "file"}`;
+
+    try {
+      const response = await fetch(url);
+      if (!response.ok) throw new Error("Download failed");
+
+      const blob = await response.blob();
+      const blobUrl = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = blobUrl;
+      link.download = filename;
+      link.rel = "noopener";
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(blobUrl);
+    } catch {
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = filename;
+      link.target = "_blank";
+      link.rel = "noopener noreferrer";
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+    }
+  };
+
+  return (
+    <div className="flex items-center gap-3 min-w-[240px] max-w-[320px] py-1">
+      <div
+        className={`w-11 h-12 rounded-md flex items-center justify-center shrink-0 ${meta.bg}`}
+      >
+        <span className={`text-[10px] font-bold uppercase ${meta.color}`}>
+          {meta.label}
+        </span>
+      </div>
+      <div className="flex-1 min-w-0">
+        <p
+          className={`text-sm truncate m-0 leading-tight ${isOutgoing ? "text-white" : "text-gray-800"}`}
+        >
+          {name || "Document"}
+        </p>
+        <p
+          className={`text-[11px] m-0 mt-0.5 leading-tight ${isOutgoing ? "text-green-100" : "text-gray-500"}`}
+        >
+          {extension ? `${extension.toUpperCase()} file` : "Document"}
+        </p>
+      </div>
+      <button
+        type="button"
+        onClick={handleDownload}
+        className={`p-2 rounded-full shrink-0 transition-colors ${
+          isOutgoing
+            ? "text-green-100 hover:bg-green-700/50"
+            : "text-gray-500 hover:bg-gray-100"
+        }`}
+        title="Download"
+        aria-label="Download document"
+      >
+        <FiDownload className="w-4 h-4" />
+      </button>
+    </div>
+  );
+};
+
+const ChatAudioPreview = ({ src, name, isOutgoing, onOpenModal }) => {
+  const audioRef = useRef(null);
+  const [playing, setPlaying] = useState(false);
+  const [currentTime, setCurrentTime] = useState(0);
+  const [duration, setDuration] = useState(0);
+
+  const togglePlay = (event) => {
+    event.stopPropagation();
+    const audio = audioRef.current;
+    if (!audio) return;
+
+    if (playing) {
+      audio.pause();
+    } else {
+      audio.play().catch(() => {
+        onOpenModal?.();
+      });
+    }
+  };
+
+  const handleSeek = (event) => {
+    event.stopPropagation();
+    const audio = audioRef.current;
+    if (!audio || !duration) return;
+
+    const rect = event.currentTarget.getBoundingClientRect();
+    const ratio = Math.min(
+      1,
+      Math.max(0, (event.clientX - rect.left) / rect.width),
+    );
+    audio.currentTime = ratio * duration;
+  };
+
+  const progress = duration ? (currentTime / duration) * 100 : 0;
+  const displayTime = formatAudioDuration(
+    playing || currentTime > 0 ? currentTime : duration,
+  );
+
+  return (
+    <div className="flex items-center gap-2.5 min-w-[240px] max-w-[320px] py-1">
+      <button
+        type="button"
+        onClick={togglePlay}
+        className={`w-9 h-9 rounded-full flex items-center justify-center shrink-0 text-white ${
+          isOutgoing
+            ? "bg-green-700 hover:bg-green-800"
+            : "bg-green-600 hover:bg-green-700"
+        }`}
+        aria-label={playing ? "Pause audio" : "Play audio"}
+      >
+        {playing ? (
+          <FiPause className="w-4 h-4" />
+        ) : (
+          <FiPlay className="w-4 h-4 ml-0.5" />
+        )}
+      </button>
+
+      <div className="flex-1 min-w-0">
+        <button
+          type="button"
+          onClick={handleSeek}
+          className="relative w-full h-1.5 rounded-full overflow-hidden bg-black/10"
+          aria-label="Seek audio"
+        >
+          <span
+            className={`absolute inset-y-0 left-0 rounded-full ${
+              isOutgoing ? "bg-green-200" : "bg-green-500"
+            }`}
+            style={{ width: `${progress}%` }}
+          />
+        </button>
+        <div className="flex items-center justify-between gap-2 mt-1.5">
+          <span
+            className={`text-[11px] truncate ${
+              isOutgoing ? "text-green-100" : "text-gray-600"
+            }`}
+          >
+            {name || "Audio"}
+          </span>
+          <span
+            className={`text-[10px] shrink-0 ${
+              isOutgoing ? "text-green-100" : "text-gray-500"
+            }`}
+          >
+            {displayTime}
+          </span>
+        </div>
+      </div>
+
+      <audio
+        ref={audioRef}
+        src={src}
+        preload="metadata"
+        className="hidden"
+        onPlay={() => setPlaying(true)}
+        onPause={() => setPlaying(false)}
+        onEnded={() => setPlaying(false)}
+        onTimeUpdate={(event) =>
+          setCurrentTime(event.currentTarget.currentTime)
+        }
+        onLoadedMetadata={(event) =>
+          setDuration(event.currentTarget.duration || 0)
+        }
+      />
+    </div>
+  );
+};
+
+const ChatLocationPreview = ({ latitude, longitude, name, address }) => {
+  const mapSrc = `https://staticmap.openstreetmap.de/staticmap.php?center=${latitude},${longitude}&zoom=15&size=330x200&markers=${latitude},${longitude},red-pushpin`;
+  const mapsLink = `https://www.google.com/maps?q=${latitude},${longitude}`;
+
+  return (
+    <a
+      href={mapsLink}
+      target="_blank"
+      rel="noreferrer noopener"
+      className={`block ${MEDIA_PREVIEW_WIDTH_CLASS} shrink-0 rounded-md overflow-hidden bg-white`}
+      onClick={(event) => event.stopPropagation()}
+    >
+      <div className={MEDIA_PREVIEW_BOX_CLASS}>
+        <img
+          src={mapSrc}
+          alt={name || "Location"}
+          className="w-full h-full object-cover"
+          loading="lazy"
+          referrerPolicy="no-referrer"
+        />
+        <span className="absolute top-2 left-2 w-8 h-8 rounded-full bg-white shadow flex items-center justify-center">
+          <FiMapPin className="w-4 h-4 text-red-500" />
+        </span>
+      </div>
+      {(name || address) && (
+        <div className="px-2.5 py-2 border-t border-black/5">
+          {name ? (
+            <p className="text-sm font-medium text-gray-800 truncate m-0">
+              {name}
+            </p>
+          ) : null}
+          {address ? (
+            <p className="text-xs text-gray-500 truncate m-0 mt-0.5">
+              {address}
+            </p>
+          ) : null}
+        </div>
+      )}
+    </a>
+  );
+};
+
 const OneChattingLiveChat = () => {
+  const { number: numberParam } = useParams();
+  const navigate = useNavigate();
+  const urlNumber = numberParam ? decodeURIComponent(numberParam) : null;
+
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [isMinimized, setIsMinimized] = useState(() =>
     JSON.parse(localStorage.getItem("sidebarMinimized") || "false"),
@@ -252,7 +592,9 @@ const OneChattingLiveChat = () => {
     has_more: false,
   });
 
-  const [selectedContact, setSelectedContact] = useState(null);
+  const [selectedContact, setSelectedContact] = useState(() =>
+    urlNumber ? { number: urlNumber } : null,
+  );
   const [messages, setMessages] = useState([]);
   const [assigned, setAssigned] = useState(false);
   const [historyLoading, setHistoryLoading] = useState(false);
@@ -264,8 +606,19 @@ const OneChattingLiveChat = () => {
   });
   const [mediaPreview, setMediaPreview] = useState(null);
   const [isFullScreen, setIsFullScreen] = useState(false);
+  const [showScrollToBottom, setShowScrollToBottom] = useState(false);
+  const [messageDraft, setMessageDraft] = useState("");
+  const [sendingMessage, setSendingMessage] = useState(false);
+  const [replyToMessage, setReplyToMessage] = useState(null);
+  const [attachMenuOpen, setAttachMenuOpen] = useState(false);
+  const [attachModalType, setAttachModalType] = useState(null);
+  const [templateModalOpen, setTemplateModalOpen] = useState(false);
+  const [developerToken, setDeveloperToken] = useState("");
 
   const messagesContainerRef = useRef(null);
+  const selectedContactRef = useRef(selectedContact);
+  const messageInputRef = useRef(null);
+  const attachMenuRef = useRef(null);
   const chatListContainerRef = useRef(null);
   const savedChatListScrollTop = useRef(0);
   const skipScrollRef = useRef(false);
@@ -277,12 +630,15 @@ const OneChattingLiveChat = () => {
   const stickBottomEndTimerRef = useRef(null);
   const lastScrollTopRef = useRef(0);
 
+  selectedContactRef.current = selectedContact;
+
   const scrollToBottomInstant = useCallback(() => {
     const container = messagesContainerRef.current;
     if (!container) return;
     isProgrammaticScrollRef.current = true;
     container.scrollTop = container.scrollHeight;
     lastScrollTopRef.current = container.scrollTop;
+    setShowScrollToBottom(false);
     requestAnimationFrame(() => {
       isProgrammaticScrollRef.current = false;
     });
@@ -344,6 +700,12 @@ const OneChattingLiveChat = () => {
     return () => observer.disconnect();
   }, [selectedContact?.number, scheduleStickToBottom]);
 
+  const storeDeveloperToken = useCallback((response) => {
+    const token = extractDeveloperToken(response);
+    if (!token) return;
+    setDeveloperToken((prev) => (prev === token ? prev : token));
+  }, []);
+
   const fetchChatList = useCallback(
     async (page = 1, append = false, searchTerm = "") => {
       if (append) {
@@ -357,6 +719,7 @@ const OneChattingLiveChat = () => {
         if (searchTerm.trim()) params.search = searchTerm.trim();
 
         const res = await whatsappApi.getChatList(params);
+        storeDeveloperToken(res);
         const items = Array.isArray(res?.data) ? res.data : [];
         setChats((prev) => (append ? [...prev, ...items] : items));
         setChatPagination({
@@ -378,7 +741,7 @@ const OneChattingLiveChat = () => {
         setChatListLoadingMore(false);
       }
     },
-    [],
+    [storeDeveloperToken],
   );
 
   const debouncedSearch = useCallback(
@@ -394,6 +757,76 @@ const OneChattingLiveChat = () => {
     fetchChatList(1, false, "");
     return () => debouncedSearch.cancel();
   }, [fetchChatList, debouncedSearch]);
+
+  const handleSocketChat = useCallback(
+    (payload) => {
+      const activeNumber = selectedContactRef.current?.number;
+      setChats((prev) => updateChatListForMessage(prev, payload, activeNumber));
+
+      const number = payload?.contact?.number;
+      if (!number || activeNumber !== number || !payload?.message) return;
+
+      setMessages((prev) => upsertMessage(prev, payload.message));
+      activateStickToBottom();
+      requestAnimationFrame(() => scrollToBottomInstant());
+    },
+    [activateStickToBottom, scrollToBottomInstant],
+  );
+
+  const handleSocketMessageStatus = useCallback((payload) => {
+    setMessages((prev) => updateMessageStatus(prev, payload));
+    setChats((prev) => updateChatListLastMessageStatus(prev, payload));
+  }, []);
+
+  const handleSocketChatAssigned = useCallback((payload) => {
+    const number =
+      payload?.number ||
+      payload?.contact?.number ||
+      selectedContactRef.current?.number;
+    if (!number || selectedContactRef.current?.number !== number) return;
+
+    setAssigned(normalizeSocketAssignment(payload?.assigning));
+  }, []);
+
+  const handleSocketCaseStatus = useCallback((payload) => {
+    const number = payload?.number;
+    if (!number) return;
+
+    setChats((prev) =>
+      prev.map((item) =>
+        item.contact?.number === number
+          ? { ...item, case_open_count: payload.case_open_count }
+          : item,
+      ),
+    );
+  }, []);
+
+  const { authenticated: socketAuthenticated, connecting: socketConnecting } =
+    useDeveloperSocket(developerToken, {
+      onChat: handleSocketChat,
+      onMessageStatus: handleSocketMessageStatus,
+      onChatAssigned: handleSocketChatAssigned,
+      onCaseStatus: handleSocketCaseStatus,
+    });
+
+  useEffect(() => {
+    if (!urlNumber) {
+      setSelectedContact(null);
+      return;
+    }
+
+    const match = chats.find((item) => item.contact?.number === urlNumber);
+    setSelectedContact((prev) => {
+      if (match) return match.contact;
+      if (prev?.number === urlNumber) return prev;
+      return { number: urlNumber };
+    });
+  }, [urlNumber, chats]);
+
+  useEffect(() => {
+    if (!urlNumber) return;
+    setChats((prev) => clearChatUnreadCount(prev, urlNumber));
+  }, [urlNumber]);
 
   const handleSearchChange = (e) => {
     const value = e.target.value;
@@ -424,6 +857,7 @@ const OneChattingLiveChat = () => {
           last_id: lastId,
           limit: HISTORY_LIMIT,
         });
+        storeDeveloperToken(res);
 
         const pageMessages = Array.isArray(res?.data)
           ? [...res.data].reverse()
@@ -457,8 +891,35 @@ const OneChattingLiveChat = () => {
         setHistoryLoadingMore(false);
       }
     },
-    [],
+    [storeDeveloperToken],
   );
+
+  useEffect(() => {
+    setMessageDraft("");
+    setReplyToMessage(null);
+    setAttachMenuOpen(false);
+    setAttachModalType(null);
+    setTemplateModalOpen(false);
+    if (messageInputRef.current) {
+      messageInputRef.current.style.height = "auto";
+    }
+  }, [selectedContact?.number]);
+
+  useEffect(() => {
+    if (!attachMenuOpen) return undefined;
+
+    const handleOutsideClick = (event) => {
+      if (
+        attachMenuRef.current &&
+        !attachMenuRef.current.contains(event.target)
+      ) {
+        setAttachMenuOpen(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handleOutsideClick);
+    return () => document.removeEventListener("mousedown", handleOutsideClick);
+  }, [attachMenuOpen]);
 
   useEffect(() => {
     if (!selectedContact?.number) return;
@@ -480,7 +941,8 @@ const OneChattingLiveChat = () => {
   }, [selectedContact?.number, historyLoading]);
 
   useLayoutEffect(() => {
-    if (skipScrollRef.current || historyLoading || messages.length === 0) return;
+    if (skipScrollRef.current || historyLoading || messages.length === 0)
+      return;
     if (!stickToBottomRef.current) return;
 
     scrollToBottomInstant();
@@ -507,6 +969,13 @@ const OneChattingLiveChat = () => {
     canLoadOlderRef.current = false;
     lastScrollTopRef.current = 0;
     setSelectedContact(item.contact);
+    setChats((prev) => clearChatUnreadCount(prev, item.contact.number));
+    navigate(`${LIVE_CHAT_PATH}/${encodeURIComponent(item.contact.number)}`);
+  };
+
+  const handleCloseChat = () => {
+    setSelectedContact(null);
+    navigate(LIVE_CHAT_PATH);
   };
 
   const handleLoadMoreChats = () => {
@@ -581,18 +1050,20 @@ const OneChattingLiveChat = () => {
 
     const container = e.currentTarget;
     const { scrollTop, scrollHeight, clientHeight } = container;
-    const distanceFromBottom =
-      scrollHeight - scrollTop - clientHeight;
+    const distanceFromBottom = scrollHeight - scrollTop - clientHeight;
 
-    if (distanceFromBottom > 120) {
+    if (distanceFromBottom > SCROLL_TO_BOTTOM_THRESHOLD) {
       stickToBottomRef.current = false;
     }
 
-    if (
-      !canLoadOlderRef.current ||
-      historyLoading ||
-      historyLoadingMore
-    ) {
+    const shouldShowScrollButton =
+      distanceFromBottom > SCROLL_TO_BOTTOM_THRESHOLD &&
+      scrollHeight > clientHeight + 1;
+    setShowScrollToBottom((prev) =>
+      prev === shouldShowScrollButton ? prev : shouldShowScrollButton,
+    );
+
+    if (!canLoadOlderRef.current || historyLoading || historyLoadingMore) {
       return;
     }
 
@@ -604,6 +1075,147 @@ const OneChattingLiveChat = () => {
       handleLoadOlderMessages();
     }
   };
+
+  const handleScrollToEnd = () => {
+    activateStickToBottom();
+    scrollToBottomInstant();
+    setShowScrollToBottom(false);
+  };
+
+  const handleMessageDraftChange = (e) => {
+    setMessageDraft(e.target.value.slice(0, MESSAGE_DRAFT_MAX_LENGTH));
+    const input = e.target;
+    input.style.height = "auto";
+    input.style.height = `${Math.min(input.scrollHeight, 120)}px`;
+  };
+
+  const appendSentMessage = useCallback(
+    (sentMessage) => {
+      if (!sentMessage) return;
+      setMessages((prev) => upsertMessage(prev, sentMessage));
+      activateStickToBottom();
+    },
+    [activateStickToBottom],
+  );
+
+  const handleSendSuccess = useCallback(
+    (sentMessage) => {
+      appendSentMessage(sentMessage);
+      setReplyToMessage(null);
+      requestAnimationFrame(() => scrollToBottomInstant());
+    },
+    [appendSentMessage, scrollToBottomInstant],
+  );
+
+  const sendWithHandler = useCallback(
+    async (handler, payload, successMessage = "Message sent") => {
+      if (!selectedContact?.number || sendingMessage) return false;
+
+      setSendingMessage(true);
+      try {
+        const response = await handler({
+          number: normalizeRecipientNumber(selectedContact.number),
+          ...buildReplyPayload(replyToMessage),
+          ...payload,
+        });
+        handleSendSuccess(enrichSentMessage(response, replyToMessage));
+        toast.success(successMessage);
+        return true;
+      } catch (error) {
+        toast.error(extractApiError(error, "Failed to send message"));
+        return false;
+      } finally {
+        setSendingMessage(false);
+      }
+    },
+    [
+      handleSendSuccess,
+      replyToMessage,
+      selectedContact?.number,
+      sendingMessage,
+    ],
+  );
+
+  const handleSendMessage = async (e) => {
+    e?.preventDefault();
+    const text = messageDraft.trim();
+    if (!text || !selectedContact?.number || sendingMessage) return;
+
+    const sent = await sendWithHandler(
+      whatsappApi.sendTextMessage,
+      { message: text },
+      "Message sent",
+    );
+
+    if (!sent) return;
+
+    setMessageDraft("");
+    if (messageInputRef.current) {
+      messageInputRef.current.style.height = "auto";
+    }
+  };
+
+  const handleSendAttachMessage = async (payload) => {
+    const sendHandlers = {
+      image: whatsappApi.sendImageMessage,
+      video: whatsappApi.sendVideoMessage,
+      document: whatsappApi.sendDocumentMessage,
+      audio: whatsappApi.sendAudioMessage,
+    };
+    const handler = sendHandlers[attachModalType];
+    if (!handler) return;
+
+    const sent = await sendWithHandler(handler, payload, "Message sent");
+    if (sent) {
+      setAttachModalType(null);
+      setAttachMenuOpen(false);
+    }
+  };
+
+  const handleSendTemplateMessage = async (payload) => {
+    const sent = await sendWithHandler(
+      whatsappApi.sendTemplateMessage,
+      payload,
+      "Template sent",
+    );
+    if (sent) {
+      setTemplateModalOpen(false);
+      setAttachMenuOpen(false);
+    }
+  };
+
+  const handleMessageKeyDown = (e) => {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      handleSendMessage();
+    }
+  };
+
+  const handleReplyToMessage = (message) => {
+    setReplyToMessage(message);
+    messageInputRef.current?.focus();
+  };
+
+  const handleClearReply = () => {
+    setReplyToMessage(null);
+  };
+
+  const handleOpenAttachOption = (type) => {
+    setAttachMenuOpen(false);
+    if (type === "template") {
+      setTemplateModalOpen(true);
+      return;
+    }
+    setAttachModalType(type);
+  };
+
+  const canSendMessage = Boolean(
+    messageDraft.trim() && selectedContact?.number && !sendingMessage,
+  );
+
+  const replyPreviewText = replyToMessage
+    ? getMessageContentLabel(replyToMessage)
+    : "";
 
   const openMediaPreview = (message) => {
     const previewType = getMediaPreviewType(
@@ -619,24 +1231,44 @@ const OneChattingLiveChat = () => {
     });
   };
 
-  const renderMediaAttachment = (message, isOutgoing, { mediaOnly, timestamp }) => {
+  const renderMediaAttachment = (
+    message,
+    isOutgoing,
+    { mediaOnly, timestamp },
+  ) => {
     const {
       message_type: messageType,
       media_url: mediaUrl,
       media_name: mediaName,
     } = message;
-    if (!mediaUrl) return null;
 
-    const previewable = canPreviewMedia(messageType, mediaUrl, mediaName);
-    const labelClass = isOutgoing
-      ? "text-green-100 hover:text-white"
-      : "text-blue-600 hover:text-blue-700";
     const mediaTimestampOverlay =
       mediaOnly && timestamp ? (
         <div className="absolute bottom-1.5 right-1.5 flex items-center gap-0.5 rounded-md px-1.5 py-0.5 bg-black/50 text-white text-[11px] leading-none shadow-sm">
           {timestamp}
         </div>
       ) : null;
+
+    if (messageType === "location") {
+      const { latitude, longitude, name, address } = message;
+      if (!latitude || !longitude) return null;
+
+      return (
+        <div className={`relative ${MEDIA_PREVIEW_WIDTH_CLASS} shrink-0`}>
+          <ChatLocationPreview
+            latitude={latitude}
+            longitude={longitude}
+            name={name}
+            address={address}
+          />
+          {mediaTimestampOverlay}
+        </div>
+      );
+    }
+
+    if (!mediaUrl) return null;
+
+    const previewable = canPreviewMedia(messageType, mediaUrl, mediaName);
 
     if (messageType === "image") {
       return (
@@ -672,42 +1304,35 @@ const OneChattingLiveChat = () => {
 
     if (messageType === "audio") {
       return (
-        <button
-          type="button"
-          onClick={() => previewable && openMediaPreview(message)}
-          className={`flex items-center gap-2 text-sm max-w-[280px] ${mediaOnly ? "" : "mb-1"} ${labelClass}`}
-        >
-          <FiMusic className="w-4 h-4 shrink-0" />
-          <span className="truncate">{mediaName || "Audio message"}</span>
-        </button>
+        <ChatAudioPreview
+          src={mediaUrl}
+          name={mediaName}
+          isOutgoing={isOutgoing}
+          onOpenModal={() => previewable && openMediaPreview(message)}
+        />
       );
     }
 
     if (messageType === "document") {
-      if (previewable) {
+      if (isPdfMedia(mediaUrl, mediaName)) {
         return (
-          <button
-            type="button"
-            onClick={() => openMediaPreview(message)}
-            className={`flex items-center gap-2 text-sm max-w-[280px] ${mediaOnly ? "" : "mb-1"} ${labelClass}`}
-          >
-            <FiFileText className="w-4 h-4 shrink-0" />
-            <span className="truncate underline">
-              {mediaName || "PDF document"}
-            </span>
-          </button>
+          <div className={`relative ${MEDIA_PREVIEW_WIDTH_CLASS} shrink-0`}>
+            <ChatPdfPreview
+              src={mediaUrl}
+              name={mediaName}
+              onClick={() => openMediaPreview(message)}
+            />
+            {mediaTimestampOverlay}
+          </div>
         );
       }
+
       return (
-        <a
-          href={mediaUrl}
-          target="_blank"
-          rel="noreferrer"
-          className={`flex items-center gap-2 underline text-sm max-w-[280px] ${mediaOnly ? "" : "mb-1"} ${labelClass}`}
-        >
-          <FiFileText className="w-4 h-4 shrink-0" />
-          <span className="truncate">{mediaName || "Document"}</span>
-        </a>
+        <ChatDocumentFilePreview
+          url={mediaUrl}
+          name={mediaName}
+          isOutgoing={isOutgoing}
+        />
       );
     }
 
@@ -718,24 +1343,46 @@ const OneChattingLiveChat = () => {
     const isOutgoing = message.type === "out";
     const mediaCaption = getMessageCaption(message);
     const hasMediaCaption = Boolean(mediaCaption);
-    const isVisualMedia = ["image", "video"].includes(message.message_type);
-    const hasVisualMedia = isVisualMedia && Boolean(message.media_url);
-    const isMediaOnly =
-      hasVisualMedia && !hasMediaCaption && !message.is_reply;
-    const showVisualCaption = hasVisualMedia && hasMediaCaption;
+    const isPdfDocument =
+      message.message_type === "document" &&
+      Boolean(message.media_url) &&
+      isPdfMedia(message.media_url, message.media_name);
+    const hasLocationMap =
+      message.message_type === "location" &&
+      Boolean(message.latitude && message.longitude);
+    const isVisualMedia =
+      (["image", "video"].includes(message.message_type) &&
+        Boolean(message.media_url)) ||
+      isPdfDocument ||
+      hasLocationMap;
+    const hasAudioMedia =
+      message.message_type === "audio" && Boolean(message.media_url);
+    const hasFileDocument =
+      message.message_type === "document" &&
+      Boolean(message.media_url) &&
+      !isPdfDocument;
+    const hasRichMedia = isVisualMedia || hasAudioMedia || hasFileDocument;
+    const isMediaOnly = isVisualMedia && !hasMediaCaption && !message.is_reply;
+    const showVisualCaption = isVisualMedia && hasMediaCaption;
+    const showAttachedCaption =
+      hasMediaCaption &&
+      !showVisualCaption &&
+      (hasAudioMedia || hasFileDocument);
     const fallbackLabel = getMessageContentLabel(message);
     const showTextContent =
-      message.message_type !== "location" &&
+      !hasLocationMap &&
       !showVisualCaption &&
-      !hasVisualMedia &&
+      !isVisualMedia &&
+      !hasAudioMedia &&
+      !hasFileDocument &&
       Boolean(
         message.message_type === "text"
           ? fallbackLabel
           : hasMediaCaption
             ? mediaCaption
-            : !["image", "video", "audio", "document"].includes(
-                  message.message_type,
-                ) && fallbackLabel,
+            : !["image", "video", "audio", "document", "location"].includes(
+                message.message_type,
+              ) && fallbackLabel,
       );
 
     const timestampNode = (
@@ -752,13 +1399,31 @@ const OneChattingLiveChat = () => {
     return (
       <div
         key={`${message.id}-${message.wamid}`}
-        className={`flex ${isOutgoing ? "justify-end" : "justify-start"}`}
+        className={`group flex items-end gap-1 ${
+          isOutgoing ? "justify-end" : "justify-start"
+        }`}
       >
+        <button
+          type="button"
+          onClick={() => handleReplyToMessage(message)}
+          className={`p-1.5 rounded-full text-gray-500 bg-white/90 border border-gray-200 shadow-sm opacity-0 group-hover:opacity-100 transition-opacity shrink-0 ${
+            isOutgoing ? "order-2" : "order-1"
+          }`}
+          title="Reply"
+          aria-label="Reply to message"
+        >
+          <FiCornerUpLeft className="w-3.5 h-3.5" />
+        </button>
+
         <div
           className={`rounded-lg shadow-sm ${
-            hasVisualMedia
+            isOutgoing ? "order-1" : "order-2"
+          } ${
+            isVisualMedia
               ? `${MEDIA_PREVIEW_WIDTH_CLASS} shrink-0 p-1`
-              : `w-fit min-w-0 ${BUBBLE_MAX_WIDTH_CLASS} px-3 py-2`
+              : hasAudioMedia || hasFileDocument
+                ? `w-fit min-w-0 max-w-[320px] px-2.5 py-2`
+                : `w-fit min-w-0 ${BUBBLE_MAX_WIDTH_CLASS} px-3 py-2`
           } ${
             isOutgoing
               ? "bg-green-600 text-white rounded-br-sm"
@@ -785,7 +1450,7 @@ const OneChattingLiveChat = () => {
             </div>
           )}
 
-          {hasVisualMedia ? (
+          {hasRichMedia ? (
             <>
               {renderMediaAttachment(message, isOutgoing, {
                 mediaOnly: isMediaOnly,
@@ -804,20 +1469,25 @@ const OneChattingLiveChat = () => {
                 />
               )}
 
+              {showAttachedCaption && (
+                <WhatsAppFormattedText
+                  text={mediaCaption}
+                  className="text-sm px-0.5 pt-1.5 pb-0.5 block"
+                  linkClassName={
+                    isOutgoing
+                      ? "text-green-50 hover:text-white"
+                      : "text-blue-600 hover:text-blue-800"
+                  }
+                />
+              )}
+
               {!isMediaOnly && (
                 <div className={`${timestampRowClass} px-2 pb-1`}>
                   {timestampNode}
                 </div>
               )}
             </>
-          ) : (
-            renderMediaAttachment(message, isOutgoing, {
-              mediaOnly: false,
-              timestamp: null,
-            })
-          )}
-
-          {message.message_type === "location" ? (
+          ) : message.message_type === "location" ? (
             <div className="text-sm max-w-[280px]">
               <p className="font-medium m-0">{message.name || "Location"}</p>
               {message.address && (
@@ -845,7 +1515,7 @@ const OneChattingLiveChat = () => {
             />
           )}
 
-          {!hasVisualMedia && (
+          {!hasRichMedia && (
             <div className={`${timestampRowClass} mt-1`}>{timestampNode}</div>
           )}
 
@@ -862,6 +1532,7 @@ const OneChattingLiveChat = () => {
   };
 
   const showChatPanel = Boolean(selectedContact);
+  const showSocketStatus = Boolean(developerToken);
   const assigneeLabel = getAssigneeLabel(assigned);
 
   return (
@@ -904,7 +1575,29 @@ const OneChattingLiveChat = () => {
             >
               <div className="shrink-0 px-3 py-2 border-b border-gray-200 bg-green-600 text-white flex items-center justify-between gap-2">
                 <div className="min-w-0">
-                  <h1 className="text-lg font-semibold leading-none">Live Chats</h1>
+                  <div className="flex items-center gap-2">
+                    <h1 className="text-lg font-semibold leading-none">
+                      Live Chats
+                    </h1>
+                    {showSocketStatus ? (
+                      <span
+                        className={`w-2 h-2 rounded-full shrink-0 ${
+                          socketAuthenticated
+                            ? "bg-green-200 animate-pulse"
+                            : socketConnecting
+                              ? "bg-amber-200"
+                              : "bg-red-200"
+                        }`}
+                        title={
+                          socketAuthenticated
+                            ? "Live updates connected"
+                            : socketConnecting
+                              ? "Connecting to live updates..."
+                              : "Live updates disconnected"
+                        }
+                      />
+                    ) : null}
+                  </div>
                   <p className="text-[10px] text-green-100 leading-none mt-0.5 truncate">
                     OneChatting WhatsApp conversations
                   </p>
@@ -1081,7 +1774,7 @@ const OneChattingLiveChat = () => {
                   <div className="shrink-0 px-3 py-2 bg-gray-100 border-b border-gray-200 flex items-center gap-2">
                     <button
                       type="button"
-                      onClick={() => setSelectedContact(null)}
+                      onClick={handleCloseChat}
                       className="md:hidden p-1.5 rounded-lg hover:bg-gray-200 text-gray-600"
                     >
                       <FiArrowLeft className="w-4 h-4" />
@@ -1113,33 +1806,165 @@ const OneChattingLiveChat = () => {
                     </button>
                   </div>
 
-                  <div className="relative flex-1 min-h-0">
-                    {historyLoading && (
-                      <div className="absolute inset-0 z-10 bg-[#e5ddd5]">
-                        <ConversationSkeleton />
+                  <div className="flex flex-col flex-1 min-h-0">
+                    <div className="relative flex-1 min-h-0">
+                      {historyLoading && (
+                        <div className="absolute inset-0 z-10 bg-[#e5ddd5]">
+                          <ConversationSkeleton />
+                        </div>
+                      )}
+
+                      <div
+                        ref={messagesContainerRef}
+                        onScroll={handleMessagesScroll}
+                        className="absolute inset-0 overflow-y-auto overscroll-contain p-4 space-y-3"
+                      >
+                        {historyLoadingMore && (
+                          <div className="flex justify-center py-2">
+                            <FiLoader className="w-5 h-5 animate-spin text-gray-500" />
+                          </div>
+                        )}
+
+                        {!historyLoading && messages.length === 0 && (
+                          <div className="flex flex-col items-center justify-center h-full text-gray-500">
+                            <p className="text-sm">No messages yet</p>
+                          </div>
+                        )}
+
+                        {!historyLoading &&
+                          messages.map((message) =>
+                            renderMessageBubble(message),
+                          )}
                       </div>
-                    )}
 
-                    <div
-                      ref={messagesContainerRef}
-                      onScroll={handleMessagesScroll}
-                      className="absolute inset-0 overflow-y-auto overscroll-contain p-4 space-y-3"
-                    >
-                      {historyLoadingMore && (
-                        <div className="flex justify-center py-2">
-                          <FiLoader className="w-5 h-5 animate-spin text-gray-500" />
-                        </div>
+                      {showScrollToBottom && !historyLoading && (
+                        <button
+                          type="button"
+                          onClick={handleScrollToEnd}
+                          className="absolute bottom-4 right-4 z-20 w-10 h-10 rounded-full bg-white text-gray-600 shadow-md border border-gray-200 flex items-center justify-center hover:bg-gray-50 transition-colors"
+                          title="Scroll to latest messages"
+                          aria-label="Scroll to latest messages"
+                        >
+                          <FiChevronDown className="w-5 h-5" />
+                        </button>
                       )}
-
-                      {!historyLoading && messages.length === 0 && (
-                        <div className="flex flex-col items-center justify-center h-full text-gray-500">
-                          <p className="text-sm">No messages yet</p>
-                        </div>
-                      )}
-
-                      {!historyLoading &&
-                        messages.map((message) => renderMessageBubble(message))}
                     </div>
+
+                    <form
+                      onSubmit={handleSendMessage}
+                      className="shrink-0 px-3 py-2.5 bg-[#f0f2f5] border-t border-gray-200"
+                    >
+                      {replyToMessage ? (
+                        <div className="mb-2 flex items-start gap-2 rounded-xl bg-white border border-green-200 px-3 py-2 shadow-sm">
+                          <div className="w-1 self-stretch rounded-full bg-green-500 shrink-0" />
+                          <div className="flex-1 min-w-0">
+                            <p className="text-[11px] font-medium text-green-700 m-0">
+                              Replying to
+                            </p>
+                            <p className="text-xs text-gray-600 truncate m-0 mt-0.5">
+                              {replyPreviewText}
+                            </p>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={handleClearReply}
+                            className="p-1 rounded-full text-gray-400 hover:text-gray-600 hover:bg-gray-100 shrink-0"
+                            aria-label="Cancel reply"
+                          >
+                            <FiX className="w-4 h-4" />
+                          </button>
+                        </div>
+                      ) : null}
+
+                      <div className="flex items-end gap-2">
+                        <div className="relative shrink-0" ref={attachMenuRef}>
+                          <button
+                            type="button"
+                            onClick={() => setAttachMenuOpen((prev) => !prev)}
+                            disabled={sendingMessage}
+                            className="p-2 rounded-full text-gray-600 hover:bg-gray-200 transition-colors disabled:opacity-50"
+                            title="Attach"
+                            aria-label="Attach"
+                          >
+                            <FiPaperclip className="w-5 h-5" />
+                          </button>
+
+                          {attachMenuOpen ? (
+                            <div className="absolute bottom-full left-0 mb-2 w-52 rounded-xl bg-white border border-gray-200 shadow-lg py-1 z-30">
+                              {[
+                                {
+                                  type: "template",
+                                  label: "Template",
+                                  icon: FiLayout,
+                                },
+                                {
+                                  type: "image",
+                                  label: "Image",
+                                  icon: FiImage,
+                                },
+                                {
+                                  type: "video",
+                                  label: "Video",
+                                  icon: FiVideo,
+                                },
+                                {
+                                  type: "document",
+                                  label: "Document",
+                                  icon: FiFile,
+                                },
+                                {
+                                  type: "audio",
+                                  label: "Audio",
+                                  icon: FiMic,
+                                },
+                              ].map(({ type, label, icon: Icon }) => (
+                                <button
+                                  key={type}
+                                  type="button"
+                                  onClick={() => handleOpenAttachOption(type)}
+                                  className="w-full flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                                >
+                                  <Icon className="w-4 h-4 text-gray-500" />
+                                  {label}
+                                </button>
+                              ))}
+                            </div>
+                          ) : null}
+                        </div>
+
+                        <div className="flex-1 min-w-0 bg-white rounded-2xl border border-gray-200 shadow-sm px-3 py-2">
+                          <textarea
+                            ref={messageInputRef}
+                            value={messageDraft}
+                            onChange={handleMessageDraftChange}
+                            onKeyDown={handleMessageKeyDown}
+                            rows={1}
+                            placeholder="Type a message"
+                            disabled={sendingMessage}
+                            className="w-full resize-none bg-transparent text-sm text-gray-800 placeholder:text-gray-400 outline-none leading-5 max-h-[120px] disabled:opacity-60"
+                            aria-label="Message"
+                          />
+                        </div>
+
+                        <button
+                          type="submit"
+                          disabled={!canSendMessage}
+                          className={`p-2.5 rounded-full shrink-0 transition-colors ${
+                            canSendMessage
+                              ? "bg-green-600 text-white hover:bg-green-700"
+                              : "bg-gray-200 text-gray-400 cursor-not-allowed"
+                          }`}
+                          title="Send message"
+                          aria-label="Send message"
+                        >
+                          {sendingMessage ? (
+                            <FiLoader className="w-5 h-5 animate-spin" />
+                          ) : (
+                            <FiSend className="w-5 h-5" />
+                          )}
+                        </button>
+                      </div>
+                    </form>
                   </div>
                 </>
               )}
@@ -1151,6 +1976,23 @@ const OneChattingLiveChat = () => {
       <OneChattingMediaModal
         media={mediaPreview}
         onClose={() => setMediaPreview(null)}
+      />
+
+      <OneChattingAttachModal
+        type={attachModalType}
+        isOpen={Boolean(attachModalType)}
+        onClose={() => setAttachModalType(null)}
+        onSend={handleSendAttachMessage}
+        sending={sendingMessage}
+        replyPreview={replyPreviewText}
+      />
+
+      <OneChattingTemplateModal
+        isOpen={templateModalOpen}
+        onClose={() => setTemplateModalOpen(false)}
+        onSend={handleSendTemplateMessage}
+        sending={sendingMessage}
+        replyPreview={replyPreviewText}
       />
     </div>
   );
