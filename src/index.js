@@ -53,6 +53,8 @@ import EmailBroadcastReport from './pages/broadcast/email/EmailBordcastReport';
 import TextMessageOoms from './pages/broadcast/message/ooms';
 import BroadcastReport from './pages/broadcast/report';
 import WhatsAppOoms from './pages/broadcast/whatsapp/ooms';
+import OneChattingConfigure from './pages/broadcast/whatsapp/OneChattingConfigure';
+import OneChattingLiveChat from './pages/broadcast/whatsapp/OneChattingLiveChat';
 import PushNotification from './pages/broadcast/push-notification/notification';
 import EmailConfigList from './pages/broadcast/email/EmailConfigList';
 import EmailTemplateList from './pages/broadcast/email/EmailTemplateList';
@@ -440,7 +442,7 @@ root.render(
             <Broadcast />
           </ProtectedRoute>
         } />
-  <Route path="/broadcast/email/reports" element={
+        <Route path="/broadcast/email/reports" element={
           <ProtectedRoute>
             <EmailBroadcastReport />
           </ProtectedRoute>
@@ -459,17 +461,29 @@ root.render(
           </ProtectedRoute>
         } />
 
+        <Route path="/broadcast/whatsapp/onechatting/configure" element={
+          <ProtectedRoute>
+            <OneChattingConfigure />
+          </ProtectedRoute>
+        } />
+
+        <Route path="/broadcast/whatsapp/onechatting/live-chat/:number?" element={
+          <ProtectedRoute>
+            <OneChattingLiveChat />
+          </ProtectedRoute>
+        } />
+
         <Route path="/broadcast/push-notification" element={
           <ProtectedRoute>
             <PushNotification />
           </ProtectedRoute>
         } />
 
-      <Route path="/broadcast/report" element={
+        <Route path="/broadcast/report" element={
           <ProtectedRoute>
             <BroadcastReport />
           </ProtectedRoute>
-        } /> 
+        } />
 
         {/* Email Broadcast Module */}
         <Route path="/broadcast/email/configs" element={
@@ -487,14 +501,14 @@ root.render(
             <EmailBroadcastList />
           </ProtectedRoute>
         } />
-         <Route path="/broadcast/bulk-import" element={
+        <Route path="/broadcast/bulk-import" element={
           <ProtectedRoute>
-            <BulkImportPage/>
+            <BulkImportPage />
           </ProtectedRoute>
         } />
 
 
-   
+
         <Route path="/broadcast/email/create" element={
           <ProtectedRoute>
             <EmailBroadcastCreate />
