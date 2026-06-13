@@ -179,35 +179,46 @@ const getPeriodHeaders = (frequency) => {
     return [];
 };
 
-const getVisible6Months = (financialYear) => {
-    const ALL_MONTHS = ['Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec', 'Jan', 'Feb', 'Mar'];
-    const today = new Date();
-    const currentMonth = today.getMonth(); // 0-11
-    
-    // Map JS month to index in ALL_MONTHS (starting in April)
-    const jsMonthToFyIndex = [9, 10, 11, 0, 1, 2, 3, 4, 5, 6, 7, 8];
-    const fyIndex = jsMonthToFyIndex[currentMonth];
-    
-    // Parse FY
-    const fyParts = (financialYear || '2026-2027').split('-');
-    const startYear = parseInt(fyParts[0], 10) || 2026;
-    const endYear = parseInt(fyParts[1], 10) || 2027;
-    
-    const fyStart = new Date(startYear, 3, 1); // April 1st
-    const fyEnd = new Date(endYear, 2, 31, 23, 59, 59); // March 31st
-    
-    if (today < fyStart) {
-        return ALL_MONTHS.slice(0, 6);
-    } else if (today > fyEnd) {
-        return ALL_MONTHS.slice(6, 12);
+const isStatusMatch = (scheduleStatus, filterValue) => {
+    if (!filterValue) return true;
+    const s = String(scheduleStatus || '').toLowerCase();
+    const f = String(filterValue).toLowerCase();
+    if (f === 'pending') {
+        return s.includes('pending') || s === 'pfc';
+    }
+    if (f === 'complete' || f === 'sale') {
+        return s === 'complete' || s === 'sale';
+    }
+    return s === f;
+};
+
+const isPeriodDueDateActive = (period) => {
+    if (!period) return false;
+    let dueDateObj = null;
+    if (period.due_date) {
+        dueDateObj = new Date(period.due_date);
     } else {
-        if (fyIndex < 5) {
-            return ALL_MONTHS.slice(0, 6);
-        } else {
-            return ALL_MONTHS.slice(fyIndex - 5, fyIndex + 1);
+        const dateStr = getPeriodDueDate(period);
+        if (dateStr && dateStr !== '—') {
+            dueDateObj = new Date(dateStr);
         }
     }
+    if (!dueDateObj || isNaN(dueDateObj.getTime())) return false;
+    const today = new Date();
+    return dueDateObj.getMonth() === today.getMonth() && dueDateObj.getFullYear() === today.getFullYear();
 };
+
+const getVisible6Months = (financialYear) => {
+    const today = new Date();
+    const months = [];
+    const MONTH_NAMES_SHORT = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    for (let i = 5; i >= 0; i--) {
+        const d = new Date(today.getFullYear(), today.getMonth() - i, 1);
+        months.push(MONTH_NAMES_SHORT[d.getMonth()]);
+    }
+    return months;
+};
+
 
 const getPeriodHeadersForFreq = (frequency, financialYear) => {
     const freq = frequency?.toLowerCase();
@@ -370,7 +381,7 @@ const ComplianceServices = () => {
     const [staffList, setStaffList] = useState([]);
     const [staffLoading, setStaffLoading] = useState(false);
     const [allSchedules, setAllSchedules] = useState([]);
-    const [selectedFilingStatus, setSelectedFilingStatus] = useState('');
+    const [selectedFilingStatus, setSelectedFilingStatus] = useState('Pending');
 
     // Helper to extract assigned staff list
     const getAssignedStaffList = useCallback((assign) => {
@@ -520,26 +531,28 @@ const ComplianceServices = () => {
             <td key={period.schedule_id} className="px-2 py-2 text-center align-middle">
                 <div className="flex flex-col items-center gap-0.5">
                     <div
-                        onClick={() => isUpdatePermitted && !isComplete && openStatusModal(period, assign)}
-                        className={`inline-flex items-center justify-center gap-1 min-w-[32px] h-[26px] rounded border text-[10px] font-bold select-none ${isUpdatePermitted && !isComplete
+                        onClick={() => isUpdatePermitted && !isComplete && isPeriodDueDateActive(period) && openStatusModal(period, assign)}
+                        className={`inline-flex items-center justify-center gap-1 min-w-[32px] h-[26px] rounded border text-[10px] font-bold select-none ${isUpdatePermitted && !isComplete && isPeriodDueDateActive(period)
                             ? `cursor-pointer transition-all hover:scale-105 ${cellClass}`
                             : isComplete
                                 ? `${cellClass} cursor-default`
-                                : "bg-slate-50 text-slate-300 border-slate-100 cursor-not-allowed opacity-50"
+                                : "bg-slate-50 text-slate-350 border-slate-100 cursor-not-allowed opacity-50"
                             }`}
                         title={
                             isComplete
                                 ? `Completed — locked`
-                                : isUpdatePermitted
-                                    ? (showDirectDueDate ? `Due Date: ${dueDateText}` : `Status: ${period.status}`)
-                                    : `Restricted (Only assigned staff: ${assignedStaffs.map(e => e.name || e.username).join(', ')})`
+                                : !isPeriodDueDateActive(period)
+                                    ? `Only the currently running due date (${dueDateText}) can be updated`
+                                    : isUpdatePermitted
+                                        ? (showDirectDueDate ? `Due Date: ${dueDateText}` : `Status: ${period.status}`)
+                                        : `Restricted (Only assigned staff: ${assignedStaffs.map(e => e.name || e.username).join(', ')})`
                         }
                     >
                         <span className="px-1.5 h-full flex items-center justify-center flex-grow text-center">
                             {statusLetter}
                         </span>
                     </div>
-                    <span className="text-[8px] text-slate-400 font-mono leading-none">{dueDateText.split(' ').slice(0, 2).join(' ')}</span>
+                    <span className="text-[10px] text-slate-500 font-semibold leading-none mt-1 block select-none">{dueDateText.split(' ').slice(0, 2).join(' ')}</span>
                 </div>
             </td>
         );
@@ -587,7 +600,7 @@ const ComplianceServices = () => {
 
         const statusMatch = selectedFilingStatus === '' || (() => {
             const assignSchedules = allSchedules.filter(s => s.assignment_id === assign.assignment_id);
-            return assignSchedules.some(s => s.status === selectedFilingStatus);
+            return assignSchedules.some(s => isStatusMatch(s.status, selectedFilingStatus));
         })();
 
         return fyMatch && serviceMatch && statusMatch;
@@ -605,7 +618,7 @@ const ComplianceServices = () => {
     const fetchServices = useCallback(async (search = '') => {
         setServicesLoading(true);
         try {
-            const res = await axios.get(`${API_BASE_URL}/compliance/services`, {
+            const res = await axios.get(`${API_BASE_URL}/recurring-task/services`, {
                 headers: getHeaders(),
                 params: { search }
             });
@@ -615,8 +628,8 @@ const ComplianceServices = () => {
                 setStats(prev => ({ ...prev, activeServices: res.data.data?.length || 0 }));
             }
         } catch (err) {
-            console.error('Error fetching compliance services:', err);
-            toast.error('Failed to load compliance services');
+            console.error('Error fetching recurring task templates:', err);
+            toast.error('Failed to load recurring task templates');
         } finally {
             setServicesLoading(false);
         }
@@ -626,7 +639,7 @@ const ComplianceServices = () => {
     const fetchAssignments = useCallback(async (search = '') => {
         setAssignmentsLoading(true);
         try {
-            const res = await axios.get(`${API_BASE_URL}/compliance/assignments`, {
+            const res = await axios.get(`${API_BASE_URL}/recurring-task/assignments`, {
                 headers: getHeaders(),
                 params: { search }
             });
@@ -651,7 +664,7 @@ const ComplianceServices = () => {
         if (!assignmentId) return;
         setSchedulesLoading(true);
         try {
-            const res = await axios.get(`${API_BASE_URL}/compliance/schedule`, {
+            const res = await axios.get(`${API_BASE_URL}/recurring-task/schedule`, {
                 headers: getHeaders(),
                 params: { assignment_id: assignmentId }
             });
@@ -707,7 +720,7 @@ const ComplianceServices = () => {
         // Fetch all schedules to compute total sales amount and pending counts
         const fetchAllStats = async () => {
             try {
-                const res = await axios.get(`${API_BASE_URL}/compliance/schedule`, {
+                const res = await axios.get(`${API_BASE_URL}/recurring-task/schedule`, {
                     headers: getHeaders()
                 });
                 if (res.data?.success) {
@@ -725,7 +738,7 @@ const ComplianceServices = () => {
                     }));
                 }
             } catch (err) {
-                console.error('Error calculating compliance schedules stats:', err);
+                console.error('Error calculating recurring task schedules stats:', err);
             }
         };
         fetchAllStats();
@@ -964,12 +977,12 @@ const ComplianceServices = () => {
                 payload.quarters = assignForm.quarters;
             }
 
-            const res = await axios.post(`${API_BASE_URL}/compliance/assign`, payload, {
+            const res = await axios.post(`${API_BASE_URL}/recurring-task/assign`, payload, {
                 headers: getHeaders()
             });
 
             if (res.data?.success) {
-                toast.success('Compliance service assigned successfully');
+                toast.success('Recurring task assigned successfully');
                 setShowAssignModal(false);
                 setAssignForm({
                     targetType: 'single',
@@ -992,7 +1005,7 @@ const ComplianceServices = () => {
             }
         } catch (err) {
             console.error('Error assigning service:', err);
-            toast.error(err.response?.data?.message || 'Failed to assign compliance service');
+            toast.error(err.response?.data?.message || 'Failed to assign recurring task');
         } finally {
             setSubmittingAssign(false);
         }
@@ -1026,7 +1039,7 @@ const ComplianceServices = () => {
             }
 
             await axios.put(
-                `${API_BASE_URL}/compliance/assignments/${editAssignment.assignment_id}`,
+                `${API_BASE_URL}/recurring-task/assignments/${editAssignment.assignment_id}`,
                 payload,
                 { headers: getHeaders() }
             );
@@ -1063,7 +1076,7 @@ const ComplianceServices = () => {
 
         setSubmittingStatus(true);
         try {
-            const res = await axios.post(`${API_BASE_URL}/compliance/update-period-status`, {
+            const res = await axios.post(`${API_BASE_URL}/recurring-task/update-period-status`, {
                 schedule_id: selectedPeriod.schedule_id,
                 status: statusForm.status,
                 amount: parseFloat(statusForm.amount)
@@ -1081,7 +1094,7 @@ const ComplianceServices = () => {
                 fetchAssignments();
 
                 // Refresh main stats
-                const statsRes = await axios.get(`${API_BASE_URL}/compliance/schedule`, { headers: getHeaders() });
+                const statsRes = await axios.get(`${API_BASE_URL}/recurring-task/schedule`, { headers: getHeaders() });
                 if (statsRes.data?.success) {
                     const allSchedulesData = statsRes.data.data || [];
                     setAllSchedules(allSchedulesData);
@@ -1141,7 +1154,7 @@ const ComplianceServices = () => {
                     <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
                         {[
                             { label: 'Assigned Entities', value: stats.totalAssigned, color: 'bg-blue-500', icon: FiBriefcase },
-                            { label: 'Compliance Services', value: stats.activeServices, color: 'bg-indigo-500', icon: FiLayers },
+                            { label: 'Recurring Tasks', value: stats.activeServices, color: 'bg-indigo-500', icon: FiLayers },
                             { label: 'Total Sales Posted', value: `₹${formatCurrency(stats.totalSalesAmount)}`, color: 'bg-emerald-500', icon: FiDollarSign },
                             { label: 'Pending Periods', value: stats.pendingActions, color: 'bg-amber-500', icon: FiAlertCircle }
                         ].map((item, idx) => (
@@ -1215,6 +1228,7 @@ const ComplianceServices = () => {
                                         className="px-2 py-1.5 text-xs text-slate-700 border border-slate-200 rounded-lg bg-white focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none font-medium"
                                     >
                                         <option value="">All Status</option>
+                                        <option value="Pending">Pending (All)</option>
                                         <option value="Pending From The Department">Pending (Dept)</option>
                                         <option value="Pending From Client">Pending (Client)</option>
                                         <option value="Complete">Complete</option>
@@ -1260,7 +1274,7 @@ const ComplianceServices = () => {
                                                     <tr>
                                                         <td colSpan={4 + periodHeaders.length} className="px-4 py-12 text-center text-slate-400">
                                                             <FiBriefcase className="w-8 h-8 mx-auto mb-2 opacity-50" />
-                                                            <p className="text-xs font-medium text-slate-500">No compliance assignments found</p>
+                                                            <p className="text-xs font-medium text-slate-500">No recurring task assignments found</p>
                                                         </td>
                                                     </tr>
                                                 ) : (
@@ -1445,6 +1459,7 @@ const ComplianceServices = () => {
                                     <table className="w-full text-sm text-left">
                                         <thead>
                                             <tr className="bg-slate-50 border-b border-slate-100 text-slate-600 uppercase text-[10px] font-semibold tracking-wider">
+                                                <th className="px-4 py-3 text-center w-12">SR</th>
                                                 <th className="px-4 py-3">Firm Name</th>
                                                 <th className="px-4 py-3">Recurring Task</th>
                                                 <th className="px-4 py-3">Frequency</th>
@@ -1466,20 +1481,23 @@ const ComplianceServices = () => {
                                                 </tr>
                                             ) : filteredAssignments.length === 0 ? (
                                                 <tr>
-                                                    <td colSpan={7} className="px-4 py-12 text-center text-slate-400">
+                                                    <td colSpan={8} className="px-4 py-12 text-center text-slate-400">
                                                         <FiBriefcase className="w-8 h-8 mx-auto mb-2 opacity-50" />
                                                         <p className="text-xs font-medium text-slate-500">No recurring tasks found</p>
                                                         <p className="text-[11px] mt-0.5">Click "Assign Recurring Task" above to link a firm</p>
                                                     </td>
                                                 </tr>
                                             ) : (
-                                                filteredAssignments.map((assign) => (
+                                                filteredAssignments.map((assign, idx) => (
                                                     <React.Fragment key={assign.assignment_id}>
                                                         <tr
                                                             onClick={() => handleSelectAssignment(assign.assignment_id)}
                                                             className={`hover:bg-slate-50/50 cursor-pointer transition-colors ${selectedAssignmentId === assign.assignment_id ? 'bg-indigo-50/20' : ''
                                                                 }`}
                                                         >
+                                                            <td className="px-4 py-3 text-center font-mono text-xs text-slate-400">
+                                                                {idx + 1}
+                                                            </td>
                                                             <td className="px-4 py-3 font-semibold text-slate-800 text-xs">
                                                                 {assign.firm_name}
                                                             </td>
@@ -1646,7 +1664,7 @@ const ComplianceServices = () => {
                                                         {/* Expanded Schedule Details */}
                                                         {selectedAssignmentId === assign.assignment_id && (
                                                             <tr>
-                                                                <td colSpan={7} className="bg-slate-50/40 p-4 border-t border-b border-indigo-100/50">
+                                                                <td colSpan={8} className="bg-slate-50/40 p-4 border-t border-b border-indigo-100/50">
                                                                     <div className="mb-3 flex justify-between items-center">
                                                                         <h6 className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">
                                                                             Schedule Details for {assign.financial_year}
@@ -1733,14 +1751,22 @@ const ComplianceServices = () => {
                                                                                             return (
                                                                                                 <div
                                                                                                     key={period.schedule_id}
-                                                                                                    onClick={() => isUpdatePermitted && !isComplete && openStatusModal(period, assign)}
-                                                                                                    className={`border rounded-xl p-3 shadow-xs transition-all flex flex-col justify-between min-h-[90px] group ${isUpdatePermitted && !isComplete
+                                                                                                    onClick={() => isUpdatePermitted && !isComplete && isPeriodDueDateActive(period) && openStatusModal(period, assign)}
+                                                                                                    className={`border rounded-xl p-3 shadow-xs transition-all flex flex-col justify-between min-h-[90px] group ${isUpdatePermitted && !isComplete && isPeriodDueDateActive(period)
                                                                                                         ? "bg-white border-slate-200 hover:border-indigo-300 hover:shadow-sm cursor-pointer"
                                                                                                         : isComplete
                                                                                                             ? "bg-emerald-50/40 border-emerald-200 cursor-default"
                                                                                                             : "bg-slate-50/50 border-slate-200/60 opacity-60 cursor-not-allowed"
                                                                                                         }`}
-                                                                                                    title={isComplete ? `Completed — record locked` : (isUpdatePermitted ? undefined : `Restricted (Only assigned staff: ${assignedStaffs.map(e => e.name || e.username).join(', ')})`)}
+                                                                                                    title={
+                                                                                                        isComplete
+                                                                                                            ? `Completed — record locked`
+                                                                                                            : !isPeriodDueDateActive(period)
+                                                                                                                ? `Only the currently running due date (${getPeriodDueDate(period)}) can be updated`
+                                                                                                                : isUpdatePermitted
+                                                                                                                    ? undefined
+                                                                                                                    : `Restricted (Only assigned staff: ${assignedStaffs.map(e => e.name || e.username).join(', ')})`
+                                                                                                    }
                                                                                                 >
                                                                                                     <div className="flex items-start justify-between gap-1.5">
                                                                                                         <span className={`text-xs font-semibold leading-tight truncate ${isUpdatePermitted ? "text-slate-700 group-hover:text-indigo-600" : "text-slate-400"
@@ -1761,7 +1787,7 @@ const ComplianceServices = () => {
                                                                                                             }`}>
                                                                                                             {period.status}
                                                                                                         </span>
-                                                                                                        <div className="text-[10px] text-slate-400 font-mono mt-1">
+                                                                                                        <div className="text-[11px] text-slate-500 font-semibold mt-1">
                                                                                                             Due: {getPeriodDueDate(period)}
                                                                                                         </div>
                                                                                                         {/* Share Invoice button for Complete periods */}
@@ -1816,7 +1842,7 @@ const ComplianceServices = () => {
                             <div className="flex items-center justify-between px-5 py-3.5 bg-gradient-to-r from-indigo-600 to-violet-600 text-white shrink-0">
                                 <div className="flex items-center gap-2">
                                     <FiLayers className="w-5 h-5" />
-                                    <h3 className="text-sm font-bold">Assign Compliance Service</h3>
+                                    <h3 className="text-sm font-bold">Assign Recurring Task</h3>
                                 </div>
                                 <button
                                     onClick={() => setShowAssignModal(false)}
@@ -2022,7 +2048,7 @@ const ComplianceServices = () => {
 
                                     {/* Compliance Service Select */}
                                     <div className="space-y-1">
-                                        <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Compliance Service *</label>
+                                        <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Recurring Task *</label>
                                         <select
                                             value={assignForm.service_id}
                                             onChange={(e) => {
@@ -2036,7 +2062,7 @@ const ComplianceServices = () => {
                                             }}
                                             className="w-full px-3 py-2.5 text-xs text-slate-700 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none bg-white"
                                         >
-                                            <option value="">Select compliance template…</option>
+                                            <option value="">Select recurring task template…</option>
                                             {services.map(s => (
                                                 <option key={s.id} value={s.service_id}>{s.name} (₹{formatCurrency(s.default_amount)})</option>
                                             ))}
@@ -2822,7 +2848,7 @@ const ComplianceServices = () => {
                                     onClick={async () => {
                                         setDeletingAssignmentId(confirmDeleteId);
                                         try {
-                                            await axios.delete(`${API_BASE_URL}/compliance/assignments/${confirmDeleteId}`, { headers: getHeaders() });
+                                            await axios.delete(`${API_BASE_URL}/recurring-task/assignments/${confirmDeleteId}`, { headers: getHeaders() });
                                             toast.success('Assignment deleted successfully');
                                             setConfirmDeleteId(null);
                                             setSelectedAssignmentId(null);
@@ -2944,7 +2970,7 @@ const ComplianceServices = () => {
                             <div className="flex items-center justify-between px-5 py-3.5 bg-gradient-to-r from-indigo-600 to-violet-600 text-white">
                                 <div className="flex items-center gap-2">
                                     <FiShare2 className="w-5 h-5" />
-                                    <h3 className="text-sm font-bold">Broadcast Compliance Reminder</h3>
+                                    <h3 className="text-sm font-bold">Broadcast Recurring Task Reminder</h3>
                                 </div>
                                 <button onClick={() => setBroadcastModal({ open: false, assign: null })} className="p-1 hover:bg-white/10 rounded-lg">
                                     <FiX className="w-5 h-5" />
@@ -2995,9 +3021,9 @@ const ComplianceServices = () => {
                                     type="button"
                                     onClick={() => {
                                         if (!broadcastPhone && !broadcastEmail) { toast.error('Enter at least one contact'); return; }
-                                        const msg = `Dear Client, this is a friendly reminder regarding your compliance service "${broadcastModal.assign?.service_name}" for the financial year ${broadcastModal.assign?.financial_year}. Please ensure any pending requirements are shared with us so we can proceed. Thank you!`;
+                                        const msg = `Dear Client, this is a friendly reminder regarding your recurring task "${broadcastModal.assign?.service_name}" for the financial year ${broadcastModal.assign?.financial_year}. Please ensure any pending requirements are shared with us so we can proceed. Thank you!`;
                                         if (broadcastPhone) window.open(`https://wa.me/${broadcastPhone.replace(/[^0-9]/g, '')}?text=${encodeURIComponent(msg)}`, '_blank');
-                                        if (broadcastEmail) window.open(`mailto:${broadcastEmail}?subject=Compliance Reminder - ${broadcastModal.assign?.service_name}&body=${encodeURIComponent(msg)}`);
+                                        if (broadcastEmail) window.open(`mailto:${broadcastEmail}?subject=Recurring Task Reminder - ${broadcastModal.assign?.service_name}&body=${encodeURIComponent(msg)}`);
                                         setBroadcastModal({ open: false, assign: null });
                                         toast.success('Reminder broadcasted successfully!');
                                     }}
@@ -3054,13 +3080,22 @@ const ComplianceServices = () => {
                                             return (
                                                 <div
                                                     key={period.schedule_id}
-                                                    onClick={() => isUpdatePermitted && !isComplete && openStatusModal(period, fullCalendarAssignment)}
-                                                    className={`border rounded-xl p-4 transition-all flex flex-col justify-between min-h-[105px] group ${isUpdatePermitted && !isComplete
+                                                    onClick={() => isUpdatePermitted && !isComplete && isPeriodDueDateActive(period) && openStatusModal(period, fullCalendarAssignment)}
+                                                    className={`border rounded-xl p-4 transition-all flex flex-col justify-between min-h-[105px] group ${isUpdatePermitted && !isComplete && isPeriodDueDateActive(period)
                                                         ? "bg-white border-slate-200 hover:border-indigo-300 hover:shadow-md cursor-pointer"
                                                         : isComplete
                                                             ? "bg-emerald-50/40 border-emerald-200 cursor-default"
                                                             : "bg-slate-50/50 border-slate-200/60 opacity-60 cursor-not-allowed"
                                                         }`}
+                                                    title={
+                                                        isComplete
+                                                            ? `Completed — record locked`
+                                                            : !isPeriodDueDateActive(period)
+                                                                ? `Only the currently running due date (${getPeriodDueDate(period)}) can be updated`
+                                                                : isUpdatePermitted
+                                                                    ? undefined
+                                                                    : `Restricted (Only assigned staff: ${assignedStaffs.map(e => e.name || e.username).join(', ')})`
+                                                    }
                                                 >
                                                     <div className="flex items-start justify-between gap-1">
                                                         <span className="text-xs font-bold text-slate-705 group-hover:text-indigo-600">
@@ -3077,7 +3112,7 @@ const ComplianceServices = () => {
                                                                 {period.status}
                                                             </span>
                                                         </div>
-                                                        <div className="text-[9px] text-slate-400 font-semibold">
+                                                        <div className="text-[11px] text-slate-500 font-semibold">
                                                             Due: {getPeriodDueDate(period)}
                                                         </div>
                                                     </div>

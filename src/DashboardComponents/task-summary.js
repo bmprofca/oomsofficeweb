@@ -68,11 +68,14 @@ const TaskSummary = ({ onRefresh: externalRefresh, onCreateTask }) => {
             const data = await response.json();
             
             if (data.success) {
-                // Transform API data to match component structure
                 const transformedData = data.data.map(service => ({
                     id: service.service_id,
                     name: service.service_name,
                     category: service.category_name,
+                    task_kind: service.task_kind,
+                    is_recurring: service.is_recurring,
+                    service_type: service.service_type,
+                    type: service.type,
                     OD: service.task_counts.OD || 0,
                     DT: service.task_counts.DT || 0,
                     D7: service.task_counts.D7 || 0,
@@ -466,13 +469,21 @@ const TaskSummary = ({ onRefresh: externalRefresh, onCreateTask }) => {
                                         </td>
                                     </tr>
                                 ) : (
-                                    (isExpanded ? taskStats : taskStats.slice(0, 3)).map((service) => (
-                                        <tr key={service.id} className="hover:bg-gray-50/50 transition-colors">
-                                            <td 
-                                                className="p-4 cursor-pointer hover:text-indigo-600 transition-colors"
-                                                onClick={() => navigateToTaskView(null, service.id)}
-                                            >
-                                                <div className="font-semibold text-gray-800">{service.name}</div>
+                                    (isExpanded ? taskStats : taskStats.slice(0, 3)).map((service) => {
+                                        const isRecurring = service.task_kind === 'recurring' || 
+                                                            service.is_recurring || 
+                                                            String(service.service_type || '').toLowerCase() === 'compliance' || 
+                                                            String(service.type || '').toLowerCase() === 'compliance';
+                                        return (
+                                            <tr key={service.id} className="hover:bg-gray-50/50 transition-colors">
+                                                <td 
+                                                    className="p-4 cursor-pointer hover:text-indigo-600 transition-colors"
+                                                    onClick={() => navigateToTaskView(null, service.id)}
+                                                >
+                                                    <div className="font-semibold text-gray-800">
+                                                        {isRecurring && <span className="text-red-500 font-bold mr-1.5">( R )</span>}
+                                                        {service.name}
+                                                    </div>
                                                 <div className="text-sm text-gray-500">{service.category} • {service.total_tasks} tasks</div>
                                             </td>
                                             <td className="p-4 text-center">
@@ -557,7 +568,8 @@ const TaskSummary = ({ onRefresh: externalRefresh, onCreateTask }) => {
                                                 />
                                             </td>
                                         </tr>
-                                    ))
+                                        );
+                                    })
                                 )}
                             </tbody>
                         </table>

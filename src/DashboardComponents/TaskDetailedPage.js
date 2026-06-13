@@ -787,7 +787,14 @@ const TaskDetailedPage = () => {
                               </td>
                               <td className="p-4">
                                 <div>
-                                  <p className="font-medium text-gray-800">{task.service.service_name}</p>
+                                  <div className="flex items-center gap-2">
+                                    <p className="font-medium text-gray-800">{task.service.service_name}</p>
+                                    {task.task_details?.task_kind === 'recurring' ? (
+                                      <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-indigo-50 text-indigo-700 border border-indigo-200 uppercase">Recurring</span>
+                                    ) : (
+                                      <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-slate-50 text-slate-600 border border-slate-200 uppercase">Normal</span>
+                                    )}
+                                  </div>
                                   <p className="text-sm text-gray-500">{task.service.category_name}</p>
                                   <p className="text-xs text-gray-400 font-mono mt-1">{task.task_id.slice(0, 20)}...</p>
                                 </div>
