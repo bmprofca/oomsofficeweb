@@ -248,6 +248,84 @@ export const buildTemplateComponents = (templateDef, values) => {
   return components;
 };
 
+const isTemplateComponentObject = (value) =>
+  Boolean(value && typeof value === 'object' && value.type);
+
+export const normalizeTemplateComponents = (component) => {
+  if (!component) return [];
+  if (Array.isArray(component)) return component;
+  if (typeof component === 'string') {
+    try {
+      const parsed = JSON.parse(component);
+      if (Array.isArray(parsed)) return parsed;
+      if (isTemplateComponentObject(parsed)) return [parsed];
+      return [];
+    } catch {
+      return [];
+    }
+  }
+  if (typeof component === 'object') {
+    if (Object.keys(component).length === 0) return [];
+    if (isTemplateComponentObject(component)) return [component];
+    return [];
+  }
+  return [];
+};
+
+export const parseTemplateComponentsToValues = (components, templateDef) => {
+  const values = {};
+  const sentComponents = normalizeTemplateComponents(components);
+  if (!templateDef || !sentComponents.length) return values;
+
+  const headerSent = sentComponents.find(
+    (item) => (item.type || '').toLowerCase() === 'header',
+  );
+  const bodySent = sentComponents.find(
+    (item) => (item.type || '').toLowerCase() === 'body',
+  );
+
+  if (headerSent?.parameters?.length) {
+    const param = headerSent.parameters[0];
+    if (param.type === 'text') values.header_text = param.text || '';
+    if (param.type === 'image') values.header_image = param.image?.link || '';
+    if (param.type === 'video') values.header_video = param.video?.link || '';
+    if (param.type === 'document') {
+      values.header_document = param.document?.link || '';
+    }
+  }
+
+  if (bodySent?.parameters?.length) {
+    const bodyDef = templateDef.components?.find(
+      (item) => (item.type || '').toUpperCase() === 'BODY',
+    );
+    const indices = [
+      ...new Set(
+        [...(bodyDef?.text?.matchAll(/\{\{(\d+)\}\}/g) || [])].map((match) =>
+          Number(match[1]),
+        ),
+      ),
+    ].sort((a, b) => a - b);
+
+    bodySent.parameters.forEach((param, index) => {
+      if (param.type === 'text' && indices[index] != null) {
+        values[`body_${indices[index]}`] = param.text || '';
+      }
+    });
+  }
+
+  sentComponents
+    .filter((item) => (item.type || '').toLowerCase() === 'button')
+    .forEach((comp) => {
+      const buttonIndex = comp.index ?? comp.button_index;
+      const text = comp.parameters?.find((item) => item.type === 'text')?.text;
+      if (buttonIndex != null && text != null) {
+        values[`button_url_${buttonIndex}`] = text;
+      }
+    });
+
+  return values;
+};
+
 export const getTemplatePreviewText = (templateDef) => {
   const body = templateDef?.components?.find(
     (component) => (component.type || '').toUpperCase() === 'BODY',

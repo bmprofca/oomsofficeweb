@@ -1,4 +1,5 @@
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { Link } from "react-router-dom";
 import { toast } from "react-hot-toast";
 import {
@@ -13,16 +14,29 @@ import {
   FiRefreshCw,
   FiSearch,
   FiSend,
+  FiUpload,
   FiX,
 } from "react-icons/fi";
 import { Header, Sidebar } from "../../../components/header";
 import OneChattingTemplatePreview from "./OneChattingTemplatePreview";
 import {
+  buildTemplateComponents,
   buildTemplatePreviewContent,
+  extractApiError,
   getTemplatePlaceholders,
   getTemplatePreviewText,
+  normalizeTemplateComponents,
+  parseTemplateComponentsToValues,
 } from "./oneChattingSendUtils";
+import { uploadOneSaasFile } from "./oneChattingUpload";
 import { normalizeList, normalizePagination, whatsappApi } from "./whatsappApi";
+
+const URL_ACCEPT_BY_FORMAT = {
+  IMAGE: "image/jpeg,image/png,image/webp,image/gif",
+  VIDEO: "video/mp4,video/3gpp,video/quicktime",
+  DOCUMENT: ".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.zip,.rar",
+  AUDIO: "audio/aac,audio/mp4,audio/mpeg,audio/ogg,audio/opus",
+};
 
 const TABS = [
   { id: "mapping", label: "Template Mapping" },
@@ -66,6 +80,188 @@ const MappingStatusBadge = ({ isSet }) =>
     </span>
   );
 
+const MappingVariableSuggestions = ({
+  variables,
+  visible,
+  position,
+  onSelect,
+  onMouseDown,
+}) => {
+  if (!visible || !variables.length || !position) return null;
+
+  return createPortal(
+    <div
+      className="fixed z-[1200] rounded-lg border border-gray-200 bg-white shadow-lg p-2 max-h-52 overflow-y-auto"
+      style={{
+        top: position.top,
+        left: position.left,
+        width: position.width,
+      }}
+      onMouseDown={onMouseDown}
+    >
+      <p className="text-[10px] font-semibold uppercase tracking-wide text-gray-400 px-2 py-1 m-0">
+        Suggestions
+      </p>
+      {variables.map((variable) => (
+        <button
+          key={variable.key}
+          type="button"
+          onMouseDown={(event) => event.preventDefault()}
+          onClick={() => onSelect(variable.key)}
+          className="w-full text-left px-2 py-2 rounded-md hover:bg-green-50 transition-colors"
+        >
+          <span className="block font-mono text-xs text-green-700">
+            {variable.key}
+          </span>
+          <span className="block text-[11px] text-gray-500 mt-0.5">
+            {variable.label}
+          </span>
+        </button>
+      ))}
+    </div>,
+    document.body,
+  );
+};
+
+const MappingVariableInput = ({
+  value,
+  onChange,
+  variables,
+  placeholder,
+  disabled,
+}) => {
+  const inputRef = useRef(null);
+  const hideTimerRef = useRef(null);
+  const [visible, setVisible] = useState(false);
+  const [position, setPosition] = useState(null);
+
+  const clearHideTimer = () => {
+    if (hideTimerRef.current) {
+      clearTimeout(hideTimerRef.current);
+      hideTimerRef.current = null;
+    }
+  };
+
+  const updatePosition = useCallback(() => {
+    if (!inputRef.current) return;
+    const rect = inputRef.current.getBoundingClientRect();
+    setPosition({
+      top: rect.bottom + 4,
+      left: rect.left,
+      width: rect.width,
+    });
+  }, []);
+
+  const showSuggestions = () => {
+    clearHideTimer();
+    if (!variables.length) return;
+    updatePosition();
+    setVisible(true);
+  };
+
+  const hideSuggestions = () => {
+    clearHideTimer();
+    hideTimerRef.current = setTimeout(() => setVisible(false), 150);
+  };
+
+  useEffect(() => () => clearHideTimer(), []);
+
+  useEffect(() => {
+    if (!visible) return undefined;
+
+    const handleReposition = () => updatePosition();
+    window.addEventListener("scroll", handleReposition, true);
+    window.addEventListener("resize", handleReposition);
+
+    return () => {
+      window.removeEventListener("scroll", handleReposition, true);
+      window.removeEventListener("resize", handleReposition);
+    };
+  }, [visible, updatePosition]);
+
+  return (
+    <>
+      <input
+        ref={inputRef}
+        type="text"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        onFocus={showSuggestions}
+        onBlur={hideSuggestions}
+        placeholder={placeholder}
+        disabled={disabled}
+        className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-green-500 focus:border-green-500 outline-none disabled:opacity-60 font-mono"
+      />
+      <MappingVariableSuggestions
+        variables={variables}
+        visible={visible}
+        position={position}
+        onSelect={(key) => {
+          onChange(key);
+          setVisible(false);
+        }}
+        onMouseDown={(event) => event.preventDefault()}
+      />
+    </>
+  );
+};
+
+const MappingUrlField = ({ field, value, onChange, disabled }) => {
+  const fileInputRef = useRef(null);
+  const [uploading, setUploading] = useState(false);
+
+  const handleUpload = async (event) => {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file) return;
+
+    setUploading(true);
+    try {
+      const { url } = await uploadOneSaasFile(file);
+      onChange(url);
+      toast.success("File uploaded");
+    } catch (error) {
+      toast.error(extractApiError(error, "Failed to upload file"));
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  return (
+    <div className="flex gap-2">
+      <input
+        type="url"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder={field.example || "Media URL"}
+        disabled={disabled || uploading}
+        className="flex-1 min-w-0 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-green-500 focus:border-green-500 outline-none disabled:opacity-60 font-mono"
+      />
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept={URL_ACCEPT_BY_FORMAT[field.format] || "*/*"}
+        onChange={handleUpload}
+        className="hidden"
+      />
+      <button
+        type="button"
+        onClick={() => fileInputRef.current?.click()}
+        disabled={disabled || uploading}
+        className="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg disabled:opacity-50 shrink-0"
+        title="Upload file"
+      >
+        {uploading ? (
+          <FiLoader className="w-4 h-4 animate-spin" />
+        ) : (
+          <FiUpload className="w-4 h-4" />
+        )}
+        Upload
+      </button>
+    </div>
+  );
+};
+
 const buildExamplePreviewContent = (templateDef) => {
   if (!templateDef) return null;
 
@@ -102,6 +298,13 @@ const OneChattingTemplates = () => {
   const [mappingRows, setMappingRows] = useState([]);
   const [mappingSearchInput, setMappingSearchInput] = useState("");
   const [mappingSearch, setMappingSearch] = useState("");
+  const [mappingActionName, setMappingActionName] = useState(null);
+  const [setMappingItem, setSetMappingItem] = useState(null);
+  const [pickerTemplates, setPickerTemplates] = useState([]);
+  const [pickerLoading, setPickerLoading] = useState(false);
+  const [pickerSearch, setPickerSearch] = useState("");
+  const [selectedMappingTemplate, setSelectedMappingTemplate] = useState(null);
+  const [mappingVariableValues, setMappingVariableValues] = useState({});
 
   const fetchTemplates = useCallback(
     async (page = 1, limit = 20, searchTerm = "", status = "") => {
@@ -134,16 +337,170 @@ const OneChattingTemplates = () => {
       const res = await whatsappApi.getTemplateMapList();
       setMappingRows(normalizeList(res?.data));
     } catch (error) {
-      toast.error(
-        error?.response?.data?.message ||
-          error.message ||
-          "Failed to load template mappings",
-      );
+      toast.error(extractApiError(error, "Failed to load template mappings"));
       setMappingRows([]);
     } finally {
       setMappingLoading(false);
     }
   }, []);
+
+  const fetchPickerTemplates = useCallback(async () => {
+    setPickerLoading(true);
+    try {
+      const res = await whatsappApi.getTemplateList({
+        status: "APPROVED",
+        page_no: 1,
+        limit: 100,
+      });
+      const templates = normalizeList(res?.data);
+      setPickerTemplates(templates);
+      return templates;
+    } catch (error) {
+      toast.error(extractApiError(error, "Failed to load templates"));
+      setPickerTemplates([]);
+      return [];
+    } finally {
+      setPickerLoading(false);
+    }
+  }, []);
+
+  const selectMappingTemplate = useCallback((template, savedComponent) => {
+    setSelectedMappingTemplate(template);
+
+    const placeholders = getTemplatePlaceholders(template.template);
+    const parsedValues = parseTemplateComponentsToValues(
+      savedComponent,
+      template.template,
+    );
+    const nextValues = {};
+
+    placeholders.forEach((field) => {
+      if (parsedValues[field.key]) {
+        nextValues[field.key] = parsedValues[field.key];
+      } else if (field.example) {
+        nextValues[field.key] = field.example;
+      }
+    });
+
+    setMappingVariableValues(nextValues);
+  }, []);
+
+  const updateMappingRow = useCallback((name, updates) => {
+    setMappingRows((prev) =>
+      prev.map((row) => (row.name === name ? { ...row, ...updates } : row)),
+    );
+  }, []);
+
+  const handleSetMapping = async (name, templateName, component) => {
+    if (!name || !templateName) return;
+
+    setMappingActionName(name);
+    try {
+      const res = await whatsappApi.setTemplateMap({
+        name,
+        template_name: templateName,
+        component,
+      });
+      toast.success(res?.message || "Template mapping set successfully");
+      updateMappingRow(name, {
+        is_set: true,
+        onechatting_template_name: templateName,
+        component: res?.data?.component ?? component,
+      });
+      setSetMappingItem(null);
+      setSelectedMappingTemplate(null);
+      setMappingVariableValues({});
+      setPickerSearch("");
+    } catch (error) {
+      toast.error(extractApiError(error, "Failed to set template mapping"));
+    } finally {
+      setMappingActionName(null);
+    }
+  };
+
+  const handleSaveMapping = () => {
+    if (!setMappingItem || !selectedMappingTemplate) return;
+
+    const placeholders = getTemplatePlaceholders(
+      selectedMappingTemplate.template,
+    );
+    const missingField = placeholders.find(
+      (field) =>
+        field.required && !mappingVariableValues[field.key]?.trim(),
+    );
+    if (missingField) {
+      toast.error(`Please fill in ${missingField.label}`);
+      return;
+    }
+
+    const component = buildTemplateComponents(
+      selectedMappingTemplate.template,
+      mappingVariableValues,
+    );
+
+    handleSetMapping(
+      setMappingItem.name,
+      selectedMappingTemplate.template_name,
+      component,
+    );
+  };
+
+  const handleEnableMapping = (item) => {
+    if (!item.onechatting_template_name) {
+      openSetMappingModal(item);
+      return;
+    }
+
+    handleSetMapping(
+      item.name,
+      item.onechatting_template_name,
+      normalizeTemplateComponents(item.component),
+    );
+  };
+
+  const handleUnsetMapping = async (name) => {
+    if (!name) return;
+
+    setMappingActionName(name);
+    try {
+      const res = await whatsappApi.unsetTemplateMap({ name });
+      toast.success(res?.message || "Template mapping disabled");
+      updateMappingRow(name, { is_set: false });
+    } catch (error) {
+      toast.error(extractApiError(error, "Failed to disable template mapping"));
+    } finally {
+      setMappingActionName(null);
+    }
+  };
+
+  const openSetMappingModal = async (item) => {
+    setSetMappingItem(item);
+    setSelectedMappingTemplate(null);
+    setMappingVariableValues({});
+    setPickerSearch("");
+
+    const templates = await fetchPickerTemplates();
+    if (item.onechatting_template_name) {
+      const match = templates.find(
+        (template) => template.template_name === item.onechatting_template_name,
+      );
+      if (match) {
+        selectMappingTemplate(match, item.component);
+      }
+    }
+  };
+
+  const closeSetMappingModal = () => {
+    if (mappingActionName) return;
+    setSetMappingItem(null);
+    setSelectedMappingTemplate(null);
+    setMappingVariableValues({});
+    setPickerSearch("");
+  };
+
+  const handleMappingVariableChange = (key, value) => {
+    setMappingVariableValues((prev) => ({ ...prev, [key]: value }));
+  };
 
   useEffect(() => {
     localStorage.setItem("sidebarMinimized", JSON.stringify(isMinimized));
@@ -179,6 +536,42 @@ const OneChattingTemplates = () => {
     () => mappingRows.filter((item) => item.is_set).length,
     [mappingRows],
   );
+
+  const filteredPickerTemplates = useMemo(() => {
+    const term = pickerSearch.trim().toLowerCase();
+    if (!term) return pickerTemplates;
+    return pickerTemplates.filter((item) =>
+      [item.template_name, item.category]
+        .filter(Boolean)
+        .some((value) => String(value).toLowerCase().includes(term)),
+    );
+  }, [pickerTemplates, pickerSearch]);
+
+  const mappingPlaceholders = useMemo(() => {
+    if (!selectedMappingTemplate?.template) return [];
+    return getTemplatePlaceholders(selectedMappingTemplate.template);
+  }, [selectedMappingTemplate]);
+
+  const mappingPreviewContent = useMemo(() => {
+    if (!selectedMappingTemplate?.template) return null;
+    return buildTemplatePreviewContent(
+      selectedMappingTemplate.template,
+      mappingVariableValues,
+    );
+  }, [selectedMappingTemplate, mappingVariableValues]);
+
+  const mappingAvailableVariables = useMemo(
+    () =>
+      normalizeList(setMappingItem?.available_variables).filter(
+        (item) => item?.key,
+      ),
+    [setMappingItem],
+  );
+
+  const mappingVariablePlaceholder = useMemo(() => {
+    const sample = mappingAvailableVariables[0]?.key;
+    return sample ? `e.g. ${sample}` : "{{variable_name}}";
+  }, [mappingAvailableVariables]);
 
   const handleListSearch = (e) => {
     e.preventDefault();
@@ -269,13 +662,16 @@ const OneChattingTemplates = () => {
               <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
                 Status
               </th>
+              <th className="px-6 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                Actions
+              </th>
             </tr>
           </thead>
           <tbody className="bg-white divide-y divide-gray-100">
             {mappingLoading ? (
               Array.from({ length: 5 }).map((_, index) => (
                 <tr key={index} className="animate-pulse">
-                  {Array.from({ length: 4 }).map((__, cellIndex) => (
+                  {Array.from({ length: 5 }).map((__, cellIndex) => (
                     <td key={cellIndex} className="px-6 py-4">
                       <div className="h-4 bg-gray-200 rounded w-full max-w-[180px]" />
                     </td>
@@ -285,37 +681,79 @@ const OneChattingTemplates = () => {
             ) : filteredMappingRows.length === 0 ? (
               <tr>
                 <td
-                  colSpan={4}
+                  colSpan={5}
                   className="px-6 py-12 text-center text-sm text-gray-500"
                 >
                   No template mappings found.
                 </td>
               </tr>
             ) : (
-              filteredMappingRows.map((item) => (
-                <tr key={item.name} className="hover:bg-gray-50">
-                  <td className="px-6 py-4">
-                    <p className="text-sm font-medium text-gray-900 m-0 capitalize">
-                      {item.name}
-                    </p>
-                  </td>
-                  <td className="px-6 py-4 text-sm text-gray-600">
-                    {item.description || "—"}
-                  </td>
-                  <td className="px-6 py-4 text-sm text-gray-800">
-                    {item.onechatting_template_name ? (
-                      <span className="font-medium">
-                        {item.onechatting_template_name}
-                      </span>
-                    ) : (
-                      <span className="text-gray-400">Not set</span>
-                    )}
-                  </td>
-                  <td className="px-6 py-4">
-                    <MappingStatusBadge isSet={Boolean(item.is_set)} />
-                  </td>
-                </tr>
-              ))
+              filteredMappingRows.map((item) => {
+                const isRowBusy = mappingActionName === item.name;
+
+                return (
+                  <tr key={item.name} className="hover:bg-gray-50">
+                    <td className="px-6 py-4">
+                      <p className="text-sm font-medium text-gray-900 m-0 capitalize">
+                        {item.name}
+                      </p>
+                    </td>
+                    <td className="px-6 py-4 text-sm text-gray-600">
+                      {item.description || "—"}
+                    </td>
+                    <td className="px-6 py-4 text-sm text-gray-800">
+                      {item.onechatting_template_name ? (
+                        <span className="font-medium">
+                          {item.onechatting_template_name}
+                        </span>
+                      ) : (
+                        <span className="text-gray-400">Not set</span>
+                      )}
+                    </td>
+                    <td className="px-6 py-4">
+                      <MappingStatusBadge isSet={Boolean(item.is_set)} />
+                    </td>
+                    <td className="px-6 py-4">
+                      <div className="flex items-center justify-end gap-2">
+                        {!item.is_set && item.onechatting_template_name ? (
+                          <button
+                            type="button"
+                            onClick={() => handleEnableMapping(item)}
+                            disabled={Boolean(mappingActionName)}
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-green-700 bg-green-50 hover:bg-green-100 rounded-lg disabled:opacity-50"
+                          >
+                            {isRowBusy ? (
+                              <FiLoader className="w-3.5 h-3.5 animate-spin" />
+                            ) : null}
+                            Enable
+                          </button>
+                        ) : null}
+                        <button
+                          type="button"
+                          onClick={() => openSetMappingModal(item)}
+                          disabled={Boolean(mappingActionName)}
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg disabled:opacity-50"
+                        >
+                          {item.onechatting_template_name ? "Change" : "Set"}
+                        </button>
+                        {item.is_set ? (
+                          <button
+                            type="button"
+                            onClick={() => handleUnsetMapping(item.name)}
+                            disabled={Boolean(mappingActionName)}
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-red-700 bg-red-50 hover:bg-red-100 rounded-lg disabled:opacity-50"
+                          >
+                            {isRowBusy ? (
+                              <FiLoader className="w-3.5 h-3.5 animate-spin" />
+                            ) : null}
+                            Disable
+                          </button>
+                        ) : null}
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })
             )}
           </tbody>
         </table>
@@ -659,6 +1097,202 @@ const OneChattingTemplates = () => {
                 </div>
               </div>
             </div>
+          </div>
+        </div>
+      ) : null}
+
+      {setMappingItem ? (
+        <div className="fixed inset-0 z-[1100] flex items-center justify-center p-4 sm:p-6">
+          <div
+            className="absolute inset-0 bg-black/50"
+            onClick={closeSetMappingModal}
+          />
+          <div className="relative w-full max-w-5xl max-h-[92vh] bg-white rounded-xl shadow-xl border border-gray-200 flex flex-col overflow-hidden">
+            <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200 shrink-0">
+              <div className="min-w-0">
+                <h3 className="text-base font-semibold text-gray-800 m-0">
+                  Set template mapping
+                </h3>
+                <p className="text-xs text-gray-500 m-0 mt-0.5 capitalize">
+                  {setMappingItem.name}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={closeSetMappingModal}
+                disabled={Boolean(mappingActionName)}
+                className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-500 disabled:opacity-50"
+                aria-label="Close"
+              >
+                <FiX className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-4 overflow-y-auto min-h-0 flex-1">
+              {!selectedMappingTemplate ? (
+                <>
+                  <div className="relative">
+                    <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                    <input
+                      type="text"
+                      value={pickerSearch}
+                      onChange={(e) => setPickerSearch(e.target.value)}
+                      placeholder="Search approved templates..."
+                      className="w-full pl-9 pr-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-green-500 focus:border-green-500 outline-none"
+                    />
+                  </div>
+
+                  {pickerLoading ? (
+                    <div className="flex justify-center py-10">
+                      <FiLoader className="w-6 h-6 animate-spin text-green-600" />
+                    </div>
+                  ) : filteredPickerTemplates.length === 0 ? (
+                    <p className="text-sm text-gray-500 text-center py-8 m-0">
+                      No approved templates found.
+                    </p>
+                  ) : (
+                    <div className="space-y-2 mt-4">
+                      {filteredPickerTemplates.map((template) => (
+                        <button
+                          key={template.template_id}
+                          type="button"
+                          onClick={() =>
+                            selectMappingTemplate(template, setMappingItem.component)
+                          }
+                          className="w-full text-left px-3 py-3 rounded-lg border border-gray-200 hover:border-green-300 hover:bg-green-50 transition-colors"
+                        >
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="font-medium text-sm text-gray-800 truncate">
+                              {template.template_name}
+                            </span>
+                            <span className="text-[10px] uppercase tracking-wide text-gray-500 shrink-0">
+                              {template.category}
+                            </span>
+                          </div>
+                          <p className="text-xs text-gray-500 mt-1 line-clamp-2 m-0">
+                            {getTemplatePreviewText(template.template)}
+                          </p>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </>
+              ) : (
+                <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_300px] gap-6 min-h-0">
+                  <div className="space-y-4 min-w-0">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="text-sm font-semibold text-gray-800 m-0">
+                          {selectedMappingTemplate.template_name}
+                        </p>
+                        <p className="text-xs text-gray-500 mt-1 m-0">
+                          {selectedMappingTemplate.category} ·{" "}
+                          {selectedMappingTemplate.template?.language || "en"}
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSelectedMappingTemplate(null);
+                          setMappingVariableValues({});
+                        }}
+                        disabled={Boolean(mappingActionName)}
+                        className="text-xs text-green-700 hover:text-green-800 shrink-0 disabled:opacity-50"
+                      >
+                        Change
+                      </button>
+                    </div>
+
+                    {mappingPlaceholders.length === 0 ? (
+                      <p className="text-sm text-gray-500 m-0">
+                        This template has no variables to map.
+                      </p>
+                    ) : (
+                      <div className="space-y-3">
+                        {mappingPlaceholders.map((field) => (
+                          <div key={field.key}>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">
+                              {field.label}
+                              {field.required ? (
+                                <span className="text-red-500"> *</span>
+                              ) : null}
+                            </label>
+                            {field.inputType === "url" ? (
+                              <MappingUrlField
+                                field={field}
+                                value={mappingVariableValues[field.key] || ""}
+                                onChange={(nextValue) =>
+                                  handleMappingVariableChange(
+                                    field.key,
+                                    nextValue,
+                                  )
+                                }
+                                disabled={Boolean(mappingActionName)}
+                              />
+                            ) : (
+                              <MappingVariableInput
+                                value={mappingVariableValues[field.key] || ""}
+                                onChange={(nextValue) =>
+                                  handleMappingVariableChange(
+                                    field.key,
+                                    nextValue,
+                                  )
+                                }
+                                variables={mappingAvailableVariables}
+                                placeholder={mappingVariablePlaceholder}
+                                disabled={Boolean(mappingActionName)}
+                              />
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="min-w-0 lg:max-w-[300px]">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 mb-3 m-0">
+                      Preview
+                    </p>
+                    <div className="rounded-xl bg-[#e5ddd5] p-3 flex justify-center lg:sticky lg:top-0 w-fit max-w-full mx-auto lg:mx-0">
+                      {mappingPreviewContent ? (
+                        <OneChattingTemplatePreview
+                          content={mappingPreviewContent}
+                          className="w-[280px] max-w-[280px]"
+                        />
+                      ) : (
+                        <p className="text-sm text-gray-500 m-0 px-2 py-4">
+                          Preview will appear here.
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {selectedMappingTemplate ? (
+              <div className="flex items-center justify-end gap-2 px-4 py-3 border-t border-gray-200 shrink-0">
+                <button
+                  type="button"
+                  onClick={closeSetMappingModal}
+                  disabled={Boolean(mappingActionName)}
+                  className="px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-lg disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleSaveMapping}
+                  disabled={Boolean(mappingActionName)}
+                  className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-green-600 hover:bg-green-700 rounded-lg disabled:opacity-50"
+                >
+                  {mappingActionName === setMappingItem.name ? (
+                    <FiLoader className="w-4 h-4 animate-spin" />
+                  ) : null}
+                  Save mapping
+                </button>
+              </div>
+            ) : null}
           </div>
         </div>
       ) : null}

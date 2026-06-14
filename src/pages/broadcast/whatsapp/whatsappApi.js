@@ -59,6 +59,10 @@ export const whatsappApi = {
     whatsappAxios.get('/broadcast/whatsapp/onechatting/template-list', { params }).then(unwrap),
   getTemplateMapList: () =>
     whatsappAxios.get('/broadcast/whatsapp/onechatting/template-map-list').then(unwrap),
+  setTemplateMap: (payload) =>
+    whatsappAxios.put('/broadcast/whatsapp/onechatting/template-map/set', payload).then(unwrap),
+  unsetTemplateMap: (payload) =>
+    whatsappAxios.put('/broadcast/whatsapp/onechatting/template-map/unset', payload).then(unwrap),
   getTemplateDetails: (params) =>
     whatsappAxios.get('/broadcast/whatsapp/onechatting/template-details', { params }).then(unwrap),
 };
