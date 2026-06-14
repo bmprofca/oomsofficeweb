@@ -65,6 +65,32 @@ export const whatsappApi = {
     whatsappAxios.put('/broadcast/whatsapp/onechatting/template-map/unset', payload).then(unwrap),
   getTemplateDetails: (params) =>
     whatsappAxios.get('/broadcast/whatsapp/onechatting/template-details', { params }).then(unwrap),
+  getWhatsAppWebHealth: () =>
+    whatsappAxios.get('/broadcast/whatsapp/whatsappweb/health').then(unwrap),
+  getWhatsAppWebStatus: () =>
+    whatsappAxios.get('/broadcast/whatsapp/whatsappweb/status').then(unwrap),
+  createWhatsAppWebSession: (payload = {}) =>
+    whatsappAxios
+      .post('/broadcast/whatsapp/whatsappweb/session/create', payload)
+      .then(unwrap),
+  getWhatsAppWebQr: () =>
+    whatsappAxios.get('/broadcast/whatsapp/whatsappweb/qr').then(unwrap),
+  requestWhatsAppWebPairingCode: (payload) =>
+    whatsappAxios
+      .post('/broadcast/whatsapp/whatsappweb/pairing-code', payload)
+      .then(unwrap),
+  deleteWhatsAppWebSession: () =>
+    whatsappAxios.delete('/broadcast/whatsapp/whatsappweb/session').then(unwrap),
+  getWhatsAppWebTemplateList: (params) =>
+    whatsappAxios.get('/broadcast/whatsapp/whatsappweb/template/list', { params }).then(unwrap),
+  getWhatsAppWebTemplateDetails: (templateId) =>
+    whatsappAxios
+      .get(`/broadcast/whatsapp/whatsappweb/template/details/${templateId}`)
+      .then(unwrap),
+  createWhatsAppWebTemplate: (payload) =>
+    whatsappAxios.post('/broadcast/whatsapp/whatsappweb/template/create', payload).then(unwrap),
+  editWhatsAppWebTemplate: (payload) =>
+    whatsappAxios.put('/broadcast/whatsapp/whatsappweb/template/edit', payload).then(unwrap),
 };
 
 export const normalizeList = (data) => (Array.isArray(data) ? data : []);

@@ -207,6 +207,32 @@ const Broadcast = () => {
             color: "bg-green-100 text-green-600"
         }
     ];
+
+    // WhatsApp Web (OOMS Web) Cards data
+    const whatsappWebCards = [
+        {
+            title: "Connect WhatsApp",
+            description: "Link this branch via QR or pairing code",
+            icon: <FiMessageCircle className="w-5 h-5" />,
+            link: "/broadcast/whatsapp/web/session",
+            color: "bg-green-100 text-green-600"
+        },
+        {
+            title: "Templates",
+            description: "Manage WhatsApp Web message templates",
+            icon: <FiFileText className="w-5 h-5" />,
+            link: "/broadcast/whatsapp/web/templates",
+            color: "bg-green-100 text-green-600"
+        },
+        {
+            title: "Reports",
+            description: "View WhatsApp Web delivery reports",
+            icon: <FiBarChart2 className="w-5 h-5" />,
+            link: "./report?tab=whatsapp",
+            color: "bg-green-100 text-green-600"
+        }
+    ];
+
     // Push Notification Cards data
     const pushNotificationCards = [
         {
@@ -318,6 +344,9 @@ const Broadcast = () => {
     const renderWhatsappSubTabContent = () => {
         if (whatsappSubTab === 'onechatting') {
             return renderCardGrid(whatsappOneChattingCards);
+        }
+        if (whatsappSubTab === 'ooms web') {
+            return renderCardGrid(whatsappWebCards);
         }
         return renderCardGrid(whatsappOomsCards);
     };

@@ -56,6 +56,8 @@ import WhatsAppOoms from './pages/broadcast/whatsapp/ooms';
 import OneChattingConfigure from './pages/broadcast/whatsapp/OneChattingConfigure';
 import OneChattingLiveChat from './pages/broadcast/whatsapp/OneChattingLiveChat';
 import OneChattingTemplates from './pages/broadcast/whatsapp/OneChattingTemplates';
+import WhatsAppWebSession from './pages/broadcast/whatsapp/WhatsAppWebSession';
+import WhatsAppWebTemplates from './pages/broadcast/whatsapp/WhatsAppWebTemplates';
 import PushNotification from './pages/broadcast/push-notification/notification';
 import EmailConfigList from './pages/broadcast/email/EmailConfigList';
 import EmailTemplateList from './pages/broadcast/email/EmailTemplateList';
@@ -477,6 +479,18 @@ root.render(
         <Route path="/broadcast/whatsapp/onechatting/live-chat/:number?" element={
           <ProtectedRoute>
             <OneChattingLiveChat />
+          </ProtectedRoute>
+        } />
+
+        <Route path="/broadcast/whatsapp/web/session" element={
+          <ProtectedRoute>
+            <WhatsAppWebSession />
+          </ProtectedRoute>
+        } />
+
+        <Route path="/broadcast/whatsapp/web/templates" element={
+          <ProtectedRoute>
+            <WhatsAppWebTemplates />
           </ProtectedRoute>
         } />
 
