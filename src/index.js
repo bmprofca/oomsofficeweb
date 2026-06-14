@@ -55,6 +55,7 @@ import BroadcastReport from './pages/broadcast/report';
 import WhatsAppOoms from './pages/broadcast/whatsapp/ooms';
 import OneChattingConfigure from './pages/broadcast/whatsapp/OneChattingConfigure';
 import OneChattingLiveChat from './pages/broadcast/whatsapp/OneChattingLiveChat';
+import OneChattingTemplates from './pages/broadcast/whatsapp/OneChattingTemplates';
 import PushNotification from './pages/broadcast/push-notification/notification';
 import EmailConfigList from './pages/broadcast/email/EmailConfigList';
 import EmailTemplateList from './pages/broadcast/email/EmailTemplateList';
@@ -434,7 +435,7 @@ root.render(
 
         <Route path="/broadcast" element={
           <ProtectedRoute>
-            <Navigate to="/broadcast/text-message" replace />
+            <Navigate to="/broadcast/whatsapp" replace />
           </ProtectedRoute>
         } />
         <Route path="/broadcast/:tab" element={
@@ -464,6 +465,12 @@ root.render(
         <Route path="/broadcast/whatsapp/onechatting/configure" element={
           <ProtectedRoute>
             <OneChattingConfigure />
+          </ProtectedRoute>
+        } />
+
+        <Route path="/broadcast/whatsapp/onechatting/templates" element={
+          <ProtectedRoute>
+            <OneChattingTemplates />
           </ProtectedRoute>
         } />
 

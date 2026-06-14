@@ -481,7 +481,7 @@ export const Header = ({ mobileMenuOpen, setMobileMenuOpen, isMinimized, setIsMi
             </button>
             <div className="flex items-center gap-2 cursor-pointer" onClick={() => navigate('/')}>
               <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-600 text-white font-bold text-lg shadow-md shadow-indigo-200">W</div>
-              <span className="text-xl font-bold tracking-tight text-slate-800 hidden sm:block font-sans">WICHAT</span>
+              <span className="text-xl font-bold tracking-tight text-slate-800 hidden sm:block font-sans">OOMS</span>
             </div>
           </div>
 
@@ -692,7 +692,7 @@ export const Sidebar = ({ mobileMenuOpen, setMobileMenuOpen, isMinimized, setIsM
             <motion.div className="fixed inset-0 z-40 bg-slate-900/40 backdrop-blur-sm md:hidden" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setMobileMenuOpen(false)} />
             <motion.div className="fixed inset-y-0 left-0 z-50 w-72 bg-white shadow-2xl md:hidden flex flex-col" initial={{ x: '-100%' }} animate={{ x: 0 }} exit={{ x: '-100%' }} transition={{ type: "spring", damping: 30, stiffness: 300 }}>
               <div className="h-16 flex items-center justify-between px-6 border-b border-indigo-100 bg-indigo-50/30">
-                <span className="text-xl font-bold text-slate-800 font-sans">WICHAT</span>
+                <span className="text-xl font-bold text-slate-800 font-sans">OOMS</span>
                 <button onClick={() => setMobileMenuOpen(false)} className="p-1 rounded-md text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 transition-colors">
                   <FiX size={20} />
                 </button>

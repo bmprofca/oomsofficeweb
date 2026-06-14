@@ -27,7 +27,7 @@ import {
 const Broadcast = () => {
     const navigate = useNavigate();
     const { tab } = useParams();
-    const activeTab = tab || 'text-message';
+    const activeTab = tab || 'whatsapp';
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
     const [isMinimized, setIsMinimized] = useState(() => {
         const saved = localStorage.getItem('sidebarMinimized');
@@ -176,6 +176,13 @@ const Broadcast = () => {
             description: "View and manage WhatsApp conversations",
             icon: <FiMessageCircle className="w-5 h-5" />,
             link: "/broadcast/whatsapp/onechatting/live-chat",
+            color: "bg-green-100 text-green-600"
+        },
+        {
+            title: "Templates",
+            description: "View OneChatting WhatsApp templates",
+            icon: <FiFileText className="w-5 h-5" />,
+            link: "/broadcast/whatsapp/onechatting/templates",
             color: "bg-green-100 text-green-600"
         },
         {
@@ -352,7 +359,7 @@ const Broadcast = () => {
         <div className="bg-white rounded-lg border border-gray-200 mb-6">
             <div className="border-b border-gray-200 px-6 py-4">
                 <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
-                    <h5 className="text-lg font-semibold text-gray-800">Text Message</h5>
+                    <h5 className="text-lg font-semibold text-gray-800">SMS</h5>
                     {isHeadBranch && (
                         <div className="flex items-center gap-3">
                             <div className="text-sm text-gray-600 whitespace-nowrap">Select Channel</div>
@@ -432,11 +439,10 @@ const Broadcast = () => {
                                 key={subTab.value}
                                 type="button"
                                 onClick={() => handleWhatsappSubTabChange(subTab.value)}
-                                className={`py-2 px-1 border-b-2 font-medium text-sm whitespace-nowrap transition-colors ${
-                                    whatsappSubTab === subTab.value
-                                        ? 'border-green-500 text-green-600'
-                                        : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                                }`}
+                                className={`py-2 px-1 border-b-2 font-medium text-sm whitespace-nowrap transition-colors ${whatsappSubTab === subTab.value
+                                    ? 'border-green-500 text-green-600'
+                                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                                    }`}
                             >
                                 {subTab.label}
                             </button>
@@ -555,7 +561,7 @@ const Broadcast = () => {
                                             Broadcast
                                         </h5>
                                         <p className="text-gray-500 text-sm">
-                                            Manage Text Messages, WhatsApp, and Push Notifications
+                                            Manage WhatsApp, SMS, Email, and Push Notifications
                                         </p>
                                     </div>
                                 </div>
@@ -566,15 +572,6 @@ const Broadcast = () => {
                                 <div className="border-b border-gray-200">
                                     <nav className="-mb-px flex space-x-8 overflow-x-auto">
                                         <button
-                                            onClick={() => navigate('/broadcast/text-message')}
-                                            className={`py-2 px-1 border-b-2 font-medium text-sm whitespace-nowrap transition-colors ${activeTab === 'text-message'
-                                                ? 'border-blue-500 text-blue-600'
-                                                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                                                }`}
-                                        >
-                                            Text Message
-                                        </button>
-                                        <button
                                             onClick={() => navigate('/broadcast/whatsapp')}
                                             className={`py-2 px-1 border-b-2 font-medium text-sm whitespace-nowrap transition-colors ${activeTab === 'whatsapp'
                                                 ? 'border-green-500 text-green-600'
@@ -584,13 +581,13 @@ const Broadcast = () => {
                                             WhatsApp
                                         </button>
                                         <button
-                                            onClick={() => navigate('/broadcast/push')}
-                                            className={`py-2 px-1 border-b-2 font-medium text-sm whitespace-nowrap transition-colors ${activeTab === 'push'
-                                                ? 'border-purple-500 text-purple-600'
+                                            onClick={() => navigate('/broadcast/text-message')}
+                                            className={`py-2 px-1 border-b-2 font-medium text-sm whitespace-nowrap transition-colors ${activeTab === 'text-message'
+                                                ? 'border-blue-500 text-blue-600'
                                                 : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
                                                 }`}
                                         >
-                                            Push Notification
+                                            SMS
                                         </button>
                                         <button
                                             onClick={() => navigate('/broadcast/email-channel')}
@@ -601,12 +598,23 @@ const Broadcast = () => {
                                         >
                                             Email
                                         </button>
+                                        <button
+                                            onClick={() => navigate('/broadcast/push')}
+                                            className={`py-2 px-1 border-b-2 font-medium text-sm whitespace-nowrap transition-colors ${activeTab === 'push'
+                                                ? 'border-purple-500 text-purple-600'
+                                                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                                                }`}
+                                        >
+                                            Push Notification
+                                        </button>
                                     </nav>
                                 </div>
                             </div>
 
                             {/* Tab Content */}
                             <div className="p-6">
+                                {activeTab === 'whatsapp' && renderWhatsappSection()}
+
                                 {activeTab === 'text-message' && isHeadBranch && renderTextMessageSection()}
                                 {activeTab === 'text-message' && !isHeadBranch && (
                                     <motion.div
@@ -620,17 +628,16 @@ const Broadcast = () => {
                                                 Restricted Access
                                             </h3>
                                             <p className="text-gray-500">
-                                                Text Message broadcasting is only available for head branches.
+                                                SMS broadcasting is only available for head branches.
                                                 Please contact your administrator for access.
                                             </p>
                                         </div>
                                     </motion.div>
                                 )}
 
-                                {activeTab === 'whatsapp' && renderWhatsappSection()}
+                                {activeTab === 'email-channel' && renderEmailSection()}
 
                                 {activeTab === 'push' && renderPushNotificationSection()}
-                                {activeTab === 'email-channel' && renderEmailSection()}
                             </div>
                         </div>
                     </motion.div>

@@ -41,12 +41,14 @@ import { Header, Sidebar } from "../../../components/header";
 import OneChattingAttachModal from "./OneChattingAttachModal";
 import OneChattingMediaModal from "./OneChattingMediaModal";
 import OneChattingTemplateModal from "./OneChattingTemplateModal";
+import OneChattingTemplatePreview from "./OneChattingTemplatePreview";
 import { whatsappApi } from "./whatsappApi";
 import {
   buildReplyPayload,
   enrichSentMessage,
   extractApiError,
   normalizeRecipientNumber,
+  resolveTemplateMessage,
 } from "./oneChattingSendUtils";
 import {
   canPreviewMedia,
@@ -66,6 +68,7 @@ import {
   getMessageContentLabel,
   getMessagePreview,
   isPdfMedia,
+  isTemplateMessage,
   WhatsAppFormattedText,
 } from "./oneChattingChatUtils";
 import {
@@ -84,6 +87,7 @@ import "react-pdf/dist/Page/TextLayer.css";
 pdfjs.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`;
 
 const LIVE_CHAT_PATH = "/broadcast/whatsapp/onechatting/live-chat";
+const LIVE_CHAT_FULLSCREEN_KEY = "oneChattingLiveChatFullScreen";
 const CHAT_LIST_LIMIT = 20;
 const HISTORY_LIMIT = 50;
 const SEARCH_DEBOUNCE_MS = 500;
@@ -140,19 +144,24 @@ const ConversationSkeleton = () => (
   </div>
 );
 
-const MessageDeliveryStatus = ({ status }) => {
+const MessageDeliveryStatus = ({ status, lightBackground = false }) => {
   if (!status || status === "received") return null;
 
   if (status === "pending") {
     return (
-      <FiClock className="w-3 h-3 shrink-0 opacity-80" aria-label="Sending" />
+      <FiClock
+        className={`w-3 h-3 shrink-0 ${lightBackground ? "text-gray-400" : "opacity-80"}`}
+        aria-label="Sending"
+      />
     );
   }
 
   if (status === "failed") {
     return (
       <span
-        className="text-[10px] font-semibold text-red-200 shrink-0"
+        className={`text-[10px] font-semibold shrink-0 ${
+          lightBackground ? "text-red-500" : "text-red-200"
+        }`}
         aria-label="Failed"
       >
         !
@@ -161,7 +170,13 @@ const MessageDeliveryStatus = ({ status }) => {
   }
 
   const isDouble = status === "delivered" || status === "read";
-  const tickColor = status === "read" ? "text-sky-300" : "text-green-100";
+  const tickColor = lightBackground
+    ? status === "read"
+      ? "text-sky-500"
+      : "text-gray-400"
+    : status === "read"
+      ? "text-sky-300"
+      : "text-green-100";
 
   return (
     <span
@@ -670,7 +685,16 @@ const OneChattingLiveChat = ({
     total: 0,
   });
   const [mediaPreview, setMediaPreview] = useState(null);
-  const [isFullScreen, setIsFullScreen] = useState(false);
+  const [isFullScreen, setIsFullScreen] = useState(() => {
+    if (typeof window === "undefined") return false;
+    try {
+      return JSON.parse(
+        localStorage.getItem(LIVE_CHAT_FULLSCREEN_KEY) || "false",
+      );
+    } catch {
+      return false;
+    }
+  });
   const [showScrollToBottom, setShowScrollToBottom] = useState(false);
   const [messageDraft, setMessageDraft] = useState("");
   const [sendingMessage, setSendingMessage] = useState(false);
@@ -746,6 +770,14 @@ const OneChattingLiveChat = ({
       stickBottomEndTimerRef.current = null;
     }
   }, []);
+
+  useEffect(() => {
+    if (embedded) return;
+    localStorage.setItem(
+      LIVE_CHAT_FULLSCREEN_KEY,
+      JSON.stringify(isFullScreen),
+    );
+  }, [embedded, isFullScreen]);
 
   useEffect(() => {
     localStorage.setItem("sidebarMinimized", JSON.stringify(isMinimized));
@@ -1544,12 +1576,17 @@ const OneChattingLiveChat = ({
     const isOutgoing = message.type === "out";
     const mediaCaption = getMessageCaption(message);
     const hasMediaCaption = Boolean(mediaCaption);
+    const templateContent = isTemplateMessage(message)
+      ? resolveTemplateMessage(message)
+      : null;
+    const hasTemplateCard = Boolean(templateContent);
     const isPdfDocument =
       message.message_type === "document" &&
       Boolean(message.media_url) &&
       isPdfMedia(message.media_url, message.media_name);
     const locationData = getLocationFromMessage(message);
     const hasLocationMap = Boolean(locationData);
+    const usesWhiteCard = hasLocationMap || hasTemplateCard;
     const isVisualMedia =
       (["image", "video"].includes(message.message_type) &&
         Boolean(message.media_url)) ||
@@ -1570,6 +1607,7 @@ const OneChattingLiveChat = ({
       (hasAudioMedia || hasFileDocument);
     const fallbackLabel = getMessageContentLabel(message);
     const showTextContent =
+      !hasTemplateCard &&
       !hasLocationMap &&
       !showVisualCaption &&
       !isVisualMedia &&
@@ -1580,20 +1618,30 @@ const OneChattingLiveChat = ({
           ? fallbackLabel
           : hasMediaCaption
             ? mediaCaption
-            : !["image", "video", "audio", "document", "location"].includes(
-                message.message_type,
-              ) && fallbackLabel,
+            : ![
+                "image",
+                "video",
+                "audio",
+                "document",
+                "location",
+                "template",
+              ].includes(message.message_type) && fallbackLabel,
       );
 
     const timestampNode = (
       <>
         <span>{formatChatDate(message.create_date)}</span>
-        {isOutgoing && <MessageDeliveryStatus status={message.status} />}
+        {isOutgoing && (
+          <MessageDeliveryStatus
+            status={message.status}
+            lightBackground={usesWhiteCard}
+          />
+        )}
       </>
     );
 
     const timestampRowClass = `flex items-center justify-end gap-1 text-[10px] ${
-      isOutgoing ? "text-green-100" : "text-gray-400"
+      usesWhiteCard ? "text-gray-500" : isOutgoing ? "text-green-100" : "text-gray-400"
     }`;
 
     return (
@@ -1619,7 +1667,7 @@ const OneChattingLiveChat = ({
           className={`rounded-lg shadow-sm ${
             isOutgoing ? "order-1" : "order-2"
           } ${
-            hasLocationMap
+            usesWhiteCard
               ? `${MEDIA_PREVIEW_WIDTH_CLASS} shrink-0 p-1 bg-white text-gray-800 border border-gray-200 ${
                   isOutgoing ? "rounded-br-sm" : "rounded-bl-sm"
                 }`
@@ -1629,7 +1677,7 @@ const OneChattingLiveChat = ({
                   ? `w-fit min-w-0 max-w-[320px] px-2.5 py-2`
                   : `w-fit min-w-0 ${BUBBLE_MAX_WIDTH_CLASS} px-3 py-2`
           } ${
-            hasLocationMap
+            usesWhiteCard
               ? ""
               : isOutgoing
                 ? "bg-green-600 text-white rounded-br-sm"
@@ -1656,7 +1704,20 @@ const OneChattingLiveChat = ({
             </div>
           )}
 
-          {hasRichMedia ? (
+          {hasTemplateCard ? (
+            <>
+              <OneChattingTemplatePreview
+                content={templateContent}
+                className="max-w-full"
+                onOpenHeaderMedia={(url, type) =>
+                  setMediaPreview({ url, type, name: templateContent.templateName })
+                }
+              />
+              <div className={`${timestampRowClass} px-2 pb-1 pt-1`}>
+                {timestampNode}
+              </div>
+            </>
+          ) : hasRichMedia ? (
             <>
               {renderMediaAttachment(message, isOutgoing, {
                 mediaOnly: isMediaOnly,
@@ -1716,7 +1777,7 @@ const OneChattingLiveChat = ({
             />
           )}
 
-          {!hasRichMedia && (
+          {!hasRichMedia && !hasTemplateCard && (
             <div className={`${timestampRowClass} mt-1`}>{timestampNode}</div>
           )}
 

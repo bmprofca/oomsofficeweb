@@ -1,4 +1,5 @@
 import React from 'react';
+import { getTemplateMessageSummary } from './oneChattingSendUtils';
 
 const MEDIA_LABELS = {
   image: '📷 Image',
@@ -48,6 +49,19 @@ export const getLocationPreviewLabel = (message) => {
   return title ? `📍 ${title}` : MEDIA_LABELS.location;
 };
 
+export const isTemplateMessage = (message) =>
+  Boolean(
+    message &&
+      (message.message_type === 'template' ||
+        message.is_template ||
+        message.template?.components?.length),
+  );
+
+export const getTemplatePreviewLabel = (message) => {
+  const summary = getTemplateMessageSummary(message);
+  return summary ? `📋 ${summary}` : MEDIA_LABELS.template;
+};
+
 export const getMessagePreview = (lastMessage) => {
   if (!lastMessage) return '';
 
@@ -58,7 +72,9 @@ export const getMessagePreview = (lastMessage) => {
     preview =
       messageType === 'location'
         ? getLocationPreviewLabel(lastMessage)
-        : MEDIA_LABELS[messageType] || `[${messageType}]`;
+        : messageType === 'template' || lastMessage.is_template
+          ? getTemplatePreviewLabel(lastMessage)
+          : MEDIA_LABELS[messageType] || `[${messageType}]`;
   }
 
   if (type === 'out') {
@@ -132,6 +148,7 @@ export const getMessageContentLabel = (message) => {
   if (messageType === 'text') return caption;
   if (caption) return caption;
   if (messageType === 'location') return getLocationPreviewLabel(message);
+  if (isTemplateMessage(message)) return getTemplatePreviewLabel(message);
 
   return MEDIA_LABELS[messageType] || `[${messageType}]`;
 };

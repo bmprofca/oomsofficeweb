@@ -254,3 +254,167 @@ export const getTemplatePreviewText = (templateDef) => {
   );
   return body?.text || templateDef?.name || 'Template message';
 };
+
+const getSentTemplateComponents = (message) => {
+  if (Array.isArray(message?.component)) return message.component;
+  if (Array.isArray(message?.components)) return message.components;
+  return [];
+};
+
+const findSentTemplateComponent = (sentComponents, type) =>
+  sentComponents.find(
+    (item) => (item.type || '').toLowerCase() === type.toLowerCase(),
+  );
+
+const findTemplateDefinitionComponent = (templateDef, type) =>
+  (templateDef?.components || []).find(
+    (item) => (item.type || '').toUpperCase() === type.toUpperCase(),
+  );
+
+const applyBodyPlaceholders = (text, parameters = [], exampleRow = []) => {
+  if (!text) return '';
+
+  let resolved = text;
+  parameters.forEach((value, index) => {
+    if (value == null || value === '') return;
+    resolved = resolved.replace(
+      new RegExp(`\\{\\{${index + 1}\\}\\}`, 'g'),
+      String(value),
+    );
+  });
+
+  if (resolved.includes('{{') && Array.isArray(exampleRow)) {
+    exampleRow.forEach((value, index) => {
+      if (value == null || value === '') return;
+      resolved = resolved.replace(
+        new RegExp(`\\{\\{${index + 1}\\}\\}`, 'g'),
+        String(value),
+      );
+    });
+  }
+
+  return resolved;
+};
+
+export const resolveTemplateMessage = (message) => {
+  const templateDef = message?.template;
+  if (!templateDef?.components?.length) return null;
+
+  const sentComponents = getSentTemplateComponents(message);
+  const headerDef = findTemplateDefinitionComponent(templateDef, 'HEADER');
+  const bodyDef = findTemplateDefinitionComponent(templateDef, 'BODY');
+  const footerDef = findTemplateDefinitionComponent(templateDef, 'FOOTER');
+  const buttonsDef = findTemplateDefinitionComponent(templateDef, 'BUTTONS');
+  const headerSent = findSentTemplateComponent(sentComponents, 'header');
+  const bodySent = findSentTemplateComponent(sentComponents, 'body');
+
+  let header = null;
+  if (headerDef) {
+    const format = (headerDef.format || 'TEXT').toUpperCase();
+    const parameters = headerSent?.parameters || [];
+    header = { format };
+
+    if (format === 'TEXT') {
+      header.text =
+        parameters.find((item) => item.type === 'text')?.text ||
+        headerDef.text ||
+        headerDef.example?.header_text?.[0] ||
+        '';
+    } else if (format === 'IMAGE') {
+      header.mediaUrl =
+        parameters.find((item) => item.type === 'image')?.image?.link ||
+        headerDef.example?.header_handle?.[0] ||
+        headerDef.example?.header_url?.[0] ||
+        '';
+    } else if (format === 'VIDEO') {
+      header.mediaUrl =
+        parameters.find((item) => item.type === 'video')?.video?.link ||
+        headerDef.example?.header_handle?.[0] ||
+        headerDef.example?.header_url?.[0] ||
+        '';
+    } else if (format === 'DOCUMENT') {
+      header.mediaUrl =
+        parameters.find((item) => item.type === 'document')?.document?.link ||
+        headerDef.example?.header_handle?.[0] ||
+        headerDef.example?.header_url?.[0] ||
+        '';
+      header.fileName =
+        parameters.find((item) => item.type === 'document')?.document
+          ?.filename || 'Document';
+    }
+  }
+
+  const bodyParameters = (bodySent?.parameters || [])
+    .filter((item) => item.type === 'text')
+    .map((item) => item.text);
+  const bodyText = applyBodyPlaceholders(
+    bodyDef?.text || '',
+    bodyParameters,
+    bodyDef?.example?.body_text?.[0] || [],
+  );
+
+  const buttons = (buttonsDef?.buttons || []).map((button, index) => {
+    const buttonSent = sentComponents.find(
+      (item) =>
+        (item.type || '').toLowerCase() === 'button' &&
+        String(item.index ?? item.button_index) === String(index),
+    );
+    const urlSuffix = buttonSent?.parameters?.find(
+      (item) => item.type === 'text',
+    )?.text;
+    let url = button.url || '';
+
+    if (urlSuffix && url.includes('{{')) {
+      url = url.replace(/\{\{\d+\}\}/g, urlSuffix);
+    }
+
+    return {
+      type: (button.type || '').toUpperCase(),
+      text: button.text || '',
+      phone_number: button.phone_number || '',
+      url,
+    };
+  });
+
+  return {
+    templateName: templateDef.name || '',
+    category: templateDef.category || '',
+    language: templateDef.language || '',
+    header,
+    bodyText,
+    footerText: footerDef?.text || '',
+    buttons,
+  };
+};
+
+export const getTemplateMessageSummary = (message) => {
+  const resolved = resolveTemplateMessage(message);
+  if (!resolved) return '';
+
+  const firstLine =
+    resolved.bodyText
+      ?.split('\n')
+      .map((line) => line.trim())
+      .find(Boolean) || '';
+
+  if (firstLine) {
+    return firstLine.length > 96 ? `${firstLine.slice(0, 96)}…` : firstLine;
+  }
+
+  return resolved.templateName
+    ? resolved.templateName.replace(/_/g, ' ')
+    : 'Template message';
+};
+
+export const buildTemplatePreviewContent = (templateDef, variableValues = {}) => {
+  if (!templateDef?.components?.length) return null;
+
+  const component = buildTemplateComponents(templateDef, variableValues);
+
+  return resolveTemplateMessage({
+    message_type: 'template',
+    is_template: true,
+    template: templateDef,
+    component,
+  });
+};
