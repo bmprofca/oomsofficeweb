@@ -10,15 +10,37 @@ export const normalizeRecipientNumber = (number) =>
     .replace(/^\+/, '')
     .replace(/\s/g, '');
 
+export const buildWhatsAppNumber = (countryCode, mobile) => {
+  const digits = String(mobile || '').replace(/\D/g, '');
+  if (!digits) return '';
+
+  const code = String(countryCode || '91').replace(/\D/g, '') || '91';
+  if (digits.startsWith(code)) return digits;
+
+  return `${code}${digits}`;
+};
+
 export const enrichSentMessage = (response, replyToMessage) => {
   if (!response) return response;
-  if (!replyToMessage) return response;
+
+  const publicMessageId = response.message_id || response.unique_id;
+  const enriched = {
+    ...response,
+    ...(publicMessageId
+      ? {
+          message_id: publicMessageId,
+          unique_id: response.unique_id || publicMessageId,
+        }
+      : {}),
+  };
+
+  if (!replyToMessage) return enriched;
 
   return {
-    ...response,
+    ...enriched,
     is_reply: true,
     reply_to_message: replyToMessage,
-    reply_wamid: response.reply_wamid || replyToMessage.wamid,
+    reply_wamid: enriched.reply_wamid || replyToMessage.wamid,
   };
 };
 

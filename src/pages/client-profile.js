@@ -1358,7 +1358,12 @@ const ClientProfile = () => {
             notes: <NotesTab clientUsername={username} />,
             compliance: <ComplianceTab clientUsername={username} />,
             documents: <DocumentsTab clientUsername={username} />,
-            chatting: <ChattingTab clientUsername={username} />,
+            chatting: (
+                <ChattingTab
+                    clientData={clientData}
+                    loading={loading}
+                />
+            ),
             automation: <AutomationTab clientUsername={username} />
         };
 

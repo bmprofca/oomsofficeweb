@@ -41,6 +41,8 @@ export const whatsappApi = {
     whatsappAxios.get('/broadcast/whatsapp/onechatting/chat-list', { params }).then(unwrap),
   getChatHistory: (params) =>
     whatsappAxios.get('/broadcast/whatsapp/onechatting/chat-history', { params }).then(unwrap),
+  markAsRead: (payload) =>
+    whatsappAxios.post('/broadcast/whatsapp/onechatting/mark-as-read', payload).then(unwrap),
   sendTextMessage: (payload) =>
     whatsappAxios.post('/broadcast/whatsapp/onechatting/send-text-message', payload).then(unwrap),
   sendImageMessage: (payload) =>

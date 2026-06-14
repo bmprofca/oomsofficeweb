@@ -11,6 +11,43 @@ const MEDIA_LABELS = {
 
 export const getDisplayName = (contact) => contact?.name || contact?.number || 'Unknown';
 
+export const parseCoordinate = (value) => {
+  if (value == null || value === '') return null;
+  const num = Number(value);
+  return Number.isFinite(num) ? num : null;
+};
+
+export const getLocationFromMessage = (message) => {
+  if (!message || message.message_type !== 'location') return null;
+
+  const source = message.location || message;
+  const latitude = parseCoordinate(source.latitude ?? message.latitude);
+  const longitude = parseCoordinate(source.longitude ?? message.longitude);
+
+  if (latitude == null || longitude == null) return null;
+
+  return {
+    latitude,
+    longitude,
+    name: (source.name ?? message.name ?? '').trim(),
+    address: (source.address ?? message.address ?? '').trim(),
+  };
+};
+
+export const getGoogleMapsLink = ({ latitude, longitude }) =>
+  `https://www.google.com/maps?q=${latitude},${longitude}`;
+
+export const getGoogleMapsEmbedUrl = ({ latitude, longitude }) =>
+  `https://maps.google.com/maps?q=${latitude},${longitude}&hl=en&z=15&output=embed`;
+
+export const getLocationPreviewLabel = (message) => {
+  const location = getLocationFromMessage(message);
+  if (!location) return MEDIA_LABELS.location;
+
+  const title = location.name || location.address;
+  return title ? `📍 ${title}` : MEDIA_LABELS.location;
+};
+
 export const getMessagePreview = (lastMessage) => {
   if (!lastMessage) return '';
 
@@ -18,7 +55,10 @@ export const getMessagePreview = (lastMessage) => {
   let preview = message;
 
   if (messageType !== 'text' && !message) {
-    preview = MEDIA_LABELS[messageType] || `[${messageType}]`;
+    preview =
+      messageType === 'location'
+        ? getLocationPreviewLabel(lastMessage)
+        : MEDIA_LABELS[messageType] || `[${messageType}]`;
   }
 
   if (type === 'out') {
@@ -28,10 +68,22 @@ export const getMessagePreview = (lastMessage) => {
   return preview;
 };
 
+export const isChatAssignedToMe = (assigned) => Boolean(assigned?.is_me);
+
 export const getAssigneeLabel = (assigned) => {
   if (assigned === false) return 'Unassigned';
   if (assigned?.is_me) return 'Assigned to you';
   return assigned?.staff?.name || assigned?.staff?.username || 'Assigned';
+};
+
+export const getSendBlockedMessage = (assigned) => {
+  if (assigned === false) {
+    return 'This chat is unassigned. You cannot send messages.';
+  }
+  if (!isChatAssignedToMe(assigned)) {
+    return 'This chat is assigned to another agent. You cannot send messages.';
+  }
+  return '';
 };
 
 export const formatChatDate = (dateStr) => {
@@ -79,6 +131,7 @@ export const getMessageContentLabel = (message) => {
 
   if (messageType === 'text') return caption;
   if (caption) return caption;
+  if (messageType === 'location') return getLocationPreviewLabel(message);
 
   return MEDIA_LABELS[messageType] || `[${messageType}]`;
 };

@@ -54,8 +54,13 @@ import {
   formatChatDate,
   getAssigneeLabel,
   getDisplayName,
+  getSendBlockedMessage,
+  isChatAssignedToMe,
   getDocumentTypeMeta,
   getFileExtension,
+  getGoogleMapsEmbedUrl,
+  getGoogleMapsLink,
+  getLocationFromMessage,
   getMediaPreviewType,
   getMessageCaption,
   getMessageContentLabel,
@@ -113,7 +118,7 @@ const ChatListSkeleton = ({ rows = 8 }) => (
 );
 
 const ConversationSkeleton = () => (
-  <div className="p-4 space-y-4 animate-pulse h-full">
+  <div className="p-4 space-y-4 animate-pulse overflow-y-auto h-full">
     <div className="flex justify-start">
       <div className="h-14 w-[55%] bg-white/80 rounded-2xl rounded-bl-md" />
     </div>
@@ -276,9 +281,37 @@ const ChatVisualMediaPreview = ({
   );
 };
 
-const ChatPdfPreview = ({ src, name, onClick, clickable = true }) => {
+const isPdfPasswordError = (error) => {
+  if (!error) return false;
+  return (
+    error.name === "PasswordException" ||
+    error.code === 1 ||
+    error.code === 2 ||
+    /password/i.test(error.message || "")
+  );
+};
+
+const ChatPdfPreview = ({
+  src,
+  name,
+  isOutgoing,
+  onClick,
+  clickable = true,
+}) => {
   const [loadState, setLoadState] = useState("loading");
   const [numPages, setNumPages] = useState(null);
+  const [isPasswordProtected, setIsPasswordProtected] = useState(false);
+
+  const markPasswordProtected = () => {
+    setIsPasswordProtected(true);
+    setLoadState("password-protected");
+  };
+
+  if (isPasswordProtected) {
+    return (
+      <ChatDocumentFilePreview url={src} name={name} isOutgoing={isOutgoing} />
+    );
+  }
 
   const preview = (
     <div className={`relative ${MEDIA_PREVIEW_BOX_CLASS}`}>
@@ -302,7 +335,17 @@ const ChatPdfPreview = ({ src, name, onClick, clickable = true }) => {
           setNumPages(pages);
           setLoadState("loaded");
         }}
-        onLoadError={() => setLoadState("error")}
+        onLoadError={(error) => {
+          if (isPdfPasswordError(error)) {
+            markPasswordProtected();
+            return;
+          }
+          setLoadState("error");
+        }}
+        onPassword={(updatePassword) => {
+          markPasswordProtected();
+          updatePassword(null);
+        }}
         loading=""
         className={loadState === "loaded" ? "flex justify-center" : "hidden"}
       >
@@ -528,51 +571,73 @@ const ChatAudioPreview = ({ src, name, isOutgoing, onOpenModal }) => {
 };
 
 const ChatLocationPreview = ({ latitude, longitude, name, address }) => {
-  const mapSrc = `https://staticmap.openstreetmap.de/staticmap.php?center=${latitude},${longitude}&zoom=15&size=330x200&markers=${latitude},${longitude},red-pushpin`;
-  const mapsLink = `https://www.google.com/maps?q=${latitude},${longitude}`;
+  const location = { latitude, longitude };
+  const mapsLink = getGoogleMapsLink(location);
+  const embedUrl = getGoogleMapsEmbedUrl(location);
+  const title = name || address || "Shared location";
+
+  const openMaps = () => {
+    window.open(mapsLink, "_blank", "noopener,noreferrer");
+  };
 
   return (
-    <a
-      href={mapsLink}
-      target="_blank"
-      rel="noreferrer noopener"
-      className={`block ${MEDIA_PREVIEW_WIDTH_CLASS} shrink-0 rounded-md overflow-hidden bg-white`}
-      onClick={(event) => event.stopPropagation()}
+    <button
+      type="button"
+      onClick={openMaps}
+      className={`block w-full text-left ${MEDIA_PREVIEW_WIDTH_CLASS} shrink-0 rounded-md overflow-hidden bg-white focus:outline-none focus:ring-2 focus:ring-green-400/50`}
     >
-      <div className={MEDIA_PREVIEW_BOX_CLASS}>
-        <img
-          src={mapSrc}
-          alt={name || "Location"}
-          className="w-full h-full object-cover"
+      <div className={`relative ${MEDIA_PREVIEW_BOX_CLASS} bg-[#e9edef]`}>
+        <iframe
+          title={title}
+          src={embedUrl}
           loading="lazy"
-          referrerPolicy="no-referrer"
+          referrerPolicy="no-referrer-when-downgrade"
+          className="absolute inset-0 w-full h-full border-0 pointer-events-none"
         />
         <span className="absolute top-2 left-2 w-8 h-8 rounded-full bg-white shadow flex items-center justify-center">
           <FiMapPin className="w-4 h-4 text-red-500" />
         </span>
       </div>
-      {(name || address) && (
-        <div className="px-2.5 py-2 border-t border-black/5">
-          {name ? (
-            <p className="text-sm font-medium text-gray-800 truncate m-0">
-              {name}
-            </p>
-          ) : null}
-          {address ? (
-            <p className="text-xs text-gray-500 truncate m-0 mt-0.5">
-              {address}
-            </p>
-          ) : null}
-        </div>
-      )}
-    </a>
+      <div className="px-2.5 py-2 border-t border-black/5">
+        <p className="text-sm font-medium text-gray-800 truncate m-0">
+          {name || "Location"}
+        </p>
+        {address ? (
+          <p className="text-xs text-gray-500 m-0 mt-0.5 line-clamp-2">
+            {address}
+          </p>
+        ) : null}
+        <p className="text-[11px] text-green-700 m-0 mt-1.5 font-medium">
+          View on Google Maps
+        </p>
+      </div>
+    </button>
   );
 };
 
-const OneChattingLiveChat = () => {
+const OneChattingLiveChat = ({
+  embedded = false,
+  clientNumber: fixedClientNumber = "",
+  clientName: fixedClientName = "",
+} = {}) => {
   const { number: numberParam } = useParams();
   const navigate = useNavigate();
-  const urlNumber = numberParam ? decodeURIComponent(numberParam) : null;
+  const urlNumber =
+    !embedded && numberParam ? decodeURIComponent(numberParam) : null;
+  const resolvedNumber = embedded
+    ? normalizeRecipientNumber(fixedClientNumber)
+    : urlNumber;
+
+  const buildContact = useCallback(
+    (number, name = "") => {
+      if (!number) return null;
+      return {
+        number,
+        ...(name ? { name } : {}),
+      };
+    },
+    [],
+  );
 
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [isMinimized, setIsMinimized] = useState(() =>
@@ -593,7 +658,7 @@ const OneChattingLiveChat = () => {
   });
 
   const [selectedContact, setSelectedContact] = useState(() =>
-    urlNumber ? { number: urlNumber } : null,
+    buildContact(resolvedNumber, fixedClientName),
   );
   const [messages, setMessages] = useState([]);
   const [assigned, setAssigned] = useState(false);
@@ -629,8 +694,15 @@ const OneChattingLiveChat = () => {
   const stickScrollTimerRef = useRef(null);
   const stickBottomEndTimerRef = useRef(null);
   const lastScrollTopRef = useRef(0);
+  const pendingMarkAsReadRef = useRef(null);
 
   selectedContactRef.current = selectedContact;
+
+  const isPageVisible = useCallback(
+    () =>
+      typeof document === "undefined" || document.visibilityState === "visible",
+    [],
+  );
 
   const scrollToBottomInstant = useCallback(() => {
     const container = messagesContainerRef.current;
@@ -680,12 +752,18 @@ const OneChattingLiveChat = () => {
   }, [isMinimized]);
 
   useEffect(() => {
+    if (embedded) return;
     document.body.style.overflow = "hidden";
     return () => {
       document.body.style.overflow = "auto";
       clearStickScrollTimers();
     };
-  }, [clearStickScrollTimers]);
+  }, [embedded, clearStickScrollTimers]);
+
+  useEffect(() => {
+    if (!embedded) return;
+    return () => clearStickScrollTimers();
+  }, [embedded, clearStickScrollTimers]);
 
   useEffect(() => {
     const container = messagesContainerRef.current;
@@ -754,9 +832,61 @@ const OneChattingLiveChat = () => {
   );
 
   useEffect(() => {
+    if (embedded) return undefined;
     fetchChatList(1, false, "");
     return () => debouncedSearch.cancel();
-  }, [fetchChatList, debouncedSearch]);
+  }, [embedded, fetchChatList, debouncedSearch]);
+
+  useEffect(() => {
+    if (!embedded) return;
+
+    const number = normalizeRecipientNumber(fixedClientNumber);
+    if (!number) {
+      setSelectedContact(null);
+      return;
+    }
+
+    setSelectedContact((prev) => ({
+      number,
+      name: fixedClientName || prev?.name || "",
+    }));
+  }, [embedded, fixedClientNumber, fixedClientName]);
+
+  const markChatAsRead = useCallback(async (number) => {
+    const normalizedNumber = normalizeRecipientNumber(number);
+    if (!normalizedNumber) return;
+
+    try {
+      const res = await whatsappApi.markAsRead({ number: normalizedNumber });
+      if (res?.error) return;
+
+      pendingMarkAsReadRef.current = null;
+      setChats((prev) => clearChatUnreadCount(prev, number));
+      setMessages((prev) =>
+        prev.map((message) =>
+          message.type === "in" && !message.is_read
+            ? { ...message, is_read: true }
+            : message,
+        ),
+      );
+    } catch {
+      // Keep unread state if mark-as-read fails
+    }
+  }, []);
+
+  const scheduleMarkAsReadIfVisible = useCallback(
+    (number) => {
+      if (!number) return;
+
+      if (!isPageVisible()) {
+        pendingMarkAsReadRef.current = number;
+        return;
+      }
+
+      markChatAsRead(number);
+    },
+    [isPageVisible, markChatAsRead],
+  );
 
   const handleSocketChat = useCallback(
     (payload) => {
@@ -769,8 +899,12 @@ const OneChattingLiveChat = () => {
       setMessages((prev) => upsertMessage(prev, payload.message));
       activateStickToBottom();
       requestAnimationFrame(() => scrollToBottomInstant());
+
+      if (payload.message.type === "in") {
+        scheduleMarkAsReadIfVisible(number);
+      }
     },
-    [activateStickToBottom, scrollToBottomInstant],
+    [activateStickToBottom, scheduleMarkAsReadIfVisible, scrollToBottomInstant],
   );
 
   const handleSocketMessageStatus = useCallback((payload) => {
@@ -810,8 +944,8 @@ const OneChattingLiveChat = () => {
     });
 
   useEffect(() => {
-    if (!urlNumber) {
-      setSelectedContact(null);
+    if (embedded || !urlNumber) {
+      if (!embedded) setSelectedContact(null);
       return;
     }
 
@@ -821,12 +955,7 @@ const OneChattingLiveChat = () => {
       if (prev?.number === urlNumber) return prev;
       return { number: urlNumber };
     });
-  }, [urlNumber, chats]);
-
-  useEffect(() => {
-    if (!urlNumber) return;
-    setChats((prev) => clearChatUnreadCount(prev, urlNumber));
-  }, [urlNumber]);
+  }, [embedded, urlNumber, chats]);
 
   const handleSearchChange = (e) => {
     const value = e.target.value;
@@ -933,6 +1062,65 @@ const OneChattingLiveChat = () => {
     fetchChatHistory(selectedContact.number, 0, false);
   }, [selectedContact?.number, fetchChatHistory, activateStickToBottom]);
 
+  useEffect(() => {
+    if (!selectedContact?.number || historyLoading) return;
+
+    if (embedded) {
+      scheduleMarkAsReadIfVisible(selectedContact.number);
+      return;
+    }
+
+    const chat = chats.find(
+      (item) => item.contact?.number === selectedContact.number,
+    );
+    if (Number(chat?.unread_count) > 0) {
+      scheduleMarkAsReadIfVisible(selectedContact.number);
+    }
+  }, [
+    embedded,
+    selectedContact?.number,
+    historyLoading,
+    chats,
+    scheduleMarkAsReadIfVisible,
+  ]);
+
+  useEffect(() => {
+    const handlePageVisible = () => {
+      if (!isPageVisible()) return;
+
+      const number =
+        pendingMarkAsReadRef.current || selectedContactRef.current?.number;
+      if (!number) return;
+
+      pendingMarkAsReadRef.current = null;
+      scheduleMarkAsReadIfVisible(number);
+    };
+
+    document.addEventListener("visibilitychange", handlePageVisible);
+    window.addEventListener("focus", handlePageVisible);
+
+    return () => {
+      document.removeEventListener("visibilitychange", handlePageVisible);
+      window.removeEventListener("focus", handlePageVisible);
+    };
+  }, [isPageVisible, scheduleMarkAsReadIfVisible]);
+
+  useEffect(() => {
+    if (
+      !selectedContact?.number ||
+      historyLoading ||
+      !isChatAssignedToMe(assigned)
+    ) {
+      return;
+    }
+
+    const focusTimer = requestAnimationFrame(() => {
+      messageInputRef.current?.focus();
+    });
+
+    return () => cancelAnimationFrame(focusTimer);
+  }, [assigned, historyLoading, selectedContact?.number]);
+
   useLayoutEffect(() => {
     const chatListEl = chatListContainerRef.current;
     if (chatListEl) {
@@ -960,6 +1148,7 @@ const OneChattingLiveChat = () => {
   ]);
 
   const handleSelectChat = (item) => {
+    if (embedded) return;
     if (chatListContainerRef.current) {
       savedChatListScrollTop.current = chatListContainerRef.current.scrollTop;
     }
@@ -969,11 +1158,11 @@ const OneChattingLiveChat = () => {
     canLoadOlderRef.current = false;
     lastScrollTopRef.current = 0;
     setSelectedContact(item.contact);
-    setChats((prev) => clearChatUnreadCount(prev, item.contact.number));
     navigate(`${LIVE_CHAT_PATH}/${encodeURIComponent(item.contact.number)}`);
   };
 
   const handleCloseChat = () => {
+    if (embedded) return;
     setSelectedContact(null);
     navigate(LIVE_CHAT_PATH);
   };
@@ -1108,8 +1297,14 @@ const OneChattingLiveChat = () => {
   );
 
   const sendWithHandler = useCallback(
-    async (handler, payload, successMessage = "Message sent") => {
-      if (!selectedContact?.number || sendingMessage) return false;
+    async (handler, payload) => {
+      if (
+        !selectedContact?.number ||
+        sendingMessage ||
+        !isChatAssignedToMe(assigned)
+      ) {
+        return false;
+      }
 
       setSendingMessage(true);
       try {
@@ -1119,7 +1314,6 @@ const OneChattingLiveChat = () => {
           ...payload,
         });
         handleSendSuccess(enrichSentMessage(response, replyToMessage));
-        toast.success(successMessage);
         return true;
       } catch (error) {
         toast.error(extractApiError(error, "Failed to send message"));
@@ -1129,6 +1323,7 @@ const OneChattingLiveChat = () => {
       }
     },
     [
+      assigned,
       handleSendSuccess,
       replyToMessage,
       selectedContact?.number,
@@ -1141,11 +1336,9 @@ const OneChattingLiveChat = () => {
     const text = messageDraft.trim();
     if (!text || !selectedContact?.number || sendingMessage) return;
 
-    const sent = await sendWithHandler(
-      whatsappApi.sendTextMessage,
-      { message: text },
-      "Message sent",
-    );
+    const sent = await sendWithHandler(whatsappApi.sendTextMessage, {
+      message: text,
+    });
 
     if (!sent) return;
 
@@ -1165,7 +1358,7 @@ const OneChattingLiveChat = () => {
     const handler = sendHandlers[attachModalType];
     if (!handler) return;
 
-    const sent = await sendWithHandler(handler, payload, "Message sent");
+    const sent = await sendWithHandler(handler, payload);
     if (sent) {
       setAttachModalType(null);
       setAttachMenuOpen(false);
@@ -1176,7 +1369,6 @@ const OneChattingLiveChat = () => {
     const sent = await sendWithHandler(
       whatsappApi.sendTemplateMessage,
       payload,
-      "Template sent",
     );
     if (sent) {
       setTemplateModalOpen(false);
@@ -1192,6 +1384,7 @@ const OneChattingLiveChat = () => {
   };
 
   const handleReplyToMessage = (message) => {
+    if (!isChatAssignedToMe(assigned)) return;
     setReplyToMessage(message);
     messageInputRef.current?.focus();
   };
@@ -1201,6 +1394,7 @@ const OneChattingLiveChat = () => {
   };
 
   const handleOpenAttachOption = (type) => {
+    if (!isChatAssignedToMe(assigned)) return;
     setAttachMenuOpen(false);
     if (type === "template") {
       setTemplateModalOpen(true);
@@ -1209,8 +1403,14 @@ const OneChattingLiveChat = () => {
     setAttachModalType(type);
   };
 
+  const canSendToChat = isChatAssignedToMe(assigned);
+  const sendBlockedMessage = getSendBlockedMessage(assigned);
+
   const canSendMessage = Boolean(
-    messageDraft.trim() && selectedContact?.number && !sendingMessage,
+    canSendToChat &&
+    messageDraft.trim() &&
+    selectedContact?.number &&
+    !sendingMessage,
   );
 
   const replyPreviewText = replyToMessage
@@ -1250,16 +1450,16 @@ const OneChattingLiveChat = () => {
       ) : null;
 
     if (messageType === "location") {
-      const { latitude, longitude, name, address } = message;
-      if (!latitude || !longitude) return null;
+      const location = getLocationFromMessage(message);
+      if (!location) return null;
 
       return (
         <div className={`relative ${MEDIA_PREVIEW_WIDTH_CLASS} shrink-0`}>
           <ChatLocationPreview
-            latitude={latitude}
-            longitude={longitude}
-            name={name}
-            address={address}
+            latitude={location.latitude}
+            longitude={location.longitude}
+            name={location.name}
+            address={location.address}
           />
           {mediaTimestampOverlay}
         </div>
@@ -1320,6 +1520,7 @@ const OneChattingLiveChat = () => {
             <ChatPdfPreview
               src={mediaUrl}
               name={mediaName}
+              isOutgoing={isOutgoing}
               onClick={() => openMediaPreview(message)}
             />
             {mediaTimestampOverlay}
@@ -1347,9 +1548,8 @@ const OneChattingLiveChat = () => {
       message.message_type === "document" &&
       Boolean(message.media_url) &&
       isPdfMedia(message.media_url, message.media_name);
-    const hasLocationMap =
-      message.message_type === "location" &&
-      Boolean(message.latitude && message.longitude);
+    const locationData = getLocationFromMessage(message);
+    const hasLocationMap = Boolean(locationData);
     const isVisualMedia =
       (["image", "video"].includes(message.message_type) &&
         Boolean(message.media_url)) ||
@@ -1419,15 +1619,21 @@ const OneChattingLiveChat = () => {
           className={`rounded-lg shadow-sm ${
             isOutgoing ? "order-1" : "order-2"
           } ${
-            isVisualMedia
-              ? `${MEDIA_PREVIEW_WIDTH_CLASS} shrink-0 p-1`
-              : hasAudioMedia || hasFileDocument
-                ? `w-fit min-w-0 max-w-[320px] px-2.5 py-2`
-                : `w-fit min-w-0 ${BUBBLE_MAX_WIDTH_CLASS} px-3 py-2`
+            hasLocationMap
+              ? `${MEDIA_PREVIEW_WIDTH_CLASS} shrink-0 p-1 bg-white text-gray-800 border border-gray-200 ${
+                  isOutgoing ? "rounded-br-sm" : "rounded-bl-sm"
+                }`
+              : isVisualMedia
+                ? `${MEDIA_PREVIEW_WIDTH_CLASS} shrink-0 p-1`
+                : hasAudioMedia || hasFileDocument
+                  ? `w-fit min-w-0 max-w-[320px] px-2.5 py-2`
+                  : `w-fit min-w-0 ${BUBBLE_MAX_WIDTH_CLASS} px-3 py-2`
           } ${
-            isOutgoing
-              ? "bg-green-600 text-white rounded-br-sm"
-              : "bg-white text-gray-800 border border-gray-200 rounded-bl-sm"
+            hasLocationMap
+              ? ""
+              : isOutgoing
+                ? "bg-green-600 text-white rounded-br-sm"
+                : "bg-white text-gray-800 border border-gray-200 rounded-bl-sm"
           }`}
         >
           {message.is_reply && message.reply_to_message && (
@@ -1490,14 +1696,9 @@ const OneChattingLiveChat = () => {
           ) : message.message_type === "location" ? (
             <div className="text-sm max-w-[280px]">
               <p className="font-medium m-0">{message.name || "Location"}</p>
-              {message.address && (
+              {message.address ? (
                 <p className="opacity-90 m-0 mt-0.5">{message.address}</p>
-              )}
-              {message.latitude && message.longitude && (
-                <p className="text-xs opacity-75 mt-1 m-0">
-                  {message.latitude}, {message.longitude}
-                </p>
-              )}
+              ) : null}
             </div>
           ) : null}
 
@@ -1537,9 +1738,13 @@ const OneChattingLiveChat = () => {
 
   return (
     <div
-      className={`${isFullScreen ? "fixed inset-0 z-[100]" : "h-screen"} overflow-hidden bg-gray-100`}
+      className={
+        embedded
+          ? "h-[600px] overflow-hidden bg-gray-100"
+          : `${isFullScreen ? "fixed inset-0 z-[100]" : "h-screen"} overflow-hidden bg-gray-100`
+      }
     >
-      {!isFullScreen && (
+      {!embedded && !isFullScreen && (
         <Header
           mobileMenuOpen={mobileMenuOpen}
           setMobileMenuOpen={setMobileMenuOpen}
@@ -1547,7 +1752,7 @@ const OneChattingLiveChat = () => {
           setIsMinimized={setIsMinimized}
         />
       )}
-      {!isFullScreen && (
+      {!embedded && !isFullScreen && (
         <Sidebar
           mobileMenuOpen={mobileMenuOpen}
           setMobileMenuOpen={setMobileMenuOpen}
@@ -1557,17 +1762,21 @@ const OneChattingLiveChat = () => {
       )}
 
       <div
-        className={`fixed inset-0 overflow-hidden transition-all duration-300 ${
-          isFullScreen ? "top-0" : "top-16"
-        } ${isFullScreen ? "left-0" : isMinimized ? "md:pl-20" : "md:pl-[260px]"}`}
+        className={
+          embedded
+            ? "h-full overflow-hidden"
+            : `fixed inset-0 overflow-hidden transition-all duration-300 ${
+                isFullScreen ? "top-0" : "top-16"
+              } ${isFullScreen ? "left-0" : isMinimized ? "md:pl-20" : "md:pl-[260px]"}`
+        }
       >
-        <div className={`h-full ${isFullScreen ? "p-0" : "p-2 sm:p-3 md:p-4"}`}>
+        <div className={`h-full ${embedded ? "" : isFullScreen ? "p-0" : "p-2 sm:p-3 md:p-4"}`}>
           <div
-            className={`h-full bg-white border border-gray-200 shadow-sm overflow-hidden flex ${
-              isFullScreen ? "rounded-none" : "rounded-xl"
-            }`}
+            className={`h-full bg-white overflow-hidden flex ${
+              embedded ? "" : "border border-gray-200 shadow-sm"
+            } ${embedded || isFullScreen ? "rounded-none" : "rounded-xl"}`}
           >
-            {/* Chat list panel */}
+            {!embedded && (
             <div
               className={`${
                 showChatPanel ? "hidden md:flex" : "flex"
@@ -1750,11 +1959,11 @@ const OneChattingLiveChat = () => {
                 )}
               </div>
             </div>
+            )}
 
-            {/* Chat history panel */}
             <div
               className={`${
-                showChatPanel ? "flex" : "hidden md:flex"
+                embedded || showChatPanel ? "flex" : "hidden md:flex"
               } flex-1 flex-col bg-[#e5ddd5] min-w-0 min-h-0`}
             >
               {!selectedContact ? (
@@ -1772,20 +1981,42 @@ const OneChattingLiveChat = () => {
               ) : (
                 <>
                   <div className="shrink-0 px-3 py-2 bg-gray-100 border-b border-gray-200 flex items-center gap-2">
-                    <button
-                      type="button"
-                      onClick={handleCloseChat}
-                      className="md:hidden p-1.5 rounded-lg hover:bg-gray-200 text-gray-600"
-                    >
-                      <FiArrowLeft className="w-4 h-4" />
-                    </button>
+                    {!embedded ? (
+                      <button
+                        type="button"
+                        onClick={handleCloseChat}
+                        className="md:hidden p-1.5 rounded-lg hover:bg-gray-200 text-gray-600"
+                      >
+                        <FiArrowLeft className="w-4 h-4" />
+                      </button>
+                    ) : null}
                     <div className="w-8 h-8 rounded-full bg-green-600 text-white flex items-center justify-center shrink-0">
                       <FiUser className="w-3.5 h-3.5" />
                     </div>
                     <div className="flex-1 min-w-0 flex flex-col gap-0.5">
-                      <p className="font-semibold text-sm text-gray-900 truncate leading-tight m-0">
-                        {getDisplayName(selectedContact)}
-                      </p>
+                      <div className="flex items-center gap-2 min-w-0">
+                        <p className="font-semibold text-sm text-gray-900 truncate leading-tight m-0">
+                          {getDisplayName(selectedContact)}
+                        </p>
+                        {embedded && showSocketStatus ? (
+                          <span
+                            className={`w-2 h-2 rounded-full shrink-0 ${
+                              socketAuthenticated
+                                ? "bg-green-500 animate-pulse"
+                                : socketConnecting
+                                  ? "bg-amber-400"
+                                  : "bg-red-400"
+                            }`}
+                            title={
+                              socketAuthenticated
+                                ? "Live updates connected"
+                                : socketConnecting
+                                  ? "Connecting to live updates..."
+                                  : "Live updates disconnected"
+                            }
+                          />
+                        ) : null}
+                      </div>
                       <p className="text-[11px] text-gray-500 truncate leading-tight m-0">
                         {selectedContact.number}
                       </p>
@@ -1806,10 +2037,10 @@ const OneChattingLiveChat = () => {
                     </button>
                   </div>
 
-                  <div className="flex flex-col flex-1 min-h-0">
-                    <div className="relative flex-1 min-h-0">
+                  <div className="flex flex-col flex-1 min-h-0 overflow-hidden">
+                    <div className="relative flex-1 min-h-0 overflow-hidden">
                       {historyLoading && (
-                        <div className="absolute inset-0 z-10 bg-[#e5ddd5]">
+                        <div className="absolute inset-0 z-10 overflow-hidden bg-[#e5ddd5]">
                           <ConversationSkeleton />
                         </div>
                       )}
@@ -1850,121 +2081,132 @@ const OneChattingLiveChat = () => {
                       )}
                     </div>
 
-                    <form
-                      onSubmit={handleSendMessage}
-                      className="shrink-0 px-3 py-2.5 bg-[#f0f2f5] border-t border-gray-200"
-                    >
-                      {replyToMessage ? (
-                        <div className="mb-2 flex items-start gap-2 rounded-xl bg-white border border-green-200 px-3 py-2 shadow-sm">
-                          <div className="w-1 self-stretch rounded-full bg-green-500 shrink-0" />
-                          <div className="flex-1 min-w-0">
-                            <p className="text-[11px] font-medium text-green-700 m-0">
-                              Replying to
-                            </p>
-                            <p className="text-xs text-gray-600 truncate m-0 mt-0.5">
-                              {replyPreviewText}
-                            </p>
-                          </div>
-                          <button
-                            type="button"
-                            onClick={handleClearReply}
-                            className="p-1 rounded-full text-gray-400 hover:text-gray-600 hover:bg-gray-100 shrink-0"
-                            aria-label="Cancel reply"
-                          >
-                            <FiX className="w-4 h-4" />
-                          </button>
-                        </div>
-                      ) : null}
-
-                      <div className="flex items-end gap-2">
-                        <div className="relative shrink-0" ref={attachMenuRef}>
-                          <button
-                            type="button"
-                            onClick={() => setAttachMenuOpen((prev) => !prev)}
-                            disabled={sendingMessage}
-                            className="p-2 rounded-full text-gray-600 hover:bg-gray-200 transition-colors disabled:opacity-50"
-                            title="Attach"
-                            aria-label="Attach"
-                          >
-                            <FiPaperclip className="w-5 h-5" />
-                          </button>
-
-                          {attachMenuOpen ? (
-                            <div className="absolute bottom-full left-0 mb-2 w-52 rounded-xl bg-white border border-gray-200 shadow-lg py-1 z-30">
-                              {[
-                                {
-                                  type: "template",
-                                  label: "Template",
-                                  icon: FiLayout,
-                                },
-                                {
-                                  type: "image",
-                                  label: "Image",
-                                  icon: FiImage,
-                                },
-                                {
-                                  type: "video",
-                                  label: "Video",
-                                  icon: FiVideo,
-                                },
-                                {
-                                  type: "document",
-                                  label: "Document",
-                                  icon: FiFile,
-                                },
-                                {
-                                  type: "audio",
-                                  label: "Audio",
-                                  icon: FiMic,
-                                },
-                              ].map(({ type, label, icon: Icon }) => (
-                                <button
-                                  key={type}
-                                  type="button"
-                                  onClick={() => handleOpenAttachOption(type)}
-                                  className="w-full flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50"
-                                >
-                                  <Icon className="w-4 h-4 text-gray-500" />
-                                  {label}
-                                </button>
-                              ))}
-                            </div>
-                          ) : null}
-                        </div>
-
-                        <div className="flex-1 min-w-0 bg-white rounded-2xl border border-gray-200 shadow-sm px-3 py-2">
-                          <textarea
-                            ref={messageInputRef}
-                            value={messageDraft}
-                            onChange={handleMessageDraftChange}
-                            onKeyDown={handleMessageKeyDown}
-                            rows={1}
-                            placeholder="Type a message"
-                            disabled={sendingMessage}
-                            className="w-full resize-none bg-transparent text-sm text-gray-800 placeholder:text-gray-400 outline-none leading-5 max-h-[120px] disabled:opacity-60"
-                            aria-label="Message"
-                          />
-                        </div>
-
-                        <button
-                          type="submit"
-                          disabled={!canSendMessage}
-                          className={`p-2.5 rounded-full shrink-0 transition-colors ${
-                            canSendMessage
-                              ? "bg-green-600 text-white hover:bg-green-700"
-                              : "bg-gray-200 text-gray-400 cursor-not-allowed"
-                          }`}
-                          title="Send message"
-                          aria-label="Send message"
-                        >
-                          {sendingMessage ? (
-                            <FiLoader className="w-5 h-5 animate-spin" />
-                          ) : (
-                            <FiSend className="w-5 h-5" />
-                          )}
-                        </button>
+                    {!historyLoading && !canSendToChat ? (
+                      <div className="relative z-20 shrink-0 px-4 py-3 bg-[#f0f2f5] border-t border-gray-200 text-center">
+                        <p className="text-sm text-gray-500 m-0">
+                          {sendBlockedMessage}
+                        </p>
                       </div>
-                    </form>
+                    ) : !historyLoading ? (
+                      <form
+                        onSubmit={handleSendMessage}
+                        className="relative z-20 shrink-0 px-3 py-2.5 bg-[#f0f2f5] border-t border-gray-200"
+                      >
+                        {replyToMessage ? (
+                          <div className="mb-2 flex items-start gap-2 rounded-xl bg-white border border-green-200 px-3 py-2 shadow-sm">
+                            <div className="w-1 self-stretch rounded-full bg-green-500 shrink-0" />
+                            <div className="flex-1 min-w-0">
+                              <p className="text-[11px] font-medium text-green-700 m-0">
+                                Replying to
+                              </p>
+                              <p className="text-xs text-gray-600 truncate m-0 mt-0.5">
+                                {replyPreviewText}
+                              </p>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={handleClearReply}
+                              className="p-1 rounded-full text-gray-400 hover:text-gray-600 hover:bg-gray-100 shrink-0"
+                              aria-label="Cancel reply"
+                            >
+                              <FiX className="w-4 h-4" />
+                            </button>
+                          </div>
+                        ) : null}
+
+                        <div className="flex items-center gap-2">
+                          <div
+                            className="relative shrink-0"
+                            ref={attachMenuRef}
+                          >
+                            <button
+                              type="button"
+                              onClick={() => setAttachMenuOpen((prev) => !prev)}
+                              disabled={sendingMessage || !canSendToChat}
+                              className="p-2 rounded-full text-gray-600 hover:bg-gray-200 transition-colors disabled:opacity-50"
+                              title="Attach"
+                              aria-label="Attach"
+                            >
+                              <FiPaperclip className="w-5 h-5" />
+                            </button>
+
+                            {attachMenuOpen ? (
+                              <div className="absolute bottom-full left-0 mb-2 w-52 rounded-xl bg-white border border-gray-200 shadow-lg py-1 z-30">
+                                {[
+                                  {
+                                    type: "template",
+                                    label: "Template",
+                                    icon: FiLayout,
+                                  },
+                                  {
+                                    type: "image",
+                                    label: "Image",
+                                    icon: FiImage,
+                                  },
+                                  {
+                                    type: "video",
+                                    label: "Video",
+                                    icon: FiVideo,
+                                  },
+                                  {
+                                    type: "document",
+                                    label: "Document",
+                                    icon: FiFile,
+                                  },
+                                  {
+                                    type: "audio",
+                                    label: "Audio",
+                                    icon: FiMic,
+                                  },
+                                ].map(({ type, label, icon: Icon }) => (
+                                  <button
+                                    key={type}
+                                    type="button"
+                                    onClick={() => handleOpenAttachOption(type)}
+                                    className="w-full flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                                  >
+                                    <Icon className="w-4 h-4 text-gray-500" />
+                                    {label}
+                                  </button>
+                                ))}
+                              </div>
+                            ) : null}
+                          </div>
+
+                          <div className="flex-1 min-w-0 flex items-center min-h-[40px] bg-white rounded-2xl border border-gray-200 shadow-sm px-3 py-1.5">
+                            <textarea
+                              ref={messageInputRef}
+                              value={messageDraft}
+                              onChange={handleMessageDraftChange}
+                              onKeyDown={handleMessageKeyDown}
+                              rows={1}
+                              placeholder="Type a message"
+                              disabled={sendingMessage || !canSendToChat}
+                              className="w-full resize-none bg-transparent text-sm text-gray-800 placeholder:text-gray-400 outline-none leading-5 py-0.5 max-h-[120px] disabled:opacity-60 block"
+                              aria-label="Message"
+                            />
+                          </div>
+
+                          <button
+                            type="submit"
+                            disabled={!canSendMessage}
+                            className={`p-2.5 rounded-full shrink-0 transition-colors ${
+                              canSendMessage
+                                ? "bg-green-600 text-white hover:bg-green-700"
+                                : "bg-gray-200 text-gray-400 cursor-not-allowed"
+                            }`}
+                            title="Send message"
+                            aria-label="Send message"
+                          >
+                            {sendingMessage ? (
+                              <FiLoader className="w-5 h-5 animate-spin" />
+                            ) : (
+                              <FiSend className="w-5 h-5" />
+                            )}
+                          </button>
+                        </div>
+                      </form>
+                    ) : null}
                   </div>
                 </>
               )}
