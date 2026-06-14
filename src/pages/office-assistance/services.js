@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
     FiPlus, FiEdit, FiTrash2, FiX, FiSearch,
     FiAlertTriangle, FiCheck, FiRefreshCw, FiLayers,
-    FiCheckCircle, FiFileText, FiMoreVertical, FiEye, FiRepeat,
+    FiCheckCircle, FiFileText, FiMoreVertical, FiEye, FiRepeat, FiMenu,
 } from 'react-icons/fi';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -157,7 +157,7 @@ const ActionMenu = ({ items }) => {
                     onClick={(e) => { e.stopPropagation(); setOpen(v => !v); }}
                     className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-gray-100 rounded-lg transition-colors"
                 >
-                    <FiMoreVertical className="w-3.5 h-3.5" />
+                    <FiMenu className="w-3.5 h-3.5" />
                 </button>
             </ViewportTooltip>
 
@@ -450,7 +450,19 @@ const Services = () => {
     const [rtSearch, setRtSearch] = useState('');
     const [rtShowModal, setRtShowModal] = useState(false);
     const [rtEditTarget, setRtEditTarget] = useState(null); // null = add mode, object = edit mode
-    const [rtForm, setRtForm] = useState({ service_id: '', name: '', frequency: 'monthly', default_amount: '', due_day: '' });
+    const [rtForm, setRtForm] = useState({
+        service_id: '',
+        name: '',
+        frequency: 'monthly',
+        default_amount: '',
+        due_day: '',
+        q1_due_day: '',
+        q2_due_day: '',
+        q3_due_day: '',
+        q4_due_day: '',
+        h1_due_day: '',
+        h2_due_day: ''
+    });
     const [rtSubmitting, setRtSubmitting] = useState(false);
     const [rtDeleteTarget, setRtDeleteTarget] = useState(null);
     const [rtDeleting, setRtDeleting] = useState(false);
@@ -458,7 +470,7 @@ const Services = () => {
     const fetchRt = useCallback(async () => {
         setRtLoading(true);
         try {
-            const res = await axios.get(`${API_BASE_URL}/compliance/services`, { headers: getHeaders() });
+            const res = await axios.get(`${API_BASE_URL}/recurring-task/services`, { headers: getHeaders() });
             const data = res.data?.data || res.data || [];
             setRtList(Array.isArray(data) ? data : []);
         } catch (err) {
@@ -471,8 +483,32 @@ const Services = () => {
     const openRtModal = (svc = null) => {
         setRtEditTarget(svc);
         setRtForm(svc
-            ? { service_id: svc.service_id || '', name: svc.name || '', frequency: svc.frequency || 'monthly', default_amount: String(svc.default_amount ?? ''), due_day: String(svc.due_day ?? '') }
-            : { service_id: '', name: '', frequency: 'monthly', default_amount: '', due_day: '' }
+            ? {
+                service_id: svc.service_id || '',
+                name: svc.name || '',
+                frequency: svc.frequency || 'monthly',
+                default_amount: String(svc.default_amount ?? ''),
+                due_day: String(svc.due_day ?? ''),
+                q1_due_day: String(svc.q1_due_day ?? ''),
+                q2_due_day: String(svc.q2_due_day ?? ''),
+                q3_due_day: String(svc.q3_due_day ?? ''),
+                q4_due_day: String(svc.q4_due_day ?? ''),
+                h1_due_day: String(svc.h1_due_day ?? ''),
+                h2_due_day: String(svc.h2_due_day ?? '')
+            }
+            : {
+                service_id: '',
+                name: '',
+                frequency: 'monthly',
+                default_amount: '',
+                due_day: '',
+                q1_due_day: '',
+                q2_due_day: '',
+                q3_due_day: '',
+                q4_due_day: '',
+                h1_due_day: '',
+                h2_due_day: ''
+            }
         );
         setRtShowModal(true);
     };
@@ -480,6 +516,31 @@ const Services = () => {
     const handleRtSubmit = async () => {
         if (!rtForm.name.trim()) { toast.error('Service name is required'); return; }
         if (!rtForm.default_amount) { toast.error('Default fee is required'); return; }
+
+        if (rtForm.frequency === 'quarterly') {
+            const qFields = ['q1_due_day', 'q2_due_day', 'q3_due_day', 'q4_due_day'];
+            for (const f of qFields) {
+                if (rtForm[f]) {
+                    const val = parseInt(rtForm[f]);
+                    if (isNaN(val) || val < 1 || val > 31) {
+                        toast.error(`${f.toUpperCase().replace('_', ' ')} must be between 1 and 31`);
+                        return;
+                    }
+                }
+            }
+        } else if (rtForm.frequency === 'half-yearly') {
+            const hFields = ['h1_due_day', 'h2_due_day'];
+            for (const f of hFields) {
+                if (rtForm[f]) {
+                    const val = parseInt(rtForm[f]);
+                    if (isNaN(val) || val < 1 || val > 31) {
+                        toast.error(`${f.toUpperCase().replace('_', ' ')} must be between 1 and 31`);
+                        return;
+                    }
+                }
+            }
+        }
+
         setRtSubmitting(true);
         try {
             const payload = {
@@ -488,14 +549,24 @@ const Services = () => {
                 default_amount: parseFloat(rtForm.default_amount),
                 due_day: rtForm.due_day ? parseInt(rtForm.due_day) : null
             };
+            if (rtForm.frequency === 'quarterly') {
+                payload.q1_due_day = rtForm.q1_due_day ? parseInt(rtForm.q1_due_day) : null;
+                payload.q2_due_day = rtForm.q2_due_day ? parseInt(rtForm.q2_due_day) : null;
+                payload.q3_due_day = rtForm.q3_due_day ? parseInt(rtForm.q3_due_day) : null;
+                payload.q4_due_day = rtForm.q4_due_day ? parseInt(rtForm.q4_due_day) : null;
+            } else if (rtForm.frequency === 'half-yearly') {
+                payload.h1_due_day = rtForm.h1_due_day ? parseInt(rtForm.h1_due_day) : null;
+                payload.h2_due_day = rtForm.h2_due_day ? parseInt(rtForm.h2_due_day) : null;
+            }
+
             if (rtForm.service_id) {
                 payload.service_id = rtForm.service_id;
             }
             let res;
             if (rtEditTarget) {
-                res = await axios.put(`${API_BASE_URL}/compliance/services/${rtEditTarget.service_id || rtEditTarget.id}`, payload, { headers: getHeaders() });
+                res = await axios.put(`${API_BASE_URL}/recurring-task/services/${rtEditTarget.service_id || rtEditTarget.id}`, payload, { headers: getHeaders() });
             } else {
-                res = await axios.post(`${API_BASE_URL}/compliance/services`, payload, { headers: getHeaders() });
+                res = await axios.post(`${API_BASE_URL}/recurring-task/services`, payload, { headers: getHeaders() });
             }
             if (res.data?.success !== false) {
                 toast.success(rtEditTarget ? 'Template updated' : 'Template created');
@@ -513,7 +584,7 @@ const Services = () => {
         if (!rtDeleteTarget) return;
         setRtDeleting(true);
         try {
-            await axios.delete(`${API_BASE_URL}/compliance/services/${rtDeleteTarget.service_id || rtDeleteTarget.id}`, { headers: getHeaders() });
+            await axios.delete(`${API_BASE_URL}/recurring-task/services/${rtDeleteTarget.service_id || rtDeleteTarget.id}`, { headers: getHeaders() });
             toast.success('Template deleted');
             setRtDeleteTarget(null);
             fetchRt();
@@ -815,14 +886,14 @@ const Services = () => {
                                     <table className="w-full text-sm">
                                         <thead>
                                             <tr className="bg-gray-50 border-b border-gray-100">
-                                                {['#', 'Service', 'Type', 'Fees', 'GST', ''].map((h) => (
+                                                {['#', 'Service', 'Type', 'Fees', 'GST', 'Pending', 'Complete', 'Cancel', 'Action'].map((h) => (
                                                     <th key={h} className="px-4 py-2.5 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider whitespace-nowrap">{h}</th>
                                                 ))}
                                             </tr>
                                         </thead>
                                         <tbody className="divide-y divide-gray-50">
                                             {branchLoading
-                                                ? Array.from({ length: 6 }).map((_, i) => <SkeletonRow key={i} cols={6} />)
+                                                ? Array.from({ length: 6 }).map((_, i) => <SkeletonRow key={i} cols={9} />)
                                                 : branchList.length === 0
                                                     ? <EmptyState icon={<FiLayers className="w-5 h-5 text-slate-400" />} title="No branch services" desc={branchSearch ? 'No match found.' : 'Go to "Add Services" to enable services.'} />
                                                     : branchList.map((svc, idx) => (
@@ -846,6 +917,21 @@ const Services = () => {
                                                             <td className="px-4 py-3">
                                                                 <p className="text-xs text-slate-600">{svc.gst_rate ?? 0}%</p>
                                                                 <p className="text-[11px] text-slate-400">₹{fmt(svc.gst_value)}</p>
+                                                            </td>
+                                                            <td className="px-4 py-3">
+                                                                <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-amber-50 text-amber-700 border border-amber-200">
+                                                                    {svc.pending_count ?? svc.summary?.pending ?? 0}
+                                                                </span>
+                                                            </td>
+                                                            <td className="px-4 py-3">
+                                                                <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                                                                    {svc.complete_count ?? svc.summary?.complete ?? 0}
+                                                                </span>
+                                                            </td>
+                                                            <td className="px-4 py-3">
+                                                                <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-slate-50 text-slate-600 border border-slate-200">
+                                                                    {svc.cancel_count ?? svc.summary?.cancel ?? 0}
+                                                                </span>
                                                             </td>
                                                             <td className="px-4 py-3">
                                                                 <ActionMenu items={[
@@ -903,7 +989,7 @@ const Services = () => {
                                     <table className="w-full text-sm">
                                         <thead>
                                             <tr className="bg-gray-50 border-b border-gray-100">
-                                                {['#', 'Service', 'Type', 'Status', ''].map((h) => (
+                                                {['#', 'Service', 'Type', 'Status', 'Action'].map((h) => (
                                                     <th key={h} className="px-4 py-2.5 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider whitespace-nowrap">{h}</th>
                                                 ))}
                                             </tr>
@@ -992,7 +1078,7 @@ const Services = () => {
                                     <table className="w-full text-sm">
                                         <thead>
                                             <tr className="bg-gray-50 border-b border-gray-100">
-                                                {['#', 'Service Name', 'Frequency', 'Due Day', 'Default Fee', ''].map((h) => (
+                                                {['#', 'Service Name', 'Frequency', 'Due Day', 'Default Fee', 'Action'].map((h) => (
                                                     <th key={h} className="px-4 py-2.5 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider whitespace-nowrap">{h}</th>
                                                 ))}
                                             </tr>
@@ -1167,6 +1253,44 @@ const Services = () => {
                                         </div>
                                     )}
                                 </div>
+                                {rtForm.frequency === 'quarterly' && (
+                                    <div className="grid grid-cols-2 gap-3 border-t border-gray-100 pt-3">
+                                        <div>
+                                            <label className="block text-xs font-semibold text-slate-600 mb-1.5">Q1 Due Day (Apr-Jun)</label>
+                                            <input type="number" min="1" max="31" value={rtForm.q1_due_day || ''} onChange={(e) => setRtForm(f => ({ ...f, q1_due_day: e.target.value }))} placeholder="e.g. 31"
+                                                className="w-full px-3 py-2 text-xs border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none" />
+                                        </div>
+                                        <div>
+                                            <label className="block text-xs font-semibold text-slate-600 mb-1.5">Q2 Due Day (Jul-Sep)</label>
+                                            <input type="number" min="1" max="31" value={rtForm.q2_due_day || ''} onChange={(e) => setRtForm(f => ({ ...f, q2_due_day: e.target.value }))} placeholder="e.g. 31"
+                                                className="w-full px-3 py-2 text-xs border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none" />
+                                        </div>
+                                        <div>
+                                            <label className="block text-xs font-semibold text-slate-600 mb-1.5">Q3 Due Day (Oct-Dec)</label>
+                                            <input type="number" min="1" max="31" value={rtForm.q3_due_day || ''} onChange={(e) => setRtForm(f => ({ ...f, q3_due_day: e.target.value }))} placeholder="e.g. 31"
+                                                className="w-full px-3 py-2 text-xs border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none" />
+                                        </div>
+                                        <div>
+                                            <label className="block text-xs font-semibold text-slate-600 mb-1.5">Q4 Due Day (Jan-Mar)</label>
+                                            <input type="number" min="1" max="31" value={rtForm.q4_due_day || ''} onChange={(e) => setRtForm(f => ({ ...f, q4_due_day: e.target.value }))} placeholder="e.g. 30"
+                                                className="w-full px-3 py-2 text-xs border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none" />
+                                        </div>
+                                    </div>
+                                )}
+                                {rtForm.frequency === 'half-yearly' && (
+                                    <div className="grid grid-cols-2 gap-3 border-t border-gray-100 pt-3">
+                                        <div>
+                                            <label className="block text-xs font-semibold text-slate-600 mb-1.5">H1 Due Day (Apr-Sep)</label>
+                                            <input type="number" min="1" max="31" value={rtForm.h1_due_day || ''} onChange={(e) => setRtForm(f => ({ ...f, h1_due_day: e.target.value }))} placeholder="e.g. 31"
+                                                className="w-full px-3 py-2 text-xs border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none" />
+                                        </div>
+                                        <div>
+                                            <label className="block text-xs font-semibold text-slate-600 mb-1.5">H2 Due Day (Oct-Mar)</label>
+                                            <input type="number" min="1" max="31" value={rtForm.h2_due_day || ''} onChange={(e) => setRtForm(f => ({ ...f, h2_due_day: e.target.value }))} placeholder="e.g. 30"
+                                                className="w-full px-3 py-2 text-xs border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none" />
+                                        </div>
+                                    </div>
+                                )}
                                 <div>
                                     <label className="block text-xs font-semibold text-slate-600 mb-1.5">Default Fee (₹) *</label>
                                     <div className="relative">

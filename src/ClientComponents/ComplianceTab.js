@@ -119,6 +119,55 @@ const getPeriodDueDate = (period) => {
     return '—';
 };
 
+const getUpcomingDueDateInfo = (assign, allSchedules) => {
+    const assignSchedules = allSchedules.filter(s => s.assignment_id === assign.assignment_id);
+    if (assignSchedules.length === 0) return { text: '—', color: 'text-slate-400' };
+
+    const MONTH_ORDER = ['April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December', 'January', 'February', 'March'];
+    
+    const sorted = [...assignSchedules].sort((a, b) => {
+        const freq = assign.frequency?.toLowerCase();
+        if (freq === 'monthly') {
+            return MONTH_ORDER.indexOf(a.period_name) - MONTH_ORDER.indexOf(b.period_name);
+        }
+        if (freq === 'quarterly') {
+            const getQIdx = (name) => {
+                if (isQ1(name)) return 0;
+                if (isQ2(name)) return 1;
+                if (isQ3(name)) return 2;
+                if (isQ4(name)) return 3;
+                return -1;
+            };
+            return getQIdx(a.period_name) - getQIdx(b.period_name);
+        }
+        if (freq === 'halfyearly') {
+            const getHIdx = (name) => {
+                if (isH1(name)) return 0;
+                if (isH2(name)) return 1;
+                return -1;
+            };
+            return getHIdx(a.period_name) - getHIdx(b.period_name);
+        }
+        return 0;
+    });
+
+    const pending = sorted.find(s => s.status !== 'Complete' && s.status !== 'Sale' && s.status !== 'N/A');
+    if (pending) {
+        const dateStr = getPeriodDueDate(pending);
+        return {
+            text: `${dateStr} (${pending.period_name})`,
+            color: 'text-amber-600 font-semibold',
+            allDates: sorted.map(s => `${s.period_name}: ${getPeriodDueDate(s)} (${s.status})`).join('\n')
+        };
+    }
+
+    return {
+        text: 'All Completed',
+        color: 'text-emerald-600 font-semibold',
+        allDates: sorted.map(s => `${s.period_name}: ${getPeriodDueDate(s)} (${s.status})`).join('\n')
+    };
+};
+
 const getPeriodHeaders = (frequency) => {
     const freq = frequency?.toLowerCase();
     if (freq === 'monthly') {
@@ -136,35 +185,46 @@ const getPeriodHeaders = (frequency) => {
     return [];
 };
 
-const getVisible6Months = (financialYear) => {
-    const ALL_MONTHS = ['Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec', 'Jan', 'Feb', 'Mar'];
-    const today = new Date();
-    const currentMonth = today.getMonth(); // 0-11
+const isStatusMatch = (scheduleStatus, filterValue) => {
+    if (!filterValue) return true;
+    const s = String(scheduleStatus || '').toLowerCase();
+    const f = String(filterValue).toLowerCase();
+    if (f === 'pending') {
+        return s.includes('pending') || s === 'pfc';
+    }
+    if (f === 'complete' || f === 'sale') {
+        return s === 'complete' || s === 'sale';
+    }
+    return s === f;
+};
 
-    // Map JS month to index in ALL_MONTHS (starting in April)
-    const jsMonthToFyIndex = [9, 10, 11, 0, 1, 2, 3, 4, 5, 6, 7, 8];
-    const fyIndex = jsMonthToFyIndex[currentMonth];
-
-    // Parse FY
-    const fyParts = (financialYear || '2026-2027').split('-');
-    const startYear = parseInt(fyParts[0], 10) || 2026;
-    const endYear = parseInt(fyParts[1], 10) || 2027;
-
-    const fyStart = new Date(startYear, 3, 1); // April 1st
-    const fyEnd = new Date(endYear, 2, 31, 23, 59, 59); // March 31st
-
-    if (today < fyStart) {
-        return ALL_MONTHS.slice(0, 6);
-    } else if (today > fyEnd) {
-        return ALL_MONTHS.slice(6, 12);
+const isPeriodDueDateActive = (period) => {
+    if (!period) return false;
+    let dueDateObj = null;
+    if (period.due_date) {
+        dueDateObj = new Date(period.due_date);
     } else {
-        if (fyIndex < 5) {
-            return ALL_MONTHS.slice(0, 6);
-        } else {
-            return ALL_MONTHS.slice(fyIndex - 5, fyIndex + 1);
+        const dateStr = getPeriodDueDate(period);
+        if (dateStr && dateStr !== '—') {
+            dueDateObj = new Date(dateStr);
         }
     }
+    if (!dueDateObj || isNaN(dueDateObj.getTime())) return false;
+    const today = new Date();
+    return dueDateObj.getMonth() === today.getMonth() && dueDateObj.getFullYear() === today.getFullYear();
 };
+
+const getVisible6Months = (financialYear) => {
+    const today = new Date();
+    const months = [];
+    const MONTH_NAMES_SHORT = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    for (let i = 5; i >= 0; i--) {
+        const d = new Date(today.getFullYear(), today.getMonth() - i, 1);
+        months.push(MONTH_NAMES_SHORT[d.getMonth()]);
+    }
+    return months;
+};
+
 
 const getPeriodHeadersForFreq = (frequency, financialYear) => {
     const freq = frequency?.toLowerCase();
@@ -231,7 +291,7 @@ const ComplianceTab = ({ clientUsername }) => {
     const [submittingStatus, setSubmittingStatus] = useState(false);
 
     const [selectedServiceFilter, setSelectedServiceFilter] = useState('');
-    const [selectedFilingStatus, setSelectedFilingStatus] = useState('');
+    const [selectedFilingStatus, setSelectedFilingStatus] = useState('Pending');
     const [allSchedules, setAllSchedules] = useState([]);
 
     // Status Modal states
@@ -505,7 +565,7 @@ const ComplianceTab = ({ clientUsername }) => {
             }
 
             await axios.put(
-                `${API_BASE_URL}/compliance/assignments/${editAssignment.assignment_id}`,
+                `${API_BASE_URL}/recurring-task/assignments/${editAssignment.assignment_id}`,
                 payload,
                 { headers: getHeaders() }
             );
@@ -545,7 +605,7 @@ const ComplianceTab = ({ clientUsername }) => {
         if (!assignmentId) return;
         setSchedulesLoading(true);
         try {
-            const res = await axios.get(`${API_BASE_URL}/compliance/schedule`, {
+            const res = await axios.get(`${API_BASE_URL}/recurring-task/schedule`, {
                 headers: getHeaders(),
                 params: { assignment_id: assignmentId }
             });
@@ -607,8 +667,8 @@ const ComplianceTab = ({ clientUsername }) => {
                 })));
             }
 
-            // 2. Fetch Global Compliance Predefined Services
-            const servicesRes = await axios.get(`${API_BASE_URL}/compliance/services`, { headers });
+            // 2. Fetch Global Predefined Services
+            const servicesRes = await axios.get(`${API_BASE_URL}/recurring-task/services`, { headers });
             if (servicesRes.data?.success && servicesRes.data?.data) {
                 setGlobalServices(servicesRes.data.data);
             }
@@ -636,7 +696,7 @@ const ComplianceTab = ({ clientUsername }) => {
 
     const fetchAllSchedules = useCallback(async () => {
         try {
-            const res = await axios.get(`${API_BASE_URL}/compliance/schedule`, {
+            const res = await axios.get(`${API_BASE_URL}/recurring-task/schedule`, {
                 headers: getHeaders()
             });
             if (res.data?.success) {
@@ -768,12 +828,12 @@ const ComplianceTab = ({ clientUsername }) => {
                 payload.quarters = assignForm.quarters;
             }
 
-            const res = await axios.post(`${API_BASE_URL}/compliance/assign`, payload, {
+            const res = await axios.post(`${API_BASE_URL}/recurring-task/assign`, payload, {
                 headers: getHeaders()
             });
 
             if (res.data?.success) {
-                toast.success('Compliance service assigned successfully');
+                toast.success('Recurring task assigned successfully');
                 setShowAssignModal(false);
                 setAssignForm({
                     targetType: 'single',
@@ -793,8 +853,8 @@ const ComplianceTab = ({ clientUsername }) => {
                 fetchComplianceData();
             }
         } catch (err) {
-            console.error('Error assigning compliance service:', err);
-            toast.error(err.response?.data?.message || 'Failed to assign compliance service');
+            console.error('Error assigning recurring task:', err);
+            toast.error(err.response?.data?.message || 'Failed to assign recurring task');
         } finally {
             setSubmittingAssign(false);
         }
@@ -819,7 +879,7 @@ const ComplianceTab = ({ clientUsername }) => {
 
         setSubmittingStatus(true);
         try {
-            const res = await axios.post(`${API_BASE_URL}/compliance/update-period-status`, {
+            const res = await axios.post(`${API_BASE_URL}/recurring-task/update-period-status`, {
                 schedule_id: selectedPeriod.schedule_id,
                 status: statusForm.status,
                 amount: parseFloat(statusForm.amount)
@@ -855,7 +915,7 @@ const ComplianceTab = ({ clientUsername }) => {
 
             const statusMatch = selectedFilingStatus === '' || (() => {
                 const assignSchedules = allSchedules.filter(s => s.assignment_id === assign.assignment_id);
-                return assignSchedules.some(s => s.status === selectedFilingStatus);
+                return assignSchedules.some(s => isStatusMatch(s.status, selectedFilingStatus));
             })();
 
             return serviceMatch && statusMatch;
@@ -906,19 +966,21 @@ const ComplianceTab = ({ clientUsername }) => {
             <td key={period.schedule_id} className="px-2 py-2 text-center align-middle">
                 <div className="flex flex-col items-center gap-0.5">
                     <div
-                        onClick={() => isUpdatePermitted && !isComplete && openStatusModal(period, assign)}
-                        className={`inline-flex items-center justify-center gap-1 min-w-[32px] h-[26px] rounded border text-[10px] font-bold select-none ${isUpdatePermitted && !isComplete
+                        onClick={() => isUpdatePermitted && !isComplete && isPeriodDueDateActive(period) && openStatusModal(period, assign)}
+                        className={`inline-flex items-center justify-center gap-1 min-w-[32px] h-[26px] rounded border text-[10px] font-bold select-none ${isUpdatePermitted && !isComplete && isPeriodDueDateActive(period)
                             ? `cursor-pointer transition-all hover:scale-105 ${cellClass}`
                             : isComplete
                                 ? `${cellClass} cursor-default`
-                                : "bg-slate-50 text-slate-300 border-slate-100 cursor-not-allowed opacity-50"
+                                : "bg-slate-50 text-slate-350 border-slate-100 cursor-not-allowed opacity-50"
                             }`}
                         title={
                             isComplete
                                 ? `Completed — locked`
-                                : isUpdatePermitted
-                                    ? (showDirectDueDate ? `Due Date: ${dueDateText}` : `Status: ${period.status}`)
-                                    : `Restricted (Only assigned staff: ${assignedStaffs.map(e => e.name || e.username).join(', ')})`
+                                : !isPeriodDueDateActive(period)
+                                    ? `Only the currently running due date (${dueDateText}) can be updated`
+                                    : isUpdatePermitted
+                                        ? (showDirectDueDate ? `Due Date: ${dueDateText}` : `Status: ${period.status}`)
+                                        : `Restricted (Only assigned staff: ${assignedStaffs.map(e => e.name || e.username).join(', ')})`
                         }
                     >
                         <span className="px-1.5 h-full flex items-center justify-center flex-grow text-center">
@@ -926,10 +988,543 @@ const ComplianceTab = ({ clientUsername }) => {
                         </span>
                     </div>
                     {shortDueDate && (
-                        <span className="text-[8px] text-slate-400 font-mono leading-none mt-1">{shortDueDate}</span>
+                        <span className="text-[10px] text-slate-500 font-semibold leading-none mt-1 block select-none">{shortDueDate}</span>
                     )}
                 </div>
             </td>
+        );
+    };
+
+    const renderFilteredServicesTable = () => {
+        return (
+            <div className="min-w-[800px]">
+                <table className="w-full text-sm text-left border-collapse">
+                    <thead>
+                        <tr className="bg-slate-50 border-b border-slate-100 text-slate-605 uppercase text-[9px] font-bold tracking-wider">
+                            <th className="px-4 py-3 text-center w-12">SR</th>
+                            <th className="px-4 py-3">Firm Name</th>
+                            <th className="px-4 py-3 text-center">Staffs</th>
+                            {periodHeaders.map((header) => (
+                                <th key={header} className="px-2 py-3 text-center uppercase tracking-wider">{header}</th>
+                            ))}
+                            <th className="px-4 py-3 text-center w-16">Action</th>
+                        </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                        {loading ? (
+                            <tr>
+                                <td colSpan={4 + periodHeaders.length} className="px-4 py-8 text-center">
+                                    <div className="animate-pulse flex flex-col gap-2">
+                                        <div className="h-4 bg-slate-100 rounded w-1/3 mx-auto"></div>
+                                        <div className="h-4 bg-slate-100 rounded w-1/4 mx-auto"></div>
+                                    </div>
+                                </td>
+                            </tr>
+                        ) : filteredActiveAssignments.length === 0 ? (
+                            <tr>
+                                <td colSpan={4 + periodHeaders.length} className="px-4 py-12 text-center text-slate-400">
+                                    <FiBriefcase className="w-8 h-8 mx-auto mb-2 opacity-50" />
+                                    <p className="text-xs font-medium text-slate-500">No active recurring task assignments matching filters</p>
+                                </td>
+                            </tr>
+                        ) : (
+                            filteredActiveAssignments.map((assign, idx) => {
+                                const assignSchedules = allSchedules.filter(s => s.assignment_id === assign.assignment_id);
+                                return (
+                                    <tr key={assign.assignment_id} className="hover:bg-slate-50/50 transition-colors">
+                                        <td className="px-4 py-3 text-center font-mono text-xs text-slate-400">
+                                            {idx + 1}
+                                        </td>
+                                        <td className="px-4 py-3 font-semibold text-slate-800 text-xs">
+                                            <div>{assign.firm_name}</div>
+                                            <div className="text-[10px] text-slate-450 font-normal mt-0.5">{assign.service_name}</div>
+                                        </td>
+                                        <td className="px-4 py-3 text-center align-middle">
+                                            {(() => {
+                                                const assignedStaffs = getAssignedStaffList(assign);
+                                                if (assignedStaffs.length === 0) return '—';
+
+                                                const onAvatarClick = (e) => {
+                                                    e.stopPropagation();
+                                                    setStaffListModal({
+                                                        open: true,
+                                                        staffs: assignedStaffs.map(emp => ({
+                                                            username: emp.username,
+                                                            name: emp.name || emp.username,
+                                                            email: emp.email || '—',
+                                                            mobile: emp.mobile || emp.phone || '—'
+                                                        })),
+                                                        serviceName: assign.service_name || assign.service_id
+                                                    });
+                                                };
+
+                                                return (
+                                                    <div className="flex justify-center -space-x-2.5">
+                                                        {assignedStaffs.slice(0, 2).map((emp, idx) => (
+                                                            <button
+                                                                key={emp.username || idx}
+                                                                type="button"
+                                                                onClick={onAvatarClick}
+                                                                className="w-7 h-7 rounded-full bg-gradient-to-br from-indigo-500 to-indigo-600 border-2 border-white flex items-center justify-center text-[10px] font-bold text-white hover:opacity-90 hover:scale-105 hover:z-10 transition-all shadow-xs cursor-pointer"
+                                                                title={`Click to view details of assigned staff`}
+                                                            >
+                                                                {(emp.name || emp.username || 'S').charAt(0).toUpperCase()}
+                                                            </button>
+                                                        ))}
+                                                        {assignedStaffs.length > 2 && (
+                                                            <button
+                                                                type="button"
+                                                                onClick={onAvatarClick}
+                                                                className="w-7 h-7 rounded-full bg-gradient-to-br from-indigo-500 to-indigo-600 border-2 border-white flex items-center justify-center text-[10px] font-bold text-white hover:opacity-90 hover:scale-105 hover:z-10 transition-all shadow-xs cursor-pointer"
+                                                                title="Click to view all assigned staff"
+                                                            >
+                                                                +{assignedStaffs.length - 2}
+                                                            </button>
+                                                        )}
+                                                    </div>
+                                                );
+                                            })()}
+                                        </td>
+                                        {periodHeaders.map((headerText) => {
+                                            const period = getPeriodSchedule(assignSchedules, headerText, activeFrequency);
+                                            return renderCell(period, assign);
+                                        })}
+                                        <td className="px-4 py-3 text-center align-middle">
+                                            <div className={`dropdown-container relative flex justify-center ${activeDropdownId === assign.assignment_id ? 'z-50' : 'z-0'}`}>
+                                                <button
+                                                    type="button"
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        setActiveDropdownId(activeDropdownId === assign.assignment_id ? null : assign.assignment_id);
+                                                    }}
+                                                    className="p-1.5 text-slate-500 hover:text-indigo-650 rounded-lg hover:bg-indigo-50 border border-slate-200 transition-colors"
+                                                >
+                                                    <FiMenu className="w-3.5 h-3.5" />
+                                                </button>
+                                                <AnimatePresence>
+                                                    {activeDropdownId === assign.assignment_id && (
+                                                        <motion.div
+                                                            initial={{ opacity: 0, scale: 0.95, y: 5 }}
+                                                            animate={{ opacity: 1, scale: 1, y: 0 }}
+                                                            exit={{ opacity: 0, scale: 0.95, y: 5 }}
+                                                            className="absolute right-0 mt-1 w-40 bg-white rounded-xl shadow-xl border border-slate-200 z-55 overflow-hidden text-left"
+                                                        >
+                                                            <div className="py-1">
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={(e) => {
+                                                                        e.stopPropagation();
+                                                                        openEditModal(assign);
+                                                                        setActiveDropdownId(null);
+                                                                    }}
+                                                                    className="flex items-center w-full px-3 py-2 text-xs text-slate-700 hover:bg-indigo-50 transition-colors"
+                                                                >
+                                                                    <FiEdit2 className="w-3.5 h-3.5 text-slate-400 mr-2" />
+                                                                    Edit
+                                                                </button>
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={(e) => {
+                                                                        e.stopPropagation();
+                                                                        setConfirmDeleteId(assign.assignment_id);
+                                                                        setActiveDropdownId(null);
+                                                                    }}
+                                                                    className="flex items-center w-full px-3 py-2 text-xs text-slate-700 hover:bg-indigo-50 transition-colors"
+                                                                >
+                                                                    <FiTrash2 className="w-3.5 h-3.5 text-slate-400 mr-2" />
+                                                                    Delete
+                                                                </button>
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={(e) => {
+                                                                        e.stopPropagation();
+                                                                        handleOpenBroadcast(assign);
+                                                                        setActiveDropdownId(null);
+                                                                    }}
+                                                                    className="flex items-center w-full px-3 py-2 text-xs text-slate-700 hover:bg-indigo-50 transition-colors"
+                                                                >
+                                                                    <FiShare2 className="w-3.5 h-3.5 text-slate-400 mr-2" />
+                                                                    Broadcast
+                                                                </button>
+                                                                {assign.frequency === 'monthly' && (
+                                                                    <button
+                                                                        type="button"
+                                                                        onClick={(e) => {
+                                                                            e.stopPropagation();
+                                                                            handleOpenFullCalendar(assign);
+                                                                            setActiveDropdownId(null);
+                                                                        }}
+                                                                        className="flex items-center w-full px-3 py-2 text-xs text-slate-700 hover:bg-indigo-50 transition-colors border-t border-slate-100"
+                                                                    >
+                                                                        <FiEye className="w-3.5 h-3.5 text-slate-400 mr-2" />
+                                                                        Show Full
+                                                                    </button>
+                                                                )}
+                                                            </div>
+                                                        </motion.div>
+                                                    )}
+                                                </AnimatePresence>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                );
+                            })
+                        )}
+                    </tbody>
+                </table>
+
+                {/* Footer Legend */}
+                <div className="flex flex-wrap items-center justify-between gap-4 px-4 py-3 bg-slate-50 border-t border-slate-100 text-xs text-slate-500">
+                    <div className="flex items-center gap-1">
+                        <span className="font-semibold text-slate-700">Filing Status Legend:</span>
+                    </div>
+                    <div className="flex flex-wrap gap-4 font-medium">
+                        <span className="flex items-center gap-1.5">
+                            <span className="w-5 h-5 rounded border bg-amber-50 text-amber-700 border-amber-200 flex items-center justify-center text-[10px] font-bold">P</span>
+                            Pending
+                        </span>
+                        <span className="flex items-center gap-1.5">
+                            <span className="w-5 h-5 rounded border bg-emerald-50 text-emerald-700 border-emerald-200 flex items-center justify-center text-[10px] font-bold">S</span>
+                            Sale (Filed)
+                        </span>
+                        <span className="flex items-center gap-1.5">
+                            <span className="w-5 h-5 rounded border bg-blue-50 text-blue-700 border-blue-200 flex items-center justify-center text-[10px] font-bold">O</span>
+                            Outsource
+                        </span>
+                        <span className="flex items-center gap-1.5">
+                            <span className="w-5 h-5 rounded border bg-slate-50 text-slate-400 border-slate-200 flex items-center justify-center text-[10px] font-bold">N</span>
+                            N/A
+                        </span>
+                    </div>
+                    <div className="text-[10px] text-slate-400 font-medium">
+                        * Click status badge to update payment status
+                    </div>
+                </div>
+            </div>
+        );
+    };
+
+    const renderUnfilteredServicesTable = () => {
+        return (
+            <table className="w-full text-sm text-left">
+                <thead>
+                    <tr className="bg-slate-50 border-b border-slate-100 text-slate-500 uppercase text-[9px] font-bold tracking-wider">
+                        <th className="px-4 py-3 text-center w-12">SR</th>
+                        <th className="px-4 py-3">Service Name</th>
+                        <th className="px-4 py-3">Firm</th>
+                        <th className="px-4 py-3">STAFFS</th>
+                        <th className="px-4 py-3">Assigned CA</th>
+                        <th className="px-4 py-3">Fees</th>
+                        <th className="px-4 py-3">Due Date</th>
+                        <th className="px-4 py-3">Start Date</th>
+                        <th className="px-4 py-3 w-28 text-right">Actions</th>
+                    </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-50">
+                    {filteredActiveAssignments.length === 0 ? (
+                        <tr>
+                            <td colSpan={9} className="px-4 py-10 text-center text-slate-400">
+                                <FiBriefcase className="w-8 h-8 mx-auto mb-2 opacity-40" />
+                                <p className="text-xs font-medium text-slate-500">No active recurring task assignments matching filters</p>
+                            </td>
+                        </tr>
+                    ) : (
+                        filteredActiveAssignments.map((assign, idx) => (
+                            <React.Fragment key={assign.assignment_id}>
+                                <tr
+                                    onClick={() => handleSelectAssignment(assign.assignment_id)}
+                                    className={`hover:bg-slate-50/50 cursor-pointer transition-colors ${selectedAssignmentId === assign.assignment_id ? 'bg-indigo-50/10' : ''}`}
+                                >
+                                    <td className="px-4 py-3 text-center font-mono text-xs text-slate-400">
+                                        {idx + 1}
+                                    </td>
+                                    <td className="px-4 py-3 font-semibold text-slate-800 text-xs">
+                                        <div>{assign.service_name}</div>
+                                        <div className="flex gap-1.5 mt-1">
+                                            <span className={`inline-flex px-1.5 py-0.5 rounded text-[8px] font-bold border uppercase tracking-wider ${FREQ_BADGES[String(assign.frequency).toLowerCase()] || 'bg-slate-50'}`}>
+                                                {assign.frequency}
+                                            </span>
+                                            <span className="inline-flex px-1.5 py-0.5 rounded text-[8px] font-mono border bg-slate-50 text-slate-500">
+                                                FY {assign.financial_year}
+                                            </span>
+                                        </div>
+                                    </td>
+                                    <td className="px-4 py-3 text-slate-655 text-xs font-medium">
+                                        {assign.firm_name}
+                                    </td>
+                                    <td className="px-4 py-3 text-slate-600 text-xs">
+                                        {(() => {
+                                            const assignedStaffs = getAssignedStaffList(assign);
+                                            if (assignedStaffs.length === 0) return '—';
+
+                                            const onAvatarClick = (e) => {
+                                                e.stopPropagation();
+                                                setStaffListModal({
+                                                    open: true,
+                                                    staffs: assignedStaffs.map(emp => ({
+                                                        username: emp.username,
+                                                        name: emp.name || emp.username,
+                                                        email: emp.email || '—',
+                                                        mobile: emp.mobile || emp.phone || '—'
+                                                    })),
+                                                    serviceName: assign.service_name || assign.service_id
+                                                });
+                                            };
+
+                                            return (
+                                                <div className="flex -space-x-2.5">
+                                                    {assignedStaffs.slice(0, 2).map((emp, idx) => (
+                                                        <button
+                                                            key={emp.username || idx}
+                                                            type="button"
+                                                            onClick={onAvatarClick}
+                                                            className="w-8 h-8 rounded-full bg-gradient-to-br from-indigo-500 to-indigo-600 border-2 border-white flex items-center justify-center text-[10px] font-bold text-white hover:opacity-90 hover:scale-105 hover:z-10 transition-all shadow-xs cursor-pointer"
+                                                            title={`Click to view details of assigned staff`}
+                                                        >
+                                                            {(emp.name || emp.username || 'S').charAt(0).toUpperCase()}
+                                                        </button>
+                                                    ))}
+                                                    {assignedStaffs.length > 2 && (
+                                                        <button
+                                                            type="button"
+                                                            onClick={onAvatarClick}
+                                                            className="w-8 h-8 rounded-full bg-gradient-to-br from-indigo-500 to-indigo-600 border-2 border-white flex items-center justify-center text-[10px] font-bold text-white hover:opacity-90 hover:scale-105 hover:z-10 transition-all shadow-xs cursor-pointer"
+                                                            title="Click to view all assigned staff"
+                                                        >
+                                                            +{assignedStaffs.length - 2}
+                                                        </button>
+                                                    )}
+                                                </div>
+                                            );
+                                        })()}
+                                    </td>
+                                    <td className="px-4 py-3 text-slate-655 text-xs font-medium">
+                                        {assign.ca?.name || '—'}
+                                    </td>
+                                    <td className="px-4 py-3 font-bold text-slate-700 text-xs">
+                                        ₹{formatCurrency(assign.custom_amount)}
+                                    </td>
+                                    <td className="px-4 py-3 text-xs">
+                                        {(() => {
+                                            const info = getUpcomingDueDateInfo(assign, allSchedules);
+                                            return (
+                                                <span className={info.color} title={info.allDates || ''}>
+                                                    {info.text}
+                                                </span>
+                                            );
+                                        })()}
+                                    </td>
+                                    <td className="px-4 py-3 text-slate-505 text-xs font-mono">
+                                        {assign.create_date ? new Date(assign.create_date).toLocaleDateString('en-IN') : '—'}
+                                    </td>
+                                    <td className="px-4 py-3 text-right">
+                                        <div className="flex items-center justify-end gap-2">
+                                            <div className={`dropdown-container relative flex justify-center ${activeDropdownId === assign.assignment_id ? 'z-50' : 'z-0'}`}>
+                                                <button
+                                                    type="button"
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        setActiveDropdownId(activeDropdownId === assign.assignment_id ? null : assign.assignment_id);
+                                                    }}
+                                                    className="p-1.5 text-slate-500 hover:text-indigo-650 rounded-lg hover:bg-indigo-50 border border-slate-200 transition-colors"
+                                                >
+                                                    <FiMenu className="w-3.5 h-3.5" />
+                                                </button>
+                                                <AnimatePresence>
+                                                    {activeDropdownId === assign.assignment_id && (
+                                                        <motion.div
+                                                            initial={{ opacity: 0, scale: 0.95, y: 5 }}
+                                                            animate={{ opacity: 1, scale: 1, y: 0 }}
+                                                            exit={{ opacity: 0, scale: 0.95, y: 5 }}
+                                                            className="absolute right-0 mt-1 w-40 bg-white rounded-xl shadow-xl border border-slate-200 z-55 overflow-hidden text-left"
+                                                        >
+                                                            <div className="py-1">
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={(e) => {
+                                                                        e.stopPropagation();
+                                                                        openEditModal(assign);
+                                                                        setActiveDropdownId(null);
+                                                                    }}
+                                                                    className="flex items-center w-full px-3 py-2 text-xs text-slate-700 hover:bg-indigo-50 transition-colors"
+                                                                >
+                                                                    <FiEdit2 className="w-3.5 h-3.5 text-slate-400 mr-2" />
+                                                                    Edit
+                                                                </button>
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={(e) => {
+                                                                        e.stopPropagation();
+                                                                        setConfirmDeleteId(assign.assignment_id);
+                                                                        setActiveDropdownId(null);
+                                                                    }}
+                                                                    className="flex items-center w-full px-3 py-2 text-xs text-slate-700 hover:bg-indigo-50 transition-colors"
+                                                                >
+                                                                    <FiTrash2 className="w-3.5 h-3.5 text-slate-400 mr-2" />
+                                                                    Delete
+                                                                </button>
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={(e) => {
+                                                                        e.stopPropagation();
+                                                                        handleOpenBroadcast(assign);
+                                                                        setActiveDropdownId(null);
+                                                                    }}
+                                                                    className="flex items-center w-full px-3 py-2 text-xs text-slate-700 hover:bg-indigo-50 transition-colors"
+                                                                >
+                                                                    <FiShare2 className="w-3.5 h-3.5 text-slate-400 mr-2" />
+                                                                    Broadcast
+                                                                </button>
+                                                                {assign.frequency === 'monthly' && (
+                                                                    <button
+                                                                        type="button"
+                                                                        onClick={(e) => {
+                                                                            e.stopPropagation();
+                                                                            handleOpenFullCalendar(assign);
+                                                                            setActiveDropdownId(null);
+                                                                        }}
+                                                                        className="flex items-center w-full px-3 py-2 text-xs text-slate-700 hover:bg-indigo-50 transition-colors border-t border-slate-100"
+                                                                    >
+                                                                        <FiEye className="w-3.5 h-3.5 text-slate-400 mr-2" />
+                                                                        Show Full
+                                                                    </button>
+                                                                )}
+                                                            </div>
+                                                        </motion.div>
+                                                    )}
+                                                </AnimatePresence>
+                                            </div>
+                                            {selectedAssignmentId === assign.assignment_id ? (
+                                                <FiChevronDown className="w-4 h-4 text-slate-400" />
+                                            ) : (
+                                                <FiChevronRight className="w-4 h-4 text-slate-400" />
+                                            )}
+                                        </div>
+                                    </td>
+                                </tr>
+                                {/* Expanded Details - Schedules Grid */}
+                                {selectedAssignmentId === assign.assignment_id && (
+                                    <tr>
+                                        <td colSpan={9} className="bg-slate-50/30 p-4 border-t border-b border-indigo-50">
+                                            <div className="mb-3 flex justify-between items-center">
+                                                <h6 className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                                                    Generated Schedules ({assign.financial_year})
+                                                </h6>
+                                                {(() => {
+                                                    const assignedStaffs = getAssignedStaffList(assign);
+                                                    if (assignedStaffs.length === 0) return null;
+                                                    return (
+                                                        <div className="flex flex-wrap gap-1 items-center">
+                                                            <span className="text-[10px] text-slate-400 uppercase tracking-wider mr-1">Staff:</span>
+                                                            {assignedStaffs.map((emp, idx) => (
+                                                                <button
+                                                                    key={emp.username || idx}
+                                                                    type="button"
+                                                                    onClick={() => setSelectedStaffDetails(emp)}
+                                                                    className="text-[10px] text-slate-655 bg-white border border-slate-200 rounded-md px-2 py-0.5 hover:border-indigo-300 hover:text-indigo-650 transition-colors font-medium shadow-2xs cursor-pointer"
+                                                                >
+                                                                    {emp.name}
+                                                                </button>
+                                                            ))}
+                                                        </div>
+                                                    );
+                                                })()}
+                                            </div>
+                                            {schedulesLoading ? (
+                                                <div className="flex items-center gap-2 text-xs text-slate-400 py-3">
+                                                    <span className="w-3.5 h-3.5 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin"></span>
+                                                    Loading periods...
+                                                </div>
+                                            ) : (
+                                                <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 gap-3">
+                                                    {(() => {
+                                                        const filteredSchedules = (() => {
+                                                            const normalizeFY = (fy) => {
+                                                                if (!fy) return '';
+                                                                let clean = fy.toLowerCase().replace(/fy/g, '').trim().replace(/\s+/g, '');
+                                                                const parts = clean.split('-');
+                                                                if (parts.length !== 2) return fy;
+                                                                let start = parts[0].length === 2 ? '20' + parts[0] : parts[0];
+                                                                let end = parts[1].length === 2 ? '20' + parts[1] : parts[1];
+                                                                return start.length === 4 && end.length === 4 ? `${start}-${end}` : fy;
+                                                            };
+
+                                                            const targetFY = normalizeFY(assign.financial_year);
+                                                            let list = schedules.filter(p => normalizeFY(p.financial_year) === targetFY);
+
+                                                            if (!assign.pay_from_month || assign.frequency !== 'monthly') return list;
+                                                            const MONTHS = ['April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December', 'January', 'February', 'March'];
+                                                            const startIndex = MONTHS.indexOf(assign.pay_from_month);
+                                                            if (startIndex === -1) return list;
+                                                            return list.filter(p => {
+                                                                const pIndex = MONTHS.indexOf(p.period_name);
+                                                                return pIndex >= startIndex;
+                                                            });
+                                                        })();
+
+                                                        return filteredSchedules.map((period) => {
+                                                            const assignedStaffs = getAssignedStaffList(assign);
+                                                            const assignedStaffUsernames = assignedStaffs.map(emp => (emp.username || '').toLowerCase().trim());
+                                                            const isUpdatePermitted = !currentUsername || assignedStaffUsernames.length === 0 || assignedStaffUsernames.includes(currentUsername);
+                                                            const isComplete = period.status === 'Complete' || period.status === 'Sale';
+
+                                                            return (
+                                                                <div
+                                                                    key={period.schedule_id}
+                                                                    onClick={() => isUpdatePermitted && !isComplete && isPeriodDueDateActive(period) && openStatusModal(period, assign)}
+                                                                    className={`border rounded-xl p-3 shadow-xs transition-all flex flex-col justify-between min-h-[90px] group ${isUpdatePermitted && !isComplete && isPeriodDueDateActive(period)
+                                                                        ? "bg-white border-slate-200 hover:border-indigo-300 hover:shadow-sm cursor-pointer"
+                                                                        : isComplete
+                                                                            ? "bg-emerald-50/40 border-emerald-200 cursor-default"
+                                                                            : "bg-slate-50/50 border-slate-200/60 opacity-60 cursor-not-allowed"
+                                                                        }`}
+                                                                    title={
+                                                                        isComplete
+                                                                            ? `Completed — record locked`
+                                                                            : !isPeriodDueDateActive(period)
+                                                                                ? `Only the currently running due date (${getPeriodDueDate(period)}) can be updated`
+                                                                                : isUpdatePermitted
+                                                                                    ? undefined
+                                                                                    : `Restricted (Only assigned staff: ${assignedStaffs.map(e => e.name || e.username).join(', ')})`
+                                                                    }
+                                                                >
+                                                                    <div className="flex items-start justify-between gap-1.5">
+                                                                        <span className={`text-xs font-bold leading-tight truncate ${isUpdatePermitted ? "text-slate-700 group-hover:text-indigo-600" : "text-slate-400"
+                                                                            }`}>
+                                                                            {period.period_name}
+                                                                        </span>
+                                                                        <FiInfo className={`w-3 h-3 shrink-0 ${isUpdatePermitted ? "text-slate-350 group-hover:text-indigo-400" : "text-slate-200"
+                                                                            }`} />
+                                                                    </div>
+                                                                    <div className="mt-2 space-y-1">
+                                                                        <span className={`text-[10px] font-black block ${isUpdatePermitted ? "text-slate-800" : "text-slate-400"
+                                                                            }`}>
+                                                                            ₹{formatCurrency(period.amount)}
+                                                                        </span>
+                                                                        <span className={`inline-flex px-1.5 py-0.5 rounded text-[8px] font-bold border uppercase tracking-wider ${isUpdatePermitted
+                                                                            ? (STATUS_BADGES[period.status] || 'bg-slate-50')
+                                                                            : 'bg-slate-100/70 border-slate-200/50 text-slate-400'
+                                                                            }`}>
+                                                                            {period.status}
+                                                                        </span>
+                                                                        <div className="text-[11px] text-slate-500 font-semibold mt-1">
+                                                                            Due: {getPeriodDueDate(period)}
+                                                                        </div>
+                                                                    </div>
+                                                                </div>
+                                                            );
+                                                        });
+                                                    })()}
+                                                </div>
+                                            )}
+                                        </td>
+                                    </tr>
+                                )}
+                            </React.Fragment>
+                        ))
+                    )}
+                </tbody>
+            </table>
         );
     };
 
@@ -968,7 +1563,7 @@ const ComplianceTab = ({ clientUsername }) => {
                         whileTap={{ scale: 0.98 }}
                     >
                         <FiPlus className="w-4 h-4" />
-                        Assign Compliance
+                        Assign Recurring Task
                     </motion.button>
                 </div>
             </div>
@@ -1019,7 +1614,7 @@ const ComplianceTab = ({ clientUsername }) => {
             {loading && complianceData.active.length === 0 && complianceData.pending.length === 0 && complianceData.history.length === 0 ? (
                 <div className="text-center py-12 text-slate-400">
                     <div className="w-10 h-10 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin mx-auto mb-3"></div>
-                    <p className="text-xs font-medium">Fetching compliance database...</p>
+                    <p className="text-xs font-medium">Fetching recurring tasks...</p>
                 </div>
             ) : error ? (
                 <div className="text-center py-8 text-rose-500">
@@ -1077,525 +1672,7 @@ const ComplianceTab = ({ clientUsername }) => {
                             </div>
 
                             <div className="overflow-x-auto overflow-hidden rounded-xl border border-slate-100">
-                                {isServiceFiltered ? (
-                                    <div className="min-w-[800px]">
-                                        <table className="w-full text-sm text-left border-collapse">
-                                            <thead>
-                                                <tr className="bg-slate-50 border-b border-slate-100 text-slate-605 uppercase text-[9px] font-bold tracking-wider">
-                                                    <th className="px-4 py-3 text-center w-12">SR</th>
-                                                    <th className="px-4 py-3">Firm Name</th>
-                                                    <th className="px-4 py-3 text-center">Staffs</th>
-                                                    {periodHeaders.map((header) => (
-                                                        <th key={header} className="px-2 py-3 text-center uppercase tracking-wider">{header}</th>
-                                                    ))}
-                                                    <th className="px-4 py-3 text-center w-16">Action</th>
-                                                </tr>
-                                            </thead>
-                                            <tbody className="divide-y divide-slate-100">
-                                                {loading ? (
-                                                    <tr>
-                                                        <td colSpan={4 + periodHeaders.length} className="px-4 py-8 text-center">
-                                                            <div className="animate-pulse flex flex-col gap-2">
-                                                                <div className="h-4 bg-slate-100 rounded w-1/3 mx-auto"></div>
-                                                                <div className="h-4 bg-slate-100 rounded w-1/4 mx-auto"></div>
-                                                            </div>
-                                                        </td>
-                                                    </tr>
-                                                ) : filteredActiveAssignments.length === 0 ? (
-                                                    <tr>
-                                                        <td colSpan={4 + periodHeaders.length} className="px-4 py-12 text-center text-slate-400">
-                                                            <FiBriefcase className="w-8 h-8 mx-auto mb-2 opacity-50" />
-                                                            <p className="text-xs font-medium text-slate-500">No matching active compliance assignments found</p>
-                                                        </td>
-                                                    </tr>
-                                                ) : (
-                                                    filteredActiveAssignments.map((assign, idx) => {
-                                                        const assignSchedules = allSchedules.filter(s => s.assignment_id === assign.assignment_id);
-                                                        return (
-                                                            <tr key={assign.assignment_id} className="hover:bg-slate-50/50 transition-colors">
-                                                                <td className="px-4 py-3 text-center font-mono text-xs text-slate-400">
-                                                                    {idx + 1}
-                                                                </td>
-                                                                <td className="px-4 py-3 font-semibold text-slate-800 text-xs">
-                                                                    <div>{assign.firm_name}</div>
-                                                                    <div className="text-[10px] text-slate-450 font-normal mt-0.5">{assign.service_name}</div>
-                                                                </td>
-                                                                <td className="px-4 py-3 text-center align-middle">
-                                                                    {(() => {
-                                                                        const assignedStaffs = getAssignedStaffList(assign);
-                                                                        if (assignedStaffs.length === 0) return '—';
-
-                                                                        const onAvatarClick = (e) => {
-                                                                            e.stopPropagation();
-                                                                            setStaffListModal({
-                                                                                open: true,
-                                                                                staffs: assignedStaffs.map(emp => ({
-                                                                                    username: emp.username,
-                                                                                    name: emp.name || emp.username,
-                                                                                    email: emp.email || '—',
-                                                                                    mobile: emp.mobile || emp.phone || '—'
-                                                                                })),
-                                                                                serviceName: assign.service_name || assign.service_id
-                                                                            });
-                                                                        };
-
-                                                                        return (
-                                                                            <div className="flex justify-center -space-x-2.5">
-                                                                                {assignedStaffs.slice(0, 2).map((emp, idx) => (
-                                                                                    <button
-                                                                                        key={emp.username || idx}
-                                                                                        type="button"
-                                                                                        onClick={onAvatarClick}
-                                                                                        className="w-7 h-7 rounded-full bg-gradient-to-br from-indigo-500 to-indigo-600 border-2 border-white flex items-center justify-center text-[10px] font-bold text-white hover:opacity-90 hover:scale-105 hover:z-10 transition-all shadow-xs cursor-pointer"
-                                                                                        title={`Click to view details of assigned staff`}
-                                                                                    >
-                                                                                        {(emp.name || emp.username || 'S').charAt(0).toUpperCase()}
-                                                                                    </button>
-                                                                                ))}
-                                                                                {assignedStaffs.length > 2 && (
-                                                                                    <button
-                                                                                        type="button"
-                                                                                        onClick={onAvatarClick}
-                                                                                        className="w-7 h-7 rounded-full bg-gradient-to-br from-indigo-500 to-indigo-600 border-2 border-white flex items-center justify-center text-[10px] font-bold text-white hover:opacity-90 hover:scale-105 hover:z-10 transition-all shadow-xs cursor-pointer"
-                                                                                        title="Click to view all assigned staff"
-                                                                                    >
-                                                                                        +{assignedStaffs.length - 2}
-                                                                                    </button>
-                                                                                )}
-                                                                            </div>
-                                                                        );
-                                                                    })()}
-                                                                </td>
-                                                                {periodHeaders.map((headerText) => {
-                                                                    const period = getPeriodSchedule(assignSchedules, headerText, activeFrequency);
-                                                                    return renderCell(period, assign);
-                                                                })}
-                                                                <td className="px-4 py-3 text-center align-middle">
-                                                                    <div className={`dropdown-container relative flex justify-center ${activeDropdownId === assign.assignment_id ? 'z-50' : 'z-0'}`}>
-                                                                        <button
-                                                                            type="button"
-                                                                            onClick={(e) => {
-                                                                                e.stopPropagation();
-                                                                                setActiveDropdownId(activeDropdownId === assign.assignment_id ? null : assign.assignment_id);
-                                                                            }}
-                                                                            className="p-1.5 text-slate-500 hover:text-indigo-650 rounded-lg hover:bg-indigo-50 border border-slate-200 transition-colors"
-                                                                        >
-                                                                            <FiMenu className="w-3.5 h-3.5" />
-                                                                        </button>
-                                                                        <AnimatePresence>
-                                                                            {activeDropdownId === assign.assignment_id && (
-                                                                                <motion.div
-                                                                                    initial={{ opacity: 0, scale: 0.95, y: 5 }}
-                                                                                    animate={{ opacity: 1, scale: 1, y: 0 }}
-                                                                                    exit={{ opacity: 0, scale: 0.95, y: 5 }}
-                                                                                    className="absolute right-0 mt-1 w-40 bg-white rounded-xl shadow-xl border border-slate-200 z-55 overflow-hidden text-left"
-                                                                                >
-                                                                                    <div className="py-1">
-                                                                                        <button
-                                                                                            type="button"
-                                                                                            onClick={(e) => {
-                                                                                                e.stopPropagation();
-                                                                                                openEditModal(assign);
-                                                                                                setActiveDropdownId(null);
-                                                                                            }}
-                                                                                            className="flex items-center w-full px-3 py-2 text-xs text-slate-700 hover:bg-indigo-50 transition-colors"
-                                                                                        >
-                                                                                            <FiEdit2 className="w-3.5 h-3.5 text-slate-400 mr-2" />
-                                                                                            Edit
-                                                                                        </button>
-                                                                                        <button
-                                                                                            type="button"
-                                                                                            onClick={(e) => {
-                                                                                                e.stopPropagation();
-                                                                                                setConfirmDeleteId(assign.assignment_id);
-                                                                                                setActiveDropdownId(null);
-                                                                                            }}
-                                                                                            className="flex items-center w-full px-3 py-2 text-xs text-slate-700 hover:bg-indigo-50 transition-colors"
-                                                                                        >
-                                                                                            <FiTrash2 className="w-3.5 h-3.5 text-slate-400 mr-2" />
-                                                                                            Delete
-                                                                                        </button>
-                                                                                        <button
-                                                                                            type="button"
-                                                                                            onClick={(e) => {
-                                                                                                e.stopPropagation();
-                                                                                                handleOpenBroadcast(assign);
-                                                                                                setActiveDropdownId(null);
-                                                                                            }}
-                                                                                            className="flex items-center w-full px-3 py-2 text-xs text-slate-700 hover:bg-indigo-50 transition-colors"
-                                                                                        >
-                                                                                            <FiShare2 className="w-3.5 h-3.5 text-slate-400 mr-2" />
-                                                                                            Broadcast
-                                                                                        </button>
-                                                                                        {assign.frequency === 'monthly' && (
-                                                                                            <button
-                                                                                                type="button"
-                                                                                                onClick={(e) => {
-                                                                                                    e.stopPropagation();
-                                                                                                    handleOpenFullCalendar(assign);
-                                                                                                    setActiveDropdownId(null);
-                                                                                                }}
-                                                                                                className="flex items-center w-full px-3 py-2 text-xs text-slate-700 hover:bg-indigo-50 transition-colors border-t border-slate-100"
-                                                                                            >
-                                                                                                <FiEye className="w-3.5 h-3.5 text-slate-400 mr-2" />
-                                                                                                Show Full
-                                                                                            </button>
-                                                                                        )}
-                                                                                    </div>
-                                                                                </motion.div>
-                                                                            )}
-                                                                        </AnimatePresence>
-                                                                    </div>
-                                                                </td>
-                                                            </tr>
-                                                        );
-                                                    })
-                                                )}
-                                            </tbody>
-                                        </table>
-
-                                        {/* Footer Legend */}
-                                        <div className="flex flex-wrap items-center justify-between gap-4 px-4 py-3 bg-slate-50 border-t border-slate-100 text-xs text-slate-500">
-                                            <div className="flex items-center gap-1">
-                                                <span className="font-semibold text-slate-700">Filing Status Legend:</span>
-                                            </div>
-                                            <div className="flex flex-wrap gap-4 font-medium">
-                                                <span className="flex items-center gap-1.5">
-                                                    <span className="w-5 h-5 rounded border bg-amber-50 text-amber-700 border-amber-200 flex items-center justify-center text-[10px] font-bold">P</span>
-                                                    Pending
-                                                </span>
-                                                <span className="flex items-center gap-1.5">
-                                                    <span className="w-5 h-5 rounded border bg-emerald-50 text-emerald-700 border-emerald-200 flex items-center justify-center text-[10px] font-bold">S</span>
-                                                    Sale (Filed)
-                                                </span>
-                                                <span className="flex items-center gap-1.5">
-                                                    <span className="w-5 h-5 rounded border bg-blue-50 text-blue-700 border-blue-200 flex items-center justify-center text-[10px] font-bold">O</span>
-                                                    Outsource
-                                                </span>
-                                                <span className="flex items-center gap-1.5">
-                                                    <span className="w-5 h-5 rounded border bg-slate-50 text-slate-400 border-slate-200 flex items-center justify-center text-[10px] font-bold">N</span>
-                                                    N/A
-                                                </span>
-                                            </div>
-                                            <div className="text-[10px] text-slate-400 font-medium">
-                                                * Click status badge to update payment status
-                                            </div>
-                                        </div>
-                                    </div>
-                                ) : (
-                                    <table className="w-full text-sm text-left">
-                                        <thead>
-                                            <tr className="bg-slate-50 border-b border-slate-100 text-slate-500 uppercase text-[9px] font-bold tracking-wider">
-                                                <th className="px-4 py-3">Service Name</th>
-                                                <th className="px-4 py-3">Firm</th>
-                                                <th className="px-4 py-3">STAFFS</th>
-                                                <th className="px-4 py-3">Assigned CA</th>
-                                                <th className="px-4 py-3">Fees</th>
-                                                <th className="px-4 py-3">Start Date</th>
-                                                <th className="px-4 py-3 w-28 text-right">Actions</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody className="divide-y divide-slate-50">
-                                            {filteredActiveAssignments.length === 0 ? (
-                                                <tr>
-                                                    <td colSpan={7} className="px-4 py-10 text-center text-slate-400">
-                                                        <FiBriefcase className="w-8 h-8 mx-auto mb-2 opacity-40" />
-                                                        <p className="text-xs font-medium text-slate-500">No active compliance assignments matching filters</p>
-                                                    </td>
-                                                </tr>
-                                            ) : (
-                                                filteredActiveAssignments.map((assign) => (
-                                                    <React.Fragment key={assign.assignment_id}>
-                                                        <tr
-                                                            onClick={() => handleSelectAssignment(assign.assignment_id)}
-                                                            className={`hover:bg-slate-50/50 cursor-pointer transition-colors ${selectedAssignmentId === assign.assignment_id ? 'bg-indigo-50/10' : ''}`}
-                                                        >
-                                                            <td className="px-4 py-3 font-semibold text-slate-800 text-xs">
-                                                                <div>{assign.service_name}</div>
-                                                                <div className="flex gap-1.5 mt-1">
-                                                                    <span className={`inline-flex px-1.5 py-0.5 rounded text-[8px] font-bold border uppercase tracking-wider ${FREQ_BADGES[String(assign.frequency).toLowerCase()] || 'bg-slate-50'}`}>
-                                                                        {assign.frequency}
-                                                                    </span>
-                                                                    <span className="inline-flex px-1.5 py-0.5 rounded text-[8px] font-mono border bg-slate-50 text-slate-500">
-                                                                        FY {assign.financial_year}
-                                                                    </span>
-                                                                </div>
-                                                            </td>
-                                                            <td className="px-4 py-3 text-slate-650 text-xs font-medium">
-                                                                {assign.firm_name}
-                                                            </td>
-                                                            <td className="px-4 py-3 text-slate-600 text-xs">
-                                                                {(() => {
-                                                                    const assignedStaffs = getAssignedStaffList(assign);
-                                                                    if (assignedStaffs.length === 0) return '—';
-
-                                                                    const onAvatarClick = (e) => {
-                                                                        e.stopPropagation();
-                                                                        setStaffListModal({
-                                                                            open: true,
-                                                                            staffs: assignedStaffs.map(emp => ({
-                                                                                username: emp.username,
-                                                                                name: emp.name || emp.username,
-                                                                                email: emp.email || '—',
-                                                                                mobile: emp.mobile || emp.phone || '—'
-                                                                            })),
-                                                                            serviceName: assign.service_name || assign.service_id
-                                                                        });
-                                                                    };
-
-                                                                    return (
-                                                                        <div className="flex -space-x-2.5">
-                                                                            {assignedStaffs.slice(0, 2).map((emp, idx) => (
-                                                                                <button
-                                                                                    key={emp.username || idx}
-                                                                                    type="button"
-                                                                                    onClick={onAvatarClick}
-                                                                                    className="w-8 h-8 rounded-full bg-gradient-to-br from-indigo-500 to-indigo-600 border-2 border-white flex items-center justify-center text-[10px] font-bold text-white hover:opacity-90 hover:scale-105 hover:z-10 transition-all shadow-xs cursor-pointer"
-                                                                                    title={`Click to view details of assigned staff`}
-                                                                                >
-                                                                                    {(emp.name || emp.username || 'S').charAt(0).toUpperCase()}
-                                                                                </button>
-                                                                            ))}
-                                                                            {assignedStaffs.length > 2 && (
-                                                                                <button
-                                                                                    type="button"
-                                                                                    onClick={onAvatarClick}
-                                                                                    className="w-8 h-8 rounded-full bg-gradient-to-br from-indigo-500 to-indigo-600 border-2 border-white flex items-center justify-center text-[10px] font-bold text-white hover:opacity-90 hover:scale-105 hover:z-10 transition-all shadow-xs cursor-pointer"
-                                                                                    title="Click to view all assigned staff"
-                                                                                >
-                                                                                    +{assignedStaffs.length - 2}
-                                                                                </button>
-                                                                            )}
-                                                                        </div>
-                                                                    );
-                                                                })()}
-                                                            </td>
-                                                            <td className="px-4 py-3 text-slate-600 text-xs">
-                                                                {assign.ca?.name || '—'}
-                                                            </td>
-                                                            <td className="px-4 py-3 font-bold text-slate-700 text-xs">
-                                                                ₹{formatCurrency(assign.custom_amount)}
-                                                            </td>
-                                                            <td className="px-4 py-3 text-slate-500 text-xs font-mono">
-                                                                {assign.create_date ? new Date(assign.create_date).toLocaleDateString('en-IN') : '—'}
-                                                            </td>
-                                                            <td className="px-4 py-3 text-right">
-                                                                <div className="flex items-center justify-end gap-2">
-                                                                    <div className={`dropdown-container relative flex justify-center ${activeDropdownId === assign.assignment_id ? 'z-50' : 'z-0'}`}>
-                                                                        <button
-                                                                            type="button"
-                                                                            onClick={(e) => {
-                                                                                e.stopPropagation();
-                                                                                setActiveDropdownId(activeDropdownId === assign.assignment_id ? null : assign.assignment_id);
-                                                                            }}
-                                                                            className="p-1.5 text-slate-500 hover:text-indigo-650 rounded-lg hover:bg-indigo-50 border border-slate-200 transition-colors"
-                                                                        >
-                                                                            <FiMenu className="w-3.5 h-3.5" />
-                                                                        </button>
-                                                                        <AnimatePresence>
-                                                                            {activeDropdownId === assign.assignment_id && (
-                                                                                <motion.div
-                                                                                    initial={{ opacity: 0, scale: 0.95, y: 5 }}
-                                                                                    animate={{ opacity: 1, scale: 1, y: 0 }}
-                                                                                    exit={{ opacity: 0, scale: 0.95, y: 5 }}
-                                                                                    className="absolute right-0 mt-1 w-40 bg-white rounded-xl shadow-xl border border-slate-200 z-55 overflow-hidden text-left"
-                                                                                >
-                                                                                    <div className="py-1">
-                                                                                        <button
-                                                                                            type="button"
-                                                                                            onClick={(e) => {
-                                                                                                e.stopPropagation();
-                                                                                                openEditModal(assign);
-                                                                                                setActiveDropdownId(null);
-                                                                                            }}
-                                                                                            className="flex items-center w-full px-3 py-2 text-xs text-slate-700 hover:bg-indigo-50 transition-colors"
-                                                                                        >
-                                                                                            <FiEdit2 className="w-3.5 h-3.5 text-slate-400 mr-2" />
-                                                                                            Edit
-                                                                                        </button>
-                                                                                        <button
-                                                                                            type="button"
-                                                                                            onClick={(e) => {
-                                                                                                e.stopPropagation();
-                                                                                                setConfirmDeleteId(assign.assignment_id);
-                                                                                                setActiveDropdownId(null);
-                                                                                            }}
-                                                                                            className="flex items-center w-full px-3 py-2 text-xs text-slate-700 hover:bg-indigo-50 transition-colors"
-                                                                                        >
-                                                                                            <FiTrash2 className="w-3.5 h-3.5 text-slate-400 mr-2" />
-                                                                                            Delete
-                                                                                        </button>
-                                                                                        <button
-                                                                                            type="button"
-                                                                                            onClick={(e) => {
-                                                                                                e.stopPropagation();
-                                                                                                handleOpenBroadcast(assign);
-                                                                                                setActiveDropdownId(null);
-                                                                                            }}
-                                                                                            className="flex items-center w-full px-3 py-2 text-xs text-slate-700 hover:bg-indigo-50 transition-colors"
-                                                                                        >
-                                                                                            <FiShare2 className="w-3.5 h-3.5 text-slate-400 mr-2" />
-                                                                                            Broadcast
-                                                                                        </button>
-                                                                                        {assign.frequency === 'monthly' && (
-                                                                                            <button
-                                                                                                type="button"
-                                                                                                onClick={(e) => {
-                                                                                                    e.stopPropagation();
-                                                                                                    handleOpenFullCalendar(assign);
-                                                                                                    setActiveDropdownId(null);
-                                                                                                }}
-                                                                                                className="flex items-center w-full px-3 py-2 text-xs text-slate-700 hover:bg-indigo-50 transition-colors border-t border-slate-100"
-                                                                                            >
-                                                                                                <FiEye className="w-3.5 h-3.5 text-slate-400 mr-2" />
-                                                                                                Show Full
-                                                                                            </button>
-                                                                                        )}
-                                                                                    </div>
-                                                                                </motion.div>
-                                                                            )}
-                                                                        </AnimatePresence>
-                                                                    </div>
-                                                                    {selectedAssignmentId === assign.assignment_id ? (
-                                                                        <FiChevronDown className="w-4 h-4 text-slate-400" />
-                                                                    ) : (
-                                                                        <FiChevronRight className="w-4 h-4 text-slate-400" />
-                                                                    )}
-                                                                </div>
-                                                            </td>
-                                                        </tr>
-                                                        {/* Expanded Details - Schedules Grid */}
-                                                        {selectedAssignmentId === assign.assignment_id && (
-                                                            <tr>
-                                                                <td colSpan={7} className="bg-slate-50/30 p-4 border-t border-b border-indigo-50">
-                                                                    <div className="mb-3 flex justify-between items-center">
-                                                                        <h6 className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-                                                                            Generated Schedules ({assign.financial_year})
-                                                                        </h6>
-                                                                        {(() => {
-                                                                            const assignedStaffs = getAssignedStaffList(assign);
-                                                                            if (assignedStaffs.length === 0) return null;
-                                                                            return (
-                                                                                <div className="flex flex-wrap gap-1 items-center">
-                                                                                    <span className="text-[10px] text-slate-400 uppercase tracking-wider mr-1">Staff:</span>
-                                                                                    {assignedStaffs.map((emp, idx) => (
-                                                                                        <button
-                                                                                            key={emp.username || idx}
-                                                                                            onClick={() => setSelectedStaffDetails(emp)}
-                                                                                            className="text-[10px] text-slate-655 bg-white border border-slate-200 rounded-md px-2 py-0.5 hover:border-indigo-300 hover:text-indigo-650 transition-colors font-medium shadow-2xs cursor-pointer"
-                                                                                        >
-                                                                                            {emp.name}
-                                                                                        </button>
-                                                                                    ))}
-                                                                                </div>
-                                                                            );
-                                                                        })()}
-                                                                    </div>
-                                                                    {schedulesLoading ? (
-                                                                        <div className="flex items-center gap-2 text-xs text-slate-400 py-3">
-                                                                            <span className="w-3.5 h-3.5 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin"></span>
-                                                                            Loading periods...
-                                                                        </div>
-                                                                    ) : (
-                                                                        <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 gap-3">
-                                                                            {(() => {
-                                                                                const filteredSchedules = (() => {
-                                                                                    const normalizeFY = (fy) => {
-                                                                                        if (!fy) return '';
-                                                                                        let clean = fy.toLowerCase().replace(/fy/g, '').trim().replace(/\s+/g, '');
-                                                                                        const parts = clean.split('-');
-                                                                                        if (parts.length !== 2) return fy;
-                                                                                        let start = parts[0].length === 2 ? '20' + parts[0] : parts[0];
-                                                                                        let end = parts[1].length === 2 ? '20' + parts[1] : parts[1];
-                                                                                        return start.length === 4 && end.length === 4 ? `${start}-${end}` : fy;
-                                                                                    };
-
-                                                                                    const targetFY = normalizeFY(assign.financial_year);
-                                                                                    let list = schedules.filter(p => normalizeFY(p.financial_year) === targetFY);
-
-                                                                                    if (!assign.pay_from_month || assign.frequency !== 'monthly') return list;
-                                                                                    const MONTHS = ['April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December', 'January', 'February', 'March'];
-                                                                                    const startIndex = MONTHS.indexOf(assign.pay_from_month);
-                                                                                    if (startIndex === -1) return list;
-                                                                                    return list.filter(p => {
-                                                                                        const pIndex = MONTHS.indexOf(p.period_name);
-                                                                                        return pIndex >= startIndex;
-                                                                                    });
-                                                                                })();
-
-                                                                                return filteredSchedules.map((period) => {
-                                                                                    const assignedStaffs = getAssignedStaffList(assign);
-                                                                                    const assignedStaffUsernames = assignedStaffs.map(emp => (emp.username || '').toLowerCase().trim());
-                                                                                    const isUpdatePermitted = !currentUsername || assignedStaffUsernames.length === 0 || assignedStaffUsernames.includes(currentUsername);
-                                                                                    const isComplete = period.status === 'Complete' || period.status === 'Sale';
-
-                                                                                    return (
-                                                                                        <div
-                                                                                            key={period.schedule_id}
-                                                                                            onClick={() => isUpdatePermitted && !isComplete && openStatusModal(period, assign)}
-                                                                                            className={`border rounded-xl p-3 shadow-xs transition-all flex flex-col justify-between min-h-[90px] group ${isUpdatePermitted && !isComplete
-                                                                                                ? "bg-white border-slate-200 hover:border-indigo-300 hover:shadow-sm cursor-pointer"
-                                                                                                : isComplete
-                                                                                                    ? "bg-emerald-50/40 border-emerald-200 cursor-default"
-                                                                                                    : "bg-slate-50/50 border-slate-200/60 opacity-60 cursor-not-allowed"
-                                                                                                }`}
-                                                                                            title={isComplete ? `Completed — record locked` : (isUpdatePermitted ? undefined : `Restricted (Only assigned staff: ${assignedStaffs.map(e => e.name || e.username).join(', ')})`)}
-                                                                                        >
-                                                                                            <div className="flex items-start justify-between gap-1.5">
-                                                                                                <span className={`text-xs font-bold leading-tight truncate ${isUpdatePermitted ? "text-slate-700 group-hover:text-indigo-600" : "text-slate-400"
-                                                                                                    }`}>
-                                                                                                    {period.period_name}
-                                                                                                </span>
-                                                                                                <FiInfo className={`w-3 h-3 shrink-0 ${isUpdatePermitted ? "text-slate-350 group-hover:text-indigo-400" : "text-slate-200"
-                                                                                                    }`} />
-                                                                                            </div>
-                                                                                            <div className="mt-2 space-y-1">
-                                                                                                <span className={`text-[10px] font-black block ${isUpdatePermitted ? "text-slate-800" : "text-slate-400"
-                                                                                                    }`}>
-                                                                                                    ₹{formatCurrency(period.amount)}
-                                                                                                </span>
-                                                                                                <span className={`inline-flex px-1.5 py-0.5 rounded text-[8px] font-bold border uppercase tracking-wider ${isUpdatePermitted
-                                                                                                    ? (STATUS_BADGES[period.status] || 'bg-slate-50')
-                                                                                                    : 'bg-slate-100/70 border-slate-200/50 text-slate-400'
-                                                                                                    }`}>
-                                                                                                    {period.status}
-                                                                                                </span>
-                                                                                                {selectedFilingStatus === '' ? (
-                                                                                                    <div className="text-[9px] text-slate-400 font-mono mt-1">
-                                                                                                        Due: {getPeriodDueDate(period)}
-                                                                                                    </div>
-                                                                                                ) : (
-                                                                                                    <div className="flex items-center gap-1 mt-1 justify-between">
-                                                                                                        <span className="text-[9px] text-slate-400">Due Date</span>
-                                                                                                        <button
-                                                                                                            type="button"
-                                                                                                            onClick={(e) => {
-                                                                                                                e.stopPropagation();
-                                                                                                                toast(`Due Date: ${getPeriodDueDate(period)}`, { icon: '📅' });
-                                                                                                            }}
-                                                                                                            className="text-amber-500 hover:text-amber-600 transition-colors"
-                                                                                                            title="Click to view due date"
-                                                                                                        >
-                                                                                                            <FiAlertCircle className="w-3.5 h-3.5 animate-pulse" />
-                                                                                                        </button>
-                                                                                                    </div>
-                                                                                                )}
-                                                                                            </div>
-                                                                                        </div>
-                                                                                    );
-                                                                                });
-                                                                            })()}
-                                                                        </div>
-                                                                    )}
-                                                                </td>
-                                                            </tr>
-                                                        )}
-                                                    </React.Fragment>
-                                                ))
-                                            )}
-                                        </tbody>
-                                    </table>
-                                )}
+                                {isServiceFiltered ? renderFilteredServicesTable() : renderUnfilteredServicesTable()}
                             </div>
                         </div>
                     )}
@@ -1610,6 +1687,7 @@ const ComplianceTab = ({ clientUsername }) => {
                                     <tr className="bg-slate-50 border-b border-slate-100 text-slate-500 uppercase text-[9px] font-bold tracking-wider">
                                         <th className="px-4 py-3">Service Name</th>
                                         <th className="px-4 py-3">Period</th>
+                                        <th className="px-4 py-3">Due Date</th>
                                         <th className="px-4 py-3">Firm</th>
                                         <th className="px-4 py-3">Status</th>
                                         <th className="px-4 py-3">Amount</th>
@@ -1621,7 +1699,7 @@ const ComplianceTab = ({ clientUsername }) => {
                                 <tbody className="divide-y divide-slate-50">
                                     {complianceData.history.length === 0 ? (
                                         <tr>
-                                            <td colSpan={8} className="px-4 py-10 text-center text-slate-400">
+                                            <td colSpan={9} className="px-4 py-10 text-center text-slate-400">
                                                 <FiClock className="w-8 h-8 mx-auto mb-2 opacity-40" />
                                                 <p className="text-xs font-medium text-slate-500">No filing history logged yet</p>
                                                 <p className="text-[10px] mt-0.5">Historical and completed items appear here once marked</p>
@@ -1635,6 +1713,9 @@ const ComplianceTab = ({ clientUsername }) => {
                                                 </td>
                                                 <td className="px-4 py-3 text-slate-700 text-xs font-bold">
                                                     {hist.period_name} ({hist.financial_year})
+                                                </td>
+                                                <td className="px-4 py-3 text-slate-500 text-xs font-mono">
+                                                    {getPeriodDueDate(hist)}
                                                 </td>
                                                 <td className="px-4 py-3 text-slate-600 text-xs">
                                                     {hist.firm_name}
@@ -1697,7 +1778,7 @@ const ComplianceTab = ({ clientUsername }) => {
                             <div className="flex items-center justify-between px-5 py-3.5 bg-gradient-to-r from-indigo-600 to-violet-600 text-white shrink-0">
                                 <div className="flex items-center gap-2">
                                     <FiLayers className="w-5 h-5" />
-                                    <h3 className="text-sm font-bold">Assign Compliance to Client</h3>
+                                    <h3 className="text-sm font-bold">Assign Recurring Task to Client</h3>
                                 </div>
                                 <button
                                     onClick={() => setShowAssignModal(false)}
@@ -1783,7 +1864,7 @@ const ComplianceTab = ({ clientUsername }) => {
 
                                     {/* Compliance Service Select */}
                                     <div className="space-y-1">
-                                        <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Compliance Service *</label>
+                                        <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Recurring Task *</label>
                                         <select
                                             value={assignForm.service_id}
                                             onChange={(e) => {
@@ -1798,7 +1879,7 @@ const ComplianceTab = ({ clientUsername }) => {
                                             className="w-full px-3 py-2.5 text-xs text-slate-700 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none bg-white"
                                             required
                                         >
-                                            <option value="">Select compliance template…</option>
+                                            <option value="">Select recurring task template…</option>
                                             {globalServices.map(s => (
                                                 <option key={s.id} value={s.service_id}>{s.name} (₹{formatCurrency(s.default_amount)})</option>
                                             ))}
@@ -2578,7 +2659,7 @@ const ComplianceTab = ({ clientUsername }) => {
                                     onClick={async () => {
                                         setDeletingAssignmentId(confirmDeleteId);
                                         try {
-                                            await axios.delete(`${API_BASE_URL}/compliance/assignments/${confirmDeleteId}`, { headers: getHeaders() });
+                                            await axios.delete(`${API_BASE_URL}/recurring-task/assignments/${confirmDeleteId}`, { headers: getHeaders() });
                                             toast.success('Assignment deleted successfully');
                                             setConfirmDeleteId(null);
                                             setSelectedAssignmentId(null);
@@ -2669,9 +2750,9 @@ const ComplianceTab = ({ clientUsername }) => {
                                     type="button"
                                     onClick={() => {
                                         if (!broadcastPhone && !broadcastEmail) { toast.error('Enter at least one contact'); return; }
-                                        const msg = `Dear Client, this is a friendly reminder regarding your compliance service "${broadcastModal.assign?.service_name}" for the financial year ${broadcastModal.assign?.financial_year}. Please ensure any pending requirements are shared with us so we can proceed. Thank you!`;
+                                        const msg = `Dear Client, this is a friendly reminder regarding your recurring task "${broadcastModal.assign?.service_name}" for the financial year ${broadcastModal.assign?.financial_year}. Please ensure any pending requirements are shared with us so we can proceed. Thank you!`;
                                         if (broadcastPhone) window.open(`https://wa.me/${broadcastPhone.replace(/[^0-9]/g, '')}?text=${encodeURIComponent(msg)}`, '_blank');
-                                        if (broadcastEmail) window.open(`mailto:${broadcastEmail}?subject=Compliance Reminder - ${broadcastModal.assign?.service_name}&body=${encodeURIComponent(msg)}`);
+                                        if (broadcastEmail) window.open(`mailto:${broadcastEmail}?subject=Recurring Task Reminder - ${broadcastModal.assign?.service_name}&body=${encodeURIComponent(msg)}`);
                                         setBroadcastModal({ open: false, assign: null });
                                         toast.success('Reminder broadcasted successfully!');
                                     }}
@@ -2730,13 +2811,22 @@ const ComplianceTab = ({ clientUsername }) => {
                                                 return (
                                                     <div
                                                         key={period.schedule_id}
-                                                        onClick={() => isUpdatePermitted && !isComplete && openStatusModal(period, fullCalendarAssignment)}
-                                                        className={`border rounded-xl p-4 transition-all flex flex-col justify-between min-h-[105px] group ${isUpdatePermitted && !isComplete
+                                                        onClick={() => isUpdatePermitted && !isComplete && isPeriodDueDateActive(period) && openStatusModal(period, fullCalendarAssignment)}
+                                                        className={`border rounded-xl p-4 transition-all flex flex-col justify-between min-h-[105px] group ${isUpdatePermitted && !isComplete && isPeriodDueDateActive(period)
                                                             ? "bg-white border-slate-200 hover:border-indigo-300 hover:shadow-md cursor-pointer"
                                                             : isComplete
                                                                 ? "bg-emerald-50/40 border-emerald-200 cursor-default"
                                                                 : "bg-slate-50/50 border-slate-200/60 opacity-60 cursor-not-allowed"
                                                             }`}
+                                                        title={
+                                                            isComplete
+                                                                ? `Completed — record locked`
+                                                                : !isPeriodDueDateActive(period)
+                                                                    ? `Only the currently running due date (${getPeriodDueDate(period)}) can be updated`
+                                                                    : isUpdatePermitted
+                                                                        ? undefined
+                                                                        : `Restricted (Only assigned staff: ${assignedStaffs.map(e => e.name || e.username).join(', ')})`
+                                                        }
                                                     >
                                                         <div className="flex items-start justify-between gap-1">
                                                             <span className="text-xs font-bold text-slate-750 group-hover:text-indigo-600">
@@ -2753,7 +2843,7 @@ const ComplianceTab = ({ clientUsername }) => {
                                                                     {period.status}
                                                                 </span>
                                                             </div>
-                                                            <div className="text-[9px] text-slate-400 font-semibold">
+                                                            <div className="text-[11px] text-slate-500 font-semibold">
                                                                 Due: {getPeriodDueDate(period)}
                                                             </div>
                                                         </div>
