@@ -101,6 +101,7 @@ import StaffSalesDetails from './DashboardComponents/StaffSalesDetails';
 import TopClientsViewAll from './DashboardComponents/TopClientsViewAll';
 import TaskDetailsPage from './staff/TaskDetailsPage';
 import BulkImportPage from './pages/broadcast/email/BulkEmailImport';
+import WhatsappChannelBootstrap from './pages/broadcast/whatsapp/WhatsappChannelBootstrap';
 
 // Google Client ID
 const GOOGLE_CLIENT_ID = "process.env.REACT_APP_GOOGLE_CLIENT_ID" in process.env ? process.env.REACT_APP_GOOGLE_CLIENT_ID : "706030491156-5rq848qm4eih47h29675u6pdv11m8kvq.apps.googleusercontent.com";
@@ -134,6 +135,7 @@ root.render(
   <GoogleOAuthProvider clientId={GOOGLE_CLIENT_ID}>
     <BrowserRouter>
       <Toaster position="top-center" toastOptions={{ duration: 4000 }} />
+      <WhatsappChannelBootstrap />
       {/* Locks body scroll whenever any full-viewport modal/overlay is open — app-wide fix */}
       <BodyScrollLockObserver />
       <Routes>

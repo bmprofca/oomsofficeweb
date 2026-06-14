@@ -91,6 +91,12 @@ export const whatsappApi = {
     whatsappAxios.post('/broadcast/whatsapp/whatsappweb/template/create', payload).then(unwrap),
   editWhatsAppWebTemplate: (payload) =>
     whatsappAxios.put('/broadcast/whatsapp/whatsappweb/template/edit', payload).then(unwrap),
+  getWhatsAppWebTemplateMapList: () =>
+    whatsappAxios.get('/broadcast/whatsapp/whatsappweb/template-map-list').then(unwrap),
+  setWhatsAppWebTemplateMap: (payload) =>
+    whatsappAxios.put('/broadcast/whatsapp/whatsappweb/template-map/set', payload).then(unwrap),
+  unsetWhatsAppWebTemplateMap: (payload) =>
+    whatsappAxios.put('/broadcast/whatsapp/whatsappweb/template-map/unset', payload).then(unwrap),
 };
 
 export const normalizeList = (data) => (Array.isArray(data) ? data : []);

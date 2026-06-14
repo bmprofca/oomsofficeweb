@@ -19,6 +19,7 @@ import { FcGoogle } from 'react-icons/fc';
 import { FaMicrosoft } from 'react-icons/fa';
 import { SiAuth0 } from 'react-icons/si';
 import { GoogleLogin } from '@react-oauth/google';
+import { fetchWhatsappChannel } from './broadcast/whatsapp/whatsappChannelStore';
 
 const BASE_URL = 'https://api.ooms.in/api/v1';
 
@@ -285,6 +286,9 @@ const Login = () => {
 
         setLoginSuccess(true);
         setShowBranchSelection(false);
+
+        // Warm the cached WhatsApp channel before redirect.
+        fetchWhatsappChannel().catch(() => {});
 
         // Show success message
         const welcomeName = result.profile?.name || result.username || 'User';

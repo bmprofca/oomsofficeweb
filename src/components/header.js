@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Outlet, useNavigate } from 'react-router-dom';
 import {
@@ -10,6 +10,7 @@ import {
 import { NavLink, useLocation } from 'react-router-dom';
 import getHeaders from '../utils/get-headers';
 import API_BASE_URL from '../utils/api-controller';
+import { useWhatsappChannel } from '../pages/broadcast/whatsapp/useWhatsappChannel';
 
 // ==========================================
 // 1. Constants & Styles (Modern Indigo Theme)
@@ -567,6 +568,7 @@ export const Sidebar = ({ mobileMenuOpen, setMobileMenuOpen, isMinimized, setIsM
   const [currentPath, setCurrentPath] = useState('');
   const [totalUnreadCount, setTotalUnreadCount] = useState(0);
   const [pendingBillingCount, setPendingBillingCount] = useState(23); // Mock pending billing count
+  const whatsappChannel = useWhatsappChannel();
 
   const userData = getUserData();
   const projectList = userData?.projects?.list || (Array.isArray(userData?.projects) ? userData.projects : []);
@@ -638,51 +640,63 @@ export const Sidebar = ({ mobileMenuOpen, setMobileMenuOpen, isMinimized, setIsM
     if (isMinimized) setIsHovered(hoverState);
   };
 
-  const menuItems = [
-    { key: 'dashboard', title: 'Dashboard', icon: <FiHome size={18} />, path: '/' },
-    {
-      key: 'tasks', title: 'Tasks', icon: <FiUsers size={18} />,
-      path: '/task/view',
-      submenus: [
-        { title: 'New Task', path: '/task/create' },
-        { title: 'View Task', path: '/task/view' }
-      ]
-    },
-    {
-      key: 'recurring-tasks', title: 'Recurring Tasks', icon: <FiRepeat size={18} />,
-      path: '/staff/recurring-tasks'
-    },
-    {
-      key: 'clients', title: 'Clients', icon: <FiUsers size={18} />,
-      path: '/client/view',
-      submenus: [
-        { title: 'New Client', path: '/client/create' },
-        { title: 'View Client', path: '/client/view' }
-      ]
-    },
-    {
-      key: 'billing',
-      title: 'Billing',
-      icon: <FiBarChart2 size={18} />,
-      path: '/billing',
-      badgeCount: pendingBillingCount,
-      badgeColor: 'bg-amber-500',
-      badgeText: 'Pending'
-    },
-    { key: 'finance', title: 'Finance', icon: <FiBarChart2 size={18} />, path: '/finance/voucher/' },
-    {
-      key: 'staff-management', title: 'Staff Management', icon: <FiUsers size={18} />,
-      submenus: [
-        { title: 'Staff', path: '/staff/view' },
-        { title: 'Team Report', path: '/staff/team-report' },
-        { title: 'Attendance', path: '/staff/attendance' },
-        { title: 'Assistance', path: '/staff/office-assistance' }
-      ]
-    },
-    { key: 'broadcast', title: 'Broadcast', icon: <FiMessageSquare size={18} />, path: '/broadcast' },
-    { key: 'settings', title: 'Settings', icon: <FiSettings size={18} />, path: '/settings' },
-    { key: 'subscription', title: 'Subscription', icon: <FiCreditCard size={18} />, path: '/subscription' }
-  ];
+  const menuItems = useMemo(() => {
+    const items = [
+      { key: 'dashboard', title: 'Dashboard', icon: <FiHome size={18} />, path: '/' },
+      {
+        key: 'tasks', title: 'Tasks', icon: <FiUsers size={18} />,
+        path: '/task/view',
+        submenus: [
+          { title: 'New Task', path: '/task/create' },
+          { title: 'View Task', path: '/task/view' }
+        ]
+      },
+      {
+        key: 'recurring-tasks', title: 'Recurring Tasks', icon: <FiRepeat size={18} />,
+        path: '/staff/recurring-tasks'
+      },
+      {
+        key: 'clients', title: 'Clients', icon: <FiUsers size={18} />,
+        path: '/client/view',
+        submenus: [
+          { title: 'New Client', path: '/client/create' },
+          { title: 'View Client', path: '/client/view' }
+        ]
+      },
+      {
+        key: 'billing',
+        title: 'Billing',
+        icon: <FiBarChart2 size={18} />,
+        path: '/billing',
+        badgeCount: pendingBillingCount,
+        badgeColor: 'bg-amber-500',
+        badgeText: 'Pending'
+      },
+      { key: 'finance', title: 'Finance', icon: <FiBarChart2 size={18} />, path: '/finance/voucher/' },
+      {
+        key: 'staff-management', title: 'Staff Management', icon: <FiUsers size={18} />,
+        submenus: [
+          { title: 'Staff', path: '/staff/view' },
+          { title: 'Team Report', path: '/staff/team-report' },
+          { title: 'Attendance', path: '/staff/attendance' },
+          { title: 'Assistance', path: '/staff/office-assistance' }
+        ]
+      },
+      { key: 'broadcast', title: 'Broadcast', icon: <FiMessageSquare size={18} />, path: '/broadcast' },
+      ...(whatsappChannel === 'onechatting'
+        ? [{
+            key: 'whatsapp-live-chat',
+            title: 'Live Chat',
+            icon: <FiMessageSquare size={18} />,
+            path: '/broadcast/whatsapp/onechatting/live-chat',
+          }]
+        : []),
+      { key: 'settings', title: 'Settings', icon: <FiSettings size={18} />, path: '/settings' },
+      { key: 'subscription', title: 'Subscription', icon: <FiCreditCard size={18} />, path: '/subscription' }
+    ];
+
+    return items;
+  }, [whatsappChannel, pendingBillingCount]);
 
   return (
     <>
