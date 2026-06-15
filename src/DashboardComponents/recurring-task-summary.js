@@ -45,7 +45,7 @@ const RecurringTaskSummary = ({ onRefresh: externalRefresh }) => {
             });
             const data = await response.json();
             if (data.success) {
-                setServices(data.data || []);
+                setServices((data.data || []).filter(s => s.status === 'Active'));
             }
         } catch (error) {
             console.error('Error fetching recurring task templates:', error);

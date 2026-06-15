@@ -124,7 +124,7 @@ const getUpcomingDueDateInfo = (assign, allSchedules) => {
     if (assignSchedules.length === 0) return { text: '—', color: 'text-slate-400' };
 
     const MONTH_ORDER = ['April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December', 'January', 'February', 'March'];
-    
+
     const sorted = [...assignSchedules].sort((a, b) => {
         const freq = assign.frequency?.toLowerCase();
         if (freq === 'monthly') {
@@ -670,7 +670,8 @@ const ComplianceTab = ({ clientUsername }) => {
             // 2. Fetch Global Predefined Services
             const servicesRes = await axios.get(`${API_BASE_URL}/recurring-task/services`, { headers });
             if (servicesRes.data?.success && servicesRes.data?.data) {
-                setGlobalServices(servicesRes.data.data);
+                const activeList = servicesRes.data.data.filter(s => s.status === 'Active');
+                setGlobalServices(activeList);
             }
 
             // 3. Fetch Staff Members list

@@ -461,7 +461,8 @@ const Services = () => {
         q3_due_day: '',
         q4_due_day: '',
         h1_due_day: '',
-        h2_due_day: ''
+        h2_due_day: '',
+        status: 'Active'
     });
     const [rtSubmitting, setRtSubmitting] = useState(false);
     const [rtDeleteTarget, setRtDeleteTarget] = useState(null);
@@ -494,7 +495,8 @@ const Services = () => {
                 q3_due_day: String(svc.q3_due_day ?? ''),
                 q4_due_day: String(svc.q4_due_day ?? ''),
                 h1_due_day: String(svc.h1_due_day ?? ''),
-                h2_due_day: String(svc.h2_due_day ?? '')
+                h2_due_day: String(svc.h2_due_day ?? ''),
+                status: svc.status || 'Active'
             }
             : {
                 service_id: '',
@@ -507,7 +509,8 @@ const Services = () => {
                 q3_due_day: '',
                 q4_due_day: '',
                 h1_due_day: '',
-                h2_due_day: ''
+                h2_due_day: '',
+                status: 'Active'
             }
         );
         setRtShowModal(true);
@@ -547,7 +550,8 @@ const Services = () => {
                 name: rtForm.name,
                 frequency: rtForm.frequency,
                 default_amount: parseFloat(rtForm.default_amount),
-                due_day: rtForm.due_day ? parseInt(rtForm.due_day) : null
+                due_day: rtForm.due_day ? parseInt(rtForm.due_day) : null,
+                status: rtForm.status
             };
             if (rtForm.frequency === 'quarterly') {
                 payload.q1_due_day = rtForm.q1_due_day ? parseInt(rtForm.q1_due_day) : null;
@@ -591,6 +595,39 @@ const Services = () => {
         } catch (err) {
             toast.error(err.response?.data?.message || 'Error deleting template');
         } finally { setRtDeleting(false); }
+    };
+
+    const handleToggleRtStatus = async (svc) => {
+        const nextStatus = svc.status === 'Active' ? 'Inactive' : 'Active';
+        const toastId = toast.loading(`Toggling status to ${nextStatus}...`);
+        try {
+            const payload = {
+                name: svc.name,
+                frequency: svc.frequency,
+                default_amount: parseFloat(svc.default_amount),
+                due_day: svc.due_day ? parseInt(svc.due_day) : null,
+                status: nextStatus
+            };
+            if (svc.frequency === 'quarterly') {
+                payload.q1_due_day = svc.q1_due_day ? parseInt(svc.q1_due_day) : null;
+                payload.q2_due_day = svc.q2_due_day ? parseInt(svc.q2_due_day) : null;
+                payload.q3_due_day = svc.q3_due_day ? parseInt(svc.q3_due_day) : null;
+                payload.q4_due_day = svc.q4_due_day ? parseInt(svc.q4_due_day) : null;
+            } else if (svc.frequency === 'half-yearly') {
+                payload.h1_due_day = svc.h1_due_day ? parseInt(svc.h1_due_day) : null;
+                payload.h2_due_day = svc.h2_due_day ? parseInt(svc.h2_due_day) : null;
+            }
+
+            const res = await axios.put(`${API_BASE_URL}/recurring-task/services/${svc.service_id || svc.id}`, payload, { headers: getHeaders() });
+            if (res.data?.success !== false) {
+                toast.success(`Service status updated to ${nextStatus}`, { id: toastId });
+                fetchRt();
+            } else {
+                toast.error(res.data?.message || 'Failed to update status', { id: toastId });
+            }
+        } catch (err) {
+            toast.error(err.response?.data?.message || 'Error updating status', { id: toastId });
+        }
     };
 
     const filteredRtList = rtList.filter(s =>
@@ -1078,14 +1115,14 @@ const Services = () => {
                                     <table className="w-full text-sm">
                                         <thead>
                                             <tr className="bg-gray-50 border-b border-gray-100">
-                                                {['#', 'Service Name', 'Frequency', 'Due Day', 'Default Fee', 'Action'].map((h) => (
+                                                {['#', 'Service Name', 'Frequency', 'Due Day', 'Default Fee', 'Status', 'Action'].map((h) => (
                                                     <th key={h} className="px-4 py-2.5 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider whitespace-nowrap">{h}</th>
                                                 ))}
                                             </tr>
                                         </thead>
                                         <tbody className="divide-y divide-gray-50">
                                             {rtLoading
-                                                ? Array.from({ length: 5 }).map((_, i) => <SkeletonRow key={i} cols={6} />)
+                                                ? Array.from({ length: 5 }).map((_, i) => <SkeletonRow key={i} cols={7} />)
                                                 : filteredRtList.length === 0
                                                     ? <EmptyState icon={<FiRepeat className="w-5 h-5 text-slate-400" />} title="No recurring task templates" desc={rtSearch ? 'No match found.' : 'Click "New Template" to create one.'} />
                                                     : filteredRtList.map((svc, idx) => (
@@ -1107,10 +1144,32 @@ const Services = () => {
                                                                 <span className="text-xs font-semibold text-slate-800">₹{fmt(svc.default_amount)}</span>
                                                             </td>
                                                             <td className="px-4 py-3">
-                                                                <ActionMenu items={[
-                                                                    { label: 'Edit', icon: <FiEdit className="w-3.5 h-3.5" />, onClick: () => openRtModal(svc) },
-                                                                    { label: 'Delete', icon: <FiTrash2 className="w-3.5 h-3.5" />, onClick: () => setRtDeleteTarget(svc), danger: true },
-                                                                ]} />
+                                                                {svc.status === 'Active' ? (
+                                                                    <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-emerald-100 text-emerald-700 border border-emerald-200">
+                                                                        <FiCheck className="w-3.5 h-3.5" /> Active
+                                                                    </span>
+                                                                ) : (
+                                                                    <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-rose-50 text-rose-700 border border-rose-200" style={{ backgroundColor: 'rgb(254 242 242)' }}>
+                                                                        <FiX className="w-3.5 h-3.5" /> Inactive
+                                                                    </span>
+                                                                )}
+                                                            </td>
+                                                            <td className="px-4 py-3">
+                                                                <div className="flex items-center gap-2">
+                                                                    <button
+                                                                        onClick={() => handleToggleRtStatus(svc)}
+                                                                        className={`px-2.5 py-1 text-[11px] font-bold rounded-lg border transition-all duration-300 ${svc.status === 'Active'
+                                                                            ? 'bg-rose-50 text-rose-700 border-rose-200 hover:bg-rose-100'
+                                                                            : 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100'
+                                                                            }`}
+                                                                    >
+                                                                        {svc.status === 'Active' ? 'Deactive' : 'Active'}
+                                                                    </button>
+                                                                    <ActionMenu items={[
+                                                                        { label: 'Edit', icon: <FiEdit className="w-3.5 h-3.5" />, onClick: () => openRtModal(svc) },
+                                                                        { label: 'Delete', icon: <FiTrash2 className="w-3.5 h-3.5" />, onClick: () => setRtDeleteTarget(svc), danger: true },
+                                                                    ]} />
+                                                                </div>
                                                             </td>
                                                         </motion.tr>
                                                     ))
@@ -1300,6 +1359,14 @@ const Services = () => {
                                             placeholder="0.00"
                                             className="w-full pl-7 pr-3 py-2 text-xs border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none" />
                                     </div>
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-semibold text-slate-600 mb-1.5">Status *</label>
+                                    <select value={rtForm.status} onChange={(e) => setRtForm(f => ({ ...f, status: e.target.value }))}
+                                        className="w-full px-3 py-2 text-xs border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none bg-white">
+                                        <option value="Active">Active</option>
+                                        <option value="Inactive">Inactive</option>
+                                    </select>
                                 </div>
                             </div>
                             <div className="shrink-0 px-5 py-3 border-t border-gray-100 bg-gray-50 flex gap-2">

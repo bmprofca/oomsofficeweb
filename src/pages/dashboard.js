@@ -47,7 +47,6 @@ import {
 } from 'react-icons/fi';
 import { motion, AnimatePresence } from 'framer-motion';
 import TaskSummary from '../DashboardComponents/task-summary';
-import RecurringTaskSummary from '../DashboardComponents/recurring-task-summary';
 import getHeaders from '../utils/get-headers';
 import API_BASE_URL from '../utils/api-controller';
 import AdditionalStatsComponent from '../DashboardComponents/additional-stats';
@@ -61,7 +60,7 @@ import BranchSetupModal from '../../src/DashboardComponents/BranchSetupModal';
 import OmiFloatingBot from '../components/OmiFloatingBot';
 
 // Version constants for localStorage migration
-const DASHBOARD_VERSION = '4';
+const DASHBOARD_VERSION = '5';
 const QUICK_STATS_VERSION = '2';
 const ADDITIONAL_STATS_VERSION = '2';
 
@@ -112,20 +111,11 @@ const getDefaultWidgets = () => [
         category: 'tasks'
     },
     {
-        id: 'recurring-task-summary',
-        title: 'Recurring Task Summary',
-        component: 'RecurringTaskSummary',
-        visible: true,
-        order: 3,
-        icon: FiLayers,
-        category: 'tasks'
-    },
-    {
         id: 'service-wise-sales',
         title: 'Service Wise Sales',
         component: 'ServiceWiseSales',
         visible: true,
-        order: 4,
+        order: 3,
         icon: FiPieChart,
         category: 'sales'
     },
@@ -134,7 +124,7 @@ const getDefaultWidgets = () => [
         title: 'Staff Wise Sales',
         component: 'StaffWiseSales',
         visible: true,
-        order: 5,
+        order: 4,
         icon: FiUsers,
         category: 'sales'
     },
@@ -143,7 +133,7 @@ const getDefaultWidgets = () => [
         title: 'Top Clients',
         component: 'TopClients',
         visible: true,
-        order: 6,
+        order: 5,
         icon: FiAward,
         category: 'clients'
     },
@@ -152,7 +142,7 @@ const getDefaultWidgets = () => [
         title: 'Additional Stats',
         component: 'AdditionalStats',
         visible: true,
-        order: 7,
+        order: 6,
         icon: FiGrid,
         category: 'overview'
     }
@@ -344,7 +334,7 @@ const Dashboard = () => {
             return defaultLayout;
         }
 
-        const parsedLayout = JSON.parse(savedLayout);
+        const parsedLayout = JSON.parse(savedLayout).filter(item => item.id !== 'recurring-task-summary');
         const defaultLayout = getDefaultWidgets();
         const missingWidgets = defaultLayout.filter(def => !parsedLayout.some(item => item.id === def.id));
         if (missingWidgets.length > 0) {
@@ -438,14 +428,7 @@ const Dashboard = () => {
             category: 'analytics',
             description: 'Track team productivity and performance'
         },
-        {
-            id: 'recurring-task-summary',
-            title: 'Recurring Task Summary',
-            component: 'RecurringTaskSummary',
-            icon: FiLayers,
-            category: 'tasks',
-            description: 'Overview of recurring compliance schedules'
-        },
+
         {
             id: 'revenue-trend',
             title: 'Revenue Trend',
@@ -975,13 +958,7 @@ const Dashboard = () => {
         </WidgetWrapper>
     ));
 
-    const RecurringTaskSummaryWidget = React.memo(() => (
-        <WidgetWrapper widgetId="recurring-task-summary" title="Recurring Task Summary">
-            <RecurringTaskSummary
-                onRefresh={() => fetchDashboardData()}
-            />
-        </WidgetWrapper>
-    ));
+
 
     const ServiceWiseSalesWidget = React.memo(() => (
         <WidgetWrapper widgetId="service-wise-sales" title="Service Wise Sales">
@@ -1362,8 +1339,7 @@ const Dashboard = () => {
                                     return <QuickStatsWidget key={widget.id} />;
                                 case 'TaskSummary':
                                     return <TaskSummaryWidget key={widget.id} />;
-                                case 'RecurringTaskSummary':
-                                    return <RecurringTaskSummaryWidget key={widget.id} />;
+
                                 case 'ServiceWiseSales':
                                     return <ServiceWiseSalesWidget key={widget.id} />;
                                 case 'StaffWiseSales':
