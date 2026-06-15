@@ -41,6 +41,8 @@ export const whatsappApi = {
     whatsappAxios.get('/broadcast/whatsapp/onechatting/chat-list', { params }).then(unwrap),
   getChatHistory: (params) =>
     whatsappAxios.get('/broadcast/whatsapp/onechatting/chat-history', { params }).then(unwrap),
+  markAsRead: (payload) =>
+    whatsappAxios.post('/broadcast/whatsapp/onechatting/mark-as-read', payload).then(unwrap),
   sendTextMessage: (payload) =>
     whatsappAxios.post('/broadcast/whatsapp/onechatting/send-text-message', payload).then(unwrap),
   sendImageMessage: (payload) =>
@@ -55,8 +57,46 @@ export const whatsappApi = {
     whatsappAxios.post('/broadcast/whatsapp/onechatting/send-template', payload).then(unwrap),
   getTemplateList: (params) =>
     whatsappAxios.get('/broadcast/whatsapp/onechatting/template-list', { params }).then(unwrap),
+  getTemplateMapList: () =>
+    whatsappAxios.get('/broadcast/whatsapp/onechatting/template-map-list').then(unwrap),
+  setTemplateMap: (payload) =>
+    whatsappAxios.put('/broadcast/whatsapp/onechatting/template-map/set', payload).then(unwrap),
+  unsetTemplateMap: (payload) =>
+    whatsappAxios.put('/broadcast/whatsapp/onechatting/template-map/unset', payload).then(unwrap),
   getTemplateDetails: (params) =>
     whatsappAxios.get('/broadcast/whatsapp/onechatting/template-details', { params }).then(unwrap),
+  getWhatsAppWebHealth: () =>
+    whatsappAxios.get('/broadcast/whatsapp/whatsappweb/health').then(unwrap),
+  getWhatsAppWebStatus: () =>
+    whatsappAxios.get('/broadcast/whatsapp/whatsappweb/status').then(unwrap),
+  createWhatsAppWebSession: (payload = {}) =>
+    whatsappAxios
+      .post('/broadcast/whatsapp/whatsappweb/session/create', payload)
+      .then(unwrap),
+  getWhatsAppWebQr: () =>
+    whatsappAxios.get('/broadcast/whatsapp/whatsappweb/qr').then(unwrap),
+  requestWhatsAppWebPairingCode: (payload) =>
+    whatsappAxios
+      .post('/broadcast/whatsapp/whatsappweb/pairing-code', payload)
+      .then(unwrap),
+  deleteWhatsAppWebSession: () =>
+    whatsappAxios.delete('/broadcast/whatsapp/whatsappweb/session').then(unwrap),
+  getWhatsAppWebTemplateList: (params) =>
+    whatsappAxios.get('/broadcast/whatsapp/whatsappweb/template/list', { params }).then(unwrap),
+  getWhatsAppWebTemplateDetails: (templateId) =>
+    whatsappAxios
+      .get(`/broadcast/whatsapp/whatsappweb/template/details/${templateId}`)
+      .then(unwrap),
+  createWhatsAppWebTemplate: (payload) =>
+    whatsappAxios.post('/broadcast/whatsapp/whatsappweb/template/create', payload).then(unwrap),
+  editWhatsAppWebTemplate: (payload) =>
+    whatsappAxios.put('/broadcast/whatsapp/whatsappweb/template/edit', payload).then(unwrap),
+  getWhatsAppWebTemplateMapList: () =>
+    whatsappAxios.get('/broadcast/whatsapp/whatsappweb/template-map-list').then(unwrap),
+  setWhatsAppWebTemplateMap: (payload) =>
+    whatsappAxios.put('/broadcast/whatsapp/whatsappweb/template-map/set', payload).then(unwrap),
+  unsetWhatsAppWebTemplateMap: (payload) =>
+    whatsappAxios.put('/broadcast/whatsapp/whatsappweb/template-map/unset', payload).then(unwrap),
 };
 
 export const normalizeList = (data) => (Array.isArray(data) ? data : []);

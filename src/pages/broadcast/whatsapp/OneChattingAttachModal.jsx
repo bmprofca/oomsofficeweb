@@ -1,6 +1,6 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { toast } from 'react-hot-toast';
-import { FiLoader, FiUpload, FiX } from 'react-icons/fi';
+import { FiCheck, FiLoader, FiUpload, FiX } from 'react-icons/fi';
 import { extractApiError } from './oneChattingSendUtils';
 import { uploadOneSaasFile } from './oneChattingUpload';
 
@@ -50,6 +50,7 @@ const OneChattingAttachModal = ({
 }) => {
   const config = ATTACH_CONFIG[type];
   const fileInputRef = useRef(null);
+  const uploadRequestRef = useRef(0);
   const [inputMode, setInputMode] = useState('file');
   const [link, setLink] = useState('');
   const [caption, setCaption] = useState('');
@@ -57,12 +58,53 @@ const OneChattingAttachModal = ({
   const [isVoice, setIsVoice] = useState(false);
   const [selectedFile, setSelectedFile] = useState(null);
   const [previewUrl, setPreviewUrl] = useState('');
+  const [uploadedUrl, setUploadedUrl] = useState('');
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
+
+  const resetUploadState = useCallback(() => {
+    uploadRequestRef.current += 1;
+    setUploadedUrl('');
+    setUploading(false);
+    setUploadProgress(0);
+  }, []);
+
+  const startFileUpload = useCallback(async (file) => {
+    const requestId = ++uploadRequestRef.current;
+    setUploading(true);
+    setUploadProgress(0);
+    setUploadedUrl('');
+
+    try {
+      const { url } = await uploadOneSaasFile(file, (progress) => {
+        if (requestId === uploadRequestRef.current) {
+          setUploadProgress(progress);
+        }
+      });
+
+      if (requestId !== uploadRequestRef.current) return;
+
+      setUploadedUrl(url);
+      setUploadProgress(100);
+    } catch (error) {
+      if (requestId !== uploadRequestRef.current) return;
+      toast.error(extractApiError(error, 'Failed to upload file'));
+      setSelectedFile(null);
+      setPreviewUrl((current) => {
+        if (current) URL.revokeObjectURL(current);
+        return '';
+      });
+    } finally {
+      if (requestId === uploadRequestRef.current) {
+        setUploading(false);
+      }
+    }
+  }, []);
 
   useEffect(() => {
     if (!isOpen) return;
 
+    uploadRequestRef.current += 1;
     setInputMode('file');
     setLink('');
     setCaption('');
@@ -70,13 +112,22 @@ const OneChattingAttachModal = ({
     setIsVoice(false);
     setSelectedFile(null);
     setPreviewUrl('');
+    setUploadedUrl('');
     setUploading(false);
     setUploadProgress(0);
   }, [isOpen, type]);
 
+  useEffect(
+    () => () => {
+      if (previewUrl) URL.revokeObjectURL(previewUrl);
+    },
+    [previewUrl],
+  );
+
   if (!isOpen || !config) return null;
 
   const isBusy = sending || uploading;
+  const isDocumentModal = type === 'document';
 
   const handleFileChange = (event) => {
     const file = event.target.files?.[0];
@@ -87,6 +138,7 @@ const OneChattingAttachModal = ({
 
     setSelectedFile(file);
     setLink('');
+    resetUploadState();
 
     if (config.showDocumentName && !documentName.trim()) {
       setDocumentName(file.name);
@@ -97,44 +149,33 @@ const OneChattingAttachModal = ({
     } else {
       setPreviewUrl('');
     }
+
+    startFileUpload(file);
   };
 
   const clearSelectedFile = () => {
     if (previewUrl) URL.revokeObjectURL(previewUrl);
     setSelectedFile(null);
     setPreviewUrl('');
-  };
-
-  const resolveMediaLink = async () => {
-    if (inputMode === 'url') {
-      return link.trim();
-    }
-
-    if (!selectedFile) return '';
-    setUploading(true);
-    setUploadProgress(0);
-
-    try {
-      const { url } = await uploadOneSaasFile(selectedFile, setUploadProgress);
-      return url;
-    } catch (error) {
-      toast.error(extractApiError(error, 'Failed to upload file'));
-      return '';
-    } finally {
-      setUploading(false);
-    }
+    resetUploadState();
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (isBusy) return;
 
-    const mediaLink = await resolveMediaLink();
+    const mediaLink =
+      inputMode === 'url' ? link.trim() : uploadedUrl;
+
     if (!mediaLink) {
-      if (inputMode === 'file' && !selectedFile) {
+      if (inputMode === 'file' && selectedFile && uploading) {
+        toast.error('Please wait for the upload to finish');
+      } else if (inputMode === 'file' && !selectedFile) {
         toast.error('Please choose a file to upload');
       } else if (inputMode === 'url') {
         toast.error('Please enter a valid HTTPS URL');
+      } else {
+        toast.error('File upload failed. Please try again');
       }
       return;
     }
@@ -161,16 +202,32 @@ const OneChattingAttachModal = ({
 
   const canSubmit =
     !isBusy &&
-    (inputMode === 'url' ? Boolean(link.trim()) : Boolean(selectedFile));
+    (inputMode === 'url'
+      ? Boolean(link.trim())
+      : Boolean(selectedFile && uploadedUrl));
+
+  const sendButtonLabel = sending
+    ? 'Sending…'
+    : uploading
+      ? 'Uploading…'
+      : 'Send';
 
   return (
-    <div className="fixed inset-0 z-[1100] flex items-center justify-center p-4">
+    <div
+      className={`fixed inset-0 z-[1100] flex items-center justify-center ${
+        isDocumentModal ? 'p-6 sm:p-10' : 'p-4'
+      }`}
+    >
       <div
         className="absolute inset-0 bg-black/50"
         onClick={isBusy ? undefined : onClose}
       />
-      <div className="relative w-full max-w-lg bg-white rounded-xl shadow-xl border border-gray-200">
-        <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200">
+      <div
+        className={`relative w-full max-w-lg bg-white rounded-xl shadow-xl border border-gray-200 flex flex-col ${
+          isDocumentModal ? 'max-h-[calc(100vh-3rem)]' : ''
+        }`}
+      >
+        <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200 shrink-0">
           <h3 className="text-base font-semibold text-gray-800 m-0">
             {config.title}
           </h3>
@@ -185,7 +242,12 @@ const OneChattingAttachModal = ({
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="p-4 space-y-4">
+        <form
+          onSubmit={handleSubmit}
+          className={`p-4 space-y-4 ${
+            isDocumentModal ? 'overflow-y-auto min-h-0' : ''
+          }`}
+        >
           {replyPreview ? (
             <div className="px-3 py-2 rounded-lg bg-green-50 border border-green-100 text-xs text-gray-600">
               <span className="font-medium text-green-700">Replying to: </span>
@@ -201,7 +263,12 @@ const OneChattingAttachModal = ({
               <button
                 key={option.id}
                 type="button"
-                onClick={() => setInputMode(option.id)}
+                onClick={() => {
+                  setInputMode(option.id);
+                  if (option.id === 'url') {
+                    clearSelectedFile();
+                  }
+                }}
                 disabled={isBusy}
                 className={`flex-1 px-3 py-1.5 text-sm rounded-md transition-colors ${
                   inputMode === option.id
@@ -234,7 +301,7 @@ const OneChattingAttachModal = ({
                   <FiUpload className="w-6 h-6 text-green-600" />
                   <span className="text-sm font-medium">Choose file</span>
                   <span className="text-xs text-gray-500">
-                    File will be uploaded to a public HTTPS URL
+                    Upload starts immediately after selection
                   </span>
                 </button>
               ) : (
@@ -254,6 +321,12 @@ const OneChattingAttachModal = ({
                       <p className="text-xs text-gray-500 m-0 mt-0.5">
                         {formatFileSize(selectedFile.size)}
                       </p>
+                      {uploadedUrl ? (
+                        <p className="text-xs text-green-600 m-0 mt-1 inline-flex items-center gap-1">
+                          <FiCheck className="w-3.5 h-3.5 shrink-0" />
+                          Ready to send
+                        </p>
+                      ) : null}
                     </div>
                     <button
                       type="button"
@@ -267,7 +340,7 @@ const OneChattingAttachModal = ({
                 </div>
               )}
 
-              {uploading ? (
+              {selectedFile && (uploading || uploadedUrl) ? (
                 <div>
                   <div className="h-2 rounded-full bg-gray-200 overflow-hidden">
                     <div
@@ -276,7 +349,9 @@ const OneChattingAttachModal = ({
                     />
                   </div>
                   <p className="text-xs text-gray-500 mt-1 m-0">
-                    Uploading… {uploadProgress}%
+                    {uploadedUrl
+                      ? 'Upload complete'
+                      : `Uploading… ${uploadProgress}%`}
                   </p>
                 </div>
               ) : null}
@@ -360,7 +435,7 @@ const OneChattingAttachModal = ({
               className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-green-600 hover:bg-green-700 rounded-lg disabled:opacity-50"
             >
               {isBusy ? <FiLoader className="w-4 h-4 animate-spin" /> : null}
-              {uploading ? 'Uploading…' : 'Send'}
+              {sendButtonLabel}
             </button>
           </div>
         </form>

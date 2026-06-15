@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Header, Sidebar } from '../components/header';
 import {
     FiSend,
@@ -23,11 +23,13 @@ import {
     WHATSAPP_CHANNEL_OPTIONS,
     WHATSAPP_SUB_TABS,
 } from './broadcast/whatsapp/whatsappApi';
+import { setStoredWhatsappChannel } from './broadcast/whatsapp/whatsappChannelStore';
+import { useWhatsappChannel } from './broadcast/whatsapp/useWhatsappChannel';
 
 const Broadcast = () => {
     const navigate = useNavigate();
     const { tab } = useParams();
-    const activeTab = tab || 'text-message';
+    const activeTab = tab || 'whatsapp';
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
     const [isMinimized, setIsMinimized] = useState(() => {
         const saved = localStorage.getItem('sidebarMinimized');
@@ -36,9 +38,8 @@ const Broadcast = () => {
 
     // Channel states
     const [textMessageChannel, setTextMessageChannel] = useState('ooms');
-    const [whatsappChannel, setWhatsappChannel] = useState('disabled');
+    const whatsappChannel = useWhatsappChannel();
     const [whatsappSubTab, setWhatsappSubTab] = useState('ooms system');
-    const [whatsappChannelLoading, setWhatsappChannelLoading] = useState(false);
     const [whatsappChannelSaving, setWhatsappChannelSaving] = useState(false);
     const [isHeadBranch, setIsHeadBranch] = useState(true); // Mock data - in real app, get from props/API
 
@@ -69,27 +70,11 @@ const Broadcast = () => {
         setTextMessageChannel(appSettings.text_message_channel);
     }, [appSettings]);
 
-    const fetchWhatsappChannel = useCallback(async () => {
-        setWhatsappChannelLoading(true);
-        try {
-            const res = await whatsappApi.getChannel();
-            const channel = res?.data?.channel || 'disabled';
-            setWhatsappChannel(channel);
-            if (channel !== 'disabled') {
-                setWhatsappSubTab(channel);
-            }
-        } catch (error) {
-            toast.error(error?.response?.data?.message || error.message || 'Failed to load WhatsApp channel');
-        } finally {
-            setWhatsappChannelLoading(false);
-        }
-    }, []);
-
     useEffect(() => {
-        if (activeTab === 'whatsapp') {
-            fetchWhatsappChannel();
+        if (whatsappChannel !== 'disabled') {
+            setWhatsappSubTab(whatsappChannel);
         }
-    }, [activeTab, fetchWhatsappChannel]);
+    }, [whatsappChannel]);
 
     // Text Message Cards data
     const textMessageCards = [
@@ -179,6 +164,13 @@ const Broadcast = () => {
             color: "bg-green-100 text-green-600"
         },
         {
+            title: "Templates",
+            description: "View OneChatting WhatsApp templates",
+            icon: <FiFileText className="w-5 h-5" />,
+            link: "/broadcast/whatsapp/onechatting/templates",
+            color: "bg-green-100 text-green-600"
+        },
+        {
             title: "Send Message",
             description: "Send WhatsApp messages",
             icon: <FiSend className="w-5 h-5" />,
@@ -200,6 +192,32 @@ const Broadcast = () => {
             color: "bg-green-100 text-green-600"
         }
     ];
+
+    // WhatsApp Web (OOMS Web) Cards data
+    const whatsappWebCards = [
+        {
+            title: "Connect WhatsApp",
+            description: "Link this branch via QR or pairing code",
+            icon: <FiMessageCircle className="w-5 h-5" />,
+            link: "/broadcast/whatsapp/web/session",
+            color: "bg-green-100 text-green-600"
+        },
+        {
+            title: "Templates",
+            description: "Manage WhatsApp Web message templates",
+            icon: <FiFileText className="w-5 h-5" />,
+            link: "/broadcast/whatsapp/web/templates",
+            color: "bg-green-100 text-green-600"
+        },
+        {
+            title: "Reports",
+            description: "View WhatsApp Web delivery reports",
+            icon: <FiBarChart2 className="w-5 h-5" />,
+            link: "./report?tab=whatsapp",
+            color: "bg-green-100 text-green-600"
+        }
+    ];
+
     // Push Notification Cards data
     const pushNotificationCards = [
         {
@@ -288,16 +306,16 @@ const Broadcast = () => {
 
     const handleWhatsappChannelChange = async (newChannel) => {
         const previousChannel = whatsappChannel;
-        setWhatsappChannel(newChannel);
         setWhatsappChannelSaving(true);
         try {
             await whatsappApi.updateChannel({ channel: newChannel });
+            setStoredWhatsappChannel(newChannel);
             toast.success('WhatsApp channel updated successfully');
             if (newChannel !== 'disabled') {
                 setWhatsappSubTab(newChannel);
             }
         } catch (error) {
-            setWhatsappChannel(previousChannel);
+            setStoredWhatsappChannel(previousChannel);
             toast.error(error?.response?.data?.message || error.message || 'Failed to update WhatsApp channel');
         } finally {
             setWhatsappChannelSaving(false);
@@ -311,6 +329,9 @@ const Broadcast = () => {
     const renderWhatsappSubTabContent = () => {
         if (whatsappSubTab === 'onechatting') {
             return renderCardGrid(whatsappOneChattingCards);
+        }
+        if (whatsappSubTab === 'ooms web') {
+            return renderCardGrid(whatsappWebCards);
         }
         return renderCardGrid(whatsappOomsCards);
     };
@@ -352,7 +373,7 @@ const Broadcast = () => {
         <div className="bg-white rounded-lg border border-gray-200 mb-6">
             <div className="border-b border-gray-200 px-6 py-4">
                 <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
-                    <h5 className="text-lg font-semibold text-gray-800">Text Message</h5>
+                    <h5 className="text-lg font-semibold text-gray-800">SMS</h5>
                     {isHeadBranch && (
                         <div className="flex items-center gap-3">
                             <div className="text-sm text-gray-600 whitespace-nowrap">Select Channel</div>
@@ -397,29 +418,20 @@ const Broadcast = () => {
                         </p>
                     </div>
                     <div className="flex items-center gap-2 sm:min-w-[220px]">
-                        {whatsappChannelLoading ? (
-                            <div className="flex items-center gap-2 text-sm text-gray-500 w-full justify-end">
-                                <FiLoader className="w-4 h-4 animate-spin" />
-                                <span>Loading channel...</span>
-                            </div>
-                        ) : (
-                            <>
-                                <select
-                                    value={whatsappChannel}
-                                    onChange={(e) => handleWhatsappChannelChange(e.target.value)}
-                                    disabled={whatsappChannelSaving}
-                                    className="w-full sm:w-auto min-w-[200px] px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 bg-white outline-none text-sm disabled:opacity-60 disabled:cursor-not-allowed"
-                                >
-                                    {WHATSAPP_CHANNEL_OPTIONS.map((option) => (
-                                        <option key={option.value} value={option.value}>
-                                            {option.label}
-                                        </option>
-                                    ))}
-                                </select>
-                                {whatsappChannelSaving && (
-                                    <FiLoader className="w-4 h-4 animate-spin text-green-600 shrink-0" />
-                                )}
-                            </>
+                        <select
+                            value={whatsappChannel}
+                            onChange={(e) => handleWhatsappChannelChange(e.target.value)}
+                            disabled={whatsappChannelSaving}
+                            className="w-full sm:w-auto min-w-[200px] px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 bg-white outline-none text-sm disabled:opacity-60 disabled:cursor-not-allowed"
+                        >
+                            {WHATSAPP_CHANNEL_OPTIONS.map((option) => (
+                                <option key={option.value} value={option.value}>
+                                    {option.label}
+                                </option>
+                            ))}
+                        </select>
+                        {whatsappChannelSaving && (
+                            <FiLoader className="w-4 h-4 animate-spin text-green-600 shrink-0" />
                         )}
                     </div>
                 </div>
@@ -432,11 +444,10 @@ const Broadcast = () => {
                                 key={subTab.value}
                                 type="button"
                                 onClick={() => handleWhatsappSubTabChange(subTab.value)}
-                                className={`py-2 px-1 border-b-2 font-medium text-sm whitespace-nowrap transition-colors ${
-                                    whatsappSubTab === subTab.value
-                                        ? 'border-green-500 text-green-600'
-                                        : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                                }`}
+                                className={`py-2 px-1 border-b-2 font-medium text-sm whitespace-nowrap transition-colors ${whatsappSubTab === subTab.value
+                                    ? 'border-green-500 text-green-600'
+                                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                                    }`}
                             >
                                 {subTab.label}
                             </button>
@@ -445,12 +456,7 @@ const Broadcast = () => {
                 </div>
             )}
             <div className="p-6">
-                {whatsappChannelLoading ? (
-                    <div className="flex items-center justify-center py-12 text-gray-500">
-                        <FiLoader className="w-6 h-6 animate-spin mr-2" />
-                        <span className="text-sm">Loading WhatsApp settings...</span>
-                    </div>
-                ) : whatsappChannel === 'disabled' ? (
+                {whatsappChannel === 'disabled' ? (
                     <div className="text-center py-12 text-gray-500">
                         <FiMessageSquare className="w-16 h-16 mx-auto text-gray-300 mb-4" />
                         <p className="text-lg font-medium">WhatsApp broadcasting is currently disabled</p>
@@ -555,7 +561,7 @@ const Broadcast = () => {
                                             Broadcast
                                         </h5>
                                         <p className="text-gray-500 text-sm">
-                                            Manage Text Messages, WhatsApp, and Push Notifications
+                                            Manage WhatsApp, SMS, Email, and Push Notifications
                                         </p>
                                     </div>
                                 </div>
@@ -566,15 +572,6 @@ const Broadcast = () => {
                                 <div className="border-b border-gray-200">
                                     <nav className="-mb-px flex space-x-8 overflow-x-auto">
                                         <button
-                                            onClick={() => navigate('/broadcast/text-message')}
-                                            className={`py-2 px-1 border-b-2 font-medium text-sm whitespace-nowrap transition-colors ${activeTab === 'text-message'
-                                                ? 'border-blue-500 text-blue-600'
-                                                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                                                }`}
-                                        >
-                                            Text Message
-                                        </button>
-                                        <button
                                             onClick={() => navigate('/broadcast/whatsapp')}
                                             className={`py-2 px-1 border-b-2 font-medium text-sm whitespace-nowrap transition-colors ${activeTab === 'whatsapp'
                                                 ? 'border-green-500 text-green-600'
@@ -584,13 +581,13 @@ const Broadcast = () => {
                                             WhatsApp
                                         </button>
                                         <button
-                                            onClick={() => navigate('/broadcast/push')}
-                                            className={`py-2 px-1 border-b-2 font-medium text-sm whitespace-nowrap transition-colors ${activeTab === 'push'
-                                                ? 'border-purple-500 text-purple-600'
+                                            onClick={() => navigate('/broadcast/text-message')}
+                                            className={`py-2 px-1 border-b-2 font-medium text-sm whitespace-nowrap transition-colors ${activeTab === 'text-message'
+                                                ? 'border-blue-500 text-blue-600'
                                                 : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
                                                 }`}
                                         >
-                                            Push Notification
+                                            SMS
                                         </button>
                                         <button
                                             onClick={() => navigate('/broadcast/email-channel')}
@@ -601,12 +598,23 @@ const Broadcast = () => {
                                         >
                                             Email
                                         </button>
+                                        <button
+                                            onClick={() => navigate('/broadcast/push')}
+                                            className={`py-2 px-1 border-b-2 font-medium text-sm whitespace-nowrap transition-colors ${activeTab === 'push'
+                                                ? 'border-purple-500 text-purple-600'
+                                                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                                                }`}
+                                        >
+                                            Push Notification
+                                        </button>
                                     </nav>
                                 </div>
                             </div>
 
                             {/* Tab Content */}
                             <div className="p-6">
+                                {activeTab === 'whatsapp' && renderWhatsappSection()}
+
                                 {activeTab === 'text-message' && isHeadBranch && renderTextMessageSection()}
                                 {activeTab === 'text-message' && !isHeadBranch && (
                                     <motion.div
@@ -620,17 +628,16 @@ const Broadcast = () => {
                                                 Restricted Access
                                             </h3>
                                             <p className="text-gray-500">
-                                                Text Message broadcasting is only available for head branches.
+                                                SMS broadcasting is only available for head branches.
                                                 Please contact your administrator for access.
                                             </p>
                                         </div>
                                     </motion.div>
                                 )}
 
-                                {activeTab === 'whatsapp' && renderWhatsappSection()}
+                                {activeTab === 'email-channel' && renderEmailSection()}
 
                                 {activeTab === 'push' && renderPushNotificationSection()}
-                                {activeTab === 'email-channel' && renderEmailSection()}
                             </div>
                         </div>
                     </motion.div>

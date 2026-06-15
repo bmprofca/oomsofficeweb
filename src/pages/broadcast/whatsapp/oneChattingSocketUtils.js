@@ -57,28 +57,65 @@ export const upsertMessage = (messages, incoming) => {
   return [...messages, incoming];
 };
 
-export const updateMessageStatus = (messages, payload) => {
-  const { message_id: messageId, last_id: lastId, changes } = payload;
-  if (!changes) return messages;
+export const STATUS_RANK = {
+  pending: 0,
+  received: 0,
+  sent: 1,
+  delivered: 2,
+  read: 3,
+  failed: 99,
+};
 
-  return messages.map((message) =>
-    messageMatchesId(message, messageId, lastId)
-      ? { ...message, ...changes }
-      : message,
-  );
+export const shouldApplyStatus = (current, incoming) => {
+  if (!incoming) return false;
+  if (incoming === 'failed') return current !== 'read';
+  if (current === 'failed') return false;
+  return (STATUS_RANK[incoming] ?? 0) >= (STATUS_RANK[current] ?? 0);
+};
+
+export const getMessageStatusPatch = (payload) => {
+  const { changes, failed_reason: failedReason, last_id: lastId } = payload;
+  const status =
+    typeof changes === 'string' ? changes : changes?.status;
+
+  if (!status) return null;
+
+  return {
+    status,
+    ...(lastId != null ? { id: lastId } : {}),
+    ...(status === 'failed' && failedReason
+      ? { failed_reason: failedReason }
+      : {}),
+  };
+};
+
+export const updateMessageStatus = (messages, payload) => {
+  const { message_id: messageId, last_id: lastId } = payload;
+  const patch = getMessageStatusPatch(payload);
+  if (!patch?.status) return messages;
+
+  return messages.map((message) => {
+    if (!messageMatchesId(message, messageId, lastId)) return message;
+    if (!shouldApplyStatus(message.status, patch.status)) return message;
+    return { ...message, ...patch };
+  });
 };
 
 export const updateChatListLastMessageStatus = (chats, payload) => {
-  const { message_id: messageId, last_id: lastId, changes } = payload;
-  if (!changes) return chats;
+  const { message_id: messageId, last_id: lastId } = payload;
+  const patch = getMessageStatusPatch(payload);
+  if (!patch?.status) return chats;
 
   return chats.map((item) => {
     const lastMessage = item.last_message;
     if (!lastMessage) return item;
+    if (!messageMatchesId(lastMessage, messageId, lastId)) return item;
+    if (!shouldApplyStatus(lastMessage.status, patch.status)) return item;
 
-    return messageMatchesId(lastMessage, messageId, lastId)
-      ? { ...item, last_message: { ...lastMessage, ...changes } }
-      : item;
+    return {
+      ...item,
+      last_message: { ...lastMessage, ...patch },
+    };
   });
 };
 

@@ -1,6 +1,7 @@
 // components/menus.js
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
+import { useWhatsappChannel } from '../pages/broadcast/whatsapp/useWhatsappChannel';
 import {
     FiHome,
     FiUsers,
@@ -37,8 +38,10 @@ export const Sidebar = ({ sidebarOpen, setSidebarOpen, sidebarCollapsed, setSide
     const submenuRef = useRef(null);
     const navigate = useNavigate();
     const location = useLocation();
+    const whatsappChannel = useWhatsappChannel();
 
-    const menuItems = [
+    const menuItems = useMemo(() => {
+        const items = [
         {
             id: 'dashboard',
             label: 'Dashboard',
@@ -147,6 +150,17 @@ export const Sidebar = ({ sidebarOpen, setSidebarOpen, sidebarCollapsed, setSide
             badge: null,
             path: '/broadcast'
         },
+        ...(whatsappChannel === 'onechatting'
+            ? [
+                {
+                    id: 'whatsapp-live-chat',
+                    label: 'Live Chat',
+                    icon: <FiMessageSquare className="text-base" />,
+                    badge: null,
+                    path: '/broadcast/whatsapp/onechatting/live-chat',
+                },
+            ]
+            : []),
         {
             id: 'settings',
             label: 'Settings',
@@ -161,7 +175,10 @@ export const Sidebar = ({ sidebarOpen, setSidebarOpen, sidebarCollapsed, setSide
             badge: null,
             path: '/subscription'
         }
-    ];
+        ];
+
+        return items;
+    }, [whatsappChannel]);
 
     const handleMenuItemClick = (item, event) => {
         // Special case: Tasks/Clients should navigate to list page on click
@@ -221,7 +238,12 @@ export const Sidebar = ({ sidebarOpen, setSidebarOpen, sidebarCollapsed, setSide
     };
 
     const isActiveMenuItem = (item) => {
-        if (item.path === location.pathname) return true;
+        if (
+            location.pathname === item.path ||
+            (item.path && location.pathname.startsWith(`${item.path}/`))
+        ) {
+            return true;
+        }
         if (item.submenu) {
             return item.submenu.some(subItem => subItem.path === location.pathname);
         }
@@ -524,6 +546,7 @@ export const Header = ({ setSidebarOpen, sidebarCollapsed, setSidebarCollapsed, 
             '/staff/office-assistance': 'Office Assistance',
             '/staff/recurring-tasks': 'Recurring Tasks',
             '/broadcast': 'Broadcast',
+            '/broadcast/whatsapp/onechatting/live-chat': 'Live Chat',
             '/settings': 'Settings',
             '/subscription': 'Subscription'
         };
@@ -541,6 +564,7 @@ export const Header = ({ setSidebarOpen, sidebarCollapsed, setSidebarCollapsed, 
             '/staff': 'Staff management and coordination',
             '/staff/recurring-tasks': 'Manage client regulatory schedules and compliance frequencies',
             '/broadcast': 'Broadcast messages and announcements',
+            '/broadcast/whatsapp/onechatting/live-chat': 'OneChatting WhatsApp live chat',
             '/settings': 'System configuration and preferences',
             '/subscription': 'Subscription and billing management'
         };

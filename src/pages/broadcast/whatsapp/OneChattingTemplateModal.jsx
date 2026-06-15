@@ -2,8 +2,10 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { toast } from 'react-hot-toast';
 import { FiLoader, FiSearch, FiUpload, FiX } from 'react-icons/fi';
 import { whatsappApi } from './whatsappApi';
+import OneChattingTemplatePreview from './OneChattingTemplatePreview';
 import {
   buildTemplateComponents,
+  buildTemplatePreviewContent,
   extractApiError,
   getTemplatePlaceholders,
   getTemplatePreviewText,
@@ -125,6 +127,14 @@ const OneChattingTemplateModal = ({
     return getTemplatePlaceholders(selectedTemplate.template);
   }, [selectedTemplate]);
 
+  const previewContent = useMemo(() => {
+    if (!selectedTemplate?.template) return null;
+    return buildTemplatePreviewContent(
+      selectedTemplate.template,
+      variableValues,
+    );
+  }, [selectedTemplate, variableValues]);
+
   const handleSelectTemplate = (item) => {
     setSelectedTemplate(item);
     const nextValues = {};
@@ -164,12 +174,12 @@ const OneChattingTemplateModal = ({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-[1100] flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-[1100] flex items-center justify-center p-4 sm:p-6">
       <div
         className="absolute inset-0 bg-black/50"
         onClick={sending ? undefined : onClose}
       />
-      <div className="relative w-full max-w-2xl max-h-[90vh] bg-white rounded-xl shadow-xl border border-gray-200 flex flex-col overflow-hidden">
+      <div className="relative w-full max-w-5xl max-h-[92vh] bg-white rounded-xl shadow-xl border border-gray-200 flex flex-col overflow-hidden">
         <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200 shrink-0">
           <h3 className="text-base font-semibold text-gray-800 m-0">
             Send template
@@ -186,9 +196,9 @@ const OneChattingTemplateModal = ({
         </div>
 
         <form onSubmit={handleSubmit} className="flex flex-col min-h-0 flex-1">
-          <div className="p-4 space-y-4 overflow-y-auto min-h-0">
+          <div className="p-4 overflow-y-auto min-h-0 flex-1">
             {replyPreview ? (
-              <div className="px-3 py-2 rounded-lg bg-green-50 border border-green-100 text-xs text-gray-600">
+              <div className="px-3 py-2 rounded-lg bg-green-50 border border-green-100 text-xs text-gray-600 mb-4">
                 <span className="font-medium text-green-700">Replying to: </span>
                 <span className="line-clamp-2">{replyPreview}</span>
               </div>
@@ -216,7 +226,7 @@ const OneChattingTemplateModal = ({
                     No approved templates found.
                   </p>
                 ) : (
-                  <div className="space-y-2">
+                  <div className="space-y-2 mt-4">
                     {filteredTemplates.map((item) => (
                       <button
                         key={item.template_id}
@@ -241,65 +251,83 @@ const OneChattingTemplateModal = ({
                 )}
               </>
             ) : (
-              <>
-                <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0">
-                    <p className="text-sm font-semibold text-gray-800 m-0">
-                      {selectedTemplate.template_name}
-                    </p>
-                    <p className="text-xs text-gray-500 mt-1 line-clamp-3 m-0 whitespace-pre-wrap">
-                      {getTemplatePreviewText(selectedTemplate.template)}
-                    </p>
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 min-h-0">
+                <div className="space-y-4 min-w-0">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="text-sm font-semibold text-gray-800 m-0">
+                        {selectedTemplate.template_name}
+                      </p>
+                      <p className="text-xs text-gray-500 mt-1 m-0">
+                        {selectedTemplate.category} ·{' '}
+                        {selectedTemplate.template?.language || 'en'}
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setSelectedTemplate(null)}
+                      className="text-xs text-green-700 hover:text-green-800 shrink-0"
+                    >
+                      Change
+                    </button>
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => setSelectedTemplate(null)}
-                    className="text-xs text-green-700 hover:text-green-800 shrink-0"
-                  >
-                    Change
-                  </button>
+
+                  {placeholders.length === 0 ? (
+                    <p className="text-sm text-gray-500 m-0">
+                      This template has no variables to fill.
+                    </p>
+                  ) : (
+                    <div className="space-y-3">
+                      {placeholders.map((field) => (
+                        <div key={field.key}>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                            {field.label}
+                            {field.required ? (
+                              <span className="text-red-500"> *</span>
+                            ) : null}
+                          </label>
+                          {field.inputType === 'url' ? (
+                            <TemplateUrlField
+                              field={field}
+                              value={variableValues[field.key] || ''}
+                              onChange={(nextValue) =>
+                                handleVariableChange(field.key, nextValue)
+                              }
+                              disabled={sending}
+                            />
+                          ) : (
+                            <input
+                              type="text"
+                              value={variableValues[field.key] || ''}
+                              onChange={(e) =>
+                                handleVariableChange(field.key, e.target.value)
+                              }
+                              placeholder={field.example || ''}
+                              disabled={sending}
+                              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-green-500 focus:border-green-500 outline-none disabled:opacity-60"
+                            />
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
 
-                {placeholders.length === 0 ? (
-                  <p className="text-sm text-gray-500 m-0">
-                    This template has no variables to fill.
+                <div className="min-w-0">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 mb-3 m-0">
+                    Preview
                   </p>
-                ) : (
-                  <div className="space-y-3">
-                    {placeholders.map((field) => (
-                      <div key={field.key}>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                          {field.label}
-                          {field.required ? (
-                            <span className="text-red-500"> *</span>
-                          ) : null}
-                        </label>
-                        {field.inputType === 'url' ? (
-                          <TemplateUrlField
-                            field={field}
-                            value={variableValues[field.key] || ''}
-                            onChange={(nextValue) =>
-                              handleVariableChange(field.key, nextValue)
-                            }
-                            disabled={sending}
-                          />
-                        ) : (
-                          <input
-                            type="text"
-                            value={variableValues[field.key] || ''}
-                            onChange={(e) =>
-                              handleVariableChange(field.key, e.target.value)
-                            }
-                            placeholder={field.example || ''}
-                            disabled={sending}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-green-500 focus:border-green-500 outline-none disabled:opacity-60"
-                          />
-                        )}
-                      </div>
-                    ))}
+                  <div className="rounded-xl bg-[#e5ddd5] p-4 flex justify-center lg:justify-start lg:sticky lg:top-0">
+                    {previewContent ? (
+                      <OneChattingTemplatePreview content={previewContent} />
+                    ) : (
+                      <p className="text-sm text-gray-500 m-0">
+                        Preview will appear here.
+                      </p>
+                    )}
                   </div>
-                )}
-              </>
+                </div>
+              </div>
             )}
           </div>
 

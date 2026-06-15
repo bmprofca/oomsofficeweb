@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Outlet, useNavigate } from 'react-router-dom';
 import {
@@ -10,6 +10,7 @@ import {
 import { NavLink, useLocation } from 'react-router-dom';
 import getHeaders from '../utils/get-headers';
 import API_BASE_URL from '../utils/api-controller';
+import { useWhatsappChannel } from '../pages/broadcast/whatsapp/useWhatsappChannel';
 
 // ==========================================
 // 1. Constants & Styles (Modern Indigo Theme)
@@ -481,7 +482,7 @@ export const Header = ({ mobileMenuOpen, setMobileMenuOpen, isMinimized, setIsMi
             </button>
             <div className="flex items-center gap-2 cursor-pointer" onClick={() => navigate('/')}>
               <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-600 text-white font-bold text-lg shadow-md shadow-indigo-200">W</div>
-              <span className="text-xl font-bold tracking-tight text-slate-800 hidden sm:block font-sans">WICHAT</span>
+              <span className="text-xl font-bold tracking-tight text-slate-800 hidden sm:block font-sans">OOMS</span>
             </div>
           </div>
 
@@ -567,6 +568,7 @@ export const Sidebar = ({ mobileMenuOpen, setMobileMenuOpen, isMinimized, setIsM
   const [currentPath, setCurrentPath] = useState('');
   const [totalUnreadCount, setTotalUnreadCount] = useState(0);
   const [pendingBillingCount, setPendingBillingCount] = useState(23); // Mock pending billing count
+  const whatsappChannel = useWhatsappChannel();
 
   const userData = getUserData();
   const projectList = userData?.projects?.list || (Array.isArray(userData?.projects) ? userData.projects : []);
@@ -638,51 +640,63 @@ export const Sidebar = ({ mobileMenuOpen, setMobileMenuOpen, isMinimized, setIsM
     if (isMinimized) setIsHovered(hoverState);
   };
 
-  const menuItems = [
-    { key: 'dashboard', title: 'Dashboard', icon: <FiHome size={18} />, path: '/' },
-    {
-      key: 'tasks', title: 'Tasks', icon: <FiUsers size={18} />,
-      path: '/task/view',
-      submenus: [
-        { title: 'New Task', path: '/task/create' },
-        { title: 'View Task', path: '/task/view' }
-      ]
-    },
-    {
-      key: 'recurring-tasks', title: 'Recurring Tasks', icon: <FiRepeat size={18} />,
-      path: '/staff/recurring-tasks'
-    },
-    {
-      key: 'clients', title: 'Clients', icon: <FiUsers size={18} />,
-      path: '/client/view',
-      submenus: [
-        { title: 'New Client', path: '/client/create' },
-        { title: 'View Client', path: '/client/view' }
-      ]
-    },
-    {
-      key: 'billing',
-      title: 'Billing',
-      icon: <FiBarChart2 size={18} />,
-      path: '/billing',
-      badgeCount: pendingBillingCount,
-      badgeColor: 'bg-amber-500',
-      badgeText: 'Pending'
-    },
-    { key: 'finance', title: 'Finance', icon: <FiBarChart2 size={18} />, path: '/finance/voucher/' },
-    {
-      key: 'staff-management', title: 'Staff Management', icon: <FiUsers size={18} />,
-      submenus: [
-        { title: 'Staff', path: '/staff/view' },
-        { title: 'Team Report', path: '/staff/team-report' },
-        { title: 'Attendance', path: '/staff/attendance' },
-        { title: 'Assistance', path: '/staff/office-assistance' }
-      ]
-    },
-    { key: 'broadcast', title: 'Broadcast', icon: <FiMessageSquare size={18} />, path: '/broadcast' },
-    { key: 'settings', title: 'Settings', icon: <FiSettings size={18} />, path: '/settings' },
-    { key: 'subscription', title: 'Subscription', icon: <FiCreditCard size={18} />, path: '/subscription' }
-  ];
+  const menuItems = useMemo(() => {
+    const items = [
+      { key: 'dashboard', title: 'Dashboard', icon: <FiHome size={18} />, path: '/' },
+      {
+        key: 'tasks', title: 'Tasks', icon: <FiUsers size={18} />,
+        path: '/task/view',
+        submenus: [
+          { title: 'New Task', path: '/task/create' },
+          { title: 'View Task', path: '/task/view' }
+        ]
+      },
+      {
+        key: 'recurring-tasks', title: 'Recurring Tasks', icon: <FiRepeat size={18} />,
+        path: '/staff/recurring-tasks'
+      },
+      {
+        key: 'clients', title: 'Clients', icon: <FiUsers size={18} />,
+        path: '/client/view',
+        submenus: [
+          { title: 'New Client', path: '/client/create' },
+          { title: 'View Client', path: '/client/view' }
+        ]
+      },
+      {
+        key: 'billing',
+        title: 'Billing',
+        icon: <FiBarChart2 size={18} />,
+        path: '/billing',
+        badgeCount: pendingBillingCount,
+        badgeColor: 'bg-amber-500',
+        badgeText: 'Pending'
+      },
+      { key: 'finance', title: 'Finance', icon: <FiBarChart2 size={18} />, path: '/finance/voucher/' },
+      {
+        key: 'staff-management', title: 'Staff Management', icon: <FiUsers size={18} />,
+        submenus: [
+          { title: 'Staff', path: '/staff/view' },
+          { title: 'Team Report', path: '/staff/team-report' },
+          { title: 'Attendance', path: '/staff/attendance' },
+          { title: 'Assistance', path: '/staff/office-assistance' }
+        ]
+      },
+      { key: 'broadcast', title: 'Broadcast', icon: <FiMessageSquare size={18} />, path: '/broadcast' },
+      ...(whatsappChannel === 'onechatting'
+        ? [{
+            key: 'whatsapp-live-chat',
+            title: 'Live Chat',
+            icon: <FiMessageSquare size={18} />,
+            path: '/broadcast/whatsapp/onechatting/live-chat',
+          }]
+        : []),
+      { key: 'settings', title: 'Settings', icon: <FiSettings size={18} />, path: '/settings' },
+      { key: 'subscription', title: 'Subscription', icon: <FiCreditCard size={18} />, path: '/subscription' }
+    ];
+
+    return items;
+  }, [whatsappChannel, pendingBillingCount]);
 
   return (
     <>
@@ -692,7 +706,7 @@ export const Sidebar = ({ mobileMenuOpen, setMobileMenuOpen, isMinimized, setIsM
             <motion.div className="fixed inset-0 z-40 bg-slate-900/40 backdrop-blur-sm md:hidden" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setMobileMenuOpen(false)} />
             <motion.div className="fixed inset-y-0 left-0 z-50 w-72 bg-white shadow-2xl md:hidden flex flex-col" initial={{ x: '-100%' }} animate={{ x: 0 }} exit={{ x: '-100%' }} transition={{ type: "spring", damping: 30, stiffness: 300 }}>
               <div className="h-16 flex items-center justify-between px-6 border-b border-indigo-100 bg-indigo-50/30">
-                <span className="text-xl font-bold text-slate-800 font-sans">WICHAT</span>
+                <span className="text-xl font-bold text-slate-800 font-sans">OOMS</span>
                 <button onClick={() => setMobileMenuOpen(false)} className="p-1 rounded-md text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 transition-colors">
                   <FiX size={20} />
                 </button>

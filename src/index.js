@@ -55,6 +55,9 @@ import BroadcastReport from './pages/broadcast/report';
 import WhatsAppOoms from './pages/broadcast/whatsapp/ooms';
 import OneChattingConfigure from './pages/broadcast/whatsapp/OneChattingConfigure';
 import OneChattingLiveChat from './pages/broadcast/whatsapp/OneChattingLiveChat';
+import OneChattingTemplates from './pages/broadcast/whatsapp/OneChattingTemplates';
+import WhatsAppWebSession from './pages/broadcast/whatsapp/WhatsAppWebSession';
+import WhatsAppWebTemplates from './pages/broadcast/whatsapp/WhatsAppWebTemplates';
 import PushNotification from './pages/broadcast/push-notification/notification';
 import EmailConfigList from './pages/broadcast/email/EmailConfigList';
 import EmailTemplateList from './pages/broadcast/email/EmailTemplateList';
@@ -98,6 +101,7 @@ import StaffSalesDetails from './DashboardComponents/StaffSalesDetails';
 import TopClientsViewAll from './DashboardComponents/TopClientsViewAll';
 import TaskDetailsPage from './staff/TaskDetailsPage';
 import BulkImportPage from './pages/broadcast/email/BulkEmailImport';
+import WhatsappChannelBootstrap from './pages/broadcast/whatsapp/WhatsappChannelBootstrap';
 
 // Google Client ID
 const GOOGLE_CLIENT_ID = "process.env.REACT_APP_GOOGLE_CLIENT_ID" in process.env ? process.env.REACT_APP_GOOGLE_CLIENT_ID : "706030491156-5rq848qm4eih47h29675u6pdv11m8kvq.apps.googleusercontent.com";
@@ -131,6 +135,7 @@ root.render(
   <GoogleOAuthProvider clientId={GOOGLE_CLIENT_ID}>
     <BrowserRouter>
       <Toaster position="top-center" toastOptions={{ duration: 4000 }} />
+      <WhatsappChannelBootstrap />
       {/* Locks body scroll whenever any full-viewport modal/overlay is open — app-wide fix */}
       <BodyScrollLockObserver />
       <Routes>
@@ -434,7 +439,7 @@ root.render(
 
         <Route path="/broadcast" element={
           <ProtectedRoute>
-            <Navigate to="/broadcast/text-message" replace />
+            <Navigate to="/broadcast/whatsapp" replace />
           </ProtectedRoute>
         } />
         <Route path="/broadcast/:tab" element={
@@ -467,9 +472,27 @@ root.render(
           </ProtectedRoute>
         } />
 
+        <Route path="/broadcast/whatsapp/onechatting/templates" element={
+          <ProtectedRoute>
+            <OneChattingTemplates />
+          </ProtectedRoute>
+        } />
+
         <Route path="/broadcast/whatsapp/onechatting/live-chat/:number?" element={
           <ProtectedRoute>
             <OneChattingLiveChat />
+          </ProtectedRoute>
+        } />
+
+        <Route path="/broadcast/whatsapp/web/session" element={
+          <ProtectedRoute>
+            <WhatsAppWebSession />
+          </ProtectedRoute>
+        } />
+
+        <Route path="/broadcast/whatsapp/web/templates" element={
+          <ProtectedRoute>
+            <WhatsAppWebTemplates />
           </ProtectedRoute>
         } />
 
