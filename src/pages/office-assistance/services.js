@@ -1,8 +1,10 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
     FiPlus, FiEdit, FiTrash2, FiX, FiSearch,
     FiAlertTriangle, FiCheck, FiRefreshCw, FiLayers,
     FiCheckCircle, FiFileText, FiMoreVertical, FiEye, FiRepeat, FiMenu, FiInfo,
+    FiBriefcase,
 } from 'react-icons/fi';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -430,6 +432,7 @@ const EmptyState = ({ icon, title, desc }) => (
 
 /* ═══════════════════════════════════════════════════════════════════ */
 const Services = () => {
+    const navigate = useNavigate();
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
     const [isMinimized, setIsMinimized] = useState(() => {
         try { return JSON.parse(localStorage.getItem('sidebarMinimized')) || false; } catch { return false; }
@@ -443,6 +446,100 @@ const Services = () => {
 
     /* ── tabs ── */
     const [activeTab, setActiveTab] = useState('branch');
+
+    /* ── staff mapping ── */
+    const [staffMap, setStaffMap] = useState({});
+
+    const fetchStaff = useCallback(async () => {
+        const base = API_BASE_URL.replace(/\/$/, '');
+        let page = 1;
+        const limit = 100;
+        const map = {};
+        try {
+            for (; ;) {
+                const res = await axios.get(`${base}/settings/staff/list`, {
+                    headers: getHeaders(),
+                    params: { search: '', page, limit }
+                });
+                const list = res.data?.data || [];
+                list.forEach(item => {
+                    if (item.username) {
+                        map[item.username] = item.profile?.name ?? item.username;
+                    }
+                });
+                if (res.data?.meta?.is_last_page || list.length < limit) break;
+                page += 1;
+            }
+            setStaffMap(map);
+        } catch (err) {
+            console.error('Failed to fetch staff list:', err);
+        }
+    }, []);
+
+    useEffect(() => {
+        fetchStaff();
+    }, [fetchStaff]);
+
+    const getStaffNames = useCallback((employee_username) => {
+        if (!employee_username) return '—';
+        const usernames = typeof employee_username === 'string'
+            ? employee_username.split(',').map(u => u.trim())
+            : (Array.isArray(employee_username) ? employee_username : [employee_username]);
+        const names = usernames.map(u => staffMap[u] || u);
+        return names.join(', ');
+    }, [staffMap]);
+
+    /* ── firms list view ── */
+    const [viewMode, setViewMode] = useState('list'); // 'list' | 'firms'
+    const [selectedServiceForFirms, setSelectedServiceForFirms] = useState(null);
+    const [firmsList, setFirmsList] = useState([]);
+    const [firmsLoading, setFirmsLoading] = useState(false);
+    const [firmsSearch, setFirmsSearch] = useState('');
+    const [firmsPage, setFirmsPage] = useState(1);
+    const [firmsLimit, setFirmsLimit] = useState(20);
+    const [firmsTotal, setFirmsTotal] = useState(0);
+    const [firmsTotalPages, setFirmsTotalPages] = useState(1);
+
+    const fetchFirmsForService = useCallback(async (serviceId, search = '', page = 1, limit = 20) => {
+        setFirmsLoading(true);
+        try {
+            const res = await axios.get(`${API_BASE_URL}/service/firms`, {
+                headers: getHeaders(),
+                params: { service_id: serviceId, search, page, limit }
+            });
+            if (res.data?.success) {
+                setFirmsList(res.data.data || []);
+                setFirmsTotal(res.data.pagination?.total ?? 0);
+                setFirmsTotalPages(res.data.pagination?.total_pages ?? 1);
+            } else {
+                toast.error(res.data?.message || 'Failed to fetch assigned firms');
+            }
+        } catch (err) {
+            toast.error(err.response?.data?.message || 'Error loading assigned firms');
+        } finally {
+            setFirmsLoading(false);
+        }
+    }, []);
+
+    const firmsTimer = useRef(null);
+
+    useEffect(() => {
+        if (viewMode !== 'firms' || !selectedServiceForFirms) return;
+        clearTimeout(firmsTimer.current);
+        firmsTimer.current = setTimeout(() => {
+            setFirmsPage(1);
+            fetchFirmsForService(selectedServiceForFirms.service_id, firmsSearch, 1, firmsLimit);
+        }, 400);
+        return () => clearTimeout(firmsTimer.current);
+    }, [firmsSearch, viewMode, selectedServiceForFirms, firmsLimit, fetchFirmsForService]);
+
+    const handleViewFirms = (svc) => {
+        setSelectedServiceForFirms(svc);
+        setFirmsSearch('');
+        setFirmsPage(1);
+        setViewMode('firms');
+        fetchFirmsForService(svc.service_id, '', 1, firmsLimit);
+    };
 
     /* ── recurring task templates ── */
     const [rtList, setRtList] = useState([]);
@@ -902,36 +999,147 @@ const Services = () => {
                 <div className="max-w-full mx-auto px-4 sm:px-6 lg:px-8 py-6">
 
                     {/* page header */}
-                    <div className="mb-5 flex items-center gap-3">
-                        <div className="w-9 h-9 rounded-xl bg-indigo-100 flex items-center justify-center">
-                            <FiLayers className="w-4 h-4 text-indigo-600" />
+                    <div className="mb-5 flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                            <div className="w-9 h-9 rounded-xl bg-indigo-100 flex items-center justify-center">
+                                <FiLayers className="w-4 h-4 text-indigo-600" />
+                            </div>
+                            <div>
+                                {viewMode === 'firms' ? (
+                                    <>
+                                        <h1 className="text-lg font-bold text-slate-800 leading-tight">Assigned Firms</h1>
+                                        <p className="text-xs text-slate-500">Firms assigned to {selectedServiceForFirms?.name}</p>
+                                    </>
+                                ) : (
+                                    <>
+                                        <h1 className="text-lg font-bold text-slate-800 leading-tight">Branch Services</h1>
+                                        <p className="text-xs text-slate-500">Manage services enabled for this branch</p>
+                                    </>
+                                )}
+                            </div>
                         </div>
-                        <div>
-                            <h1 className="text-lg font-bold text-slate-800 leading-tight">Branch Services</h1>
-                            <p className="text-xs text-slate-500">Manage services enabled for this branch</p>
-                        </div>
+                        {viewMode === 'firms' && (
+                            <button
+                                onClick={() => setViewMode('list')}
+                                className="flex items-center gap-1.5 px-3 py-2 text-xs font-semibold text-slate-700 bg-white border border-gray-200 hover:bg-gray-50 rounded-lg transition-colors shadow-sm"
+                            >
+                                <FiX className="w-3.5 h-3.5" /> Back to Services
+                            </button>
+                        )}
                     </div>
 
                     {/* main card */}
                     <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
 
-                        {/* tabs */}
-                        <div className="flex border-b border-gray-100 px-4 pt-3 gap-1">
-                            {[
-                                { id: 'branch', label: 'Active Services', icon: <FiCheckCircle className="w-3.5 h-3.5" /> },
-                                { id: 'all', label: 'All Services', icon: <FiPlus className="w-3.5 h-3.5" /> },
-                                { id: 'recurring', label: 'Recurring Task Templates', icon: <FiRepeat className="w-3.5 h-3.5" /> },
-                            ].map((tab) => (
-                                <button key={tab.id} onClick={() => setActiveTab(tab.id)}
-                                    className={`flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold rounded-t-lg border-b-2 transition-all -mb-px ${activeTab === tab.id
-                                        ? 'border-indigo-600 text-indigo-600 bg-indigo-50/50'
-                                        : 'border-transparent text-slate-500 hover:text-slate-700 hover:bg-gray-50'
-                                        }`}
-                                >
-                                    {tab.icon}{tab.label}
-                                </button>
-                            ))}
-                        </div>
+                        {viewMode === 'firms' ? (
+                            <div>
+                                <div className="flex items-center gap-3 px-4 py-3 border-b border-gray-100 bg-gray-50/50">
+                                    <div className="relative flex-1 max-w-xs">
+                                        <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 pointer-events-none" />
+                                        <input type="text" placeholder="Search assigned firms…" value={firmsSearch}
+                                            onChange={(e) => setFirmsSearch(e.target.value)}
+                                            className="w-full pl-9 pr-3 py-2 text-sm text-slate-705 border border-gray-200 rounded-lg bg-white focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none placeholder:text-slate-400"
+                                        />
+                                    </div>
+                                    <ViewportTooltip label="Refresh">
+                                        <button onClick={() => fetchFirmsForService(selectedServiceForFirms.service_id, firmsSearch, firmsPage, firmsLimit)}
+                                            className="p-2 text-slate-500 hover:text-indigo-600 hover:bg-white rounded-lg transition-colors border border-gray-200 bg-white">
+                                            <FiRefreshCw className={`w-3.5 h-3.5 ${firmsLoading ? 'animate-spin' : ''}`} />
+                                        </button>
+                                    </ViewportTooltip>
+                                </div>
+
+                                <div className="overflow-x-auto">
+                                    <table className="w-full text-sm">
+                                        <thead>
+                                            <tr className="bg-gray-50 border-b border-gray-100">
+                                                {['#', 'Firm Name', 'Firm Type', 'GSTIN / PAN', 'Client Details', 'Assignment Details', 'Status'].map((h) => (
+                                                    <th key={h} className="px-4 py-2.5 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider whitespace-nowrap">{h}</th>
+                                                ))}
+                                            </tr>
+                                        </thead>
+                                        <tbody className="divide-y divide-gray-50 bg-white">
+                                            {firmsLoading
+                                                ? Array.from({ length: 5 }).map((_, i) => <SkeletonRow key={i} cols={7} />)
+                                                : firmsList.length === 0
+                                                    ? <EmptyState icon={<FiBriefcase className="w-5 h-5 text-slate-400" />} title="No assigned firms found" desc="No firms are currently assigned to this service." />
+                                                    : firmsList.map((firm, idx) => (
+                                                        <motion.tr key={firm.firm_id} initial={{ opacity: 0 }} animate={{ opacity: 1 }}
+                                                            className="hover:bg-indigo-50/30 transition-colors group">
+                                                            <td className="px-4 py-3 text-xs text-slate-400 font-medium w-10">
+                                                                {(firmsPage - 1) * firmsLimit + idx + 1}
+                                                            </td>
+                                                            <td className="px-4 py-3 max-w-[220px]">
+                                                                <button
+                                                                    onClick={() => navigate(`/client/profile/${firm.client?.username}/firms`)}
+                                                                    className="font-bold text-indigo-600 hover:text-indigo-800 hover:underline text-xs text-left leading-snug break-words"
+                                                                >
+                                                                    {firm.firm_name}
+                                                                </button>
+                                                            </td>
+                                                            <td className="px-4 py-3 text-xs text-slate-605 font-medium">
+                                                                {firm.firm_type || '—'}
+                                                            </td>
+                                                            <td className="px-4 py-3 text-xs text-slate-600">
+                                                                <p className="font-semibold text-slate-700">{firm.gst_no || '—'}</p>
+                                                                <p className="text-[11px] text-slate-400 font-mono mt-0.5">{firm.pan_no || '—'}</p>
+                                                            </td>
+                                                            <td className="px-4 py-3 text-xs text-slate-600">
+                                                                <p className="font-bold text-slate-700">{firm.client?.name || '—'}</p>
+                                                                <p className="text-[11px] text-slate-505 mt-0.5">{firm.client?.mobile || '—'}</p>
+                                                                <p className="text-[10px] text-slate-400 mt-0.5 truncate max-w-[180px]">{firm.client?.email || '—'}</p>
+                                                            </td>
+                                                            <td className="px-4 py-3 text-xs text-slate-600">
+                                                                <p className="font-semibold text-slate-700">Fees: ₹{fmt(firm.assignment?.custom_amount)}</p>
+                                                                <p className="text-[11px] text-slate-505 mt-0.5">Pay Month: {firm.assignment?.pay_from_month || '—'}</p>
+                                                                <p className="text-[10px] text-slate-400 mt-0.5">Staff: {getStaffNames(firm.assignment?.employee_username)}</p>
+                                                            </td>
+                                                            <td className="px-4 py-3">
+                                                                <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold border ${
+                                                                    String(firm.assignment?.status).toLowerCase() === 'active'
+                                                                        ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                                                                        : 'bg-rose-50 text-rose-700 border-rose-200'
+                                                                }`}>
+                                                                    {firm.assignment?.status || 'inactive'}
+                                                                </span>
+                                                            </td>
+                                                        </motion.tr>
+                                                    ))
+                                            }
+                                        </tbody>
+                                    </table>
+                                </div>
+
+                                <div className="border-t border-gray-100 px-4 py-2">
+                                    <TablePagination
+                                        page={firmsPage} limit={firmsLimit} total={firmsTotal}
+                                        totalPages={firmsTotalPages} isLastPage={firmsPage >= firmsTotalPages}
+                                        onPageChange={(p) => { setFirmsPage(p); fetchFirmsForService(selectedServiceForFirms.service_id, firmsSearch, p, firmsLimit); }}
+                                        onLimitChange={(l) => { setFirmsLimit(l); setFirmsPage(1); fetchFirmsForService(selectedServiceForFirms.service_id, firmsSearch, 1, l); }}
+                                        rowOptions={[5, 10, 20, 50, 100]}
+                                        showRange showRows showJump showFirstLast
+                                    />
+                                </div>
+                            </div>
+                        ) : (
+                            <>
+                                {/* tabs */}
+                                <div className="flex border-b border-gray-100 px-4 pt-3 gap-1">
+                                    {[
+                                        { id: 'branch', label: 'Active Services', icon: <FiCheckCircle className="w-3.5 h-3.5" /> },
+                                        { id: 'all', label: 'All Services', icon: <FiPlus className="w-3.5 h-3.5" /> },
+                                        { id: 'recurring', label: 'Recurring Task Templates', icon: <FiRepeat className="w-3.5 h-3.5" /> },
+                                    ].map((tab) => (
+                                        <button key={tab.id} onClick={() => setActiveTab(tab.id)}
+                                            className={`flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold rounded-t-lg border-b-2 transition-all -mb-px ${activeTab === tab.id
+                                                ? 'border-indigo-600 text-indigo-600 bg-indigo-50/50'
+                                                : 'border-transparent text-slate-500 hover:text-slate-700 hover:bg-gray-50'
+                                                }`}
+                                        >
+                                            {tab.icon}{tab.label}
+                                        </button>
+                                    ))}
+                                </div>
 
                         {/* ── BRANCH SERVICES TAB ── */}
                         {activeTab === 'branch' && (
@@ -960,14 +1168,14 @@ const Services = () => {
                                     <table className="w-full text-sm">
                                         <thead>
                                             <tr className="bg-gray-50 border-b border-gray-100">
-                                                {['#', 'Service', 'Type', 'Fees', 'GST', 'Pending', 'Complete', 'Cancel', 'Action'].map((h) => (
+                                                {['#', 'Service', 'Type', 'Fees', 'GST', 'Firms', 'Pending', 'Complete', 'Cancel', 'Action'].map((h) => (
                                                     <th key={h} className="px-4 py-2.5 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider whitespace-nowrap">{h}</th>
                                                 ))}
                                             </tr>
                                         </thead>
                                         <tbody className="divide-y divide-gray-50">
                                             {branchLoading
-                                                ? Array.from({ length: 6 }).map((_, i) => <SkeletonRow key={i} cols={9} />)
+                                                ? Array.from({ length: 6 }).map((_, i) => <SkeletonRow key={i} cols={10} />)
                                                 : branchList.length === 0
                                                     ? <EmptyState icon={<FiLayers className="w-5 h-5 text-slate-400" />} title="No branch services" desc={branchSearch ? 'No match found.' : 'Go to "Add Services" to enable services.'} />
                                                     : branchList.map((svc, idx) => (
@@ -991,6 +1199,15 @@ const Services = () => {
                                                             <td className="px-4 py-3">
                                                                 <p className="text-xs text-slate-600">{svc.gst_rate ?? 0}%</p>
                                                                 <p className="text-[11px] text-slate-400">₹{fmt(svc.gst_value)}</p>
+                                                            </td>
+                                                            <td className="px-4 py-3">
+                                                                <button
+                                                                    onClick={() => handleViewFirms(svc)}
+                                                                    className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-indigo-50 text-indigo-700 border border-indigo-200 hover:bg-indigo-100 hover:scale-105 transition-all"
+                                                                    title="Click to view assigned firms"
+                                                                >
+                                                                    {svc.firm_count ?? 0}
+                                                                </button>
                                                             </td>
                                                             <td className="px-4 py-3">
                                                                 <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-amber-50 text-amber-700 border border-amber-200">
@@ -1215,6 +1432,8 @@ const Services = () => {
                                     </table>
                                 </div>
                             </div>
+                        )}
+                            </>
                         )}
 
                     </div>
