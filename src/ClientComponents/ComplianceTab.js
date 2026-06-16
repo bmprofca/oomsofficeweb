@@ -3,7 +3,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
     FiLayers, FiPlus, FiRefreshCw, FiCheckCircle, FiAlertCircle,
     FiChevronRight, FiChevronDown, FiCalendar, FiDollarSign, FiClock,
-    FiX, FiInfo, FiSearch, FiBriefcase, FiUser, FiSliders, FiMenu, FiEdit2, FiTrash2, FiShare2, FiEye
+    FiX, FiInfo, FiSearch, FiBriefcase, FiUser, FiSliders, FiMenu, FiEdit2, FiTrash2, FiShare2, FiEye,
+    FiEyeOff, FiCopy, FiLock
 } from 'react-icons/fi';
 import { FaWhatsapp } from 'react-icons/fa6';
 import { MdEmail } from 'react-icons/md';
@@ -12,6 +13,143 @@ import { toast } from 'react-hot-toast';
 import getHeaders from '../utils/get-headers';
 import API_BASE_URL from '../utils/api-controller';
 import AssignedStaffList from '../components/Modals/AssignedStaffList';
+
+/* ─── Helpers ────────────────────────────────────────────────────── */
+const getRequiredFieldsForService = (service) => {
+    if (!service) return [];
+    if (service.required_fields && Array.isArray(service.required_fields) && service.required_fields.length > 0) {
+        return service.required_fields;
+    }
+    const name = (service.name || '').toLowerCase();
+    const svcId = (service.service_id || '').toLowerCase();
+    if (name.includes('professional tax') || name.includes('ptax') || svcId.includes('ptax')) {
+        return [
+            { key: 'ptax_reg_no', label: 'Professional Tax Reg No', type: 'text' },
+            { key: 'ptax_password', label: 'Password', type: 'password' }
+        ];
+    }
+    if (name.includes('gstr-1') || svcId.includes('gstr-1') || name.includes('gstr1') || svcId.includes('gstr1')) {
+        return [
+            { key: 'gst_login_id', label: 'GST Login ID', type: 'text' },
+            { key: 'gst_password', label: 'Password', type: 'password' }
+        ];
+    }
+    return [];
+};
+
+const CredentialRow = ({ label, val, type }) => {
+    const [visible, setVisible] = useState(false);
+
+    const handleCopy = (e) => {
+        e.stopPropagation();
+        navigator.clipboard.writeText(val || '');
+        toast.success(`${label} copied to clipboard`);
+    };
+
+    const isPassword = type === 'password' || label.toLowerCase().includes('pass') || label.toLowerCase().includes('secret');
+
+    return (
+        <div className="flex items-center justify-between py-1.5 border-b border-slate-100 last:border-0 text-xs">
+            <span className="font-semibold text-slate-500 w-1/3 truncate" title={label}>{label}</span>
+            <div className="flex items-center gap-2 w-2/3 justify-end">
+                <span className="font-mono text-slate-800 break-all select-all font-semibold">
+                    {isPassword && !visible ? '••••••••' : (val || '—')}
+                </span>
+                <div className="flex items-center gap-1 shrink-0">
+                    {isPassword && (
+                        <button
+                            type="button"
+                            onClick={() => setVisible(!visible)}
+                            className="p-1 hover:bg-slate-150 rounded text-slate-400 hover:text-slate-700 transition-colors"
+                        >
+                            {visible ? <FiEyeOff className="w-3.5 h-3.5" /> : <FiEye className="w-3.5 h-3.5" />}
+                        </button>
+                    )}
+                    <button
+                        type="button"
+                        onClick={handleCopy}
+                        className="p-1 hover:bg-slate-150 rounded text-slate-400 hover:text-slate-700 transition-colors"
+                        title="Copy to Clipboard"
+                    >
+                        <FiCopy className="w-3.5 h-3.5" />
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+};
+
+const CredentialsCard = ({ schema, credentials }) => {
+    return (
+        <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm w-full md:max-w-xs shrink-0 self-start">
+            <h5 className="text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-2 border-b border-slate-100 pb-1.5 flex items-center gap-1.5">
+                <FiLock className="w-3.5 h-3.5 text-indigo-500" /> Client Filing Credentials
+            </h5>
+            <div className="divide-y divide-slate-50">
+                {schema.map(field => {
+                    const val = credentials[field.key];
+                    return (
+                        <CredentialRow 
+                            key={field.key} 
+                            label={field.label} 
+                            val={val} 
+                            type={field.type} 
+                        />
+                    );
+                })}
+            </div>
+        </div>
+    );
+};
+
+const ClientFilingCredentials = ({ assignment }) => {
+    const credentials = assignment.custom_fields;
+    if (!credentials || typeof credentials !== 'object' || Object.keys(credentials).length === 0) {
+        return null;
+    }
+
+    let schema = assignment.required_fields || [];
+    if (schema.length === 0) {
+        schema = getRequiredFieldsForService(assignment);
+    }
+    if (schema.length === 0) {
+        schema = Object.keys(credentials).map(key => {
+            const label = key.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+            const type = (key.toLowerCase().includes('pass') || key.toLowerCase().includes('secret')) ? 'password' : 'text';
+            return { key, label, type };
+        });
+    }
+
+    return <CredentialsCard schema={schema} credentials={credentials} />;
+};
+
+const PasswordField = ({ label, value, onChange, required, disabled }) => {
+    const [visible, setVisible] = useState(false);
+    return (
+        <div className="space-y-1">
+            <div className="flex justify-between items-center">
+                <label className="block text-xs font-bold text-slate-500">{label} *</label>
+            </div>
+            <div className="relative">
+                <input
+                    type={visible ? 'text' : 'password'}
+                    value={value}
+                    onChange={onChange}
+                    disabled={disabled}
+                    className="w-full pl-3 pr-10 py-2.5 text-xs text-slate-705 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none bg-white font-medium"
+                    required={required}
+                />
+                <button
+                    type="button"
+                    onClick={() => setVisible(!visible)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 p-1 hover:bg-slate-100 rounded text-slate-400 hover:text-slate-700 transition-colors"
+                >
+                    {visible ? <FiEyeOff className="w-4 h-4" /> : <FiEye className="w-4 h-4" />}
+                </button>
+            </div>
+        </div>
+    );
+};
 
 const formatCurrency = (amount) => {
     const num = parseFloat(amount || 0);
@@ -315,7 +453,8 @@ const ComplianceTab = ({ clientUsername }) => {
         employee_usernames: [],
         ca_id: '',
         pay_from_month: '',
-        quarters: []
+        quarters: [],
+        custom_fields: {}
     });
 
     // Lists for assigning
@@ -338,6 +477,12 @@ const ComplianceTab = ({ clientUsername }) => {
     const [showEditModal, setShowEditModal] = useState(false);
     const [deletingAssignmentId, setDeletingAssignmentId] = useState(null);
     const [confirmDeleteId, setConfirmDeleteId] = useState(null);
+
+    // Credentials modal state
+    const [showCredentialsModal, setShowCredentialsModal] = useState(false);
+    const [credentialsAssignment, setCredentialsAssignment] = useState(null);
+    const [credentialsForm, setCredentialsForm] = useState({});
+    const [submittingCredentials, setSubmittingCredentials] = useState(false);
     const [submittingEdit, setSubmittingEdit] = useState(false);
     const [editForm, setEditForm] = useState({
         custom_amount: '',
@@ -800,9 +945,17 @@ const ComplianceTab = ({ clientUsername }) => {
             return;
         }
 
+        const selectedService = globalServices.find(s => s.service_id === assignForm.service_id);
+        const requiredFields = getRequiredFieldsForService(selectedService);
+        for (const field of requiredFields) {
+            if (!assignForm.custom_fields?.[field.key]?.trim()) {
+                toast.error(`Please fill in the required field: ${field.label}`);
+                return;
+            }
+        }
+
         setSubmittingAssign(true);
         try {
-            const selectedService = globalServices.find(s => s.service_id === assignForm.service_id);
             const isGstr1 = assignForm.service_id === 'GSTR-1' || (selectedService?.name && /gstr-1/i.test(selectedService.name));
             const effectiveFreq = isGstr1 ? 'monthly' : selectedService?.frequency?.toLowerCase();
 
@@ -811,7 +964,8 @@ const ComplianceTab = ({ clientUsername }) => {
                 financial_year: assignForm.financial_year,
                 employee_username: assignForm.employee_usernames,
                 employee_id: assignForm.employee_usernames,
-                custom_amount: parseFloat(assignForm.custom_amount)
+                custom_amount: parseFloat(assignForm.custom_amount),
+                custom_fields: assignForm.custom_fields || {}
             };
             if (isSingle) {
                 payload.firm_id = assignForm.firm_id;
@@ -847,7 +1001,8 @@ const ComplianceTab = ({ clientUsername }) => {
                     employee_usernames: [],
                     ca_id: '',
                     pay_from_month: '',
-                    quarters: []
+                    quarters: [],
+                    custom_fields: {}
                 });
                 setSelectedCa(null);
                 setCaSearchQuery('');
@@ -858,6 +1013,37 @@ const ComplianceTab = ({ clientUsername }) => {
             toast.error(err.response?.data?.message || 'Failed to assign recurring task');
         } finally {
             setSubmittingAssign(false);
+        }
+    };
+
+    // Open credentials modal
+    const openCredentialsModal = (assign) => {
+        setCredentialsAssignment(assign);
+        setCredentialsForm(assign.custom_fields || {});
+        setShowCredentialsModal(true);
+    };
+
+    // Submit Credentials Form
+    const handleCredentialsSubmit = async (e) => {
+        e.preventDefault();
+        if (!credentialsAssignment) return;
+
+        setSubmittingCredentials(true);
+        try {
+            await axios.put(
+                `${API_BASE_URL}/recurring-task/assignments/${credentialsAssignment.assignment_id}`,
+                { custom_fields: credentialsForm },
+                { headers: getHeaders() }
+            );
+            toast.success('Credentials updated successfully');
+            setShowCredentialsModal(false);
+            setCredentialsAssignment(null);
+            fetchComplianceData();
+        } catch (err) {
+            console.error('Error updating credentials:', err);
+            toast.error(err.response?.data?.message || 'Failed to update credentials');
+        } finally {
+            setSubmittingCredentials(false);
         }
     };
 
@@ -1123,6 +1309,20 @@ const ComplianceTab = ({ clientUsername }) => {
                                                                     <FiEdit2 className="w-3.5 h-3.5 text-slate-400 mr-2" />
                                                                     Edit
                                                                 </button>
+                                                                {getRequiredFieldsForService(assign).length > 0 && (
+                                                                    <button
+                                                                        type="button"
+                                                                        onClick={(e) => {
+                                                                            e.stopPropagation();
+                                                                            openCredentialsModal(assign);
+                                                                            setActiveDropdownId(null);
+                                                                        }}
+                                                                        className="flex items-center w-full px-3 py-2 text-xs text-slate-700 hover:bg-indigo-50 transition-colors"
+                                                                    >
+                                                                        <FiLock className="w-3.5 h-3.5 text-slate-400 mr-2" />
+                                                                        Credentials
+                                                                    </button>
+                                                                )}
                                                                 <button
                                                                     type="button"
                                                                     onClick={(e) => {
@@ -1352,6 +1552,20 @@ const ComplianceTab = ({ clientUsername }) => {
                                                                     <FiEdit2 className="w-3.5 h-3.5 text-slate-400 mr-2" />
                                                                     Edit
                                                                 </button>
+                                                                {getRequiredFieldsForService(assign).length > 0 && (
+                                                                    <button
+                                                                        type="button"
+                                                                        onClick={(e) => {
+                                                                            e.stopPropagation();
+                                                                            openCredentialsModal(assign);
+                                                                            setActiveDropdownId(null);
+                                                                        }}
+                                                                        className="flex items-center w-full px-3 py-2 text-xs text-slate-700 hover:bg-indigo-50 transition-colors"
+                                                                    >
+                                                                        <FiLock className="w-3.5 h-3.5 text-slate-400 mr-2" />
+                                                                        Credentials
+                                                                    </button>
+                                                                )}
                                                                 <button
                                                                     type="button"
                                                                     onClick={(e) => {
@@ -1437,85 +1651,90 @@ const ComplianceTab = ({ clientUsername }) => {
                                                     Loading periods...
                                                 </div>
                                             ) : (
-                                                <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 gap-3">
-                                                    {(() => {
-                                                        const filteredSchedules = (() => {
-                                                            const normalizeFY = (fy) => {
-                                                                if (!fy) return '';
-                                                                let clean = fy.toLowerCase().replace(/fy/g, '').trim().replace(/\s+/g, '');
-                                                                const parts = clean.split('-');
-                                                                if (parts.length !== 2) return fy;
-                                                                let start = parts[0].length === 2 ? '20' + parts[0] : parts[0];
-                                                                let end = parts[1].length === 2 ? '20' + parts[1] : parts[1];
-                                                                return start.length === 4 && end.length === 4 ? `${start}-${end}` : fy;
-                                                            };
+                                                <div className="flex flex-col md:flex-row gap-6 items-start">
+                                                    <div className="flex-1 w-full">
+                                                        <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 gap-3">
+                                                            {(() => {
+                                                                const filteredSchedules = (() => {
+                                                                    const normalizeFY = (fy) => {
+                                                                        if (!fy) return '';
+                                                                        let clean = fy.toLowerCase().replace(/fy/g, '').trim().replace(/\s+/g, '');
+                                                                        const parts = clean.split('-');
+                                                                        if (parts.length !== 2) return fy;
+                                                                        let start = parts[0].length === 2 ? '20' + parts[0] : parts[0];
+                                                                        let end = parts[1].length === 2 ? '20' + parts[1] : parts[1];
+                                                                        return start.length === 4 && end.length === 4 ? `${start}-${end}` : fy;
+                                                                    };
 
-                                                            const targetFY = normalizeFY(assign.financial_year);
-                                                            let list = schedules.filter(p => normalizeFY(p.financial_year) === targetFY);
+                                                                    const targetFY = normalizeFY(assign.financial_year);
+                                                                    let list = schedules.filter(p => normalizeFY(p.financial_year) === targetFY);
 
-                                                            if (!assign.pay_from_month || assign.frequency !== 'monthly') return list;
-                                                            const MONTHS = ['April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December', 'January', 'February', 'March'];
-                                                            const startIndex = MONTHS.indexOf(assign.pay_from_month);
-                                                            if (startIndex === -1) return list;
-                                                            return list.filter(p => {
-                                                                const pIndex = MONTHS.indexOf(p.period_name);
-                                                                return pIndex >= startIndex;
-                                                            });
-                                                        })();
+                                                                    if (!assign.pay_from_month || assign.frequency !== 'monthly') return list;
+                                                                    const MONTHS = ['April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December', 'January', 'February', 'March'];
+                                                                    const startIndex = MONTHS.indexOf(assign.pay_from_month);
+                                                                    if (startIndex === -1) return list;
+                                                                    return list.filter(p => {
+                                                                        const pIndex = MONTHS.indexOf(p.period_name);
+                                                                        return pIndex >= startIndex;
+                                                                    });
+                                                                })();
 
-                                                        return filteredSchedules.map((period) => {
-                                                            const assignedStaffs = getAssignedStaffList(assign);
-                                                            const assignedStaffUsernames = assignedStaffs.map(emp => (emp.username || '').toLowerCase().trim());
-                                                            const isUpdatePermitted = !currentUsername || assignedStaffUsernames.length === 0 || assignedStaffUsernames.includes(currentUsername);
-                                                            const isComplete = period.status === 'Complete' || period.status === 'Sale';
+                                                                return filteredSchedules.map((period) => {
+                                                                    const assignedStaffs = getAssignedStaffList(assign);
+                                                                    const assignedStaffUsernames = assignedStaffs.map(emp => (emp.username || '').toLowerCase().trim());
+                                                                    const isUpdatePermitted = !currentUsername || assignedStaffUsernames.length === 0 || assignedStaffUsernames.includes(currentUsername);
+                                                                    const isComplete = period.status === 'Complete' || period.status === 'Sale';
 
-                                                            return (
-                                                                <div
-                                                                    key={period.schedule_id}
-                                                                    onClick={() => isUpdatePermitted && !isComplete && isPeriodDueDateActive(period) && openStatusModal(period, assign)}
-                                                                    className={`border rounded-xl p-3 shadow-xs transition-all flex flex-col justify-between min-h-[90px] group ${isUpdatePermitted && !isComplete && isPeriodDueDateActive(period)
-                                                                        ? "bg-white border-slate-200 hover:border-indigo-300 hover:shadow-sm cursor-pointer"
-                                                                        : isComplete
-                                                                            ? "bg-emerald-50/40 border-emerald-200 cursor-default"
-                                                                            : "bg-slate-50/50 border-slate-200/60 opacity-60 cursor-not-allowed"
-                                                                        }`}
-                                                                    title={
-                                                                        isComplete
-                                                                            ? `Completed — record locked`
-                                                                            : !isPeriodDueDateActive(period)
-                                                                                ? `Only the currently running due date (${getPeriodDueDate(period)}) can be updated`
-                                                                                : isUpdatePermitted
-                                                                                    ? undefined
-                                                                                    : `Restricted (Only assigned staff: ${assignedStaffs.map(e => e.name || e.username).join(', ')})`
-                                                                    }
-                                                                >
-                                                                    <div className="flex items-start justify-between gap-1.5">
-                                                                        <span className={`text-xs font-bold leading-tight truncate ${isUpdatePermitted ? "text-slate-700 group-hover:text-indigo-600" : "text-slate-400"
-                                                                            }`}>
-                                                                            {period.period_name}
-                                                                        </span>
-                                                                        <FiInfo className={`w-3 h-3 shrink-0 ${isUpdatePermitted ? "text-slate-350 group-hover:text-indigo-400" : "text-slate-200"
-                                                                            }`} />
-                                                                    </div>
-                                                                    <div className="mt-2 space-y-1">
-                                                                        <span className={`text-[10px] font-black block ${isUpdatePermitted ? "text-slate-800" : "text-slate-400"
-                                                                            }`}>
-                                                                            ₹{formatCurrency(period.amount)}
-                                                                        </span>
-                                                                        <span className={`inline-flex px-1.5 py-0.5 rounded text-[8px] font-bold border uppercase tracking-wider ${isUpdatePermitted
-                                                                            ? (STATUS_BADGES[period.status] || 'bg-slate-50')
-                                                                            : 'bg-slate-100/70 border-slate-200/50 text-slate-400'
-                                                                            }`}>
-                                                                            {period.status}
-                                                                        </span>
-                                                                        <div className="text-[11px] text-slate-500 font-semibold mt-1">
-                                                                            Due: {getPeriodDueDate(period)}
+                                                                    return (
+                                                                        <div
+                                                                            key={period.schedule_id}
+                                                                            onClick={() => isUpdatePermitted && !isComplete && isPeriodDueDateActive(period) && openStatusModal(period, assign)}
+                                                                            className={`border rounded-xl p-3 shadow-xs transition-all flex flex-col justify-between min-h-[90px] group ${isUpdatePermitted && !isComplete && isPeriodDueDateActive(period)
+                                                                                ? "bg-white border-slate-200 hover:border-indigo-300 hover:shadow-sm cursor-pointer"
+                                                                                : isComplete
+                                                                                    ? "bg-emerald-50/40 border-emerald-200 cursor-default"
+                                                                                    : "bg-slate-50/50 border-slate-200/60 opacity-60 cursor-not-allowed"
+                                                                                }`}
+                                                                            title={
+                                                                                isComplete
+                                                                                    ? `Completed — record locked`
+                                                                                    : !isPeriodDueDateActive(period)
+                                                                                        ? `Only the currently running due date (${getPeriodDueDate(period)}) can be updated`
+                                                                                        : isUpdatePermitted
+                                                                                            ? undefined
+                                                                                            : `Restricted (Only assigned staff: ${assignedStaffs.map(e => e.name || e.username).join(', ')})`
+                                                                            }
+                                                                        >
+                                                                            <div className="flex items-start justify-between gap-1.5">
+                                                                                <span className={`text-xs font-bold leading-tight truncate ${isUpdatePermitted ? "text-slate-700 group-hover:text-indigo-600" : "text-slate-400"
+                                                                                    }`}>
+                                                                                    {period.period_name}
+                                                                                </span>
+                                                                                <FiInfo className={`w-3 h-3 shrink-0 ${isUpdatePermitted ? "text-slate-350 group-hover:text-indigo-400" : "text-slate-200"
+                                                                                    }`} />
+                                                                            </div>
+                                                                            <div className="mt-2 space-y-1">
+                                                                                <span className={`text-[10px] font-black block ${isUpdatePermitted ? "text-slate-800" : "text-slate-400"
+                                                                                    }`}>
+                                                                                    ₹{formatCurrency(period.amount)}
+                                                                                </span>
+                                                                                <span className={`inline-flex px-1.5 py-0.5 rounded text-[8px] font-bold border uppercase tracking-wider ${isUpdatePermitted
+                                                                                    ? (STATUS_BADGES[period.status] || 'bg-slate-50')
+                                                                                    : 'bg-slate-100/70 border-slate-200/50 text-slate-400'
+                                                                                    }`}>
+                                                                                    {period.status}
+                                                                                </span>
+                                                                                <div className="text-[11px] text-slate-500 font-semibold mt-1">
+                                                                                    Due: {getPeriodDueDate(period)}
+                                                                                </div>
+                                                                            </div>
                                                                         </div>
-                                                                    </div>
-                                                                </div>
-                                                            );
-                                                        });
-                                                    })()}
+                                                                    );
+                                                                });
+                                                            })()}
+                                                        </div>
+                                                    </div>
+                                                    <ClientFilingCredentials assignment={assign} />
                                                 </div>
                                             )}
                                         </td>
@@ -1874,7 +2093,8 @@ const ComplianceTab = ({ clientUsername }) => {
                                                 setAssignForm(prev => ({
                                                     ...prev,
                                                     service_id: svcId,
-                                                    custom_amount: matched ? String(matched.default_amount) : ''
+                                                    custom_amount: matched ? String(matched.default_amount) : '',
+                                                    custom_fields: {}
                                                 }));
                                             }}
                                             className="w-full px-3 py-2.5 text-xs text-slate-700 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none bg-white"
@@ -1935,7 +2155,7 @@ const ComplianceTab = ({ clientUsername }) => {
                                                                         });
                                                                     }}
                                                                     className="rounded border-slate-350 text-indigo-600 focus:ring-indigo-500 h-4 w-4"
-                                                                />
+                                                                 />
                                                                 Q{q}
                                                             </label>
                                                         );
@@ -1973,6 +2193,47 @@ const ComplianceTab = ({ clientUsername }) => {
                                             required
                                         />
                                     </div>
+
+                                    {/* Dynamic Required Credentials Inputs */}
+                                    {(() => {
+                                        const selectedService = globalServices.find(s => s.service_id === assignForm.service_id);
+                                        const requiredFields = getRequiredFieldsForService(selectedService);
+                                        if (requiredFields.length === 0) return null;
+                                        return (
+                                            <div className="space-y-4 border border-indigo-100 rounded-2xl p-4 bg-indigo-50/30">
+                                                <span className="block text-xs font-bold text-indigo-705 uppercase tracking-wider mb-2">Filing Credentials</span>
+                                                {requiredFields.map(field => {
+                                                    const onChange = (e) => setAssignForm(prev => ({
+                                                        ...prev,
+                                                        custom_fields: {
+                                                            ...prev.custom_fields,
+                                                            [field.key]: e.target.value
+                                                        }
+                                                    }));
+                                                    return field.type === 'password' ? (
+                                                        <PasswordField
+                                                            key={field.key}
+                                                            label={field.label}
+                                                            value={assignForm.custom_fields?.[field.key] || ''}
+                                                            onChange={onChange}
+                                                            required
+                                                        />
+                                                    ) : (
+                                                        <div key={field.key} className="space-y-1">
+                                                            <label className="block text-xs font-bold text-slate-500">{field.label} *</label>
+                                                            <input
+                                                                type="text"
+                                                                value={assignForm.custom_fields?.[field.key] || ''}
+                                                                onChange={onChange}
+                                                                className="w-full px-3 py-2.5 text-xs text-slate-705 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none bg-white font-medium"
+                                                                required
+                                                            />
+                                                        </div>
+                                                    );
+                                                })}
+                                            </div>
+                                        );
+                                    })()}
 
                                     {/* Assigned Staff Selector */}
                                     <div className="space-y-2">
@@ -2876,6 +3137,116 @@ const ComplianceTab = ({ clientUsername }) => {
                 users={staffListModal.staffs}
                 taskName={staffListModal.serviceName}
             />
+
+            {/* Modal: Update Filing Credentials */}
+            <AnimatePresence>
+                {showCredentialsModal && credentialsAssignment && (
+                    <div className="fixed inset-0 z-[200] flex items-start justify-center overflow-hidden overscroll-none p-3 sm:p-4 pointer-events-none">
+                        <div
+                            className="absolute inset-0 bg-black/60 backdrop-blur-xs pointer-events-auto"
+                            onClick={() => {
+                                setShowCredentialsModal(false);
+                                setCredentialsAssignment(null);
+                            }}
+                        />
+                        <motion.div
+                            initial={{ opacity: 0, scale: 0.97, y: 20 }}
+                            animate={{ opacity: 1, scale: 1, y: 0 }}
+                            exit={{ opacity: 0, scale: 0.97, y: 20 }}
+                            className="relative z-[1] pointer-events-auto bg-white rounded-2xl shadow-xl w-full max-w-sm my-2 sm:my-4 max-h-[calc(100vh-1.5rem)] sm:max-h-[calc(100vh-2rem)] overflow-hidden flex flex-col"
+                            onClick={(e) => e.stopPropagation()}
+                        >
+                            <div className="flex items-center justify-between px-5 py-3.5 bg-gradient-to-r from-violet-600 to-indigo-600 text-white shrink-0">
+                                <div className="flex items-center gap-2">
+                                    <FiLock className="w-5 h-5" />
+                                    <h3 className="text-sm font-bold">Update Filing Credentials</h3>
+                                </div>
+                                <button
+                                    onClick={() => {
+                                        setShowCredentialsModal(false);
+                                        setCredentialsAssignment(null);
+                                    }}
+                                    className="p-1 hover:bg-white/10 rounded-lg text-white/80 hover:text-white"
+                                >
+                                    <FiX className="w-5 h-5" />
+                                </button>
+                            </div>
+
+                            <div className="bg-indigo-50 border-b border-indigo-100 p-4 shrink-0">
+                                <h4 className="text-xs font-bold text-slate-800">{credentialsAssignment.firm_name}</h4>
+                                <p className="text-[10px] text-slate-500 mt-0.5">{credentialsAssignment.service_name}</p>
+                            </div>
+
+                            <form onSubmit={handleCredentialsSubmit} className="flex-1 min-h-0 flex flex-col overflow-hidden">
+                                <div
+                                    className="px-5 py-4 flex-1 min-h-0 overflow-y-auto overscroll-y-contain [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden space-y-4"
+                                    style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+                                >
+                                    {(() => {
+                                        let schema = credentialsAssignment.required_fields || [];
+                                        if (schema.length === 0) {
+                                            schema = getRequiredFieldsForService(credentialsAssignment);
+                                        }
+                                        if (schema.length === 0) {
+                                            schema = Object.keys(credentialsForm).map(key => {
+                                                const label = key.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+                                                const type = (key.toLowerCase().includes('pass') || key.toLowerCase().includes('secret')) ? 'password' : 'text';
+                                                return { key, label, type };
+                                            });
+                                        }
+                                        return schema.map(field => {
+                                            const onChange = (e) => setCredentialsForm(prev => ({
+                                                ...prev,
+                                                [field.key]: e.target.value
+                                            }));
+                                            return field.type === 'password' ? (
+                                                <PasswordField
+                                                    key={field.key}
+                                                    label={field.label}
+                                                    value={credentialsForm[field.key] || ''}
+                                                    onChange={onChange}
+                                                    required
+                                                />
+                                            ) : (
+                                                <div key={field.key} className="space-y-1">
+                                                    <label className="block text-xs font-bold text-slate-500">{field.label} *</label>
+                                                    <input
+                                                        type="text"
+                                                        value={credentialsForm[field.key] || ''}
+                                                        onChange={onChange}
+                                                        className="w-full px-3 py-2.5 text-xs text-slate-705 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none bg-white font-medium"
+                                                        required
+                                                    />
+                                                </div>
+                                            );
+                                        });
+                                    })()}
+                                </div>
+                                <div className="px-5 py-3 bg-slate-50 border-t border-slate-100 flex gap-2 shrink-0">
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            setShowCredentialsModal(false);
+                                            setCredentialsAssignment(null);
+                                        }}
+                                        className="flex-1 py-2.5 text-xs font-semibold text-slate-605 border border-slate-200 rounded-xl hover:bg-slate-50 transition-colors"
+                                    >
+                                        Cancel
+                                    </button>
+                                    <button
+                                        type="submit"
+                                        disabled={submittingCredentials}
+                                        className="flex-1 py-2.5 text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl disabled:opacity-50 transition-colors flex items-center justify-center gap-1.5"
+                                    >
+                                        {submittingCredentials && <span className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin"></span>}
+                                        Save Credentials
+                                    </button>
+                                </div>
+                            </form>
+                        </motion.div>
+                    </div>
+                )}
+            </AnimatePresence>
         </motion.div>
     );
 };

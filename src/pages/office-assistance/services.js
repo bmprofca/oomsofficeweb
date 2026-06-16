@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
     FiPlus, FiEdit, FiTrash2, FiX, FiSearch,
     FiAlertTriangle, FiCheck, FiRefreshCw, FiLayers,
-    FiCheckCircle, FiFileText, FiMoreVertical, FiEye, FiRepeat, FiMenu,
+    FiCheckCircle, FiFileText, FiMoreVertical, FiEye, FiRepeat, FiMenu, FiInfo,
 } from 'react-icons/fi';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -462,7 +462,9 @@ const Services = () => {
         q4_due_day: '',
         h1_due_day: '',
         h2_due_day: '',
-        status: 'Active'
+        status: 'Active',
+        template_type: 'Custom / New Service',
+        required_fields: []
     });
     const [rtSubmitting, setRtSubmitting] = useState(false);
     const [rtDeleteTarget, setRtDeleteTarget] = useState(null);
@@ -483,6 +485,10 @@ const Services = () => {
 
     const openRtModal = (svc = null) => {
         setRtEditTarget(svc);
+        const resolvedTemplateType = svc
+            ? ((svc.name === 'Professional Tax' || svc.name === 'GSTR-1 Filing') ? svc.name : 'Custom / New Service')
+            : 'Custom / New Service';
+
         setRtForm(svc
             ? {
                 service_id: svc.service_id || '',
@@ -496,7 +502,9 @@ const Services = () => {
                 q4_due_day: String(svc.q4_due_day ?? ''),
                 h1_due_day: String(svc.h1_due_day ?? ''),
                 h2_due_day: String(svc.h2_due_day ?? ''),
-                status: svc.status || 'Active'
+                status: svc.status || 'Active',
+                template_type: resolvedTemplateType,
+                required_fields: svc.required_fields || []
             }
             : {
                 service_id: '',
@@ -510,14 +518,19 @@ const Services = () => {
                 q4_due_day: '',
                 h1_due_day: '',
                 h2_due_day: '',
-                status: 'Active'
+                status: 'Active',
+                template_type: 'Custom / New Service',
+                required_fields: []
             }
         );
         setRtShowModal(true);
     };
 
     const handleRtSubmit = async () => {
-        if (!rtForm.name.trim()) { toast.error('Service name is required'); return; }
+        const isCustom = rtForm.template_type === 'Custom / New Service';
+        const finalName = isCustom ? rtForm.name.trim() : rtForm.template_type;
+
+        if (!finalName) { toast.error('Service name is required'); return; }
         if (!rtForm.default_amount) { toast.error('Default fee is required'); return; }
 
         if (rtForm.frequency === 'quarterly') {
@@ -544,14 +557,33 @@ const Services = () => {
             }
         }
 
+        // Validate custom fields schema
+        if (isCustom && rtForm.required_fields?.length > 0) {
+            for (const field of rtForm.required_fields) {
+                if (!field.label?.trim()) { toast.error('Field Label is required for all custom fields'); return; }
+                if (!field.key?.trim()) { toast.error('Field Key is required for all custom fields'); return; }
+                if (!/^[a-z0-9_]+$/.test(field.key)) {
+                    toast.error(`Field Key "${field.key}" must be alphanumeric with underscores only`);
+                    return;
+                }
+            }
+            const keys = rtForm.required_fields.map(f => f.key);
+            if (new Set(keys).size !== keys.length) {
+                toast.error('All Custom Field Keys must be unique');
+                return;
+            }
+        }
+
         setRtSubmitting(true);
         try {
             const payload = {
-                name: rtForm.name,
+                name: finalName,
                 frequency: rtForm.frequency,
                 default_amount: parseFloat(rtForm.default_amount),
                 due_day: rtForm.due_day ? parseInt(rtForm.due_day) : null,
-                status: rtForm.status
+                status: rtForm.status,
+                template_type: rtForm.template_type,
+                required_fields: isCustom ? rtForm.required_fields : []
             };
             if (rtForm.frequency === 'quarterly') {
                 payload.q1_due_day = rtForm.q1_due_day ? parseInt(rtForm.q1_due_day) : null;
@@ -674,11 +706,11 @@ const Services = () => {
     const [removeLoading, setRemoveLoading] = useState(false);
 
     const [customServiceShowModal, setCustomServiceShowModal] = useState(false);
-    const [customServiceForm, setCustomServiceForm] = useState({ service_id: '', name: '', sac_code: '', fees: '', gst_rate: null, remark: '' });
+    const [customServiceForm, setCustomServiceForm] = useState({ service_id: '', name: '', type: 'other', sac_code: '', fees: '', gst_rate: null, remark: '' });
     const [customServiceSubmitting, setCustomServiceSubmitting] = useState(false);
 
     const openCustomServiceModal = () => {
-        setCustomServiceForm({ service_id: '', name: '', sac_code: '', fees: '', gst_rate: 18, remark: '' });
+        setCustomServiceForm({ service_id: '', name: '', type: 'other', sac_code: '', fees: '', gst_rate: 18, remark: '' });
         setCustomServiceShowModal(true);
     };
 
@@ -692,6 +724,7 @@ const Services = () => {
         try {
             const payload = {
                 name: customServiceForm.name.trim(),
+                type: customServiceForm.type,
                 fees,
                 gst_rate: Number(customServiceForm.gst_rate)
             };
@@ -886,7 +919,7 @@ const Services = () => {
                         <div className="flex border-b border-gray-100 px-4 pt-3 gap-1">
                             {[
                                 { id: 'branch', label: 'Active Services', icon: <FiCheckCircle className="w-3.5 h-3.5" /> },
-                                { id: 'all', label: 'Add Services', icon: <FiPlus className="w-3.5 h-3.5" /> },
+                                { id: 'all', label: 'All Services', icon: <FiPlus className="w-3.5 h-3.5" /> },
                                 { id: 'recurring', label: 'Recurring Task Templates', icon: <FiRepeat className="w-3.5 h-3.5" /> },
                             ].map((tab) => (
                                 <button key={tab.id} onClick={() => setActiveTab(tab.id)}
@@ -917,6 +950,10 @@ const Services = () => {
                                             <FiRefreshCw className={`w-3.5 h-3.5 ${branchLoading ? 'animate-spin' : ''}`} />
                                         </button>
                                     </ViewportTooltip>
+                                    <button onClick={openCustomServiceModal}
+                                        className="flex items-center gap-1.5 px-3 py-2 text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg transition-colors">
+                                        <FiPlus className="w-3.5 h-3.5" /> Custom Service
+                                    </button>
                                 </div>
 
                                 <div className="overflow-x-auto">
@@ -1274,7 +1311,7 @@ const Services = () => {
                         <motion.div
                             initial={{ opacity: 0, scale: 0.97 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.97 }}
                             transition={{ duration: 0.15 }}
-                            className="bg-white rounded-2xl shadow-2xl w-full max-w-md my-2 sm:my-8 overflow-hidden flex flex-col"
+                            className="bg-white rounded-2xl shadow-2xl w-full max-w-md my-2 sm:my-8 max-h-[calc(100vh-1.5rem)] sm:max-h-[calc(100vh-4rem)] overflow-hidden flex flex-col"
                             onClick={(e) => e.stopPropagation()}
                         >
                             <div className="flex items-center justify-between px-5 py-3.5 bg-gradient-to-r from-indigo-600 to-violet-600 text-white shrink-0">
@@ -1288,10 +1325,143 @@ const Services = () => {
                             </div>
                             <div className="p-5 space-y-4 overflow-y-auto [scrollbar-width:none]">
                                 <div>
-                                    <label className="block text-xs font-semibold text-slate-600 mb-1.5">Service Name *</label>
-                                    <input type="text" value={rtForm.name} onChange={(e) => setRtForm(f => ({ ...f, name: e.target.value }))} placeholder="e.g. GSTR-1 Filing"
-                                        className="w-full px-3 py-2 text-xs border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none" />
+                                    <label className="block text-xs font-semibold text-slate-600 mb-1.5">Service Template Type *</label>
+                                    <select
+                                        value={rtForm.template_type || 'Custom / New Service'}
+                                        onChange={(e) => {
+                                            const val = e.target.value;
+                                            setRtForm(f => {
+                                                const name = (val === 'Professional Tax' || val === 'GSTR-1 Filing') ? val : '';
+                                                return { ...f, template_type: val, name };
+                                            });
+                                        }}
+                                        className="w-full px-3 py-2 text-xs border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none bg-white font-medium text-slate-700"
+                                    >
+                                        <option value="Professional Tax">Professional Tax</option>
+                                        <option value="GSTR-1 Filing">GSTR-1 Filing</option>
+                                        <option value="Custom / New Service">Custom / New Service</option>
+                                    </select>
                                 </div>
+                                {rtForm.template_type === 'Custom / New Service' && (
+                                    <div>
+                                        <label className="block text-xs font-semibold text-slate-600 mb-1.5">Service Name *</label>
+                                        <input type="text" value={rtForm.name} onChange={(e) => setRtForm(f => ({ ...f, name: e.target.value }))} placeholder="e.g. Local Authority Audit"
+                                            className="w-full px-3 py-2 text-xs border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none" />
+                                    </div>
+                                )}
+
+                                {rtForm.template_type === 'Custom / New Service' && (
+                                    <div className="border-t border-gray-100 pt-3 space-y-3">
+                                        <div className="flex items-center justify-between">
+                                            <h4 className="text-xs font-bold text-slate-700">Custom Credentials/Fields</h4>
+                                            <button
+                                                type="button"
+                                                onClick={() => setRtForm(f => ({
+                                                    ...f,
+                                                    required_fields: [...(f.required_fields || []), { key: '', label: '', type: 'text' }]
+                                                }))}
+                                                className="flex items-center gap-1 px-2.5 py-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-705 border border-indigo-200 rounded-lg text-[10px] font-semibold transition-colors"
+                                            >
+                                                <FiPlus className="w-3 h-3" /> Add Field
+                                            </button>
+                                        </div>
+                                        {(!rtForm.required_fields || rtForm.required_fields.length === 0) ? (
+                                            <p className="text-[11px] text-slate-400 italic">No custom fields defined. Click "Add Field" to define required credentials.</p>
+                                        ) : (
+                                            <div className="space-y-3 max-h-48 overflow-y-auto p-1 border border-slate-100 rounded-xl bg-slate-50/50">
+                                                {rtForm.required_fields.map((field, idx) => (
+                                                    <div key={idx} className="flex gap-2 items-end border border-slate-200 p-2.5 rounded-lg bg-white relative">
+                                                        <div className="flex-1 min-w-0">
+                                                            <label className="block text-[10px] font-semibold text-slate-500 mb-1">Field Label *</label>
+                                                            <input
+                                                                type="text"
+                                                                value={field.label}
+                                                                onChange={(e) => {
+                                                                    const val = e.target.value;
+                                                                    const key = val.toLowerCase().replace(/[^a-z0-9_]/g, '_').replace(/_+/g, '_');
+                                                                    setRtForm(f => {
+                                                                        const updated = [...f.required_fields];
+                                                                        updated[idx] = { ...updated[idx], label: val, key: updated[idx].key || key };
+                                                                        return { ...f, required_fields: updated };
+                                                                    });
+                                                                }}
+                                                                placeholder="e.g. Audit Code"
+                                                                className="w-full px-2 py-1 text-[11px] border border-gray-200 rounded-lg focus:ring-1 focus:ring-indigo-500 outline-none"
+                                                            />
+                                                        </div>
+                                                        <div className="flex-1 min-w-0">
+                                                            <label className="block text-[10px] font-semibold text-slate-500 mb-1">Field Key *</label>
+                                                            <input
+                                                                type="text"
+                                                                value={field.key}
+                                                                onChange={(e) => {
+                                                                    const val = e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, '_');
+                                                                    setRtForm(f => {
+                                                                        const updated = [...f.required_fields];
+                                                                        updated[idx] = { ...updated[idx], key: val };
+                                                                        return { ...f, required_fields: updated };
+                                                                    });
+                                                                }}
+                                                                placeholder="e.g. audit_code"
+                                                                className="w-full px-2 py-1 text-[11px] border border-gray-200 rounded-lg focus:ring-1 focus:ring-indigo-500 outline-none"
+                                                            />
+                                                        </div>
+                                                        <div className="w-20">
+                                                            <label className="block text-[10px] font-semibold text-slate-500 mb-1">Type *</label>
+                                                            <select
+                                                                value={field.type}
+                                                                onChange={(e) => {
+                                                                    const val = e.target.value;
+                                                                    setRtForm(f => {
+                                                                        const updated = [...f.required_fields];
+                                                                        updated[idx] = { ...updated[idx], type: val };
+                                                                        return { ...f, required_fields: updated };
+                                                                    });
+                                                                }}
+                                                                className="w-full px-2 py-1 text-[11px] border border-gray-200 rounded-lg focus:ring-1 focus:ring-indigo-500 outline-none bg-white"
+                                                            >
+                                                                <option value="text">text</option>
+                                                                <option value="password">password</option>
+                                                            </select>
+                                                        </div>
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => setRtForm(f => ({
+                                                                ...f,
+                                                                required_fields: f.required_fields.filter((_, i) => i !== idx)
+                                                            }))}
+                                                            className="p-1.5 text-rose-500 hover:bg-rose-50 rounded-lg transition-colors border border-rose-200"
+                                                        >
+                                                            <FiTrash2 className="w-3.5 h-3.5" />
+                                                        </button>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
+
+                                {rtForm.template_type && rtForm.template_type !== 'Custom / New Service' && (
+                                    <div className="bg-indigo-50/55 border border-indigo-100 rounded-xl p-3 text-xs text-indigo-805 space-y-1">
+                                        <p className="font-semibold flex items-center gap-1 text-[11px]">
+                                            <FiInfo className="w-3.5 h-3.5 text-indigo-500 shrink-0" /> Pre-allocated Credentials Schema:
+                                        </p>
+                                        <ul className="list-disc pl-4 space-y-0.5 font-medium text-[11px]">
+                                            {rtForm.template_type === 'Professional Tax' && (
+                                                <>
+                                                    <li><strong>Professional Tax Reg No</strong> (Key: <code>ptax_reg_no</code>, Type: <code>text</code>)</li>
+                                                    <li><strong>Password</strong> (Key: <code>ptax_password</code>, Type: <code>password</code>)</li>
+                                                </>
+                                            )}
+                                            {rtForm.template_type === 'GSTR-1 Filing' && (
+                                                <>
+                                                    <li><strong>GST Login ID</strong> (Key: <code>gst_login_id</code>, Type: <code>text</code>)</li>
+                                                    <li><strong>Password</strong> (Key: <code>gst_password</code>, Type: <code>password</code>)</li>
+                                                </>
+                                            )}
+                                        </ul>
+                                    </div>
+                                )}
                                 <div className="grid grid-cols-2 gap-3">
                                     <div className={rtForm.frequency === 'one-time' ? 'col-span-2' : ''}>
                                         <label className="block text-xs font-semibold text-slate-600 mb-1.5">Frequency *</label>
@@ -1442,15 +1612,31 @@ const Services = () => {
                                     placeholder="e.g. My Custom Local Consult Service"
                                 />
                             </div>
-                            <div className="grid grid-cols-2 gap-4">
+                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                                 <div>
-                                    <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5 font-semibold">Service ID (Optional)</label>
+                                    <label className="block text-xs font-bold text-slate-505 uppercase tracking-wider mb-1.5 font-semibold">Service Type *</label>
+                                    <select
+                                        value={customServiceForm.type}
+                                        onChange={(e) => setCustomServiceForm(f => ({ ...f, type: e.target.value }))}
+                                        disabled={customServiceSubmitting}
+                                        className="w-full px-3 py-2.5 text-xs text-slate-705 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none disabled:opacity-60 bg-white font-medium"
+                                    >
+                                        <option value="gst">GST</option>
+                                        <option value="itr">ITR</option>
+                                        <option value="audit">Audit</option>
+                                        <option value="compliance">Compliance</option>
+                                        <option value="registration">Registration</option>
+                                        <option value="other">Other</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-bold text-slate-505 uppercase tracking-wider mb-1.5 font-semibold">Service ID (Optional)</label>
                                     <input
                                         type="text"
                                         value={customServiceForm.service_id}
                                         onChange={(e) => setCustomServiceForm(f => ({ ...f, service_id: e.target.value }))}
                                         disabled={customServiceSubmitting}
-                                        className="w-full px-3 py-2.5 text-xs text-slate-700 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none disabled:opacity-60 bg-white font-mono"
+                                        className="w-full px-3 py-2.5 text-xs text-slate-705 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none disabled:opacity-60 bg-white font-mono"
                                         placeholder="e.g. CUSTOM-SERVICE"
                                     />
                                 </div>
