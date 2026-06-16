@@ -2245,7 +2245,7 @@ const ComplianceTab = ({ clientUsername }) => {
                                                 </span>
                                             )}
                                         </div>
-                                        <div className="border border-slate-200 rounded-xl bg-white overflow-hidden">
+                                        <div className="border border-slate-200 rounded-xl bg-white overflow-hidden shadow-sm">
                                             {/* Filter input */}
                                             <div className="relative border-b border-slate-100 px-3 py-2 bg-slate-50">
                                                 <FiSearch className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 w-3.5 h-3.5 pointer-events-none" />
@@ -2257,45 +2257,87 @@ const ComplianceTab = ({ clientUsername }) => {
                                                     className="w-full pl-6 pr-2 py-1 text-xs text-slate-700 bg-transparent outline-none placeholder-slate-400 focus:ring-0"
                                                 />
                                             </div>
-                                            <div className="max-h-36 overflow-y-auto p-3 space-y-2">
-                                                {(() => {
-                                                    const query = staffSearchQuery.trim().toLowerCase();
-                                                    const filtered = query
-                                                        ? staffList.filter(s =>
-                                                            (s.name || '').toLowerCase().includes(query) ||
-                                                            (s.username || '').toLowerCase().includes(query)
-                                                        )
-                                                        : staffList;
 
-                                                    if (filtered.length === 0) {
-                                                        return <div className="text-xs text-slate-400">No staff members found.</div>;
+                                            {(() => {
+                                                const query = staffSearchQuery.trim().toLowerCase();
+                                                const filtered = query
+                                                    ? staffList.filter(s =>
+                                                        (s.name || '').toLowerCase().includes(query) ||
+                                                        (s.username || '').toLowerCase().includes(query)
+                                                    )
+                                                    : staffList;
+
+                                                if (filtered.length === 0) {
+                                                    return <div className="text-xs text-slate-400 p-3">No staff members found.</div>;
+                                                }
+
+                                                const filteredUsernames = filtered.map(s => s.username);
+                                                const currentSelected = assignForm.employee_usernames || [];
+                                                const allFilteredAreSelected = filteredUsernames.length > 0 && filteredUsernames.every(u => currentSelected.includes(u));
+
+                                                const handleSelectAllToggle = () => {
+                                                    if (allFilteredAreSelected) {
+                                                        setAssignForm(prev => ({
+                                                            ...prev,
+                                                            employee_usernames: (prev.employee_usernames || []).filter(u => !filteredUsernames.includes(u))
+                                                        }));
+                                                    } else {
+                                                        setAssignForm(prev => {
+                                                            const current = prev.employee_usernames || [];
+                                                            const newSelection = [...current];
+                                                            filteredUsernames.forEach(u => {
+                                                                if (!newSelection.includes(u)) {
+                                                                    newSelection.push(u);
+                                                                }
+                                                            });
+                                                            return { ...prev, employee_usernames: newSelection };
+                                                        });
                                                     }
+                                                };
 
-                                                    return filtered.map(s => {
-                                                        const checked = assignForm.employee_usernames?.includes(s.username);
-                                                        return (
-                                                            <label key={s.username} className="flex items-center gap-2 text-xs text-slate-700 cursor-pointer animate-fade-in hover:text-slate-900">
-                                                                <input
-                                                                    type="checkbox"
-                                                                    checked={checked}
-                                                                    onChange={(e) => {
-                                                                        setAssignForm(prev => {
-                                                                            const current = prev.employee_usernames || [];
-                                                                            const updated = e.target.checked
-                                                                                ? [...current, s.username]
-                                                                                : current.filter(x => x !== s.username);
-                                                                            return { ...prev, employee_usernames: updated };
-                                                                        });
-                                                                    }}
-                                                                    className="rounded border-slate-350 text-indigo-650 focus:ring-indigo-500 h-4 w-4"
-                                                                />
-                                                                <span className="font-medium">{s.name}</span>
-                                                                <span className="text-[10px] text-slate-400">({s.username})</span>
-                                                            </label>
-                                                        );
-                                                    });
-                                                })()}
-                                            </div>
+                                                return (
+                                                    <>
+                                                        {/* Select All & Count indicators */}
+                                                        <div className="flex items-center justify-between border-b border-slate-100 px-3 py-1.5 bg-slate-50/40 text-[10px] select-none shrink-0">
+                                                            <button
+                                                                type="button"
+                                                                onClick={handleSelectAllToggle}
+                                                                className="text-indigo-650 hover:text-indigo-800 font-bold transition-colors flex items-center gap-1 cursor-pointer"
+                                                            >
+                                                                {allFilteredAreSelected ? 'Deselect All' : 'Select All'}
+                                                            </button>
+                                                            <span className="text-slate-400 font-semibold">
+                                                                Showing {filtered.length} of {staffList.length} staff
+                                                            </span>
+                                                        </div>
+                                                        <div className="max-h-36 overflow-y-auto p-3 space-y-2.5">
+                                                            {filtered.map(s => {
+                                                                const checked = assignForm.employee_usernames?.includes(s.username);
+                                                                return (
+                                                                    <label key={s.username} className="flex items-center gap-2.5 text-xs text-slate-700 cursor-pointer hover:text-slate-900 group transition-colors select-none">
+                                                                        <input
+                                                                            type="checkbox"
+                                                                            checked={checked}
+                                                                            onChange={(e) => {
+                                                                                setAssignForm(prev => {
+                                                                                    const current = prev.employee_usernames || [];
+                                                                                    const updated = e.target.checked
+                                                                                        ? [...current, s.username]
+                                                                                        : current.filter(x => x !== s.username);
+                                                                                    return { ...prev, employee_usernames: updated };
+                                                                                });
+                                                                            }}
+                                                                            className="rounded border-slate-300 text-indigo-650 focus:ring-indigo-500 h-4 w-4 transition-all cursor-pointer"
+                                                                        />
+                                                                        <span className="font-semibold text-slate-800 group-hover:translate-x-0.5 transition-transform">{s.name}</span>
+                                                                        <span className="text-[10px] text-slate-400 font-mono">({s.username})</span>
+                                                                    </label>
+                                                                );
+                                                            })}
+                                                        </div>
+                                                    </>
+                                                );
+                                            })()}
                                         </div>
                                     </div>
 
@@ -2726,7 +2768,7 @@ const ComplianceTab = ({ clientUsername }) => {
                                                     </span>
                                                 )}
                                             </div>
-                                            <div className="border border-slate-200 rounded-xl bg-white overflow-hidden">
+                                            <div className="border border-slate-200 rounded-xl bg-white overflow-hidden shadow-sm">
                                                 <div className="relative border-b border-slate-100 px-3 py-2 bg-slate-50">
                                                     <FiSearch className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 w-3.5 h-3.5 pointer-events-none" />
                                                     <input
@@ -2737,45 +2779,87 @@ const ComplianceTab = ({ clientUsername }) => {
                                                         className="w-full pl-6 pr-2 py-1 text-xs text-slate-700 bg-transparent outline-none placeholder-slate-400 focus:ring-0"
                                                     />
                                                 </div>
-                                                <div className="max-h-36 overflow-y-auto p-3 space-y-2">
-                                                    {(() => {
-                                                        const query = editStaffSearchQuery.trim().toLowerCase();
-                                                        const filtered = query
-                                                            ? staffList.filter(s =>
-                                                                (s.name || '').toLowerCase().includes(query) ||
-                                                                (s.username || '').toLowerCase().includes(query)
-                                                            )
-                                                            : staffList;
 
-                                                        if (filtered.length === 0) {
-                                                            return <div className="text-xs text-slate-400">No staff members found.</div>;
+                                                {(() => {
+                                                    const query = editStaffSearchQuery.trim().toLowerCase();
+                                                    const filtered = query
+                                                        ? staffList.filter(s =>
+                                                            (s.name || '').toLowerCase().includes(query) ||
+                                                            (s.username || '').toLowerCase().includes(query)
+                                                        )
+                                                        : staffList;
+
+                                                    if (filtered.length === 0) {
+                                                        return <div className="text-xs text-slate-400 p-3">No staff members found.</div>;
+                                                    }
+
+                                                    const filteredUsernames = filtered.map(s => s.username);
+                                                    const currentSelected = editForm.employee_usernames || [];
+                                                    const allFilteredAreSelected = filteredUsernames.length > 0 && filteredUsernames.every(u => currentSelected.includes(u));
+
+                                                    const handleSelectAllToggle = () => {
+                                                        if (allFilteredAreSelected) {
+                                                            setEditForm(prev => ({
+                                                                ...prev,
+                                                                employee_usernames: (prev.employee_usernames || []).filter(u => !filteredUsernames.includes(u))
+                                                            }));
+                                                        } else {
+                                                            setEditForm(prev => {
+                                                                const current = prev.employee_usernames || [];
+                                                                const newSelection = [...current];
+                                                                filteredUsernames.forEach(u => {
+                                                                    if (!newSelection.includes(u)) {
+                                                                        newSelection.push(u);
+                                                                    }
+                                                                });
+                                                                return { ...prev, employee_usernames: newSelection };
+                                                            });
                                                         }
+                                                    };
 
-                                                        return filtered.map(s => {
-                                                            const checked = editForm.employee_usernames?.includes(s.username);
-                                                            return (
-                                                                <label key={s.username} className="flex items-center gap-2 text-xs text-slate-700 cursor-pointer hover:text-slate-900">
-                                                                    <input
-                                                                        type="checkbox"
-                                                                        checked={checked}
-                                                                        onChange={(e) => {
-                                                                            setEditForm(prev => {
-                                                                                const current = prev.employee_usernames || [];
-                                                                                const updated = e.target.checked
-                                                                                    ? [...current, s.username]
-                                                                                    : current.filter(x => x !== s.username);
-                                                                                return { ...prev, employee_usernames: updated };
-                                                                            });
-                                                                        }}
-                                                                        className="rounded border-slate-355 text-violet-650 focus:ring-violet-550 h-4 w-4"
-                                                                    />
-                                                                    <span className="font-medium">{s.name}</span>
-                                                                    <span className="text-[10px] text-slate-400">({s.username})</span>
-                                                                </label>
-                                                            );
-                                                        });
-                                                    })()}
-                                                </div>
+                                                    return (
+                                                        <>
+                                                            {/* Select All & Count indicators */}
+                                                            <div className="flex items-center justify-between border-b border-slate-100 px-3 py-1.5 bg-slate-50/40 text-[10px] select-none shrink-0">
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={handleSelectAllToggle}
+                                                                    className="text-violet-600 hover:text-violet-855 font-bold transition-colors flex items-center gap-1 cursor-pointer"
+                                                                >
+                                                                    {allFilteredAreSelected ? 'Deselect All' : 'Select All'}
+                                                                </button>
+                                                                <span className="text-slate-400 font-semibold">
+                                                                    Showing {filtered.length} of {staffList.length} staff
+                                                                </span>
+                                                            </div>
+                                                            <div className="max-h-36 overflow-y-auto p-3 space-y-2.5">
+                                                                {filtered.map(s => {
+                                                                    const checked = editForm.employee_usernames?.includes(s.username);
+                                                                    return (
+                                                                        <label key={s.username} className="flex items-center gap-2.5 text-xs text-slate-700 cursor-pointer hover:text-slate-900 group transition-colors select-none">
+                                                                            <input
+                                                                                type="checkbox"
+                                                                                checked={checked}
+                                                                                onChange={(e) => {
+                                                                                    setEditForm(prev => {
+                                                                                        const current = prev.employee_usernames || [];
+                                                                                        const updated = e.target.checked
+                                                                                            ? [...current, s.username]
+                                                                                            : current.filter(x => x !== s.username);
+                                                                                        return { ...prev, employee_usernames: updated };
+                                                                                    });
+                                                                                }}
+                                                                                className="rounded border-slate-300 text-violet-650 focus:ring-violet-550 h-4 w-4 transition-all cursor-pointer"
+                                                                            />
+                                                                            <span className="font-semibold text-slate-800 group-hover:translate-x-0.5 transition-transform">{s.name}</span>
+                                                                            <span className="text-[10px] text-slate-400 font-mono">({s.username})</span>
+                                                                        </label>
+                                                                    );
+                                                                })}
+                                                            </div>
+                                                        </>
+                                                    );
+                                                })()}
                                             </div>
                                         </div>
 

@@ -566,6 +566,18 @@ const Services = () => {
     const [rtSubmitting, setRtSubmitting] = useState(false);
     const [rtDeleteTarget, setRtDeleteTarget] = useState(null);
     const [rtDeleting, setRtDeleting] = useState(false);
+    const [rtAssignments, setRtAssignments] = useState([]);
+
+    const fetchRtAssignments = useCallback(async () => {
+        try {
+            const res = await axios.get(`${API_BASE_URL}/recurring-task/assignments`, { headers: getHeaders() });
+            if (res.data?.success) {
+                setRtAssignments(res.data.data || []);
+            }
+        } catch (err) {
+            console.error('Failed to load assignments:', err);
+        }
+    }, []);
 
     const fetchRt = useCallback(async () => {
         setRtLoading(true);
@@ -578,7 +590,12 @@ const Services = () => {
         } finally { setRtLoading(false); }
     }, []);
 
-    useEffect(() => { if (activeTab === 'recurring') fetchRt(); }, [activeTab, fetchRt]);
+    useEffect(() => {
+        if (activeTab === 'recurring') {
+            fetchRt();
+            fetchRtAssignments();
+        }
+    }, [activeTab, fetchRt, fetchRtAssignments]);
 
     const openRtModal = (svc = null) => {
         setRtEditTarget(svc);
@@ -671,6 +688,21 @@ const Services = () => {
             }
         }
 
+        if (rtEditTarget) {
+            const templateId = rtEditTarget.service_id || rtEditTarget.id;
+            const hasAssignments = rtAssignments.some(assign => String(assign.service_id) === String(templateId));
+            if (hasAssignments) {
+                if (rtForm.frequency !== rtEditTarget.frequency) {
+                    toast.error('Cannot change frequency of template with active assignments.');
+                    return;
+                }
+                if (rtForm.status === 'Inactive' && rtEditTarget.status === 'Active') {
+                    toast.error('Cannot deactivate template with active assignments.');
+                    return;
+                }
+            }
+        }
+
         setRtSubmitting(true);
         try {
             const payload = {
@@ -715,9 +747,16 @@ const Services = () => {
 
     const handleRtDelete = async () => {
         if (!rtDeleteTarget) return;
+        const templateId = rtDeleteTarget.service_id || rtDeleteTarget.id;
+        const hasAssignments = rtAssignments.some(assign => String(assign.service_id) === String(templateId));
+        if (hasAssignments) {
+            toast.error('Cannot delete template. Active clients are assigned to it.');
+            setRtDeleteTarget(null);
+            return;
+        }
         setRtDeleting(true);
         try {
-            await axios.delete(`${API_BASE_URL}/recurring-task/services/${rtDeleteTarget.service_id || rtDeleteTarget.id}`, { headers: getHeaders() });
+            await axios.delete(`${API_BASE_URL}/recurring-task/services/${templateId}`, { headers: getHeaders() });
             toast.success('Template deleted');
             setRtDeleteTarget(null);
             fetchRt();
@@ -728,6 +767,13 @@ const Services = () => {
 
     const handleToggleRtStatus = async (svc) => {
         const nextStatus = svc.status === 'Active' ? 'Inactive' : 'Active';
+        if (svc.status === 'Active') {
+            const hasAssignments = rtAssignments.some(assign => String(assign.service_id) === String(svc.service_id || svc.id));
+            if (hasAssignments) {
+                toast.error('Cannot deactivate recurring task. Active clients are assigned to it.');
+                return;
+            }
+        }
         const toastId = toast.loading(`Toggling status to ${nextStatus}...`);
         try {
             const payload = {
@@ -945,6 +991,11 @@ const Services = () => {
     /* ─── remove ─────────────────────────────────────────────────── */
     const handleRemove = async () => {
         if (!removeTarget) return;
+        if (Number(removeTarget.firm_count || 0) > 0) {
+            toast.error('Cannot remove service. Active clients are assigned to it.');
+            setRemoveTarget(null);
+            return;
+        }
         setRemoveLoading(true);
         try {
             const res = await axios.delete(`${API_BASE_URL}/service/remove`,
@@ -988,6 +1039,10 @@ const Services = () => {
         isValidAmountInput(addForm.fees) &&
         !isNaN(parsedAddFees) &&
         parsedAddFees >= 0;
+
+    const isEditMode = rtEditTarget !== null;
+    const selectedTemplateId = rtEditTarget?.service_id || rtEditTarget?.id;
+    const modalHasAssignments = isEditMode && rtAssignments.some(assign => String(assign.service_id) === String(selectedTemplateId));
 
     /* ═════════════════════════════════════════════════════════════════ */
     return (
@@ -1050,12 +1105,16 @@ const Services = () => {
                                 </div>
 
                                 <div className="overflow-x-auto">
-                                    <table className="w-full text-sm">
+                                    <table className="w-full text-sm table-fixed min-w-[950px]">
                                         <thead>
                                             <tr className="bg-gray-50 border-b border-gray-100">
-                                                {['#', 'Firm Name', 'Firm Type', 'GSTIN / PAN', 'Client Details', 'Assignment Details', 'Status'].map((h) => (
-                                                    <th key={h} className="px-4 py-2.5 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider whitespace-nowrap">{h}</th>
-                                                ))}
+                                                <th className="px-4 py-2.5 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider whitespace-nowrap w-12">#</th>
+                                                <th className="px-4 py-2.5 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider whitespace-nowrap w-[24%]">Firm Name</th>
+                                                <th className="px-4 py-2.5 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider whitespace-nowrap w-28">Firm Type</th>
+                                                <th className="px-4 py-2.5 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider whitespace-nowrap w-40">GSTIN / PAN</th>
+                                                <th className="px-4 py-2.5 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider whitespace-nowrap w-48">Client Details</th>
+                                                <th className="px-4 py-2.5 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider whitespace-nowrap w-48">Assignment Details</th>
+                                                <th className="px-4 py-2.5 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider whitespace-nowrap w-24">Status</th>
                                             </tr>
                                         </thead>
                                         <tbody className="divide-y divide-gray-50 bg-white">
@@ -1165,12 +1224,19 @@ const Services = () => {
                                 </div>
 
                                 <div className="overflow-x-auto">
-                                    <table className="w-full text-sm">
+                                    <table className="w-full text-sm table-fixed min-w-[1000px]">
                                         <thead>
                                             <tr className="bg-gray-50 border-b border-gray-100">
-                                                {['#', 'Service', 'Type', 'Fees', 'GST', 'Firms', 'Pending', 'Complete', 'Cancel', 'Action'].map((h) => (
-                                                    <th key={h} className="px-4 py-2.5 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider whitespace-nowrap">{h}</th>
-                                                ))}
+                                                <th className="px-4 py-2.5 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider whitespace-nowrap w-12">#</th>
+                                                <th className="px-4 py-2.5 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider whitespace-nowrap w-[28%]">Service</th>
+                                                <th className="px-4 py-2.5 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider whitespace-nowrap w-28">Type</th>
+                                                <th className="px-4 py-2.5 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider whitespace-nowrap w-24">Fees</th>
+                                                <th className="px-4 py-2.5 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider whitespace-nowrap w-24">GST</th>
+                                                <th className="px-4 py-2.5 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider whitespace-nowrap w-20">Firms</th>
+                                                <th className="px-4 py-2.5 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider whitespace-nowrap w-24">Pending</th>
+                                                <th className="px-4 py-2.5 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider whitespace-nowrap w-24">Complete</th>
+                                                <th className="px-4 py-2.5 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider whitespace-nowrap w-24">Cancel</th>
+                                                <th className="px-4 py-2.5 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider whitespace-nowrap w-16">Action</th>
                                             </tr>
                                         </thead>
                                         <tbody className="divide-y divide-gray-50">
@@ -1277,12 +1343,14 @@ const Services = () => {
                                 </div>
 
                                 <div className="overflow-x-auto">
-                                    <table className="w-full text-sm">
+                                    <table className="w-full text-sm table-fixed min-w-[700px]">
                                         <thead>
                                             <tr className="bg-gray-50 border-b border-gray-100">
-                                                {['#', 'Service', 'Type', 'Status', 'Action'].map((h) => (
-                                                    <th key={h} className="px-4 py-2.5 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider whitespace-nowrap">{h}</th>
-                                                ))}
+                                                <th className="px-4 py-2.5 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider whitespace-nowrap w-12">#</th>
+                                                <th className="px-4 py-2.5 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider whitespace-nowrap w-[48%]">Service</th>
+                                                <th className="px-4 py-2.5 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider whitespace-nowrap w-32">Type</th>
+                                                <th className="px-4 py-2.5 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider whitespace-nowrap w-32">Status</th>
+                                                <th className="px-4 py-2.5 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider whitespace-nowrap w-20">Action</th>
                                             </tr>
                                         </thead>
                                         <tbody className="divide-y divide-gray-50">
@@ -1366,12 +1434,16 @@ const Services = () => {
                                 </div>
 
                                 <div className="overflow-x-auto">
-                                    <table className="w-full text-sm">
+                                    <table className="w-full text-sm table-fixed min-w-[850px]">
                                         <thead>
                                             <tr className="bg-gray-50 border-b border-gray-100">
-                                                {['#', 'Service Name', 'Frequency', 'Due Day', 'Default Fee', 'Status', 'Action'].map((h) => (
-                                                    <th key={h} className="px-4 py-2.5 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider whitespace-nowrap">{h}</th>
-                                                ))}
+                                                <th className="px-4 py-2.5 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider whitespace-nowrap w-12">#</th>
+                                                <th className="px-4 py-2.5 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider whitespace-nowrap w-[32%]">Service Name</th>
+                                                <th className="px-4 py-2.5 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider whitespace-nowrap w-28">Frequency</th>
+                                                <th className="px-4 py-2.5 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider whitespace-nowrap w-24">Due Day</th>
+                                                <th className="px-4 py-2.5 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider whitespace-nowrap w-32">Default Fee</th>
+                                                <th className="px-4 py-2.5 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider whitespace-nowrap w-28">Status</th>
+                                                <th className="px-4 py-2.5 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider whitespace-nowrap w-20">Action</th>
                                             </tr>
                                         </thead>
                                         <tbody className="divide-y divide-gray-50">
@@ -1685,11 +1757,18 @@ const Services = () => {
                                     <div className={rtForm.frequency === 'one-time' ? 'col-span-2' : ''}>
                                         <label className="block text-xs font-semibold text-slate-600 mb-1.5">Frequency *</label>
                                         <select value={rtForm.frequency} onChange={(e) => setRtForm(f => ({ ...f, frequency: e.target.value }))}
-                                            className="w-full px-3 py-2 text-xs border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none bg-white">
+                                            disabled={modalHasAssignments}
+                                            className="w-full px-3 py-2 text-xs border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none bg-white disabled:opacity-60 disabled:cursor-not-allowed">
                                             {['monthly', 'quarterly', 'half-yearly', 'yearly', 'annual', 'one-time'].map(f => (
                                                 <option key={f} value={f}>{f.charAt(0).toUpperCase() + f.slice(1)}</option>
                                             ))}
                                         </select>
+                                        {modalHasAssignments && (
+                                            <p className="text-[10px] text-slate-450 mt-1 font-medium flex items-center gap-1">
+                                                <FiInfo className="w-3 h-3 text-slate-400 shrink-0" />
+                                                Cannot change frequency of assigned template.
+                                            </p>
+                                        )}
                                     </div>
                                     {rtForm.frequency !== 'one-time' && (
                                         <div>
@@ -1752,10 +1831,17 @@ const Services = () => {
                                 <div>
                                     <label className="block text-xs font-semibold text-slate-600 mb-1.5">Status *</label>
                                     <select value={rtForm.status} onChange={(e) => setRtForm(f => ({ ...f, status: e.target.value }))}
-                                        className="w-full px-3 py-2 text-xs border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none bg-white">
+                                        disabled={modalHasAssignments}
+                                        className="w-full px-3 py-2 text-xs border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none bg-white disabled:opacity-60 disabled:cursor-not-allowed">
                                         <option value="Active">Active</option>
                                         <option value="Inactive">Inactive</option>
                                     </select>
+                                    {modalHasAssignments && (
+                                        <p className="text-[10px] text-slate-450 mt-1 font-medium flex items-center gap-1">
+                                            <FiInfo className="w-3 h-3 text-slate-400 shrink-0" />
+                                            Cannot deactivate template with active assignments.
+                                        </p>
+                                    )}
                                 </div>
                             </div>
                             <div className="shrink-0 px-5 py-3 border-t border-gray-100 bg-gray-50 flex gap-2">
