@@ -1149,26 +1149,25 @@ const ComplianceTab = ({ clientUsername }) => {
         const isUpdatePermitted = !currentUsername || assignedStaffUsernames.length === 0 || assignedStaffUsernames.includes(currentUsername);
         const isComplete = st === 'Complete' || st === 'Sale';
         const shortDueDate = dueDateText === '—' ? '' : dueDateText.split(' ').slice(0, 2).join(' ');
+        const canUpdate = isUpdatePermitted && (isPeriodDueDateActive(period) || isComplete);
 
         return (
             <td key={period.schedule_id} className="px-2 py-2 text-center align-middle">
                 <div className="flex flex-col items-center gap-0.5">
                     <div
-                        onClick={() => isUpdatePermitted && !isComplete && isPeriodDueDateActive(period) && openStatusModal(period, assign)}
-                        className={`inline-flex items-center justify-center gap-1 min-w-[32px] h-[26px] rounded border text-[10px] font-bold select-none ${isUpdatePermitted && !isComplete && isPeriodDueDateActive(period)
+                        onClick={() => canUpdate && openStatusModal(period, assign)}
+                        className={`inline-flex items-center justify-center gap-1 min-w-[32px] h-[26px] rounded border text-[10px] font-bold select-none ${canUpdate
                             ? `cursor-pointer transition-all hover:scale-105 ${cellClass}`
                             : isComplete
                                 ? `${cellClass} cursor-default`
                                 : "bg-slate-50 text-slate-350 border-slate-100 cursor-not-allowed opacity-50"
                             }`}
                         title={
-                            isComplete
-                                ? `Completed — locked`
-                                : !isPeriodDueDateActive(period)
-                                    ? `Only the currently running due date (${dueDateText}) can be updated`
-                                    : isUpdatePermitted
-                                        ? (showDirectDueDate ? `Due Date: ${dueDateText}` : `Status: ${period.status}`)
-                                        : `Restricted (Only assigned staff: ${assignedStaffs.map(e => e.name || e.username).join(', ')})`
+                            canUpdate
+                                ? (showDirectDueDate ? `Due Date: ${dueDateText}` : `Status: ${period.status}`)
+                                : !isUpdatePermitted
+                                    ? `Restricted (Only assigned staff: ${assignedStaffs.map(e => e.name || e.username).join(', ')})`
+                                    : `Only the currently running due date (${dueDateText}) can be updated`
                         }
                     >
                         <span className="px-1.5 h-full flex items-center justify-center flex-grow text-center">
@@ -1727,25 +1726,26 @@ const ComplianceTab = ({ clientUsername }) => {
                                                                     const assignedStaffUsernames = assignedStaffs.map(emp => (emp.username || '').toLowerCase().trim());
                                                                     const isUpdatePermitted = !currentUsername || assignedStaffUsernames.length === 0 || assignedStaffUsernames.includes(currentUsername);
                                                                     const isComplete = period.status === 'Complete' || period.status === 'Sale';
+                                                                    const canUpdate = isUpdatePermitted && (isPeriodDueDateActive(period) || isComplete);
 
                                                                     return (
                                                                         <div
                                                                             key={period.schedule_id}
-                                                                            onClick={() => isUpdatePermitted && !isComplete && isPeriodDueDateActive(period) && openStatusModal(period, assign)}
-                                                                            className={`border rounded-xl p-3 shadow-xs transition-all flex flex-col justify-between min-h-[90px] group ${isUpdatePermitted && !isComplete && isPeriodDueDateActive(period)
-                                                                                ? "bg-white border-slate-200 hover:border-indigo-300 hover:shadow-sm cursor-pointer"
+                                                                            onClick={() => canUpdate && openStatusModal(period, assign)}
+                                                                            className={`border rounded-xl p-3 shadow-xs transition-all flex flex-col justify-between min-h-[90px] group ${canUpdate
+                                                                                ? isComplete
+                                                                                    ? "bg-emerald-50/40 border-emerald-200 hover:border-emerald-350 hover:shadow-sm cursor-pointer"
+                                                                                    : "bg-white border-slate-200 hover:border-indigo-300 hover:shadow-sm cursor-pointer"
                                                                                 : isComplete
                                                                                     ? "bg-emerald-50/40 border-emerald-200 cursor-default"
                                                                                     : "bg-slate-50/50 border-slate-200/60 opacity-60 cursor-not-allowed"
                                                                                 }`}
                                                                             title={
-                                                                                isComplete
-                                                                                    ? `Completed — record locked`
-                                                                                    : !isPeriodDueDateActive(period)
-                                                                                        ? `Only the currently running due date (${getPeriodDueDate(period)}) can be updated`
-                                                                                        : isUpdatePermitted
-                                                                                            ? undefined
-                                                                                            : `Restricted (Only assigned staff: ${assignedStaffs.map(e => e.name || e.username).join(', ')})`
+                                                                                canUpdate
+                                                                                    ? undefined
+                                                                                    : !isUpdatePermitted
+                                                                                        ? `Restricted (Only assigned staff: ${assignedStaffs.map(e => e.name || e.username).join(', ')})`
+                                                                                        : `Only the currently running due date (${getPeriodDueDate(period)}) can be updated`
                                                                             }
                                                                         >
                                                                             <div className="flex items-start justify-between gap-1.5">
@@ -3261,8 +3261,8 @@ const ComplianceTab = ({ clientUsername }) => {
                                                 return (
                                                     <div
                                                         key={period.schedule_id}
-                                                        onClick={() => isUpdatePermitted && !isComplete && isPeriodDueDateActive(period) && openStatusModal(period, fullCalendarAssignment)}
-                                                        className={`border rounded-xl p-4 transition-all flex flex-col justify-between min-h-[105px] group ${isUpdatePermitted && !isComplete && isPeriodDueDateActive(period)
+                                                        onClick={() => (isUpdatePermitted && (isPeriodDueDateActive(period) || isComplete)) && openStatusModal(period, fullCalendarAssignment)}
+                                                        className={`border rounded-xl p-4 transition-all flex flex-col justify-between min-h-[105px] group ${isUpdatePermitted && (isPeriodDueDateActive(period) || isComplete)
                                                             ? "bg-white border-slate-200 hover:border-indigo-300 hover:shadow-md cursor-pointer"
                                                             : isComplete
                                                                 ? "bg-emerald-50/40 border-emerald-200 cursor-default"
