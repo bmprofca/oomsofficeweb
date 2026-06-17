@@ -4,7 +4,7 @@ import {
     FiLayers, FiPlus, FiRefreshCw, FiCheckCircle, FiAlertCircle,
     FiChevronRight, FiChevronDown, FiCalendar, FiDollarSign, FiClock,
     FiX, FiInfo, FiSearch, FiBriefcase, FiUser, FiSliders, FiMenu, FiEdit2, FiTrash2, FiShare2, FiEye,
-    FiEyeOff, FiCopy, FiLock
+    FiEyeOff, FiCopy, FiLock, FiFileText
 } from 'react-icons/fi';
 import { FaWhatsapp } from 'react-icons/fa6';
 import { MdEmail } from 'react-icons/md';
@@ -174,6 +174,7 @@ const STATUS_BADGES = {
     'Complete': 'bg-emerald-100 text-emerald-800 border-emerald-200',
     'Sale': 'bg-emerald-100 text-emerald-800 border-emerald-200',
     'N/A': 'bg-slate-100 text-slate-500 border-slate-200',
+    'Cancel': 'bg-rose-100 text-rose-800 border-rose-200',
     'Outsource': 'bg-blue-100 text-blue-800 border-blue-200'
 };
 
@@ -1129,9 +1130,9 @@ const ComplianceTab = ({ clientUsername }) => {
         } else if (st === 'Pending From Client' || st === 'PFC') {
             statusLetter = 'PC';
             cellClass = 'bg-orange-50 text-orange-700 border-orange-200';
-        } else if (st === 'Outsource') {
-            statusLetter = 'O';
-            cellClass = 'bg-blue-50 text-blue-700 border-blue-200';
+        } else if (st === 'Cancel' || st === 'Outsource') {
+            statusLetter = 'Cn';
+            cellClass = 'bg-rose-50 text-rose-700 border-rose-200';
         } else if (st === 'N/A') {
             statusLetter = 'N';
             cellClass = 'bg-slate-50 text-slate-400 border-slate-200';
@@ -1297,6 +1298,27 @@ const ComplianceTab = ({ clientUsername }) => {
                                                             className="absolute right-0 mt-1 w-40 bg-white rounded-xl shadow-xl border border-slate-200 z-55 overflow-hidden text-left"
                                                         >
                                                             <div className="py-1">
+                                                                {assign.status === 'Sale' && assign.invoice_no ? (
+                                                                    <a
+                                                                        href="/billing"
+                                                                        onClick={(e) => {
+                                                                            e.preventDefault();
+                                                                            window.location.href = `/billing`;
+                                                                        }}
+                                                                        className="flex items-center w-full px-3 py-2 text-xs text-slate-705 hover:bg-indigo-50 transition-colors font-semibold"
+                                                                    >
+                                                                        <FiFileText className="w-3.5 h-3.5 text-slate-400 mr-2" />
+                                                                        Invoice
+                                                                    </a>
+                                                                ) : (
+                                                                    <button
+                                                                        disabled
+                                                                        className="flex items-center w-full px-3 py-2 text-xs text-slate-350 cursor-not-allowed text-left"
+                                                                    >
+                                                                        <FiFileText className="w-3.5 h-3.5 text-slate-300 mr-2" />
+                                                                        Invoice
+                                                                    </button>
+                                                                )}
                                                                 <button
                                                                     type="button"
                                                                     onClick={(e) => {
@@ -1389,8 +1411,8 @@ const ComplianceTab = ({ clientUsername }) => {
                             Sale (Filed)
                         </span>
                         <span className="flex items-center gap-1.5">
-                            <span className="w-5 h-5 rounded border bg-blue-50 text-blue-700 border-blue-200 flex items-center justify-center text-[10px] font-bold">O</span>
-                            Outsource
+                            <span className="w-5 h-5 rounded border bg-rose-50 text-rose-700 border-rose-200 flex items-center justify-center text-[10px] font-bold">Cn</span>
+                            Cancel
                         </span>
                         <span className="flex items-center gap-1.5">
                             <span className="w-5 h-5 rounded border bg-slate-50 text-slate-400 border-slate-200 flex items-center justify-center text-[10px] font-bold">N</span>
@@ -1540,6 +1562,27 @@ const ComplianceTab = ({ clientUsername }) => {
                                                             className="absolute right-0 mt-1 w-40 bg-white rounded-xl shadow-xl border border-slate-200 z-55 overflow-hidden text-left"
                                                         >
                                                             <div className="py-1">
+                                                                {assign.status === 'Sale' && assign.invoice_no ? (
+                                                                    <a
+                                                                        href="/billing"
+                                                                        onClick={(e) => {
+                                                                            e.preventDefault();
+                                                                            window.location.href = `/billing`;
+                                                                        }}
+                                                                        className="flex items-center w-full px-3 py-2 text-xs text-slate-705 hover:bg-indigo-50 transition-colors font-semibold"
+                                                                    >
+                                                                        <FiFileText className="w-3.5 h-3.5 text-slate-400 mr-2" />
+                                                                        Invoice
+                                                                    </a>
+                                                                ) : (
+                                                                    <button
+                                                                        disabled
+                                                                        className="flex items-center w-full px-3 py-2 text-xs text-slate-350 cursor-not-allowed text-left"
+                                                                    >
+                                                                        <FiFileText className="w-3.5 h-3.5 text-slate-300 mr-2" />
+                                                                        Invoice
+                                                                    </button>
+                                                                )}
                                                                 <button
                                                                     type="button"
                                                                     onClick={(e) => {
@@ -1885,7 +1928,7 @@ const ComplianceTab = ({ clientUsername }) => {
                                         <option value="">All Status</option>
                                         <option value="Pending">Pending</option>
                                         <option value="Sale">Sale (Filed)</option>
-                                        <option value="Outsource">Outsource</option>
+                                        <option value="Cancel">Cancel</option>
                                         <option value="N/A">N/A</option>
                                     </select>
                                 </div>
@@ -1914,6 +1957,7 @@ const ComplianceTab = ({ clientUsername }) => {
                                         <th className="px-4 py-3">Invoice Number</th>
                                         <th className="px-4 py-3">Completed By</th>
                                         <th className="px-4 py-3">Completed Date/Time</th>
+                                        <th className="px-4 py-3 text-center w-16">Action</th>
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-slate-50">
@@ -1969,6 +2013,66 @@ const ComplianceTab = ({ clientUsername }) => {
                                                 </td>
                                                 <td className="px-4 py-3 text-slate-500 text-xs font-mono">
                                                     {formatDateTime(hist.completed_at)}
+                                                </td>
+                                                <td className="px-4 py-3 text-center align-middle">
+                                                    <div className={`dropdown-container relative flex justify-center ${activeDropdownId === hist.schedule_id ? 'z-50' : 'z-0'}`}>
+                                                        <button
+                                                            type="button"
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                setActiveDropdownId(activeDropdownId === hist.schedule_id ? null : hist.schedule_id);
+                                                            }}
+                                                            className="p-1.5 text-slate-500 hover:text-indigo-650 rounded-lg hover:bg-indigo-50 border border-slate-200 transition-colors"
+                                                        >
+                                                            <FiMenu className="w-3.5 h-3.5" />
+                                                        </button>
+                                                        <AnimatePresence>
+                                                            {activeDropdownId === hist.schedule_id && (
+                                                                <motion.div
+                                                                    initial={{ opacity: 0, scale: 0.95, y: 5 }}
+                                                                    animate={{ opacity: 1, scale: 1, y: 0 }}
+                                                                    exit={{ opacity: 0, scale: 0.95, y: 5 }}
+                                                                    className="absolute right-0 mt-1 w-40 bg-white rounded-xl shadow-xl border border-slate-200 z-55 overflow-hidden text-left"
+                                                                >
+                                                                    <div className="py-1">
+                                                                        {hist.status === 'Sale' && hist.invoice_no ? (
+                                                                            <a
+                                                                                href="/billing"
+                                                                                onClick={(e) => {
+                                                                                    e.preventDefault();
+                                                                                    window.location.href = `/billing`;
+                                                                                }}
+                                                                                className="flex items-center w-full px-3 py-2 text-xs text-slate-700 hover:bg-indigo-50 transition-colors font-semibold"
+                                                                            >
+                                                                                <FiFileText className="w-3.5 h-3.5 text-slate-400 mr-2" />
+                                                                                Invoice
+                                                                            </a>
+                                                                        ) : (
+                                                                            <button
+                                                                                disabled
+                                                                                className="flex items-center w-full px-3 py-2 text-xs text-slate-350 cursor-not-allowed text-left"
+                                                                            >
+                                                                                <FiFileText className="w-3.5 h-3.5 text-slate-300 mr-2" />
+                                                                                Invoice
+                                                                            </button>
+                                                                        )}
+                                                                        <button
+                                                                            type="button"
+                                                                            onClick={(e) => {
+                                                                                e.stopPropagation();
+                                                                                setConfirmDeleteId(hist.assignment_id);
+                                                                                setActiveDropdownId(null);
+                                                                            }}
+                                                                            className="flex items-center w-full px-3 py-2 text-xs text-rose-600 hover:bg-rose-50 transition-colors"
+                                                                        >
+                                                                            <FiTrash2 className="w-3.5 h-3.5 text-rose-400 mr-2" />
+                                                                            Delete
+                                                                        </button>
+                                                                    </div>
+                                                                </motion.div>
+                                                            )}
+                                                        </AnimatePresence>
+                                                    </div>
                                                 </td>
                                             </tr>
                                         ))
@@ -2149,7 +2253,7 @@ const ComplianceTab = ({ clientUsername }) => {
                                                                         setAssignForm(prev => {
                                                                             const current = prev.quarters || [];
                                                                             const updated = e.target.checked
-                                                                                ? [...current, q]
+                                                                                ? Array.from(new Set([...current, ...[1, 2, 3, 4].filter(x => x >= q)]))
                                                                                 : current.filter(x => x !== q);
                                                                             return { ...prev, quarters: updated };
                                                                         });
@@ -2528,7 +2632,7 @@ const ComplianceTab = ({ clientUsername }) => {
                                                 <option value="Pending From The Department">Pending (Dept)</option>
                                                 <option value="Pending From Client">Pending (Client)</option>
                                                 <option value="Complete">Complete</option>
-                                                <option value="Outsource">Outsource</option>
+                                                <option value="Cancel">Cancel</option>
                                                 <option value="N/A">N/A</option>
                                             </select>
                                         </div>
@@ -2743,7 +2847,7 @@ const ComplianceTab = ({ clientUsername }) => {
                                                                     setEditForm(prev => {
                                                                         const current = prev.quarters || [];
                                                                         const updated = e.target.checked
-                                                                            ? [...current, q]
+                                                                            ? Array.from(new Set([...current, ...[1, 2, 3, 4].filter(x => x >= q)]))
                                                                             : current.filter(x => x !== q);
                                                                         return { ...prev, quarters: updated };
                                                                     });
@@ -3336,3 +3440,4 @@ const ComplianceTab = ({ clientUsername }) => {
 };
 
 export default ComplianceTab;
+

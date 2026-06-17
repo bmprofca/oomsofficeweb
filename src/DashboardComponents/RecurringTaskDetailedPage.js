@@ -4,9 +4,10 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { 
   FiArrowLeft, FiRefreshCw, FiLoader, FiCalendar, FiClock,
   FiUser, FiBriefcase, FiCheckCircle, FiAlertCircle, FiX, FiSearch,
-  FiUsers, FiMenu, FiChevronLeft, FiChevronRight
+  FiUsers, FiMenu, FiChevronLeft, FiChevronRight, FiFileText, FiTrash2
 } from 'react-icons/fi';
 import { Sidebar, Header } from '../components/header';
+import { toast } from 'react-hot-toast';
 import getHeaders from "../utils/get-headers";
 import API_BASE_URL from "../utils/api-controller";
 
@@ -40,6 +41,43 @@ const RecurringTaskDetailedPage = () => {
 
   const [selectedRecord, setSelectedRecord] = useState(null);
   const [usersModal, setUsersModal] = useState({ open: false, users: [], serviceName: '' });
+
+  const [activeDropdownId, setActiveDropdownId] = useState(null);
+  const [confirmDeleteId, setConfirmDeleteId] = useState(null);
+  const [deletingAssignmentId, setDeletingAssignmentId] = useState(null);
+
+  useEffect(() => {
+    const handleOutsideClick = (e) => {
+      if (!e.target.closest('.dropdown-container')) {
+        setActiveDropdownId(null);
+      }
+    };
+    document.addEventListener('click', handleOutsideClick);
+    return () => document.removeEventListener('click', handleOutsideClick);
+  }, []);
+
+  const handleDeleteAssignment = async (assignmentId) => {
+    setDeletingAssignmentId(assignmentId);
+    try {
+      const response = await fetch(`${API_BASE_URL}/recurring-task/assignments/${assignmentId}`, {
+        method: 'DELETE',
+        headers: getHeaders()
+      });
+      const data = await response.json();
+      if (data.success) {
+        toast.success('Assignment deleted successfully');
+        setConfirmDeleteId(null);
+        fetchDetailedRecords();
+      } else {
+        toast.error(data.message || 'Failed to delete assignment');
+      }
+    } catch (err) {
+      console.error('Error deleting assignment:', err);
+      toast.error('Failed to delete assignment');
+    } finally {
+      setDeletingAssignmentId(null);
+    }
+  };
 
   // Persist sidebar minimized state
   useEffect(() => {
@@ -117,8 +155,8 @@ const RecurringTaskDetailedPage = () => {
     if (s.includes('complete') || s.includes('sale') || s === 'filed') {
       return 'bg-emerald-50 text-emerald-700 border-emerald-200';
     }
-    if (s.includes('outsource')) {
-      return 'bg-blue-50 text-blue-700 border-blue-200';
+    if (s.includes('cancel') || s.includes('outsource')) {
+      return 'bg-rose-50 text-rose-700 border-rose-200';
     }
     return 'bg-slate-50 text-slate-400 border-slate-200';
   };
@@ -349,7 +387,7 @@ const RecurringTaskDetailedPage = () => {
                   <option value="Pending From The Department">Pending (Dept)</option>
                   <option value="Pending From Client">Pending (Client)</option>
                   <option value="Complete">Complete</option>
-                  <option value="Outsource">Outsource</option>
+                  <option value="Cancel">Cancel</option>
                   <option value="N/A">N/A</option>
                 </select>
               </div>
@@ -382,12 +420,13 @@ const RecurringTaskDetailedPage = () => {
                       <th className="px-4 py-3">Due Date</th>
                       <th className="px-4 py-3 text-center">Staff Assigned</th>
                       <th className="px-4 py-3">Status</th>
+                      <th className="px-4 py-3 text-center w-16">Action</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-50">
                     {records.length === 0 ? (
                       <tr>
-                        <td colSpan={7} className="text-center py-14 text-slate-405 font-medium">
+                        <td colSpan={8} className="text-center py-14 text-slate-405 font-medium">
                           No recurring task records found matching current query
                         </td>
                       </tr>
@@ -424,6 +463,66 @@ const RecurringTaskDetailedPage = () => {
                             <span className={`inline-flex px-2.5 py-0.5 rounded text-[10px] font-bold border uppercase tracking-wider ${getStatusBadgeColor(record.status)}`}>
                               {record.status || 'Pending'}
                             </span>
+                          </td>
+                          <td className="px-4 py-3.5 text-center align-middle">
+                            <div className={`dropdown-container relative flex justify-center ${activeDropdownId === record.schedule_id ? 'z-50' : 'z-0'}`}>
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setActiveDropdownId(activeDropdownId === record.schedule_id ? null : record.schedule_id);
+                                }}
+                                className="p-1.5 text-slate-500 hover:text-indigo-650 rounded-lg hover:bg-indigo-50 border border-slate-200 transition-colors"
+                              >
+                                <FiMenu className="w-3.5 h-3.5" />
+                              </button>
+                              <AnimatePresence>
+                                {activeDropdownId === record.schedule_id && (
+                                  <motion.div
+                                    initial={{ opacity: 0, scale: 0.95, y: 5 }}
+                                    animate={{ opacity: 1, scale: 1, y: 0 }}
+                                    exit={{ opacity: 0, scale: 0.95, y: 5 }}
+                                    className="absolute right-0 mt-1 w-40 bg-white rounded-xl shadow-xl border border-slate-200 z-55 overflow-hidden text-left"
+                                  >
+                                    <div className="py-1">
+                                      {record.status === 'Sale' && record.invoice_no ? (
+                                        <a
+                                          href="/billing"
+                                          onClick={(e) => {
+                                            e.preventDefault();
+                                            window.location.href = `/billing`;
+                                          }}
+                                          className="flex items-center w-full px-3 py-2 text-xs text-slate-700 hover:bg-indigo-50 transition-colors font-semibold"
+                                        >
+                                          <FiFileText className="w-3.5 h-3.5 text-slate-400 mr-2" />
+                                          Invoice
+                                        </a>
+                                      ) : (
+                                        <button
+                                          disabled
+                                          className="flex items-center w-full px-3 py-2 text-xs text-slate-350 cursor-not-allowed text-left"
+                                        >
+                                          <FiFileText className="w-3.5 h-3.5 text-slate-300 mr-2" />
+                                          Invoice
+                                        </button>
+                                      )}
+                                      <button
+                                        type="button"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          setConfirmDeleteId(record.assignment_id);
+                                          setActiveDropdownId(null);
+                                        }}
+                                        className="flex items-center w-full px-3 py-2 text-xs text-rose-600 hover:bg-rose-50 transition-colors"
+                                      >
+                                        <FiTrash2 className="w-3.5 h-3.5 text-rose-400 mr-2" />
+                                        Delete
+                                      </button>
+                                    </div>
+                                  </motion.div>
+                                )}
+                              </AnimatePresence>
+                            </div>
                           </td>
                         </tr>
                       ))
@@ -477,6 +576,52 @@ const RecurringTaskDetailedPage = () => {
         users={usersModal.users}
         serviceName={usersModal.serviceName}
       />
+
+      {/* Modal: Delete Assignment Confirmation */}
+      <AnimatePresence>
+        {confirmDeleteId && (
+          <div className="fixed inset-0 z-[220] flex items-center justify-center p-4 pointer-events-none">
+            <div className="absolute inset-0 bg-black/60 backdrop-blur-xs pointer-events-auto" onClick={() => setConfirmDeleteId(null)} />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="relative z-[1] pointer-events-auto bg-white rounded-2xl shadow-xl w-full max-w-sm overflow-hidden"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="px-5 py-4 flex flex-col items-center gap-3 text-center">
+                <div className="w-12 h-12 rounded-full bg-rose-50 flex items-center justify-center animate-fade-in">
+                  <FiTrash2 className="w-5 h-5 text-rose-600" />
+                </div>
+                <h3 className="text-sm font-bold text-slate-800">Delete Assignment?</h3>
+                <p className="text-xs text-slate-500 leading-relaxed">
+                  This will permanently delete the recurring task assignment and all its schedule periods. This action cannot be undone.
+                </p>
+              </div>
+              <div className="px-5 py-3 bg-slate-50 border-t border-slate-100 flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => setConfirmDeleteId(null)}
+                  className="flex-1 py-2 text-xs font-semibold text-slate-600 border border-slate-200 rounded-xl hover:bg-white transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  disabled={deletingAssignmentId === confirmDeleteId}
+                  onClick={() => handleDeleteAssignment(confirmDeleteId)}
+                  className="flex-1 py-2 text-xs font-semibold text-white bg-rose-600 hover:bg-rose-700 rounded-xl disabled:opacity-50 transition-colors flex items-center justify-center gap-1.5"
+                >
+                  {deletingAssignmentId === confirmDeleteId && (
+                    <span className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                  )}
+                  Delete
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };

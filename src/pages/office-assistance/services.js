@@ -988,6 +988,29 @@ const Services = () => {
         finally { setEditLoading(false); }
     };
 
+    const handleToggleServiceStatus = async (svc) => {
+        const currentStatus = String(svc.status || 'Active').toLowerCase();
+        const isCurrentInactive = currentStatus === 'inactive' || !svc.added_to_branch;
+        const nextStatus = isCurrentInactive ? 'Active' : 'Inactive';
+        const toastId = toast.loading(`Toggling status to ${nextStatus}...`);
+        try {
+            const res = await axios.put(`${API_BASE_URL}/service/status`, {
+                service_id: svc.service_id,
+                status: nextStatus
+            }, { headers: getHeaders() });
+            
+            if (res.data?.success) {
+                toast.success(`Service status updated to ${nextStatus}`, { id: toastId });
+                fetchBranch(branchSearch, branchPage, branchLimit);
+                fetchAll(allSearch, allPage, allLimit);
+            } else {
+                toast.error(res.data?.message || 'Failed to update status', { id: toastId });
+            }
+        } catch (err) {
+            toast.error(err.response?.data?.message || 'Error updating status', { id: toastId });
+        }
+    };
+
     /* ─── remove ─────────────────────────────────────────────────── */
     const handleRemove = async () => {
         if (!removeTarget) return;
@@ -1154,11 +1177,10 @@ const Services = () => {
                                                                 <p className="text-[10px] text-slate-400 mt-0.5">Staff: {getStaffNames(firm.assignment?.employee_username)}</p>
                                                             </td>
                                                             <td className="px-4 py-3">
-                                                                <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold border ${
-                                                                    String(firm.assignment?.status).toLowerCase() === 'active'
+                                                                <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold border ${String(firm.assignment?.status).toLowerCase() === 'active'
                                                                         ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
                                                                         : 'bg-rose-50 text-rose-700 border-rose-200'
-                                                                }`}>
+                                                                    }`}>
                                                                     {firm.assignment?.status || 'inactive'}
                                                                 </span>
                                                             </td>
@@ -1200,311 +1222,334 @@ const Services = () => {
                                     ))}
                                 </div>
 
-                        {/* ── BRANCH SERVICES TAB ── */}
-                        {activeTab === 'branch' && (
-                            <div>
-                                <div className="flex items-center gap-3 px-4 py-3 border-b border-gray-100">
-                                    <div className="relative flex-1 max-w-xs">
-                                        <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 pointer-events-none" />
-                                        <input type="text" placeholder="Search branch services…" value={branchSearch}
-                                            onChange={(e) => setBranchSearch(e.target.value)}
-                                            className="w-full pl-9 pr-3 py-2 text-sm text-slate-700 border border-gray-200 rounded-lg bg-gray-50 focus:bg-white focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none placeholder:text-slate-400"
-                                        />
-                                    </div>
-                                    <ViewportTooltip label="Refresh">
-                                        <button onClick={() => fetchBranch(branchSearch)}
-                                            className="p-2 text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors border border-gray-200">
-                                            <FiRefreshCw className={`w-3.5 h-3.5 ${branchLoading ? 'animate-spin' : ''}`} />
-                                        </button>
-                                    </ViewportTooltip>
-                                    <button onClick={openCustomServiceModal}
-                                        className="flex items-center gap-1.5 px-3 py-2 text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg transition-colors">
-                                        <FiPlus className="w-3.5 h-3.5" /> Custom Service
-                                    </button>
-                                </div>
+                                {/* ── BRANCH SERVICES TAB ── */}
+                                {activeTab === 'branch' && (
+                                    <div>
+                                        <div className="flex items-center gap-3 px-4 py-3 border-b border-gray-100">
+                                            <div className="relative flex-1 max-w-xs">
+                                                <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 pointer-events-none" />
+                                                <input type="text" placeholder="Search branch services…" value={branchSearch}
+                                                    onChange={(e) => setBranchSearch(e.target.value)}
+                                                    className="w-full pl-9 pr-3 py-2 text-sm text-slate-700 border border-gray-200 rounded-lg bg-gray-50 focus:bg-white focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none placeholder:text-slate-400"
+                                                />
+                                            </div>
+                                            <ViewportTooltip label="Refresh">
+                                                <button onClick={() => fetchBranch(branchSearch)}
+                                                    className="p-2 text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors border border-gray-200">
+                                                    <FiRefreshCw className={`w-3.5 h-3.5 ${branchLoading ? 'animate-spin' : ''}`} />
+                                                </button>
+                                            </ViewportTooltip>
+                                            <button onClick={openCustomServiceModal}
+                                                className="flex items-center gap-1.5 px-3 py-2 text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg transition-colors">
+                                                <FiPlus className="w-3.5 h-3.5" /> Custom Service
+                                            </button>
+                                        </div>
 
-                                <div className="overflow-x-auto">
-                                    <table className="w-full text-sm table-fixed min-w-[1000px]">
-                                        <thead>
-                                            <tr className="bg-gray-50 border-b border-gray-100">
-                                                <th className="px-4 py-2.5 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider whitespace-nowrap w-12">#</th>
-                                                <th className="px-4 py-2.5 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider whitespace-nowrap w-[28%]">Service</th>
-                                                <th className="px-4 py-2.5 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider whitespace-nowrap w-28">Type</th>
-                                                <th className="px-4 py-2.5 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider whitespace-nowrap w-24">Fees</th>
-                                                <th className="px-4 py-2.5 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider whitespace-nowrap w-24">GST</th>
-                                                <th className="px-4 py-2.5 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider whitespace-nowrap w-20">Firms</th>
-                                                <th className="px-4 py-2.5 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider whitespace-nowrap w-24">Pending</th>
-                                                <th className="px-4 py-2.5 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider whitespace-nowrap w-24">Complete</th>
-                                                <th className="px-4 py-2.5 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider whitespace-nowrap w-24">Cancel</th>
-                                                <th className="px-4 py-2.5 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider whitespace-nowrap w-16">Action</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody className="divide-y divide-gray-50">
-                                            {branchLoading
-                                                ? Array.from({ length: 6 }).map((_, i) => <SkeletonRow key={i} cols={10} />)
-                                                : branchList.length === 0
-                                                    ? <EmptyState icon={<FiLayers className="w-5 h-5 text-slate-400" />} title="No branch services" desc={branchSearch ? 'No match found.' : 'Go to "Add Services" to enable services.'} />
-                                                    : branchList.map((svc, idx) => (
-                                                        <motion.tr key={svc.service_id} initial={{ opacity: 0 }} animate={{ opacity: 1 }}
-                                                            className="hover:bg-indigo-50/30 transition-colors group">
-                                                            <td className="px-4 py-3 text-xs text-slate-400 font-medium w-10">
-                                                                {(branchPage - 1) * branchLimit + idx + 1}
-                                                            </td>
-                                                            <td className="px-4 py-3 max-w-[200px]">
-                                                                <ViewportTooltip label={svc.name} fullWidth>
-                                                                    <p className="font-semibold text-slate-800 text-xs leading-snug truncate">{svc.name}</p>
-                                                                </ViewportTooltip>
-                                                                {svc.sac_code && (
-                                                                    <span className="text-[11px] font-mono text-slate-400 bg-gray-100 px-1 py-0.5 rounded mt-0.5 inline-block">{svc.sac_code}</span>
-                                                                )}
-                                                            </td>
-                                                            <td className="px-4 py-3">{typeBadge(svc.type)}</td>
-                                                            <td className="px-4 py-3">
-                                                                <span className="text-xs font-semibold text-slate-800">₹{fmt(svc.fees)}</span>
-                                                            </td>
-                                                            <td className="px-4 py-3">
-                                                                <p className="text-xs text-slate-600">{svc.gst_rate ?? 0}%</p>
-                                                                <p className="text-[11px] text-slate-400">₹{fmt(svc.gst_value)}</p>
-                                                            </td>
-                                                            <td className="px-4 py-3">
-                                                                <button
-                                                                    onClick={() => handleViewFirms(svc)}
-                                                                    className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-indigo-50 text-indigo-700 border border-indigo-200 hover:bg-indigo-100 hover:scale-105 transition-all"
-                                                                    title="Click to view assigned firms"
-                                                                >
-                                                                    {svc.firm_count ?? 0}
-                                                                </button>
-                                                            </td>
-                                                            <td className="px-4 py-3">
-                                                                <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-amber-50 text-amber-700 border border-amber-200">
-                                                                    {svc.pending_count ?? svc.summary?.pending ?? 0}
-                                                                </span>
-                                                            </td>
-                                                            <td className="px-4 py-3">
-                                                                <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
-                                                                    {svc.complete_count ?? svc.summary?.complete ?? 0}
-                                                                </span>
-                                                            </td>
-                                                            <td className="px-4 py-3">
-                                                                <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-slate-50 text-slate-600 border border-slate-200">
-                                                                    {svc.cancel_count ?? svc.summary?.cancel ?? 0}
-                                                                </span>
-                                                            </td>
-                                                            <td className="px-4 py-3">
-                                                                <ActionMenu items={[
-                                                                    { label: 'View', icon: <FiEye className="w-3.5 h-3.5" />, onClick: () => setViewTarget({ svc, isBranch: true }) },
-                                                                    { label: 'Edit', icon: <FiEdit className="w-3.5 h-3.5" />, onClick: () => openEdit(svc) },
-                                                                    { label: 'Remove', icon: <FiTrash2 className="w-3.5 h-3.5" />, onClick: () => setRemoveTarget(svc), danger: true },
-                                                                ]} />
-                                                            </td>
-                                                        </motion.tr>
-                                                    ))
-                                            }
-                                        </tbody>
-                                    </table>
-                                </div>
+                                        <div className="overflow-x-auto">
+                                            <table className="w-full text-sm table-fixed min-w-[1000px]">
+                                                <thead>
+                                                    <tr className="bg-gray-50 border-b border-gray-100">
+                                                        <th className="px-4 py-2.5 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider whitespace-nowrap w-12">#</th>
+                                                        <th className="px-4 py-2.5 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider whitespace-nowrap w-[28%]">Service</th>
+                                                        <th className="px-4 py-2.5 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider whitespace-nowrap w-28">Type</th>
+                                                        <th className="px-4 py-2.5 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider whitespace-nowrap w-24">Fees</th>
+                                                        <th className="px-4 py-2.5 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider whitespace-nowrap w-24">GST</th>
+                                                        <th className="px-4 py-2.5 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider whitespace-nowrap w-20">Firms</th>
+                                                        <th className="px-4 py-2.5 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider whitespace-nowrap w-24">Pending</th>
+                                                        <th className="px-4 py-2.5 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider whitespace-nowrap w-24">Complete</th>
+                                                        <th className="px-4 py-2.5 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider whitespace-nowrap w-24">Cancel</th>
+                                                        <th className="px-4 py-2.5 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider whitespace-nowrap w-32">Action</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody className="divide-y divide-gray-50">
+                                                    {branchLoading
+                                                        ? Array.from({ length: 6 }).map((_, i) => <SkeletonRow key={i} cols={10} />)
+                                                        : branchList.length === 0
+                                                            ? <EmptyState icon={<FiLayers className="w-5 h-5 text-slate-400" />} title="No branch services" desc={branchSearch ? 'No match found.' : 'Go to "Add Services" to enable services.'} />
+                                                            : branchList.map((svc, idx) => (
+                                                                <motion.tr key={svc.service_id} initial={{ opacity: 0 }} animate={{ opacity: 1 }}
+                                                                    className="hover:bg-indigo-50/30 transition-colors group">
+                                                                    <td className="px-4 py-3 text-xs text-slate-400 font-medium w-10">
+                                                                        {(branchPage - 1) * branchLimit + idx + 1}
+                                                                    </td>
+                                                                    <td className="px-4 py-3 max-w-[200px]">
+                                                                        <ViewportTooltip label={svc.name} fullWidth>
+                                                                            <p className="font-semibold text-slate-800 text-xs leading-snug truncate">{svc.name}</p>
+                                                                        </ViewportTooltip>
+                                                                        {svc.sac_code && (
+                                                                            <span className="text-[11px] font-mono text-slate-400 bg-gray-100 px-1 py-0.5 rounded mt-0.5 inline-block">{svc.sac_code}</span>
+                                                                        )}
+                                                                    </td>
+                                                                    <td className="px-4 py-3">{typeBadge(svc.type)}</td>
+                                                                    <td className="px-4 py-3">
+                                                                        <span className="text-xs font-semibold text-slate-800">₹{fmt(svc.fees)}</span>
+                                                                    </td>
+                                                                    <td className="px-4 py-3">
+                                                                        <p className="text-xs text-slate-600">{svc.gst_rate ?? 0}%</p>
+                                                                        <p className="text-[11px] text-slate-400">₹{fmt(svc.gst_value)}</p>
+                                                                    </td>
+                                                                    <td className="px-4 py-3">
+                                                                        <button
+                                                                            onClick={() => handleViewFirms(svc)}
+                                                                            className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-indigo-50 text-indigo-700 border border-indigo-200 hover:bg-indigo-100 hover:scale-105 transition-all"
+                                                                            title="Click to view assigned firms"
+                                                                        >
+                                                                            {svc.firm_count ?? 0}
+                                                                        </button>
+                                                                    </td>
+                                                                    <td className="px-4 py-3">
+                                                                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-amber-50 text-amber-700 border border-amber-200">
+                                                                            {svc.pending_count ?? svc.summary?.pending ?? 0}
+                                                                        </span>
+                                                                    </td>
+                                                                    <td className="px-4 py-3">
+                                                                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                                                                            {svc.complete_count ?? svc.summary?.complete ?? 0}
+                                                                        </span>
+                                                                    </td>
+                                                                    <td className="px-4 py-3">
+                                                                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-slate-50 text-slate-600 border border-slate-200">
+                                                                            {svc.cancel_count ?? svc.summary?.cancel ?? 0}
+                                                                        </span>
+                                                                    </td>
+                                                                    <td className="px-4 py-3">
+                                                                        <ActionMenu items={[
+                                                                            { label: 'View', icon: <FiEye className="w-3.5 h-3.5" />, onClick: () => setViewTarget({ svc, isBranch: true }) },
+                                                                            { label: 'Edit', icon: <FiEdit className="w-3.5 h-3.5" />, onClick: () => openEdit(svc) },
+                                                                            { label: 'Remove', icon: <FiTrash2 className="w-3.5 h-3.5" />, onClick: () => setRemoveTarget(svc), danger: true },
+                                                                        ]} />
+                                                                    </td>
+                                                                </motion.tr>
+                                                            ))
+                                                    }
+                                                </tbody>
+                                            </table>
+                                        </div>
 
-                                {(
-                                    <div className="border-t border-gray-100 px-4 py-2">
-                                        <TablePagination
-                                            page={branchPage} limit={branchLimit} total={branchTotal}
-                                            totalPages={branchTotalPages} isLastPage={branchPage >= branchTotalPages}
-                                            onPageChange={(p) => { setBranchPage(p); fetchBranch(branchSearch, p, branchLimit); }}
-                                            onLimitChange={(l) => { setBranchLimit(l); setBranchPage(1); fetchBranch(branchSearch, 1, l); }}
-                                            rowOptions={[5, 10, 20, 50, 100]}
-                                            showRange showRows showJump showFirstLast
-                                        />
-                                    </div>
-                                )}
-                            </div>
-                        )}
-
-                        {/* ── ADD SERVICES TAB ── */}
-                        {activeTab === 'all' && (
-                            <div>
-                                <div className="flex items-center gap-3 px-4 py-3 border-b border-gray-100">
-                                    <div className="relative flex-1 max-w-xs">
-                                        <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 pointer-events-none" />
-                                        <input type="text" placeholder="Search all services…" value={allSearch}
-                                            onChange={(e) => setAllSearch(e.target.value)}
-                                            className="w-full pl-9 pr-3 py-2 text-sm text-slate-700 border border-gray-200 rounded-lg bg-gray-50 focus:bg-white focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none placeholder:text-slate-400"
-                                        />
-                                    </div>
-                                    <ViewportTooltip label="Refresh">
-                                        <button onClick={() => fetchAll(allSearch)}
-                                            className="p-2 text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors border border-gray-200">
-                                            <FiRefreshCw className={`w-3.5 h-3.5 ${allLoading ? 'animate-spin' : ''}`} />
-                                        </button>
-                                    </ViewportTooltip>
-                                    <button onClick={openCustomServiceModal}
-                                        className="flex items-center gap-1.5 px-3 py-2 text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg transition-colors">
-                                        <FiPlus className="w-3.5 h-3.5" /> Custom Service
-                                    </button>
-                                </div>
-
-                                <div className="overflow-x-auto">
-                                    <table className="w-full text-sm table-fixed min-w-[700px]">
-                                        <thead>
-                                            <tr className="bg-gray-50 border-b border-gray-100">
-                                                <th className="px-4 py-2.5 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider whitespace-nowrap w-12">#</th>
-                                                <th className="px-4 py-2.5 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider whitespace-nowrap w-[48%]">Service</th>
-                                                <th className="px-4 py-2.5 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider whitespace-nowrap w-32">Type</th>
-                                                <th className="px-4 py-2.5 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider whitespace-nowrap w-32">Status</th>
-                                                <th className="px-4 py-2.5 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider whitespace-nowrap w-20">Action</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody className="divide-y divide-gray-50">
-                                            {allLoading
-                                                ? Array.from({ length: 6 }).map((_, i) => <SkeletonRow key={i} cols={5} />)
-                                                : allList.length === 0
-                                                    ? <EmptyState icon={<FiFileText className="w-5 h-5 text-slate-400" />} title="No services found" desc="Try a different search term." />
-                                                    : allList.map((svc, idx) => (
-                                                        <motion.tr key={svc.service_id} initial={{ opacity: 0 }} animate={{ opacity: 1 }}
-                                                            className={`transition-colors group ${svc.added_to_branch ? 'bg-emerald-50/30' : 'hover:bg-indigo-50/30'}`}>
-                                                            <td className="px-4 py-3 text-xs text-slate-400 font-medium w-10">
-                                                                {(allPage - 1) * allLimit + idx + 1}
-                                                            </td>
-                                                            <td className="px-4 py-3 max-w-[200px]">
-                                                                <ViewportTooltip label={svc.name} fullWidth>
-                                                                    <p className="font-semibold text-slate-800 text-xs leading-snug truncate">{svc.name}</p>
-                                                                </ViewportTooltip>
-                                                                {svc.sac_code && (
-                                                                    <span className="text-[11px] font-mono text-slate-400 bg-gray-100 px-1 py-0.5 rounded mt-0.5 inline-block">{svc.sac_code}</span>
-                                                                )}
-                                                            </td>
-                                                            <td className="px-4 py-3">{typeBadge(svc.type)}</td>
-                                                            <td className="px-4 py-3">
-                                                                {svc.added_to_branch
-                                                                    ? <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-100 text-emerald-700 border border-emerald-200">
-                                                                        <FiCheck className="w-3 h-3" />Added
-                                                                    </span>
-                                                                    : <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-gray-100 text-slate-500 border border-gray-200">Not added</span>
-                                                                }
-                                                            </td>
-                                                            <td className="px-4 py-3">
-                                                                <ActionMenu items={[
-                                                                    { label: 'View', icon: <FiEye className="w-3.5 h-3.5" />, onClick: () => setViewTarget({ svc, isBranch: false }) },
-                                                                    ...(!svc.added_to_branch
-                                                                        ? [{ label: 'Add to Branch', icon: <FiPlus className="w-3.5 h-3.5" />, onClick: () => openAdd(svc) }]
-                                                                        : [{ label: 'Remove', icon: <FiTrash2 className="w-3.5 h-3.5" />, onClick: () => setRemoveTarget(svc), danger: true }]
-                                                                    ),
-                                                                ]} />
-                                                            </td>
-                                                        </motion.tr>
-                                                    ))
-                                            }
-                                        </tbody>
-                                    </table>
-                                </div>
-
-                                {(
-                                    <div className="border-t border-gray-100 px-4 py-2">
-                                        <TablePagination
-                                            page={allPage} limit={allLimit} total={allTotal}
-                                            totalPages={allTotalPages} isLastPage={allPage >= allTotalPages}
-                                            onPageChange={(p) => { setAllPage(p); fetchAll(allSearch, p, allLimit); }}
-                                            onLimitChange={(l) => { setAllLimit(l); setAllPage(1); fetchAll(allSearch, 1, l); }}
-                                            rowOptions={[5, 10, 20, 50, 100]}
-                                            showRange showRows showJump showFirstLast
-                                        />
+                                        {(
+                                            <div className="border-t border-gray-100 px-4 py-2">
+                                                <TablePagination
+                                                    page={branchPage} limit={branchLimit} total={branchTotal}
+                                                    totalPages={branchTotalPages} isLastPage={branchPage >= branchTotalPages}
+                                                    onPageChange={(p) => { setBranchPage(p); fetchBranch(branchSearch, p, branchLimit); }}
+                                                    onLimitChange={(l) => { setBranchLimit(l); setBranchPage(1); fetchBranch(branchSearch, 1, l); }}
+                                                    rowOptions={[5, 10, 20, 50, 100]}
+                                                    showRange showRows showJump showFirstLast
+                                                />
+                                            </div>
+                                        )}
                                     </div>
                                 )}
-                            </div>
-                        )}
 
-                        {/* ── RECURRING TASK TEMPLATES TAB ── */}
-                        {activeTab === 'recurring' && (
-                            <div>
-                                <div className="flex items-center gap-3 px-4 py-3 border-b border-gray-100">
-                                    <div className="relative flex-1 max-w-xs">
-                                        <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 pointer-events-none" />
-                                        <input type="text" placeholder="Search templates…" value={rtSearch}
-                                            onChange={(e) => setRtSearch(e.target.value)}
-                                            className="w-full pl-9 pr-3 py-2 text-sm text-slate-700 border border-gray-200 rounded-lg bg-gray-50 focus:bg-white focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none placeholder:text-slate-400"
-                                        />
+                                {/* ── ADD SERVICES TAB ── */}
+                                {activeTab === 'all' && (
+                                    <div>
+                                        <div className="flex items-center gap-3 px-4 py-3 border-b border-gray-100">
+                                            <div className="relative flex-1 max-w-xs">
+                                                <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 pointer-events-none" />
+                                                <input type="text" placeholder="Search all services…" value={allSearch}
+                                                    onChange={(e) => setAllSearch(e.target.value)}
+                                                    className="w-full pl-9 pr-3 py-2 text-sm text-slate-700 border border-gray-200 rounded-lg bg-gray-50 focus:bg-white focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none placeholder:text-slate-400"
+                                                />
+                                            </div>
+                                            <ViewportTooltip label="Refresh">
+                                                <button onClick={() => fetchAll(allSearch)}
+                                                    className="p-2 text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors border border-gray-200">
+                                                    <FiRefreshCw className={`w-3.5 h-3.5 ${allLoading ? 'animate-spin' : ''}`} />
+                                                </button>
+                                            </ViewportTooltip>
+                                            <button onClick={openCustomServiceModal}
+                                                className="flex items-center gap-1.5 px-3 py-2 text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg transition-colors">
+                                                <FiPlus className="w-3.5 h-3.5" /> Custom Service
+                                            </button>
+                                        </div>
+
+                                        <div className="overflow-x-auto">
+                                            <table className="w-full text-sm table-fixed min-w-[700px]">
+                                                <thead>
+                                                    <tr className="bg-gray-50 border-b border-gray-100">
+                                                        <th className="px-4 py-2.5 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider whitespace-nowrap w-12">#</th>
+                                                        <th className="px-4 py-2.5 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider whitespace-nowrap w-[48%]">Service</th>
+                                                        <th className="px-4 py-2.5 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider whitespace-nowrap w-32">Type</th>
+                                                        <th className="px-4 py-2.5 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider whitespace-nowrap w-32">Status</th>
+                                                        <th className="px-4 py-2.5 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider whitespace-nowrap w-32">Action</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody className="divide-y divide-gray-50">
+                                                    {allLoading
+                                                        ? Array.from({ length: 6 }).map((_, i) => <SkeletonRow key={i} cols={5} />)
+                                                        : allList.length === 0
+                                                            ? <EmptyState icon={<FiFileText className="w-5 h-5 text-slate-400" />} title="No services found" desc="Try a different search term." />
+                                                            : allList.map((svc, idx) => (
+                                                                <motion.tr key={svc.service_id} initial={{ opacity: 0 }} animate={{ opacity: 1 }}
+                                                                    className={`transition-colors group ${svc.added_to_branch ? 'bg-emerald-50/30' : 'hover:bg-indigo-50/30'}`}>
+                                                                    <td className="px-4 py-3 text-xs text-slate-400 font-medium w-10">
+                                                                        {(allPage - 1) * allLimit + idx + 1}
+                                                                    </td>
+                                                                    <td className="px-4 py-3 max-w-[200px]">
+                                                                        <ViewportTooltip label={svc.name} fullWidth>
+                                                                            <p className="font-semibold text-slate-800 text-xs leading-snug truncate">{svc.name}</p>
+                                                                        </ViewportTooltip>
+                                                                        {svc.sac_code && (
+                                                                            <span className="text-[11px] font-mono text-slate-400 bg-gray-100 px-1 py-0.5 rounded mt-0.5 inline-block">{svc.sac_code}</span>
+                                                                        )}
+                                                                    </td>
+                                                                    <td className="px-4 py-3">{typeBadge(svc.type)}</td>
+                                                                    <td className="px-4 py-3">
+                                                                        {svc.added_to_branch ? (
+                                                                            String(svc.status).toLowerCase() === 'inactive' ? (
+                                                                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-rose-50 text-rose-700 border border-rose-200">
+                                                                                    <FiX className="w-3 h-3" /> Inactive
+                                                                                </span>
+                                                                            ) : (
+                                                                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-100 text-emerald-700 border border-emerald-200">
+                                                                                    <FiCheck className="w-3 h-3" /> Added
+                                                                                </span>
+                                                                            )
+                                                                        ) : (
+                                                                            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-gray-100 text-slate-500 border border-gray-200">
+                                                                                Not added
+                                                                            </span>
+                                                                        )}
+                                                                    </td>
+                                                                    <td className="px-4 py-3">
+                                                                        <div className="flex items-center gap-2">
+                                                                            <button
+                                                                                onClick={() => handleToggleServiceStatus(svc)}
+                                                                                className={`px-2.5 py-1 text-[11px] font-bold rounded-lg border transition-all duration-300 ${
+                                                                                    svc.added_to_branch && String(svc.status).toLowerCase() === 'inactive'
+                                                                                        ? 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100'
+                                                                                        : svc.added_to_branch
+                                                                                            ? 'bg-rose-50 text-rose-700 border-rose-200 hover:bg-rose-100'
+                                                                                            : 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100'
+                                                                                }`}
+                                                                            >
+                                                                                {svc.added_to_branch && String(svc.status).toLowerCase() === 'inactive' ? 'Active' : svc.added_to_branch ? 'Deactive' : 'Active'}
+                                                                            </button>
+                                                                            <ActionMenu items={[
+                                                                                { label: 'View', icon: <FiEye className="w-3.5 h-3.5" />, onClick: () => setViewTarget({ svc, isBranch: false }) },
+                                                                                ...(!svc.added_to_branch
+                                                                                    ? [{ label: 'Add to Branch', icon: <FiPlus className="w-3.5 h-3.5" />, onClick: () => openAdd(svc) }]
+                                                                                    : [{ label: 'Remove', icon: <FiTrash2 className="w-3.5 h-3.5" />, onClick: () => setRemoveTarget(svc), danger: true }]
+                                                                                ),
+                                                                            ]} />
+                                                                        </div>
+                                                                    </td>
+                                                                </motion.tr>
+                                                            ))
+                                                    }
+                                                </tbody>
+                                            </table>
+                                        </div>
+
+                                        {(
+                                            <div className="border-t border-gray-100 px-4 py-2">
+                                                <TablePagination
+                                                    page={allPage} limit={allLimit} total={allTotal}
+                                                    totalPages={allTotalPages} isLastPage={allPage >= allTotalPages}
+                                                    onPageChange={(p) => { setAllPage(p); fetchAll(allSearch, p, allLimit); }}
+                                                    onLimitChange={(l) => { setAllLimit(l); setAllPage(1); fetchAll(allSearch, 1, l); }}
+                                                    rowOptions={[5, 10, 20, 50, 100]}
+                                                    showRange showRows showJump showFirstLast
+                                                />
+                                            </div>
+                                        )}
                                     </div>
-                                    <button onClick={fetchRt}
-                                        className="p-2 text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors border border-gray-200">
-                                        <FiRefreshCw className={`w-3.5 h-3.5 ${rtLoading ? 'animate-spin' : ''}`} />
-                                    </button>
-                                    <button onClick={() => openRtModal()}
-                                        className="flex items-center gap-1.5 px-3 py-2 text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg transition-colors">
-                                        <FiPlus className="w-3.5 h-3.5" /> New Template
-                                    </button>
-                                </div>
+                                )}
 
-                                <div className="overflow-x-auto">
-                                    <table className="w-full text-sm table-fixed min-w-[850px]">
-                                        <thead>
-                                            <tr className="bg-gray-50 border-b border-gray-100">
-                                                <th className="px-4 py-2.5 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider whitespace-nowrap w-12">#</th>
-                                                <th className="px-4 py-2.5 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider whitespace-nowrap w-[32%]">Service Name</th>
-                                                <th className="px-4 py-2.5 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider whitespace-nowrap w-28">Frequency</th>
-                                                <th className="px-4 py-2.5 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider whitespace-nowrap w-24">Due Day</th>
-                                                <th className="px-4 py-2.5 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider whitespace-nowrap w-32">Default Fee</th>
-                                                <th className="px-4 py-2.5 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider whitespace-nowrap w-28">Status</th>
-                                                <th className="px-4 py-2.5 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider whitespace-nowrap w-20">Action</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody className="divide-y divide-gray-50">
-                                            {rtLoading
-                                                ? Array.from({ length: 5 }).map((_, i) => <SkeletonRow key={i} cols={7} />)
-                                                : filteredRtList.length === 0
-                                                    ? <EmptyState icon={<FiRepeat className="w-5 h-5 text-slate-400" />} title="No recurring task templates" desc={rtSearch ? 'No match found.' : 'Click "New Template" to create one.'} />
-                                                    : filteredRtList.map((svc, idx) => (
-                                                        <motion.tr key={svc.service_id || svc.id || idx} initial={{ opacity: 0 }} animate={{ opacity: 1 }}
-                                                            className="hover:bg-indigo-50/30 transition-colors">
-                                                            <td className="px-4 py-3 text-xs text-slate-400 font-medium w-10">{idx + 1}</td>
-                                                            <td className="px-4 py-3 max-w-[200px]">
-                                                                <p className="font-semibold text-slate-800 text-xs leading-snug truncate">{svc.name}</p>
-                                                            </td>
-                                                            <td className="px-4 py-3">
-                                                                <span className={`inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-semibold border uppercase tracking-wide ${FREQ_BADGE_COLORS[String(svc.frequency).toLowerCase()] || 'bg-gray-100 text-slate-600 border-gray-200'}`}>
-                                                                    {svc.frequency}
-                                                                </span>
-                                                            </td>
-                                                            <td className="px-4 py-3 text-xs text-slate-600">
-                                                                {svc.due_day ? `Day ${svc.due_day}` : '—'}
-                                                            </td>
-                                                            <td className="px-4 py-3">
-                                                                <span className="text-xs font-semibold text-slate-800">₹{fmt(svc.default_amount)}</span>
-                                                            </td>
-                                                            <td className="px-4 py-3">
-                                                                {svc.status === 'Active' ? (
-                                                                    <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-emerald-100 text-emerald-700 border border-emerald-200">
-                                                                        <FiCheck className="w-3.5 h-3.5" /> Active
-                                                                    </span>
-                                                                ) : (
-                                                                    <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-rose-50 text-rose-700 border border-rose-200" style={{ backgroundColor: 'rgb(254 242 242)' }}>
-                                                                        <FiX className="w-3.5 h-3.5" /> Inactive
-                                                                    </span>
-                                                                )}
-                                                            </td>
-                                                            <td className="px-4 py-3">
-                                                                <div className="flex items-center gap-2">
-                                                                    <button
-                                                                        onClick={() => handleToggleRtStatus(svc)}
-                                                                        className={`px-2.5 py-1 text-[11px] font-bold rounded-lg border transition-all duration-300 ${svc.status === 'Active'
-                                                                            ? 'bg-rose-50 text-rose-700 border-rose-200 hover:bg-rose-100'
-                                                                            : 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100'
-                                                                            }`}
-                                                                    >
-                                                                        {svc.status === 'Active' ? 'Deactive' : 'Active'}
-                                                                    </button>
-                                                                    <ActionMenu items={[
-                                                                        { label: 'Edit', icon: <FiEdit className="w-3.5 h-3.5" />, onClick: () => openRtModal(svc) },
-                                                                        { label: 'Delete', icon: <FiTrash2 className="w-3.5 h-3.5" />, onClick: () => setRtDeleteTarget(svc), danger: true },
-                                                                    ]} />
-                                                                </div>
-                                                            </td>
-                                                        </motion.tr>
-                                                    ))
-                                            }
-                                        </tbody>
-                                    </table>
-                                </div>
-                            </div>
-                        )}
+                                {/* ── RECURRING TASK TEMPLATES TAB ── */}
+                                {activeTab === 'recurring' && (
+                                    <div>
+                                        <div className="flex items-center gap-3 px-4 py-3 border-b border-gray-100">
+                                            <div className="relative flex-1 max-w-xs">
+                                                <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 pointer-events-none" />
+                                                <input type="text" placeholder="Search templates…" value={rtSearch}
+                                                    onChange={(e) => setRtSearch(e.target.value)}
+                                                    className="w-full pl-9 pr-3 py-2 text-sm text-slate-700 border border-gray-200 rounded-lg bg-gray-50 focus:bg-white focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none placeholder:text-slate-400"
+                                                />
+                                            </div>
+                                            <button onClick={fetchRt}
+                                                className="p-2 text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors border border-gray-200">
+                                                <FiRefreshCw className={`w-3.5 h-3.5 ${rtLoading ? 'animate-spin' : ''}`} />
+                                            </button>
+                                            <button onClick={() => openRtModal()}
+                                                className="flex items-center gap-1.5 px-3 py-2 text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg transition-colors">
+                                                <FiPlus className="w-3.5 h-3.5" /> New Template
+                                            </button>
+                                        </div>
+
+                                        <div className="overflow-x-auto">
+                                            <table className="w-full text-sm table-fixed min-w-[850px]">
+                                                <thead>
+                                                    <tr className="bg-gray-50 border-b border-gray-100">
+                                                        <th className="px-4 py-2.5 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider whitespace-nowrap w-12">#</th>
+                                                        <th className="px-4 py-2.5 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider whitespace-nowrap w-[32%]">Service Name</th>
+                                                        <th className="px-4 py-2.5 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider whitespace-nowrap w-28">Frequency</th>
+                                                        <th className="px-4 py-2.5 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider whitespace-nowrap w-24">Due Day</th>
+                                                        <th className="px-4 py-2.5 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider whitespace-nowrap w-32">Default Fee</th>
+                                                        <th className="px-4 py-2.5 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider whitespace-nowrap w-28">Status</th>
+                                                        <th className="px-4 py-2.5 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider whitespace-nowrap w-20">Action</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody className="divide-y divide-gray-50">
+                                                    {rtLoading
+                                                        ? Array.from({ length: 5 }).map((_, i) => <SkeletonRow key={i} cols={7} />)
+                                                        : filteredRtList.length === 0
+                                                            ? <EmptyState icon={<FiRepeat className="w-5 h-5 text-slate-400" />} title="No recurring task templates" desc={rtSearch ? 'No match found.' : 'Click "New Template" to create one.'} />
+                                                            : filteredRtList.map((svc, idx) => (
+                                                                <motion.tr key={svc.service_id || svc.id || idx} initial={{ opacity: 0 }} animate={{ opacity: 1 }}
+                                                                    className="hover:bg-indigo-50/30 transition-colors">
+                                                                    <td className="px-4 py-3 text-xs text-slate-400 font-medium w-10">{idx + 1}</td>
+                                                                    <td className="px-4 py-3 max-w-[200px]">
+                                                                        <p className="font-semibold text-slate-800 text-xs leading-snug truncate">{svc.name}</p>
+                                                                    </td>
+                                                                    <td className="px-4 py-3">
+                                                                        <span className={`inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-semibold border uppercase tracking-wide ${FREQ_BADGE_COLORS[String(svc.frequency).toLowerCase()] || 'bg-gray-100 text-slate-600 border-gray-200'}`}>
+                                                                            {svc.frequency}
+                                                                        </span>
+                                                                    </td>
+                                                                    <td className="px-4 py-3 text-xs text-slate-600">
+                                                                        {svc.due_day ? `Day ${svc.due_day}` : '—'}
+                                                                    </td>
+                                                                    <td className="px-4 py-3">
+                                                                        <span className="text-xs font-semibold text-slate-800">₹{fmt(svc.default_amount)}</span>
+                                                                    </td>
+                                                                    <td className="px-4 py-3">
+                                                                        {svc.status === 'Active' ? (
+                                                                            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-emerald-100 text-emerald-700 border border-emerald-200">
+                                                                                <FiCheck className="w-3.5 h-3.5" /> Active
+                                                                            </span>
+                                                                        ) : (
+                                                                            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-rose-50 text-rose-700 border border-rose-200" style={{ backgroundColor: 'rgb(254 242 242)' }}>
+                                                                                <FiX className="w-3.5 h-3.5" /> Inactive
+                                                                            </span>
+                                                                        )}
+                                                                    </td>
+                                                                    <td className="px-4 py-3">
+                                                                        <div className="flex items-center gap-2">
+                                                                            <button
+                                                                                onClick={() => handleToggleRtStatus(svc)}
+                                                                                className={`px-2.5 py-1 text-[11px] font-bold rounded-lg border transition-all duration-300 ${svc.status === 'Active'
+                                                                                    ? 'bg-rose-50 text-rose-700 border-rose-200 hover:bg-rose-100'
+                                                                                    : 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100'
+                                                                                    }`}
+                                                                            >
+                                                                                {svc.status === 'Active' ? 'Deactive' : 'Active'}
+                                                                            </button>
+                                                                            <ActionMenu items={[
+                                                                                { label: 'Edit', icon: <FiEdit className="w-3.5 h-3.5" />, onClick: () => openRtModal(svc) },
+                                                                                { label: 'Delete', icon: <FiTrash2 className="w-3.5 h-3.5" />, onClick: () => setRtDeleteTarget(svc), danger: true },
+                                                                            ]} />
+                                                                        </div>
+                                                                    </td>
+                                                                </motion.tr>
+                                                            ))
+                                                    }
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    </div>
+                                )}
                             </>
                         )}
 

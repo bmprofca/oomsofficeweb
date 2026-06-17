@@ -174,6 +174,7 @@ const STATUS_BADGES = {
     'Complete': 'bg-emerald-100 text-emerald-800 border-emerald-200',
     'Sale': 'bg-emerald-100 text-emerald-800 border-emerald-200',
     'N/A': 'bg-slate-100 text-slate-500 border-slate-200',
+    'Cancel': 'bg-rose-100 text-rose-800 border-rose-200',
     'Outsource': 'bg-blue-100 text-blue-800 border-blue-200'
 };
 
@@ -658,9 +659,9 @@ const ComplianceServices = () => {
         } else if (st === 'Pending From Client' || st === 'PFC') {
             statusLetter = 'PC';
             cellClass = 'bg-orange-50 text-orange-700 border-orange-200';
-        } else if (st === 'Outsource') {
-            statusLetter = 'O';
-            cellClass = 'bg-blue-50 text-blue-700 border-blue-200';
+        } else if (st === 'Cancel' || st === 'Outsource') {
+            statusLetter = 'Cn';
+            cellClass = 'bg-rose-50 text-rose-700 border-rose-200';
         } else if (st === 'N/A') {
             statusLetter = 'N';
             cellClass = 'bg-slate-50 text-slate-400 border-slate-200';
@@ -1424,7 +1425,7 @@ const ComplianceServices = () => {
                                         <option value="Pending From The Department">Pending (Dept)</option>
                                         <option value="Pending From Client">Pending (Client)</option>
                                         <option value="Complete">Complete</option>
-                                        <option value="Outsource">Outsource</option>
+                                        <option value="Cancel">Cancel</option>
                                         <option value="N/A">N/A</option>
                                     </select>
                                 </div>
@@ -1648,8 +1649,8 @@ const ComplianceServices = () => {
                                                     Complete (Locked)
                                                 </span>
                                                 <span className="flex items-center gap-1.5">
-                                                    <span className="w-5 h-5 rounded border bg-blue-50 text-blue-700 border-blue-200 flex items-center justify-center text-[10px] font-bold">O</span>
-                                                    Outsource
+                                                    <span className="w-5 h-5 rounded border bg-rose-50 text-rose-700 border-rose-200 flex items-center justify-center text-[10px] font-bold">Cn</span>
+                                                    Cancel
                                                 </span>
                                                 <span className="flex items-center gap-1.5">
                                                     <span className="w-5 h-5 rounded border bg-slate-50 text-slate-400 border-slate-200 flex items-center justify-center text-[10px] font-bold">N</span>
@@ -2335,7 +2336,7 @@ const ComplianceServices = () => {
                                                                         setAssignForm(prev => {
                                                                             const current = prev.quarters || [];
                                                                             const updated = e.target.checked
-                                                                                ? [...current, q]
+                                                                                ? Array.from(new Set([...current, ...[1, 2, 3, 4].filter(x => x >= q)]))
                                                                                 : current.filter(x => x !== q);
                                                                             return { ...prev, quarters: updated };
                                                                         });
@@ -2713,7 +2714,7 @@ const ComplianceServices = () => {
                                                 <option value="Pending From The Department">Pending (Dept)</option>
                                                 <option value="Pending From Client">Pending (Client)</option>
                                                 <option value="Complete">Complete</option>
-                                                <option value="Outsource">Outsource</option>
+                                                <option value="Cancel">Cancel</option>
                                                 <option value="N/A">N/A</option>
                                             </select>
                                         </div>
@@ -2935,7 +2936,7 @@ const ComplianceServices = () => {
                                                                     setEditForm(prev => {
                                                                         const current = prev.quarters || [];
                                                                         const updated = e.target.checked
-                                                                            ? [...current, q]
+                                                                            ? Array.from(new Set([...current, ...[1, 2, 3, 4].filter(x => x >= q)]))
                                                                             : current.filter(x => x !== q);
                                                                         return { ...prev, quarters: updated };
                                                                     });
@@ -3600,3 +3601,4 @@ const ComplianceServices = () => {
 };
 
 export default ComplianceServices;
+
