@@ -641,8 +641,7 @@ const Services = () => {
     };
 
     const handleRtSubmit = async () => {
-        const isCustom = rtForm.template_type === 'Custom / New Service';
-        const finalName = isCustom ? rtForm.name.trim() : rtForm.template_type;
+        const finalName = rtForm.name.trim();
 
         if (!finalName) { toast.error('Service name is required'); return; }
         if (!rtForm.default_amount) { toast.error('Default fee is required'); return; }
@@ -672,7 +671,7 @@ const Services = () => {
         }
 
         // Validate custom fields schema
-        if (isCustom && rtForm.required_fields?.length > 0) {
+        if (rtForm.required_fields?.length > 0) {
             for (const field of rtForm.required_fields) {
                 if (!field.label?.trim()) { toast.error('Field Label is required for all custom fields'); return; }
                 if (!field.key?.trim()) { toast.error('Field Key is required for all custom fields'); return; }
@@ -711,8 +710,8 @@ const Services = () => {
                 default_amount: parseFloat(rtForm.default_amount),
                 due_day: rtForm.due_day ? parseInt(rtForm.due_day) : null,
                 status: rtForm.status,
-                template_type: rtForm.template_type,
-                required_fields: isCustom ? rtForm.required_fields : []
+                template_type: rtForm.template_type || 'Custom / New Service',
+                required_fields: rtForm.required_fields || []
             };
             if (rtForm.frequency === 'quarterly') {
                 payload.q1_due_day = rtForm.q1_due_day ? parseInt(rtForm.q1_due_day) : null;
@@ -998,7 +997,7 @@ const Services = () => {
                 service_id: svc.service_id,
                 status: nextStatus
             }, { headers: getHeaders() });
-            
+
             if (res.data?.success) {
                 toast.success(`Service status updated to ${nextStatus}`, { id: toastId });
                 fetchBranch(branchSearch, branchPage, branchLimit);
@@ -1173,13 +1172,13 @@ const Services = () => {
                                                             </td>
                                                             <td className="px-4 py-3 text-xs text-slate-600">
                                                                 <p className="font-semibold text-slate-700">Fees: ₹{fmt(firm.assignment?.custom_amount)}</p>
-                                                                <p className="text-[11px] text-slate-505 mt-0.5">Pay Month: {firm.assignment?.pay_from_month || '—'}</p>
+                                                                <p className="text-[11px] text-slate-505 mt-0.5">Pay Month: {firm.assignment?.pay_from_month || firm.assignment?.period_name || '—'}</p>
                                                                 <p className="text-[10px] text-slate-400 mt-0.5">Staff: {getStaffNames(firm.assignment?.employee_username)}</p>
                                                             </td>
                                                             <td className="px-4 py-3">
                                                                 <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold border ${String(firm.assignment?.status).toLowerCase() === 'active'
-                                                                        ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                                                                        : 'bg-rose-50 text-rose-700 border-rose-200'
+                                                                    ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                                                                    : 'bg-rose-50 text-rose-700 border-rose-200'
                                                                     }`}>
                                                                     {firm.assignment?.status || 'inactive'}
                                                                 </span>
@@ -1416,13 +1415,12 @@ const Services = () => {
                                                                         <div className="flex items-center gap-2">
                                                                             <button
                                                                                 onClick={() => handleToggleServiceStatus(svc)}
-                                                                                className={`px-2.5 py-1 text-[11px] font-bold rounded-lg border transition-all duration-300 ${
-                                                                                    svc.added_to_branch && String(svc.status).toLowerCase() === 'inactive'
+                                                                                className={`px-2.5 py-1 text-[11px] font-bold rounded-lg border transition-all duration-300 ${svc.added_to_branch && String(svc.status).toLowerCase() === 'inactive'
                                                                                         ? 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100'
                                                                                         : svc.added_to_branch
                                                                                             ? 'bg-rose-50 text-rose-700 border-rose-200 hover:bg-rose-100'
                                                                                             : 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100'
-                                                                                }`}
+                                                                                    }`}
                                                                             >
                                                                                 {svc.added_to_branch && String(svc.status).toLowerCase() === 'inactive' ? 'Active' : svc.added_to_branch ? 'Deactive' : 'Active'}
                                                                             </button>
@@ -1661,121 +1659,99 @@ const Services = () => {
                             </div>
                             <div className="p-5 space-y-4 overflow-y-auto [scrollbar-width:none]">
                                 <div>
-                                    <label className="block text-xs font-semibold text-slate-600 mb-1.5">Service Template Type *</label>
-                                    <select
-                                        value={rtForm.template_type || 'Custom / New Service'}
-                                        onChange={(e) => {
-                                            const val = e.target.value;
-                                            setRtForm(f => {
-                                                const name = (val === 'Professional Tax' || val === 'GSTR-1 Filing') ? val : '';
-                                                return { ...f, template_type: val, name };
-                                            });
-                                        }}
-                                        className="w-full px-3 py-2 text-xs border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none bg-white font-medium text-slate-700"
-                                    >
-                                        <option value="Professional Tax">Professional Tax</option>
-                                        <option value="GSTR-1 Filing">GSTR-1 Filing</option>
-                                        <option value="Custom / New Service">Custom / New Service</option>
-                                    </select>
+                                    <label className="block text-xs font-semibold text-slate-600 mb-1.5">Service Name *</label>
+                                    <input type="text" value={rtForm.name} onChange={(e) => setRtForm(f => ({ ...f, name: e.target.value }))} placeholder="e.g. Local Authority Audit"
+                                        className="w-full px-3 py-2 text-xs border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none bg-white font-medium text-slate-700" required />
                                 </div>
-                                {rtForm.template_type === 'Custom / New Service' && (
-                                    <div>
-                                        <label className="block text-xs font-semibold text-slate-600 mb-1.5">Service Name *</label>
-                                        <input type="text" value={rtForm.name} onChange={(e) => setRtForm(f => ({ ...f, name: e.target.value }))} placeholder="e.g. Local Authority Audit"
-                                            className="w-full px-3 py-2 text-xs border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none" />
-                                    </div>
-                                )}
 
-                                {rtForm.template_type === 'Custom / New Service' && (
-                                    <div className="border-t border-gray-100 pt-3 space-y-3">
-                                        <div className="flex items-center justify-between">
-                                            <h4 className="text-xs font-bold text-slate-700">Custom Credentials/Fields</h4>
-                                            <button
-                                                type="button"
-                                                onClick={() => setRtForm(f => ({
-                                                    ...f,
-                                                    required_fields: [...(f.required_fields || []), { key: '', label: '', type: 'text' }]
-                                                }))}
-                                                className="flex items-center gap-1 px-2.5 py-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-705 border border-indigo-200 rounded-lg text-[10px] font-semibold transition-colors"
-                                            >
-                                                <FiPlus className="w-3 h-3" /> Add Field
-                                            </button>
-                                        </div>
-                                        {(!rtForm.required_fields || rtForm.required_fields.length === 0) ? (
-                                            <p className="text-[11px] text-slate-400 italic">No custom fields defined. Click "Add Field" to define required credentials.</p>
-                                        ) : (
-                                            <div className="space-y-3 max-h-48 overflow-y-auto p-1 border border-slate-100 rounded-xl bg-slate-50/50">
-                                                {rtForm.required_fields.map((field, idx) => (
-                                                    <div key={idx} className="flex gap-2 items-end border border-slate-200 p-2.5 rounded-lg bg-white relative">
-                                                        <div className="flex-1 min-w-0">
-                                                            <label className="block text-[10px] font-semibold text-slate-500 mb-1">Field Label *</label>
-                                                            <input
-                                                                type="text"
-                                                                value={field.label}
-                                                                onChange={(e) => {
-                                                                    const val = e.target.value;
-                                                                    const key = val.toLowerCase().replace(/[^a-z0-9_]/g, '_').replace(/_+/g, '_');
-                                                                    setRtForm(f => {
-                                                                        const updated = [...f.required_fields];
-                                                                        updated[idx] = { ...updated[idx], label: val, key: updated[idx].key || key };
-                                                                        return { ...f, required_fields: updated };
-                                                                    });
-                                                                }}
-                                                                placeholder="e.g. Audit Code"
-                                                                className="w-full px-2 py-1 text-[11px] border border-gray-200 rounded-lg focus:ring-1 focus:ring-indigo-500 outline-none"
-                                                            />
-                                                        </div>
-                                                        <div className="flex-1 min-w-0">
-                                                            <label className="block text-[10px] font-semibold text-slate-500 mb-1">Field Key *</label>
-                                                            <input
-                                                                type="text"
-                                                                value={field.key}
-                                                                onChange={(e) => {
-                                                                    const val = e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, '_');
-                                                                    setRtForm(f => {
-                                                                        const updated = [...f.required_fields];
-                                                                        updated[idx] = { ...updated[idx], key: val };
-                                                                        return { ...f, required_fields: updated };
-                                                                    });
-                                                                }}
-                                                                placeholder="e.g. audit_code"
-                                                                className="w-full px-2 py-1 text-[11px] border border-gray-200 rounded-lg focus:ring-1 focus:ring-indigo-500 outline-none"
-                                                            />
-                                                        </div>
-                                                        <div className="w-20">
-                                                            <label className="block text-[10px] font-semibold text-slate-500 mb-1">Type *</label>
-                                                            <select
-                                                                value={field.type}
-                                                                onChange={(e) => {
-                                                                    const val = e.target.value;
-                                                                    setRtForm(f => {
-                                                                        const updated = [...f.required_fields];
-                                                                        updated[idx] = { ...updated[idx], type: val };
-                                                                        return { ...f, required_fields: updated };
-                                                                    });
-                                                                }}
-                                                                className="w-full px-2 py-1 text-[11px] border border-gray-200 rounded-lg focus:ring-1 focus:ring-indigo-500 outline-none bg-white"
-                                                            >
-                                                                <option value="text">text</option>
-                                                                <option value="password">password</option>
-                                                            </select>
-                                                        </div>
-                                                        <button
-                                                            type="button"
-                                                            onClick={() => setRtForm(f => ({
-                                                                ...f,
-                                                                required_fields: f.required_fields.filter((_, i) => i !== idx)
-                                                            }))}
-                                                            className="p-1.5 text-rose-500 hover:bg-rose-50 rounded-lg transition-colors border border-rose-200"
-                                                        >
-                                                            <FiTrash2 className="w-3.5 h-3.5" />
-                                                        </button>
-                                                    </div>
-                                                ))}
-                                            </div>
-                                        )}
+                                <div className="border-t border-gray-100 pt-3 space-y-3">
+                                    <div className="flex items-center justify-between">
+                                        <h4 className="text-xs font-bold text-slate-700">Custom Credentials/Fields</h4>
+                                        <button
+                                            type="button"
+                                            onClick={() => setRtForm(f => ({
+                                                ...f,
+                                                required_fields: [...(f.required_fields || []), { key: '', label: '', type: 'text' }]
+                                            }))}
+                                            className="flex items-center gap-1 px-2.5 py-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-705 border border-indigo-200 rounded-lg text-[10px] font-semibold transition-colors"
+                                        >
+                                            <FiPlus className="w-3 h-3" /> Add Field
+                                        </button>
                                     </div>
-                                )}
+                                    {(!rtForm.required_fields || rtForm.required_fields.length === 0) ? (
+                                        <p className="text-[11px] text-slate-400 italic">No custom fields defined. Click "Add Field" to define required credentials.</p>
+                                    ) : (
+                                        <div className="space-y-3 max-h-48 overflow-y-auto p-1 border border-slate-100 rounded-xl bg-slate-50/50">
+                                            {rtForm.required_fields.map((field, idx) => (
+                                                <div key={idx} className="flex gap-2 items-end border border-slate-200 p-2.5 rounded-lg bg-white relative">
+                                                    <div className="flex-1 min-w-0">
+                                                        <label className="block text-[10px] font-semibold text-slate-500 mb-1">Field Label *</label>
+                                                        <input
+                                                            type="text"
+                                                            value={field.label}
+                                                            onChange={(e) => {
+                                                                const val = e.target.value;
+                                                                const key = val.toLowerCase().replace(/[^a-z0-9_]/g, '_').replace(/_+/g, '_');
+                                                                setRtForm(f => {
+                                                                    const updated = [...f.required_fields];
+                                                                    updated[idx] = { ...updated[idx], label: val, key: updated[idx].key || key };
+                                                                    return { ...f, required_fields: updated };
+                                                                });
+                                                            }}
+                                                            placeholder="e.g. Audit Code"
+                                                            className="w-full px-2 py-1 text-[11px] border border-gray-200 rounded-lg focus:ring-1 focus:ring-indigo-500 outline-none"
+                                                        />
+                                                    </div>
+                                                    <div className="flex-1 min-w-0">
+                                                        <label className="block text-[10px] font-semibold text-slate-500 mb-1">Field Key *</label>
+                                                        <input
+                                                            type="text"
+                                                            value={field.key}
+                                                            onChange={(e) => {
+                                                                const val = e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, '_');
+                                                                setRtForm(f => {
+                                                                    const updated = [...f.required_fields];
+                                                                    updated[idx] = { ...updated[idx], key: val };
+                                                                    return { ...f, required_fields: updated };
+                                                                });
+                                                            }}
+                                                            placeholder="e.g. audit_code"
+                                                            className="w-full px-2 py-1 text-[11px] border border-gray-200 rounded-lg focus:ring-1 focus:ring-indigo-500 outline-none"
+                                                        />
+                                                    </div>
+                                                    <div className="w-20">
+                                                        <label className="block text-[10px] font-semibold text-slate-500 mb-1">Type *</label>
+                                                        <select
+                                                            value={field.type}
+                                                            onChange={(e) => {
+                                                                const val = e.target.value;
+                                                                setRtForm(f => {
+                                                                    const updated = [...f.required_fields];
+                                                                    updated[idx] = { ...updated[idx], type: val };
+                                                                    return { ...f, required_fields: updated };
+                                                                });
+                                                            }}
+                                                            className="w-full px-2 py-1 text-[11px] border border-gray-200 rounded-lg focus:ring-1 focus:ring-indigo-500 outline-none bg-white"
+                                                        >
+                                                            <option value="text">text</option>
+                                                            <option value="password">password</option>
+                                                        </select>
+                                                    </div>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setRtForm(f => ({
+                                                            ...f,
+                                                            required_fields: f.required_fields.filter((_, i) => i !== idx)
+                                                        }))}
+                                                        className="p-1.5 text-rose-500 hover:bg-rose-50 rounded-lg transition-colors border border-rose-200"
+                                                    >
+                                                        <FiTrash2 className="w-3.5 h-3.5" />
+                                                    </button>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
+                                </div>
 
                                 {rtForm.template_type && rtForm.template_type !== 'Custom / New Service' && (
                                     <div className="bg-indigo-50/55 border border-indigo-100 rounded-xl p-3 text-xs text-indigo-805 space-y-1">

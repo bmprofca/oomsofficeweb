@@ -1,4 +1,4 @@
-﻿import React, {
+import React, {
     useState,
     useEffect,
     useRef,
@@ -604,7 +604,25 @@ const ComplianceServices = () => {
             custom_amount: String(assign.custom_amount || ''),
             employee_usernames: empUsernames,
             ca_id: assign.ca_id || assign.ca?.username || '',
-            pay_from_month: assign.pay_from_month || '',
+            pay_from_month: (() => {
+                let m = assign.pay_from_month || assign.period_name;
+                if (!m && typeof allSchedules !== 'undefined' && Array.isArray(allSchedules)) {
+                    const assignSchedules = allSchedules.filter(s => s.assignment_id === assign.assignment_id);
+                    if (assignSchedules.length > 0) {
+                        const MONTH_ORDER = ['April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December', 'January', 'February', 'March'];
+                        const sorted = [...assignSchedules].sort((a, b) => MONTH_ORDER.indexOf(a.period_name) - MONTH_ORDER.indexOf(b.period_name));
+                        m = sorted[0]?.period_name;
+                    }
+                }
+                m = (m || '').trim();
+                if (!m) return '';
+                m = m.charAt(0).toUpperCase() + m.slice(1).toLowerCase();
+                const map = {
+                    'Apr': 'April', 'May': 'May', 'Jun': 'June', 'Jul': 'July', 'Aug': 'August', 'Sep': 'September',
+                    'Oct': 'October', 'Nov': 'November', 'Dec': 'December', 'Jan': 'January', 'Feb': 'February', 'Mar': 'March'
+                };
+                return map[m] || m;
+            })(),
             quarters,
             status: assign.status || 'active'
         });
@@ -622,7 +640,7 @@ const ComplianceServices = () => {
         setEditCaSearchResults([]);
         setEditStaffSearchQuery('');
         setShowEditModal(true);
-    }, []);
+    }, [allSchedules]);
 
     const filteredStaffResults = useMemo(() => {
         const query = staffSearchQuery.trim().toLowerCase();
@@ -861,6 +879,29 @@ const ComplianceServices = () => {
             setStaffLoading(false);
         }
     }, []);
+    const fetchAllStats = useCallback(async () => {
+        try {
+            const res = await axios.get(`${API_BASE_URL}/recurring-task/schedule`, {
+                headers: getHeaders()
+            });
+            if (res.data?.success) {
+                const allSchedulesData = res.data.data || [];
+                setAllSchedules(allSchedulesData);
+                const salesAmount = allSchedulesData
+                    .filter(s => s.status === 'Sale')
+                    .reduce((sum, s) => sum + parseFloat(s.amount || 0), 0);
+                const pendingCount = allSchedulesData.filter(s => s.status === 'Pending').length;
+
+                setStats(prev => ({
+                    ...prev,
+                    totalSalesAmount: salesAmount,
+                    pendingActions: pendingCount
+                }));
+            }
+        } catch (err) {
+            console.error('Error calculating recurring task schedules stats:', err);
+        }
+    }, []);
 
     // Load initial data
     useEffect(() => {
@@ -868,33 +909,8 @@ const ComplianceServices = () => {
         fetchAssignments();
         fetchStaff();
         fetchGroups();
-
-        // Fetch all schedules to compute total sales amount and pending counts
-        const fetchAllStats = async () => {
-            try {
-                const res = await axios.get(`${API_BASE_URL}/recurring-task/schedule`, {
-                    headers: getHeaders()
-                });
-                if (res.data?.success) {
-                    const allSchedulesData = res.data.data || [];
-                    setAllSchedules(allSchedulesData);
-                    const salesAmount = allSchedulesData
-                        .filter(s => s.status === 'Sale')
-                        .reduce((sum, s) => sum + parseFloat(s.amount || 0), 0);
-                    const pendingCount = allSchedulesData.filter(s => s.status === 'Pending').length;
-
-                    setStats(prev => ({
-                        ...prev,
-                        totalSalesAmount: salesAmount,
-                        pendingActions: pendingCount
-                    }));
-                }
-            } catch (err) {
-                console.error('Error calculating recurring task schedules stats:', err);
-            }
-        };
         fetchAllStats();
-    }, [fetchServices, fetchAssignments, fetchStaff, fetchGroups]);
+    }, [fetchServices, fetchAssignments, fetchStaff, fetchGroups, fetchAllStats]);
 
     // Handle CA search autocomplete (Assign modal)
     useEffect(() => {
@@ -1164,6 +1180,7 @@ const ComplianceServices = () => {
                 setSelectedCa(null);
                 setCaSearchQuery('');
                 fetchAssignments();
+                fetchAllStats();
             }
         } catch (err) {
             console.error('Error assigning service:', err);
@@ -1195,7 +1212,12 @@ const ComplianceServices = () => {
                 status: editForm.status
             };
             if (editForm.ca_id) payload.ca_id = editForm.ca_id;
-            if (editForm.pay_from_month) payload.pay_from_month = editForm.pay_from_month;
+            const svc = services.find(s => String(s.service_id) === String(editAssignment.service_id));
+            const isGstr1 = editAssignment.service_id === 'GSTR-1' || (svc?.name && /gstr-1/i.test(svc.name));
+            const editFreq = isGstr1 ? 'monthly' : (svc?.frequency?.toLowerCase() || editAssignment.frequency?.toLowerCase() || '');
+            if (editFreq === 'monthly') {
+                payload.pay_from_month = editForm.pay_from_month || '';
+            }
             if (editForm.quarters && editForm.quarters.length > 0) {
                 payload.quarters = editForm.quarters.join(',');
             }
@@ -1210,6 +1232,7 @@ const ComplianceServices = () => {
             setShowEditModal(false);
             setEditAssignment(null);
             fetchAssignments();
+            fetchAllStats();
         } catch (err) {
             console.error('Error updating assignment:', err);
             toast.error(err.response?.data?.message || 'Failed to update assignment');
@@ -1241,6 +1264,7 @@ const ComplianceServices = () => {
             setShowCredentialsModal(false);
             setCredentialsAssignment(null);
             fetchAssignments();
+            fetchAllStats();
         } catch (err) {
             console.error('Error updating credentials:', err);
             toast.error(err.response?.data?.message || 'Failed to update credentials');
@@ -1391,10 +1415,17 @@ const ComplianceServices = () => {
                                         className="px-2 py-1.5 text-xs text-slate-700 border border-slate-200 rounded-lg bg-white focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none"
                                     >
                                         <option value="">All Years</option>
-                                        <option value="2025-2026">2024-2025</option>
+                                        <option value="2020-2021">2020-2021</option>
+                                        <option value="2021-2022">2021-2022</option>
+                                        <option value="2022-2023">2022-2023</option>
+                                        <option value="2023-2024">2023-2024</option>
+                                        <option value="2024-2025">2024-2025</option>
                                         <option value="2025-2026">2025-2026</option>
                                         <option value="2026-2027">2026-2027</option>
                                         <option value="2027-2028">2027-2028</option>
+                                        <option value="2028-2029">2028-2029</option>
+                                        <option value="2029-2030">2029-2030</option>
+                                        <option value="2030-2031">2030-2031</option>
                                     </select>
                                 </div>
 
@@ -1439,7 +1470,7 @@ const ComplianceServices = () => {
                                 </button>
                             </div>
 
-                            <div className="overflow-x-auto">
+                            <div className="overflow-x-auto overflow-hidden rounded-xl border border-slate-100 min-h-[260px]">
                                 {isServiceFiltered ? (
                                     <div className="min-w-[800px]">
                                         <table className="w-full text-sm text-left border-collapse">
@@ -1475,7 +1506,7 @@ const ComplianceServices = () => {
                                                     filteredAssignments.map((assign, idx) => {
                                                         const assignSchedules = allSchedules.filter(s => s.assignment_id === assign.assignment_id);
                                                         return (
-                                                            <tr key={assign.assignment_id} className="hover:bg-slate-50/50 transition-colors">
+                                                            <tr key={`${assign.assignment_id}-${idx}`} className="hover:bg-slate-50/50 transition-colors">
                                                                 <td className="px-4 py-3 text-center font-mono text-xs text-slate-400">
                                                                     {idx + 1}
                                                                 </td>
@@ -1533,20 +1564,20 @@ const ComplianceServices = () => {
                                                                     const period = getPeriodSchedule(assignSchedules, headerText, activeFrequency);
                                                                     return renderCell(period, assign);
                                                                 })}
-                                                                <td className="px-4 py-3 text-center align-middle">
-                                                                    <div className={`dropdown-container relative flex justify-center ${activeDropdownId === assign.assignment_id ? 'z-50' : 'z-0'}`}>
+                                                                <td className={`px-4 py-3 text-center align-middle ${activeDropdownId === `${assign.assignment_id}-${idx}` ? 'relative z-50' : ''}`}>
+                                                                    <div className={`dropdown-container relative flex justify-center ${activeDropdownId === `${assign.assignment_id}-${idx}` ? 'z-50' : 'z-0'}`}>
                                                                         <button
                                                                             type="button"
                                                                             onClick={(e) => {
                                                                                 e.stopPropagation();
-                                                                                setActiveDropdownId(activeDropdownId === assign.assignment_id ? null : assign.assignment_id);
+                                                                                setActiveDropdownId(activeDropdownId === `${assign.assignment_id}-${idx}` ? null : `${assign.assignment_id}-${idx}`);
                                                                             }}
                                                                             className="p-1.5 text-slate-500 hover:text-indigo-600 rounded-lg hover:bg-indigo-50 border border-slate-200 transition-colors"
                                                                         >
                                                                             <FiMenu className="w-3.5 h-3.5" />
                                                                         </button>
                                                                         <AnimatePresence>
-                                                                            {activeDropdownId === assign.assignment_id && (
+                                                                            {activeDropdownId === `${assign.assignment_id}-${idx}` && (
                                                                                 <motion.div
                                                                                     initial={{ opacity: 0, scale: 0.95, y: 5 }}
                                                                                     animate={{ opacity: 1, scale: 1, y: 0 }}
@@ -1697,7 +1728,7 @@ const ComplianceServices = () => {
                                                 </tr>
                                             ) : (
                                                 filteredAssignments.map((assign, idx) => (
-                                                    <React.Fragment key={assign.assignment_id}>
+                                                    <React.Fragment key={`${assign.assignment_id}-${idx}`}>
                                                         <tr
                                                             onClick={() => handleSelectAssignment(assign.assignment_id)}
                                                             className={`hover:bg-slate-50/50 cursor-pointer transition-colors ${selectedAssignmentId === assign.assignment_id ? 'bg-indigo-50/20' : ''
@@ -1777,21 +1808,21 @@ const ComplianceServices = () => {
                                                                     );
                                                                 })()}
                                                             </td>
-                                                            <td className="px-3 py-3 text-right">
+                                                            <td className={`px-3 py-3 text-right ${activeDropdownId === `${assign.assignment_id}-${idx}` ? 'relative z-50' : ''}`}>
                                                                 <div className="flex items-center justify-end gap-2">
-                                                                    <div className={`dropdown-container relative flex justify-center ${activeDropdownId === assign.assignment_id ? 'z-50' : 'z-0'}`}>
+                                                                    <div className={`dropdown-container relative flex justify-center ${activeDropdownId === `${assign.assignment_id}-${idx}` ? 'z-50' : 'z-0'}`}>
                                                                         <button
                                                                             type="button"
                                                                             onClick={(e) => {
                                                                                 e.stopPropagation();
-                                                                                setActiveDropdownId(activeDropdownId === assign.assignment_id ? null : assign.assignment_id);
+                                                                                setActiveDropdownId(activeDropdownId === `${assign.assignment_id}-${idx}` ? null : `${assign.assignment_id}-${idx}`);
                                                                             }}
-                                                                            className="p-1.5 text-slate-500 hover:text-indigo-650 rounded-lg hover:bg-indigo-50 border border-slate-200 transition-colors"
+                                                                            className="p-1.5 text-slate-500 hover:text-indigo-655 rounded-lg hover:bg-indigo-50 border border-slate-200 transition-colors"
                                                                         >
                                                                             <FiMenu className="w-3.5 h-3.5" />
                                                                         </button>
                                                                         <AnimatePresence>
-                                                                            {activeDropdownId === assign.assignment_id && (
+                                                                            {activeDropdownId === `${assign.assignment_id}-${idx}` && (
                                                                                 <motion.div
                                                                                     initial={{ opacity: 0, scale: 0.95, y: 5 }}
                                                                                     animate={{ opacity: 1, scale: 1, y: 0 }}
@@ -1944,9 +1975,15 @@ const ComplianceServices = () => {
                                                                                             const targetFY = normalizeFY(assign.financial_year);
                                                                                             let list = schedules.filter(p => normalizeFY(p.financial_year) === targetFY);
 
-                                                                                            if (!assign.pay_from_month || assign.frequency !== 'monthly') return list;
+                                                                                            const rawMonth = assign.pay_from_month || assign.period_name;
+                                                                                            if (!rawMonth || assign.frequency !== 'monthly') return list;
+                                                                                            const map = {
+                                                                                                'Apr': 'April', 'May': 'May', 'Jun': 'June', 'Jul': 'July', 'Aug': 'August', 'Sep': 'September',
+                                                                                                'Oct': 'October', 'Nov': 'November', 'Dec': 'December', 'Jan': 'January', 'Feb': 'February', 'Mar': 'March'
+                                                                                            };
+                                                                                            const startMonth = map[rawMonth] || rawMonth;
                                                                                             const MONTHS = ['April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December', 'January', 'February', 'March'];
-                                                                                            const startIndex = MONTHS.indexOf(assign.pay_from_month);
+                                                                                            const startIndex = MONTHS.indexOf(startMonth);
                                                                                             if (startIndex === -1) return list;
                                                                                             return list.filter(p => {
                                                                                                 const pIndex = MONTHS.indexOf(p.period_name);
@@ -2362,9 +2399,17 @@ const ComplianceServices = () => {
                                             onChange={(e) => setAssignForm(prev => ({ ...prev, financial_year: e.target.value }))}
                                             className="w-full px-3 py-2.5 text-xs text-slate-700 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none bg-white"
                                         >
+                                            <option value="2020-2021">2020-2021</option>
+                                            <option value="2021-2022">2021-2022</option>
+                                            <option value="2022-2023">2022-2023</option>
+                                            <option value="2023-2024">2023-2024</option>
+                                            <option value="2024-2025">2024-2025</option>
                                             <option value="2025-2026">2025-2026</option>
                                             <option value="2026-2027">2026-2027</option>
                                             <option value="2027-2028">2027-2028</option>
+                                            <option value="2028-2029">2028-2029</option>
+                                            <option value="2029-2030">2029-2030</option>
+                                            <option value="2030-2031">2030-2031</option>
                                         </select>
                                     </div>
 
@@ -3204,6 +3249,7 @@ const ComplianceServices = () => {
                                             setConfirmDeleteId(null);
                                             setSelectedAssignmentId(null);
                                             fetchAssignments();
+                                            fetchAllStats();
                                         } catch (err) {
                                             toast.error(err?.response?.data?.message || 'Failed to delete assignment');
                                         } finally {
