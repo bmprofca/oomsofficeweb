@@ -1,38 +1,29 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
     FiUser,
-    FiLock,
     FiMail,
     FiArrowRight,
     FiArrowLeft,
     FiRefreshCw,
     FiCheckCircle,
-    FiEye,
-    FiEyeOff,
-    FiGitBranch,
     FiCheck,
     FiHome,
     FiShield,
-    FiKey
+    FiChevronRight,
+    FiTrendingUp
 } from 'react-icons/fi';
-import { FcGoogle } from 'react-icons/fc';
-import { FaMicrosoft } from 'react-icons/fa';
-import { SiAuth0 } from 'react-icons/si';
 import { GoogleLogin } from '@react-oauth/google';
 import { fetchWhatsappChannel } from './broadcast/whatsapp/whatsappChannelStore';
 
 const BASE_URL = 'https://api.ooms.in/api/v1';
 
 const Login = () => {
-    const [phase, setPhase] = useState(1); // 1: Credentials, 2: OTP
+    const navigate = useNavigate();
+    const [phase, setPhase] = useState(1);
     const [loading, setLoading] = useState(false);
     const [fullScreenLoading, setFullScreenLoading] = useState(false);
-    const [showPassword, setShowPassword] = useState(false);
-    const [formData, setFormData] = useState({
-        email: '',
-        password: '',
-        otp: ''
-    });
+    const [formData, setFormData] = useState({ login_id: '', otp: '' });
     const [branches, setBranches] = useState([]);
     const [selectedBranch, setSelectedBranch] = useState('');
     const [otpExpireTime, setOtpExpireTime] = useState(null);
@@ -42,38 +33,46 @@ const Login = () => {
     const [activeSocialLogin, setActiveSocialLogin] = useState(null);
     const [isValidEmail, setIsValidEmail] = useState(true);
     const [otpDigits, setOtpDigits] = useState(['', '', '', '', '', '']);
+    const [countdown, setCountdown] = useState(30);
 
-    const emailRef = useRef(null);
-    const passwordRef = useRef(null);
+    const identifierRef = useRef(null);
     const otpRefs = useRef([...Array(6)].map(() => React.createRef()));
 
     useEffect(() => {
         if (phase === 1) {
-            setTimeout(() => {
-                emailRef.current?.focus();
-            }, 100);
+            setTimeout(() => { identifierRef.current?.focus(); }, 100);
         }
     }, [phase]);
 
     useEffect(() => {
         if (phase === 2 && !showBranchSelection && !loginSuccess) {
-            setTimeout(() => {
-                otpRefs.current[0]?.current?.focus();
-            }, 300);
+            setTimeout(() => { otpRefs.current[0]?.current?.focus(); }, 300);
         }
     }, [phase, showBranchSelection, loginSuccess]);
 
+    useEffect(() => {
+        let timer;
+        if (phase === 2 && countdown > 0) {
+            timer = setInterval(() => { setCountdown(prev => prev - 1); }, 1000);
+        }
+        return () => clearInterval(timer);
+    }, [phase, countdown]);
+
+    const validateLoginId = (val) => {
+        if (!val) return true;
+        if (val.includes('@')) {
+            const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+            return emailRegex.test(val);
+        } else {
+            const phoneRegex = /^\d{10}$/;
+            return phoneRegex.test(val);
+        }
+    };
+
     const handleInputChange = (e) => {
         const { name, value } = e.target;
-        setFormData(prev => ({
-            ...prev,
-            [name]: value
-        }));
-
-        if (name === 'email') {
-            const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-            setIsValidEmail(value === '' || emailRegex.test(value));
-        }
+        setFormData(prev => ({ ...prev, [name]: value }));
+        if (name === 'login_id') setIsValidEmail(validateLoginId(value));
     };
 
     const handleOtpChange = (index, value) => {
@@ -81,62 +80,55 @@ const Login = () => {
             const newOtpDigits = [...otpDigits];
             newOtpDigits[index] = value;
             setOtpDigits(newOtpDigits);
-
-            const otpValue = newOtpDigits.join('');
-            setFormData(prev => ({ ...prev, otp: otpValue }));
-
-            if (value && index < 5) {
-                otpRefs.current[index + 1]?.current?.focus();
-            }
-
-            if (!value && index > 0) {
-                otpRefs.current[index - 1]?.current?.focus();
-            }
+            setFormData(prev => ({ ...prev, otp: newOtpDigits.join('') }));
+            if (value && index < 5) otpRefs.current[index + 1]?.current?.focus();
         }
     };
 
     const handleOtpKeyDown = (index, e) => {
-        if (e.key === 'Backspace' && !otpDigits[index] && index > 0) {
-            otpRefs.current[index - 1]?.current?.focus();
+        if (e.key === 'Backspace') {
+            if (!otpDigits[index] && index > 0) {
+                const newOtpDigits = [...otpDigits];
+                newOtpDigits[index - 1] = '';
+                setOtpDigits(newOtpDigits);
+                setFormData(prev => ({ ...prev, otp: newOtpDigits.join('') }));
+                otpRefs.current[index - 1]?.current?.focus();
+            } else if (otpDigits[index]) {
+                const newOtpDigits = [...otpDigits];
+                newOtpDigits[index] = '';
+                setOtpDigits(newOtpDigits);
+                setFormData(prev => ({ ...prev, otp: newOtpDigits.join('') }));
+            }
         }
     };
 
-    // Email/Password Login Flow
+    const handlePaste = (e) => {
+        e.preventDefault();
+        const pasteData = e.clipboardData.getData('text').trim();
+        if (/^\d{6}$/.test(pasteData)) {
+            const digits = pasteData.split('');
+            setOtpDigits(digits);
+            setFormData(prev => ({ ...prev, otp: pasteData }));
+            otpRefs.current[5]?.current?.focus();
+        }
+    };
+
     const handleSendOtp = async (e) => {
         e.preventDefault();
-
-        if (!formData.email || !formData.password) {
-            alert('Please enter both email and password');
-            return;
-        }
-
-        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-        if (!emailRegex.test(formData.email)) {
-            setIsValidEmail(false);
-            alert('Please enter a valid email address');
-            return;
-        }
-
+        if (!formData.login_id) { alert('Please enter your mobile number or email'); return; }
+        if (!validateLoginId(formData.login_id)) { setIsValidEmail(false); alert('Please enter a valid email address or 10-digit mobile number'); return; }
         setLoading(true);
-
         try {
             const response = await fetch(`${BASE_URL}/auth/login/send-otp`, {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                    email: formData.email,
-                    password: formData.password
-                })
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ login_id: formData.login_id })
             });
-
             const result = await response.json();
-
             if (result.success) {
                 setPhase(2);
+                setCountdown(30);
                 setOtpExpireTime(result.expire);
-                alert(result.message);
             } else {
                 alert(result.message || 'Error sending OTP');
             }
@@ -149,45 +141,22 @@ const Login = () => {
     };
 
     const handleOtpSubmit = async (e) => {
-        e.preventDefault();
-
-        if (formData.otp.length !== 6) {
-            alert('Please enter 6-digit OTP');
-            return;
-        }
-
+        if (e) e.preventDefault();
+        if (formData.otp.length !== 6) { alert('Please enter 6-digit OTP'); return; }
         setLoading(true);
-
         try {
-            const response = await fetch(`${BASE_URL}/auth/login/email`, {
+            const response = await fetch(`${BASE_URL}/auth/login/verify-otp`, {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                    email: formData.email,
-                    password: formData.password,
-                    otp: parseInt(formData.otp)
-                })
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ login_id: formData.login_id, otp: formData.otp })
             });
-
             const result = await response.json();
-
             if (result.success) {
                 setLoginResponse(result);
-
                 if (result.branches && result.branches.length > 0) {
                     setBranches(result.branches);
-
-                    if (result.branches.length === 1) {
-                        // Single branch - auto select and complete login
-                        handleCompleteLogin(result, result.branches[0].branch_id);
-                    } else {
-                        // Multiple branches - show selection
-                        setShowBranchSelection(true);
-                    }
+                    setShowBranchSelection(true);
                 } else {
-                    // No branches - direct login
                     handleCompleteLogin(result, null);
                 }
             } else {
@@ -201,55 +170,33 @@ const Login = () => {
         }
     };
 
-    // Google Auth Flow
     const handleGoogleAuth = async (credentialResponse) => {
         setActiveSocialLogin('Google');
         setLoading(true);
-
         try {
             const idToken = credentialResponse.credential;
-
             const response = await fetch(`${BASE_URL}/auth/google-auth`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ google_token: idToken })
             });
-
             const result = await response.json();
-
-            if (!response.ok || !result.success) {
-                throw new Error(result.message || 'Authentication failed');
-            }
-
+            if (!response.ok || !result.success) throw new Error(result.message || 'Authentication failed');
             console.log('Google auth successful:', result);
-
-            // Store basic user info
             localStorage.setItem('user_token', result.token);
             localStorage.setItem('user_username', result.username);
             localStorage.setItem('user_email', result.profile.email);
             localStorage.setItem('user_name', result.profile.name);
             localStorage.setItem('user_is_new', result.is_new_user ? 'true' : 'false');
-
             setLoginResponse(result);
-
-            // Handle branches
             if (result.branches && result.branches.length > 0) {
                 setBranches(result.branches);
-
-                if (result.branches.length === 1) {
-                    // Single branch - auto select and complete login
-                    handleCompleteLogin(result, result.branches[0].branch_id);
-                } else {
-                    // Multiple branches - show selection
-                    setShowBranchSelection(true);
-                    setActiveSocialLogin(null);
-                    setLoading(false);
-                }
+                setShowBranchSelection(true);
+                setActiveSocialLogin(null);
+                setLoading(false);
             } else {
-                // No branches - direct login
                 handleCompleteLogin(result, null);
             }
-
         } catch (error) {
             console.error('Google Auth Error:', error);
             alert('Authentication failed: ' + error.message);
@@ -258,23 +205,13 @@ const Login = () => {
         }
     };
 
-    // Complete Login - handles final steps after branch selection or direct login
     const handleCompleteLogin = (result, branchId) => {
-        // Store token and user info
         localStorage.setItem('user_token', result.token);
         localStorage.setItem('user_username', result.username);
-        localStorage.setItem('user_email', result.profile?.email || formData.email);
+        localStorage.setItem('user_email', result.profile?.email || formData.login_id);
         localStorage.setItem('user_name', result.profile?.name || result.username);
-
-        if (result.branches) {
-            localStorage.setItem('user_branches', JSON.stringify(result.branches));
-        }
-
-        if (result.expire_date) {
-            localStorage.setItem('token_expire', result.expire_date);
-        }
-
-        // Handle branch selection
+        if (result.branches) localStorage.setItem('user_branches', JSON.stringify(result.branches));
+        if (result.expire_date) localStorage.setItem('token_expire', result.expire_date);
         if (branchId) {
             localStorage.setItem('branch_id', branchId);
             const selectedBranchInfo = result.branches?.find(b => b.branch_id === branchId);
@@ -283,21 +220,12 @@ const Login = () => {
                 localStorage.setItem('branch_owned', selectedBranchInfo.owned ? 'true' : 'false');
             }
         }
-
         setLoginSuccess(true);
         setShowBranchSelection(false);
-
-        // Warm the cached WhatsApp channel before redirect.
-        fetchWhatsappChannel().catch(() => {});
-
-        // Show success message
+        fetchWhatsappChannel().catch(() => { });
         const welcomeName = result.profile?.name || result.username || 'User';
         alert(`Welcome ${welcomeName}! Login successful!`);
-
-        // Redirect after 1.5 seconds
-        setTimeout(() => {
-            window.location.href = '/';
-        }, 1500);
+        setTimeout(() => { window.location.href = '/'; }, 1500);
     };
 
     const handleBranchSelect = (branchId) => {
@@ -307,29 +235,19 @@ const Login = () => {
 
     const handleResendOtp = async () => {
         setLoading(true);
-
         try {
             const response = await fetch(`${BASE_URL}/auth/login/send-otp`, {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                    email: formData.email,
-                    password: formData.password
-                })
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ login_id: formData.login_id })
             });
-
             const result = await response.json();
-
             if (result.success) {
                 setOtpExpireTime(result.expire);
                 setOtpDigits(['', '', '', '', '', '']);
                 setFormData(prev => ({ ...prev, otp: '' }));
-                alert('OTP has been resent!');
-                setTimeout(() => {
-                    otpRefs.current[0]?.current?.focus();
-                }, 100);
+                setCountdown(30);
+                setTimeout(() => { otpRefs.current[0]?.current?.focus(); }, 100);
             } else {
                 alert(result.message || 'Error resending OTP');
             }
@@ -341,534 +259,465 @@ const Login = () => {
         }
     };
 
-    const handleMicrosoftLogin = () => {
-        setActiveSocialLogin('Microsoft');
-        setTimeout(() => {
-            setActiveSocialLogin(null);
-            alert('Microsoft login integration coming soon');
-        }, 1500);
-    };
-
+    // ── FULL SCREEN LOADING ──────────────────────────────────────────────────
     if (fullScreenLoading) {
         return (
-            <div className="min-h-screen bg-gradient-to-br from-blue-600 to-purple-700 flex items-center justify-center">
-                <div className="text-center text-white">
-                    <div className="w-16 h-16 border-4 border-white/30 border-t-white rounded-full animate-spin mx-auto mb-6"></div>
-                    <h2 className="text-2xl font-semibold mb-2">Loading...</h2>
-                    <p className="text-white/80">Please wait while we prepare your dashboard</p>
+            <div className="min-h-screen bg-[#06080f] flex items-center justify-center font-sans">
+                <div className="text-center text-white animate-fade-in">
+                    <div className="w-14 h-14 border-[3px] border-indigo-500/20 border-t-indigo-500 rounded-full animate-spin mx-auto mb-6"></div>
+                    <h2 className="text-xl font-semibold mb-1.5">Loading...</h2>
+                    <p className="text-slate-500 text-sm">Preparing your dashboard</p>
                 </div>
             </div>
         );
     }
 
     return (
-        <div className="min-h-screen bg-gradient-to-br from-gray-50 to-blue-50 flex items-center justify-center p-4 relative overflow-hidden">
-            {/* Background Elements */}
-            <div className="absolute inset-0 overflow-hidden">
-                <div className="absolute -top-40 -right-40 w-80 h-80 bg-blue-100 rounded-full mix-blend-multiply filter blur-3xl opacity-70 animate-blob"></div>
-                <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-purple-100 rounded-full mix-blend-multiply filter blur-3xl opacity-70 animate-blob animation-delay-2000"></div>
-                <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-80 h-80 bg-pink-100 rounded-full mix-blend-multiply filter blur-3xl opacity-70 animate-blob animation-delay-4000"></div>
-            </div>
+        <div className="ooms-root min-h-screen bg-white flex flex-col md:flex-row overflow-hidden">
+            {/* Fonts */}
+            <link rel="preconnect" href="https://fonts.googleapis.com" />
+            <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="true" />
+            <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
 
-            <div className="w-full max-w-3xl bg-white/95 backdrop-blur-sm rounded-2xl shadow-2xl overflow-hidden border border-gray-200/50 relative z-10">
-                <div className="flex flex-col md:flex-row">
-                    {/* Left Side - Branding */}
-                    <div className="md:w-2/5 bg-gradient-to-br from-blue-600 to-purple-700 p-8 text-white relative overflow-hidden">
-                        <div className="absolute inset-0 bg-grid-white/10 bg-[size:20px_20px]"></div>
-                        <div className="relative z-10 h-full flex flex-col">
-                            <div className="flex items-center space-x-3 mb-8">
-                                <div className="w-12 h-12 bg-white/20 backdrop-blur-sm rounded-xl flex items-center justify-center">
-                                    <FiShield className="text-2xl" />
-                                </div>
-                                <div>
-                                    <h1 className="text-2xl font-bold">OOMS</h1>
-                                    <p className="text-blue-200 text-sm">Secure Enterprise Login</p>
-                                </div>
-                            </div>
+            {/* ═══════════════════════════════════════════════
+                LEFT — Dark Brand Panel
+            ═══════════════════════════════════════════════ */}
+            <div className="hidden md:flex md:w-[46%] bg-[#06080f] text-white flex-col justify-between relative overflow-hidden select-none p-10 lg:p-14">
 
-                            <div className="flex-grow flex flex-col justify-center">
-                                <div className="mb-8">
-                                    <div className="w-16 h-16 bg-white/10 backdrop-blur-sm rounded-2xl flex items-center justify-center mb-6 mx-auto">
-                                        <SiAuth0 className="text-3xl text-white" />
-                                    </div>
-                                    <h2 className="text-3xl font-bold mb-4 text-center">One Secure Login</h2>
-                                    <p className="text-blue-100 text-center leading-relaxed">
-                                        Access all your enterprise tools with a single, secure authentication.
-                                    </p>
-                                </div>
+                {/* Subtle grid lines */}
+                <div className="absolute inset-0 pointer-events-none"
+                    style={{
+                        backgroundImage: `linear-gradient(rgba(255,255,255,0.025) 1px, transparent 1px),
+                                          linear-gradient(90deg, rgba(255,255,255,0.025) 1px, transparent 1px)`,
+                        backgroundSize: '40px 40px'
+                    }}
+                />
 
-                                <div className="space-y-4">
-                                    <div className="flex items-center space-x-3 bg-white/10 p-3 rounded-lg">
-                                        <FiCheckCircle className="text-green-300 flex-shrink-0" />
-                                        <span className="text-sm">End-to-end encrypted</span>
-                                    </div>
-                                    <div className="flex items-center space-x-3 bg-white/10 p-3 rounded-lg">
-                                        <FiCheckCircle className="text-green-300 flex-shrink-0" />
-                                        <span className="text-sm">Multi-factor authentication</span>
-                                    </div>
-                                    <div className="flex items-center space-x-3 bg-white/10 p-3 rounded-lg">
-                                        <FiCheckCircle className="text-green-300 flex-shrink-0" />
-                                        <span className="text-sm">Enterprise-grade security</span>
-                                    </div>
-                                </div>
-                            </div>
+                {/* Radial glows */}
+                <div className="absolute -top-32 -right-32 w-[480px] h-[480px] rounded-full pointer-events-none"
+                    style={{ background: 'radial-gradient(circle, rgba(99,102,241,0.14) 0%, transparent 70%)' }} />
+                <div className="absolute -bottom-32 -left-32 w-[420px] h-[420px] rounded-full pointer-events-none"
+                    style={{ background: 'radial-gradient(circle, rgba(139,92,246,0.10) 0%, transparent 70%)' }} />
 
-                            <div className="mt-auto pt-8 border-t border-white/20">
-                                <p className="text-blue-200 text-sm">
-                                    <FiKey className="inline mr-2" />
-                                    ISO 27001 Certified Security
-                                </p>
-                            </div>
-                        </div>
+                {/* ── Brand ── */}
+                <div className="relative z-10 flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-indigo-600 flex items-center justify-center shadow-lg shadow-indigo-600/30 border border-white/10">
+                        <FiShield className="text-white text-lg" />
+                    </div>
+                    <div>
+                        <span className="text-lg font-bold tracking-tight text-white leading-none">OOMS</span>
+                        <span className="block text-[10px] text-slate-500 font-medium tracking-widest uppercase mt-0.5">OneSaaS Office Mgmt</span>
+                    </div>
+                </div>
+
+                {/* ── Hero ── */}
+                <div className="relative z-10 my-auto">
+                    <div className="inline-flex items-center gap-2 bg-white/[0.05] border border-white/[0.08] rounded-full px-3 py-1.5 mb-6">
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                        <span className="text-[11px] text-slate-400 font-semibold tracking-wider uppercase">All systems operational</span>
                     </div>
 
-                    {/* Right Side - Login Form */}
-                    <div className="md:w-3/5 p-8">
-                        {/* Header */}
-                        <div className="mb-8">
-                            <h1 className="text-2xl font-bold text-gray-900">
-                                {showBranchSelection ? 'Select Branch' :
-                                    loginSuccess ? 'Welcome Back!' :
-                                        phase === 1 ? 'Sign in to your account' : 'Verify Your Identity'}
-                            </h1>
-                            <p className="text-gray-600 mt-2">
-                                {showBranchSelection ? 'Choose your branch to continue' :
-                                    loginSuccess ? 'You have successfully logged in' :
-                                        phase === 1 ? 'Enter your credentials to continue' : 'Enter the 6-digit verification code'}
-                            </p>
+                    <h1 className="text-4xl lg:text-[2.75rem] font-extrabold text-white tracking-tight leading-[1.15] mb-4">
+                        Your office,<br />
+                        <span style={{ background: 'linear-gradient(135deg, #818cf8 0%, #a78bfa 50%, #c4b5fd 100%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
+                            managed right.
+                        </span>
+                    </h1>
+                    <p className="text-slate-400 text-[13px] leading-relaxed max-w-xs mb-10">
+                        Sign in to access your dashboard, track task progress, and manage clients seamlessly.
+                    </p>
+
+                    {/* ── Info cards ── */}
+                    <div className="space-y-3">
+                        {/* Card 1 — Office Status */}
+                        <div className="bg-white/[0.03] border border-white/[0.07] rounded-2xl p-4 backdrop-blur-sm hover:bg-white/[0.05] hover:border-white/[0.12] transition-all duration-300 group">
+                            <div className="flex items-center justify-between mb-3.5">
+                                <div className="flex items-center gap-2.5">
+                                    <div className="w-7 h-7 rounded-lg bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center flex-shrink-0">
+                                        <FiCheck className="text-emerald-400 text-xs" />
+                                    </div>
+                                    <div>
+                                        <p className="text-[9px] font-bold uppercase tracking-widest text-slate-600">Office Status</p>
+                                        <p className="text-[12px] font-semibold text-slate-200 mt-0.5">Daily Compliance Filed</p>
+                                    </div>
+                                </div>
+                                <span className="text-[10px] font-bold text-emerald-400 bg-emerald-400/10 border border-emerald-400/20 rounded-full px-2 py-0.5">✓ Filed</span>
+                            </div>
+                            <div className="w-full h-1 bg-white/[0.05] rounded-full overflow-hidden">
+                                <div className="h-full rounded-full w-[95%]"
+                                    style={{ background: 'linear-gradient(90deg, #10b981, #34d399)', boxShadow: '0 0 10px rgba(16,185,129,0.35)' }} />
+                            </div>
+                            <p className="text-[10px] text-slate-600 mt-2">Processing complete</p>
                         </div>
 
-                        {/* Branch Selection Screen */}
-                        {showBranchSelection && (
-                            <div className="space-y-6">
-                                <div className="bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 rounded-xl p-6">
-                                    <div className="flex items-center">
-                                        <FiCheckCircle className="text-green-600 text-2xl mr-3" />
-                                        <div>
-                                            <p className="font-semibold text-green-800">Identity Verified Successfully!</p>
-                                            <p className="text-green-700 text-sm mt-1">Please select your branch to continue</p>
-                                        </div>
-                                    </div>
+                        {/* Card 2 — Avg Resolution */}
+                        <div className="bg-white/[0.03] border border-white/[0.07] rounded-2xl p-4 backdrop-blur-sm hover:bg-white/[0.05] hover:border-white/[0.12] transition-all duration-300">
+                            <div className="flex items-center justify-between">
+                                <div>
+                                    <p className="text-[9px] font-bold uppercase tracking-widest text-slate-600 mb-1">Avg Task Resolution</p>
+                                    <p className="text-2xl font-extrabold text-slate-100 leading-none">1.8 <span className="text-sm font-semibold text-slate-400">hrs</span></p>
                                 </div>
+                                <div className="w-9 h-9 rounded-xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center">
+                                    <FiTrendingUp className="text-indigo-400 text-base" />
+                                </div>
+                            </div>
+                            <div className="w-full h-px bg-white/[0.06] mt-3 mb-2.5" />
+                            <p className="text-[10px] text-slate-600">Based on 124 active client tasks today</p>
+                        </div>
+                    </div>
+                </div>
 
-                                <div className="space-y-4">
-                                    <label className="block text-sm font-semibold text-gray-800">
-                                        Available Branches
-                                    </label>
-                                    <div className="space-y-3">
-                                        {branches.map((branch) => (
-                                            <button
-                                                key={branch.branch_id}
-                                                type="button"
-                                                onClick={() => handleBranchSelect(branch.branch_id)}
-                                                disabled={loading}
-                                                className={`w-full p-5 text-left rounded-xl border-2 transition-all duration-300 transform hover:-translate-y-0.5 flex items-center justify-between group
-                                                    ${selectedBranch === branch.branch_id ?
-                                                        'border-blue-500 bg-blue-50 shadow-lg shadow-blue-100' :
-                                                        'border-gray-200 hover:border-blue-300 hover:shadow-lg'
-                                                    }`}
-                                            >
-                                                <div className="flex items-center">
-                                                    <div className={`p-2 rounded-lg mr-4 ${selectedBranch === branch.branch_id ? 'bg-blue-100' : 'bg-gray-100 group-hover:bg-blue-50'}`}>
-                                                        <FiHome className={`w-5 h-5 ${selectedBranch === branch.branch_id ? 'text-blue-600' : 'text-gray-600'}`} />
-                                                    </div>
-                                                    <div>
-                                                        <p className="font-semibold text-gray-900">{branch.name}</p>
-                                                        <p className="text-sm text-gray-600 mt-1">
-                                                            Branch ID: {branch.branch_id}
-                                                            {branch.owned && (
-                                                                <span className="ml-2 px-2 py-1 bg-green-100 text-green-800 text-xs rounded-full">Owned</span>
-                                                            )}
-                                                        </p>
-                                                    </div>
-                                                </div>
-                                                {selectedBranch === branch.branch_id && (
-                                                    <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center">
-                                                        <FiCheck className="text-white" />
-                                                    </div>
-                                                )}
-                                            </button>
-                                        ))}
-                                    </div>
-                                </div>
+                {/* ── Footer stats ── */}
+                <div className="relative z-10 grid grid-cols-3 gap-4 pt-6 border-t border-white/[0.06]">
+                    {[['10K+', 'Clients'], ['99.9%', 'Uptime'], ['4.9★', 'Rating']].map(([val, label]) => (
+                        <div key={label}>
+                            <span className="text-xl font-extrabold text-white block">{val}</span>
+                            <span className="text-[9px] font-bold uppercase tracking-widest text-slate-600 block mt-1">{label}</span>
+                        </div>
+                    ))}
+                </div>
+            </div>
 
-                                <div className="flex space-x-4 pt-4">
-                                    <button
-                                        type="button"
-                                        onClick={() => {
-                                            setShowBranchSelection(false);
-                                            setPhase(1);
-                                            setActiveSocialLogin(null);
-                                        }}
-                                        className="flex-1 py-3 px-6 border-2 border-gray-300 text-gray-700 rounded-xl font-medium hover:bg-gray-50 hover:border-gray-400 transition-all duration-300 flex items-center justify-center"
-                                    >
-                                        <FiArrowLeft className="mr-2" />
-                                        Back
-                                    </button>
-                                </div>
+            {/* ═══════════════════════════════════════════════
+                RIGHT — Form Panel
+            ═══════════════════════════════════════════════ */}
+            <div className="w-full md:w-[54%] min-h-screen bg-white flex flex-col relative">
+
+                {/* Mobile brand header */}
+                <div className="flex md:hidden items-center gap-3 px-8 pt-8 pb-0">
+                    <div className="w-9 h-9 rounded-xl bg-indigo-600 flex items-center justify-center shadow shadow-indigo-600/30">
+                        <FiShield className="text-white text-base" />
+                    </div>
+                    <span className="text-base font-bold text-slate-900">OOMS</span>
+                </div>
+
+                {/* Centered form */}
+                <div className="flex-1 flex flex-col justify-center px-8 sm:px-14 lg:px-20 py-10">
+                    <div className="w-full max-w-[360px] mx-auto">
+
+                        {/* Progress bar */}
+                        {!loginSuccess && !showBranchSelection && (
+                            <div className="flex gap-1.5 mb-10">
+                                <div className={`h-[3px] flex-1 rounded-full transition-all duration-500 ${phase >= 1 ? 'bg-indigo-600' : 'bg-slate-100'}`} />
+                                <div className={`h-[3px] flex-1 rounded-full transition-all duration-500 ${phase >= 2 ? 'bg-indigo-600' : 'bg-slate-100'}`} />
                             </div>
                         )}
 
-                        {/* Phase 1: Email and Password Together */}
+                        {/* ── PHASE 1: Identifier ── */}
                         {phase === 1 && !showBranchSelection && !loginSuccess && (
-                            <div>
-                                {/* Social Login Buttons */}
-                                <div className="mb-6">
-                                    <div className="grid grid-cols-2 gap-3">
-                                        {/* Google Login Button */}
-                                        <div className="w-full">
-                                            {activeSocialLogin === 'Google' ? (
-                                                <div className="flex items-center justify-center p-3 border border-gray-300 rounded-xl bg-gray-50">
-                                                    <div className="w-5 h-5 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
-                                                    <span className="ml-2 font-medium text-gray-700">Verifying...</span>
-                                                </div>
-                                            ) : (
-                                                <GoogleLogin
-                                                    onSuccess={handleGoogleAuth}
-                                                    onError={() => {
-                                                        console.log('Google Login Failed');
-                                                        alert('Google login failed. Please try again.');
-                                                        setActiveSocialLogin(null);
-                                                    }}
-                                                    useOneTap={false}
-                                                    theme="outline"
-                                                    size="large"
-                                                    text="continue_with"
-                                                    shape="rectangular"
-                                                    width="100%"
-                                                />
-                                            )}
-                                        </div>
+                            <div className="animate-fade-in">
+                                <p className="text-[11px] font-bold uppercase tracking-widest text-indigo-500 mb-3">Step 1 of 2</p>
+                                <h2 className="text-[28px] font-extrabold text-[#06080f] tracking-tight leading-tight mb-2">Welcome back</h2>
+                                <p className="text-slate-400 text-sm leading-relaxed mb-8">Enter your mobile number or email to receive a one-time password.</p>
 
-                                        {/* Microsoft Login Button */}
-                                        <button
-                                            onClick={handleMicrosoftLogin}
-                                            disabled={activeSocialLogin !== null}
-                                            className="flex items-center justify-center p-3 border border-gray-300 rounded-xl hover:bg-gray-50 transition-all duration-300 disabled:opacity-50 group hover:border-blue-300"
-                                        >
-                                            {activeSocialLogin === 'Microsoft' ? (
-                                                <div className="w-5 h-5 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
-                                            ) : (
-                                                <>
-                                                    <FaMicrosoft className="text-xl mr-3 text-blue-600" />
-                                                    <span className="font-medium text-gray-700">Microsoft</span>
-                                                </>
-                                            )}
-                                        </button>
-                                    </div>
-
-                                    <div className="flex items-center my-6">
-                                        <div className="flex-grow border-t border-gray-300"></div>
-                                        <span className="mx-4 text-gray-500 text-sm font-medium">OR CONTINUE WITH EMAIL</span>
-                                        <div className="flex-grow border-t border-gray-300"></div>
-                                    </div>
-                                </div>
-
-                                {/* Email and Password Form */}
                                 <form onSubmit={handleSendOtp} className="space-y-5">
-                                    {/* Email Field */}
-                                    <div className="space-y-2">
-                                        <label className="block text-sm font-medium text-gray-700">
-                                            Email Address
+                                    <div>
+                                        <label className="text-[11px] font-bold uppercase tracking-widest text-slate-400 block mb-2.5">
+                                            Mobile Number or Email
                                         </label>
                                         <div className="relative group">
                                             <input
-                                                ref={emailRef}
-                                                type="email"
-                                                name="email"
-                                                value={formData.email}
+                                                ref={identifierRef}
+                                                type="text"
+                                                name="login_id"
+                                                value={formData.login_id}
                                                 onChange={handleInputChange}
-                                                className={`w-full pl-12 pr-4 py-4 bg-gray-50/50 border-2 rounded-xl focus:ring-4 outline-none transition-all duration-300 group-hover:border-blue-400 ${isValidEmail
-                                                        ? 'border-gray-300 focus:border-blue-500 focus:ring-blue-100'
-                                                        : 'border-red-300 focus:border-red-500 focus:ring-red-100'
+                                                className={`w-full pl-11 pr-4 py-[13px] text-[14px] font-medium bg-slate-50 border rounded-xl outline-none transition-all duration-200
+                                                    placeholder:text-slate-300 text-slate-800
+                                                    ${isValidEmail
+                                                        ? 'border-slate-200 focus:border-indigo-500 focus:bg-white focus:ring-[3px] focus:ring-indigo-100'
+                                                        : 'border-red-300 focus:border-red-500 focus:ring-[3px] focus:ring-red-100'
                                                     }`}
-                                                placeholder="your.email@company.com"
+                                                placeholder="e.g. 9876543210 or you@company.com"
                                                 required
                                             />
-                                            <FiMail className={`absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 transition-colors ${isValidEmail ? 'text-gray-400 group-focus-within:text-blue-500' : 'text-red-400'
-                                                }`} />
-                                        </div>
-                                        {!isValidEmail && formData.email && (
-                                            <p className="text-red-500 text-sm flex items-center">
-                                                <FiCheckCircle className="mr-1" />
-                                                Please enter a valid email address
-                                            </p>
-                                        )}
-                                    </div>
-
-                                    {/* Password Field */}
-                                    <div className="space-y-2">
-                                        <div className="flex justify-between items-center">
-                                            <label className="block text-sm font-medium text-gray-700">
-                                                Password
-                                            </label>
-                                            <button
-                                                type="button"
-                                                className="text-sm text-blue-600 hover:text-blue-700 font-medium hover:underline"
-                                            >
-                                                Forgot password?
-                                            </button>
-                                        </div>
-                                        <div className="relative group">
-                                            <input
-                                                ref={passwordRef}
-                                                type={showPassword ? 'text' : 'password'}
-                                                name="password"
-                                                value={formData.password}
-                                                onChange={handleInputChange}
-                                                className="w-full pl-12 pr-12 py-4 bg-gray-50/50 border-2 border-gray-300 rounded-xl focus:border-blue-500 focus:ring-4 focus:ring-blue-100 outline-none transition-all duration-300 group-hover:border-blue-400"
-                                                placeholder="Enter your password"
-                                                required
-                                            />
-                                            <FiLock className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 group-focus-within:text-blue-500 w-5 h-5 transition-colors" />
-                                            <button
-                                                type="button"
-                                                onClick={() => setShowPassword(!showPassword)}
-                                                className="absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
-                                            >
-                                                {showPassword ? <FiEyeOff className="w-5 h-5" /> : <FiEye className="w-5 h-5" />}
-                                            </button>
+                                            <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none">
+                                                {/^\d+$/.test(formData.login_id || '') ? <FiUser size={16} /> : <FiMail size={16} />}
+                                            </span>
                                         </div>
                                     </div>
 
-                                    {/* Remember Me */}
-                                    <div className="flex items-center">
-                                        <input
-                                            type="checkbox"
-                                            id="remember"
-                                            className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-                                        />
-                                        <label htmlFor="remember" className="ml-2 text-sm text-gray-600">
-                                            Remember this device for 30 days
-                                        </label>
-                                    </div>
-
-                                    {/* Submit Button */}
                                     <button
                                         type="submit"
-                                        disabled={loading || !formData.email || !formData.password}
-                                        className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 disabled:from-gray-400 disabled:to-gray-500 text-white py-4 px-6 rounded-xl font-semibold shadow-lg hover:shadow-xl disabled:shadow-none transition-all duration-300 flex items-center justify-center group"
+                                        disabled={loading || !formData.login_id}
+                                        className={`w-full py-[13px] px-6 rounded-xl text-[14px] font-semibold flex items-center justify-center gap-2 transition-all duration-200 
+                                            ${!formData.login_id || loading
+                                                ? 'bg-slate-100 text-slate-400 cursor-not-allowed'
+                                                : 'bg-[#06080f] hover:bg-[#10142a] text-white shadow-lg shadow-slate-950/10 hover:shadow-xl hover:shadow-slate-950/20 active:scale-[0.985]'
+                                            }`}
                                     >
-                                        {loading ? (
-                                            <>
-                                                <FiRefreshCw className="animate-spin mr-3" />
-                                                Sending Verification Code...
-                                            </>
-                                        ) : (
-                                            <>
-                                                Continue to Verification
-                                                <FiArrowRight className="ml-3 group-hover:translate-x-1 transition-transform" />
-                                            </>
-                                        )}
+                                        {loading
+                                            ? <><FiRefreshCw className="animate-spin" size={15} /> Sending OTP...</>
+                                            : <>Send OTP <FiArrowRight size={15} className="transition-transform group-hover:translate-x-0.5" /></>
+                                        }
                                     </button>
                                 </form>
                             </div>
                         )}
 
-                        {/* Phase 2: OTP Verification */}
+                        {/* ── PHASE 2: OTP ── */}
                         {phase === 2 && !showBranchSelection && !loginSuccess && (
-                            <div className="space-y-6">
-                                {/* Animated Header */}
-                                <div className="relative overflow-hidden bg-gradient-to-br from-blue-50 to-indigo-100 border border-blue-200 rounded-2xl p-6">
-                                    <div className="absolute -top-10 -right-10 w-20 h-20 bg-blue-200 rounded-full opacity-20"></div>
-                                    <div className="absolute -bottom-10 -left-10 w-20 h-20 bg-purple-200 rounded-full opacity-20"></div>
+                            <div className="animate-fade-in">
+                                <p className="text-[11px] font-bold uppercase tracking-widest text-indigo-500 mb-3">Step 2 of 2</p>
+                                <h2 className="text-[28px] font-extrabold text-[#06080f] tracking-tight leading-tight mb-2">Verify OTP</h2>
+                                <p className="text-slate-400 text-sm leading-relaxed mb-8">
+                                    We sent a 6-digit code to <span className="font-semibold text-slate-700">{formData.login_id}</span>
+                                </p>
 
-                                    <div className="relative z-10 flex flex-col items-center text-center">
-                                        <div className="w-20 h-20 bg-gradient-to-br from-blue-500 to-purple-600 rounded-2xl flex items-center justify-center mb-4 shadow-lg animate-pulse-slow">
-                                            <FiMail className="text-white text-3xl" />
-                                        </div>
-                                        <h3 className="text-xl font-bold text-gray-900 mb-2">Verify Your Identity</h3>
-                                        <p className="text-gray-700 mb-3">We've sent a 6-digit code to</p>
-                                        <div className="bg-white px-4 py-2 rounded-lg border border-gray-200 inline-flex items-center mb-4">
-                                            <FiMail className="text-blue-500 mr-2" />
-                                            <span className="font-semibold text-gray-900">{formData.email}</span>
-                                        </div>
-                                        {otpExpireTime && (
-                                            <div className="flex items-center text-sm text-blue-600 bg-blue-50 px-3 py-1 rounded-full">
-                                                <FiRefreshCw className="mr-2" />
-                                                Expires: {otpExpireTime}
-                                            </div>
-                                        )}
-                                    </div>
-                                </div>
-
-                                {/* OTP Input Section */}
                                 <div className="space-y-6">
-                                    <div className="text-center">
-                                        <h4 className="text-lg font-semibold text-gray-900 mb-2">Enter Verification Code</h4>
-                                        <p className="text-gray-600 text-sm">Type the 6-digit code from your email</p>
-                                    </div>
-
-                                    {/* OTP Input Boxes */}
-                                    <div className="flex justify-center space-x-3">
-                                        {otpDigits.map((digit, index) => (
-                                            <div key={index} className="relative group">
+                                    {/* OTP Boxes */}
+                                    <div>
+                                        <label className="text-[11px] font-bold uppercase tracking-widest text-slate-400 block mb-4">
+                                            Enter 6-digit OTP
+                                        </label>
+                                        <div className="grid grid-cols-6 gap-3">
+                                            {otpDigits.map((digit, index) => (
                                                 <input
+                                                    key={index}
                                                     ref={otpRefs.current[index]}
                                                     type="text"
                                                     value={digit}
                                                     onChange={(e) => handleOtpChange(index, e.target.value)}
                                                     onKeyDown={(e) => handleOtpKeyDown(index, e)}
-                                                    className="w-14 h-14 text-center text-2xl font-bold bg-white border-2 border-blue-300 rounded-xl focus:border-blue-500 focus:ring-4 focus:ring-blue-100 outline-none transition-all duration-300 shadow-lg group-hover:border-blue-400 group-hover:shadow-xl"
+                                                    onPaste={handlePaste}
+                                                    style={{
+                                                        width: '100%',
+                                                        aspectRatio: '1 / 1',
+                                                        textAlign: 'center',
+                                                        fontSize: '22px',
+                                                        fontWeight: '700',
+                                                        borderRadius: '14px',
+                                                        outline: 'none',
+                                                        transition: 'all 0.15s ease',
+                                                        caretColor: '#6366f1',
+                                                        border: digit
+                                                            ? '2px solid #6366f1'
+                                                            : '1.5px solid #e2e8f0',
+                                                        background: digit ? '#eef2ff' : '#f8fafc',
+                                                        color: digit ? '#4338ca' : '#0f172a',
+                                                        boxShadow: digit
+                                                            ? '0 0 0 4px rgba(99,102,241,0.1)'
+                                                            : 'none',
+                                                    }}
                                                     maxLength="1"
-                                                    required
+                                                    inputMode="numeric"
                                                 />
-                                                <div className={`absolute -bottom-1 left-1/2 transform -translate-x-1/2 w-10 h-1 rounded-full transition-all duration-300 ${digit ? 'bg-blue-500' : 'bg-gray-300'
-                                                    }`}></div>
-                                            </div>
-                                        ))}
-                                    </div>
+                                            ))}
+                                        </div>
 
-                                    {/* OTP Status */}
-                                    <div className="text-center">
-                                        <div className="inline-flex items-center space-x-2 bg-gray-50 px-4 py-2 rounded-lg">
-                                            <div className={`w-2 h-2 rounded-full ${formData.otp.length === 6 ? 'bg-green-500' : 'bg-yellow-500'}`}></div>
-                                            <span className="text-sm text-gray-600">
-                                                {formData.otp.length === 6
-                                                    ? '✓ All digits entered'
-                                                    : `${formData.otp.length}/6 digits entered`
-                                                }
-                                            </span>
+                                        {/* Progress dots */}
+                                        <div className="flex items-center justify-center gap-1.5 mt-4">
+                                            {otpDigits.map((digit, i) => (
+                                                <div
+                                                    key={i}
+                                                    style={{
+                                                        width: digit ? '20px' : '6px',
+                                                        height: '4px',
+                                                        borderRadius: '99px',
+                                                        background: digit ? '#6366f1' : '#e2e8f0',
+                                                        transition: 'all 0.2s ease',
+                                                    }}
+                                                />
+                                            ))}
                                         </div>
                                     </div>
 
-                                    {/* Action Buttons */}
-                                    <div className="grid grid-cols-2 gap-4 pt-2">
+                                    {/* Actions row */}
+                                    <div className="flex items-center justify-between">
                                         <button
                                             type="button"
                                             onClick={() => {
                                                 setPhase(1);
                                                 setOtpDigits(['', '', '', '', '', '']);
+                                                setFormData(prev => ({ ...prev, otp: '' }));
                                             }}
-                                            className="py-3 px-6 border-2 border-gray-300 text-gray-700 rounded-xl font-medium hover:bg-gray-50 hover:border-gray-400 transition-all duration-300 flex items-center justify-center"
+                                            className="text-[12px] font-semibold text-slate-400 hover:text-slate-700 flex items-center gap-1.5 transition-colors"
                                         >
-                                            <FiArrowLeft className="mr-2" />
-                                            Back
+                                            <FiArrowLeft size={13} /> Change number
                                         </button>
-                                        <button
-                                            type="button"
-                                            onClick={handleResendOtp}
-                                            disabled={loading}
-                                            className="py-3 px-6 border-2 border-blue-200 text-blue-600 rounded-xl font-medium hover:bg-blue-50 hover:border-blue-300 transition-all duration-300 flex items-center justify-center"
-                                        >
-                                            <FiRefreshCw className={`mr-2 ${loading ? 'animate-spin' : ''}`} />
-                                            Resend Code
-                                        </button>
+                                        {countdown > 0
+                                            ? (
+                                                <span className="text-[12px] text-slate-400 font-medium flex items-center gap-1.5">
+                                                    <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-slate-100 text-[10px] font-bold text-slate-500">{countdown}</span>
+                                                    Resend OTP
+                                                </span>
+                                            )
+                                            : (
+                                                <button type="button" onClick={handleResendOtp}
+                                                    className="text-[12px] font-bold text-indigo-600 hover:text-indigo-700 transition-colors flex items-center gap-1">
+                                                    <FiRefreshCw size={11} /> Resend OTP
+                                                </button>
+                                            )
+                                        }
                                     </div>
 
-                                    {/* Verify Button */}
+                                    {/* Verify button */}
                                     <button
                                         onClick={handleOtpSubmit}
                                         disabled={loading || formData.otp.length !== 6}
-                                        className="w-full bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 disabled:from-gray-400 disabled:to-gray-500 text-white py-4 px-6 rounded-xl font-semibold shadow-lg hover:shadow-xl disabled:shadow-none transition-all duration-300 flex items-center justify-center group transform hover:-translate-y-0.5"
+                                        className={`w-full py-[13px] px-6 rounded-xl text-[14px] font-semibold flex items-center justify-center gap-2 transition-all duration-200
+                                            ${formData.otp.length !== 6 || loading
+                                                ? 'bg-slate-100 text-slate-400 cursor-not-allowed'
+                                                : 'bg-indigo-600 hover:bg-indigo-700 text-white shadow-lg shadow-indigo-600/20 hover:shadow-xl hover:shadow-indigo-600/30 active:scale-[0.985]'
+                                            }`}
                                     >
-                                        {loading ? (
-                                            <>
-                                                <FiRefreshCw className="animate-spin mr-3" />
-                                                Verifying Code...
-                                            </>
-                                        ) : (
-                                            <>
-                                                <FiCheckCircle className="mr-3 text-lg" />
-                                                Verify & Continue
-                                                <FiArrowRight className="ml-3 opacity-0 group-hover:opacity-100 transition-all duration-300" />
-                                            </>
-                                        )}
+                                        {loading
+                                            ? <><FiRefreshCw className="animate-spin" size={15} /> Verifying...</>
+                                            : <>Verify & Sign In <FiArrowRight size={15} /></>
+                                        }
                                     </button>
-                                </div>
 
-                                {/* Security Note */}
-                                <div className="bg-gray-50 border border-gray-200 rounded-xl p-4 text-center">
-                                    <div className="flex items-center justify-center space-x-2 text-sm text-gray-600">
-                                        <FiShield className="text-blue-500" />
-                                        <span>This code expires in 10 minutes for security purposes</span>
+                                    {/* Testing hint */}
+                                    <div className="flex items-center justify-center gap-2 py-2.5 px-4 bg-slate-50 border border-slate-100 rounded-xl">
+                                        <FiShield size={12} className="text-indigo-400 flex-shrink-0" />
+                                        <p className="text-[11px] text-slate-400 font-medium">
+                                            Testing? Use OTP: <span className="font-bold text-indigo-600 bg-indigo-50 px-1.5 py-0.5 rounded ml-0.5">123456</span>
+                                        </p>
                                     </div>
                                 </div>
                             </div>
                         )}
 
-                        {/* Login Success Display */}
+                        {/* ── BRANCH SELECTION ── */}
+                        {showBranchSelection && (
+                            <div className="animate-fade-in space-y-5">
+                                <div className="flex items-start gap-3 bg-emerald-50 border border-emerald-100 rounded-2xl p-4">
+                                    <FiCheckCircle className="text-emerald-500 mt-0.5 flex-shrink-0" size={18} />
+                                    <div>
+                                        <p className="text-[13px] font-bold text-emerald-800">Identity verified!</p>
+                                        <p className="text-[12px] text-emerald-600 mt-0.5">Select your branch to continue</p>
+                                    </div>
+                                </div>
+
+                                <label className="text-[11px] font-bold uppercase tracking-widest text-slate-400 block">
+                                    Available Branches
+                                </label>
+
+                                <div className="space-y-2.5 max-h-72 overflow-y-auto">
+                                    {branches.map((branch) => (
+                                        <button
+                                            key={branch.branch_id}
+                                            type="button"
+                                            onClick={() => handleBranchSelect(branch.branch_id)}
+                                            disabled={loading}
+                                            className={`w-full p-4 text-left rounded-xl border-[1.5px] flex items-center justify-between transition-all duration-200
+                                                ${selectedBranch === branch.branch_id
+                                                    ? 'border-indigo-500 bg-indigo-50/60 shadow-sm shadow-indigo-100'
+                                                    : 'border-slate-200 hover:border-indigo-300 hover:bg-slate-50 active:scale-[0.99]'
+                                                }`}
+                                        >
+                                            <div className="flex items-center gap-3">
+                                                <div className={`w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 transition-all
+                                                    ${selectedBranch === branch.branch_id ? 'bg-indigo-100 text-indigo-600' : 'bg-slate-100 text-slate-400'}`}>
+                                                    <FiHome size={15} />
+                                                </div>
+                                                <div>
+                                                    <div className="flex items-center gap-1.5">
+                                                        <span className="text-[13px] font-semibold text-slate-800">{branch.name}</span>
+                                                        {branch.owned && (
+                                                            <span className="text-[9px] font-bold bg-emerald-50 text-emerald-600 border border-emerald-200 px-1.5 py-0.5 rounded-full">Owned</span>
+                                                        )}
+                                                    </div>
+                                                    <span className="text-[11px] text-slate-400 font-medium">ID: {branch.branch_id}</span>
+                                                </div>
+                                            </div>
+                                            {selectedBranch === branch.branch_id
+                                                ? <div className="w-6 h-6 rounded-full bg-indigo-600 flex items-center justify-center flex-shrink-0">
+                                                    <FiCheck className="text-white" size={12} />
+                                                </div>
+                                                : <FiChevronRight className="text-slate-300 flex-shrink-0" size={16} />
+                                            }
+                                        </button>
+                                    ))}
+                                </div>
+
+                                <button
+                                    type="button"
+                                    onClick={() => { setShowBranchSelection(false); setPhase(1); setActiveSocialLogin(null); }}
+                                    className="w-full py-3 px-6 border border-slate-200 text-slate-500 text-[13px] font-semibold rounded-xl hover:bg-slate-50 active:scale-[0.99] flex items-center justify-center gap-2 transition-all"
+                                >
+                                    <FiArrowLeft size={14} /> Back to Login
+                                </button>
+                            </div>
+                        )}
+
+                        {/* ── SUCCESS ── */}
                         {loginSuccess && (
-                            <div className="space-y-6">
-                                <div className="bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 rounded-xl p-8 text-center relative overflow-hidden">
-                                    <div className="absolute inset-0 bg-confetti opacity-10"></div>
-                                    <div className="relative z-10">
-                                        <div className="w-20 h-20 bg-gradient-to-r from-green-500 to-emerald-600 rounded-full flex items-center justify-center mx-auto mb-6 shadow-lg animate-bounce">
-                                            <FiCheckCircle className="text-white text-3xl" />
-                                        </div>
-                                        <h3 className="font-bold text-green-900 text-xl mb-2">Login Successful!</h3>
-                                        <p className="text-green-700">Redirecting to dashboard...</p>
-                                    </div>
+                            <div className="text-center py-10 animate-fade-in">
+                                <div className="w-[72px] h-[72px] rounded-full flex items-center justify-center mx-auto mb-6 shadow-xl shadow-emerald-500/20 animate-bounce"
+                                    style={{ background: 'linear-gradient(135deg, #10b981, #059669)' }}>
+                                    <FiCheck className="text-white" size={30} />
                                 </div>
+                                <h3 className="text-2xl font-extrabold text-[#06080f] mb-2">Login Successful!</h3>
+                                <p className="text-slate-400 text-sm">Redirecting you to the dashboard...</p>
                             </div>
                         )}
 
-                        {/* Footer */}
-                        {!loginSuccess && !showBranchSelection && phase === 1 && (
-                            <div className="mt-8 pt-6 border-t border-gray-200 text-center">
-                                <p className="text-gray-600 text-sm">
+                        {/* ── Divider + Google + Signup ── */}
+                        {!loginSuccess && !showBranchSelection && (
+                            <>
+                                <div className="flex items-center gap-3 my-7">
+                                    <div className="flex-1 h-px bg-slate-100" />
+                                    <span className="text-[11px] font-bold text-slate-300 tracking-widest uppercase">or</span>
+                                    <div className="flex-1 h-px bg-slate-100" />
+                                </div>
+
+                                <div className="flex justify-center mb-6">
+                                    {activeSocialLogin === 'Google' ? (
+                                        <div className="flex items-center justify-center gap-2 py-3 px-6 border border-slate-200 rounded-xl bg-slate-50 w-full">
+                                            <div className="w-4 h-4 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin" />
+                                            <span className="text-[13px] font-semibold text-slate-600">Verifying...</span>
+                                        </div>
+                                    ) : (
+                                        <div className="w-full flex justify-center">
+                                            <GoogleLogin
+                                                onSuccess={handleGoogleAuth}
+                                                onError={() => { console.log('Google Login Failed'); setActiveSocialLogin(null); }}
+                                                useOneTap={false}
+                                                theme="outline"
+                                                size="large"
+                                                text="continue_with"
+                                                shape="pill"
+                                                width="320px"
+                                            />
+                                        </div>
+                                    )}
+                                </div>
+
+                                <p className="text-center text-[13px] text-slate-400 font-medium">
                                     Don't have an account?{' '}
-                                    <button className="text-blue-600 hover:text-blue-700 font-semibold hover:underline">
-                                        Request access
+                                    <button
+                                        type="button"
+                                        onClick={() => navigate('/register')}
+                                        className="text-indigo-600 font-bold hover:text-indigo-700 hover:underline transition-colors ml-0.5"
+                                    >
+                                        Create account
                                     </button>
                                 </p>
-                                <p className="text-gray-500 text-xs mt-3">
-                                    By continuing, you agree to our{' '}
-                                    <button className="text-blue-600 hover:underline">Terms of Service</button>
-                                    {' '}and{' '}
-                                    <button className="text-blue-600 hover:underline">Privacy Policy</button>
-                                </p>
-                            </div>
+                            </>
                         )}
                     </div>
                 </div>
+
+                {/* Footer */}
+                <div className="text-center text-[11px] text-slate-300 pb-8 px-8">
+                    By continuing, you agree to our{' '}
+                    <button className="text-slate-400 hover:underline font-semibold transition-colors">Terms of Service</button>
+                    {' '}and{' '}
+                    <button className="text-slate-400 hover:underline font-semibold transition-colors">Privacy Policy</button>
+                </div>
             </div>
 
-            {/* Add animations to global styles */}
-            <style jsx>{`
-                @keyframes blob {
-                    0% {
-                        transform: translate(0px, 0px) scale(1);
-                    }
-                    33% {
-                        transform: translate(30px, -50px) scale(1.1);
-                    }
-                    66% {
-                        transform: translate(-20px, 20px) scale(0.9);
-                    }
-                    100% {
-                        transform: translate(0px, 0px) scale(1);
-                    }
+            {/* Global styles */}
+            <style>{`
+                .ooms-root, .ooms-root * {
+                    font-family: 'Plus Jakarta Sans', sans-serif !important;
                 }
-                
-                @keyframes pulse-slow {
-                    0%, 100% {
-                        opacity: 1;
-                    }
-                    50% {
-                        opacity: 0.8;
-                    }
+                @keyframes fade-in {
+                    from { opacity: 0; transform: translateY(10px); }
+                    to   { opacity: 1; transform: translateY(0); }
                 }
-                
-                .animate-blob {
-                    animation: blob 7s infinite;
-                }
-                
-                .animation-delay-2000 {
-                    animation-delay: 2s;
-                }
-                
-                .animation-delay-4000 {
-                    animation-delay: 4s;
-                }
-                
-                .animate-pulse-slow {
-                    animation: pulse-slow 2s infinite;
-                }
-                
-                .bg-confetti {
-                    background-image: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%2310b981' fill-opacity='0.1'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
-                }
+                .animate-fade-in { animation: fade-in 0.35s ease-out forwards; }
             `}</style>
         </div>
     );

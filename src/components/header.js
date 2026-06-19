@@ -89,13 +89,22 @@ const SwitchProjectModal = ({ isOpen, onClose, onSelectCompany }) => {
   const navigate = useNavigate();
 
   useEffect(() => {
-    // Load companies from mock data
-    const userData = getMockUserData();
-    setCompanies(userData.projects.list || []);
-  }, []);
+    if (isOpen) {
+      const branchesJson = localStorage.getItem('user_branches');
+      if (branchesJson) {
+        try {
+          const parsed = JSON.parse(branchesJson);
+          setCompanies(parsed || []);
+        } catch (e) {
+          console.error(e);
+        }
+      }
+    }
+  }, [isOpen]);
 
   const filteredCompanies = companies.filter(company =>
-    company.name.toLowerCase().includes(searchTerm.toLowerCase())
+    company.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    String(company.branch_id).toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   if (!isOpen) return null;
@@ -106,43 +115,50 @@ const SwitchProjectModal = ({ isOpen, onClose, onSelectCompany }) => {
         <div className="fixed inset-0 bg-black opacity-30" onClick={onClose}></div>
         <div className="relative z-50 w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl">
           <div className="mb-6">
-            <h2 className="text-xl font-bold text-slate-800">Switch Project</h2>
-            <p className="text-slate-500 text-sm mt-1">Select a project to work with</p>
+            <h2 className="text-xl font-bold text-slate-800">Switch Branch</h2>
+            <p className="text-slate-500 text-sm mt-1">Select a branch to work with</p>
           </div>
 
           <div className="mb-4">
             <div className="relative">
               <input
                 type="text"
-                placeholder="Search projects..."
+                placeholder="Search branches..."
                 className="w-full rounded-lg border border-slate-200 bg-slate-50 px-4 py-2.5 pl-10 text-sm focus:border-indigo-300 focus:outline-none focus:ring-2 focus:ring-indigo-100"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
               />
               <div className="absolute left-3 top-1/2 -translate-y-1/2">
-                <FiBriefcase size={16} className="text-slate-400" />
+                <FiHome size={16} className="text-slate-400" />
               </div>
             </div>
           </div>
 
-          <div className="space-y-2 max-h-72 overflow-y-auto">
+          <div className="space-y-2 max-h-72 overflow-y-auto pr-1">
             {filteredCompanies.length > 0 ? (
-              filteredCompanies.map((company) => (
+              filteredCompanies.map((branch) => (
                 <button
-                  key={company.project_id || company.id}
+                  key={branch.branch_id}
                   onClick={() => {
-                    onSelectCompany(company);
+                    onSelectCompany(branch);
                     onClose();
                   }}
                   className="flex w-full items-center justify-between rounded-lg border border-slate-100 bg-white p-4 text-left hover:border-indigo-200 hover:bg-indigo-50/30 transition-all duration-200"
                 >
                   <div className="flex items-center gap-3">
                     <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-gradient-to-br from-indigo-100 to-purple-100 text-indigo-600">
-                      <FiBriefcase size={18} />
+                      <FiHome size={18} />
                     </div>
                     <div>
-                      <p className="font-medium text-slate-800">{company.name}</p>
-                      <p className="text-xs text-slate-500 mt-0.5">Project ID: {company.project_id || company.id}</p>
+                      <p className="font-medium text-slate-800 flex items-center gap-2">
+                        {branch.name}
+                        {branch.owned && (
+                          <span className="px-1.5 py-0.5 bg-green-50 text-green-700 text-[10px] font-bold rounded-full border border-green-200">
+                            Owned
+                          </span>
+                        )}
+                      </p>
+                      <p className="text-xs text-slate-500 mt-0.5">Branch ID: {branch.branch_id}</p>
                     </div>
                   </div>
                   <FiChevronRight size={16} className="text-slate-400" />
@@ -151,9 +167,9 @@ const SwitchProjectModal = ({ isOpen, onClose, onSelectCompany }) => {
             ) : (
               <div className="py-8 text-center">
                 <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-slate-100">
-                  <FiBriefcase size={20} className="text-slate-400" />
+                  <FiHome size={20} className="text-slate-400" />
                 </div>
-                <p className="text-slate-500">No projects found</p>
+                <p className="text-slate-500">No branches found</p>
               </div>
             )}
           </div>
@@ -161,15 +177,9 @@ const SwitchProjectModal = ({ isOpen, onClose, onSelectCompany }) => {
           <div className="mt-6 flex justify-end gap-3 pt-4 border-t border-slate-100">
             <button
               onClick={onClose}
-              className="px-4 py-2 text-sm font-medium text-slate-600 hover:text-slate-800 transition-colors"
+              className="px-4 py-2 text-sm font-medium bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg transition-colors"
             >
               Cancel
-            </button>
-            <button
-              onClick={() => navigate('/projects')}
-              className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 shadow-sm shadow-indigo-200 transition-colors"
-            >
-              Create New
             </button>
           </div>
         </div>
@@ -402,16 +412,28 @@ export const Header = ({ mobileMenuOpen, setMobileMenuOpen, isMinimized, setIsMi
   const [profileDropdownOpen, setProfileDropdownOpen] = useState(false);
   const [switchProjectModalOpen, setSwitchProjectModalOpen] = useState(false);
   const [selectedCompany, setSelectedCompany] = useState(null);
-  const [selectedProjectName, setSelectedProjectName] = useState('My First Project');
-  const [userProfile, setUserProfile] = useState({ name: 'John Doe', email: 'john@example.com' });
+  const [selectedProjectName, setSelectedProjectName] = useState('Select Branch');
+  const [userProfile, setUserProfile] = useState({ name: 'User', email: '' });
 
   const navigate = useNavigate();
   const [walletBalance, setWalletBalance] = useState(0);
 
   useEffect(() => {
+    const name = localStorage.getItem('user_name') || localStorage.getItem('user_username') || 'User';
+    const email = localStorage.getItem('user_email') || '';
+    setUserProfile({ name, email });
+
+    const activeBranchName = localStorage.getItem('branch_name');
+    if (activeBranchName) {
+      setSelectedProjectName(activeBranchName);
+    }
+  }, []);
+
+  useEffect(() => {
     const fetchBalance = async () => {
       try {
         const headers = await getHeaders();
+        if (!headers) return;
         const res = await fetch(`${API_BASE_URL}/wallet/balance`, { headers });
         const result = await res.json();
         if (result.success) {
@@ -432,7 +454,15 @@ export const Header = ({ mobileMenuOpen, setMobileMenuOpen, isMinimized, setIsMi
   };
 
   const handleLogout = () => {
-    localStorage.removeItem("userData");
+    localStorage.removeItem('user_token');
+    localStorage.removeItem('user_username');
+    localStorage.removeItem('user_email');
+    localStorage.removeItem('user_name');
+    localStorage.removeItem('user_branches');
+    localStorage.removeItem('branch_id');
+    localStorage.removeItem('branch_name');
+    localStorage.removeItem('branch_owned');
+    localStorage.removeItem('userData');
     navigate('/login');
   };
 
@@ -441,13 +471,13 @@ export const Header = ({ mobileMenuOpen, setMobileMenuOpen, isMinimized, setIsMi
     setSelectedCompany(company);
     setSelectedProjectName(company.name);
     try {
-      const stored = localStorage.getItem('userData');
-      const parsed = stored ? JSON.parse(stored) : getMockUserData();
-      const selectedId = company.project_id || company.id || null;
-      const updatedUserData = { ...parsed, selected_project_id: selectedId };
-      localStorage.setItem('userData', JSON.stringify(updatedUserData));
-      navigate('/');
-    } catch (error) { console.error('Failed to update selected project', error); }
+      localStorage.setItem('branch_id', company.branch_id);
+      localStorage.setItem('branch_name', company.name);
+      localStorage.setItem('branch_owned', company.owned ? 'true' : 'false');
+      window.location.reload();
+    } catch (error) {
+      console.error('Failed to update selected branch', error);
+    }
   };
 
   // Get user initials for avatar
@@ -492,8 +522,8 @@ export const Header = ({ mobileMenuOpen, setMobileMenuOpen, isMinimized, setIsMi
               onClick={() => setSwitchProjectModalOpen(true)}
               className="hidden md:flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 hover:border-indigo-300 hover:text-indigo-600 hover:shadow-sm transition-all duration-200 group"
             >
-              <FiBriefcase size={16} className="text-slate-400 group-hover:text-indigo-500 transition-colors" />
-              <span className="max-w-[120px] truncate">{selectedProjectName || selectedCompany?.name || 'Select Project'}</span>
+              <FiHome size={16} className="text-slate-400 group-hover:text-indigo-500 transition-colors" />
+              <span className="max-w-[120px] truncate">{selectedProjectName || selectedCompany?.name || 'Select Branch'}</span>
               <FiChevronDown size={14} className="text-slate-400" />
             </button>
 
@@ -530,7 +560,7 @@ export const Header = ({ mobileMenuOpen, setMobileMenuOpen, isMinimized, setIsMi
                       <p className="text-xs text-slate-500 truncate">{userProfile.email || ''}</p>
                     </div>
                     <button className="md:hidden flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm text-slate-600 hover:bg-indigo-50 hover:text-indigo-600 transition-colors" onClick={() => { setProfileDropdownOpen(false); setSwitchProjectModalOpen(true); }}>
-                      <FiBriefcase size={16} /> Switch Project
+                      <FiHome size={16} /> Switch Branch
                     </button>
                     {profileItems.map((item, index) => (
                       <NavLink key={index} to={item.path} className="flex items-center gap-2 rounded-md px-3 py-2 text-sm text-slate-600 hover:bg-indigo-50 hover:text-indigo-600 transition-colors no-underline hover:no-underline" onClick={() => setProfileDropdownOpen(false)}>
@@ -570,9 +600,20 @@ export const Sidebar = ({ mobileMenuOpen, setMobileMenuOpen, isMinimized, setIsM
   const [pendingBillingCount, setPendingBillingCount] = useState(23); // Mock pending billing count
   const whatsappChannel = useWhatsappChannel();
 
-  const userData = getUserData();
-  const projectList = userData?.projects?.list || (Array.isArray(userData?.projects) ? userData.projects : []);
-  const hasProjects = projectList.length > 0 || (userData?.projects?.project_count > 0);
+  const hasProjects = useMemo(() => {
+    const branchId = localStorage.getItem('branch_id');
+    const branchesJson = localStorage.getItem('user_branches');
+    if (branchId) return true;
+    if (branchesJson) {
+      try {
+        const parsed = JSON.parse(branchesJson);
+        return parsed && parsed.length > 0;
+      } catch (e) {
+        return false;
+      }
+    }
+    return false;
+  }, []);
 
   const location = useLocation();
 
