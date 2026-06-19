@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { toast } from 'react-hot-toast';
 import {
     FiUser,
     FiMail,
@@ -131,13 +132,13 @@ const Register = () => {
         // Simulate registration complete
         setTimeout(() => {
             setLoading(false);
-            alert('Registration request submitted successfully! Our team will verify and activate your portal.');
+            toast.success('Registration request submitted successfully! Our team will verify and activate your portal.');
             navigate('/login');
         }, 1500);
     };
 
     const handleResendOtp = () => {
-        alert('OTP has been resent to your mobile!');
+        toast.success('OTP has been resent to your mobile!');
     };
 
     const isStep1Empty = !formData.name || !formData.email || !formData.mobile;

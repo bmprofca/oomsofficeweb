@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { toast } from 'react-hot-toast';
 import {
     FiUser,
     FiMail,
@@ -115,8 +116,8 @@ const Login = () => {
 
     const handleSendOtp = async (e) => {
         e.preventDefault();
-        if (!formData.login_id) { alert('Please enter your mobile number or email'); return; }
-        if (!validateLoginId(formData.login_id)) { setIsValidEmail(false); alert('Please enter a valid email address or 10-digit mobile number'); return; }
+        if (!formData.login_id) { toast.error('Please enter your mobile number or email'); return; }
+        if (!validateLoginId(formData.login_id)) { setIsValidEmail(false); toast.error('Please enter a valid email address or 10-digit mobile number'); return; }
         setLoading(true);
         try {
             const response = await fetch(`${BASE_URL}/auth/login/send-otp`, {
@@ -129,12 +130,13 @@ const Login = () => {
                 setPhase(2);
                 setCountdown(30);
                 setOtpExpireTime(result.expire);
+                toast.success(result.message || 'OTP sent successfully');
             } else {
-                alert(result.message || 'Error sending OTP');
+                toast.error(result.message || 'Error sending OTP');
             }
         } catch (error) {
             console.error('Error sending OTP:', error);
-            alert('Error sending OTP. Please try again.');
+            toast.error('Error sending OTP. Please try again.');
         } finally {
             setLoading(false);
         }
@@ -142,7 +144,7 @@ const Login = () => {
 
     const handleOtpSubmit = async (e) => {
         if (e) e.preventDefault();
-        if (formData.otp.length !== 6) { alert('Please enter 6-digit OTP'); return; }
+        if (formData.otp.length !== 6) { toast.error('Please enter 6-digit OTP'); return; }
         setLoading(true);
         try {
             const response = await fetch(`${BASE_URL}/auth/login/verify-otp`, {
@@ -160,11 +162,11 @@ const Login = () => {
                     handleCompleteLogin(result, null);
                 }
             } else {
-                alert(result.message || 'Login failed');
+                toast.error(result.message || 'Login failed');
             }
         } catch (error) {
             console.error('Error verifying OTP:', error);
-            alert('Error verifying OTP. Please try again.');
+            toast.error('Error verifying OTP. Please try again.');
         } finally {
             setLoading(false);
         }
@@ -199,7 +201,7 @@ const Login = () => {
             }
         } catch (error) {
             console.error('Google Auth Error:', error);
-            alert('Authentication failed: ' + error.message);
+            toast.error('Authentication failed: ' + error.message);
             setActiveSocialLogin(null);
             setLoading(false);
         }
@@ -224,7 +226,7 @@ const Login = () => {
         setShowBranchSelection(false);
         fetchWhatsappChannel().catch(() => { });
         const welcomeName = result.profile?.name || result.username || 'User';
-        alert(`Welcome ${welcomeName}! Login successful!`);
+        toast.success(`Welcome ${welcomeName}! Login successful!`);
         setTimeout(() => { window.location.href = '/'; }, 1500);
     };
 
@@ -247,13 +249,14 @@ const Login = () => {
                 setOtpDigits(['', '', '', '', '', '']);
                 setFormData(prev => ({ ...prev, otp: '' }));
                 setCountdown(30);
+                toast.success('OTP has been resent successfully');
                 setTimeout(() => { otpRefs.current[0]?.current?.focus(); }, 100);
             } else {
-                alert(result.message || 'Error resending OTP');
+                toast.error(result.message || 'Error resending OTP');
             }
         } catch (error) {
             console.error('Error resending OTP:', error);
-            alert('Error resending OTP. Please try again.');
+            toast.error('Error resending OTP. Please try again.');
         } finally {
             setLoading(false);
         }
@@ -567,13 +570,6 @@ const Login = () => {
                                         }
                                     </button>
 
-                                    {/* Testing hint */}
-                                    <div className="flex items-center justify-center gap-2 py-2.5 px-4 bg-slate-50 border border-slate-100 rounded-xl">
-                                        <FiShield size={12} className="text-indigo-400 flex-shrink-0" />
-                                        <p className="text-[11px] text-slate-400 font-medium">
-                                            Testing? Use OTP: <span className="font-bold text-indigo-600 bg-indigo-50 px-1.5 py-0.5 rounded ml-0.5">123456</span>
-                                        </p>
-                                    </div>
                                 </div>
                             </div>
                         )}
