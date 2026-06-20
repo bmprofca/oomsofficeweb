@@ -260,7 +260,7 @@ const getPeriodDueDate = (period) => {
 
 const getUpcomingDueDateInfo = (assign, allSchedules) => {
     const assignSchedules = allSchedules.filter(s => s.assignment_id === assign.assignment_id);
-    if (assignSchedules.length === 0) return { text: '—', color: 'text-slate-400' };
+    if (assignSchedules.length === 0) return { text: 'N/A', color: 'text-slate-400' };
 
     const MONTH_ORDER = ['April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December', 'January', 'February', 'March'];
 
@@ -307,19 +307,121 @@ const getUpcomingDueDateInfo = (assign, allSchedules) => {
     };
 };
 
-const getPeriodHeaders = (frequency) => {
+const getQuarterIndex = (month) => {
+    if (month >= 3 && month <= 5) return 0; // APR-JUN
+    if (month >= 6 && month <= 8) return 1; // JUL-SEP
+    if (month >= 9 && month <= 11) return 2; // OCT-DEC
+    return 3; // JAN-MAR
+};
+
+const getHalfYearIndex = (month) => {
+    if (month >= 3 && month <= 8) return 0; // APR-SEP
+    return 1; // OCT-MAR
+};
+
+const getMonthlyPeriods = (today) => {
+    const periods = [];
+    const MONTH_NAMES_SHORT = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    for (let i = 5; i >= 0; i--) {
+        const d = new Date(today.getFullYear(), today.getMonth() - i, 1);
+        const monthNameShort = MONTH_NAMES_SHORT[d.getMonth()];
+        const period_name = MONTH_MAP[monthNameShort] || monthNameShort;
+        const monthVal = d.getMonth();
+        const yr = d.getFullYear();
+        let fyStart = yr;
+        if (monthVal < 3) {
+            fyStart = yr - 1;
+        }
+        const financial_year = `${fyStart}-${fyStart + 1}`;
+        periods.push({
+            label: monthNameShort,
+            period_name,
+            financial_year
+        });
+    }
+    return periods;
+};
+
+const getQuarterlyPeriods = (today) => {
+    const QUARTER_LABELS = ['APR-JUN', 'JUL-SEP', 'OCT-DEC', 'JAN-MAR'];
+    const periods = [];
+    for (let i = 3; i >= 0; i--) {
+        const d = new Date(today.getFullYear(), today.getMonth() - 3 * i, 1);
+        const qIdx = getQuarterIndex(d.getMonth());
+        const label = QUARTER_LABELS[qIdx];
+        const monthVal = d.getMonth();
+        const yr = d.getFullYear();
+        let fyStart = yr;
+        if (monthVal < 3) {
+            fyStart = yr - 1;
+        }
+        const financial_year = `${fyStart}-${fyStart + 1}`;
+        periods.push({
+            label,
+            period_name: label,
+            financial_year
+        });
+    }
+    return periods;
+};
+
+const getHalfYearlyPeriods = (today) => {
+    const HALF_YEAR_LABELS = ['APR-SEP', 'OCT-MAR'];
+    const periods = [];
+    for (let i = 1; i >= 0; i--) {
+        const d = new Date(today.getFullYear(), today.getMonth() - 6 * i, 1);
+        const hIdx = getHalfYearIndex(d.getMonth());
+        const label = HALF_YEAR_LABELS[hIdx];
+        const monthVal = d.getMonth();
+        const yr = d.getFullYear();
+        let fyStart = yr;
+        if (monthVal < 3) {
+            fyStart = yr - 1;
+        }
+        const financial_year = `${fyStart}-${fyStart + 1}`;
+        periods.push({
+            label,
+            period_name: label,
+            financial_year
+        });
+    }
+    return periods;
+};
+
+const getYearlyPeriods = (today) => {
+    const periods = [];
+    const monthVal = today.getMonth();
+    const yr = today.getFullYear();
+    let currentFyStart = yr;
+    if (monthVal < 3) {
+        currentFyStart = yr - 1;
+    }
+    for (let i = 2; i >= 0; i--) {
+        const fyStart = currentFyStart - i;
+        const financial_year = `${fyStart}-${fyStart + 1}`;
+        periods.push({
+            label: financial_year,
+            period_name: 'APR-MAR',
+            financial_year
+        });
+    }
+    return periods;
+};
+
+const getPeriodHeadersForFreq = (frequency) => {
+    const today = new Date();
     const freq = frequency?.toLowerCase();
     if (freq === 'monthly') {
-        return ['Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec', 'Jan', 'Feb', 'Mar'];
+        return getMonthlyPeriods(today);
     }
     if (freq === 'quarterly') {
-        return ['APR-JUN', 'JUL-SEP', 'OCT-DEC', 'JAN-MAR'];
+        return getQuarterlyPeriods(today);
     }
     if (freq === 'halfyearly') {
-        return ['APR-SEP', 'OCT-MAR'];
+        return getHalfYearlyPeriods(today);
     }
     if (freq === 'yearly') {
-        return ['APR-MAR'];
+        return getYearlyPeriods(today);
     }
     return [];
 };
@@ -353,58 +455,55 @@ const isPeriodDueDateActive = (period) => {
     return dueDateObj.getMonth() === today.getMonth() && dueDateObj.getFullYear() === today.getFullYear();
 };
 
-const getVisible6Months = (financialYear) => {
-    const today = new Date();
-    const months = [];
-    const MONTH_NAMES_SHORT = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-    for (let i = 5; i >= 0; i--) {
-        const d = new Date(today.getFullYear(), today.getMonth() - i, 1);
-        months.push(MONTH_NAMES_SHORT[d.getMonth()]);
-    }
-    return months;
-};
-
-
-const getPeriodHeadersForFreq = (frequency, financialYear) => {
+const matchPeriodName = (dbName, headerName, frequency) => {
+    if (!dbName || !headerName) return false;
+    const db = dbName.toLowerCase().trim();
+    const hdr = headerName.toLowerCase().trim();
+    if (db === hdr) return true;
+    
     const freq = frequency?.toLowerCase();
     if (freq === 'monthly') {
-        return getVisible6Months(financialYear);
-    }
-    return getPeriodHeaders(frequency);
-};
-
-const getPeriodSchedule = (assignmentSchedules, headerText, frequency) => {
-    const freq = frequency?.toLowerCase();
-    if (freq === 'monthly') {
-        const fullMonthName = MONTH_MAP[headerText];
-        return assignmentSchedules.find(p => p.period_name?.toLowerCase() === fullMonthName?.toLowerCase());
+        const getShortMonth = (name) => {
+            const key = Object.keys(MONTH_MAP).find(k => k.toLowerCase() === name || MONTH_MAP[k].toLowerCase() === name);
+            return key ? key.toLowerCase() : name;
+        };
+        return getShortMonth(db) === getShortMonth(hdr);
     }
     if (freq === 'quarterly') {
-        if (headerText === 'APR-JUN') {
-            return assignmentSchedules.find(p => isQ1(p.period_name));
-        }
-        if (headerText === 'JUL-SEP') {
-            return assignmentSchedules.find(p => isQ2(p.period_name));
-        }
-        if (headerText === 'OCT-DEC') {
-            return assignmentSchedules.find(p => isQ3(p.period_name));
-        }
-        if (headerText === 'JAN-MAR') {
-            return assignmentSchedules.find(p => isQ4(p.period_name));
-        }
+        const getQNumber = (name) => {
+            if (isQ1(name)) return 1;
+            if (isQ2(name)) return 2;
+            if (isQ3(name)) return 3;
+            if (isQ4(name)) return 4;
+            return -1;
+        };
+        const dbQ = getQNumber(db);
+        const hdrQ = getQNumber(hdr);
+        return dbQ !== -1 && dbQ === hdrQ;
     }
     if (freq === 'halfyearly') {
-        if (headerText === 'APR-SEP') {
-            return assignmentSchedules.find(p => isH1(p.period_name));
-        }
-        if (headerText === 'OCT-MAR') {
-            return assignmentSchedules.find(p => isH2(p.period_name));
-        }
+        const getHNumber = (name) => {
+            if (isH1(name)) return 1;
+            if (isH2(name)) return 2;
+            return -1;
+        };
+        const dbH = getHNumber(db);
+        const hdrH = getHNumber(hdr);
+        return dbH !== -1 && dbH === hdrH;
     }
-    if (freq === 'yearly') {
-        return assignmentSchedules[0];
-    }
-    return null;
+    return false;
+};
+
+const getPeriodSchedule = (assignmentSchedules, header, frequency) => {
+    if (!header || !assignmentSchedules) return null;
+    const freq = frequency?.toLowerCase();
+    return assignmentSchedules.find(p => {
+        if (freq === 'yearly') {
+            return p.financial_year === header.financial_year;
+        }
+        return matchPeriodName(p.period_name, header.period_name, frequency) &&
+               p.financial_year === header.financial_year;
+    });
 };
 
 const ComplianceTab = ({ clientUsername }) => {
@@ -1140,10 +1239,14 @@ const ComplianceTab = ({ clientUsername }) => {
 
     const activeFrequency = activeAssignmentForFreq ? activeAssignmentForFreq.frequency?.toLowerCase() : 'monthly';
     const isServiceFiltered = selectedServiceFilter !== '';
-    const periodHeaders = isServiceFiltered ? getPeriodHeadersForFreq(activeFrequency, activeAssignmentForFreq?.financial_year) : [];
+
+    const periodHeaders = useMemo(() => {
+        if (!isServiceFiltered) return [];
+        return getPeriodHeadersForFreq(activeFrequency);
+    }, [isServiceFiltered, activeFrequency]);
 
     const renderCell = (period, assign) => {
-        if (!period) return <td key={Math.random()} className="px-2 py-3 text-center text-slate-350 font-mono">—</td>;
+        if (!period) return <td key={Math.random()} className="px-2 py-3 text-center text-slate-350 font-mono">N/A</td>;
 
         let statusLetter = 'P';
         let cellClass = 'bg-amber-50 text-amber-700 border-amber-200';
@@ -1215,8 +1318,11 @@ const ComplianceTab = ({ clientUsername }) => {
                             <th className="px-4 py-3 text-center w-12">SR</th>
                             <th className="px-4 py-3">Firm Name</th>
                             <th className="px-4 py-3 text-center">Staffs</th>
-                            {periodHeaders.map((header) => (
-                                <th key={header} className="px-2 py-3 text-center uppercase tracking-wider">{header}</th>
+                            {periodHeaders.map((header, hIdx) => (
+                                <th key={hIdx} className="px-2 py-3 text-center uppercase tracking-wider">
+                                    <div>{header.label}</div>
+                                    <div className="text-[8px] text-slate-400 font-normal lowercase">{header.financial_year}</div>
+                                </th>
                             ))}
                             <th className="px-4 py-3 text-center w-16">Action</th>
                         </tr>
@@ -1296,8 +1402,8 @@ const ComplianceTab = ({ clientUsername }) => {
                                                 );
                                             })()}
                                         </td>
-                                        {periodHeaders.map((headerText) => {
-                                            const period = getPeriodSchedule(assignSchedules, headerText, activeFrequency);
+                                        {periodHeaders.map((header, hIdx) => {
+                                            const period = getPeriodSchedule(assignSchedules, header, activeFrequency);
                                             return renderCell(period, assign);
                                         })}
                                         <td className={`px-4 py-3 text-center align-middle ${activeDropdownId === `${assign.assignment_id}-${idx}` ? 'relative z-50' : ''}`}>
@@ -1721,35 +1827,35 @@ const ComplianceTab = ({ clientUsername }) => {
                                                     <div className="flex-1 w-full">
                                                         <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 gap-3">
                                                             {(() => {
-                                                                const filteredSchedules = (() => {
-                                                                    const normalizeFY = (fy) => {
-                                                                        if (!fy) return '';
-                                                                        let clean = fy.toLowerCase().replace(/fy/g, '').trim().replace(/\s+/g, '');
-                                                                        const parts = clean.split('-');
-                                                                        if (parts.length !== 2) return fy;
-                                                                        let start = parts[0].length === 2 ? '20' + parts[0] : parts[0];
-                                                                        let end = parts[1].length === 2 ? '20' + parts[1] : parts[1];
-                                                                        return start.length === 4 && end.length === 4 ? `${start}-${end}` : fy;
-                                                                    };
-
-                                                                    const targetFY = normalizeFY(assign.financial_year);
-                                                                    let list = schedules.filter(p => normalizeFY(p.financial_year) === targetFY);
-
-                                                                    const rawMonth = assign.pay_from_month || assign.period_name;
-                                                                    if (!rawMonth || assign.frequency !== 'monthly') return list;
-                                                                    const map = {
-                                                                        'Apr': 'April', 'May': 'May', 'Jun': 'June', 'Jul': 'July', 'Aug': 'August', 'Sep': 'September',
-                                                                        'Oct': 'October', 'Nov': 'November', 'Dec': 'December', 'Jan': 'January', 'Feb': 'February', 'Mar': 'March'
-                                                                    };
-                                                                    const startMonth = map[rawMonth] || rawMonth;
-                                                                    const MONTHS = ['April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December', 'January', 'February', 'March'];
-                                                                    const startIndex = MONTHS.indexOf(startMonth);
-                                                                    if (startIndex === -1) return list;
-                                                                    return list.filter(p => {
-                                                                        const pIndex = MONTHS.indexOf(p.period_name);
-                                                                        return pIndex >= startIndex;
-                                                                    });
-                                                                })();
+                                                                const filteredSchedules = [...schedules].sort((a, b) => {
+                                                                    if (a.financial_year !== b.financial_year) {
+                                                                        return a.financial_year.localeCompare(b.financial_year);
+                                                                    }
+                                                                    const freq = assign.frequency?.toLowerCase();
+                                                                    if (freq === 'monthly') {
+                                                                        const MONTH_ORDER = ['April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December', 'January', 'February', 'March'];
+                                                                        return MONTH_ORDER.indexOf(a.period_name) - MONTH_ORDER.indexOf(b.period_name);
+                                                                    }
+                                                                    if (freq === 'quarterly') {
+                                                                        const getQIdx = (name) => {
+                                                                            if (isQ1(name)) return 0;
+                                                                            if (isQ2(name)) return 1;
+                                                                            if (isQ3(name)) return 2;
+                                                                            if (isQ4(name)) return 3;
+                                                                            return -1;
+                                                                        };
+                                                                        return getQIdx(a.period_name) - getQIdx(b.period_name);
+                                                                    }
+                                                                    if (freq === 'halfyearly') {
+                                                                        const getHIdx = (name) => {
+                                                                            if (isH1(name)) return 0;
+                                                                            if (isH2(name)) return 1;
+                                                                            return -1;
+                                                                        };
+                                                                        return getHIdx(a.period_name) - getHIdx(b.period_name);
+                                                                    }
+                                                                    return 0;
+                                                                });
 
                                                                 return filteredSchedules.map((period) => {
                                                                     const assignedStaffs = getAssignedStaffList(assign);

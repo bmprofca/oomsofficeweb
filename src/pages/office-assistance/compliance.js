@@ -10,7 +10,7 @@ import {
     FiLayers, FiChevronRight, FiChevronDown, FiDollarSign, FiCheck,
     FiX, FiEye, FiInfo, FiBookOpen, FiBriefcase, FiCalendar, FiArrowRight,
     FiUser, FiEdit2, FiTrash2, FiShare2, FiChevronLeft, FiMenu,
-    FiEyeOff, FiCopy, FiLock
+    FiEyeOff, FiCopy, FiLock, FiRepeat
 } from 'react-icons/fi';
 import { FaWhatsapp } from 'react-icons/fa6';
 import { MdEmail } from 'react-icons/md';
@@ -259,7 +259,7 @@ const getPeriodDueDate = (period) => {
 
 const getUpcomingDueDateInfo = (assign, allSchedules) => {
     const assignSchedules = allSchedules.filter(s => s.assignment_id === assign.assignment_id);
-    if (assignSchedules.length === 0) return { text: '—', color: 'text-slate-400' };
+    if (assignSchedules.length === 0) return { text: 'N/A', color: 'text-slate-400' };
 
     const MONTH_ORDER = ['April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December', 'January', 'February', 'March'];
 
@@ -306,19 +306,121 @@ const getUpcomingDueDateInfo = (assign, allSchedules) => {
     };
 };
 
-const getPeriodHeaders = (frequency) => {
+const getQuarterIndex = (month) => {
+    if (month >= 3 && month <= 5) return 0; // APR-JUN
+    if (month >= 6 && month <= 8) return 1; // JUL-SEP
+    if (month >= 9 && month <= 11) return 2; // OCT-DEC
+    return 3; // JAN-MAR
+};
+
+const getHalfYearIndex = (month) => {
+    if (month >= 3 && month <= 8) return 0; // APR-SEP
+    return 1; // OCT-MAR
+};
+
+const getMonthlyPeriods = (today) => {
+    const periods = [];
+    const MONTH_NAMES_SHORT = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    for (let i = 5; i >= 0; i--) {
+        const d = new Date(today.getFullYear(), today.getMonth() - i, 1);
+        const monthNameShort = MONTH_NAMES_SHORT[d.getMonth()];
+        const period_name = MONTH_MAP[monthNameShort] || monthNameShort;
+        const monthVal = d.getMonth();
+        const yr = d.getFullYear();
+        let fyStart = yr;
+        if (monthVal < 3) {
+            fyStart = yr - 1;
+        }
+        const financial_year = `${fyStart}-${fyStart + 1}`;
+        periods.push({
+            label: monthNameShort,
+            period_name,
+            financial_year
+        });
+    }
+    return periods;
+};
+
+const getQuarterlyPeriods = (today) => {
+    const QUARTER_LABELS = ['APR-JUN', 'JUL-SEP', 'OCT-DEC', 'JAN-MAR'];
+    const periods = [];
+    for (let i = 3; i >= 0; i--) {
+        const d = new Date(today.getFullYear(), today.getMonth() - 3 * i, 1);
+        const qIdx = getQuarterIndex(d.getMonth());
+        const label = QUARTER_LABELS[qIdx];
+        const monthVal = d.getMonth();
+        const yr = d.getFullYear();
+        let fyStart = yr;
+        if (monthVal < 3) {
+            fyStart = yr - 1;
+        }
+        const financial_year = `${fyStart}-${fyStart + 1}`;
+        periods.push({
+            label,
+            period_name: label,
+            financial_year
+        });
+    }
+    return periods;
+};
+
+const getHalfYearlyPeriods = (today) => {
+    const HALF_YEAR_LABELS = ['APR-SEP', 'OCT-MAR'];
+    const periods = [];
+    for (let i = 1; i >= 0; i--) {
+        const d = new Date(today.getFullYear(), today.getMonth() - 6 * i, 1);
+        const hIdx = getHalfYearIndex(d.getMonth());
+        const label = HALF_YEAR_LABELS[hIdx];
+        const monthVal = d.getMonth();
+        const yr = d.getFullYear();
+        let fyStart = yr;
+        if (monthVal < 3) {
+            fyStart = yr - 1;
+        }
+        const financial_year = `${fyStart}-${fyStart + 1}`;
+        periods.push({
+            label,
+            period_name: label,
+            financial_year
+        });
+    }
+    return periods;
+};
+
+const getYearlyPeriods = (today) => {
+    const periods = [];
+    const monthVal = today.getMonth();
+    const yr = today.getFullYear();
+    let currentFyStart = yr;
+    if (monthVal < 3) {
+        currentFyStart = yr - 1;
+    }
+    for (let i = 2; i >= 0; i--) {
+        const fyStart = currentFyStart - i;
+        const financial_year = `${fyStart}-${fyStart + 1}`;
+        periods.push({
+            label: financial_year,
+            period_name: 'APR-MAR',
+            financial_year
+        });
+    }
+    return periods;
+};
+
+const getPeriodHeadersForFreq = (frequency) => {
+    const today = new Date();
     const freq = frequency?.toLowerCase();
     if (freq === 'monthly') {
-        return ['Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec', 'Jan', 'Feb', 'Mar'];
+        return getMonthlyPeriods(today);
     }
     if (freq === 'quarterly') {
-        return ['APR-JUN', 'JUL-SEP', 'OCT-DEC', 'JAN-MAR'];
+        return getQuarterlyPeriods(today);
     }
     if (freq === 'halfyearly') {
-        return ['APR-SEP', 'OCT-MAR'];
+        return getHalfYearlyPeriods(today);
     }
     if (freq === 'yearly') {
-        return ['APR-MAR'];
+        return getYearlyPeriods(today);
     }
     return [];
 };
@@ -352,58 +454,55 @@ const isPeriodDueDateActive = (period) => {
     return dueDateObj.getMonth() === today.getMonth() && dueDateObj.getFullYear() === today.getFullYear();
 };
 
-const getVisible6Months = (financialYear) => {
-    const today = new Date();
-    const months = [];
-    const MONTH_NAMES_SHORT = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-    for (let i = 5; i >= 0; i--) {
-        const d = new Date(today.getFullYear(), today.getMonth() - i, 1);
-        months.push(MONTH_NAMES_SHORT[d.getMonth()]);
-    }
-    return months;
-};
-
-
-const getPeriodHeadersForFreq = (frequency, financialYear) => {
+const matchPeriodName = (dbName, headerName, frequency) => {
+    if (!dbName || !headerName) return false;
+    const db = dbName.toLowerCase().trim();
+    const hdr = headerName.toLowerCase().trim();
+    if (db === hdr) return true;
+    
     const freq = frequency?.toLowerCase();
     if (freq === 'monthly') {
-        return getVisible6Months(financialYear);
-    }
-    return getPeriodHeaders(frequency);
-};
-
-const getPeriodSchedule = (assignmentSchedules, headerText, frequency) => {
-    const freq = frequency?.toLowerCase();
-    if (freq === 'monthly') {
-        const fullMonthName = MONTH_MAP[headerText];
-        return assignmentSchedules.find(p => p.period_name?.toLowerCase() === fullMonthName?.toLowerCase());
+        const getShortMonth = (name) => {
+            const key = Object.keys(MONTH_MAP).find(k => k.toLowerCase() === name || MONTH_MAP[k].toLowerCase() === name);
+            return key ? key.toLowerCase() : name;
+        };
+        return getShortMonth(db) === getShortMonth(hdr);
     }
     if (freq === 'quarterly') {
-        if (headerText === 'APR-JUN') {
-            return assignmentSchedules.find(p => isQ1(p.period_name));
-        }
-        if (headerText === 'JUL-SEP') {
-            return assignmentSchedules.find(p => isQ2(p.period_name));
-        }
-        if (headerText === 'OCT-DEC') {
-            return assignmentSchedules.find(p => isQ3(p.period_name));
-        }
-        if (headerText === 'JAN-MAR') {
-            return assignmentSchedules.find(p => isQ4(p.period_name));
-        }
+        const getQNumber = (name) => {
+            if (isQ1(name)) return 1;
+            if (isQ2(name)) return 2;
+            if (isQ3(name)) return 3;
+            if (isQ4(name)) return 4;
+            return -1;
+        };
+        const dbQ = getQNumber(db);
+        const hdrQ = getQNumber(hdr);
+        return dbQ !== -1 && dbQ === hdrQ;
     }
     if (freq === 'halfyearly') {
-        if (headerText === 'APR-SEP') {
-            return assignmentSchedules.find(p => isH1(p.period_name));
-        }
-        if (headerText === 'OCT-MAR') {
-            return assignmentSchedules.find(p => isH2(p.period_name));
-        }
+        const getHNumber = (name) => {
+            if (isH1(name)) return 1;
+            if (isH2(name)) return 2;
+            return -1;
+        };
+        const dbH = getHNumber(db);
+        const hdrH = getHNumber(hdr);
+        return dbH !== -1 && dbH === hdrH;
     }
-    if (freq === 'yearly') {
-        return assignmentSchedules[0];
-    }
-    return null;
+    return false;
+};
+
+const getPeriodSchedule = (assignmentSchedules, header, frequency) => {
+    if (!header || !assignmentSchedules) return null;
+    const freq = frequency?.toLowerCase();
+    return assignmentSchedules.find(p => {
+        if (freq === 'yearly') {
+            return p.financial_year === header.financial_year;
+        }
+        return matchPeriodName(p.period_name, header.period_name, frequency) &&
+               p.financial_year === header.financial_year;
+    });
 };
 
 const ComplianceServices = () => {
@@ -663,10 +762,9 @@ const ComplianceServices = () => {
     const selectedServiceObj = services.find(s => String(s.service_id) === String(selectedServiceFilter) || String(s.name) === String(selectedServiceFilter));
     const activeFrequency = selectedServiceObj ? selectedServiceObj.frequency?.toLowerCase() : 'monthly';
     const isServiceFiltered = selectedServiceFilter !== '';
-    const periodHeaders = isServiceFiltered ? getPeriodHeadersForFreq(activeFrequency, selectedFY) : [];
 
     const renderCell = (period, assign) => {
-        if (!period) return <td key={Math.random()} className="px-2 py-3 text-center text-slate-350 font-mono">—</td>;
+        if (!period) return <td key={Math.random()} className="px-2 py-3 text-center text-slate-350 font-mono">N/A</td>;
 
         let statusLetter = 'P';
         let cellClass = 'bg-amber-50 text-amber-700 border-amber-200';
@@ -774,6 +872,11 @@ const ComplianceServices = () => {
 
         return fyMatch && serviceMatch && statusMatch;
     });
+
+    const periodHeaders = useMemo(() => {
+        if (!isServiceFiltered) return [];
+        return getPeriodHeadersForFreq(activeFrequency);
+    }, [isServiceFiltered, activeFrequency]);
 
     // Dynamic stats
     const [stats, setStats] = useState({
@@ -1389,10 +1492,25 @@ const ComplianceServices = () => {
 
                     {/* Main Workspace Card */}
                     <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden mb-8">
-                    </div>
+                        {/* Tabs */}
+                        <div className="flex border-b border-slate-100 px-4 pt-3 gap-1 bg-slate-50/20">
+                            {[
+                                { id: 'assignments', label: 'Compliance Schedules', icon: <FiCheckCircle className="w-3.5 h-3.5" /> },
+                                { id: 'services', label: 'Active Recurring Tasks', icon: <FiRepeat className="w-3.5 h-3.5" /> },
+                            ].map((tab) => (
+                                <button key={tab.id} onClick={() => setActiveTab(tab.id)}
+                                    className={`flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold rounded-t-lg border-b-2 transition-all -mb-px ${activeTab === tab.id
+                                        ? 'border-indigo-650 text-indigo-650 bg-indigo-50/50'
+                                        : 'border-transparent text-slate-500 hover:text-slate-700 hover:bg-gray-50'
+                                        }`}
+                                >
+                                    {tab.icon}{tab.label}
+                                </button>
+                            ))}
+                        </div>
 
-                    {/* Assignments Workspace */}
-                    {activeTab === 'assignments' && (
+                        {/* Assignments Workspace */}
+                        {activeTab === 'assignments' && (
                         <div>
                             <div className="flex flex-wrap items-center gap-3 px-4 py-3 border-b border-slate-100 bg-slate-50/20">
                                 <div className="relative flex-1 max-w-xs">
@@ -1479,8 +1597,11 @@ const ComplianceServices = () => {
                                                     <th className="px-4 py-3 text-center w-12">SR</th>
                                                     <th className="px-4 py-3">Firm Name</th>
                                                     <th className="px-4 py-3 text-center">Staffs</th>
-                                                    {periodHeaders.map((header) => (
-                                                        <th key={header} className="px-2 py-3 text-center uppercase tracking-wider">{header}</th>
+                                                    {periodHeaders.map((header, hIdx) => (
+                                                        <th key={hIdx} className="px-2 py-3 text-center uppercase tracking-wider">
+                                                            <div>{header.label}</div>
+                                                            <div className="text-[8px] text-slate-400 font-normal lowercase">{header.financial_year}</div>
+                                                        </th>
                                                     ))}
                                                     <th className="px-4 py-3 text-center w-24">Action</th>
                                                 </tr>
@@ -1560,8 +1681,8 @@ const ComplianceServices = () => {
                                                                         );
                                                                     })()}
                                                                 </td>
-                                                                {periodHeaders.map((headerText) => {
-                                                                    const period = getPeriodSchedule(assignSchedules, headerText, activeFrequency);
+                                                                {periodHeaders.map((header, hIdx) => {
+                                                                    const period = getPeriodSchedule(assignSchedules, header, activeFrequency);
                                                                     return renderCell(period, assign);
                                                                 })}
                                                                 <td className={`px-4 py-3 text-center align-middle ${activeDropdownId === `${assign.assignment_id}-${idx}` ? 'relative z-50' : ''}`}>
@@ -1952,57 +2073,75 @@ const ComplianceServices = () => {
                                                                         <div className="flex flex-col md:flex-row gap-6 items-start">
                                                                             <div className="flex-1 w-full">
                                                                                 {/* Monthly 6-month window label */}
-                                                                                {assign.frequency === 'monthly' && (
-                                                                                    <div className="flex items-center justify-between mb-3">
-                                                                                        <span className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider">
-                                                                                            Showing: {getVisible6Months(assign.financial_year).join(', ')}
-                                                                                        </span>
-                                                                                    </div>
-                                                                                )}
+                                                                                <div className="flex items-center justify-between mb-3">
+                                                                                    <span className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider">
+                                                                                        Showing periods: {(() => {
+                                                                                            const sorted = [...schedules].sort((a, b) => {
+                                                                                                if (a.financial_year !== b.financial_year) {
+                                                                                                    return a.financial_year.localeCompare(b.financial_year);
+                                                                                                }
+                                                                                                const freq = assign.frequency?.toLowerCase();
+                                                                                                if (freq === 'monthly') {
+                                                                                                    const MONTH_ORDER = ['April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December', 'January', 'February', 'March'];
+                                                                                                    return MONTH_ORDER.indexOf(a.period_name) - MONTH_ORDER.indexOf(b.period_name);
+                                                                                                }
+                                                                                                if (freq === 'quarterly') {
+                                                                                                    const getQIdx = (name) => {
+                                                                                                        if (isQ1(name)) return 0;
+                                                                                                        if (isQ2(name)) return 1;
+                                                                                                        if (isQ3(name)) return 2;
+                                                                                                        if (isQ4(name)) return 3;
+                                                                                                        return -1;
+                                                                                                    };
+                                                                                                    return getQIdx(a.period_name) - getQIdx(b.period_name);
+                                                                                                }
+                                                                                                if (freq === 'halfyearly') {
+                                                                                                    const getHIdx = (name) => {
+                                                                                                        if (isH1(name)) return 0;
+                                                                                                        if (isH2(name)) return 1;
+                                                                                                        return -1;
+                                                                                                    };
+                                                                                                    return getHIdx(a.period_name) - getHIdx(b.period_name);
+                                                                                                }
+                                                                                                return 0;
+                                                                                            });
+                                                                                            return sorted.map(s => `${s.period_name} (${s.financial_year})`).join(', ');
+                                                                                        })()}
+                                                                                    </span>
+                                                                                </div>
                                                                                 <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 gap-3">
                                                                                     {(() => {
-                                                                                        const filteredSchedules = (() => {
-                                                                                            const normalizeFY = (fy) => {
-                                                                                                if (!fy) return '';
-                                                                                                let clean = fy.toLowerCase().replace(/fy/g, '').trim().replace(/\s+/g, '');
-                                                                                                const parts = clean.split('-');
-                                                                                                if (parts.length !== 2) return fy;
-                                                                                                let start = parts[0].length === 2 ? '20' + parts[0] : parts[0];
-                                                                                                let end = parts[1].length === 2 ? '20' + parts[1] : parts[1];
-                                                                                                return start.length === 4 && end.length === 4 ? `${start}-${end}` : fy;
-                                                                                            };
-
-                                                                                            const targetFY = normalizeFY(assign.financial_year);
-                                                                                            let list = schedules.filter(p => normalizeFY(p.financial_year) === targetFY);
-
-                                                                                            const rawMonth = assign.pay_from_month || assign.period_name;
-                                                                                            if (!rawMonth || assign.frequency !== 'monthly') return list;
-                                                                                            const map = {
-                                                                                                'Apr': 'April', 'May': 'May', 'Jun': 'June', 'Jul': 'July', 'Aug': 'August', 'Sep': 'September',
-                                                                                                'Oct': 'October', 'Nov': 'November', 'Dec': 'December', 'Jan': 'January', 'Feb': 'February', 'Mar': 'March'
-                                                                                            };
-                                                                                            const startMonth = map[rawMonth] || rawMonth;
-                                                                                            const MONTHS = ['April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December', 'January', 'February', 'March'];
-                                                                                            const startIndex = MONTHS.indexOf(startMonth);
-                                                                                            if (startIndex === -1) return list;
-                                                                                            return list.filter(p => {
-                                                                                                const pIndex = MONTHS.indexOf(p.period_name);
-                                                                                                return pIndex >= startIndex;
-                                                                                            });
-                                                                                        })();
-
-                                                                                        return filteredSchedules
-                                                                                            .filter(p => {
-                                                                                                // For monthly frequency, filter to only visible 6 months
-                                                                                                if (assign.frequency !== 'monthly') return true;
-                                                                                                const MONTH_ABBR = ['Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec', 'Jan', 'Feb', 'Mar'];
-                                                                                                const MONTH_FULL = ['April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December', 'January', 'February', 'March'];
-                                                                                                const abbr = MONTH_FULL.indexOf(p.period_name);
-                                                                                                if (abbr === -1) return true;
-                                                                                                const visM = getVisible6Months(assign.financial_year);
-                                                                                                return visM.includes(MONTH_ABBR[abbr]);
-                                                                                            })
-                                                                                            .map((period) => {
+                                                                                        const filteredSchedules = [...schedules].sort((a, b) => {
+                                                                                            if (a.financial_year !== b.financial_year) {
+                                                                                                return a.financial_year.localeCompare(b.financial_year);
+                                                                                            }
+                                                                                            const freq = assign.frequency?.toLowerCase();
+                                                                                            if (freq === 'monthly') {
+                                                                                                const MONTH_ORDER = ['April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December', 'January', 'February', 'March'];
+                                                                                                return MONTH_ORDER.indexOf(a.period_name) - MONTH_ORDER.indexOf(b.period_name);
+                                                                                            }
+                                                                                            if (freq === 'quarterly') {
+                                                                                                const getQIdx = (name) => {
+                                                                                                    if (isQ1(name)) return 0;
+                                                                                                    if (isQ2(name)) return 1;
+                                                                                                    if (isQ3(name)) return 2;
+                                                                                                    if (isQ4(name)) return 3;
+                                                                                                    return -1;
+                                                                                                };
+                                                                                                return getQIdx(a.period_name) - getQIdx(b.period_name);
+                                                                                            }
+                                                                                            if (freq === 'halfyearly') {
+                                                                                                const getHIdx = (name) => {
+                                                                                                    if (isH1(name)) return 0;
+                                                                                                    if (isH2(name)) return 1;
+                                                                                                    return -1;
+                                                                                                };
+                                                                                                return getHIdx(a.period_name) - getHIdx(b.period_name);
+                                                                                            }
+                                                                                            return 0;
+                                                                                         });
+                                                                                         
+                                                                                         return filteredSchedules.map((period) => {
                                                                                                 const assignedStaffs = getAssignedStaffList(assign);
                                                                                                 const assignedStaffUsernames = assignedStaffs.map(emp => (emp.username || '').toLowerCase().trim());
                                                                                                 const isUpdatePermitted = !currentUsername || assignedStaffUsernames.length === 0 || assignedStaffUsernames.includes(currentUsername);
@@ -2083,6 +2222,201 @@ const ComplianceServices = () => {
                             </div>
                         </div>
                     )}
+
+                    {/* Active Recurring Tasks Workspace */}
+                    {activeTab === 'services' && (
+                        <div>
+                            <div className="flex flex-wrap items-center gap-3 px-4 py-3 border-b border-slate-100 bg-slate-50/20">
+                                <div className="relative flex-1 max-w-xs">
+                                    <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 pointer-events-none" />
+                                    <input
+                                        type="text"
+                                        placeholder="Search recurring tasks…"
+                                        value={serviceSearch}
+                                        onChange={(e) => setServiceSearch(e.target.value)}
+                                        className="w-full pl-9 pr-3 py-2 text-xs text-slate-700 border border-slate-200 rounded-lg bg-white focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none"
+                                    />
+                                </div>
+                                <button
+                                    onClick={() => fetchServices(serviceSearch)}
+                                    className="p-2 text-slate-500 hover:text-indigo-650 hover:bg-slate-100 rounded-lg transition-colors border border-slate-200 bg-white shadow-xs"
+                                    title="Refresh recurring tasks"
+                                >
+                                    <FiRefreshCw className={`w-3.5 h-3.5 ${servicesLoading ? 'animate-spin' : ''}`} />
+                                </button>
+                            </div>
+
+                            <div className="overflow-x-auto overflow-hidden rounded-xl">
+                                <table className="w-full text-sm text-left border-collapse">
+                                    <thead>
+                                        <tr className="bg-slate-50 border-b border-slate-100 text-slate-600 uppercase text-[10px] font-semibold tracking-wider">
+                                            <th className="px-4 py-3 text-center w-12">SR</th>
+                                            <th className="px-4 py-3">Service Name</th>
+                                            <th className="px-4 py-3 text-center w-32">Frequency</th>
+                                            <th className="px-4 py-3 text-center w-28">Default Fee</th>
+                                            <th className="px-4 py-3 text-center w-24">Firms</th>
+                                            <th className="px-4 py-3 text-center w-24">Pending</th>
+                                            <th className="px-4 py-3 text-center w-24">Complete</th>
+                                            <th className="px-4 py-3 text-center w-24">Cancel</th>
+                                            <th className="px-4 py-3 text-center w-28">Action</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-slate-100">
+                                        {servicesLoading ? (
+                                            <tr>
+                                                <td colSpan={9} className="px-4 py-8 text-center">
+                                                    <div className="animate-pulse flex flex-col gap-2">
+                                                        <div className="h-4 bg-slate-100 rounded w-1/3 mx-auto"></div>
+                                                        <div className="h-4 bg-slate-100 rounded w-1/4 mx-auto"></div>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        ) : services.length === 0 ? (
+                                            <tr>
+                                                <td colSpan={9} className="px-4 py-12 text-center text-slate-400">
+                                                    <FiLayers className="w-8 h-8 mx-auto mb-2 opacity-50" />
+                                                    <p className="text-xs font-medium text-slate-500">No active recurring tasks found</p>
+                                                </td>
+                                            </tr>
+                                        ) : (
+                                            services.map((svc, idx) => {
+                                                const svcAssignments = assignments.filter(assign => String(assign.service_id) === String(svc.service_id || svc.id));
+                                                const firmCount = svcAssignments.length;
+                                                const svcAssignIds = svcAssignments.map(assign => assign.assignment_id);
+                                                
+                                                const pendingCount = allSchedules.filter(s => svcAssignIds.includes(s.assignment_id) && s.status === 'Pending').length;
+                                                const completeCount = allSchedules.filter(s => svcAssignIds.includes(s.assignment_id) && (s.status === 'Complete' || s.status === 'Sale')).length;
+                                                const cancelCount = allSchedules.filter(s => svcAssignIds.includes(s.assignment_id) && s.status === 'Cancel').length;
+
+                                                return (
+                                                    <tr key={svc.service_id || svc.id || idx} className="hover:bg-slate-50/50 transition-colors">
+                                                        <td className="px-4 py-3 text-center font-mono text-xs text-slate-400">
+                                                            {idx + 1}
+                                                        </td>
+                                                        <td className="px-4 py-3 font-semibold text-slate-800 text-xs">
+                                                            {svc.name}
+                                                        </td>
+                                                        <td className="px-4 py-3 text-center">
+                                                            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-md text-[10px] font-semibold border uppercase tracking-wider ${
+                                                                svc.frequency?.toLowerCase() === 'monthly' ? 'bg-sky-50 text-sky-700 border-sky-200' :
+                                                                svc.frequency?.toLowerCase() === 'quarterly' ? 'bg-indigo-50 text-indigo-700 border-indigo-200' :
+                                                                svc.frequency?.toLowerCase() === 'halfyearly' ? 'bg-purple-50 text-purple-700 border-purple-200' :
+                                                                'bg-violet-50 text-violet-700 border-violet-200'
+                                                            }`}>
+                                                                {svc.frequency}
+                                                            </span>
+                                                        </td>
+                                                        <td className="px-4 py-3 text-center font-semibold text-slate-700 text-xs">
+                                                            ₹{formatCurrency(svc.default_amount)}
+                                                        </td>
+                                                        <td className="px-4 py-3 text-center">
+                                                            <button
+                                                                onClick={() => {
+                                                                    if (firmCount > 0) {
+                                                                        setSelectedServiceFilter(svc.service_id || svc.id || svc.name);
+                                                                        setActiveTab('assignments');
+                                                                    }
+                                                                }}
+                                                                className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold border transition-all ${
+                                                                    firmCount > 0
+                                                                        ? 'bg-indigo-50 text-indigo-750 border-indigo-200 hover:bg-indigo-100 hover:scale-105 cursor-pointer'
+                                                                        : 'bg-slate-50 text-slate-400 border-slate-200 cursor-default'
+                                                                }`}
+                                                                title={firmCount > 0 ? "Click to view assigned firms" : "No firms assigned"}
+                                                                disabled={firmCount === 0}
+                                                            >
+                                                                {firmCount}
+                                                            </button>
+                                                        </td>
+                                                        <td className="px-4 py-3 text-center">
+                                                            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-amber-50 text-amber-700 border border-amber-200">
+                                                                {pendingCount}
+                                                            </span>
+                                                        </td>
+                                                        <td className="px-4 py-3 text-center">
+                                                            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                                                                {completeCount}
+                                                            </span>
+                                                        </td>
+                                                        <td className="px-4 py-3 text-center">
+                                                            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-slate-50 text-slate-500 border border-slate-200">
+                                                                {cancelCount}
+                                                            </span>
+                                                        </td>
+                                                        <td className={`px-4 py-3 text-center align-middle ${activeDropdownId === `rt-${idx}` ? 'relative z-50' : ''}`}>
+                                                            <div className={`dropdown-container relative flex justify-center ${activeDropdownId === `rt-${idx}` ? 'z-50' : 'z-0'}`}>
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={(e) => {
+                                                                        e.stopPropagation();
+                                                                        setActiveDropdownId(activeDropdownId === `rt-${idx}` ? null : `rt-${idx}`);
+                                                                    }}
+                                                                    className="p-1.5 text-slate-500 hover:text-indigo-650 rounded-lg hover:bg-indigo-50 border border-slate-200 transition-colors cursor-pointer"
+                                                                    title="Actions"
+                                                                >
+                                                                    <FiMenu className="w-3.5 h-3.5" />
+                                                                </button>
+                                                                <AnimatePresence>
+                                                                    {activeDropdownId === `rt-${idx}` && (
+                                                                        <motion.div
+                                                                            initial={{ opacity: 0, scale: 0.95, y: 5 }}
+                                                                            animate={{ opacity: 1, scale: 1, y: 0 }}
+                                                                            exit={{ opacity: 0, scale: 0.95, y: 5 }}
+                                                                            className="absolute right-0 mt-1 w-40 bg-white rounded-xl shadow-xl border border-slate-200 z-55 overflow-hidden text-left"
+                                                                        >
+                                                                            <div className="py-1">
+                                                                                <button
+                                                                                    type="button"
+                                                                                    onClick={(e) => {
+                                                                                        e.stopPropagation();
+                                                                                        setSelectedServiceFilter(svc.service_id || svc.id || svc.name);
+                                                                                        setActiveTab('assignments');
+                                                                                        setActiveDropdownId(null);
+                                                                                    }}
+                                                                                    className="flex items-center w-full px-3 py-2 text-xs text-slate-705 hover:bg-indigo-50 transition-colors"
+                                                                                >
+                                                                                    <FiEye className="w-3.5 h-3.5 text-slate-400 mr-2" />
+                                                                                    View Schedules
+                                                                                </button>
+                                                                                <button
+                                                                                    type="button"
+                                                                                    onClick={(e) => {
+                                                                                        e.stopPropagation();
+                                                                                        setAssignForm(prev => ({
+                                                                                            ...prev,
+                                                                                            service_id: svc.service_id || svc.id || '',
+                                                                                            custom_amount: String(svc.default_amount ?? ''),
+                                                                                            custom_fields: {},
+                                                                                            pay_from_month: '',
+                                                                                            quarters: [],
+                                                                                            employee_usernames: [],
+                                                                                            ca_id: '',
+                                                                                            status: 'active'
+                                                                                        }));
+                                                                                        setShowAssignModal(true);
+                                                                                        setActiveDropdownId(null);
+                                                                                    }}
+                                                                                    className="flex items-center w-full px-3 py-2 text-xs text-slate-705 hover:bg-indigo-50 transition-colors border-t border-slate-100"
+                                                                                >
+                                                                                    <FiPlus className="w-3.5 h-3.5 text-slate-400 mr-2" />
+                                                                                    Assign Task
+                                                                                </button>
+                                                                            </div>
+                                                                        </motion.div>
+                                                                    )}
+                                                                </AnimatePresence>
+                                                            </div>
+                                                        </td>
+                                                    </tr>
+                                                );
+                                            })
+                                        )}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    )}
+                    </div>
                 </div>
             </div>
 

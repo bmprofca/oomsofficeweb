@@ -76,9 +76,10 @@ const TYPE_COLORS = {
 const typeBadge = (type) => {
     const t = (type || 'other').toLowerCase();
     const cls = TYPE_COLORS[t] || TYPE_COLORS.other;
+    const label = t === 'compliance' ? 'recurring task' : t;
     return (
         <span className={`inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-semibold border ${cls} uppercase tracking-wide`}>
-            {t}
+            {label}
         </span>
     );
 };
@@ -1950,7 +1951,7 @@ const Services = () => {
                                         <option value="gst">GST</option>
                                         <option value="itr">ITR</option>
                                         <option value="audit">Audit</option>
-                                        <option value="compliance">Compliance</option>
+                                        <option value="compliance">Recurring Task</option>
                                         <option value="registration">Registration</option>
                                         <option value="other">Other</option>
                                     </select>

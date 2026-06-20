@@ -28,7 +28,7 @@ const RecurringTaskDetailedPage = () => {
   const [loading, setLoading] = useState(false);
   const [summary, setSummary] = useState(null);
   const [pagination, setPagination] = useState({
-    page_no: 1,
+    page: 1,
     limit: 20,
     total: 0,
     total_pages: 1,
@@ -98,7 +98,7 @@ const RecurringTaskDetailedPage = () => {
       if (serviceId && serviceId !== 'null' && serviceId !== 'undefined') {
         url += `&service_id=${serviceId}`;
       }
-      url += `&page_no=${pagination.page_no}&limit=${pagination.limit}`;
+      url += `&page=${pagination.page}&page_no=${pagination.page}&limit=${pagination.limit}`;
       if (filters.search) {
         url += `&search=${encodeURIComponent(filters.search)}`;
       }
@@ -112,12 +112,15 @@ const RecurringTaskDetailedPage = () => {
       if (data.success) {
         setRecords(data.data || []);
         setSummary(data.summary || null);
-        setPagination(data.pagination || {
-          page_no: pagination.page_no,
-          limit: pagination.limit,
-          total: data.total || 0,
-          total_pages: data.total_pages || 1,
-          is_last_page: pagination.page_no >= (data.total_pages || 1)
+        
+        // Bind the pagination directly to the backend response metadata
+        const pg = data.pagination || {};
+        setPagination({
+          page: pg.page || pg.page_no || pagination.page || 1,
+          limit: pg.limit || pagination.limit || 20,
+          total: pg.total !== undefined ? pg.total : (data.total || 0),
+          total_pages: pg.total_pages !== undefined ? pg.total_pages : (data.total_pages || 1),
+          is_last_page: pg.is_last_page !== undefined ? pg.is_last_page : (pg.page >= pg.total_pages)
         });
       }
     } catch (error) {
@@ -125,14 +128,14 @@ const RecurringTaskDetailedPage = () => {
     } finally {
       setLoading(false);
     }
-  }, [category, serviceId, pagination.page_no, pagination.limit, filters]);
+  }, [category, serviceId, pagination.page, pagination.limit, filters]);
 
   useEffect(() => {
     fetchDetailedRecords();
   }, [fetchDetailedRecords]);
 
   const handlePageChange = (newPage) => {
-    setPagination(prev => ({ ...prev, page_no: newPage }));
+    setPagination(prev => ({ ...prev, page: newPage }));
   };
 
   const handleRefresh = () => {
@@ -141,7 +144,7 @@ const RecurringTaskDetailedPage = () => {
 
   const handleClearFilters = () => {
     setFilters({ search: '', status_filter: '' });
-    setPagination(prev => ({ ...prev, page_no: 1 }));
+    setPagination(prev => ({ ...prev, page: 1 }));
   };
 
   const getStatusBadgeColor = (status) => {
@@ -369,7 +372,7 @@ const RecurringTaskDetailedPage = () => {
                   value={filters.search}
                   onChange={(e) => {
                     setFilters(prev => ({ ...prev, search: e.target.value }));
-                    setPagination(prev => ({ ...prev, page_no: 1 }));
+                    setPagination(prev => ({ ...prev, page: 1 }));
                   }}
                   className="w-full pl-9 pr-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none text-sm bg-slate-50/50"
                 />
@@ -379,7 +382,7 @@ const RecurringTaskDetailedPage = () => {
                   value={filters.status_filter}
                   onChange={(e) => {
                     setFilters(prev => ({ ...prev, status_filter: e.target.value }));
-                    setPagination(prev => ({ ...prev, page_no: 1 }));
+                    setPagination(prev => ({ ...prev, page: 1 }));
                   }}
                   className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none text-sm bg-white font-medium text-slate-700"
                 >
@@ -434,7 +437,7 @@ const RecurringTaskDetailedPage = () => {
                       records.map((record, index) => (
                         <tr key={record.schedule_id || index} className="hover:bg-slate-50/50 transition-colors">
                           <td className="px-4 py-3.5 text-center font-mono text-xs text-slate-400">
-                            {(pagination.page_no - 1) * pagination.limit + index + 1}
+                            {(pagination.page - 1) * pagination.limit + index + 1}
                           </td>
                           <td className="px-4 py-3.5">
                             <p className="font-semibold text-slate-800 text-xs">{record.firm?.firm_name || record.firm_name || '—'}</p>
@@ -535,29 +538,29 @@ const RecurringTaskDetailedPage = () => {
               {pagination.total_pages > 1 && (
                 <div className="border-t border-slate-100 px-5 py-3.5 bg-slate-50 flex items-center justify-between text-xs text-slate-500 shrink-0">
                   <span>
-                    Showing <span className="font-semibold text-slate-700">{(pagination.page_no - 1) * pagination.limit + 1}</span> to{' '}
+                    Showing <span className="font-semibold text-slate-700">{(pagination.page - 1) * pagination.limit + 1}</span> to{' '}
                     <span className="font-semibold text-slate-700">
-                      {Math.min(pagination.page_no * pagination.limit, pagination.total)}
+                      {Math.min(pagination.page * pagination.limit, pagination.total)}
                     </span>{' '}
                     of <span className="font-semibold text-slate-700">{pagination.total}</span> records
                   </span>
                   
                   <div className="flex items-center gap-1">
                     <button
-                      onClick={() => handlePageChange(pagination.page_no - 1)}
-                      disabled={pagination.page_no <= 1}
+                      onClick={() => handlePageChange(pagination.page - 1)}
+                      disabled={pagination.page <= 1}
                       className="p-1.5 border border-slate-200 bg-white rounded-lg text-slate-600 hover:bg-slate-50 hover:text-slate-800 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
                     >
                       <FiChevronLeft className="w-4 h-4" />
                     </button>
                     
                     <span className="px-3.5 py-1.5 bg-white border border-slate-200 rounded-lg text-slate-700 font-semibold shadow-xs">
-                      {pagination.page_no} / {pagination.total_pages}
+                      {pagination.page} / {pagination.total_pages}
                     </span>
                     
                     <button
-                      onClick={() => handlePageChange(pagination.page_no + 1)}
-                      disabled={pagination.page_no >= pagination.total_pages}
+                      onClick={() => handlePageChange(pagination.page + 1)}
+                      disabled={pagination.page >= pagination.total_pages}
                       className="p-1.5 border border-slate-200 bg-white rounded-lg text-slate-600 hover:bg-slate-50 hover:text-slate-800 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
                     >
                       <FiChevronRight className="w-4 h-4" />
