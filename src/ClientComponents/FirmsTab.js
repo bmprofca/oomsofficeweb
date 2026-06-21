@@ -5,6 +5,7 @@ import axios from 'axios';
 import toast from 'react-hot-toast';
 import API_BASE_URL from "../utils/api-controller";
 import getHeaders from "../utils/get-headers";
+import { checkPermissionSync } from '../utils/permission-helper';
 import {
     FirmModalShell,
     FirmFormFields,
@@ -495,15 +496,17 @@ const FirmsTab = ({ clientUsername }) => {
                             className="w-full rounded-md border border-gray-300 pl-9 pr-3 py-2 text-sm text-slate-700 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 shadow-sm transition-all duration-200"
                         />
                     </div>
-                    <motion.button
-                        onClick={() => setShowAddModal(true)}
-                        className="flex items-center justify-center gap-2 px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-700 text-white rounded-md hover:shadow-md transition-all duration-200 text-sm font-semibold"
-                        whileHover={{ scale: 1.02, y: -2 }}
-                        whileTap={{ scale: 0.98 }}
-                    >
-                        <FiPlus className="w-4 h-4" />
-                        Add New Firm
-                    </motion.button>
+                    {checkPermissionSync('client_edit') && (
+                        <motion.button
+                            onClick={() => setShowAddModal(true)}
+                            className="flex items-center justify-center gap-2 px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-700 text-white rounded-md hover:shadow-md transition-all duration-200 text-sm font-semibold"
+                            whileHover={{ scale: 1.02, y: -2 }}
+                            whileTap={{ scale: 0.98 }}
+                        >
+                            <FiPlus className="w-4 h-4" />
+                            Add New Firm
+                        </motion.button>
+                    )}
                 </div>
             </div>
 
@@ -647,22 +650,26 @@ const FirmsTab = ({ clientUsername }) => {
                                         >
                                             <FiEye className="w-4 h-4" />
                                         </motion.button>
-                                        <motion.button
-                                            onClick={() => openEditModal(firm)}
-                                            className="p-2.5 bg-gradient-to-r from-blue-50 to-indigo-50 text-blue-700 hover:shadow-sm rounded-lg transition-all duration-200"
-                                            whileHover={{ scale: 1.1, rotate: 5 }}
-                                            whileTap={{ scale: 0.9 }}
-                                        >
-                                            <FiEdit className="w-4 h-4" />
-                                        </motion.button>
-                                        <motion.button
-                                            onClick={() => openDeleteModal(firm)}
-                                            className="p-2.5 bg-gradient-to-r from-red-50 to-rose-50 text-red-700 hover:shadow-sm rounded-lg transition-all duration-200"
-                                            whileHover={{ scale: 1.1, rotate: -5 }}
-                                            whileTap={{ scale: 0.9 }}
-                                        >
-                                            <FiTrash2 className="w-4 h-4" />
-                                        </motion.button>
+                                        {checkPermissionSync('client_edit') && (
+                                            <>
+                                                <motion.button
+                                                    onClick={() => openEditModal(firm)}
+                                                    className="p-2.5 bg-gradient-to-r from-blue-50 to-indigo-50 text-blue-700 hover:shadow-sm rounded-lg transition-all duration-200"
+                                                    whileHover={{ scale: 1.1, rotate: 5 }}
+                                                    whileTap={{ scale: 0.9 }}
+                                                >
+                                                    <FiEdit className="w-4 h-4" />
+                                                </motion.button>
+                                                <motion.button
+                                                    onClick={() => openDeleteModal(firm)}
+                                                    className="p-2.5 bg-gradient-to-r from-red-50 to-rose-50 text-red-700 hover:shadow-sm rounded-lg transition-all duration-200"
+                                                    whileHover={{ scale: 1.1, rotate: -5 }}
+                                                    whileTap={{ scale: 0.9 }}
+                                                >
+                                                    <FiTrash2 className="w-4 h-4" />
+                                                </motion.button>
+                                            </>
+                                        )}
                                     </div>
                                 </div>
                             </motion.div>
@@ -737,12 +744,12 @@ const FirmsTab = ({ clientUsername }) => {
                 footer={
                     <ModalFooterActions
                         onCancel={() => setShowViewModal(false)}
-                        onConfirm={() => {
+                        onConfirm={checkPermissionSync('client_edit') ? () => {
                             setShowViewModal(false);
                             if (selectedFirm) openEditModal(selectedFirm);
-                        }}
+                        } : null}
                         cancelLabel="Close"
-                        confirmLabel="Edit firm"
+                        confirmLabel={checkPermissionSync('client_edit') ? "Edit firm" : null}
                         confirmClass="bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-700 hover:to-indigo-800 shadow-indigo-200"
                     />
                 }

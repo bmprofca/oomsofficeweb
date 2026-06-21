@@ -13,12 +13,16 @@ import {
     FiList,
     FiDatabase,
     FiLayers,
-    FiBell
+    FiBell,
+    FiLock
 } from 'react-icons/fi';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
+import { toast } from 'react-hot-toast';
+import { useUserPermissions } from '../../../utils/permission-helper';
 
 const PushNotification = () => {
+    const { check } = useUserPermissions();
     const navigate = useNavigate();
     const [searchParams, setSearchParams] = useSearchParams();
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -27,9 +31,13 @@ const PushNotification = () => {
         return saved ? JSON.parse(saved) : false;
     });
 
-    // Get active tab from URL or default to 'send'
+    const hasSend = check('broadcast_send');
+    const hasConfig = check('broadcast_config_edit');
+
+    // Get active tab from URL or default based on permissions
     const urlTab = searchParams.get('tab');
-    const [activeTab, setActiveTab] = useState(urlTab || 'send');
+    const defaultTab = urlTab || (hasSend ? 'send' : 'static-template');
+    const [activeTab, setActiveTab] = useState(defaultTab);
 
     // Track loading states for each tab
     const [loadingStates, setLoadingStates] = useState({
@@ -237,6 +245,14 @@ const PushNotification = () => {
 
     // Tab change handler
     const handleTabChange = (tab) => {
+        if (tab === 'send' && !hasSend) {
+            toast.error("You do not have permission to send broadcasts.");
+            return;
+        }
+        if (['static-template', 'dynamic-template', 'configuration'].includes(tab) && !hasConfig) {
+            toast.error("You do not have permission to manage configurations.");
+            return;
+        }
         setActiveTab(tab);
     };
 
@@ -1055,6 +1071,34 @@ const PushNotification = () => {
         </AnimatePresence>
     );
 
+    if (!hasSend && !hasConfig) {
+        return (
+            <div className="min-h-screen bg-gray-50">
+                <Header
+                    mobileMenuOpen={mobileMenuOpen}
+                    setMobileMenuOpen={setMobileMenuOpen}
+                    isMinimized={isMinimized}
+                    setIsMinimized={setIsMinimized}
+                />
+                <Sidebar
+                    mobileMenuOpen={mobileMenuOpen}
+                    setMobileMenuOpen={setMobileMenuOpen}
+                    isMinimized={isMinimized}
+                    setIsMinimized={setIsMinimized}
+                />
+                <div className={`pt-16 flex items-center justify-center transition-all duration-300 h-[calc(100vh-4rem)] ${isMinimized ? 'md:pl-20' : 'md:pl-[260px]'}`}>
+                    <div className="text-center p-8 bg-white rounded-2xl border border-gray-200 shadow-sm max-w-sm w-full mx-4">
+                        <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                            <FiLock className="w-8 h-8 text-slate-400" />
+                        </div>
+                        <h3 className="text-lg font-bold text-gray-800 mb-2">Access Denied</h3>
+                        <p className="text-gray-500 text-sm">You do not have permission to view this section.</p>
+                    </div>
+                </div>
+            </div>
+        );
+    }
+
     return (
         <div className="min-h-screen bg-gray-50">
             <Header
@@ -1104,12 +1148,13 @@ const PushNotification = () => {
                                                 className={`py-2 px-1 border-b-2 font-medium text-sm whitespace-nowrap flex items-center gap-2 ${activeTab === 'send'
                                                         ? 'border-purple-500 text-purple-600'
                                                         : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                                                    } ${loadingStates.send ? 'opacity-50 cursor-not-allowed' : ''}`}
-                                                whileHover={{ scale: 1.05 }}
-                                                whileTap={{ scale: 0.95 }}
+                                                    } ${loadingStates.send ? 'opacity-50 cursor-not-allowed' : ''} ${!hasSend ? 'opacity-60 cursor-not-allowed' : ''}`}
+                                                whileHover={hasSend ? { scale: 1.05 } : {}}
+                                                whileTap={hasSend ? { scale: 0.95 } : {}}
                                             >
                                                 <FiSend className="w-4 h-4" />
                                                 Send Notification
+                                                {!hasSend && <FiLock className="w-3 h-3 text-gray-400" />}
                                             </motion.button>
                                             <motion.button
                                                 onClick={() => handleTabChange('static-template')}
@@ -1117,12 +1162,13 @@ const PushNotification = () => {
                                                 className={`py-2 px-1 border-b-2 font-medium text-sm whitespace-nowrap flex items-center gap-2 ${activeTab === 'static-template'
                                                         ? 'border-purple-500 text-purple-600'
                                                         : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                                                    } ${loadingStates.staticTemplate ? 'opacity-50 cursor-not-allowed' : ''}`}
-                                                whileHover={{ scale: 1.05 }}
-                                                whileTap={{ scale: 0.95 }}
+                                                    } ${loadingStates.staticTemplate ? 'opacity-50 cursor-not-allowed' : ''} ${!hasConfig ? 'opacity-60 cursor-not-allowed' : ''}`}
+                                                whileHover={hasConfig ? { scale: 1.05 } : {}}
+                                                whileTap={hasConfig ? { scale: 0.95 } : {}}
                                             >
                                                 <FiFileText className="w-4 h-4" />
                                                 Static Templates
+                                                {!hasConfig && <FiLock className="w-3 h-3 text-gray-400" />}
                                             </motion.button>
                                             <motion.button
                                                 onClick={() => handleTabChange('dynamic-template')}
@@ -1130,12 +1176,13 @@ const PushNotification = () => {
                                                 className={`py-2 px-1 border-b-2 font-medium text-sm whitespace-nowrap flex items-center gap-2 ${activeTab === 'dynamic-template'
                                                         ? 'border-purple-500 text-purple-600'
                                                         : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                                                    } ${loadingStates.dynamicTemplate ? 'opacity-50 cursor-not-allowed' : ''}`}
-                                                whileHover={{ scale: 1.05 }}
-                                                whileTap={{ scale: 0.95 }}
+                                                    } ${loadingStates.dynamicTemplate ? 'opacity-50 cursor-not-allowed' : ''} ${!hasConfig ? 'opacity-60 cursor-not-allowed' : ''}`}
+                                                whileHover={hasConfig ? { scale: 1.05 } : {}}
+                                                whileTap={hasConfig ? { scale: 0.95 } : {}}
                                             >
                                                 <FiDatabase className="w-4 h-4" />
                                                 Dynamic Templates
+                                                {!hasConfig && <FiLock className="w-3 h-3 text-gray-400" />}
                                             </motion.button>
                                             <motion.button
                                                 onClick={() => handleTabChange('configuration')}
@@ -1143,12 +1190,13 @@ const PushNotification = () => {
                                                 className={`py-2 px-1 border-b-2 font-medium text-sm whitespace-nowrap flex items-center gap-2 ${activeTab === 'configuration'
                                                         ? 'border-purple-500 text-purple-600'
                                                         : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                                                    } ${loadingStates.config ? 'opacity-50 cursor-not-allowed' : ''}`}
-                                                whileHover={{ scale: 1.05 }}
-                                                whileTap={{ scale: 0.95 }}
+                                                    } ${loadingStates.config ? 'opacity-50 cursor-not-allowed' : ''} ${!hasConfig ? 'opacity-60 cursor-not-allowed' : ''}`}
+                                                whileHover={hasConfig ? { scale: 1.05 } : {}}
+                                                whileTap={hasConfig ? { scale: 0.95 } : {}}
                                             >
                                                 <FiSettings className="w-4 h-4" />
                                                 Configuration
+                                                {!hasConfig && <FiLock className="w-3 h-3 text-gray-400" />}
                                             </motion.button>
                                         </nav>
                                     </div>

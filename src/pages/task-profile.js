@@ -20,6 +20,7 @@ import {
 import API_BASE_URL from "../utils/api-controller";
 import getHeaders from "../utils/get-headers";
 import axios from 'axios';
+import { useUserPermissions } from '../utils/permission-helper';
 
 // Import tab components only
 import DetailsTab from '../TaskComponent/DetailsTab';
@@ -42,6 +43,7 @@ const formatDate = (dateString) => {
 };
 
 const TaskProfile = () => {
+    const { check } = useUserPermissions();
     const navigate = useNavigate();
     const { task_id, tab = 'details' } = useParams();
     
@@ -369,7 +371,7 @@ const TaskProfile = () => {
                                         </div>
                                     </div>
                                     <div className="bg-green-100 text-green-800 px-4 py-2 rounded-lg font-semibold">
-                                        Total: ₹{taskData.charges?.total?.toLocaleString() || 0}
+                                        Total: {check('task_fees_view') ? `₹${taskData.charges?.total?.toLocaleString() || 0}` : <span className="blur-[3.5px] select-none">₹99,999</span>}
                                     </div>
                                 </div>
                             </motion.div>

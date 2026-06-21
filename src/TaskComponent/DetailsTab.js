@@ -12,6 +12,7 @@ import getHeaders from "../utils/get-headers";
 import { toast } from 'react-hot-toast';
 import TaskStatusChange from '../components/Modals/TaskStatusChange';
 import { DatePickerField } from '../components/PortalDatePicker';
+import { checkPermissionSync } from '../utils/permission-helper';
 import SelectInput from '../components/SelectInput';
 
 const BILLING_GENERATE_BILLABLE = '/billing/generate/billable';
@@ -450,9 +451,9 @@ const DetailsTab = ({ taskData: initialData, task_id, onTaskUpdated }) => {
                                 <div className="rounded-xl bg-slate-50 px-3 py-2">
                                     <p className="text-[11px] text-slate-500">Charges</p>
                                     <div className="space-y-0.5">
-                                        <p className="text-xs text-slate-600">Fees: <span className="font-semibold text-slate-800">₹{Number(taskData.charges?.fees ?? 0).toLocaleString('en-IN')}</span></p>
-                                        <p className="text-xs text-slate-600">Tax: <span className="font-semibold text-slate-800">{taskData.charges?.tax_rate ?? 0}% (₹{Number(taskData.charges?.tax_value ?? 0).toLocaleString('en-IN')})</span></p>
-                                        <p className="text-xs text-slate-600">Total: <span className="font-semibold text-slate-900">₹{Number(taskData.charges?.total ?? (Number(taskData.charges?.fees ?? 0) + Number(taskData.charges?.tax_value ?? 0))).toLocaleString('en-IN')}</span></p>
+                                        <p className="text-xs text-slate-600">Fees: <span className={`font-semibold text-slate-800 ${!checkPermissionSync('task_fees_view') ? 'blur-[3.5px] select-none' : ''}`}>₹{Number(taskData.charges?.fees ?? 0).toLocaleString('en-IN')}</span></p>
+                                        <p className="text-xs text-slate-600">Tax: <span className={`font-semibold text-slate-800 ${!checkPermissionSync('task_fees_view') ? 'blur-[3.5px] select-none' : ''}`}>{taskData.charges?.tax_rate ?? 0}% (₹{Number(taskData.charges?.tax_value ?? 0).toLocaleString('en-IN')})</span></p>
+                                        <p className="text-xs text-slate-600">Total: <span className={`font-semibold text-slate-900 ${!checkPermissionSync('task_fees_view') ? 'blur-[3.5px] select-none' : ''}`}>₹{Number(taskData.charges?.total ?? (Number(taskData.charges?.fees ?? 0) + Number(taskData.charges?.tax_value ?? 0))).toLocaleString('en-IN')}</span></p>
                                     </div>
                                 </div>
                             </div>
@@ -536,13 +537,13 @@ const DetailsTab = ({ taskData: initialData, task_id, onTaskUpdated }) => {
                                     <p className="text-xs text-slate-500 mb-1">Created By</p>
                                     <p className="text-sm font-semibold text-slate-800">{taskData.create_by?.name || 'N/A'}</p>
                                     <p className="text-xs text-slate-700 inline-flex items-center gap-1 mt-1"><FiPhone className="w-3 h-3 text-slate-500" />{taskData.create_by?.mobile || 'N/A'}</p>
-                                    <p className="text-xs text-slate-700 inline-flex items-center gap-1"><FiMail className="w-3 h-3 text-slate-500" />{taskData.create_by?.email || 'N/A'}</p>
+                                    <p className="text-xs text-slate-700 inline-flex items-center gap-1 mt-1"><FiMail className="w-3 h-3 text-slate-500" />{taskData.create_by?.email || 'N/A'}</p>
                                 </div>
                                 <div className="rounded-xl bg-slate-50 border border-slate-200 px-3 py-2.5">
                                     <p className="text-xs text-slate-500 mb-1">Modified By</p>
                                     <p className="text-sm font-semibold text-slate-800">{taskData.modify_by?.name || 'N/A'}</p>
                                     <p className="text-xs text-slate-700 inline-flex items-center gap-1 mt-1"><FiPhone className="w-3 h-3 text-slate-500" />{taskData.modify_by?.mobile || 'N/A'}</p>
-                                    <p className="text-xs text-slate-700 inline-flex items-center gap-1"><FiMail className="w-3 h-3 text-slate-500" />{taskData.modify_by?.email || 'N/A'}</p>
+                                    <p className="text-xs text-slate-700 inline-flex items-center gap-1 mt-1"><FiMail className="w-3 h-3 text-slate-500" />{taskData.modify_by?.email || 'N/A'}</p>
                                 </div>
                             </div>
                             {Array.isArray(taskData.staffs) && taskData.staffs.length > 0 && (
@@ -740,66 +741,70 @@ const DetailsTab = ({ taskData: initialData, task_id, onTaskUpdated }) => {
                                     </div>
                                 </div>
 
-                                <hr className="border-gray-100" />
+                                {checkPermissionSync('task_fees_view') && (
+                                     <>
+                                         <hr className="border-gray-100" />
 
-                                {/* ─ Financials ─ */}
-                                <div className="space-y-5">
-                                    <h4 className="text-sm font-semibold text-gray-700 flex items-center gap-2">
-                                        <FiDollarSign className="w-4 h-4 text-indigo-500" /> Financials
-                                    </h4>
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                        <div className="space-y-2">
-                                            <label className="block text-sm font-medium text-gray-700">
-                                                Fees (₹) <span className="text-red-500">*</span>
-                                            </label>
-                                            <div className="relative">
-                                                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm font-medium">₹</span>
-                                                <input
-                                                    type="text"
-                                                    inputMode="decimal"
-                                                    value={editForm.fees}
-                                                    onChange={(e) => {
-                                                        const val = e.target.value;
-                                                        if (val === '' || /^\d*\.?\d*$/.test(val)) setEF({ fees: val });
-                                                    }}
-                                                    className="w-full pl-8 pr-3 py-3 text-sm border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-white outline-none"
-                                                    placeholder="0.00"
-                                                />
-                                            </div>
-                                        </div>
-                                        <div className="space-y-2">
-                                            <label className="block text-sm font-medium text-gray-700">Tax Rate (%)</label>
-                                            <div className="relative">
-                                                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm font-medium">%</span>
-                                                <input
-                                                    type="text"
-                                                    inputMode="decimal"
-                                                    value={editForm.tax_rate}
-                                                    onChange={(e) => {
-                                                        const val = e.target.value;
-                                                        if (val === '' || /^\d*\.?\d*$/.test(val)) setEF({ tax_rate: val });
-                                                    }}
-                                                    className="w-full pl-8 pr-3 py-3 text-sm border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-white outline-none"
-                                                    placeholder="0"
-                                                />
-                                            </div>
-                                        </div>
-                                    </div>
-                                    {/* Total amount summary */}
-                                    {fees > 0 && (
-                                        <div className="flex items-center justify-between px-4 py-3 bg-indigo-50 border border-indigo-100 rounded-xl text-sm">
-                                            <div className="flex items-center gap-4 text-gray-600">
-                                                <span>Base: <span className="font-semibold text-gray-800">₹{fees.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span></span>
-                                                {taxRate > 0 && (
-                                                    <span>Tax ({taxRate}%): <span className="font-semibold text-gray-800">₹{taxAmount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span></span>
-                                                )}
-                                            </div>
-                                            <div className="font-bold text-indigo-700 text-base">
-                                                Total: ₹{totalAmount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                                            </div>
-                                        </div>
-                                    )}
-                                </div>
+                                         {/* ─ Financials ─ */}
+                                         <div className="space-y-5">
+                                             <h4 className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+                                                 <FiDollarSign className="w-4 h-4 text-indigo-500" /> Financials
+                                             </h4>
+                                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                                 <div className="space-y-2">
+                                                     <label className="block text-sm font-medium text-gray-700">
+                                                         Fees (₹) <span className="text-red-500">*</span>
+                                                     </label>
+                                                     <div className="relative">
+                                                         <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm font-medium">₹</span>
+                                                         <input
+                                                             type="text"
+                                                             inputMode="decimal"
+                                                             value={editForm.fees}
+                                                             onChange={(e) => {
+                                                                 const val = e.target.value;
+                                                                 if (val === '' || /^\d*\.?\d*$/.test(val)) setEF({ fees: val });
+                                                             }}
+                                                             className="w-full pl-8 pr-3 py-3 text-sm border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-white outline-none"
+                                                             placeholder="0.00"
+                                                         />
+                                                     </div>
+                                                 </div>
+                                                 <div className="space-y-2">
+                                                     <label className="block text-sm font-medium text-gray-700">Tax Rate (%)</label>
+                                                     <div className="relative">
+                                                         <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm font-medium">%</span>
+                                                         <input
+                                                             type="text"
+                                                             inputMode="decimal"
+                                                             value={editForm.tax_rate}
+                                                             onChange={(e) => {
+                                                                 const val = e.target.value;
+                                                                 if (val === '' || /^\d*\.?\d*$/.test(val)) setEF({ tax_rate: val });
+                                                             }}
+                                                             className="w-full pl-8 pr-3 py-3 text-sm border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-white outline-none"
+                                                             placeholder="0"
+                                                         />
+                                                     </div>
+                                                 </div>
+                                             </div>
+                                             {/* Total amount summary */}
+                                             {fees > 0 && (
+                                                 <div className="flex items-center justify-between px-4 py-3 bg-indigo-50 border border-indigo-100 rounded-xl text-sm">
+                                                     <div className="flex items-center gap-4 text-gray-600">
+                                                         <span>Base: <span className="font-semibold text-gray-800">₹{fees.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span></span>
+                                                         {taxRate > 0 && (
+                                                             <span>Tax ({taxRate}%): <span className="font-semibold text-gray-800">₹{taxAmount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span></span>
+                                                         )}
+                                                     </div>
+                                                     <div className="font-bold text-indigo-700 text-base">
+                                                         Total: ₹{totalAmount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                                     </div>
+                                                 </div>
+                                             )}
+                                         </div>
+                                     </>
+                                )}
 
                                 <hr className="border-gray-100" />
 
@@ -1085,7 +1090,7 @@ const DetailsTab = ({ taskData: initialData, task_id, onTaskUpdated }) => {
                                         <div className="rounded-xl border border-gray-200 overflow-hidden">
                                             <div className="flex justify-between items-center px-4 py-3 border-b border-gray-100">
                                                 <span className="text-sm text-gray-500">Base Fees</span>
-                                                <span className="text-sm font-semibold text-gray-900">
+                                                <span className={`text-sm font-semibold text-gray-900 ${!checkPermissionSync('task_fees_view') ? 'blur-[3.5px] select-none' : ''}`}>
                                                     ₹{(taskData.charges?.fees ?? 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                                 </span>
                                             </div>
@@ -1093,13 +1098,13 @@ const DetailsTab = ({ taskData: initialData, task_id, onTaskUpdated }) => {
                                                 <span className="text-sm text-gray-500">
                                                     Tax ({taskData.charges?.tax_rate ?? 0}%)
                                                 </span>
-                                                <span className="text-sm font-semibold text-gray-900">
+                                                <span className={`text-sm font-semibold text-gray-900 ${!checkPermissionSync('task_fees_view') ? 'blur-[3.5px] select-none' : ''}`}>
                                                     ₹{(taskData.charges?.tax_value ?? ((taskData.charges?.fees ?? 0) * (taskData.charges?.tax_rate ?? 0) / 100)).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                                 </span>
                                             </div>
                                             <div className="flex justify-between items-center px-4 py-3 bg-indigo-50">
                                                 <span className="text-sm font-bold text-indigo-800">Total Amount</span>
-                                                <span className="text-base font-bold text-indigo-700">
+                                                <span className={`text-base font-bold text-indigo-700 ${!checkPermissionSync('task_fees_view') ? 'blur-[3.5px] select-none' : ''}`}>
                                                     ₹{(taskData.charges?.total ?? ((taskData.charges?.fees ?? 0) + (taskData.charges?.fees ?? 0) * (taskData.charges?.tax_rate ?? 0) / 100)).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                                 </span>
                                             </div>
@@ -1119,13 +1124,13 @@ const DetailsTab = ({ taskData: initialData, task_id, onTaskUpdated }) => {
                                         <div className="rounded-xl border border-gray-200 overflow-hidden">
                                             <div className="flex justify-between items-center px-4 py-3 border-b border-gray-100">
                                                 <span className="text-sm text-gray-500">Base Fees</span>
-                                                <span className="text-sm font-medium text-gray-400 line-through">
+                                                <span className={`text-sm font-medium text-gray-400 line-through ${!checkPermissionSync('task_fees_view') ? 'blur-[3.5px] select-none' : ''}`}>
                                                     ₹{(taskData.charges?.fees ?? 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                                 </span>
                                             </div>
                                             <div className="flex justify-between items-center px-4 py-3 bg-gray-50">
                                                 <span className="text-sm font-bold text-gray-600">Total</span>
-                                                <span className="text-sm font-bold text-gray-400 line-through">
+                                                <span className={`text-sm font-bold text-gray-400 line-through ${!checkPermissionSync('task_fees_view') ? 'blur-[3.5px] select-none' : ''}`}>
                                                     ₹{(taskData.charges?.total ?? taskData.charges?.fees ?? 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                                 </span>
                                             </div>

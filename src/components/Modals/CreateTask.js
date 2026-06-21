@@ -33,6 +33,7 @@ import { FaCheckCircle } from "react-icons/fa";
 import { motion, AnimatePresence } from 'framer-motion';
 import { DatePickerField } from '../PortalDatePicker';
 import { toast } from 'react-hot-toast';
+import { checkPermissionSync } from '../../utils/permission-helper';
 
 /**
  * Multi-step create-task wizard. Use as a modal anywhere, or pass embedded for full-page layout (with app shell).
@@ -1100,6 +1101,10 @@ const CreateTask = ({
             onClose?.();
         }
     }, [onClose, onNavigateToTaskList]);
+
+    if (!checkPermissionSync('task_create')) {
+        return null;
+    }
 
     if (!embedded && !isOpen) return null;
 

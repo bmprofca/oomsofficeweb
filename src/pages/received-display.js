@@ -21,7 +21,8 @@ import {
     FiX,
     FiCheckCircle,
     FiAlertCircle,
-    FiInfo
+    FiInfo,
+    FiLock
 } from 'react-icons/fi';
 import { PiExportBold } from "react-icons/pi";
 import { PiFilePdfDuotone, PiMicrosoftExcelLogoDuotone } from "react-icons/pi";
@@ -36,6 +37,7 @@ import DateFilter from '../components/DateFilter';
 import API_BASE_URL from "../utils/api-controller";
 import getHeaders from "../utils/get-headers";
 import toast from 'react-hot-toast';
+import { useUserPermissions } from '../utils/permission-helper';
 
 // Inline Export Modal Component
 const InlineExportModal = ({ isOpen, onClose, exportData, columns, jobType }) => {
@@ -254,6 +256,7 @@ const InlineExportModal = ({ isOpen, onClose, exportData, columns, jobType }) =>
 };
 
 const ViewReceived = () => {
+    const { check } = useUserPermissions();
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
     const [isMinimized, setIsMinimized] = useState(() => {
         const saved = localStorage.getItem('sidebarMinimized');
@@ -332,6 +335,9 @@ const ViewReceived = () => {
 
     // Format currency
     const formatCurrency = (amount) => {
+        if (!check('finance_balance_view')) {
+            return '*.*';
+        }
         return new Intl.NumberFormat('en-IN', {
             minimumFractionDigits: 2,
             maximumFractionDigits: 2
@@ -768,6 +774,24 @@ const ViewReceived = () => {
         return <SkeletonLoader />;
     }
 
+    if (!check('finance_report')) {
+        return (
+            <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
+                <Header mobileMenuOpen={mobileMenuOpen} setMobileMenuOpen={setMobileMenuOpen} isMinimized={isMinimized} setIsMinimized={setIsMinimized} />
+                <Sidebar mobileMenuOpen={mobileMenuOpen} setMobileMenuOpen={setMobileMenuOpen} isMinimized={isMinimized} setIsMinimized={setIsMinimized} />
+                <div className={`pt-16 flex items-center justify-center transition-all duration-300 h-[calc(100vh-4rem)] ${isMinimized ? 'md:pl-20' : 'md:pl-[260px]'}`}>
+                    <div className="text-center p-8 bg-white rounded-2xl border border-slate-200 shadow-sm max-w-sm w-full mx-4">
+                        <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                            <FiLock className="w-8 h-8 text-slate-400" />
+                        </div>
+                        <h3 className="text-lg font-bold text-slate-800 mb-2">Access Denied</h3>
+                        <p className="text-slate-500 text-sm">You need the Finance Report access permission to view this report.</p>
+                    </div>
+                </div>
+            </div>
+        );
+    }
+
     return (
         <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
             {/* Fixed Header */}
@@ -938,12 +962,20 @@ const ViewReceived = () => {
                                         </div>
 
                                         <motion.button
-                                            onClick={() => setPaymentReceivedModal(true)}
-                                            className="px-4 py-2.5 bg-gradient-to-r from-emerald-600 to-emerald-700 hover:from-emerald-700 hover:to-emerald-800 text-white rounded-lg text-xs font-semibold transition-all duration-200 flex items-center gap-2 shadow-sm hover:shadow"
-                                            whileHover={{ scale: 1.02 }}
-                                            whileTap={{ scale: 0.98 }}
+                                            onClick={() => {
+                                                if (!check('finance_entry')) {
+                                                    toast.error('Need Access Permission');
+                                                } else {
+                                                    setPaymentReceivedModal(true);
+                                                }
+                                            }}
+                                            className={`px-4 py-2.5 bg-gradient-to-r from-emerald-600 to-emerald-700 hover:from-emerald-700 hover:to-emerald-800 text-white rounded-lg text-xs font-semibold transition-all duration-200 flex items-center gap-2 shadow-sm hover:shadow ${
+                                                !check('finance_entry') ? 'opacity-60 cursor-not-allowed hover:from-emerald-600 hover:to-emerald-700' : ''
+                                            }`}
+                                            whileHover={check('finance_entry') ? { scale: 1.02 } : {}}
+                                            whileTap={check('finance_entry') ? { scale: 0.98 } : {}}
                                         >
-                                            <FiPlus className="w-4 h-4" />
+                                            {!check('finance_entry') ? <FiLock className="w-4 h-4 shrink-0" /> : <FiPlus className="w-4 h-4" />}
                                             Add Received
                                         </motion.button>
                                     </div>
@@ -977,11 +1009,20 @@ const ViewReceived = () => {
                                                     <p className="text-slate-600 text-sm font-medium mb-1">No received records found</p>
                                                     <p className="text-slate-500 text-xs mb-4">Start by creating your first received entry</p>
                                                     <motion.button
-                                                        onClick={() => setPaymentReceivedModal(true)}
-                                                        className="px-4 py-2 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-lg text-xs font-semibold hover:shadow transition-all duration-200"
-                                                        whileHover={{ scale: 1.02 }}
-                                                        whileTap={{ scale: 0.98 }}
+                                                        onClick={() => {
+                                                            if (!check('finance_entry')) {
+                                                                toast.error('Need Access Permission');
+                                                            } else {
+                                                                setPaymentReceivedModal(true);
+                                                            }
+                                                        }}
+                                                        className={`px-4 py-2 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-lg text-xs font-semibold hover:shadow transition-all duration-200 ${
+                                                            !check('finance_entry') ? 'opacity-60 cursor-not-allowed hover:from-blue-600 hover:to-blue-700' : ''
+                                                        }`}
+                                                        whileHover={check('finance_entry') ? { scale: 1.02 } : {}}
+                                                        whileTap={check('finance_entry') ? { scale: 0.98 } : {}}
                                                     >
+                                                        {!check('finance_entry') ? <FiLock className="w-3.5 h-3.5 mr-1 inline-block shrink-0" /> : null}
                                                         Create Your First Received Entry
                                                     </motion.button>
                                                 </div>
@@ -1093,12 +1134,25 @@ const ViewReceived = () => {
                                                                     >
                                                                         <div className="py-1">
                                                                             <a
-                                                                                href={editLink}
-                                                                                className="flex items-center w-full px-3 py-2 text-xs text-slate-700 hover:bg-blue-50 transition-colors duration-150"
-                                                                                onClick={() => setActiveRowDropdown(null)}
+                                                                                href={check('finance_entry_edit') ? editLink : '#'}
+                                                                                className={`flex items-center w-full px-3 py-2 text-xs text-slate-700 hover:bg-blue-50 transition-colors duration-150 ${
+                                                                                    !check('finance_entry_edit') ? 'opacity-60 cursor-not-allowed hover:bg-transparent' : ''
+                                                                                }`}
+                                                                                onClick={(e) => {
+                                                                                    if (!check('finance_entry_edit')) {
+                                                                                        e.preventDefault();
+                                                                                        toast.error('Need Access Permission');
+                                                                                    } else {
+                                                                                        setActiveRowDropdown(null);
+                                                                                    }
+                                                                                }}
                                                                             >
                                                                                 <div className="p-1 bg-blue-50 rounded mr-2">
-                                                                                    <FiEdit className="w-3 h-3 text-blue-500" />
+                                                                                    {!check('finance_entry_edit') ? (
+                                                                                        <FiLock className="w-3 h-3 text-slate-400" />
+                                                                                    ) : (
+                                                                                        <FiEdit className="w-3 h-3 text-blue-500" />
+                                                                                    )}
                                                                                 </div>
                                                                                 <div className="text-left">
                                                                                     <div className="font-medium">Edit Received</div>

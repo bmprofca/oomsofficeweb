@@ -35,9 +35,11 @@ import {
   FiUser,
   FiVideo,
   FiX,
+  FiLock,
 } from "react-icons/fi";
 import { useNavigate, useParams } from "react-router-dom";
 import { Header, Sidebar } from "../../../components/header";
+import { useUserPermissions } from "../../../utils/permission-helper";
 import OneChattingAttachModal from "./OneChattingAttachModal";
 import OneChattingMediaModal from "./OneChattingMediaModal";
 import OneChattingTemplateModal from "./OneChattingTemplateModal";
@@ -635,6 +637,7 @@ const OneChattingLiveChat = ({
   clientNumber: fixedClientNumber = "",
   clientName: fixedClientName = "",
 } = {}) => {
+  const { check } = useUserPermissions();
   const { number: numberParam } = useParams();
   const navigate = useNavigate();
   const urlNumber =
@@ -1796,6 +1799,24 @@ const OneChattingLiveChat = ({
   const showChatPanel = Boolean(selectedContact);
   const showSocketStatus = Boolean(developerToken);
   const assigneeLabel = getAssigneeLabel(assigned);
+
+  if (!check('broadcast_livechat')) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50">
+        <Header mobileMenuOpen={mobileMenuOpen} setMobileMenuOpen={setMobileMenuOpen} isMinimized={isMinimized} setIsMinimized={setIsMinimized} />
+        <Sidebar mobileMenuOpen={mobileMenuOpen} setMobileMenuOpen={setMobileMenuOpen} isMinimized={isMinimized} setIsMinimized={setIsMinimized} />
+        <div className={`pt-16 flex items-center justify-center transition-all duration-300 h-[calc(100vh-4rem)] ${isMinimized ? 'md:pl-20' : 'md:pl-[260px]'}`}>
+          <div className="text-center p-8 bg-white rounded-2xl border border-slate-200 shadow-sm max-w-sm w-full mx-4">
+            <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-4">
+              <FiLock className="w-8 h-8 text-slate-400" />
+            </div>
+            <h3 className="text-lg font-bold text-slate-800 mb-2">Access Denied</h3>
+            <p className="text-slate-500 text-sm">You do not have permission to view this page.</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div

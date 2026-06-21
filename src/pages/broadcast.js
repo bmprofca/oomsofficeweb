@@ -14,6 +14,7 @@ import {
     FiChevronRight,
     FiLoader,
     FiMessageCircle,
+    FiLock,
 } from 'react-icons/fi';
 import { useNavigate, useParams, Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
@@ -25,6 +26,7 @@ import {
 } from './broadcast/whatsapp/whatsappApi';
 import { setStoredWhatsappChannel } from './broadcast/whatsapp/whatsappChannelStore';
 import { useWhatsappChannel } from './broadcast/whatsapp/useWhatsappChannel';
+import { useUserPermissions } from '../utils/permission-helper';
 
 const Broadcast = () => {
     const navigate = useNavigate();
@@ -35,6 +37,8 @@ const Broadcast = () => {
         const saved = localStorage.getItem('sidebarMinimized');
         return saved ? JSON.parse(saved) : false;
     });
+
+    const { check } = useUserPermissions();
 
     // Channel states
     const [textMessageChannel, setTextMessageChannel] = useState('ooms');
@@ -83,35 +87,40 @@ const Broadcast = () => {
             description: "Manage SMS configurations",
             icon: <FiSettings className="w-5 h-5" />,
             link: "/broadcast/sms/configs",
-            color: "bg-blue-100 text-blue-600"
+            color: "bg-blue-100 text-blue-600",
+            permission: "broadcast_config_edit"
         },
         {
             title: "Templates",
             description: "Manage text template messages",
             icon: <FiFileText className="w-5 h-5" />,
             link: "/broadcast/sms/templates",
-            color: "bg-blue-100 text-blue-600"
+            color: "bg-blue-100 text-blue-600",
+            permission: "broadcast_config_edit"
         },
         {
             title: "Campaigns",
             description: "View all text message campaigns",
             icon: <FiLayers className="w-5 h-5" />,
             link: "/broadcast/sms",
-            color: "bg-blue-100 text-blue-600"
+            color: "bg-blue-100 text-blue-600",
+            permission: ["broadcast_send", "broadcast_config_edit"]
         },
         {
             title: "Launch Broadcast",
             description: "Send a new text message broadcast",
             icon: <FiSend className="w-5 h-5" />,
             link: "/broadcast/sms/create",
-            color: "bg-blue-100 text-blue-600"
+            color: "bg-blue-100 text-blue-600",
+            permission: "broadcast_send"
         },
         {
             title: "Reports",
             description: "View SMS delivery logs and stats",
             icon: <FiBarChart2 className="w-5 h-5" />,
             link: "/broadcast/report?tab=text-message",
-            color: "bg-blue-100 text-blue-600"
+            color: "bg-blue-100 text-blue-600",
+            permission: ["broadcast_send", "broadcast_config_edit"]
         }
     ];
 
@@ -122,35 +131,40 @@ const Broadcast = () => {
             description: "Send WhatsApp messages",
             icon: <FiSend className="w-5 h-5" />,
             link: "./whatsapp/ooms?tab=send",
-            color: "bg-green-100 text-green-600"
+            color: "bg-green-100 text-green-600",
+            permission: "broadcast_send"
         },
         {
             title: "Static Templates",
             description: "Manage static WhatsApp templates",
             icon: <FiLayers className="w-5 h-5" />,
             link: "./whatsapp/ooms?tab=static-template",
-            color: "bg-green-100 text-green-600"
+            color: "bg-green-100 text-green-600",
+            permission: "broadcast_config_edit"
         },
         {
             title: "Dynamic Templates",
             description: "Manage dynamic WhatsApp templates",
             icon: <FiDatabase className="w-5 h-5" />,
             link: "./whatsapp/ooms?tab=dynamic-template",
-            color: "bg-green-100 text-green-600"
+            color: "bg-green-100 text-green-600",
+            permission: "broadcast_config_edit"
         },
         {
             title: "Configuration",
             description: "WhatsApp connection settings",
             icon: <FiSettings className="w-5 h-5" />,
             link: "./whatsapp/ooms?tab=configuration",
-            color: "bg-green-100 text-green-600"
+            color: "bg-green-100 text-green-600",
+            permission: "broadcast_config_edit"
         },
         {
             title: "Reports",
             description: "View WhatsApp delivery reports",
             icon: <FiBarChart2 className="w-5 h-5" />,
             link: "./report?tab=whatsapp",
-            color: "bg-green-100 text-green-600"
+            color: "bg-green-100 text-green-600",
+            permission: ["broadcast_send", "broadcast_config_edit"]
         }
     ];
 
@@ -161,35 +175,40 @@ const Broadcast = () => {
             description: "View and manage WhatsApp conversations",
             icon: <FiMessageCircle className="w-5 h-5" />,
             link: "/broadcast/whatsapp/onechatting/live-chat",
-            color: "bg-green-100 text-green-600"
+            color: "bg-green-100 text-green-600",
+            permission: "broadcast_livechat"
         },
         {
             title: "Templates",
             description: "View OneChatting WhatsApp templates",
             icon: <FiFileText className="w-5 h-5" />,
             link: "/broadcast/whatsapp/onechatting/templates",
-            color: "bg-green-100 text-green-600"
+            color: "bg-green-100 text-green-600",
+            permission: "broadcast_config_edit"
         },
         {
             title: "Send Message",
             description: "Send WhatsApp messages",
             icon: <FiSend className="w-5 h-5" />,
             link: "./whatsapp/onechatting?tab=send",
-            color: "bg-green-100 text-green-600"
+            color: "bg-green-100 text-green-600",
+            permission: "broadcast_send"
         },
         {
             title: "Report",
             description: "View delivery reports",
             icon: <FiBarChart2 className="w-5 h-5" />,
             link: "./report?tab=whatsapp",
-            color: "bg-green-100 text-green-600"
+            color: "bg-green-100 text-green-600",
+            permission: ["broadcast_send", "broadcast_config_edit"]
         },
         {
             title: "Configure",
             description: "OneChatting settings",
             icon: <FiSettings className="w-5 h-5" />,
             link: "/broadcast/whatsapp/onechatting/configure",
-            color: "bg-green-100 text-green-600"
+            color: "bg-green-100 text-green-600",
+            permission: "broadcast_config_edit"
         }
     ];
 
@@ -200,21 +219,24 @@ const Broadcast = () => {
             description: "Link this branch via QR or pairing code",
             icon: <FiMessageCircle className="w-5 h-5" />,
             link: "/broadcast/whatsapp/web/session",
-            color: "bg-green-100 text-green-600"
+            color: "bg-green-100 text-green-600",
+            permission: "broadcast_config_edit"
         },
         {
             title: "Templates",
             description: "Manage WhatsApp Web message templates",
             icon: <FiFileText className="w-5 h-5" />,
             link: "/broadcast/whatsapp/web/templates",
-            color: "bg-green-100 text-green-600"
+            color: "bg-green-100 text-green-600",
+            permission: "broadcast_config_edit"
         },
         {
             title: "Reports",
             description: "View WhatsApp Web delivery reports",
             icon: <FiBarChart2 className="w-5 h-5" />,
             link: "./report?tab=whatsapp",
-            color: "bg-green-100 text-green-600"
+            color: "bg-green-100 text-green-600",
+            permission: ["broadcast_send", "broadcast_config_edit"]
         }
     ];
 
@@ -225,35 +247,40 @@ const Broadcast = () => {
             description: "Send push notifications",
             icon: <FiBell className="w-5 h-5" />,
             link: "./push-notification?tab=send",
-            color: "bg-purple-100 text-purple-600"
+            color: "bg-purple-100 text-purple-600",
+            permission: "broadcast_send"
         },
         {
             title: "Static Templates",
             description: "Manage static notification templates",
             icon: <FiLayers className="w-5 h-5" />,
             link: "./push-notification?tab=static-template",
-            color: "bg-purple-100 text-purple-600"
+            color: "bg-purple-100 text-purple-600",
+            permission: "broadcast_config_edit"
         },
         {
             title: "Dynamic Templates",
             description: "Manage dynamic notification templates",
             icon: <FiDatabase className="w-5 h-5" />,
             link: "./push-notification?tab=dynamic-template",
-            color: "bg-purple-100 text-purple-600"
+            color: "bg-purple-100 text-purple-600",
+            permission: "broadcast_config_edit"
         },
         {
             title: "Configuration",
             description: "Notification settings",
             icon: <FiSettings className="w-5 h-5" />,
             link: "./push-notification?tab=configuration",
-            color: "bg-purple-100 text-purple-600"
+            color: "bg-purple-100 text-purple-600",
+            permission: "broadcast_config_edit"
         },
         {
             title: "Reports",
             description: "View notification reports",
             icon: <FiBarChart2 className="w-5 h-5" />,
             link: "./report?tab=push",
-            color: "bg-purple-100 text-purple-600"
+            color: "bg-purple-100 text-purple-600",
+            permission: ["broadcast_send", "broadcast_config_edit"]
         }
     ];
 
@@ -263,35 +290,40 @@ const Broadcast = () => {
             description: "Manage SMTP connections",
             icon: <FiSettings className="w-5 h-5" />,
             link: "/broadcast/email/configs",
-            color: "bg-indigo-100 text-indigo-600"
+            color: "bg-indigo-100 text-indigo-600",
+            permission: "broadcast_config_edit"
         },
         {
             title: "Templates",
             description: "Manage email templates",
             icon: <FiFileText className="w-5 h-5" />,
             link: "/broadcast/email/templates",
-            color: "bg-indigo-100 text-indigo-600"
+            color: "bg-indigo-100 text-indigo-600",
+            permission: "broadcast_config_edit"
         },
         {
             title: "Broadcasts",
             description: "View all email broadcasts",
             icon: <FiMail className="w-5 h-5" />,
             link: "/broadcast/email",
-            color: "bg-indigo-100 text-indigo-600"
+            color: "bg-indigo-100 text-indigo-600",
+            permission: ["broadcast_send", "broadcast_config_edit"]
         },
         {
             title: "Create Broadcast",
             description: "Create new email campaign",
             icon: <FiSend className="w-5 h-5" />,
             link: "/broadcast/email/create",
-            color: "bg-indigo-100 text-indigo-600"
+            color: "bg-indigo-100 text-indigo-600",
+            permission: "broadcast_send"
         },
         {
             title: "Reports",
             description: "View email campaign reports",
             icon: <FiBarChart2 className="w-5 h-5" />,
             link: "/broadcast/email/reports",
-            color: "bg-indigo-100 text-indigo-600"
+            color: "bg-indigo-100 text-indigo-600",
+            permission: ["broadcast_send", "broadcast_config_edit"]
         },
     ];
 
@@ -339,32 +371,51 @@ const Broadcast = () => {
     // Render card grid
     const renderCardGrid = (cards) => (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-4">
-            {cards.map((card, index) => (
-                <motion.div
-                    key={index}
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: index * 0.05 }}
-                    whileHover={{ y: -5, scale: 1.02 }}
-                    whileTap={{ scale: 0.98 }}
-                    onClick={() => navigate(card.link)}
-                    className="cursor-pointer"
-                >
-                    <div className="bg-white rounded-lg border border-gray-200 p-4 hover:border-gray-300 hover:shadow-md transition-all duration-200 h-full">
-                        <div className="flex flex-col items-center text-center">
-                            <div className={`rounded-lg p-3 mb-3 ${card.color}`}>
-                                {card.icon}
+            {cards.map((card, index) => {
+                const hasPermission = card.permission 
+                    ? (Array.isArray(card.permission) 
+                        ? card.permission.some(p => check(p)) 
+                        : check(card.permission))
+                    : true;
+
+                return (
+                    <motion.div
+                        key={index}
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: index * 0.05 }}
+                        whileHover={hasPermission ? { y: -5, scale: 1.02 } : {}}
+                        whileTap={hasPermission ? { scale: 0.98 } : {}}
+                        onClick={() => {
+                            if (!hasPermission) {
+                                toast.error("You do not have permission to access this feature.");
+                                return;
+                            }
+                            navigate(card.link);
+                        }}
+                        className={`cursor-pointer ${!hasPermission ? 'opacity-60 cursor-not-allowed' : ''}`}
+                    >
+                        <div className="bg-white rounded-lg border border-gray-200 p-4 hover:border-gray-300 hover:shadow-md transition-all duration-200 h-full relative">
+                            {!hasPermission && (
+                                <div className="absolute top-2 right-2 text-gray-400 bg-gray-100 p-1 rounded-full">
+                                    <FiLock className="w-3 h-3" />
+                                </div>
+                            )}
+                            <div className="flex flex-col items-center text-center">
+                                <div className={`rounded-lg p-3 mb-3 ${card.color}`}>
+                                    {card.icon}
+                                </div>
+                                <h6 className="text-sm font-semibold text-gray-800 mb-2 leading-tight">
+                                    {card.title}
+                                </h6>
+                                <p className="text-xs text-gray-500 leading-tight">
+                                    {card.description}
+                                </p>
                             </div>
-                            <h6 className="text-sm font-semibold text-gray-800 mb-2 leading-tight">
-                                {card.title}
-                            </h6>
-                            <p className="text-xs text-gray-500 leading-tight">
-                                {card.description}
-                            </p>
                         </div>
-                    </div>
-                </motion.div>
-            ))}
+                    </motion.div>
+                );
+            })}
         </div>
     );
 
@@ -493,6 +544,34 @@ const Broadcast = () => {
             </div>
         </div>
     );
+
+    if (!check('broadcast_livechat') && !check('broadcast_send') && !check('broadcast_config_edit')) {
+        return (
+            <div className="min-h-screen bg-gray-50">
+                <Header
+                    mobileMenuOpen={mobileMenuOpen}
+                    setMobileMenuOpen={setMobileMenuOpen}
+                    isMinimized={isMinimized}
+                    setIsMinimized={setIsMinimized}
+                />
+                <Sidebar
+                    mobileMenuOpen={mobileMenuOpen}
+                    setMobileMenuOpen={setMobileMenuOpen}
+                    isMinimized={isMinimized}
+                    setIsMinimized={setIsMinimized}
+                />
+                <div className={`pt-16 flex items-center justify-center transition-all duration-300 h-[calc(100vh-4rem)] ${isMinimized ? 'md:pl-20' : 'md:pl-[260px]'}`}>
+                    <div className="text-center p-8 bg-white rounded-2xl border border-gray-200 shadow-sm max-w-sm w-full mx-4">
+                        <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                            <FiLock className="w-8 h-8 text-slate-400" />
+                        </div>
+                        <h3 className="text-lg font-bold text-gray-800 mb-2">Access Denied</h3>
+                        <p className="text-gray-500 text-sm">You do not have permission to access the Broadcast section.</p>
+                    </div>
+                </div>
+            </div>
+        );
+    }
 
     return (
         <div className="min-h-screen bg-gray-50">

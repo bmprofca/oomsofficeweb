@@ -27,8 +27,11 @@ import {
     FiShield,
     FiMail,
     FiPlus,
-    FiRepeat
+    FiRepeat,
+    FiLock
 } from 'react-icons/fi';
+import { useUserPermissions } from '../utils/permission-helper';
+import { toast } from 'react-hot-toast';
 
 // Sidebar Component
 export const Sidebar = ({ sidebarOpen, setSidebarOpen, sidebarCollapsed, setSidebarCollapsed }) => {
@@ -39,6 +42,7 @@ export const Sidebar = ({ sidebarOpen, setSidebarOpen, sidebarCollapsed, setSide
     const navigate = useNavigate();
     const location = useLocation();
     const whatsappChannel = useWhatsappChannel();
+    const { check } = useUserPermissions();
 
     const menuItems = useMemo(() => {
         const items = [
@@ -54,18 +58,21 @@ export const Sidebar = ({ sidebarOpen, setSidebarOpen, sidebarCollapsed, setSide
             label: 'Tasks',
             icon: <FiUsers className="text-base" />,
             path: '/task/view',
+            permission: 'task_',
             submenu: [
                 {
                     id: 'task-create',
                     label: 'New Task',
                     icon: <FiUser className="w-4 h-4" />,
-                    path: '/task/create'
+                    path: '/task/create',
+                    permission: 'task_create'
                 },
                 {
                     id: 'task-view',
                     label: 'View Task',
                     icon: <FiFolder className="w-4 h-4" />,
-                    path: '/task/view'
+                    path: '/task/view',
+                    permission: 'task_view'
                 }
             ]
         },
@@ -74,25 +81,29 @@ export const Sidebar = ({ sidebarOpen, setSidebarOpen, sidebarCollapsed, setSide
             label: 'Recurring Tasks',
             icon: <FiRepeat className="text-base" />,
             badge: null,
-            path: '/staff/recurring-tasks'
+            path: '/staff/recurring-tasks',
+            permission: 'recurring_task_'
         },
         {
             id: 'client',
             label: 'Clients',
             icon: <FiUsers className="text-base" />,
             path: '/client/view',
+            permission: 'client_',
             submenu: [
                 {
                     id: 'client-create',
                     label: 'New Client',
                     icon: <FiUser className="w-4 h-4" />,
-                    path: '/client/create'
+                    path: '/client/create',
+                    permission: 'client_create'
                 },
                 {
                     id: 'client-view',
                     label: 'View Client',
                     icon: <FiFolder className="w-4 h-4" />,
-                    path: '/client/view'
+                    path: '/client/view',
+                    permission: 'client_view'
                 }
             ]
         },
@@ -101,14 +112,16 @@ export const Sidebar = ({ sidebarOpen, setSidebarOpen, sidebarCollapsed, setSide
             label: 'Billing',
             icon: <FiBarChart2 className="text-base" />,
             badge: null,
-            path: '/billing'
+            path: '/billing',
+            permission: 'finance_'
         },
         {
             id: 'finance',
             label: 'Finance',
             icon: <FiBarChart2 className="text-base" />,
             badge: null,
-            path: '/finance/voucher/'
+            path: '/finance/voucher/',
+            permission: 'finance_'
         },
         {
             id: 'staff',
@@ -116,30 +129,35 @@ export const Sidebar = ({ sidebarOpen, setSidebarOpen, sidebarCollapsed, setSide
             icon: <FiUsers className="text-base" />,
             badge: null,
             path: '/staff',
+            permission: 'staff_',
             submenu: [
                 {
                     id: 'staff',
                     label: 'Staff',
                     icon: <FiUser className="w-4 h-4" />,
-                    path: '/staff/view'
+                    path: '/staff/view',
+                    permission: 'staff_view'
                 },
                 {
                     id: 'staff-team-report',
                     label: 'Team Report',
                     icon: <FiFileText className="w-4 h-4" />,
-                    path: '/staff/team-report'
+                    path: '/staff/team-report',
+                    permission: 'staff_report'
                 },
                 {
                     id: 'staff-attendance',
                     label: 'Attendance',
                     icon: <FiCalendar className="w-4 h-4" />,
-                    path: '/staff/attendance'
+                    path: '/staff/attendance',
+                    permission: 'staff_attendance'
                 },
                 {
                     id: 'staff-office-assistance',
                     label: 'Assistance',
                     icon: <FiHelpCircle className="w-4 h-4" />,
-                    path: '/staff/office-assistance'
+                    path: '/staff/office-assistance',
+                    permission: 'office_assistance_'
                 }
             ]
         },
@@ -148,7 +166,8 @@ export const Sidebar = ({ sidebarOpen, setSidebarOpen, sidebarCollapsed, setSide
             label: 'Broadcast',
             icon: <FiMessageSquare className="text-base" />,
             badge: null,
-            path: '/broadcast'
+            path: '/broadcast',
+            permission: 'broadcast_'
         },
         ...(whatsappChannel === 'onechatting'
             ? [
@@ -158,6 +177,7 @@ export const Sidebar = ({ sidebarOpen, setSidebarOpen, sidebarCollapsed, setSide
                     icon: <FiMessageSquare className="text-base" />,
                     badge: null,
                     path: '/broadcast/whatsapp/onechatting/live-chat',
+                    permission: 'broadcast_'
                 },
             ]
             : []),
@@ -166,14 +186,16 @@ export const Sidebar = ({ sidebarOpen, setSidebarOpen, sidebarCollapsed, setSide
             label: 'Settings',
             icon: <FiSettings className="text-base" />,
             badge: null,
-            path: '/settings'
+            path: '/settings',
+            permission: 'setting_'
         },
         {
             id: 'subscription',
             label: 'Subscription',
             icon: <FiCreditCard className="text-base" />,
             badge: null,
-            path: '/subscription'
+            path: '/subscription',
+            permission: 'subscription_'
         }
         ];
 
@@ -332,138 +354,176 @@ export const Sidebar = ({ sidebarOpen, setSidebarOpen, sidebarCollapsed, setSide
                 {/* Menu Items */}
                 <div className="flex-1 overflow-y-auto py-2">
                     <div className="space-y-1 px-1">
-                        {menuItems.map((item) => (
-                            <div key={item.id} className="relative">
-                                {/* Main Menu Item */}
-                                <button
-                                    type="button"
-                                    data-menu-id={item.id}
-                                    onClick={(e) => handleMenuItemClick(item, e)}
-                                    onDoubleClick={() => handleMainItemNavigation(item)}
-                                    className={`
-                                        w-full flex items-center sidebar-item rounded transition-all duration-150 group
-                                        ${isActiveMenuItem(item)
-                                            ? 'bg-blue-600 text-white shadow-sm'
-                                            : 'text-slate-300 hover:bg-slate-700 hover:text-white'
-                                        }
-                                        ${sidebarCollapsed
-                                            ? item.submenu ? 'justify-center px-1 py-2' : 'justify-center px-2 py-2'
-                                            : 'px-2 py-2'
-                                        }
-                                        ${!sidebarCollapsed && item.submenu ? 'pr-8' : ''}
-                                    `}
-                                    title={sidebarCollapsed ? item.label : ''}
-                                >
-                                    <div className={`
-                                        flex items-center justify-center transition-colors flex-shrink-0
-                                        ${sidebarCollapsed ? 'w-5 h-5' : 'w-5 h-5'}
-                                        ${isActiveMenuItem(item) ? 'text-white' : 'text-slate-400 group-hover:text-white'}
-                                    `}>
-                                        {item.icon}
-                                    </div>
+                        {menuItems.map((item) => {
+                            const isLocked = item.permission ? !check(item.permission) : false;
+                            return (
+                                <div key={item.id} className="relative">
+                                    {/* Main Menu Item */}
+                                    <button
+                                        type="button"
+                                        data-menu-id={item.id}
+                                        onClick={(e) => {
+                                            if (isLocked) {
+                                                e.stopPropagation();
+                                                toast.error('Need Access Permission');
+                                            } else {
+                                                handleMenuItemClick(item, e);
+                                            }
+                                        }}
+                                        onDoubleClick={(e) => {
+                                            if (isLocked) {
+                                                e.stopPropagation();
+                                            } else {
+                                                handleMainItemNavigation(item);
+                                            }
+                                        }}
+                                        className={`
+                                            w-full flex items-center sidebar-item rounded transition-all duration-150 group
+                                            ${isLocked
+                                                ? 'text-slate-600 cursor-not-allowed hover:bg-transparent opacity-60'
+                                                : isActiveMenuItem(item)
+                                                    ? 'bg-blue-600 text-white shadow-sm'
+                                                    : 'text-slate-300 hover:bg-slate-700 hover:text-white'
+                                            }
+                                            ${sidebarCollapsed
+                                                ? item.submenu ? 'justify-center px-1 py-2' : 'justify-center px-2 py-2'
+                                                : 'px-2 py-2'
+                                            }
+                                            ${!sidebarCollapsed && item.submenu ? 'pr-8' : ''}
+                                        `}
+                                        title={sidebarCollapsed ? item.label : ''}
+                                    >
+                                        <div className={`
+                                            flex items-center justify-center transition-colors flex-shrink-0
+                                            ${sidebarCollapsed ? 'w-5 h-5' : 'w-5 h-5'}
+                                            ${isLocked
+                                                ? 'text-slate-600'
+                                                : isActiveMenuItem(item) ? 'text-white' : 'text-slate-400 group-hover:text-white'}
+                                        `}>
+                                            {isLocked ? <FiLock className="text-base" /> : item.icon}
+                                        </div>
 
-                                    {!sidebarCollapsed && (
-                                        <>
-                                            <span className="ml-2 text-sm flex-1 text-left truncate">{item.label}</span>
+                                        {!sidebarCollapsed && (
+                                            <>
+                                                <span className="ml-2 text-sm flex-1 text-left truncate">{item.label}</span>
 
-                                            {/* Badge */}
-                                            {item.badge && (
-                                                <span className="bg-blue-500 text-white text-xs rounded-full w-4 h-4 flex items-center justify-center ml-auto mr-2 flex-shrink-0">
-                                                    {item.badge}
-                                                </span>
-                                            )}
+                                                {/* Badge */}
+                                                {item.badge && (
+                                                    <span className="bg-blue-500 text-white text-xs rounded-full w-4 h-4 flex items-center justify-center ml-auto mr-2 flex-shrink-0">
+                                                        {item.badge}
+                                                    </span>
+                                                )}
 
-                                            {/* Submenu Arrow */}
-                                            {item.submenu && (
-                                                (() => {
-                                                    const createSubItem =
-                                                        item.submenu.find((s) => String(s.id).includes('create')) ||
-                                                        item.submenu[0];
+                                                {/* Submenu Arrow */}
+                                                {item.submenu && (
+                                                    (() => {
+                                                        const createSubItem =
+                                                            item.submenu.find((s) => String(s.id).includes('create')) ||
+                                                            item.submenu[0];
 
-                                                    // For tasks/clients: arrow area becomes "+" (create link)
-                                                    if (item.id === 'task' || item.id === 'client') {
+                                                        // For tasks/clients: arrow area becomes "+" (create link)
+                                                        if (item.id === 'task' || item.id === 'client') {
+                                                            const isCreateLocked = createSubItem?.permission ? !check(createSubItem.permission) : false;
+                                                            return (
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={(e) => {
+                                                                        e.stopPropagation();
+                                                                        if (isCreateLocked) {
+                                                                            toast.error('Need Access Permission');
+                                                                        } else if (createSubItem?.path) {
+                                                                            navigate(createSubItem.path);
+                                                                            setSidebarOpen(false);
+                                                                            setActiveSubmenu(null);
+                                                                        }
+                                                                    }}
+                                                                    className={`
+                                                                        absolute right-2 submenu-arrow transition-transform duration-150 flex-shrink-0
+                                                                        ${isCreateLocked
+                                                                            ? 'text-slate-600 cursor-not-allowed hover:bg-transparent opacity-60'
+                                                                            : isActiveMenuItem(item) ? 'text-white' : 'text-slate-400'
+                                                                        }
+                                                                    `}
+                                                                    aria-label={`Create ${item.label}`}
+                                                                    title={isCreateLocked ? 'Locked (No permission)' : `Create ${item.label}`}
+                                                                >
+                                                                    {isCreateLocked ? <FiLock className="w-4 h-4" /> : <FiPlus className="w-4 h-4" />}
+                                                                </button>
+                                                            );
+                                                        }
+
+                                                        // Default behavior: chevron toggles submenu
                                                         return (
                                                             <button
                                                                 type="button"
-                                                                onClick={(e) => {
-                                                                    e.stopPropagation();
-                                                                    if (createSubItem?.path) {
-                                                                        navigate(createSubItem.path);
-                                                                        setSidebarOpen(false);
-                                                                        setActiveSubmenu(null);
-                                                                    }
-                                                                }}
+                                                                onClick={(e) => handleArrowClick(item.id, e)}
                                                                 className={`
                                                                     absolute right-2 submenu-arrow transition-transform duration-150 flex-shrink-0
+                                                                    ${activeSubmenu === item.id ? 'rotate-180' : ''}
                                                                     ${isActiveMenuItem(item) ? 'text-white' : 'text-slate-400'}
                                                                 `}
-                                                                aria-label={`Create ${item.label}`}
-                                                                title={`Create ${item.label}`}
+                                                                aria-label="Toggle submenu"
                                                             >
-                                                                <FiPlus className="w-4 h-4" />
+                                                                <FiChevronDown className="w-4 h-4" />
                                                             </button>
                                                         );
-                                                    }
+                                                    })()
+                                                )}
+                                            </>
+                                        )}
+                                    </button>
 
-                                                    // Default behavior: chevron toggles submenu
-                                                    return (
-                                                        <button
-                                                            type="button"
-                                                            onClick={(e) => handleArrowClick(item.id, e)}
-                                                            className={`
-                                                                absolute right-2 submenu-arrow transition-transform duration-150 flex-shrink-0
-                                                                ${activeSubmenu === item.id ? 'rotate-180' : ''}
-                                                                ${isActiveMenuItem(item) ? 'text-white' : 'text-slate-400'}
-                                                            `}
-                                                            aria-label="Toggle submenu"
-                                                        >
-                                                            <FiChevronDown className="w-4 h-4" />
-                                                        </button>
-                                                    );
-                                                })()
-                                            )}
-                                        </>
+                                    {/* Submenu Indicator for Collapsed State */}
+                                    {sidebarCollapsed && item.submenu && (
+                                        <div className="absolute -right-1 top-1/2 transform -translate-y-1/2 w-1 h-1 bg-blue-400 rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-150" />
                                     )}
-                                </button>
 
-                                {/* Submenu Indicator for Collapsed State */}
-                                {sidebarCollapsed && item.submenu && (
-                                    <div className="absolute -right-1 top-1/2 transform -translate-y-1/2 w-1 h-1 bg-blue-400 rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-150" />
-                                )}
-
-                                {/* Traditional Submenu (Expanded State) */}
-                                {!sidebarCollapsed && item.submenu && activeSubmenu === item.id && (
-                                    // NOTE: added class 'sidebar-submenu-expanded' so document click handler can detect clicks inside
-                                    <div className="sidebar-submenu-expanded mt-1 ml-4 pl-2 border-l border-slate-600 space-y-0.5 animate-in fade-in duration-150">
-                                        {item.submenu.map((subItem) => (
-                                            <button
-                                                key={subItem.id}
-                                                type="button"
-                                                onClick={(e) => {
-                                                    e.stopPropagation();      // stop bubbling to parent menu
-                                                    handleSubmenuItemClick(subItem);
-                                                }}
-                                                className={`
-                                                    w-full flex items-center px-2 py-1.5 text-left rounded transition-all duration-150 group
-                                                    ${isActiveSubmenuItem(subItem)
-                                                        ? 'bg-slate-700 text-white'
-                                                        : 'text-slate-400 hover:bg-slate-700 hover:text-white'
-                                                    }
-                                                `}
-                                            >
-                                                <div className={`
-                                                    flex items-center justify-center w-4 h-4 mr-2 transition-colors
-                                                    ${isActiveSubmenuItem(subItem) ? 'text-white' : 'text-slate-500 group-hover:text-white'}
-                                                `}>
-                                                    {subItem.icon}
-                                                </div>
-                                                <span className="text-sm truncate">{subItem.label}</span>
-                                            </button>
-                                        ))}
-                                    </div>
-                                )}
-                            </div>
-                        ))}
+                                    {/* Traditional Submenu (Expanded State) */}
+                                    {!sidebarCollapsed && item.submenu && activeSubmenu === item.id && (
+                                        // NOTE: added class 'sidebar-submenu-expanded' so document click handler can detect clicks inside
+                                        <div className="sidebar-submenu-expanded mt-1 ml-4 pl-2 border-l border-slate-600 space-y-0.5 animate-in fade-in duration-150">
+                                            {item.submenu.map((subItem) => {
+                                                const isSubLocked = subItem.permission ? !check(subItem.permission) : false;
+                                                return (
+                                                    <button
+                                                        key={subItem.id}
+                                                        type="button"
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();      // stop bubbling to parent menu
+                                                            if (isSubLocked) {
+                                                                toast.error('Need Access Permission');
+                                                            } else {
+                                                                handleSubmenuItemClick(subItem);
+                                                            }
+                                                        }}
+                                                        className={`
+                                                            w-full flex items-center px-2 py-1.5 text-left rounded transition-all duration-150 group
+                                                            ${isSubLocked
+                                                                ? 'text-slate-600 cursor-not-allowed hover:bg-transparent opacity-60'
+                                                                : isActiveSubmenuItem(subItem)
+                                                                    ? 'bg-slate-700 text-white'
+                                                                    : 'text-slate-400 hover:bg-slate-700 hover:text-white'
+                                                            }
+                                                        `}
+                                                        title={isSubLocked ? 'Locked (No permission)' : ''}
+                                                    >
+                                                        <div className={`
+                                                            flex items-center justify-center w-4 h-4 mr-2 transition-colors flex-shrink-0
+                                                            ${isSubLocked
+                                                                ? 'text-slate-600'
+                                                                : isActiveSubmenuItem(subItem) ? 'text-white' : 'text-slate-500 group-hover:text-white'}
+                                                        `}>
+                                                            {isSubLocked ? <FiLock className="w-3.5 h-3.5" /> : subItem.icon}
+                                                        </div>
+                                                        <span className="text-sm truncate flex-1">{subItem.label}</span>
+                                                    </button>
+                                                );
+                                            })}
+                                        </div>
+                                    )}
+                                </div>
+                            );
+                        })}
                     </div>
                 </div>
 
@@ -485,31 +545,43 @@ export const Sidebar = ({ sidebarOpen, setSidebarOpen, sidebarCollapsed, setSide
                         <div className="space-y-0.5">
                             {menuItems
                                 .find(item => item.id === activeSubmenu)
-                                ?.submenu?.map((subItem) => (
-                                    <button
-                                        key={subItem.id}
-                                        type="button"
-                                        onClick={(e) => {
-                                            e.stopPropagation();
-                                            handleSubmenuItemClick(subItem);
-                                        }}
-                                        className={`
-                                            w-full flex items-center px-3 py-2 text-left rounded mx-1 transition-all duration-150 group
-                                            ${isActiveSubmenuItem(subItem)
-                                                ? 'bg-blue-600 text-white shadow-sm'
-                                                : 'text-slate-300 hover:bg-slate-700 hover:text-white'
-                                            }
-                                        `}
-                                    >
-                                        <div className={`
-                                            flex items-center justify-center w-4 h-4 mr-2 transition-colors flex-shrink-0
-                                            ${isActiveSubmenuItem(subItem) ? 'text-white' : 'text-slate-400 group-hover:text-white'}
-                                        `}>
-                                            {subItem.icon}
-                                        </div>
-                                        <span className="text-sm truncate flex-1">{subItem.label}</span>
-                                    </button>
-                                ))}
+                                ?.submenu?.map((subItem) => {
+                                    const isSubLocked = subItem.permission ? !check(subItem.permission) : false;
+                                    return (
+                                        <button
+                                            key={subItem.id}
+                                            type="button"
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                if (isSubLocked) {
+                                                    toast.error('Need Access Permission');
+                                                } else {
+                                                    handleSubmenuItemClick(subItem);
+                                                }
+                                            }}
+                                            className={`
+                                                w-full flex items-center px-3 py-2 text-left rounded mx-1 transition-all duration-150 group
+                                                ${isSubLocked
+                                                    ? 'text-slate-600 cursor-not-allowed hover:bg-transparent opacity-60'
+                                                    : isActiveSubmenuItem(subItem)
+                                                        ? 'bg-blue-600 text-white shadow-sm'
+                                                        : 'text-slate-300 hover:bg-slate-700 hover:text-white'
+                                                }
+                                            `}
+                                            title={isSubLocked ? 'Locked (No permission)' : ''}
+                                        >
+                                            <div className={`
+                                                flex items-center justify-center w-4 h-4 mr-2 transition-colors flex-shrink-0
+                                                ${isSubLocked
+                                                    ? 'text-slate-600'
+                                                    : isActiveSubmenuItem(subItem) ? 'text-white' : 'text-slate-400 group-hover:text-white'}
+                                            `}>
+                                                {isSubLocked ? <FiLock className="w-3.5 h-3.5" /> : subItem.icon}
+                                            </div>
+                                            <span className="text-sm truncate flex-1">{subItem.label}</span>
+                                        </button>
+                                    );
+                                })}
                         </div>
                     </div>
                 )}

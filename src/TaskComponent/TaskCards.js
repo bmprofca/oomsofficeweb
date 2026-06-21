@@ -1,7 +1,7 @@
-// components/TaskCards.jsx
 import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { FiBriefcase, FiCalendar, FiDollarSign, FiPhone, FiEye, FiEdit, FiTrash2, FiCheckCircle, FiArrowLeft, FiUser, FiMail } from 'react-icons/fi';
+import { checkPermissionSync } from '../utils/permission-helper';
 
 const TaskCards = ({ 
     tasks, 
@@ -132,7 +132,7 @@ const TaskCards = ({
                                                     <div className="w-1 h-1 rounded-full bg-gray-600"></div>
                                                     <div className="w-1 h-1 rounded-full bg-gray-600"></div>
                                                 </motion.button>
-
+ 
                                                 <AnimatePresence>
                                                     {activeRowDropdown === `card-${task.task_id}` && (
                                                         <motion.div
@@ -186,7 +186,7 @@ const TaskCards = ({
                                         </div>
                                     </div>
                                 </div>
-
+ 
                                 {/* Card Body */}
                                 <div className="p-3">
                                     <div className="space-y-2">
@@ -199,7 +199,11 @@ const TaskCards = ({
                                             <div className="text-[11px] font-bold text-indigo-600">
                                                 <span className="inline-flex items-center gap-1">
                                                     <FiDollarSign className="w-2.5 h-2.5" />
-                                                    ₹{task.charges?.fees?.toLocaleString() || 0}
+                                                    {checkPermissionSync('task_fees_view') ? (
+                                                        `₹${task.charges?.fees?.toLocaleString() || 0}`
+                                                    ) : (
+                                                        <span className="blur-[3.5px] select-none">₹99,999</span>
+                                                    )}
                                                 </span>
                                             </div>
                                         </div>

@@ -34,7 +34,10 @@ import {
     FiShare2,
     FiRefreshCw,
     FiInfo,
+    FiLock
 } from 'react-icons/fi';
+import toast from 'react-hot-toast';
+import { useUserPermissions } from '../utils/permission-helper';
 import { PiExportBold } from "react-icons/pi";
 import { PiFilePdfDuotone, PiMicrosoftExcelLogoDuotone } from "react-icons/pi";
 import { AiOutlineMail } from "react-icons/ai";
@@ -269,6 +272,7 @@ const AppDialog = ({ dialog, onClose, onConfirm }) => {
 // ─────────────────────────────────────────────────────────────────────────────
 
 const BillDisplay = () => {
+    const { check } = useUserPermissions();
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
     const [isMinimized, setIsMinimized] = useState(() => {
         const saved = localStorage.getItem('sidebarMinimized');
@@ -1600,13 +1604,26 @@ const BillDisplay = () => {
                                                 )}
                                             </button>
                                             <button
-                                                className="flex items-center w-full px-4 py-2.5 text-sm text-emerald-700 hover:bg-emerald-50 transition-colors duration-150"
-                                                onClick={() =>
-                                                    handleGenerateSingleTask(activeItem.task_id)
-                                                }
+                                                className={`flex items-center w-full px-4 py-2.5 text-sm text-emerald-700 hover:bg-emerald-50 transition-colors duration-150 ${
+                                                    !check('finance_billing_approve_reject') ? 'opacity-60 cursor-not-allowed hover:bg-transparent' : ''
+                                                }`}
+                                                onClick={() => {
+                                                    if (!check('finance_billing_approve_reject')) {
+                                                        toast.error('Need Access Permission');
+                                                    } else {
+                                                        handleGenerateSingleTask(activeItem.task_id);
+                                                    }
+                                                }}
                                             >
-                                                <TbFileInvoice className="w-4 h-4 mr-3 text-emerald-600" />
+                                                {!check('finance_billing_approve_reject') ? (
+                                                    <FiLock className="w-4 h-4 mr-3 text-slate-400" />
+                                                ) : (
+                                                    <TbFileInvoice className="w-4 h-4 mr-3 text-emerald-600" />
+                                                )}
                                                 Generate Bill
+                                                {!check('finance_billing_approve_reject') && (
+                                                    <FiLock className="w-3.5 h-3.5 text-slate-400 ml-auto" />
+                                                )}
                                             </button>
                                             <div className="border-t border-gray-100" />
                                         </>
@@ -1719,12 +1736,22 @@ const BillDisplay = () => {
                                     <motion.button
                                         type="button"
                                         disabled={billingActionLoading}
-                                        onClick={handleGenerateBill}
-                                        className="inline-flex items-center gap-1.5 rounded-lg bg-gradient-to-r from-emerald-600 to-teal-600 px-3 py-2 text-xs font-semibold text-white shadow-sm transition hover:from-emerald-700 hover:to-teal-700 disabled:cursor-not-allowed disabled:opacity-60 sm:px-3.5 sm:text-sm"
+                                        onClick={() => {
+                                            if (!check('finance_billing_approve_reject')) {
+                                                toast.error('Need Access Permission');
+                                            } else {
+                                                handleGenerateBill();
+                                            }
+                                        }}
+                                        className={`inline-flex items-center gap-1.5 rounded-lg bg-gradient-to-r from-emerald-600 to-teal-600 px-3 py-2 text-xs font-semibold text-white shadow-sm transition hover:from-emerald-700 hover:to-teal-700 sm:px-3.5 sm:text-sm ${
+                                            !check('finance_billing_approve_reject') ? 'opacity-60 cursor-not-allowed hover:from-emerald-600 hover:to-teal-600' : ''
+                                        }`}
                                         whileTap={{ scale: billingActionLoading ? 1 : 0.97 }}
                                     >
                                         {billingActionLoading ? (
                                             <FiRefreshCw className="h-4 w-4 animate-spin" />
+                                        ) : !check('finance_billing_approve_reject') ? (
+                                            <FiLock className="h-4 w-4" />
                                         ) : (
                                             <TbFileInvoice className="h-4 w-4" />
                                         )}
@@ -1733,11 +1760,23 @@ const BillDisplay = () => {
                                     <motion.button
                                         type="button"
                                         disabled={billingActionLoading}
-                                        onClick={handleMarkNonBillable}
-                                        className="inline-flex items-center gap-1.5 rounded-lg bg-gradient-to-r from-rose-600 to-pink-600 px-3 py-2 text-xs font-semibold text-white shadow-sm transition hover:from-rose-700 hover:to-pink-700 disabled:cursor-not-allowed disabled:opacity-60 sm:text-sm"
+                                        onClick={() => {
+                                            if (!check('finance_billing_approve_reject')) {
+                                                toast.error('Need Access Permission');
+                                            } else {
+                                                handleMarkNonBillable();
+                                            }
+                                        }}
+                                        className={`inline-flex items-center gap-1.5 rounded-lg bg-gradient-to-r from-rose-600 to-pink-600 px-3 py-2 text-xs font-semibold text-white shadow-sm transition hover:from-rose-700 hover:to-pink-700 sm:text-sm ${
+                                            !check('finance_billing_approve_reject') ? 'opacity-60 cursor-not-allowed hover:from-rose-600 hover:to-pink-600' : ''
+                                        }`}
                                         whileTap={{ scale: billingActionLoading ? 1 : 0.97 }}
                                     >
-                                        <MdOutlineMoneyOffCsred className="h-4 w-4" />
+                                        {!check('finance_billing_approve_reject') ? (
+                                            <FiLock className="h-4 w-4" />
+                                        ) : (
+                                            <MdOutlineMoneyOffCsred className="h-4 w-4" />
+                                        )}
                                         Non-billable
                                     </motion.button>
                                     <motion.button

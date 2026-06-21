@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { FiCheckCircle, FiClock, FiEye, FiLoader, FiX, FiXCircle } from 'react-icons/fi';
+import { checkPermissionSync } from '../../utils/permission-helper';
 
 const TaskStatusChange = ({ isOpen, onClose, taskId, taskName = '', currentStatus, onStatusChange, statusOptions = [] }) => {
     const [selectedStatus, setSelectedStatus] = useState('');
@@ -87,7 +88,14 @@ const TaskStatusChange = ({ isOpen, onClose, taskId, taskName = '', currentStatu
                                     {visibleStatusOptions.map((status) => {
                                         const isCurrentStatus = status.value === currentStatus;
                                         const isBlockedByCompleteRule = currentStatus === 'complete' && status.value !== 'complete';
-                                        const isDisabled = isCurrentStatus || isBlockedByCompleteRule;
+                                        let isBlockedByPermission = false;
+                                        if (status.value === 'cancel' && !checkPermissionSync('task_cancel')) {
+                                            isBlockedByPermission = true;
+                                        }
+                                        if (status.value === 'complete' && !checkPermissionSync('task_complete')) {
+                                            isBlockedByPermission = true;
+                                        }
+                                        const isDisabled = isCurrentStatus || isBlockedByCompleteRule || isBlockedByPermission;
                                         const isSelected = selectedStatus === status.value;
                                         return (
                                             <motion.button

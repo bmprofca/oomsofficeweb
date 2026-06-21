@@ -9,7 +9,7 @@ import {
     FiUserPlus, FiFileText, FiPlus, FiSearch, FiRefreshCw,
     FiPaperclip, FiX, FiMic, FiStopCircle, FiDownload, FiTrash2,
     FiArrowRight, FiArrowLeft, FiUser, FiLoader, FiCheckCircle,
-    FiXCircle, FiClock, FiMenu, FiInfo, FiEdit, FiEye, FiSettings,
+    FiXCircle, FiClock, FiMenu, FiInfo, FiEdit, FiEye, FiSettings, FiLock,
     FiGrid, FiMail, FiPrinter, FiPhone, FiFilter, FiMessageSquare,
     FiMove, FiSave, FiList, FiChevronDown, FiChevronUp, FiMapPin,
     FiCreditCard, FiHome, FiMap, FiGlobe
@@ -37,6 +37,7 @@ import EditTaskModal from '../TaskComponent/EdittaskModal';
 // Import API utilities
 import getHeaders from '../utils/get-headers';
 import API_BASE_URL from '../utils/api-controller';
+import { useUserPermissions, checkPermissionSync } from '../utils/permission-helper';
 
 // ============================================
 // CONSTANTS & HELPERS
@@ -319,7 +320,11 @@ const BulkStatusChangeModal = ({ isOpen, onClose, selectedCount, onConfirm, load
         { value: 'pending from department', name: 'Pending from Department' },
         { value: 'complete', name: 'Complete' },
         { value: 'cancel', name: 'Cancel' }
-    ];
+    ].filter(status => {
+        if (status.value === 'cancel' && !checkPermissionSync('task_cancel')) return false;
+        if (status.value === 'complete' && !checkPermissionSync('task_complete')) return false;
+        return true;
+    });
 
     const getStatusColor = (status) => ({
         unassign: 'bg-blue-100 text-blue-700',
@@ -581,6 +586,7 @@ const ClientDetailsModal = ({ isOpen, onClose, clientData, loading }) => {
 // ============================================
 
 const TaskDisplay = () => {
+    const { check } = useUserPermissions();
     // State declarations
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
     const [isMinimized, setIsMinimized] = useState(() => {
@@ -1130,7 +1136,7 @@ const TaskDisplay = () => {
                             value = task.service?.name || task.service_name || '';
                             break;
                         case 'fees':
-                            value = task.charges?.fees || task.fees || 0;
+                            value = check('task_fees_view') ? (task.charges?.fees || task.fees || 0) : '----';
                             break;
                         case 'due_date':
                             value = formatDate(task.dates?.due_date);
@@ -1264,7 +1270,11 @@ const TaskDisplay = () => {
                 const feesAmount = task.charges?.fees || task.fees || 0;
                 return (
                     <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-semibold bg-indigo-50 text-indigo-700 border border-indigo-200">
-                        ₹{Number(feesAmount).toLocaleString()}
+                        {check('task_fees_view') ? (
+                            `₹${Number(feesAmount).toLocaleString()}`
+                        ) : (
+                            <span className="blur-[3.5px] select-none">₹99,999</span>
+                        )}
                     </div>
                 );
             case 'due_date':
@@ -1511,12 +1521,18 @@ const TaskDisplay = () => {
                                             </div>
 
                                             <motion.button
-                                                onClick={() => navigate('/task/create')}
-                                                className="px-3 py-2 bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white rounded-lg text-sm font-medium flex items-center gap-2 shadow-sm"
-                                                whileHover={{ scale: 1.05 }}
-                                                whileTap={{ scale: 0.95 }}
+                                                disabled={!check('task_create')}
+                                                onClick={() => check('task_create') && navigate('/task/create')}
+                                                className={`px-3 py-2 rounded-lg text-sm font-medium flex items-center gap-2 shadow-sm transition-all duration-200 ${
+                                                    check('task_create')
+                                                        ? 'bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white'
+                                                        : 'bg-gray-100 border border-gray-200 text-gray-400 cursor-not-allowed opacity-60'
+                                                }`}
+                                                whileHover={check('task_create') ? { scale: 1.05 } : {}}
+                                                whileTap={check('task_create') ? { scale: 0.95 } : {}}
+                                                title={check('task_create') ? 'Create Task' : 'Locked (No permission)'}
                                             >
-                                                <FiPlus className="w-4 h-4" />
+                                                {check('task_create') ? <FiPlus className="w-4 h-4" /> : <FiLock className="w-4 h-4" />}
                                             </motion.button>
 
                                             {selectedTasks.size > 0 && (
@@ -1731,69 +1747,119 @@ const TaskDisplay = () => {
                         }}
                     >
                         <div className="py-1">
-                            <button
-                                type="button"
-                                onClick={() => {
-                                    handleGetInOut(rowActionTask.task_id, 'in');
-                                    setActiveRowDropdown(null);
-                                }}
-                                className="flex items-center w-full px-4 py-2.5 text-sm text-indigo-600 hover:bg-indigo-50 transition-colors"
-                            >
-                                <FiArrowLeft className="mr-2 text-indigo-600 w-4 h-4" />
-                                GET IN
-                            </button>
+                            {check('task_update') ? (
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        handleGetInOut(rowActionTask.task_id, 'in');
+                                        setActiveRowDropdown(null);
+                                    }}
+                                    className="flex items-center w-full px-4 py-2.5 text-sm text-indigo-600 hover:bg-indigo-50 transition-colors"
+                                >
+                                    <FiArrowLeft className="mr-2 text-indigo-600 w-4 h-4" />
+                                    GET IN
+                                </button>
+                            ) : (
+                                <button
+                                    disabled
+                                    className="flex items-center w-full px-4 py-2.5 text-sm text-gray-400 cursor-not-allowed opacity-60 bg-gray-50 transition-colors"
+                                >
+                                    <FiLock className="mr-2 text-gray-400 w-4 h-4" />
+                                    GET IN
+                                </button>
+                            )}
 
                             <div className="border-t my-1" />
 
-                            <button
-                                type="button"
-                                onClick={() => {
-                                    openStatusModal(rowActionTask.task_id, rowActionTask.status, rowActionTask.service?.name || rowActionTask.service_name || '');
-                                    setActiveRowDropdown(null);
-                                }}
-                                className="flex items-center w-full px-4 py-2.5 text-sm text-blue-600 hover:bg-blue-50 transition-colors"
-                            >
-                                <FiCheckCircle className="mr-2 text-blue-600 w-4 h-4" />
-                                Change Status
-                            </button>
+                            {check('task_update') ? (
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        openStatusModal(rowActionTask.task_id, rowActionTask.status, rowActionTask.service?.name || rowActionTask.service_name || '');
+                                        setActiveRowDropdown(null);
+                                    }}
+                                    className="flex items-center w-full px-4 py-2.5 text-sm text-blue-600 hover:bg-blue-50 transition-colors"
+                                >
+                                    <FiCheckCircle className="mr-2 text-blue-600 w-4 h-4" />
+                                    Change Status
+                                </button>
+                            ) : (
+                                <button
+                                    disabled
+                                    className="flex items-center w-full px-4 py-2.5 text-sm text-gray-400 cursor-not-allowed opacity-60 bg-gray-50 transition-colors"
+                                >
+                                    <FiLock className="mr-2 text-gray-400 w-4 h-4" />
+                                    Change Status
+                                </button>
+                            )}
 
-                            <button
-                                type="button"
-                                onClick={() => {
-                                    setActiveRowDropdown(null);
-                                    navigate(`/task/${rowActionTask.task_id}`);
-                                }}
-                                className="flex items-center w-full px-4 py-2.5 text-sm text-gray-700 hover:bg-indigo-50 transition-colors"
-                            >
-                                <FiEye className="mr-2 text-indigo-600 w-4 h-4" />
-                                View Details
-                            </button>
+                            {check('task_view') ? (
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        setActiveRowDropdown(null);
+                                        navigate(`/task/${rowActionTask.task_id}`);
+                                    }}
+                                    className="flex items-center w-full px-4 py-2.5 text-sm text-gray-700 hover:bg-indigo-50 transition-colors"
+                                >
+                                    <FiEye className="mr-2 text-indigo-600 w-4 h-4" />
+                                    View Details
+                                </button>
+                            ) : (
+                                <button
+                                    disabled
+                                    className="flex items-center w-full px-4 py-2.5 text-sm text-gray-400 cursor-not-allowed opacity-60 bg-gray-50 transition-colors"
+                                >
+                                    <FiLock className="mr-2 text-gray-400 w-4 h-4" />
+                                    View Details
+                                </button>
+                            )}
 
-                            <button
-                                type="button"
-                                onClick={() => {
-                                    setActiveRowDropdown(null);
-                                    handleEditTask(rowActionTask);
-                                }}
-                                className="flex items-center w-full px-4 py-2.5 text-sm text-gray-700 hover:bg-green-50 transition-colors"
-                            >
-                                <FiEdit className="mr-2 text-green-600 w-4 h-4" />
-                                Edit Task
-                            </button>
+                            {check('task_update') ? (
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        setActiveRowDropdown(null);
+                                        handleEditTask(rowActionTask);
+                                    }}
+                                    className="flex items-center w-full px-4 py-2.5 text-sm text-gray-700 hover:bg-green-50 transition-colors"
+                                >
+                                    <FiEdit className="mr-2 text-green-600 w-4 h-4" />
+                                    Edit Task
+                                </button>
+                            ) : (
+                                <button
+                                    disabled
+                                    className="flex items-center w-full px-4 py-2.5 text-sm text-gray-400 cursor-not-allowed opacity-60 bg-gray-50 transition-colors"
+                                >
+                                    <FiLock className="mr-2 text-green-600 w-4 h-4" />
+                                    Edit Task
+                                </button>
+                            )}
 
                             <div className="border-t my-1" />
 
-                            <button
-                                type="button"
-                                onClick={() => {
-                                    setActiveRowDropdown(null);
-                                    setDeleteModal(true);
-                                }}
-                                className="flex items-center w-full px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 transition-colors"
-                            >
-                                <FiTrash2 className="mr-2 w-4 h-4" />
-                                Delete Task
-                            </button>
+                            {check('task_delete') ? (
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        setActiveRowDropdown(null);
+                                        setDeleteModal(true);
+                                    }}
+                                    className="flex items-center w-full px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 transition-colors"
+                                >
+                                    <FiTrash2 className="mr-2 w-4 h-4" />
+                                    Delete Task
+                                </button>
+                            ) : (
+                                <button
+                                    disabled
+                                    className="flex items-center w-full px-4 py-2.5 text-sm text-gray-400 cursor-not-allowed opacity-60 bg-gray-50 transition-colors"
+                                >
+                                    <FiLock className="mr-2 text-gray-400 w-4 h-4" />
+                                    Delete Task
+                                </button>
+                            )}
                         </div>
                     </div>,
                     document.body

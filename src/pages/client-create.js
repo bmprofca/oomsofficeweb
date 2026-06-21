@@ -21,7 +21,8 @@ import {
     FiTrash2,
     FiSearch,
     FiSettings,
-    FiHelpCircle
+    FiHelpCircle,
+    FiLock
 } from 'react-icons/fi';
 import DatePickerComponent from "../components/DatePickerComponent";
 import getHeaders from "../utils/get-headers";
@@ -29,9 +30,11 @@ import API_BASE_URL from '../utils/api-controller';
 import { FaCheckCircle, FaTimesCircle } from "react-icons/fa";
 import { motion } from 'framer-motion';
 import axios from 'axios';
+import { useUserPermissions } from '../utils/permission-helper';
 
 
 const CreateClient = () => {
+    const { check } = useUserPermissions();
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
     const [isMinimized, setIsMinimized] = useState(() => {
         const saved = localStorage.getItem('sidebarMinimized');
@@ -1252,6 +1255,34 @@ try {
         document.addEventListener('mousedown', handleClickOutside);
         return () => document.removeEventListener('mousedown', handleClickOutside);
     }, []);
+
+    if (!check('client_create')) {
+        return (
+            <div className="min-h-screen bg-gray-50 overflow-x-hidden">
+                <Header
+                    mobileMenuOpen={mobileMenuOpen}
+                    setMobileMenuOpen={setMobileMenuOpen}
+                    isMinimized={isMinimized}
+                    setIsMinimized={setIsMinimized}
+                />
+                <Sidebar
+                    mobileMenuOpen={mobileMenuOpen}
+                    setMobileMenuOpen={setMobileMenuOpen}
+                    isMinimized={isMinimized}
+                    setIsMinimized={setIsMinimized}
+                />
+                <div className={`pt-16 flex items-center justify-center transition-all duration-300 h-[calc(100vh-4rem)] ${isMinimized ? 'md:pl-20' : 'md:pl-[260px]'}`}>
+                    <div className="text-center p-8 bg-white rounded-2xl border border-slate-200 shadow-sm max-w-sm w-full mx-4">
+                        <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                            <FiLock className="w-8 h-8 text-slate-400" />
+                        </div>
+                        <h3 className="text-lg font-bold text-slate-800 mb-2">Access Denied</h3>
+                        <p className="text-slate-500 text-sm">You do not have permission to create clients.</p>
+                    </div>
+                </div>
+            </div>
+        );
+    }
 
     // Step configurations
     const steps = [

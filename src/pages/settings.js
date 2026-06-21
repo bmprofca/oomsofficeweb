@@ -14,9 +14,11 @@ import {
 } from 'react-icons/fi';
 import { useNavigate } from 'react-router-dom';
 import { Header, Sidebar } from '../components/header';
+import { useUserPermissions } from '../utils/permission-helper';
 
 const Settings = () => {
     const navigate = useNavigate();
+    const { check } = useUserPermissions();
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
     const [isMinimized, setIsMinimized] = useState(() => {
         const saved = localStorage.getItem('sidebarMinimized');
@@ -37,21 +39,24 @@ const Settings = () => {
             description: "Add, edit & delete staff",
             icon: <FiUsers className="w-5 h-5 text-blue-600" />,
             link: "/settings/staff-list",
-            color: "bg-blue-100"
+            color: "bg-blue-100",
+            permission: "setting_view_edit"
         },
         {
             title: "Staff Permissions",
             description: "Manage staff access rights",
             icon: <FiShield className="w-5 h-5 text-green-600" />,
             link: "/settings/permissions",
-            color: "bg-green-100"
+            color: "bg-green-100",
+            permission: "setting_view_edit"
         },
         {
             title: "Invoice Setting",
             description: "Voucher configuration",
             icon: <FiFileText className="w-5 h-5 text-purple-600" />,
             link: "/settings/invoice-setting",
-            color: "bg-purple-100"
+            color: "bg-purple-100",
+            permission: ["setting_view_edit", "finance_entry"]
         },
         {
             title: "App Settings",
@@ -59,14 +64,16 @@ const Settings = () => {
             icon: <FiSettings className="w-5 h-5 text-orange-600" />,
             link: "/settings/app-setting",
             color: "bg-orange-100",
-            show: userData.isHeadBranch
+            show: userData.isHeadBranch,
+            permission: "setting_view_edit"
         },
         {
             title: "Email Configuration",
             description: "Set up your SMTP settings",
             icon: <FiMail className="w-5 h-5 text-red-600" />,
             link: "/settings/email-setting",
-            color: "bg-red-100"
+            color: "bg-red-100",
+            permission: "setting_view_edit"
         }
     ];
 
@@ -87,10 +94,11 @@ const Settings = () => {
         };
     }, [mobileMenuOpen]);
 
-    // Filter cards based on user permissions
-    const filteredCards = settingsCards.filter(card =>
-        card.show === undefined || card.show === true
-    );
+    // Filter cards based on user preferences (e.g. isHeadBranch), keeping locked ones to display as grayed-out
+    const filteredCards = settingsCards.filter(card => {
+        if (card.show !== undefined && card.show !== true) return false;
+        return true;
+    });
 
     return (
         <div className="min-h-screen bg-gray-50">
@@ -127,27 +135,35 @@ const Settings = () => {
                         </div>
                         <div className="p-6">
                             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-3">
-                                {filteredCards.map((card, index) => (
-                                    <div
-                                        key={index}
-                                        onClick={() => navigate(card.link)}
-                                        className="block transition-all hover:scale-105 hover:shadow-md cursor-pointer"
-                                    >
-                                        <div className="bg-white rounded-lg border border-gray-200 p-3 hover:border-gray-300 transition-all duration-200 h-full">
-                                            <div className="flex flex-col items-center text-center">
-                                                <div className={`${card.color} rounded-lg p-2 mb-2`}>
-                                                    {card.icon}
+                                {filteredCards.map((card, index) => {
+                                    const isLocked = card.permission ? (Array.isArray(card.permission) ? !card.permission.some(p => check(p)) : !check(card.permission)) : false;
+                                    return (
+                                        <div
+                                            key={index}
+                                            onClick={() => !isLocked && navigate(card.link)}
+                                            className={`block transition-all duration-200 ${isLocked ? 'cursor-not-allowed opacity-60' : 'hover:scale-105 hover:shadow-md cursor-pointer'}`}
+                                        >
+                                            <div className={`bg-white rounded-lg border p-3 hover:border-gray-300 transition-all duration-200 h-full relative ${isLocked ? 'border-gray-200 bg-gray-50/50' : 'border-gray-200 bg-white'}`}>
+                                                <div className="flex flex-col items-center text-center">
+                                                    {isLocked && (
+                                                        <div className="absolute top-1 right-1 p-1 text-slate-400 bg-slate-100 rounded-full" title="Locked (No permission)">
+                                                            <FiLock className="w-3 h-3" />
+                                                        </div>
+                                                    )}
+                                                    <div className={`${isLocked ? 'bg-slate-200/50 text-slate-400' : card.color} rounded-lg p-2 mb-2`}>
+                                                        {card.icon}
+                                                    </div>
+                                                    <h6 className={`text-sm font-semibold mb-1 leading-tight ${isLocked ? 'text-slate-400' : 'text-gray-800'}`}>
+                                                        {card.title}
+                                                    </h6>
+                                                    <p className="text-xs text-gray-500 leading-tight">
+                                                        {card.description}
+                                                    </p>
                                                 </div>
-                                                <h6 className="text-sm font-semibold text-gray-800 mb-1 leading-tight">
-                                                    {card.title}
-                                                </h6>
-                                                <p className="text-xs text-gray-500 leading-tight">
-                                                    {card.description}
-                                                </p>
                                             </div>
                                         </div>
-                                    </div>
-                                ))}
+                                    );
+                                })}
                             </div>
                         </div>
                     </div>

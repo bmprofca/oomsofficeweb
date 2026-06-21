@@ -10,6 +10,7 @@ import { Sidebar, Header } from '../components/header';
 import { toast } from 'react-hot-toast';
 import getHeaders from "../utils/get-headers";
 import API_BASE_URL from "../utils/api-controller";
+import { checkPermissionSync } from '../utils/permission-helper';
 
 const RecurringTaskDetailedPage = () => {
   const navigate = useNavigate();
@@ -509,18 +510,20 @@ const RecurringTaskDetailedPage = () => {
                                           Invoice
                                         </button>
                                       )}
-                                      <button
-                                        type="button"
-                                        onClick={(e) => {
-                                          e.stopPropagation();
-                                          setConfirmDeleteId(record.assignment_id);
-                                          setActiveDropdownId(null);
-                                        }}
-                                        className="flex items-center w-full px-3 py-2 text-xs text-rose-600 hover:bg-rose-50 transition-colors"
-                                      >
-                                        <FiTrash2 className="w-3.5 h-3.5 text-rose-400 mr-2" />
-                                        Delete
-                                      </button>
+                                      {checkPermissionSync('recurring_task_delete') && (
+                                        <button
+                                          type="button"
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            setConfirmDeleteId(record.assignment_id);
+                                            setActiveDropdownId(null);
+                                          }}
+                                          className="flex items-center w-full px-3 py-2 text-xs text-rose-600 hover:bg-rose-50 transition-colors"
+                                        >
+                                          <FiTrash2 className="w-3.5 h-3.5 text-rose-400 mr-2" />
+                                          Delete
+                                        </button>
+                                      )}
                                     </div>
                                   </motion.div>
                                 )}

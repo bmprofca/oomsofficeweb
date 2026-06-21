@@ -14,6 +14,7 @@ import { Header, Sidebar } from '../../components/header';
 import getHeaders from '../../utils/get-headers';
 import API_BASE_URL from '../../utils/api-controller';
 import TablePagination from '../../components/TablePagination';
+import { useUserPermissions } from '../../utils/permission-helper';
 import SelectInput from '../../components/SelectInput';
 import { ViewportTooltip } from '../../components/ViewportTooltip';
 
@@ -433,6 +434,7 @@ const EmptyState = ({ icon, title, desc }) => (
 
 /* ═══════════════════════════════════════════════════════════════════ */
 const Services = () => {
+    const { check } = useUserPermissions();
     const navigate = useNavigate();
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
     const [isMinimized, setIsMinimized] = useState(() => {
@@ -643,9 +645,11 @@ const Services = () => {
 
     const handleRtSubmit = async () => {
         const finalName = rtForm.name.trim();
+        const hasFeesPerm = check('recurring_task_fees_view');
+        const defaultAmountToValidate = hasFeesPerm ? rtForm.default_amount : '0';
 
         if (!finalName) { toast.error('Service name is required'); return; }
-        if (!rtForm.default_amount) { toast.error('Default fee is required'); return; }
+        if (!defaultAmountToValidate) { toast.error('Default fee is required'); return; }
 
         if (rtForm.frequency === 'quarterly') {
             const qFields = ['q1_due_day', 'q2_due_day', 'q3_due_day', 'q4_due_day'];
@@ -708,7 +712,7 @@ const Services = () => {
             const payload = {
                 name: finalName,
                 frequency: rtForm.frequency,
-                default_amount: parseFloat(rtForm.default_amount),
+                default_amount: hasFeesPerm ? parseFloat(rtForm.default_amount) : (rtEditTarget?.default_amount || 0),
                 due_day: rtForm.due_day ? parseInt(rtForm.due_day) : null,
                 status: rtForm.status,
                 template_type: rtForm.template_type || 'Custom / New Service',
@@ -1172,8 +1176,10 @@ const Services = () => {
                                                                 <p className="text-[10px] text-slate-400 mt-0.5 truncate max-w-[180px]">{firm.client?.email || '—'}</p>
                                                             </td>
                                                             <td className="px-4 py-3 text-xs text-slate-600">
-                                                                <p className="font-semibold text-slate-700">Fees: ₹{fmt(firm.assignment?.custom_amount)}</p>
-                                                                <p className="text-[11px] text-slate-505 mt-0.5">Pay Month: {firm.assignment?.pay_from_month || firm.assignment?.period_name || '—'}</p>
+                                                                <p className={`font-semibold text-slate-700 ${!check('recurring_task_fees_view') ? 'blur-[3.5px] select-none' : ''}`}>
+                                                                    Fees: {check('recurring_task_fees_view') ? `₹${fmt(firm.assignment?.custom_amount)}` : '₹••••'}
+                                                                </p>
+                                                                <p className="text-[11px] text-slate-555 mt-0.5">Pay Month: {firm.assignment?.pay_from_month || firm.assignment?.period_name || '—'}</p>
                                                                 <p className="text-[10px] text-slate-400 mt-0.5">Staff: {getStaffNames(firm.assignment?.employee_username)}</p>
                                                             </td>
                                                             <td className="px-4 py-3">
@@ -1511,7 +1517,9 @@ const Services = () => {
                                                                         {svc.due_day ? `Day ${svc.due_day}` : '—'}
                                                                     </td>
                                                                     <td className="px-4 py-3">
-                                                                        <span className="text-xs font-semibold text-slate-800">₹{fmt(svc.default_amount)}</span>
+                                                                        <span className={`text-xs font-semibold text-slate-800 ${!check('recurring_task_fees_view') ? 'blur-[3.5px] select-none' : ''}`}>
+                                                                            ₹{check('recurring_task_fees_view') ? fmt(svc.default_amount) : '••••'}
+                                                                        </span>
                                                                     </td>
                                                                     <td className="px-4 py-3">
                                                                         {svc.status === 'Active' ? (
@@ -1526,19 +1534,27 @@ const Services = () => {
                                                                     </td>
                                                                     <td className="px-4 py-3">
                                                                         <div className="flex items-center gap-2">
-                                                                            <button
-                                                                                onClick={() => handleToggleRtStatus(svc)}
-                                                                                className={`px-2.5 py-1 text-[11px] font-bold rounded-lg border transition-all duration-300 ${svc.status === 'Active'
-                                                                                    ? 'bg-rose-50 text-rose-700 border-rose-200 hover:bg-rose-100'
-                                                                                    : 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100'
-                                                                                    }`}
-                                                                            >
-                                                                                {svc.status === 'Active' ? 'Deactive' : 'Active'}
-                                                                            </button>
-                                                                            <ActionMenu items={[
-                                                                                { label: 'Edit', icon: <FiEdit className="w-3.5 h-3.5" />, onClick: () => openRtModal(svc) },
-                                                                                { label: 'Delete', icon: <FiTrash2 className="w-3.5 h-3.5" />, onClick: () => setRtDeleteTarget(svc), danger: true },
-                                                                            ]} />
+                                                                            {check('recurring_task_create') && (
+                                                                                <button
+                                                                                    onClick={() => handleToggleRtStatus(svc)}
+                                                                                    className={`px-2.5 py-1 text-[11px] font-bold rounded-lg border transition-all duration-300 ${svc.status === 'Active'
+                                                                                        ? 'bg-rose-50 text-rose-700 border-rose-200 hover:bg-rose-100'
+                                                                                        : 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100'
+                                                                                        }`}
+                                                                                >
+                                                                                    {svc.status === 'Active' ? 'Deactive' : 'Active'}
+                                                                                </button>
+                                                                            )}
+                                                                            {(() => {
+                                                                                const menuItems = [];
+                                                                                if (check('recurring_task_create')) {
+                                                                                    menuItems.push({ label: 'Edit', icon: <FiEdit className="w-3.5 h-3.5" />, onClick: () => openRtModal(svc) });
+                                                                                }
+                                                                                if (check('recurring_task_delete')) {
+                                                                                    menuItems.push({ label: 'Delete', icon: <FiTrash2 className="w-3.5 h-3.5" />, onClick: () => setRtDeleteTarget(svc), danger: true });
+                                                                                }
+                                                                                return menuItems.length > 0 ? <ActionMenu items={menuItems} /> : null;
+                                                                            })()}
                                                                         </div>
                                                                     </td>
                                                                 </motion.tr>
@@ -1840,16 +1856,18 @@ const Services = () => {
                                         </div>
                                     </div>
                                 )}
-                                <div>
-                                    <label className="block text-xs font-semibold text-slate-600 mb-1.5">Default Fee (₹) *</label>
-                                    <div className="relative">
-                                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm">₹</span>
-                                        <input type="text" inputMode="decimal" value={rtForm.default_amount}
-                                            onChange={(e) => { const v = e.target.value; if (v === '' || isValidAmountInput(v)) setRtForm(f => ({ ...f, default_amount: v })); }}
-                                            placeholder="0.00"
-                                            className="w-full pl-7 pr-3 py-2 text-xs border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none" />
+                                {check('recurring_task_fees_view') && (
+                                    <div>
+                                        <label className="block text-xs font-semibold text-slate-600 mb-1.5">Default Fee (₹) *</label>
+                                        <div className="relative">
+                                            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm">₹</span>
+                                            <input type="text" inputMode="decimal" value={rtForm.default_amount}
+                                                onChange={(e) => { const v = e.target.value; if (v === '' || isValidAmountInput(v)) setRtForm(f => ({ ...f, default_amount: v })); }}
+                                                placeholder="0.00"
+                                                className="w-full pl-7 pr-3 py-2 text-xs border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none" />
+                                        </div>
                                     </div>
-                                </div>
+                                )}
                                 <div>
                                     <label className="block text-xs font-semibold text-slate-600 mb-1.5">Status *</label>
                                     <select value={rtForm.status} onChange={(e) => setRtForm(f => ({ ...f, status: e.target.value }))}

@@ -12,7 +12,8 @@ import {
     FiX,
     FiCheck,
     FiXCircle,
-    FiEye
+    FiEye,
+    FiMenu
 } from 'react-icons/fi';
 import { PiExportBold } from "react-icons/pi";
 import { PiFilePdfDuotone, PiMicrosoftExcelLogoDuotone } from "react-icons/pi";
@@ -45,6 +46,8 @@ const PermissionList = () => {
     const [showEditModal, setShowEditModal] = useState(false);
     const [deleteModal, setDeleteModal] = useState(false);
     const [selectedPermission, setSelectedPermission] = useState(null);
+    const [activeRowDropdown, setActiveRowDropdown] = useState(null);
+    const [expandedCategories, setExpandedCategories] = useState({});
     const [formData, setFormData] = useState({
         name: '',
         remark: '',
@@ -62,6 +65,39 @@ const PermissionList = () => {
         if (id.startsWith('staff_')) return 'Staff & Attendance';
         if (id.startsWith('office_assistance_')) return 'Office Assistance';
         return 'Other Permissions';
+    };
+
+    // Human-readable labels for each permission key
+    const PERM_LABELS = {
+        task_create: 'Create Task',
+        task_cancel: 'Cancel Task',
+        task_complete: 'Complete Task',
+        task_fees_view: 'Fees View',
+        client_create: 'Create Client',
+        client_edit: 'Edit Client',
+        client_delete: 'Delete Client',
+        finance_balance_view: 'Balance View',
+        finance_entry: 'Finance Entry',
+        finance_entry_edit: 'Edit Entry',
+        finance_entry_delete: 'Delete Entry',
+        finance_report: 'Finance Report',
+        finance_billing_approve_reject: 'Billing Approve',
+        broadcast_config_edit: 'Broadcast Config',
+        broadcast_send: 'Send Broadcast',
+        broadcast_livechat: 'LiveChat',
+        setting_view_edit: 'Settings',
+        subscription_manage: 'Subscription',
+        staff_attendance_view_manage: 'Staff & Attendance',
+        office_assistance_access: 'Office Assistance',
+        recurring_task_create: 'Recurring Create',
+        recurring_task_delete: 'Recurring Delete',
+        recurring_task_complete: 'Recurring Complete',
+        recurring_task_fees_view: 'Recurring Fees'
+    };
+
+    const getPermLabel = (key) => {
+        if (PERM_LABELS[key]) return PERM_LABELS[key];
+        return key.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
     };
 
     const groupedPermissionOptions = useMemo(() => {
@@ -134,6 +170,9 @@ const PermissionList = () => {
         const handleClickOutside = (event) => {
             if (!event.target.closest('.dropdown-container')) {
                 setShowExportDropdown(false);
+            }
+            if (!event.target.closest('.action-dropdown-container')) {
+                setActiveRowDropdown(null);
             }
         };
 
@@ -336,10 +375,18 @@ const PermissionList = () => {
                 </div>
             </td>
             <td className="p-4">
-                <div className="h-3 bg-gray-200 rounded w-48"></div>
+                <div className="flex flex-wrap gap-1">
+                    <div className="h-5 bg-gray-200 rounded w-20"></div>
+                    <div className="h-5 bg-gray-200 rounded w-16"></div>
+                    <div className="h-5 bg-gray-200 rounded w-24"></div>
+                </div>
+            </td>
+            <td className="p-4">
+                <div className="h-3 bg-gray-200 rounded w-36"></div>
             </td>
             <td className="p-4">
                 <div className="flex gap-2">
+                    <div className="w-8 h-8 bg-gray-200 rounded"></div>
                     <div className="w-8 h-8 bg-gray-200 rounded"></div>
                     <div className="w-8 h-8 bg-gray-200 rounded"></div>
                 </div>
@@ -469,10 +516,11 @@ const PermissionList = () => {
                                                     className="w-4 h-4 text-indigo-600 rounded border-gray-400 focus:ring-indigo-500"
                                                 />
                                             </th>
-                                            <th className="text-left p-4 font-semibold text-gray-700 text-sm">#</th>
-                                            <th className="text-left p-4 font-semibold text-gray-700 text-sm">Name</th>
-                                            <th className="text-left p-4 font-semibold text-gray-700 text-sm">Remark</th>
-                                            <th className="text-center p-4 font-semibold text-gray-700 text-sm">Actions</th>
+                                            <th className="text-left p-4 text-xs font-bold text-gray-500 uppercase tracking-wider">#</th>
+                                            <th className="text-left p-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Name</th>
+                                            <th className="text-left p-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Permissions</th>
+                                            <th className="text-left p-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Remark</th>
+                                            <th className="text-center p-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Actions</th>
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y divide-gray-100">
@@ -483,7 +531,7 @@ const PermissionList = () => {
                                             ))
                                         ) : filteredPermissions.length === 0 ? (
                                             <tr>
-                                                <td colSpan="5" className="p-8 text-center">
+                                                <td colSpan="6" className="p-8 text-center">
                                                     <div className="flex flex-col items-center justify-center py-8">
                                                         <FiShield className="w-16 h-16 text-gray-300 mb-4" />
                                                         <p className="text-gray-500 text-lg font-medium mb-2">No permissions found</p>
@@ -522,35 +570,91 @@ const PermissionList = () => {
                                                             </div>
                                                         </div>
                                                     </td>
-                                                    <td className="p-4 text-sm text-gray-600">
-                                                        {permission.remark}
+                                                    <td className="p-4 max-w-[280px]">
+                                                        {(() => {
+                                                            const perms = permission.permissions || [];
+                                                            if (perms.length === 0) {
+                                                                return (
+                                                                    <span className="text-xs text-gray-400 italic">No permissions set</span>
+                                                                );
+                                                            }
+                                                            const MAX_CHIPS = 5;
+                                                            const visible = perms.slice(0, MAX_CHIPS);
+                                                            const remaining = perms.length - MAX_CHIPS;
+                                                            return (
+                                                                <div className="flex flex-wrap gap-1">
+                                                                    {visible.map(perm => (
+                                                                        <span
+                                                                            key={perm}
+                                                                            title={perm}
+                                                                            className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-indigo-50 text-indigo-700 border border-indigo-200"
+                                                                        >
+                                                                            {getPermLabel(perm)}
+                                                                        </span>
+                                                                    ))}
+                                                                    {remaining > 0 && (
+                                                                        <span
+                                                                            title={perms.slice(MAX_CHIPS).map(getPermLabel).join(', ')}
+                                                                            className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-gray-100 text-gray-600 border border-gray-200 cursor-default"
+                                                                        >
+                                                                            +{remaining} more
+                                                                        </span>
+                                                                    )}
+                                                                </div>
+                                                            );
+                                                        })()}
                                                     </td>
-                                                    <td className="p-4">
-                                                        <div className="flex justify-center items-center gap-2">
+                                                    <td className="p-4 text-sm text-gray-600 max-w-[180px]">
+                                                        {permission.remark || <span className="text-gray-400 italic text-xs">—</span>}
+                                                    </td>
+                                                    <td className="p-4 relative">
+                                                        <div className="flex justify-center items-center action-dropdown-container">
                                                             <button
-                                                                onClick={() => navigate(`/permission/details/${permission.permission_role_id}`)}
-                                                                className="p-2 text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
-                                                                title="View Details"
+                                                                onClick={() => setActiveRowDropdown(activeRowDropdown === permission.permission_role_id ? null : permission.permission_role_id)}
+                                                                className="p-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+                                                                title="Actions"
                                                             >
-                                                                <FiEye className="w-4 h-4" />
+                                                                <FiMenu className="w-4 h-4" />
                                                             </button>
-                                                            <button
-                                                                onClick={() => openEditModal(permission)}
-                                                                className="p-2 text-green-600 hover:bg-green-50 rounded-lg transition-colors"
-                                                                title="Edit Permission"
-                                                            >
-                                                                <FiEdit className="w-4 h-4" />
-                                                            </button>
-                                                            <button
-                                                                onClick={() => {
-                                                                    setSelectedPermission(permission);
-                                                                    setDeleteModal(true);
-                                                                }}
-                                                                className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                                                                title="Delete Permission"
-                                                            >
-                                                                <FiTrash2 className="w-4 h-4" />
-                                                            </button>
+                                                            {activeRowDropdown === permission.permission_role_id && (
+                                                                <div className={`absolute right-4 w-48 bg-white rounded-lg shadow-xl border border-gray-200 z-50 overflow-hidden py-1 text-left ${
+                                                                    filteredPermissions.indexOf(permission) >= filteredPermissions.length - 2 && filteredPermissions.length > 2
+                                                                        ? 'bottom-full mb-1'
+                                                                        : 'top-full mt-1'
+                                                                }`}>
+                                                                    <button
+                                                                        onClick={() => {
+                                                                            setActiveRowDropdown(null);
+                                                                            navigate(`/permission/details/${permission.permission_role_id}`);
+                                                                        }}
+                                                                        className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-indigo-50 transition-colors"
+                                                                    >
+                                                                        <FiEye className="w-4 h-4 mr-2 text-indigo-600" />
+                                                                        View Details
+                                                                    </button>
+                                                                    <button
+                                                                        onClick={() => {
+                                                                            setActiveRowDropdown(null);
+                                                                            openEditModal(permission);
+                                                                        }}
+                                                                        className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-indigo-50 transition-colors"
+                                                                    >
+                                                                        <FiEdit className="w-4 h-4 mr-2 text-green-600" />
+                                                                        Edit Permission
+                                                                    </button>
+                                                                    <button
+                                                                        onClick={() => {
+                                                                            setActiveRowDropdown(null);
+                                                                            setSelectedPermission(permission);
+                                                                            setDeleteModal(true);
+                                                                        }}
+                                                                        className="flex items-center w-full px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors"
+                                                                    >
+                                                                        <FiTrash2 className="w-4 h-4 mr-2 text-red-600" />
+                                                                        Delete Permission
+                                                                    </button>
+                                                                </div>
+                                                            )}
                                                         </div>
                                                     </td>
                                                 </tr>
@@ -602,14 +706,22 @@ const PermissionList = () => {
 
             {/* Create Permission Modal */}
             {showCreateModal && (
-                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-                    <div className="bg-white rounded-lg shadow-xl w-full max-w-5xl max-h-[90vh] overflow-hidden transform transition-all duration-300">
-                        <div className="bg-gradient-to-r from-indigo-600 to-indigo-700 text-white px-6 py-4 flex justify-between items-center">
+                <div className="fixed inset-0 z-50 flex items-start justify-center overflow-hidden overscroll-none p-3 sm:p-4 pointer-events-none">
+                    {/* Backdrop */}
+                    <div 
+                        className="absolute inset-0 bg-black/50 backdrop-blur-sm pointer-events-auto"
+                        onClick={() => setShowCreateModal(false)}
+                    />
+                    
+                    {/* Modal Panel */}
+                    <div className="relative z-[1] pointer-events-auto bg-white rounded-2xl shadow-2xl w-full max-w-5xl my-2 sm:my-4 max-h-[calc(100vh-1.5rem)] sm:max-h-[calc(100vh-2rem)] overflow-hidden flex flex-col">
+                        <div className="bg-gradient-to-r from-indigo-600 to-indigo-700 text-white px-5 py-3.5 flex justify-between items-center shrink-0">
                             <div>
                                 <h2 className="text-xl font-bold">Create New Permission</h2>
                                 <p className="text-indigo-100 text-sm mt-1">Define a new permission level for the system</p>
                             </div>
                             <button
+                                type="button"
                                 onClick={() => setShowCreateModal(false)}
                                 className="text-white hover:text-indigo-200 transition-colors duration-200 p-1 rounded-lg hover:bg-indigo-500"
                             >
@@ -617,8 +729,11 @@ const PermissionList = () => {
                             </button>
                         </div>
                         
-                        <form onSubmit={handleCreatePermission}>
-                            <div className="p-6 overflow-y-auto max-h-[60vh]">
+                        <form onSubmit={handleCreatePermission} className="flex flex-col flex-1 overflow-hidden">
+                            <div 
+                                className="px-5 py-4 flex-1 min-h-0 overflow-y-auto overscroll-y-contain [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden space-y-6"
+                                style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+                            >
                                 <div className="grid grid-cols-1 gap-6">
                                     <div>
                                         <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -646,59 +761,113 @@ const PermissionList = () => {
                                         />
                                     </div>
                                     
+                                    {/* Select All Toggle */}
+                                    <div className="flex items-center justify-between bg-indigo-50/50 border border-indigo-100 rounded-xl p-4">
+                                        <div className="space-y-0.5">
+                                            <span className="text-sm font-bold text-gray-800">Grant All Permissions</span>
+                                            <p className="text-xs text-gray-500">Enable all permission keys at once for this role</p>
+                                        </div>
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                const allOptionIds = permissionOptions.map(o => o.p_option_id);
+                                                const isAllChecked = allOptionIds.every(id => (formData.permissions || []).includes(id));
+                                                if (isAllChecked) {
+                                                    handleInputChange('permissions', []);
+                                                } else {
+                                                    handleInputChange('permissions', allOptionIds);
+                                                }
+                                            }}
+                                            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                                                permissionOptions.length > 0 && permissionOptions.every(o => (formData.permissions || []).includes(o.p_option_id))
+                                                    ? 'bg-indigo-600'
+                                                    : 'bg-gray-300'
+                                            }`}
+                                        >
+                                            <span
+                                                className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                                                    permissionOptions.length > 0 && permissionOptions.every(o => (formData.permissions || []).includes(o.p_option_id))
+                                                        ? 'translate-x-6'
+                                                        : 'translate-x-1'
+                                                }`}
+                                            />
+                                        </button>
+                                    </div>
+                                    
+                                    {/* Permissions Checklist */}
                                     <div>
                                         <h3 className="text-lg font-semibold text-gray-800 mb-4 border-b pb-2">Permission Settings</h3>
-                                        <div className="space-y-6">
-                                            {Object.keys(groupedPermissionOptions).map(category => (
-                                                <div key={category} className="bg-white border border-gray-200 rounded-xl p-5 shadow-sm">
-                                                    <h4 className="text-md font-bold text-indigo-900 mb-3 bg-indigo-50 px-3 py-1.5 rounded-lg inline-block">
-                                                        {category}
-                                                    </h4>
-                                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                                                        {groupedPermissionOptions[category]?.map(option => {
-                                                            const isChecked = (formData.permissions || []).includes(option.p_option_id);
-                                                            return (
-                                                                <div key={option.p_option_id} className="bg-gray-50 border border-gray-200 rounded-lg p-4 flex flex-col justify-between hover:border-indigo-300 transition-all duration-200">
-                                                                    <div className="flex items-center justify-between mb-2">
-                                                                        <span className="text-sm font-semibold text-gray-700">
-                                                                            {option.name}
-                                                                        </span>
-                                                                        <button
-                                                                            type="button"
-                                                                            onClick={() => togglePermissionOption(option.p_option_id)}
-                                                                            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                                                                                isChecked 
-                                                                                    ? 'bg-green-500' 
-                                                                                    : 'bg-gray-300'
-                                                                            }`}
-                                                                        >
-                                                                            <span
-                                                                                className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                                                                                    isChecked 
-                                                                                        ? 'translate-x-6' 
-                                                                                        : 'translate-x-1'
-                                                                                }`}
-                                                                            />
-                                                                        </button>
-                                                                    </div>
-                                                                    <div className="text-xs text-gray-500">
-                                                                        {option.remark || (isChecked ? 'Allowed' : 'Not Allowed')}
-                                                                    </div>
-                                                                </div>
-                                                            );
-                                                        })}
+                                        <div className="space-y-3">
+                                            {Object.keys(groupedPermissionOptions).map(category => {
+                                                const isExpanded = !!expandedCategories[category];
+                                                const options = groupedPermissionOptions[category] || [];
+                                                const checkedCount = options.filter(o => (formData.permissions || []).includes(o.p_option_id)).length;
+                                                
+                                                return (
+                                                    <div key={category} className="bg-white border border-gray-200 rounded-xl overflow-hidden shadow-sm">
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => setExpandedCategories(prev => ({ ...prev, [category]: !prev[category] }))}
+                                                            className="w-full flex items-center justify-between px-5 py-3 bg-gray-50 border-b border-gray-100 hover:bg-gray-100/70 transition-colors text-left"
+                                                        >
+                                                            <div className="flex items-center gap-2">
+                                                                <span className="text-sm font-bold text-indigo-900 font-sans">{category}</span>
+                                                                <span className="text-xs bg-indigo-100 text-indigo-800 px-2 py-0.5 rounded-full font-semibold">
+                                                                    {checkedCount} / {options.length} Enabled
+                                                                </span>
+                                                            </div>
+                                                            <span className="text-gray-500 font-semibold text-xs">
+                                                                {isExpanded ? 'Collapse' : 'Expand'}
+                                                            </span>
+                                                        </button>
+                                                        {isExpanded && (
+                                                            <div className="p-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 bg-white border-t border-gray-100">
+                                                                {options.map(option => {
+                                                                    const isChecked = (formData.permissions || []).includes(option.p_option_id);
+                                                                    return (
+                                                                        <div key={option.p_option_id} className="bg-gray-50 border border-gray-200 rounded-lg p-3 flex flex-col justify-between hover:border-indigo-300 transition-all duration-200">
+                                                                            <div className="flex items-center justify-between mb-1.5">
+                                                                                <span className="text-xs font-semibold text-gray-700">
+                                                                                    {option.name}
+                                                                                </span>
+                                                                                <button
+                                                                                    type="button"
+                                                                                    onClick={() => togglePermissionOption(option.p_option_id)}
+                                                                                    className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${
+                                                                                        isChecked 
+                                                                                            ? 'bg-green-500' 
+                                                                                            : 'bg-gray-300'
+                                                                                    }`}
+                                                                                >
+                                                                                    <span
+                                                                                        className={`inline-block h-3 w-3 transform rounded-full bg-white transition-transform ${
+                                                                                            isChecked 
+                                                                                                ? 'translate-x-5' 
+                                                                                                : 'translate-x-1'
+                                                                                        }`}
+                                                                                    />
+                                                                                </button>
+                                                                            </div>
+                                                                            <div className="text-[10px] text-gray-500">
+                                                                                {option.remark || (isChecked ? 'Allowed' : 'Not Allowed')}
+                                                                            </div>
+                                                                        </div>
+                                                                    );
+                                                                })}
+                                                            </div>
+                                                        )}
                                                     </div>
-                                                </div>
-                                            ))}
+                                                );
+                                            })}
                                         </div>
                                     </div>
                                 </div>
                             </div>
-                            <div className="border-t px-6 py-4 bg-gray-50 flex justify-end gap-3">
+                            <div className="border-t px-5 py-3 bg-gray-50 flex justify-end gap-3 shrink-0">
                                 <motion.button
                                     type="button"
                                     onClick={() => setShowCreateModal(false)}
-                                    className="px-6 py-3 text-sm font-medium border border-gray-300 rounded-lg hover:bg-gray-200 transition-all duration-200 hover:shadow-sm text-gray-700"
+                                    className="px-6 py-2 text-sm font-medium border border-gray-300 rounded-lg hover:bg-gray-200 transition-all duration-200 text-gray-700"
                                     whileHover={{ scale: 1.02 }}
                                     whileTap={{ scale: 0.98 }}
                                 >
@@ -707,7 +876,7 @@ const PermissionList = () => {
                                 <motion.button
                                     type="submit"
                                     disabled={loading}
-                                    className="px-6 py-3 text-sm font-medium bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-all duration-200 hover:shadow-md shadow-sm disabled:opacity-50"
+                                    className="px-6 py-2 text-sm font-medium bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-all duration-200 hover:shadow-md shadow-sm disabled:opacity-50"
                                     whileHover={{ scale: 1.02 }}
                                     whileTap={{ scale: 0.98 }}
                                 >
@@ -721,14 +890,22 @@ const PermissionList = () => {
 
             {/* Edit Permission Modal */}
             {showEditModal && selectedPermission && (
-                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-                    <div className="bg-white rounded-lg shadow-xl w-full max-w-5xl max-h-[90vh] overflow-hidden transform transition-all duration-300">
-                        <div className="bg-gradient-to-r from-indigo-600 to-indigo-700 text-white px-6 py-4 flex justify-between items-center">
+                <div className="fixed inset-0 z-50 flex items-start justify-center overflow-hidden overscroll-none p-3 sm:p-4 pointer-events-none">
+                    {/* Backdrop */}
+                    <div 
+                        className="absolute inset-0 bg-black/50 backdrop-blur-sm pointer-events-auto"
+                        onClick={() => setShowEditModal(false)}
+                    />
+                    
+                    {/* Modal Panel */}
+                    <div className="relative z-[1] pointer-events-auto bg-white rounded-2xl shadow-2xl w-full max-w-5xl my-2 sm:my-4 max-h-[calc(100vh-1.5rem)] sm:max-h-[calc(100vh-2rem)] overflow-hidden flex flex-col">
+                        <div className="bg-gradient-to-r from-indigo-600 to-indigo-700 text-white px-5 py-3.5 flex justify-between items-center shrink-0">
                             <div>
                                 <h2 className="text-xl font-bold">Edit Permission</h2>
                                 <p className="text-indigo-100 text-sm mt-1">Update permission level settings</p>
                             </div>
                             <button
+                                type="button"
                                 onClick={() => setShowEditModal(false)}
                                 className="text-white hover:text-indigo-200 transition-colors duration-200 p-1 rounded-lg hover:bg-indigo-500"
                             >
@@ -736,8 +913,11 @@ const PermissionList = () => {
                             </button>
                         </div>
                         
-                        <form onSubmit={handleEditPermission}>
-                            <div className="p-6 overflow-y-auto max-h-[60vh]">
+                        <form onSubmit={handleEditPermission} className="flex flex-col flex-1 overflow-hidden">
+                            <div 
+                                className="px-5 py-4 flex-1 min-h-0 overflow-y-auto overscroll-y-contain [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden space-y-6"
+                                style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+                            >
                                 <div className="grid grid-cols-1 gap-6">
                                     <div>
                                         <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -765,59 +945,113 @@ const PermissionList = () => {
                                         />
                                     </div>
                                     
+                                    {/* Select All Toggle */}
+                                    <div className="flex items-center justify-between bg-indigo-50/50 border border-indigo-100 rounded-xl p-4">
+                                        <div className="space-y-0.5">
+                                            <span className="text-sm font-bold text-gray-800">Grant All Permissions</span>
+                                            <p className="text-xs text-gray-500">Enable all permission keys at once for this role</p>
+                                        </div>
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                const allOptionIds = permissionOptions.map(o => o.p_option_id);
+                                                const isAllChecked = allOptionIds.every(id => (formData.permissions || []).includes(id));
+                                                if (isAllChecked) {
+                                                    handleInputChange('permissions', []);
+                                                } else {
+                                                    handleInputChange('permissions', allOptionIds);
+                                                }
+                                            }}
+                                            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                                                permissionOptions.length > 0 && permissionOptions.every(o => (formData.permissions || []).includes(o.p_option_id))
+                                                    ? 'bg-indigo-600'
+                                                    : 'bg-gray-300'
+                                            }`}
+                                        >
+                                            <span
+                                                className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                                                    permissionOptions.length > 0 && permissionOptions.every(o => (formData.permissions || []).includes(o.p_option_id))
+                                                        ? 'translate-x-6'
+                                                        : 'translate-x-1'
+                                                }`}
+                                            />
+                                        </button>
+                                    </div>
+                                    
+                                    {/* Permissions Checklist */}
                                     <div>
                                         <h3 className="text-lg font-semibold text-gray-800 mb-4 border-b pb-2">Permission Settings</h3>
-                                        <div className="space-y-6">
-                                            {Object.keys(groupedPermissionOptions).map(category => (
-                                                <div key={category} className="bg-white border border-gray-200 rounded-xl p-5 shadow-sm">
-                                                    <h4 className="text-md font-bold text-indigo-900 mb-3 bg-indigo-50 px-3 py-1.5 rounded-lg inline-block">
-                                                        {category}
-                                                    </h4>
-                                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                                                        {groupedPermissionOptions[category]?.map(option => {
-                                                            const isChecked = (formData.permissions || []).includes(option.p_option_id);
-                                                            return (
-                                                                <div key={option.p_option_id} className="bg-gray-50 border border-gray-200 rounded-lg p-4 flex flex-col justify-between hover:border-indigo-300 transition-all duration-200">
-                                                                    <div className="flex items-center justify-between mb-2">
-                                                                        <span className="text-sm font-semibold text-gray-700">
-                                                                            {option.name}
-                                                                        </span>
-                                                                        <button
-                                                                            type="button"
-                                                                            onClick={() => togglePermissionOption(option.p_option_id)}
-                                                                            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                                                                                isChecked 
-                                                                                    ? 'bg-green-500' 
-                                                                                    : 'bg-gray-300'
-                                                                            }`}
-                                                                        >
-                                                                            <span
-                                                                                className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                                                                                    isChecked 
-                                                                                        ? 'translate-x-6' 
-                                                                                        : 'translate-x-1'
-                                                                                }`}
-                                                                            />
-                                                                        </button>
-                                                                    </div>
-                                                                    <div className="text-xs text-gray-500">
-                                                                        {option.remark || (isChecked ? 'Allowed' : 'Not Allowed')}
-                                                                    </div>
-                                                                </div>
-                                                            );
-                                                        })}
+                                        <div className="space-y-3">
+                                            {Object.keys(groupedPermissionOptions).map(category => {
+                                                const isExpanded = !!expandedCategories[category];
+                                                const options = groupedPermissionOptions[category] || [];
+                                                const checkedCount = options.filter(o => (formData.permissions || []).includes(o.p_option_id)).length;
+                                                
+                                                return (
+                                                    <div key={category} className="bg-white border border-gray-200 rounded-xl overflow-hidden shadow-sm">
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => setExpandedCategories(prev => ({ ...prev, [category]: !prev[category] }))}
+                                                            className="w-full flex items-center justify-between px-5 py-3 bg-gray-50 border-b border-gray-100 hover:bg-gray-100/70 transition-colors text-left"
+                                                        >
+                                                            <div className="flex items-center gap-2">
+                                                                <span className="text-sm font-bold text-indigo-900 font-sans">{category}</span>
+                                                                <span className="text-xs bg-indigo-100 text-indigo-800 px-2 py-0.5 rounded-full font-semibold">
+                                                                    {checkedCount} / {options.length} Enabled
+                                                                </span>
+                                                            </div>
+                                                            <span className="text-gray-500 font-semibold text-xs">
+                                                                {isExpanded ? 'Collapse' : 'Expand'}
+                                                            </span>
+                                                        </button>
+                                                        {isExpanded && (
+                                                            <div className="p-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 bg-white border-t border-gray-100">
+                                                                {options.map(option => {
+                                                                    const isChecked = (formData.permissions || []).includes(option.p_option_id);
+                                                                    return (
+                                                                        <div key={option.p_option_id} className="bg-gray-50 border border-gray-200 rounded-lg p-3 flex flex-col justify-between hover:border-indigo-300 transition-all duration-200">
+                                                                            <div className="flex items-center justify-between mb-1.5">
+                                                                                <span className="text-xs font-semibold text-gray-700">
+                                                                                    {option.name}
+                                                                                </span>
+                                                                                <button
+                                                                                    type="button"
+                                                                                    onClick={() => togglePermissionOption(option.p_option_id)}
+                                                                                    className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${
+                                                                                        isChecked 
+                                                                                            ? 'bg-green-500' 
+                                                                                            : 'bg-gray-300'
+                                                                                    }`}
+                                                                                >
+                                                                                    <span
+                                                                                        className={`inline-block h-3 w-3 transform rounded-full bg-white transition-transform ${
+                                                                                            isChecked 
+                                                                                                ? 'translate-x-5' 
+                                                                                                : 'translate-x-1'
+                                                                                        }`}
+                                                                                    />
+                                                                                </button>
+                                                                            </div>
+                                                                            <div className="text-[10px] text-gray-500">
+                                                                                {option.remark || (isChecked ? 'Allowed' : 'Not Allowed')}
+                                                                            </div>
+                                                                        </div>
+                                                                    );
+                                                                })}
+                                                            </div>
+                                                        )}
                                                     </div>
-                                                </div>
-                                            ))}
+                                                );
+                                            })}
                                         </div>
                                     </div>
                                 </div>
                             </div>
-                            <div className="border-t px-6 py-4 bg-gray-50 flex justify-end gap-3">
+                            <div className="border-t px-5 py-3 bg-gray-50 flex justify-end gap-3 shrink-0">
                                 <motion.button
                                     type="button"
                                     onClick={() => setShowEditModal(false)}
-                                    className="px-6 py-3 text-sm font-medium border border-gray-300 rounded-lg hover:bg-gray-200 transition-all duration-200 hover:shadow-sm text-gray-700"
+                                    className="px-6 py-2 text-sm font-medium border border-gray-300 rounded-lg hover:bg-gray-200 transition-all duration-200 text-gray-700"
                                     whileHover={{ scale: 1.02 }}
                                     whileTap={{ scale: 0.98 }}
                                 >
@@ -826,7 +1060,7 @@ const PermissionList = () => {
                                 <motion.button
                                     type="submit"
                                     disabled={loading}
-                                    className="px-6 py-3 text-sm font-medium bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-all duration-200 hover:shadow-md shadow-sm disabled:opacity-50"
+                                    className="px-6 py-2 text-sm font-medium bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-all duration-200 hover:shadow-md shadow-sm disabled:opacity-50"
                                     whileHover={{ scale: 1.02 }}
                                     whileTap={{ scale: 0.98 }}
                                 >

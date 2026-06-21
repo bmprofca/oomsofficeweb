@@ -21,6 +21,7 @@ import { Header, Sidebar } from '../../components/header';
 import getHeaders from '../../utils/get-headers';
 import API_BASE_URL from '../../utils/api-controller';
 import AssignedStaffList from '../../components/Modals/AssignedStaffList';
+import { useUserPermissions } from '../../utils/permission-helper';
 
 /* ─── Helpers ────────────────────────────────────────────────────── */
 const getRequiredFieldsForService = (service) => {
@@ -506,6 +507,7 @@ const getPeriodSchedule = (assignmentSchedules, header, frequency) => {
 };
 
 const ComplianceServices = () => {
+    const { check } = useUserPermissions();
     const currentUsername = (localStorage.getItem('user_username') || '').toLowerCase().trim();
     // Layout states
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -791,7 +793,7 @@ const ComplianceServices = () => {
 
         const assignedStaffs = getAssignedStaffList(assign);
         const assignedStaffUsernames = assignedStaffs.map(emp => (emp.username || '').toLowerCase().trim());
-        const isUpdatePermitted = !currentUsername || assignedStaffUsernames.length === 0 || assignedStaffUsernames.includes(currentUsername);
+        const isUpdatePermitted = (!currentUsername || assignedStaffUsernames.length === 0 || assignedStaffUsernames.includes(currentUsername)) && check('recurring_task_complete');
         const isComplete = st === 'Complete' || st === 'Sale';
 
         return (
@@ -806,13 +808,15 @@ const ComplianceServices = () => {
                                 : "bg-slate-50 text-slate-350 border-slate-100 cursor-not-allowed opacity-50"
                             }`}
                         title={
-                            isComplete
-                                ? `Completed — locked`
-                                : !isPeriodDueDateActive(period)
-                                    ? `Only the currently running due date (${dueDateText}) can be updated`
-                                    : isUpdatePermitted
-                                        ? (showDirectDueDate ? `Due Date: ${dueDateText}` : `Status: ${period.status}`)
-                                        : `Restricted (Only assigned staff: ${assignedStaffs.map(e => e.name || e.username).join(', ')})`
+                            !check('recurring_task_complete')
+                                ? 'Locked (No permission to complete tasks)'
+                                : isComplete
+                                    ? `Completed — locked`
+                                    : !isPeriodDueDateActive(period)
+                                        ? `Only the currently running due date (${dueDateText}) can be updated`
+                                        : isUpdatePermitted
+                                            ? (showDirectDueDate ? `Due Date: ${dueDateText}` : `Status: ${period.status}`)
+                                            : `Restricted (Only assigned staff: ${assignedStaffs.map(e => e.name || e.username).join(', ')})`
                         }
                     >
                         <span className="px-1.5 h-full flex items-center justify-center flex-grow text-center">
@@ -1212,8 +1216,10 @@ const ComplianceServices = () => {
             toast.error('Please select at least one firm group');
             return;
         }
-        if (!assignForm.service_id || !assignForm.custom_amount || (!assignForm.employee_usernames || assignForm.employee_usernames.length === 0)) {
-            toast.error('Please fill in all required fields (Service, Custom Fees, and Assigned Staff)');
+        const hasFeesPerm = check('recurring_task_fees_view');
+        const customAmountToValidate = hasFeesPerm ? assignForm.custom_amount : '0';
+        if (!assignForm.service_id || !customAmountToValidate || (!assignForm.employee_usernames || assignForm.employee_usernames.length === 0)) {
+            toast.error('Please fill in all required fields (Service and Assigned Staff)');
             return;
         }
 
@@ -1233,7 +1239,7 @@ const ComplianceServices = () => {
                 financial_year: assignForm.financial_year,
                 employee_username: assignForm.employee_usernames,
                 employee_id: assignForm.employee_usernames,
-                custom_amount: parseFloat(assignForm.custom_amount),
+                custom_amount: hasFeesPerm ? parseFloat(assignForm.custom_amount) : 0,
                 custom_fields: assignForm.custom_fields || {}
             };
             if (isSingle) {
@@ -1298,7 +1304,9 @@ const ComplianceServices = () => {
         e.preventDefault();
         if (!editAssignment) return;
 
-        if (!editForm.custom_amount || isNaN(parseFloat(editForm.custom_amount))) {
+        const hasFeesPerm = check('recurring_task_fees_view');
+        const customAmountToValidate = hasFeesPerm ? editForm.custom_amount : '0';
+        if (!customAmountToValidate || isNaN(parseFloat(customAmountToValidate))) {
             toast.error('Please enter a valid custom fees amount');
             return;
         }
@@ -1310,7 +1318,7 @@ const ComplianceServices = () => {
         setSubmittingEdit(true);
         try {
             const payload = {
-                custom_amount: parseFloat(editForm.custom_amount),
+                custom_amount: hasFeesPerm ? parseFloat(editForm.custom_amount) : (editAssignment.custom_amount || 0),
                 employee_username: editForm.employee_usernames.join(','),
                 status: editForm.status
             };
@@ -1389,7 +1397,9 @@ const ComplianceServices = () => {
             return;
         }
 
-        if (!statusForm.amount || isNaN(parseFloat(statusForm.amount))) {
+        const hasFeesPerm = check('recurring_task_fees_view');
+        const statusAmountToValidate = hasFeesPerm ? statusForm.amount : '0';
+        if (!statusAmountToValidate || isNaN(parseFloat(statusAmountToValidate))) {
             toast.error('Please enter a valid amount');
             return;
         }
@@ -1399,7 +1409,7 @@ const ComplianceServices = () => {
             const res = await axios.post(`${API_BASE_URL}/recurring-task/update-period-status`, {
                 schedule_id: selectedPeriod.schedule_id,
                 status: statusForm.status,
-                amount: parseFloat(statusForm.amount)
+                amount: hasFeesPerm ? parseFloat(statusForm.amount) : (selectedPeriod.amount || 0)
             }, {
                 headers: getHeaders()
             });
@@ -1459,12 +1469,18 @@ const ComplianceServices = () => {
                         </div>
                         {activeTab === 'assignments' && (
                             <motion.button
-                                onClick={() => setShowAssignModal(true)}
-                                className="flex items-center justify-center gap-2 px-4 py-2.5 bg-gradient-to-r from-indigo-600 to-violet-600 text-white rounded-xl shadow-md hover:shadow-lg transition-all text-xs font-semibold"
-                                whileHover={{ scale: 1.02, y: -1 }}
-                                whileTap={{ scale: 0.98 }}
+                                disabled={!check('recurring_task_create')}
+                                onClick={() => check('recurring_task_create') && setShowAssignModal(true)}
+                                className={`flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl shadow-md transition-all text-xs font-semibold ${
+                                    check('recurring_task_create')
+                                        ? 'bg-gradient-to-r from-indigo-600 to-violet-600 text-white hover:shadow-lg'
+                                        : 'bg-gray-100 border border-gray-200 text-gray-400 cursor-not-allowed opacity-60'
+                                }`}
+                                whileHover={check('recurring_task_create') ? { scale: 1.02, y: -1 } : {}}
+                                whileTap={check('recurring_task_create') ? { scale: 0.98 } : {}}
+                                title={check('recurring_task_create') ? 'Assign Recurring Task' : 'Locked (No permission)'}
                             >
-                                <FiPlus className="w-4 h-4" />
+                                {check('recurring_task_create') ? <FiPlus className="w-4 h-4" /> : <FiLock className="w-4 h-4" />}
                                 Assign Recurring Task
                             </motion.button>
                         )}
@@ -1475,7 +1491,7 @@ const ComplianceServices = () => {
                         {[
                             { label: 'Assigned Entities', value: stats.totalAssigned, color: 'bg-blue-500', icon: FiBriefcase },
                             { label: 'Recurring Tasks', value: stats.activeServices, color: 'bg-indigo-500', icon: FiLayers },
-                            { label: 'Total Sales Posted', value: `₹${formatCurrency(stats.totalSalesAmount)}`, color: 'bg-emerald-500', icon: FiDollarSign },
+                            { label: 'Total Sales Posted', value: check('recurring_task_fees_view') ? `₹${formatCurrency(stats.totalSalesAmount)}` : '₹••••', color: 'bg-emerald-500', icon: FiDollarSign },
                             { label: 'Pending Periods', value: stats.pendingActions, color: 'bg-amber-500', icon: FiAlertCircle }
                         ].map((item, idx) => (
                             <div key={idx} className="bg-white rounded-2xl border border-slate-200/80 p-4 shadow-sm flex items-center justify-between">
@@ -1732,18 +1748,29 @@ const ComplianceServices = () => {
                                                                                                 Credentials
                                                                                             </button>
                                                                                         )}
-                                                                                        <button
-                                                                                            type="button"
-                                                                                            onClick={(e) => {
-                                                                                                e.stopPropagation();
-                                                                                                setConfirmDeleteId(assign.assignment_id);
-                                                                                                setActiveDropdownId(null);
-                                                                                            }}
-                                                                                            className="flex items-center w-full px-3 py-2 text-xs text-slate-700 hover:bg-indigo-50 transition-colors"
-                                                                                        >
-                                                                                            <FiTrash2 className="w-3.5 h-3.5 text-slate-400 mr-2" />
-                                                                                            Delete
-                                                                                        </button>
+                                                                                        {check('recurring_task_delete') ? (
+                                                                                            <button
+                                                                                                type="button"
+                                                                                                onClick={(e) => {
+                                                                                                    e.stopPropagation();
+                                                                                                    setConfirmDeleteId(assign.assignment_id);
+                                                                                                    setActiveDropdownId(null);
+                                                                                                }}
+                                                                                                className="flex items-center w-full px-3 py-2 text-xs text-slate-700 hover:bg-indigo-50 transition-colors"
+                                                                                            >
+                                                                                                <FiTrash2 className="w-3.5 h-3.5 text-slate-400 mr-2" />
+                                                                                                Delete
+                                                                                            </button>
+                                                                                        ) : (
+                                                                                            <button
+                                                                                                type="button"
+                                                                                                disabled
+                                                                                                className="flex items-center w-full px-3 py-2 text-xs text-gray-400 cursor-not-allowed opacity-60 bg-slate-50 transition-colors"
+                                                                                            >
+                                                                                                <FiLock className="w-3.5 h-3.5 text-gray-400 mr-2" />
+                                                                                                Delete
+                                                                                            </button>
+                                                                                        )}
                                                                                         <button
                                                                                             type="button"
                                                                                             onClick={(e) => {
@@ -1977,18 +2004,29 @@ const ComplianceServices = () => {
                                                                                                 Credentials
                                                                                             </button>
                                                                                         )}
-                                                                                        <button
-                                                                                            type="button"
-                                                                                            onClick={(e) => {
-                                                                                                e.stopPropagation();
-                                                                                                setConfirmDeleteId(assign.assignment_id);
-                                                                                                setActiveDropdownId(null);
-                                                                                            }}
-                                                                                            className="flex items-center w-full px-3 py-2 text-xs text-slate-700 hover:bg-indigo-50 transition-colors"
-                                                                                        >
-                                                                                            <FiTrash2 className="w-3.5 h-3.5 text-slate-400 mr-2" />
-                                                                                            Delete
-                                                                                        </button>
+                                                                                        {check('recurring_task_delete') ? (
+                                                                                            <button
+                                                                                                type="button"
+                                                                                                onClick={(e) => {
+                                                                                                    e.stopPropagation();
+                                                                                                    setConfirmDeleteId(assign.assignment_id);
+                                                                                                    setActiveDropdownId(null);
+                                                                                                }}
+                                                                                                className="flex items-center w-full px-3 py-2 text-xs text-slate-700 hover:bg-indigo-50 transition-colors"
+                                                                                            >
+                                                                                                <FiTrash2 className="w-3.5 h-3.5 text-slate-400 mr-2" />
+                                                                                                Delete
+                                                                                            </button>
+                                                                                        ) : (
+                                                                                            <button
+                                                                                                type="button"
+                                                                                                disabled
+                                                                                                className="flex items-center w-full px-3 py-2 text-xs text-gray-400 cursor-not-allowed opacity-60 bg-slate-50 transition-colors"
+                                                                                            >
+                                                                                                <FiLock className="w-3.5 h-3.5 text-gray-400 mr-2" />
+                                                                                                Delete
+                                                                                            </button>
+                                                                                        )}
                                                                                         <button
                                                                                             type="button"
                                                                                             onClick={(e) => {
@@ -2178,7 +2216,7 @@ const ComplianceServices = () => {
                                                                                                         <div className="mt-2.5 space-y-1.5">
                                                                                                             <span className={`text-[11px] font-bold block ${isUpdatePermitted ? "text-slate-808" : "text-slate-400"
                                                                                                                 }`}>
-                                                                                                                ₹{formatCurrency(period.amount)}
+                                                                                                                {check('recurring_task_fees_view') ? `₹${formatCurrency(period.amount)}` : <span className="blur-[3px] select-none">₹9,999.00</span>}
                                                                                                             </span>
                                                                                                             <span className={`inline-flex px-1.5 py-0.5 rounded text-[9px] font-bold border uppercase tracking-wider ${isUpdatePermitted
                                                                                                                 ? (STATUS_BADGES[period.status] || 'bg-slate-50')
@@ -2661,7 +2699,9 @@ const ComplianceServices = () => {
                                         >
                                             <option value="">Select recurring task template…</option>
                                             {services.map(s => (
-                                                <option key={s.id} value={s.service_id}>{s.name} (₹{formatCurrency(s.default_amount)})</option>
+                                                <option key={s.id} value={s.service_id}>
+                                                    {s.name} {check('recurring_task_fees_view') ? `(₹${formatCurrency(s.default_amount)})` : '(₹••••)'}
+                                                </option>
                                             ))}
                                         </select>
                                     </div>
@@ -2748,17 +2788,21 @@ const ComplianceServices = () => {
                                     </div>
 
                                     {/* Custom Amount */}
-                                    <div className="space-y-1">
-                                        <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Custom Fees Amount (₹) *</label>
-                                        <input
-                                            type="number"
-                                            step="0.01"
-                                            placeholder="0.00"
-                                            value={assignForm.custom_amount}
-                                            onChange={(e) => setAssignForm(prev => ({ ...prev, custom_amount: e.target.value }))}
-                                            className="w-full px-3 py-2.5 text-xs text-slate-700 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none bg-white"
-                                        />
-                                    </div>
+                                    {check('recurring_task_fees_view') ? (
+                                        <div className="space-y-1">
+                                            <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Custom Fees Amount (₹) *</label>
+                                            <input
+                                                type="number"
+                                                step="0.01"
+                                                placeholder="0.00"
+                                                value={assignForm.custom_amount}
+                                                onChange={(e) => setAssignForm(prev => ({ ...prev, custom_amount: e.target.value }))}
+                                                className="w-full px-3 py-2.5 text-xs text-slate-700 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none bg-white"
+                                            />
+                                        </div>
+                                    ) : (
+                                        <input type="hidden" value="0" />
+                                    )}
 
                                     {/* Dynamic Required Credentials Inputs */}
                                     {(() => {
@@ -3100,18 +3144,20 @@ const ComplianceServices = () => {
                                         </div>
 
                                         {/* Amount Field */}
-                                        <div className="space-y-1">
-                                            <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Fees Amount (₹) *</label>
-                                            <input
-                                                type="number"
-                                                step="0.01"
-                                                value={statusForm.amount}
-                                                disabled={!isUpdatePermitted}
-                                                onChange={(e) => setStatusForm(prev => ({ ...prev, amount: e.target.value }))}
-                                                placeholder="0.00"
-                                                className="w-full px-3 py-2.5 text-xs text-slate-705 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none bg-white disabled:opacity-60 disabled:cursor-not-allowed"
-                                            />
-                                        </div>
+                                        {check('recurring_task_fees_view') && (
+                                            <div className="space-y-1">
+                                                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Fees Amount (₹) *</label>
+                                                <input
+                                                    type="number"
+                                                    step="0.01"
+                                                    value={statusForm.amount}
+                                                    disabled={!isUpdatePermitted}
+                                                    onChange={(e) => setStatusForm(prev => ({ ...prev, amount: e.target.value }))}
+                                                    placeholder="0.00"
+                                                    className="w-full px-3 py-2.5 text-xs text-slate-705 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none bg-white disabled:opacity-60 disabled:cursor-not-allowed"
+                                                />
+                                            </div>
+                                        )}
 
                                         {/* Ledger notice info */}
                                         {statusForm.status === 'Complete' && (
@@ -3142,7 +3188,7 @@ const ComplianceServices = () => {
                                         </button>
                                         <button
                                             type="submit"
-                                            disabled={submittingStatus || !statusForm.amount || !isUpdatePermitted}
+                                            disabled={submittingStatus || (!check('recurring_task_fees_view') ? false : !statusForm.amount) || !isUpdatePermitted}
                                             className="flex-1 py-2 text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl disabled:opacity-50 transition-colors flex items-center justify-center gap-1.5"
                                         >
                                             {submittingStatus && <span className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin"></span>}
@@ -3273,17 +3319,19 @@ const ComplianceServices = () => {
                                         style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
                                     >
                                         {/* Custom Amount */}
-                                        <div className="space-y-1">
-                                            <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Custom Fees Amount (₹) *</label>
-                                            <input
-                                                type="number"
-                                                step="0.01"
-                                                placeholder="0.00"
-                                                value={editForm.custom_amount}
-                                                onChange={(e) => setEditForm(prev => ({ ...prev, custom_amount: e.target.value }))}
-                                                className="w-full px-3 py-2.5 text-xs text-slate-700 border border-slate-200 rounded-xl focus:ring-2 focus:ring-violet-500 focus:border-transparent outline-none bg-white"
-                                            />
-                                        </div>
+                                        {check('recurring_task_fees_view') && (
+                                            <div className="space-y-1">
+                                                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Custom Fees Amount (₹) *</label>
+                                                <input
+                                                    type="number"
+                                                    step="0.01"
+                                                    placeholder="0.00"
+                                                    value={editForm.custom_amount}
+                                                    onChange={(e) => setEditForm(prev => ({ ...prev, custom_amount: e.target.value }))}
+                                                    className="w-full px-3 py-2.5 text-xs text-slate-700 border border-slate-200 rounded-xl focus:ring-2 focus:ring-violet-500 focus:border-transparent outline-none bg-white"
+                                                />
+                                            </div>
+                                        )}
 
                                         {/* Pay From Month (monthly only) */}
                                         {editFreq === 'monthly' && (
@@ -3527,7 +3575,7 @@ const ComplianceServices = () => {
                                             type="submit"
                                             disabled={
                                                 submittingEdit ||
-                                                !editForm.custom_amount ||
+                                                (!check('recurring_task_fees_view') ? false : !editForm.custom_amount) ||
                                                 (!editForm.employee_usernames || editForm.employee_usernames.length === 0)
                                             }
                                             className="flex-1 py-2.5 text-xs font-semibold text-white bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-700 hover:to-indigo-700 rounded-xl disabled:opacity-50 transition-colors flex items-center justify-center gap-1.5"
@@ -3628,7 +3676,7 @@ const ComplianceServices = () => {
                                 <div className="bg-emerald-50 border border-emerald-100 rounded-xl p-3 text-xs text-emerald-800">
                                     <p className="font-bold">{shareModal.assign?.firm_name}</p>
                                     <p className="text-[11px] text-emerald-600 mt-0.5">{shareModal.period?.period_name} — {shareModal.assign?.service_name}</p>
-                                    <p className="text-[11px] text-emerald-600">Amount: ₹{formatCurrency(shareModal.period?.amount)}</p>
+                                    <p className="text-[11px] text-emerald-600">Amount: {check('recurring_task_fees_view') ? `₹${formatCurrency(shareModal.period?.amount)}` : '₹••••'}</p>
                                 </div>
                                 <div className="space-y-1">
                                     <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">WhatsApp Number</label>
@@ -3669,7 +3717,8 @@ const ComplianceServices = () => {
                                     type="button"
                                     onClick={() => {
                                         if (!sharePhone && !shareEmail) { toast.error('Enter at least one contact'); return; }
-                                        const msg = `Hi, your invoice for ${shareModal.assign?.service_name} (${shareModal.period?.period_name}) is ₹${formatCurrency(shareModal.period?.amount)}. Status: Complete.`;
+                                        const amountDisplay = check('recurring_task_fees_view') ? `₹${formatCurrency(shareModal.period?.amount)}` : '••••';
+                                        const msg = `Hi, your invoice for ${shareModal.assign?.service_name} (${shareModal.period?.period_name}) is ${amountDisplay}. Status: Complete.`;
                                         if (sharePhone) window.open(`https://wa.me/${sharePhone.replace(/[^0-9]/g, '')}?text=${encodeURIComponent(msg)}`, '_blank');
                                         if (shareEmail) window.open(`mailto:${shareEmail}?subject=Invoice - ${shareModal.assign?.service_name}&body=${encodeURIComponent(msg)}`);
                                         setShareModal({ open: false, period: null, assign: null });
@@ -3836,7 +3885,7 @@ const ComplianceServices = () => {
                                                     </div>
                                                     <div className="mt-3 space-y-2">
                                                         <span className="text-xs font-extrabold text-slate-850 block">
-                                                            ₹{formatCurrency(period.amount)}
+                                                            {check('recurring_task_fees_view') ? `₹${formatCurrency(period.amount)}` : <span className="blur-[3px] select-none">₹9,999.00</span>}
                                                         </span>
                                                         <div className="flex items-center justify-between gap-2">
                                                             <span className={`inline-flex px-2 py-0.5 rounded text-[9px] font-bold border uppercase tracking-wider ${STATUS_BADGES[period.status] || 'bg-slate-50'}`}>

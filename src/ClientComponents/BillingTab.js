@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
+import { checkPermissionSync } from '../utils/permission-helper';
 import { FiPlus, FiDownload, FiEye, FiDollarSign, FiCalendar, FiCheckCircle, FiClock, FiTrendingUp, FiFileText, FiFilter, FiSearch, FiCreditCard, FiBarChart2, FiPrinter } from 'react-icons/fi';
 
 const BillingTab = () => {
@@ -98,22 +99,26 @@ const BillingTab = () => {
                     <p className="text-xs sm:text-sm text-slate-600">Manage invoices, payments, and financial tracking</p>
                 </div>
                 <div className="flex gap-3">
-                    <motion.button
-                        className="flex items-center justify-center gap-2 px-6 py-3 bg-gradient-to-r from-blue-600 to-indigo-700 text-white rounded-xl hover:shadow-lg hover:shadow-blue-500/25 transition-all duration-300 font-semibold"
-                        whileHover={{ scale: 1.02, y: -2 }}
-                        whileTap={{ scale: 0.98 }}
-                    >
-                        <FiPlus className="w-5 h-5" />
-                        New Invoice
-                    </motion.button>
-                    <motion.button
-                        className="flex items-center justify-center gap-2 px-6 py-3 bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-xl hover:shadow-lg hover:shadow-green-500/25 transition-all duration-300 font-semibold"
-                        whileHover={{ scale: 1.02, y: -2 }}
-                        whileTap={{ scale: 0.98 }}
-                    >
-                        <FiDownload className="w-5 h-5" />
-                        Export Data
-                    </motion.button>
+                    {checkPermissionSync('task_fees_view') && (
+                        <>
+                            <motion.button
+                                className="flex items-center justify-center gap-2 px-6 py-3 bg-gradient-to-r from-blue-600 to-indigo-700 text-white rounded-xl hover:shadow-lg hover:shadow-blue-500/25 transition-all duration-300 font-semibold"
+                                whileHover={{ scale: 1.02, y: -2 }}
+                                whileTap={{ scale: 0.98 }}
+                            >
+                                <FiPlus className="w-5 h-5" />
+                                New Invoice
+                            </motion.button>
+                            <motion.button
+                                className="flex items-center justify-center gap-2 px-6 py-3 bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-xl hover:shadow-lg hover:shadow-green-500/25 transition-all duration-300 font-semibold"
+                                whileHover={{ scale: 1.02, y: -2 }}
+                                whileTap={{ scale: 0.98 }}
+                            >
+                                <FiDownload className="w-5 h-5" />
+                                Export Data
+                            </motion.button>
+                        </>
+                    )}
                 </div>
             </div>
 
@@ -123,7 +128,7 @@ const BillingTab = () => {
                     <div className="flex items-center justify-between">
                         <div>
                             <p className="text-xs font-semibold text-slate-600">Total Revenue</p>
-                            <p className="text-base font-bold text-slate-800 mt-1">₹{stats.totalRevenue.toLocaleString()}</p>
+                            <p className={`text-base font-bold text-slate-800 mt-1 ${!checkPermissionSync('task_fees_view') ? 'blur-[3.5px] select-none' : ''}`}>₹{stats.totalRevenue.toLocaleString()}</p>
                         </div>
                         <div className="w-12 h-12 bg-gradient-to-r from-green-100 to-emerald-100 rounded-xl flex items-center justify-center">
                             <FiTrendingUp className="w-6 h-6 text-green-600" />
@@ -135,7 +140,7 @@ const BillingTab = () => {
                     <div className="flex items-center justify-between">
                         <div>
                             <p className="text-xs font-semibold text-slate-600">Pending Amount</p>
-                            <p className="text-base font-bold text-slate-800 mt-1">₹{stats.pendingAmount.toLocaleString()}</p>
+                            <p className={`text-base font-bold text-slate-800 mt-1 ${!checkPermissionSync('task_fees_view') ? 'blur-[3.5px] select-none' : ''}`}>₹{stats.pendingAmount.toLocaleString()}</p>
                         </div>
                         <div className="w-12 h-12 bg-gradient-to-r from-yellow-100 to-amber-100 rounded-xl flex items-center justify-center">
                             <FiClock className="w-6 h-6 text-yellow-600" />
@@ -147,7 +152,7 @@ const BillingTab = () => {
                     <div className="flex items-center justify-between">
                         <div>
                             <p className="text-xs font-semibold text-slate-600">Overdue</p>
-                            <p className="text-base font-bold text-slate-800 mt-1">₹{stats.overdueAmount.toLocaleString()}</p>
+                            <p className={`text-base font-bold text-slate-800 mt-1 ${!checkPermissionSync('task_fees_view') ? 'blur-[3.5px] select-none' : ''}`}>₹{stats.overdueAmount.toLocaleString()}</p>
                         </div>
                         <div className="w-12 h-12 bg-gradient-to-r from-red-100 to-pink-100 rounded-xl flex items-center justify-center">
                             <FiCalendar className="w-6 h-6 text-red-600" />
@@ -282,7 +287,7 @@ const BillingTab = () => {
                                                     <FiDollarSign className="w-5 h-5 text-blue-600" />
                                                 </div>
                                                 <div>
-                                                    <div className="text-base font-bold text-slate-800">₹{parseInt(inv.amount).toLocaleString()}</div>
+                                                    <div className={`text-base font-bold text-slate-800 ${!checkPermissionSync('task_fees_view') ? 'blur-[3.5px] select-none' : ''}`}>₹{parseInt(inv.amount).toLocaleString()}</div>
                                                     <div className="text-xs text-slate-500">
                                                         {inv.status === 'Paid' ? 'Payment received' : 'Payment pending'}
                                                     </div>
@@ -335,7 +340,7 @@ const BillingTab = () => {
                         <div className="flex flex-col md:flex-row justify-between items-center gap-4">
                             <div className="text-sm text-slate-600">
                                 Showing <span className="font-semibold">{filteredInvoices.length}</span> of <span className="font-semibold">{invoices.length}</span> invoices • 
-                                <span className="ml-2 font-semibold text-green-600">₹{stats.totalRevenue.toLocaleString()}</span> total revenue
+                                <span className={`ml-2 font-semibold text-green-600 ${!checkPermissionSync('task_fees_view') ? 'blur-[3.5px] select-none' : ''}`}>₹{stats.totalRevenue.toLocaleString()}</span> total revenue
                             </div>
                             <div className="flex items-center gap-3">
                                 <motion.button
@@ -380,21 +385,23 @@ const BillingTab = () => {
                             <div>
                                 <h4 className="font-semibold text-slate-800 mb-2">Revenue Insights</h4>
                                 <p className="text-sm text-slate-600">
-                                    <span className="font-bold text-green-600">₹{stats.totalRevenue.toLocaleString()}</span> collected • 
-                                    <span className="font-bold text-yellow-600 ml-3">₹{stats.pendingAmount.toLocaleString()}</span> pending • 
-                                    <span className="font-bold text-red-600 ml-3">₹{stats.overdueAmount.toLocaleString()}</span> overdue
+                                    <span className={`font-bold text-green-600 ${!checkPermissionSync('task_fees_view') ? 'blur-[3.5px] select-none' : ''}`}>₹{stats.totalRevenue.toLocaleString()}</span> collected • 
+                                    <span className={`font-bold text-yellow-600 ml-3 ${!checkPermissionSync('task_fees_view') ? 'blur-[3.5px] select-none' : ''}`}>₹{stats.pendingAmount.toLocaleString()}</span> pending • 
+                                    <span className={`font-bold text-red-600 ml-3 ${!checkPermissionSync('task_fees_view') ? 'blur-[3.5px] select-none' : ''}`}>₹{stats.overdueAmount.toLocaleString()}</span> overdue
                                 </p>
                             </div>
                         </div>
-                        <div className="flex gap-3">
-                            <motion.button
-                                className="px-5 py-2.5 bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-xl hover:shadow-lg hover:shadow-green-500/25 transition-all duration-300 font-semibold"
-                                whileHover={{ scale: 1.05, y: -2 }}
-                                whileTap={{ scale: 0.95 }}
-                            >
-                                Send Reminders
-                            </motion.button>
-                        </div>
+                        {checkPermissionSync('task_fees_view') && (
+                            <div className="flex gap-3">
+                                <motion.button
+                                    className="px-5 py-2.5 bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-xl hover:shadow-lg hover:shadow-green-500/25 transition-all duration-300 font-semibold"
+                                    whileHover={{ scale: 1.05, y: -2 }}
+                                    whileTap={{ scale: 0.95 }}
+                                >
+                                    Send Reminders
+                                </motion.button>
+                            </div>
+                        )}
                     </div>
                 </div>
                 
@@ -461,7 +468,7 @@ const BillingTab = () => {
                                 </div>
                                 <div className="text-sm text-slate-600 mb-2">{inv.client}</div>
                                 <div className="flex items-center justify-between">
-                                    <span className="font-semibold text-slate-800">₹{parseInt(inv.amount).toLocaleString()}</span>
+                                    <span className={`font-semibold text-slate-800 ${!checkPermissionSync('task_fees_view') ? 'blur-[3.5px] select-none' : ''}`}>₹{parseInt(inv.amount).toLocaleString()}</span>
                                     <span className="text-sm text-slate-500">Due: {inv.dueDate}</span>
                                 </div>
                             </div>

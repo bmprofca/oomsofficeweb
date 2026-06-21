@@ -1,5 +1,6 @@
 import React from 'react';
 import { motion } from 'framer-motion';
+import { checkPermissionSync } from '../utils/permission-helper';
 import {
     FiRepeat,
     FiUser,
@@ -26,6 +27,9 @@ export function getTransactionAmounts(transaction) {
 }
 
 export function formatLedgerCurrency(amount) {
+    if (!checkPermissionSync('task_fees_view')) {
+        return '----';
+    }
     return new Intl.NumberFormat('en-IN', {
         minimumFractionDigits: 2,
         maximumFractionDigits: 2,

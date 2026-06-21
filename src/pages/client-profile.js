@@ -51,6 +51,8 @@ import API_BASE_URL from "../utils/api-controller";
 import getHeaders from "../utils/get-headers";
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import axios from 'axios';
+import { toast } from 'react-hot-toast';
+import { checkPermissionSync } from '../utils/permission-helper';
 
 // Import other components
 import FirmsTab from "../ClientComponents/FirmsTab";
@@ -419,15 +421,17 @@ const BasicDetailsTab = ({ clientData, onEdit, loading, clientUsername, onRefres
                                             <p className="text-[11px] text-slate-500">Identity and contact</p>
                                         </div>
                                     </div>
-                                    <button
-                                        type="button"
-                                        onClick={() => openEditModal("personal")}
-                                        className="inline-flex items-center gap-1 rounded-md border border-slate-300 bg-white px-2 py-1 text-xs font-medium text-slate-700 hover:border-indigo-300 hover:text-indigo-700"
-                                    >
-                                        <FiEdit className="h-3.5 w-3.5" />
-                                        Edit
-                                    </button>
-                                </div>
+                                     {checkPermissionSync('client_edit') && (
+                                         <button
+                                             type="button"
+                                             onClick={() => openEditModal("personal")}
+                                             className="inline-flex items-center gap-1 rounded-md border border-slate-300 bg-white px-2 py-1 text-xs font-medium text-slate-700 hover:border-indigo-300 hover:text-indigo-700"
+                                         >
+                                             <FiEdit className="h-3.5 w-3.5" />
+                                             Edit
+                                         </button>
+                                     )}
+                                 </div>
                                 {renderList(personalFields)}
                             </section>
 
@@ -442,15 +446,17 @@ const BasicDetailsTab = ({ clientData, onEdit, loading, clientUsername, onRefres
                                             <p className="text-[11px] text-slate-500">Communication address</p>
                                         </div>
                                     </div>
-                                    <button
-                                        type="button"
-                                        onClick={() => openEditModal("address")}
-                                        className="inline-flex items-center gap-1 rounded-md border border-slate-300 bg-white px-2 py-1 text-xs font-medium text-slate-700 hover:border-emerald-300 hover:text-emerald-700"
-                                    >
-                                        <FiEdit className="h-3.5 w-3.5" />
-                                        Edit
-                                    </button>
-                                </div>
+                                     {checkPermissionSync('client_edit') && (
+                                         <button
+                                             type="button"
+                                             onClick={() => openEditModal("address")}
+                                             className="inline-flex items-center gap-1 rounded-md border border-slate-300 bg-white px-2 py-1 text-xs font-medium text-slate-700 hover:border-emerald-300 hover:text-emerald-700"
+                                         >
+                                             <FiEdit className="h-3.5 w-3.5" />
+                                             Edit
+                                         </button>
+                                     )}
+                                 </div>
                                 {renderList(addressFields)}
                             </section>
                         </div>
@@ -1532,7 +1538,7 @@ const ClientProfile = () => {
                                                     : Number(clientData.balance ?? 0) > 0
                                                         ? 'text-emerald-700'
                                                         : 'text-slate-800'
-                                                    }`}
+                                                    } ${!checkPermissionSync('task_fees_view') ? 'blur-[3.5px] select-none' : ''}`}
                                             >
                                                 {Number(clientData.balance ?? 0) < 0
                                                     ? `- ₹${Math.abs(clientData.balance).toLocaleString('en-IN', {

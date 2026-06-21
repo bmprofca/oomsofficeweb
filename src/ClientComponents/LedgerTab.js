@@ -15,6 +15,7 @@ import toast from 'react-hot-toast';
 import API_BASE_URL from '../utils/api-controller';
 import getHeaders from '../utils/get-headers';
 import axios from 'axios';
+import { checkPermissionSync } from '../utils/permission-helper';
 import { TransactionModalManager } from '../components/Modals/CreateTransactions';
 import { DateRangePickerField } from '../components/PortalDatePicker';
 import TablePagination from '../components/TablePagination';
@@ -503,15 +504,17 @@ const ClientLedger = () => {
                     </div>
 
                     <div className="flex flex-wrap items-center justify-end gap-2">
-                        <button
-                            type="button"
-                            onClick={handleOpenOpeningBalanceModal}
-                            className="flex items-center gap-1.5 px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm font-medium text-slate-600 hover:border-indigo-400 hover:text-indigo-600 hover:bg-indigo-50 transition-all shadow-sm whitespace-nowrap shrink-0"
-                            title="Set / Edit Opening Balance"
-                        >
-                            <FiBarChart2 className="w-4 h-4" />
-                            <span>Opening Balance</span>
-                        </button>
+                        {checkPermissionSync('task_fees_view') && (
+                            <button
+                                type="button"
+                                onClick={handleOpenOpeningBalanceModal}
+                                className="flex items-center gap-1.5 px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm font-medium text-slate-600 hover:border-indigo-400 hover:text-indigo-600 hover:bg-indigo-50 transition-all shadow-sm whitespace-nowrap shrink-0"
+                                title="Set / Edit Opening Balance"
+                            >
+                                <FiBarChart2 className="w-4 h-4" />
+                                <span>Opening Balance</span>
+                            </button>
+                        )}
                         <div className="shrink-0 w-56">
                             <DateRangePickerField
                                 value={{ start: fromDate, end: toDate }}
@@ -541,9 +544,10 @@ const ClientLedger = () => {
                         </motion.button>
                         <motion.button
                             onClick={() => handleExport('pdf')}
-                            className="p-2 bg-white rounded-lg shadow-sm hover:shadow transition-all duration-200 border border-slate-200"
-                            whileHover={{ scale: 1.05 }}
-                            whileTap={{ scale: 0.95 }}
+                            disabled={!checkPermissionSync('task_fees_view')}
+                            className="p-2 bg-white rounded-lg shadow-sm hover:shadow transition-all duration-200 border border-slate-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                            whileHover={checkPermissionSync('task_fees_view') ? { scale: 1.05 } : {}}
+                            whileTap={checkPermissionSync('task_fees_view') ? { scale: 0.95 } : {}}
                             title="Export PDF"
                         >
                             <FiDownload className="w-5 h-5 text-slate-600" />

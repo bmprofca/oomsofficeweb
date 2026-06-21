@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+// Force rebuild cache
 import { Sidebar, Header } from '../components/header';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -8,6 +9,7 @@ import {
     FiUserPlus,
     FiFileText,
     FiPlus,
+    FiLock,
     FiSearch,
     FiX,
     FiUser,
@@ -53,6 +55,7 @@ import getHeaders from "../utils/get-headers";
 import Pagination from '../components/paging-nation-component';
 import ExportModal from '../ClientComponents/ExportModal';
 import toast from 'react-hot-toast';
+import { useUserPermissions } from '../utils/permission-helper';
 
 // Import DnD Kit
 import {
@@ -778,6 +781,7 @@ const ClientTable = ({
     showFirmsModal,
     openPaymentReminderModal // Add this prop
 }) => {
+    const { check } = useUserPermissions();
     const SkeletonRow = () => (
         <div className="flex items-center border-b border-gray-100 animate-pulse p-3">
             <div className="w-8 md:w-10 flex-shrink-0 mr-2">
@@ -883,16 +887,26 @@ const ClientTable = ({
                                         View Details
                                     </button>
 
-                                    <button
-                                        onClick={() => {
-                                            setActiveRowDropdown(null);
-                                            navigate(`/client/edit/${client._id}`);
-                                        }}
-                                        className="flex items-center w-full px-4 py-3 text-sm text-gray-700 hover:bg-gray-100"
-                                    >
-                                        <FiEdit className="mr-3" />
-                                        Edit Client
-                                    </button>
+                                    {check('client_update') ? (
+                                        <button
+                                            onClick={() => {
+                                                setActiveRowDropdown(null);
+                                                navigate(`/client/edit/${client._id}`);
+                                            }}
+                                            className="flex items-center w-full px-4 py-3 text-sm text-gray-700 hover:bg-gray-100"
+                                        >
+                                            <FiEdit className="mr-3" />
+                                            Edit Client
+                                        </button>
+                                    ) : (
+                                        <button
+                                            disabled
+                                            className="flex items-center w-full px-4 py-3 text-sm text-gray-400 cursor-not-allowed opacity-60 bg-gray-50"
+                                        >
+                                            <FiLock className="mr-3 text-gray-400" />
+                                            Edit Client
+                                        </button>
+                                    )}
 
                                     <button
                                         onClick={() => {
@@ -906,15 +920,25 @@ const ClientTable = ({
 
                                     <div className="border-t my-1"></div>
 
-                                    <button
-                                        onClick={() => {
-                                            setActiveRowDropdown(null);
-                                        }}
-                                        className="flex items-center w-full px-4 py-3 text-sm text-red-600 hover:bg-red-50"
-                                    >
-                                        <FiTrash2 className="mr-3" />
-                                        Delete Client
-                                    </button>
+                                    {check('client_delete') ? (
+                                        <button
+                                            onClick={() => {
+                                                setActiveRowDropdown(null);
+                                            }}
+                                            className="flex items-center w-full px-4 py-3 text-sm text-red-600 hover:bg-red-50"
+                                        >
+                                            <FiTrash2 className="mr-3" />
+                                            Delete Client
+                                        </button>
+                                    ) : (
+                                        <button
+                                            disabled
+                                            className="flex items-center w-full px-4 py-3 text-sm text-gray-400 cursor-not-allowed opacity-60 bg-gray-50"
+                                        >
+                                            <FiLock className="mr-3 text-gray-400" />
+                                            Delete Client
+                                        </button>
+                                    )}
                                 </motion.div>
                             )}
                         </AnimatePresence>
@@ -929,7 +953,11 @@ const ClientTable = ({
                         </div>
                         <div className="flex items-center gap-1">
                             <div className={`text-sm font-semibold ${client.balance < 0 ? 'text-red-600' : 'text-green-600'}`}>
-                                ₹{Math.abs(client.balance || 0).toLocaleString()}
+                                {check('task_fees_view') ? (
+                                    `₹${Math.abs(client.balance || 0).toLocaleString()}`
+                                ) : (
+                                    <span className="blur-[3.5px] select-none">₹99,999</span>
+                                )}
                             </div>
                         </div>
                     </div>
@@ -1113,6 +1141,7 @@ const ClientCards = ({
     handleExport,
     showFirmsModal
 }) => {
+    const { check } = useUserPermissions();
     const getStatusColor = (status) => {
         switch (status) {
             case 'ACTIVE': return 'bg-green-100 text-green-700';
@@ -1123,6 +1152,9 @@ const ClientCards = ({
     };
 
     const formatBalance = (balance) => {
+        if (!check('task_fees_view')) {
+            return <span className="blur-[3.5px] select-none">₹99,999</span>;
+        }
         return `₹${Math.abs(balance || 0).toLocaleString()}`;
     };
 
@@ -1252,16 +1284,26 @@ const ClientCards = ({
                                                                 View Details
                                                             </button>
 
-                                                            <button
-                                                                onClick={() => {
-                                                                    setActiveRowDropdown(null);
-                                                                    navigate(`/client/edit/${client._id}`);
-                                                                }}
-                                                                className="flex items-center w-full px-4 py-3 text-sm text-gray-700 hover:bg-gray-100"
-                                                            >
-                                                                <FiEdit className="mr-3" />
-                                                                Edit Client
-                                                            </button>
+                                                            {check('client_update') ? (
+                                                                <button
+                                                                    onClick={() => {
+                                                                        setActiveRowDropdown(null);
+                                                                        navigate(`/client/edit/${client._id}`);
+                                                                    }}
+                                                                    className="flex items-center w-full px-4 py-3 text-sm text-gray-700 hover:bg-gray-100"
+                                                                >
+                                                                    <FiEdit className="mr-3" />
+                                                                    Edit Client
+                                                                </button>
+                                                            ) : (
+                                                                <button
+                                                                    disabled
+                                                                    className="flex items-center w-full px-4 py-3 text-sm text-gray-400 cursor-not-allowed opacity-60 bg-gray-50"
+                                                                >
+                                                                    <FiLock className="mr-3 text-gray-400" />
+                                                                    Edit Client
+                                                                </button>
+                                                            )}
 
                                                             <button
                                                                 onClick={() => {
@@ -1275,15 +1317,25 @@ const ClientCards = ({
 
                                                             <div className="border-t my-1"></div>
 
-                                                            <button
-                                                                onClick={() => {
-                                                                    setActiveRowDropdown(null);
-                                                                }}
-                                                                className="flex items-center w-full px-4 py-3 text-sm text-red-600 hover:bg-red-50"
-                                                            >
-                                                                <FiTrash2 className="mr-3" />
-                                                                Delete Client
-                                                            </button>
+                                                            {check('client_delete') ? (
+                                                                <button
+                                                                    onClick={() => {
+                                                                        setActiveRowDropdown(null);
+                                                                    }}
+                                                                    className="flex items-center w-full px-4 py-3 text-sm text-red-600 hover:bg-red-50"
+                                                                >
+                                                                    <FiTrash2 className="mr-3" />
+                                                                    Delete Client
+                                                                </button>
+                                                            ) : (
+                                                                <button
+                                                                    disabled
+                                                                    className="flex items-center w-full px-4 py-3 text-sm text-gray-400 cursor-not-allowed opacity-60 bg-gray-50"
+                                                                >
+                                                                    <FiLock className="mr-3 text-gray-400" />
+                                                                    Delete Client
+                                                                </button>
+                                                            )}
                                                         </motion.div>
                                                     )}
                                                 </AnimatePresence>
@@ -1345,6 +1397,7 @@ const ClientCards = ({
 
 // Main ViewClients Component
 const ViewClients = () => {
+    const { check } = useUserPermissions();
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
     const [isMinimized, setIsMinimized] = useState(() => {
         const saved = localStorage.getItem('sidebarMinimized');
@@ -1688,7 +1741,7 @@ const ViewClients = () => {
                             value = client.firms?.map(f => f.firm_name).join(', ') || 'N/A';
                             break;
                         case 'balance':
-                            value = client.balance || 0;
+                            value = check('task_fees_view') ? (client.balance || 0) : '----';
                             break;
                         case 'status':
                             value = client.status === 'ACTIVE' ? 'Active' : 
@@ -1770,6 +1823,9 @@ const ViewClients = () => {
     };
 
     const formatBalance = (balance) => {
+        if (!check('task_fees_view')) {
+            return <span className="blur-[3.5px] select-none">₹99,999</span>;
+        }
         return `₹${Math.abs(balance || 0).toLocaleString()}`;
     };
 
@@ -1998,17 +2054,28 @@ const ViewClients = () => {
                                             View Details
                                         </button>
 
-                                        <button
-                                            onClick={() => {
-                                                setActiveRowDropdown(null);
-                                                navigate(`/client/edit/${client._id}`);
-                                            }}
-                                            className="flex items-center w-full px-4 py-2 text-sm
-                                           text-gray-700 hover:bg-green-50 transition-colors"
-                                        >
-                                            <FiEdit className="mr-3 text-green-600 w-4 h-4" />
-                                            Edit Client
-                                        </button>
+                                        {check('client_update') ? (
+                                            <button
+                                                onClick={() => {
+                                                    setActiveRowDropdown(null);
+                                                    navigate(`/client/edit/${client._id}`);
+                                                }}
+                                                className="flex items-center w-full px-4 py-2 text-sm
+                                                text-gray-700 hover:bg-green-50 transition-colors"
+                                            >
+                                                <FiEdit className="mr-3 text-green-600 w-4 h-4" />
+                                                Edit Client
+                                            </button>
+                                        ) : (
+                                            <button
+                                                disabled
+                                                className="flex items-center w-full px-4 py-2 text-sm
+                                                text-gray-400 cursor-not-allowed opacity-60 bg-gray-50 transition-colors"
+                                            >
+                                                <FiLock className="mr-3 text-gray-400 w-4 h-4" />
+                                                Edit Client
+                                            </button>
+                                        )}
 
                                         <button
                                             onClick={() => {
@@ -2023,17 +2090,28 @@ const ViewClients = () => {
 
                                         <div className="border-t my-1"></div>
 
-                                        <button
-                                            onClick={() => {
-                                                setActiveRowDropdown(null);
-                                                SetDeleteModal(true);
-                                            }}
-                                            className="flex items-center w-full px-4 py-2 text-sm
-                                           text-red-600 hover:bg-red-50 transition-colors"
-                                        >
-                                            <FiTrash2 className="mr-3 w-4 h-4" />
-                                            Delete Client
-                                        </button>
+                                        {check('client_delete') ? (
+                                            <button
+                                                onClick={() => {
+                                                    setActiveRowDropdown(null);
+                                                    SetDeleteModal(true);
+                                                }}
+                                                className="flex items-center w-full px-4 py-2 text-sm
+                                                text-red-600 hover:bg-red-50 transition-colors"
+                                            >
+                                                <FiTrash2 className="mr-3 w-4 h-4" />
+                                                Delete Client
+                                            </button>
+                                        ) : (
+                                            <button
+                                                disabled
+                                                className="flex items-center w-full px-4 py-2 text-sm
+                                                text-gray-400 cursor-not-allowed opacity-60 bg-gray-50 transition-colors"
+                                            >
+                                                <FiLock className="mr-3 text-gray-400 w-4 h-4" />
+                                                Delete Client
+                                            </button>
+                                        )}
                                     </div>
                                 </motion.div>
                             )}
@@ -2796,12 +2874,18 @@ const ViewClients = () => {
                                             </div>
 
                                             <motion.button
-                                                onClick={() => navigate('/client/create')}
-                                                className="px-3 py-2 bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white rounded-lg text-sm font-medium transition-all duration-200 flex items-center gap-2 shadow-sm whitespace-nowrap"
-                                                whileHover={{ scale: 1.05 }}
-                                                whileTap={{ scale: 0.95 }}
+                                                disabled={!check('client_create')}
+                                                onClick={() => check('client_create') && navigate('/client/create')}
+                                                className={`px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200 flex items-center gap-2 shadow-sm whitespace-nowrap ${
+                                                    check('client_create')
+                                                        ? 'bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white'
+                                                        : 'bg-gray-100 border border-gray-200 text-gray-400 cursor-not-allowed opacity-60'
+                                                }`}
+                                                whileHover={check('client_create') ? { scale: 1.05 } : {}}
+                                                whileTap={check('client_create') ? { scale: 0.95 } : {}}
+                                                title={check('client_create') ? 'Add Client' : 'Locked (No permission)'}
                                             >
-                                                <FiUserPlus className="w-4 h-4" />
+                                                {check('client_create') ? <FiUserPlus className="w-4 h-4" /> : <FiLock className="w-4 h-4" />}
                                             </motion.button>
 
                                             <div className="relative dropdown-container">

@@ -13,10 +13,13 @@ import {
     FiBriefcase,
     FiHome,
     FiCreditCard,
-    FiUser
+    FiUser,
+    FiLock
 } from 'react-icons/fi';
+import { useUserPermissions } from '../utils/permission-helper';
 
 const FinanceReport = () => {
+    const { check } = useUserPermissions();
     const [sidebarOpen, setSidebarOpen] = useState(false);
     const [activePage, setActivePage] = useState('finance');
     const [dateRange, setDateRange] = useState('');
@@ -120,6 +123,9 @@ const FinanceReport = () => {
 
     // Format currency
     const formatCurrency = (amount) => {
+        if (!check('finance_balance_view')) {
+            return '₹ *.*';
+        }
         return `₹${Number(amount).toLocaleString('en-IN', { 
             minimumFractionDigits: 2, 
             maximumFractionDigits: 2 
@@ -151,6 +157,36 @@ const FinanceReport = () => {
             </div>
         </div>
     );
+
+    if (!check('finance_report')) {
+        return (
+            <div className="flex h-screen bg-slate-50">
+                <Sidebar
+                    activePage={activePage}
+                    setActivePage={setActivePage}
+                    sidebarOpen={sidebarOpen}
+                    setSidebarOpen={setSidebarOpen}
+                />
+                <div className="flex-1 flex flex-col overflow-hidden">
+                    <Header
+                        setSidebarOpen={setSidebarOpen}
+                        activePage={activePage}
+                        title="Finance Report"
+                        subtitle="View financial reports and analytics"
+                    />
+                    <div className="flex-1 flex items-center justify-center p-6 bg-slate-50">
+                        <div className="text-center p-8 bg-white rounded-2xl border border-slate-200 shadow-sm max-w-sm w-full mx-4">
+                            <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                                <FiLock className="w-8 h-8 text-slate-400" />
+                            </div>
+                            <h3 className="text-lg font-bold text-slate-800 mb-2">Access Denied</h3>
+                            <p className="text-slate-500 text-sm">You need the Finance Report access permission to view this report.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        );
+    }
 
     return (
         <div className="flex h-screen bg-slate-50">

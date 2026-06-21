@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { FiPlus, FiEdit, FiRepeat, FiCalendar, FiDollarSign, FiCheckCircle, FiPauseCircle, FiFilter, FiSearch, FiClock, FiTrendingUp, FiBell, FiRefreshCw } from 'react-icons/fi';
+import { checkPermissionSync } from '../utils/permission-helper';
 
 const RecurringTab = () => {
     const [services, setServices] = useState([
@@ -106,14 +107,16 @@ const RecurringTab = () => {
                     <p className="text-xs sm:text-sm text-slate-600">Automate and manage recurring client services efficiently</p>
                 </div>
                 <div className="flex items-center gap-3">
-                    <motion.button
-                        className="flex items-center justify-center gap-2 px-6 py-3 bg-gradient-to-r from-blue-600 to-indigo-700 text-white rounded-xl hover:shadow-lg hover:shadow-blue-500/25 transition-all duration-300 font-semibold"
-                        whileHover={{ scale: 1.02, y: -2 }}
-                        whileTap={{ scale: 0.98 }}
-                    >
-                        <FiPlus className="w-5 h-5" />
-                        Add Service
-                    </motion.button>
+                    {checkPermissionSync('recurring_task_create') && (
+                        <motion.button
+                            className="flex items-center justify-center gap-2 px-6 py-3 bg-gradient-to-r from-blue-600 to-indigo-700 text-white rounded-xl hover:shadow-lg hover:shadow-blue-500/25 transition-all duration-300 font-semibold"
+                            whileHover={{ scale: 1.02, y: -2 }}
+                            whileTap={{ scale: 0.98 }}
+                        >
+                            <FiPlus className="w-5 h-5" />
+                            Add Service
+                        </motion.button>
+                    )}
                 </div>
             </div>
 
@@ -147,7 +150,7 @@ const RecurringTab = () => {
                     <div className="flex items-center justify-between">
                         <div>
                             <p className="text-xs font-semibold text-slate-600">Monthly Revenue</p>
-                            <p className="text-base font-bold text-slate-800 mt-1">₹{stats.monthlyRevenue.toLocaleString()}</p>
+                            <p className={`text-base font-bold text-slate-800 mt-1 ${!checkPermissionSync('recurring_task_fees_view') ? 'blur-[3.5px] select-none' : ''}`}>₹{stats.monthlyRevenue.toLocaleString()}</p>
                         </div>
                         <div className="w-12 h-12 bg-gradient-to-r from-green-100 to-emerald-100 rounded-xl flex items-center justify-center">
                             <FiTrendingUp className="w-6 h-6 text-green-600" />
@@ -159,7 +162,7 @@ const RecurringTab = () => {
                     <div className="flex items-center justify-between">
                         <div>
                             <p className="text-xs font-semibold text-slate-600">Total Revenue</p>
-                            <p className="text-base font-bold text-slate-800 mt-1">₹{totalRevenue.toLocaleString()}</p>
+                            <p className={`text-base font-bold text-slate-800 mt-1 ${!checkPermissionSync('recurring_task_fees_view') ? 'blur-[3.5px] select-none' : ''}`}>₹{totalRevenue.toLocaleString()}</p>
                         </div>
                         <div className="w-12 h-12 bg-gradient-to-r from-purple-100 to-pink-100 rounded-xl flex items-center justify-center">
                             <FiDollarSign className="w-6 h-6 text-purple-600" />
@@ -252,14 +255,14 @@ const RecurringTab = () => {
                                                 </div>
                                                 <div className="flex items-center gap-2 text-slate-600">
                                                     <FiDollarSign className="w-4 h-4" />
-                                                    <span className="font-medium">Amount: <span className="text-slate-800">₹{parseInt(service.amount).toLocaleString()}</span></span>
+                                                    <span className="font-medium">Amount: <span className={`text-slate-800 ${!checkPermissionSync('recurring_task_fees_view') ? 'blur-[3.5px] select-none' : ''}`}>₹{parseInt(service.amount).toLocaleString()}</span></span>
                                                 </div>
                                             </div>
                                             
                                             <div className="pt-3 border-t border-gray-200">
                                                 <div className="flex justify-between items-center">
                                                     <div className="text-sm text-slate-600">
-                                                        Total Revenue: <span className="font-semibold text-slate-800">₹{parseInt(service.totalRevenue).toLocaleString()}</span>
+                                                        Total Revenue: <span className={`font-semibold text-slate-800 ${!checkPermissionSync('recurring_task_fees_view') ? 'blur-[3.5px] select-none' : ''}`}>₹{parseInt(service.totalRevenue).toLocaleString()}</span>
                                                     </div>
                                                     <div className="text-sm text-slate-600">
                                                         Service {service.status === 'Active' ? 'active' : 'paused'}
@@ -270,28 +273,30 @@ const RecurringTab = () => {
                                     </div>
                                 </div>
                                 
-                                <div className="flex items-center gap-2">
-                                    <motion.button
-                                        onClick={() => toggleService(service.id)}
-                                        className={`px-4 py-2 rounded-xl font-medium text-sm transition-all duration-300 flex items-center gap-2 ${
-                                            service.status === 'Active' 
-                                                ? 'bg-gradient-to-r from-green-500 to-emerald-600 text-white hover:shadow-lg hover:shadow-green-500/25' 
-                                                : 'bg-gradient-to-r from-gray-500 to-slate-600 text-white hover:shadow-lg hover:shadow-gray-500/25'
-                                        }`}
-                                        whileHover={{ scale: 1.05, y: -2 }}
-                                        whileTap={{ scale: 0.95 }}
-                                    >
-                                        {service.status === 'Active' ? <FiCheckCircle className="w-4 h-4" /> : <FiPauseCircle className="w-4 h-4" />}
-                                        {service.status === 'Active' ? 'Deactivate' : 'Activate'}
-                                    </motion.button>
-                                    <motion.button
-                                        className="p-3 bg-gradient-to-r from-blue-50 to-indigo-50 text-blue-600 hover:shadow-md rounded-xl transition-all duration-200"
-                                        whileHover={{ scale: 1.1, rotate: 5 }}
-                                        whileTap={{ scale: 0.9 }}
-                                    >
-                                        <FiEdit className="w-4 h-4" />
-                                    </motion.button>
-                                </div>
+                                {checkPermissionSync('recurring_task_create') && (
+                                    <div className="flex items-center gap-2">
+                                        <motion.button
+                                            onClick={() => toggleService(service.id)}
+                                            className={`px-4 py-2 rounded-xl font-medium text-sm transition-all duration-300 flex items-center gap-2 ${
+                                                service.status === 'Active' 
+                                                    ? 'bg-gradient-to-r from-green-50 to-emerald-50 text-green-700 border border-green-200' 
+                                                    : 'bg-gradient-to-r from-gray-50 to-slate-50 text-slate-700 border border-gray-200'
+                                            }`}
+                                            whileHover={{ scale: 1.05, y: -2 }}
+                                            whileTap={{ scale: 0.95 }}
+                                        >
+                                            {service.status === 'Active' ? <FiCheckCircle className="w-4 h-4" /> : <FiPauseCircle className="w-4 h-4" />}
+                                            {service.status === 'Active' ? 'Deactivate' : 'Activate'}
+                                        </motion.button>
+                                        <motion.button
+                                            className="p-3 bg-gradient-to-r from-blue-50 to-indigo-50 text-blue-600 hover:shadow-md rounded-xl transition-all duration-200"
+                                            whileHover={{ scale: 1.1, rotate: 5 }}
+                                            whileTap={{ scale: 0.9 }}
+                                        >
+                                            <FiEdit className="w-4 h-4" />
+                                        </motion.button>
+                                    </div>
+                                )}
                             </div>
                         </motion.div>
                     ))
@@ -318,22 +323,24 @@ const RecurringTab = () => {
                             </p>
                         </div>
                     </div>
-                    <div className="flex gap-3">
-                        <motion.button
-                            className="px-5 py-2.5 bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-xl hover:shadow-lg hover:shadow-green-500/25 transition-all duration-300 font-semibold"
-                            whileHover={{ scale: 1.05, y: -2 }}
-                            whileTap={{ scale: 0.95 }}
-                        >
-                            Set Reminders
-                        </motion.button>
-                        <motion.button
-                            className="px-5 py-2.5 bg-gradient-to-r from-blue-600 to-indigo-700 text-white rounded-xl hover:shadow-lg hover:shadow-blue-500/25 transition-all duration-300 font-semibold"
-                            whileHover={{ scale: 1.05, y: -2 }}
-                            whileTap={{ scale: 0.95 }}
-                        >
-                            View Calendar
-                        </motion.button>
-                    </div>
+                    {checkPermissionSync('recurring_task_create') && (
+                        <div className="flex gap-3">
+                            <motion.button
+                                className="px-5 py-2.5 bg-gradient-to-r from-green-50 to-emerald-50 text-green-700 border border-green-200 rounded-xl hover:shadow-lg hover:shadow-green-500/25 transition-all duration-300 font-semibold"
+                                whileHover={{ scale: 1.05, y: -2 }}
+                                whileTap={{ scale: 0.95 }}
+                            >
+                                Set Reminders
+                            </motion.button>
+                            <motion.button
+                                className="px-5 py-2.5 bg-gradient-to-r from-blue-600 to-indigo-700 text-white rounded-xl hover:shadow-lg hover:shadow-blue-500/25 transition-all duration-300 font-semibold"
+                                whileHover={{ scale: 1.05, y: -2 }}
+                                whileTap={{ scale: 0.95 }}
+                            >
+                                View Calendar
+                            </motion.button>
+                        </div>
+                    )}
                 </div>
             </div>
 
@@ -383,7 +390,7 @@ const RecurringTab = () => {
                                 <div key={index} className="space-y-1">
                                     <div className="flex justify-between items-center">
                                         <span className="text-slate-700">{category}</span>
-                                        <span className="font-semibold text-slate-800">₹{categoryRevenue.toLocaleString()}</span>
+                                        <span className={`font-semibold text-slate-800 ${!checkPermissionSync('recurring_task_fees_view') ? 'blur-[3.5px] select-none' : ''}`}>₹{categoryRevenue.toLocaleString()}</span>
                                     </div>
                                     <div className="w-full bg-gray-200 rounded-full h-2">
                                         <div 
@@ -427,15 +434,15 @@ const RecurringTab = () => {
                     
                     <div className="p-4 bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 rounded-xl">
                         <div className="text-sm text-slate-600">Monthly Recurring Revenue</div>
-                        <div className="text-base font-bold text-slate-800">₹{stats.monthlyRevenue.toLocaleString()}</div>
+                        <div className={`text-base font-bold text-slate-800 ${!checkPermissionSync('recurring_task_fees_view') ? 'blur-[3.5px] select-none' : ''}`}>₹{stats.monthlyRevenue.toLocaleString()}</div>
                         <div className="text-xs text-slate-500 mt-1">
-                            Projected annual: ₹{(stats.monthlyRevenue * 12).toLocaleString()}
+                            Projected annual: <span className={!checkPermissionSync('recurring_task_fees_view') ? 'blur-[3.5px] select-none' : ''}>₹{(stats.monthlyRevenue * 12).toLocaleString()}</span>
                         </div>
                     </div>
                     
                     <div className="p-4 bg-gradient-to-r from-purple-50 to-pink-50 border border-purple-200 rounded-xl">
                         <div className="text-sm text-slate-600">Average Service Value</div>
-                        <div className="text-base font-bold text-slate-800">
+                        <div className={`text-base font-bold text-slate-800 ${!checkPermissionSync('recurring_task_fees_view') ? 'blur-[3.5px] select-none' : ''}`}>
                             ₹{Math.round(totalRevenue / services.length).toLocaleString()}
                         </div>
                         <div className="text-xs text-slate-500 mt-1">

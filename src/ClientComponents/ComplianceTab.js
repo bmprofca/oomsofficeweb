@@ -13,6 +13,7 @@ import { toast } from 'react-hot-toast';
 import getHeaders from '../utils/get-headers';
 import API_BASE_URL from '../utils/api-controller';
 import AssignedStaffList from '../components/Modals/AssignedStaffList';
+import { checkPermissionSync } from '../utils/permission-helper';
 
 /* ─── Helpers ────────────────────────────────────────────────────── */
 const getRequiredFieldsForService = (service) => {
@@ -805,7 +806,9 @@ const ComplianceTab = ({ clientUsername }) => {
         e.preventDefault();
         if (!editAssignment) return;
 
-        if (!editForm.custom_amount || isNaN(parseFloat(editForm.custom_amount))) {
+        const hasFeesPerm = checkPermissionSync('recurring_task_fees_view');
+        const customAmountToValidate = hasFeesPerm ? editForm.custom_amount : '0';
+        if (!customAmountToValidate || isNaN(parseFloat(customAmountToValidate))) {
             toast.error('Please enter a valid custom fees amount');
             return;
         }
@@ -817,7 +820,7 @@ const ComplianceTab = ({ clientUsername }) => {
         setSubmittingEdit(true);
         try {
             const payload = {
-                custom_amount: parseFloat(editForm.custom_amount),
+                custom_amount: hasFeesPerm ? parseFloat(editForm.custom_amount) : (editAssignment.custom_amount || 0),
                 employee_username: editForm.employee_usernames.join(','),
                 status: editForm.status
             };
@@ -1063,8 +1066,10 @@ const ComplianceTab = ({ clientUsername }) => {
             toast.error('Please select at least one firm');
             return;
         }
-        if (!assignForm.service_id || !assignForm.custom_amount || (!assignForm.employee_usernames || assignForm.employee_usernames.length === 0)) {
-            toast.error('Please fill in all required fields (Service, Custom Fees, and Assigned Staff)');
+        const hasFeesPerm = checkPermissionSync('recurring_task_fees_view');
+        const customAmountToValidate = hasFeesPerm ? assignForm.custom_amount : '0';
+        if (!assignForm.service_id || !customAmountToValidate || (!assignForm.employee_usernames || assignForm.employee_usernames.length === 0)) {
+            toast.error(hasFeesPerm ? 'Please fill in all required fields (Service, Custom Fees, and Assigned Staff)' : 'Please fill in all required fields (Service and Assigned Staff)');
             return;
         }
 
@@ -1087,7 +1092,7 @@ const ComplianceTab = ({ clientUsername }) => {
                 financial_year: assignForm.financial_year,
                 employee_username: assignForm.employee_usernames,
                 employee_id: assignForm.employee_usernames,
-                custom_amount: parseFloat(assignForm.custom_amount),
+                custom_amount: hasFeesPerm ? parseFloat(assignForm.custom_amount) : 0,
                 custom_fields: assignForm.custom_fields || {}
             };
             if (isSingle) {
@@ -1183,7 +1188,9 @@ const ComplianceTab = ({ clientUsername }) => {
             return;
         }
 
-        if (!statusForm.amount || isNaN(parseFloat(statusForm.amount))) {
+        const hasFeesPerm = checkPermissionSync('recurring_task_fees_view');
+        const statusAmountToValidate = hasFeesPerm ? statusForm.amount : '0';
+        if (!statusAmountToValidate || isNaN(parseFloat(statusAmountToValidate))) {
             toast.error('Please enter a valid amount');
             return;
         }
@@ -1193,7 +1200,7 @@ const ComplianceTab = ({ clientUsername }) => {
             const res = await axios.post(`${API_BASE_URL}/recurring-task/update-period-status`, {
                 schedule_id: selectedPeriod.schedule_id,
                 status: statusForm.status,
-                amount: parseFloat(statusForm.amount)
+                amount: hasFeesPerm ? parseFloat(statusForm.amount) : (selectedPeriod.amount || 0)
             }, {
                 headers: getHeaders()
             });
@@ -1273,7 +1280,7 @@ const ComplianceTab = ({ clientUsername }) => {
 
         const assignedStaffs = getAssignedStaffList(assign);
         const assignedStaffUsernames = assignedStaffs.map(emp => (emp.username || '').toLowerCase().trim());
-        const isUpdatePermitted = !currentUsername || assignedStaffUsernames.length === 0 || assignedStaffUsernames.includes(currentUsername);
+        const isUpdatePermitted = (!currentUsername || assignedStaffUsernames.length === 0 || assignedStaffUsernames.includes(currentUsername)) && checkPermissionSync('recurring_task_complete');
         const isComplete = st === 'Complete' || st === 'Sale';
         const shortDueDate = dueDateText === '—' ? '' : dueDateText.split(' ').slice(0, 2).join(' ');
         const canUpdate = isUpdatePermitted && (isPeriodDueDateActive(period) || isComplete);
@@ -1292,9 +1299,11 @@ const ComplianceTab = ({ clientUsername }) => {
                         title={
                             canUpdate
                                 ? (showDirectDueDate ? `Due Date: ${dueDateText}` : `Status: ${period.status}`)
-                                : !isUpdatePermitted
-                                    ? `Restricted (Only assigned staff: ${assignedStaffs.map(e => e.name || e.username).join(', ')})`
-                                    : `Only the currently running due date (${dueDateText}) can be updated`
+                                : !checkPermissionSync('recurring_task_complete')
+                                    ? 'Locked (No permission to complete tasks)'
+                                    : !isUpdatePermitted
+                                        ? `Restricted (Only assigned staff: ${assignedStaffs.map(e => e.name || e.username).join(', ')})`
+                                        : `Only the currently running due date (${dueDateText}) can be updated`
                         }
                     >
                         <span className="px-1.5 h-full flex items-center justify-center flex-grow text-center">
@@ -1448,44 +1457,50 @@ const ComplianceTab = ({ clientUsername }) => {
                                                                         Invoice
                                                                     </button>
                                                                 )}
-                                                                <button
-                                                                    type="button"
-                                                                    onClick={(e) => {
-                                                                        e.stopPropagation();
-                                                                        openEditModal(assign);
-                                                                        setActiveDropdownId(null);
-                                                                    }}
-                                                                    className="flex items-center w-full px-3 py-2 text-xs text-slate-700 hover:bg-indigo-50 transition-colors"
-                                                                >
-                                                                    <FiEdit2 className="w-3.5 h-3.5 text-slate-400 mr-2" />
-                                                                    Edit
-                                                                </button>
-                                                                {getRequiredFieldsForService(assign).length > 0 && (
+                                                                {checkPermissionSync('recurring_task_create') && (
+                                                                    <>
+                                                                        <button
+                                                                            type="button"
+                                                                            onClick={(e) => {
+                                                                                e.stopPropagation();
+                                                                                openEditModal(assign);
+                                                                                setActiveDropdownId(null);
+                                                                            }}
+                                                                            className="flex items-center w-full px-3 py-2 text-xs text-slate-700 hover:bg-indigo-50 transition-colors"
+                                                                        >
+                                                                            <FiEdit2 className="w-3.5 h-3.5 text-slate-400 mr-2" />
+                                                                            Edit
+                                                                        </button>
+                                                                        {getRequiredFieldsForService(assign).length > 0 && (
+                                                                            <button
+                                                                                type="button"
+                                                                                onClick={(e) => {
+                                                                                    e.stopPropagation();
+                                                                                    openCredentialsModal(assign);
+                                                                                    setActiveDropdownId(null);
+                                                                                }}
+                                                                                className="flex items-center w-full px-3 py-2 text-xs text-slate-700 hover:bg-indigo-50 transition-colors"
+                                                                            >
+                                                                                <FiLock className="w-3.5 h-3.5 text-slate-400 mr-2" />
+                                                                                Credentials
+                                                                            </button>
+                                                                        )}
+                                                                    </>
+                                                                )}
+                                                                {checkPermissionSync('recurring_task_delete') && (
                                                                     <button
                                                                         type="button"
                                                                         onClick={(e) => {
                                                                             e.stopPropagation();
-                                                                            openCredentialsModal(assign);
+                                                                            setConfirmDeleteId(assign.assignment_id);
                                                                             setActiveDropdownId(null);
                                                                         }}
                                                                         className="flex items-center w-full px-3 py-2 text-xs text-slate-700 hover:bg-indigo-50 transition-colors"
                                                                     >
-                                                                        <FiLock className="w-3.5 h-3.5 text-slate-400 mr-2" />
-                                                                        Credentials
+                                                                        <FiTrash2 className="w-3.5 h-3.5 text-slate-400 mr-2" />
+                                                                        Delete
                                                                     </button>
                                                                 )}
-                                                                <button
-                                                                    type="button"
-                                                                    onClick={(e) => {
-                                                                        e.stopPropagation();
-                                                                        setConfirmDeleteId(assign.assignment_id);
-                                                                        setActiveDropdownId(null);
-                                                                    }}
-                                                                    className="flex items-center w-full px-3 py-2 text-xs text-slate-700 hover:bg-indigo-50 transition-colors"
-                                                                >
-                                                                    <FiTrash2 className="w-3.5 h-3.5 text-slate-400 mr-2" />
-                                                                    Delete
-                                                                </button>
                                                                 <button
                                                                     type="button"
                                                                     onClick={(e) => {
@@ -1654,7 +1669,9 @@ const ComplianceTab = ({ clientUsername }) => {
                                         {assign.ca?.name || '—'}
                                     </td>
                                     <td className="px-4 py-3 font-bold text-slate-700 text-xs">
-                                        ₹{formatCurrency(assign.custom_amount)}
+                                        <span className={!checkPermissionSync('recurring_task_fees_view') ? 'blur-[3.5px] select-none' : ''}>
+                                            ₹{formatCurrency(assign.custom_amount)}
+                                        </span>
                                     </td>
                                     <td className="px-4 py-3 text-xs">
                                         {(() => {
@@ -1712,44 +1729,50 @@ const ComplianceTab = ({ clientUsername }) => {
                                                                         Invoice
                                                                     </button>
                                                                 )}
-                                                                <button
-                                                                    type="button"
-                                                                    onClick={(e) => {
-                                                                        e.stopPropagation();
-                                                                        openEditModal(assign);
-                                                                        setActiveDropdownId(null);
-                                                                    }}
-                                                                    className="flex items-center w-full px-3 py-2 text-xs text-slate-700 hover:bg-indigo-50 transition-colors"
-                                                                >
-                                                                    <FiEdit2 className="w-3.5 h-3.5 text-slate-400 mr-2" />
-                                                                    Edit
-                                                                </button>
-                                                                {getRequiredFieldsForService(assign).length > 0 && (
+                                                                {checkPermissionSync('recurring_task_create') && (
+                                                                    <>
+                                                                        <button
+                                                                            type="button"
+                                                                            onClick={(e) => {
+                                                                                e.stopPropagation();
+                                                                                openEditModal(assign);
+                                                                                setActiveDropdownId(null);
+                                                                            }}
+                                                                            className="flex items-center w-full px-3 py-2 text-xs text-slate-700 hover:bg-indigo-50 transition-colors"
+                                                                        >
+                                                                            <FiEdit2 className="w-3.5 h-3.5 text-slate-400 mr-2" />
+                                                                            Edit
+                                                                        </button>
+                                                                        {getRequiredFieldsForService(assign).length > 0 && (
+                                                                            <button
+                                                                                type="button"
+                                                                                onClick={(e) => {
+                                                                                    e.stopPropagation();
+                                                                                    openCredentialsModal(assign);
+                                                                                    setActiveDropdownId(null);
+                                                                                }}
+                                                                                className="flex items-center w-full px-3 py-2 text-xs text-slate-700 hover:bg-indigo-50 transition-colors"
+                                                                            >
+                                                                                <FiLock className="w-3.5 h-3.5 text-slate-400 mr-2" />
+                                                                                Credentials
+                                                                            </button>
+                                                                        )}
+                                                                    </>
+                                                                )}
+                                                                {checkPermissionSync('recurring_task_delete') && (
                                                                     <button
                                                                         type="button"
                                                                         onClick={(e) => {
                                                                             e.stopPropagation();
-                                                                            openCredentialsModal(assign);
+                                                                            setConfirmDeleteId(assign.assignment_id);
                                                                             setActiveDropdownId(null);
                                                                         }}
                                                                         className="flex items-center w-full px-3 py-2 text-xs text-slate-700 hover:bg-indigo-50 transition-colors"
                                                                     >
-                                                                        <FiLock className="w-3.5 h-3.5 text-slate-400 mr-2" />
-                                                                        Credentials
+                                                                        <FiTrash2 className="w-3.5 h-3.5 text-slate-400 mr-2" />
+                                                                        Delete
                                                                     </button>
                                                                 )}
-                                                                <button
-                                                                    type="button"
-                                                                    onClick={(e) => {
-                                                                        e.stopPropagation();
-                                                                        setConfirmDeleteId(assign.assignment_id);
-                                                                        setActiveDropdownId(null);
-                                                                    }}
-                                                                    className="flex items-center w-full px-3 py-2 text-xs text-slate-700 hover:bg-indigo-50 transition-colors"
-                                                                >
-                                                                    <FiTrash2 className="w-3.5 h-3.5 text-slate-400 mr-2" />
-                                                                    Delete
-                                                                </button>
                                                                 <button
                                                                     type="button"
                                                                     onClick={(e) => {
@@ -1860,7 +1883,7 @@ const ComplianceTab = ({ clientUsername }) => {
                                                                 return filteredSchedules.map((period) => {
                                                                     const assignedStaffs = getAssignedStaffList(assign);
                                                                     const assignedStaffUsernames = assignedStaffs.map(emp => (emp.username || '').toLowerCase().trim());
-                                                                    const isUpdatePermitted = !currentUsername || assignedStaffUsernames.length === 0 || assignedStaffUsernames.includes(currentUsername);
+                                                                    const isUpdatePermitted = (!currentUsername || assignedStaffUsernames.length === 0 || assignedStaffUsernames.includes(currentUsername)) && checkPermissionSync('recurring_task_complete');
                                                                     const isComplete = period.status === 'Complete' || period.status === 'Sale';
                                                                     const canUpdate = isUpdatePermitted && (isPeriodDueDateActive(period) || isComplete);
 
@@ -1879,9 +1902,11 @@ const ComplianceTab = ({ clientUsername }) => {
                                                                             title={
                                                                                 canUpdate
                                                                                     ? undefined
-                                                                                    : !isUpdatePermitted
-                                                                                        ? `Restricted (Only assigned staff: ${assignedStaffs.map(e => e.name || e.username).join(', ')})`
-                                                                                        : `Only the currently running due date (${getPeriodDueDate(period)}) can be updated`
+                                                                                    : !checkPermissionSync('recurring_task_complete')
+                                                                                        ? 'Locked (No permission to complete tasks)'
+                                                                                        : !isUpdatePermitted
+                                                                                            ? `Restricted (Only assigned staff: ${assignedStaffs.map(e => e.name || e.username).join(', ')})`
+                                                                                            : `Only the currently running due date (${getPeriodDueDate(period)}) can be updated`
                                                                             }
                                                                         >
                                                                             <div className="flex items-start justify-between gap-1.5">
@@ -1893,8 +1918,7 @@ const ComplianceTab = ({ clientUsername }) => {
                                                                                     }`} />
                                                                             </div>
                                                                             <div className="mt-2 space-y-1">
-                                                                                <span className={`text-[10px] font-black block ${isUpdatePermitted ? "text-slate-800" : "text-slate-400"
-                                                                                    }`}>
+                                                                                <span className={`text-[10px] font-black block ${isUpdatePermitted ? "text-slate-800" : "text-slate-400"} ${!checkPermissionSync('recurring_task_fees_view') ? 'blur-[3.5px] select-none' : ''}`}>
                                                                                     ₹{formatCurrency(period.amount)}
                                                                                 </span>
                                                                                 <span className={`inline-flex px-1.5 py-0.5 rounded text-[8px] font-bold border uppercase tracking-wider ${isUpdatePermitted
@@ -1955,15 +1979,17 @@ const ComplianceTab = ({ clientUsername }) => {
                     >
                         <FiRefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
                     </button>
-                    <motion.button
-                        onClick={handleOpenAssignModal}
-                        className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-5 py-2.5 bg-gradient-to-r from-indigo-600 to-violet-600 text-white rounded-xl shadow-md hover:shadow-lg transition-all text-xs font-semibold"
-                        whileHover={{ scale: 1.02, y: -1 }}
-                        whileTap={{ scale: 0.98 }}
-                    >
-                        <FiPlus className="w-4 h-4" />
-                        Assign Recurring Task
-                    </motion.button>
+                    {checkPermissionSync('recurring_task_create') && (
+                        <motion.button
+                            onClick={handleOpenAssignModal}
+                            className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-5 py-2.5 bg-gradient-to-r from-indigo-600 to-violet-600 text-white rounded-xl shadow-md hover:shadow-lg transition-all text-xs font-semibold"
+                            whileHover={{ scale: 1.02, y: -1 }}
+                            whileTap={{ scale: 0.98 }}
+                        >
+                            <FiPlus className="w-4 h-4" />
+                            Assign Recurring Task
+                        </motion.button>
+                    )}
                 </div>
             </div>
 
@@ -2126,7 +2152,9 @@ const ComplianceTab = ({ clientUsername }) => {
                                                     </span>
                                                 </td>
                                                 <td className="px-4 py-3 font-bold text-slate-700 text-xs">
-                                                    ₹{formatCurrency(hist.amount)}
+                                                    <span className={!checkPermissionSync('recurring_task_fees_view') ? 'blur-[3.5px] select-none' : ''}>
+                                                        ₹{formatCurrency(hist.amount)}
+                                                    </span>
                                                 </td>
                                                 <td className="px-4 py-3 text-slate-700 text-xs font-mono">
                                                     {hist.status === 'Sale' && hist.invoice_no ? (
@@ -2192,18 +2220,20 @@ const ComplianceTab = ({ clientUsername }) => {
                                                                                 Invoice
                                                                             </button>
                                                                         )}
-                                                                        <button
-                                                                            type="button"
-                                                                            onClick={(e) => {
-                                                                                e.stopPropagation();
-                                                                                setConfirmDeleteId(hist.assignment_id);
-                                                                                setActiveDropdownId(null);
-                                                                            }}
-                                                                            className="flex items-center w-full px-3 py-2 text-xs text-rose-600 hover:bg-rose-50 transition-colors"
-                                                                        >
-                                                                            <FiTrash2 className="w-3.5 h-3.5 text-rose-400 mr-2" />
-                                                                            Delete
-                                                                        </button>
+                                                                        {checkPermissionSync('recurring_task_delete') && (
+                                                                            <button
+                                                                                type="button"
+                                                                                onClick={(e) => {
+                                                                                    e.stopPropagation();
+                                                                                    setConfirmDeleteId(hist.assignment_id);
+                                                                                    setActiveDropdownId(null);
+                                                                                }}
+                                                                                className="flex items-center w-full px-3 py-2 text-xs text-rose-600 hover:bg-rose-50 transition-colors"
+                                                                            >
+                                                                                <FiTrash2 className="w-3.5 h-3.5 text-rose-400 mr-2" />
+                                                                                Delete
+                                                                            </button>
+                                                                        )}
                                                                     </div>
                                                                 </motion.div>
                                                             )}
@@ -2342,10 +2372,28 @@ const ComplianceTab = ({ clientUsername }) => {
                                         >
                                             <option value="">Select recurring task template…</option>
                                             {globalServices.map(s => (
-                                                <option key={s.id} value={s.service_id}>{s.name} (₹{formatCurrency(s.default_amount)})</option>
+                                                <option key={s.id} value={s.service_id}>
+                                                    {s.name} {checkPermissionSync('recurring_task_fees_view') ? `(₹${formatCurrency(s.default_amount)})` : '(₹----)'}
+                                                </option>
                                             ))}
                                         </select>
                                     </div>
+
+                                    {/* Custom Amount */}
+                                    {checkPermissionSync('recurring_task_fees_view') && (
+                                        <div className="space-y-1">
+                                            <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Custom Fees Amount (₹) *</label>
+                                            <input
+                                                type="number"
+                                                step="0.01"
+                                                placeholder="0.00"
+                                                value={assignForm.custom_amount}
+                                                onChange={(e) => setAssignForm(prev => ({ ...prev, custom_amount: e.target.value }))}
+                                                className="w-full px-3 py-2.5 text-xs text-slate-700 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none bg-white"
+                                                required
+                                            />
+                                        </div>
+                                    )}
 
                                     {/* pay_from_month (for monthly frequency only) */}
                                     {(() => {
@@ -2426,20 +2474,6 @@ const ComplianceTab = ({ clientUsername }) => {
                                             <option value="2029-2030">2029-2030</option>
                                             <option value="2030-2031">2030-2031</option>
                                         </select>
-                                    </div>
-
-                                    {/* Custom Amount */}
-                                    <div className="space-y-1">
-                                        <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Custom Fees Amount (₹) *</label>
-                                        <input
-                                            type="number"
-                                            step="0.01"
-                                            placeholder="0.00"
-                                            value={assignForm.custom_amount}
-                                            onChange={(e) => setAssignForm(prev => ({ ...prev, custom_amount: e.target.value }))}
-                                            className="w-full px-3 py-2.5 text-xs text-slate-700 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none bg-white"
-                                            required
-                                        />
                                     </div>
 
                                     {/* Dynamic Required Credentials Inputs */}
@@ -2662,7 +2696,7 @@ const ComplianceTab = ({ clientUsername }) => {
                                         disabled={
                                             submittingAssign ||
                                             !assignForm.service_id ||
-                                            !assignForm.custom_amount ||
+                                            (!checkPermissionSync('recurring_task_fees_view') ? false : !assignForm.custom_amount) ||
                                             (!assignForm.employee_usernames || assignForm.employee_usernames.length === 0) ||
                                             (assignForm.targetType === 'single' && !assignForm.firm_id) ||
                                             (assignForm.targetType === 'multiple' && (!assignForm.firms || assignForm.firms.length === 0))
@@ -2685,7 +2719,7 @@ const ComplianceTab = ({ clientUsername }) => {
                     const currentUsername = (localStorage.getItem('user_username') || '').toLowerCase().trim();
                     const assignedStaffs = getAssignedStaffList(selectedPeriodAssign || selectedPeriod);
                     const assignedStaffUsernames = assignedStaffs.map(emp => (emp.username || '').toLowerCase().trim());
-                    const isUpdatePermitted = !currentUsername || assignedStaffUsernames.length === 0 || assignedStaffUsernames.includes(currentUsername);
+                    const isUpdatePermitted = (!currentUsername || assignedStaffUsernames.length === 0 || assignedStaffUsernames.includes(currentUsername)) && checkPermissionSync('recurring_task_complete');
 
                     return (
                         <div className="fixed inset-0 z-[200] flex items-start justify-center overflow-hidden overscroll-none p-3 sm:p-4 pointer-events-none">
@@ -2782,18 +2816,20 @@ const ComplianceTab = ({ clientUsername }) => {
                                         </div>
 
                                         {/* Amount Field */}
-                                        <div className="space-y-1">
-                                            <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Fees Amount (₹) *</label>
-                                            <input
-                                                type="number"
-                                                step="0.01"
-                                                value={statusForm.amount}
-                                                disabled={!isUpdatePermitted}
-                                                onChange={(e) => setStatusForm(prev => ({ ...prev, amount: e.target.value }))}
-                                                placeholder="0.00"
-                                                className="w-full px-3 py-2.5 text-xs text-slate-700 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none bg-white disabled:opacity-60 disabled:cursor-not-allowed"
-                                            />
-                                        </div>
+                                        {checkPermissionSync('recurring_task_fees_view') && (
+                                            <div className="space-y-1">
+                                                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Fees Amount (₹) *</label>
+                                                <input
+                                                    type="number"
+                                                    step="0.01"
+                                                    value={statusForm.amount}
+                                                    disabled={!isUpdatePermitted}
+                                                    onChange={(e) => setStatusForm(prev => ({ ...prev, amount: e.target.value }))}
+                                                    placeholder="0.00"
+                                                    className="w-full px-3 py-2.5 text-xs text-slate-700 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none bg-white disabled:opacity-60 disabled:cursor-not-allowed"
+                                                />
+                                            </div>
+                                        )}
 
                                         {/* Ledger notice info */}
                                         {statusForm.status === 'Complete' && (
@@ -2948,17 +2984,19 @@ const ComplianceTab = ({ clientUsername }) => {
                                         style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
                                     >
                                         {/* Custom Amount */}
-                                        <div className="space-y-1">
-                                            <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Custom Fees Amount (₹) *</label>
-                                            <input
-                                                type="number"
-                                                step="0.01"
-                                                placeholder="0.00"
-                                                value={editForm.custom_amount}
-                                                onChange={(e) => setEditForm(prev => ({ ...prev, custom_amount: e.target.value }))}
-                                                className="w-full px-3 py-2.5 text-xs text-slate-700 border border-slate-200 rounded-xl focus:ring-2 focus:ring-violet-500 focus:border-transparent outline-none bg-white"
-                                            />
-                                        </div>
+                                        {checkPermissionSync('recurring_task_fees_view') && (
+                                            <div className="space-y-1">
+                                                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Custom Fees Amount (₹) *</label>
+                                                <input
+                                                    type="number"
+                                                    step="0.01"
+                                                    placeholder="0.00"
+                                                    value={editForm.custom_amount}
+                                                    onChange={(e) => setEditForm(prev => ({ ...prev, custom_amount: e.target.value }))}
+                                                    className="w-full px-3 py-2.5 text-xs text-slate-700 border border-slate-200 rounded-xl focus:ring-2 focus:ring-violet-500 focus:border-transparent outline-none bg-white"
+                                                />
+                                            </div>
+                                        )}
 
                                         {/* Pay From Month (monthly only) */}
                                         {editFreq === 'monthly' && (
@@ -3202,7 +3240,7 @@ const ComplianceTab = ({ clientUsername }) => {
                                             type="submit"
                                             disabled={
                                                 submittingEdit ||
-                                                !editForm.custom_amount ||
+                                                (!checkPermissionSync('recurring_task_fees_view') ? false : !editForm.custom_amount) ||
                                                 (!editForm.employee_usernames || editForm.employee_usernames.length === 0)
                                             }
                                             className="flex-1 py-2.5 text-xs font-semibold text-white bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-700 hover:to-indigo-700 rounded-xl disabled:opacity-50 transition-colors flex items-center justify-center gap-1.5"
@@ -3399,7 +3437,7 @@ const ComplianceTab = ({ clientUsername }) => {
                                             {schedules.map((period) => {
                                                 const assignedStaffs = getAssignedStaffList(fullCalendarAssignment);
                                                 const assignedStaffUsernames = assignedStaffs.map(emp => (emp.username || '').toLowerCase().trim());
-                                                const isUpdatePermitted = !currentUsername || assignedStaffUsernames.length === 0 || assignedStaffUsernames.includes(currentUsername);
+                                                const isUpdatePermitted = (!currentUsername || assignedStaffUsernames.length === 0 || assignedStaffUsernames.includes(currentUsername)) && checkPermissionSync('recurring_task_complete');
                                                 const isComplete = period.status === 'Complete' || period.status === 'Sale';
 
                                                 return (
@@ -3415,11 +3453,13 @@ const ComplianceTab = ({ clientUsername }) => {
                                                         title={
                                                             isComplete
                                                                 ? `Completed — record locked`
-                                                                : !isPeriodDueDateActive(period)
-                                                                    ? `Only the currently running due date (${getPeriodDueDate(period)}) can be updated`
-                                                                    : isUpdatePermitted
-                                                                        ? undefined
-                                                                        : `Restricted (Only assigned staff: ${assignedStaffs.map(e => e.name || e.username).join(', ')})`
+                                                                : !checkPermissionSync('recurring_task_complete')
+                                                                    ? 'Locked (No permission to complete tasks)'
+                                                                    : !isPeriodDueDateActive(period)
+                                                                        ? `Only the currently running due date (${getPeriodDueDate(period)}) can be updated`
+                                                                        : isUpdatePermitted
+                                                                            ? undefined
+                                                                            : `Restricted (Only assigned staff: ${assignedStaffs.map(e => e.name || e.username).join(', ')})`
                                                         }
                                                     >
                                                         <div className="flex items-start justify-between gap-1">
@@ -3429,7 +3469,7 @@ const ComplianceTab = ({ clientUsername }) => {
                                                             <FiInfo className="w-3.5 h-3.5 text-slate-300 group-hover:text-indigo-400 shrink-0" />
                                                         </div>
                                                         <div className="mt-3 space-y-2">
-                                                            <span className="text-xs font-extrabold text-slate-850 block">
+                                                            <span className={`text-xs font-extrabold text-slate-850 block ${!checkPermissionSync('recurring_task_fees_view') ? 'blur-[3.5px] select-none' : ''}`}>
                                                                 ₹{formatCurrency(period.amount)}
                                                             </span>
                                                             <div className="flex items-center justify-between gap-2">

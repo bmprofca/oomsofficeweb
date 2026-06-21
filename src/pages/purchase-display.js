@@ -17,7 +17,8 @@ import {
     FiX,
     FiCheckCircle,
     FiAlertCircle,
-    FiInfo
+    FiInfo,
+    FiLock
 } from 'react-icons/fi';
 import { PiExportBold } from "react-icons/pi";
 import { PiFilePdfDuotone, PiMicrosoftExcelLogoDuotone } from "react-icons/pi";
@@ -34,6 +35,7 @@ import TablePagination from '../components/TablePagination';
 import API_BASE_URL from '../utils/api-controller';
 import getHeaders from '../utils/get-headers';
 import toast from 'react-hot-toast';
+import { useUserPermissions } from '../utils/permission-helper';
 
 // Inline Export Modal Component
 const InlineExportModal = ({ isOpen, onClose, exportData, columns, jobType }) => {
@@ -252,6 +254,7 @@ const InlineExportModal = ({ isOpen, onClose, exportData, columns, jobType }) =>
 };
 
 const ViewPurchase = () => {
+    const { check } = useUserPermissions();
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
     const [isMinimized, setIsMinimized] = useState(() => {
         const saved = localStorage.getItem('sidebarMinimized');
@@ -405,6 +408,9 @@ const ViewPurchase = () => {
 
     // Format currency
     const formatCurrency = (amount) => {
+        if (!check('finance_balance_view')) {
+            return '*.*';
+        }
         return new Intl.NumberFormat('en-IN', {
             minimumFractionDigits: 2,
             maximumFractionDigits: 2
@@ -635,6 +641,24 @@ const ViewPurchase = () => {
         return <SkeletonLoader />;
     }
 
+    if (!check('finance_report')) {
+        return (
+            <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
+                <Header mobileMenuOpen={mobileMenuOpen} setMobileMenuOpen={setMobileMenuOpen} isMinimized={isMinimized} setIsMinimized={setIsMinimized} />
+                <Sidebar mobileMenuOpen={mobileMenuOpen} setMobileMenuOpen={setMobileMenuOpen} isMinimized={isMinimized} setIsMinimized={setIsMinimized} />
+                <div className={`pt-16 flex items-center justify-center transition-all duration-300 h-[calc(100vh-4rem)] ${isMinimized ? 'md:pl-20' : 'md:pl-[260px]'}`}>
+                    <div className="text-center p-8 bg-white rounded-2xl border border-slate-200 shadow-sm max-w-sm w-full mx-4">
+                        <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                            <FiLock className="w-8 h-8 text-slate-400" />
+                        </div>
+                        <h3 className="text-lg font-bold text-slate-800 mb-2">Access Denied</h3>
+                        <p className="text-slate-500 text-sm">You need the Finance Report access permission to view this report.</p>
+                    </div>
+                </div>
+            </div>
+        );
+    }
+
     return (
         <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
             <Header mobileMenuOpen={mobileMenuOpen} setMobileMenuOpen={setMobileMenuOpen} isMinimized={isMinimized} setIsMinimized={setIsMinimized} />
@@ -713,8 +737,16 @@ const ViewPurchase = () => {
                                         </AnimatePresence>
                                     </div>
 
-                                    <motion.button type="button" onClick={() => setPurchaseFormModal(true)} className="mr-2 inline-flex h-9 shrink-0 items-center justify-center gap-1.5 rounded-lg bg-gradient-to-r from-emerald-600 to-emerald-700 px-2.5 text-xs font-semibold text-white shadow-sm transition-all duration-200 hover:from-emerald-700 hover:to-emerald-800 hover:shadow sm:mr-3 sm:h-10 sm:px-3" whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
-                                        <FiPlus className="h-4 w-4 shrink-0" /><span className="whitespace-nowrap">Create</span>
+                                    <motion.button type="button" onClick={() => {
+                                        if (!check('finance_entry')) {
+                                            toast.error('Need Access Permission');
+                                        } else {
+                                            setPurchaseFormModal(true);
+                                        }
+                                    }} className={`mr-2 inline-flex h-9 shrink-0 items-center justify-center gap-1.5 rounded-lg bg-gradient-to-r from-emerald-600 to-emerald-700 px-2.5 text-xs font-semibold text-white shadow-sm transition-all duration-200 hover:from-emerald-700 hover:to-emerald-800 hover:shadow sm:mr-3 sm:h-10 sm:px-3 ${
+                                        !check('finance_entry') ? 'opacity-60 cursor-not-allowed hover:from-emerald-600 hover:to-emerald-700' : ''
+                                    }`} whileHover={check('finance_entry') ? { scale: 1.02 } : {}} whileTap={check('finance_entry') ? { scale: 0.98 } : {}}>
+                                        {!check('finance_entry') ? <FiLock className="h-4 w-4 shrink-0" /> : <FiPlus className="h-4 w-4 shrink-0" />}<span className="whitespace-nowrap">Create</span>
                                     </motion.button>
                                 </div>
                             </div>
@@ -787,8 +819,27 @@ const ViewPurchase = () => {
                                                                 {isDropdownOpen && (
                                                                     <motion.div initial={{ opacity: 0, y: 5 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 5 }} className="absolute right-0 mt-1 w-48 bg-white rounded-lg shadow-xl border border-slate-200 z-50 overflow-hidden">
                                                                         <div className="py-1">
-                                                                            <a href={editLink} className="flex items-center w-full px-3 py-2 text-xs text-slate-700 hover:bg-blue-50 transition-colors duration-150" onClick={() => setActiveRowDropdown(null)}>
-                                                                                <div className="p-1 bg-blue-50 rounded mr-2"><FiEdit className="w-3 h-3 text-blue-500" /></div>
+                                                                            <a
+                                                                                href={check('finance_entry_edit') ? editLink : '#'}
+                                                                                className={`flex items-center w-full px-3 py-2 text-xs text-slate-700 hover:bg-blue-50 transition-colors duration-150 ${
+                                                                                    !check('finance_entry_edit') ? 'opacity-60 cursor-not-allowed hover:bg-transparent' : ''
+                                                                                }`}
+                                                                                onClick={(e) => {
+                                                                                    if (!check('finance_entry_edit')) {
+                                                                                        e.preventDefault();
+                                                                                        toast.error('Need Access Permission');
+                                                                                    } else {
+                                                                                        setActiveRowDropdown(null);
+                                                                                    }
+                                                                                }}
+                                                                            >
+                                                                                <div className="p-1 bg-blue-50 rounded mr-2">
+                                                                                    {!check('finance_entry_edit') ? (
+                                                                                        <FiLock className="w-3 h-3 text-slate-400" />
+                                                                                    ) : (
+                                                                                        <FiEdit className="w-3 h-3 text-blue-500" />
+                                                                                    )}
+                                                                                </div>
                                                                                 <div className="text-left"><div className="font-medium">Edit Purchase</div></div>
                                                                             </a>
                                                                             <div className="border-t border-slate-100 mt-1 pt-1">

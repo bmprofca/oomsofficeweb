@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import toast from 'react-hot-toast';
 import axios from 'axios';
+import { checkPermissionSync } from '../utils/permission-helper';
 import {
     FiPlus, FiCheckCircle, FiClock, FiTarget,
     FiEdit, FiEye, FiTrash2, FiArrowLeft, FiX, FiXCircle,
@@ -432,7 +433,7 @@ const TaskTab = ({ clientUsername: clientUsernameProp } = {}) => {
                 case 'fees': {
                     const feesAmount = task.charges?.fees || task.fees || 0;
                     return (
-                        <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-semibold bg-indigo-50 text-indigo-700 border border-indigo-200">
+                        <div className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-semibold bg-indigo-50 text-indigo-700 border border-indigo-200 ${!checkPermissionSync('task_fees_view') ? 'blur-[3.5px] select-none' : ''}`}>
                             ₹{Number(feesAmount).toLocaleString()}
                         </div>
                     );
@@ -673,18 +674,20 @@ const TaskTab = ({ clientUsername: clientUsernameProp } = {}) => {
                     </h3>
                     <p className="text-xs sm:text-sm text-slate-600">Track, assign, and manage client tasks efficiently</p>
                 </div>
-                <div className="flex items-center gap-3">
-                    <motion.button
-                        type="button"
-                        onClick={() => setCreateTaskModalOpen(true)}
-                        className="flex items-center justify-center gap-2 px-6 py-3 bg-gradient-to-r from-blue-600 to-indigo-700 text-white rounded-xl hover:shadow-lg hover:shadow-blue-500/25 transition-all duration-300 font-semibold"
-                        whileHover={{ scale: 1.02, y: -2 }}
-                        whileTap={{ scale: 0.98 }}
-                    >
-                        <FiPlus className="w-5 h-5" />
-                        New Task
-                    </motion.button>
-                </div>
+                {checkPermissionSync('task_create') && (
+                    <div className="flex items-center gap-3">
+                        <motion.button
+                            type="button"
+                            onClick={() => setCreateTaskModalOpen(true)}
+                            className="flex items-center justify-center gap-2 px-6 py-3 bg-gradient-to-r from-blue-600 to-indigo-700 text-white rounded-xl hover:shadow-lg hover:shadow-blue-500/25 transition-all duration-300 font-semibold"
+                            whileHover={{ scale: 1.02, y: -2 }}
+                            whileTap={{ scale: 0.98 }}
+                        >
+                            <FiPlus className="w-5 h-5" />
+                            New Task
+                        </motion.button>
+                    </div>
+                )}
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">

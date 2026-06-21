@@ -21,6 +21,7 @@ import axios from 'axios';
 import getHeaders from "../utils/get-headers";
 import API_BASE_URL from "../utils/api-controller";
 import toast from 'react-hot-toast';
+import { checkPermissionSync } from '../utils/permission-helper';
 
 const ClientLedgerTab = ({ 
     taskId,
@@ -428,7 +429,7 @@ const ClientLedgerTab = ({
                     {/* Export Buttons */}
                     <button
                         onClick={() => handleExport('pdf')}
-                        disabled={!clientId || ledgerData.entries.length === 0}
+                        disabled={!clientId || ledgerData.entries.length === 0 || !checkPermissionSync('task_fees_view')}
                         className="p-2 text-gray-600 hover:text-gray-900 border border-gray-200 rounded-xl hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                         title="Export PDF"
                     >
@@ -436,7 +437,7 @@ const ClientLedgerTab = ({
                     </button>
                     <button
                         onClick={() => handleExport('excel')}
-                        disabled={!clientId || ledgerData.entries.length === 0}
+                        disabled={!clientId || ledgerData.entries.length === 0 || !checkPermissionSync('task_fees_view')}
                         className="p-2 text-gray-600 hover:text-gray-900 border border-gray-200 rounded-xl hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                         title="Export Excel"
                     >
@@ -449,7 +450,7 @@ const ClientLedgerTab = ({
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
                 <div className="bg-gray-50 rounded-xl p-4">
                     <p className="text-sm text-gray-500 mb-1">Opening Balance</p>
-                    <p className={`text-xl font-bold ${ledgerData.openingBalance >= 0 ? 'text-blue-600' : 'text-orange-600'}`}>
+                    <p className={`text-xl font-bold ${ledgerData.openingBalance >= 0 ? 'text-blue-600' : 'text-orange-600'} ${!checkPermissionSync('task_fees_view') ? 'blur-[3.5px] select-none' : ''}`}>
                         ₹{formatCurrency(ledgerData.openingBalance)}
                         {ledgerData.openingBalance >= 0 ? 
                             <span className="text-xs ml-1 text-blue-600">(Receivable)</span> : 
@@ -460,21 +461,21 @@ const ClientLedgerTab = ({
 
                 <div className="bg-gray-50 rounded-xl p-4">
                     <p className="text-sm text-gray-500 mb-1">Total Debit</p>
-                    <p className="text-xl font-bold text-blue-600">
+                    <p className={`text-xl font-bold text-blue-600 ${!checkPermissionSync('task_fees_view') ? 'blur-[3.5px] select-none' : ''}`}>
                         ₹{formatCurrency(ledgerData.totalDebit)}
                     </p>
                 </div>
 
                 <div className="bg-gray-50 rounded-xl p-4">
                     <p className="text-sm text-gray-500 mb-1">Total Credit</p>
-                    <p className="text-xl font-bold text-orange-600">
+                    <p className={`text-xl font-bold text-orange-600 ${!checkPermissionSync('task_fees_view') ? 'blur-[3.5px] select-none' : ''}`}>
                         ₹{formatCurrency(ledgerData.totalCredit)}
                     </p>
                 </div>
 
                 <div className="bg-gray-50 rounded-xl p-4">
                     <p className="text-sm text-gray-500 mb-1">Closing Balance</p>
-                    <p className={`text-xl font-bold ${ledgerData.closingBalance >= 0 ? 'text-blue-600' : 'text-orange-600'}`}>
+                    <p className={`text-xl font-bold ${ledgerData.closingBalance >= 0 ? 'text-blue-600' : 'text-orange-600'} ${!checkPermissionSync('task_fees_view') ? 'blur-[3.5px] select-none' : ''}`}>
                         ₹{formatCurrency(ledgerData.closingBalance)}
                         {ledgerData.closingBalance >= 0 ? 
                             <span className="text-xs ml-1 text-blue-600">(Receivable)</span> : 
@@ -538,7 +539,7 @@ const ClientLedgerTab = ({
                                     <td className="px-4 py-3"></td>
                                     <td className="px-4 py-3 text-right text-gray-400">-</td>
                                     <td className="px-4 py-3 text-right text-gray-400">-</td>
-                                    <td className={`px-4 py-3 text-right font-bold ${ledgerData.openingBalance >= 0 ? 'text-blue-600' : 'text-orange-600'}`}>
+                                    <td className={`px-4 py-3 text-right font-bold ${ledgerData.openingBalance >= 0 ? 'text-blue-600' : 'text-orange-600'} ${!checkPermissionSync('task_fees_view') ? 'blur-[3.5px] select-none' : ''}`}>
                                         ₹{formatCurrency(ledgerData.openingBalance)}
                                     </td>
                                 </tr>
@@ -574,7 +575,7 @@ const ClientLedgerTab = ({
                                             </td>
                                             <td className="px-4 py-3 text-right">
                                                 {entry.type === "0" ? (
-                                                    <span className="text-sm font-semibold text-blue-600">
+                                                    <span className={`text-sm font-semibold text-blue-600 ${!checkPermissionSync('task_fees_view') ? 'blur-[3.5px] select-none' : ''}`}>
                                                         ₹{formatCurrency(entry.amount)}
                                                     </span>
                                                 ) : (
@@ -583,7 +584,7 @@ const ClientLedgerTab = ({
                                             </td>
                                             <td className="px-4 py-3 text-right">
                                                 {entry.type === "1" ? (
-                                                    <span className="text-sm font-semibold text-orange-600">
+                                                    <span className={`text-sm font-semibold text-orange-600 ${!checkPermissionSync('task_fees_view') ? 'blur-[3.5px] select-none' : ''}`}>
                                                         ₹{formatCurrency(entry.amount)}
                                                     </span>
                                                 ) : (
@@ -591,7 +592,7 @@ const ClientLedgerTab = ({
                                                 )}
                                             </td>
                                             <td className="px-4 py-3 text-right">
-                                                <span className={`text-sm font-bold ${entry.new_balance >= 0 ? 'text-blue-600' : 'text-orange-600'}`}>
+                                                <span className={`text-sm font-bold ${entry.new_balance >= 0 ? 'text-blue-600' : 'text-orange-600'} ${!checkPermissionSync('task_fees_view') ? 'blur-[3.5px] select-none' : ''}`}>
                                                     ₹{formatCurrency(entry.new_balance)}
                                                 </span>
                                             </td>
@@ -602,9 +603,9 @@ const ClientLedgerTab = ({
                                 {/* Total Row */}
                                 <tr className="bg-gray-100 font-bold border-t-2 border-gray-300">
                                     <td className="px-4 py-3 text-gray-800" colSpan="5">Total</td>
-                                    <td className="px-4 py-3 text-right text-blue-600">₹{formatCurrency(ledgerData.totalDebit)}</td>
-                                    <td className="px-4 py-3 text-right text-orange-600">₹{formatCurrency(ledgerData.totalCredit)}</td>
-                                    <td className={`px-4 py-3 text-right ${ledgerData.closingBalance >= 0 ? 'text-blue-600' : 'text-orange-600'}`}>
+                                    <td className={`px-4 py-3 text-right text-blue-600 ${!checkPermissionSync('task_fees_view') ? 'blur-[3.5px] select-none' : ''}`}>₹{formatCurrency(ledgerData.totalDebit)}</td>
+                                    <td className={`px-4 py-3 text-right text-orange-600 ${!checkPermissionSync('task_fees_view') ? 'blur-[3.5px] select-none' : ''}`}>₹{formatCurrency(ledgerData.totalCredit)}</td>
+                                    <td className={`px-4 py-3 text-right ${ledgerData.closingBalance >= 0 ? 'text-blue-600' : 'text-orange-600'} ${!checkPermissionSync('task_fees_view') ? 'blur-[3.5px] select-none' : ''}`}>
                                         ₹{formatCurrency(ledgerData.closingBalance)}
                                     </td>
                                 </tr>

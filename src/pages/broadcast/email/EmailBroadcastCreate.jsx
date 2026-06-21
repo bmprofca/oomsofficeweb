@@ -3,7 +3,7 @@ import { Button, Card, Col, Form, Row, Spinner, Table, Badge, Modal, Tab, Tabs, 
 import { useNavigate, Link } from 'react-router-dom';
 import { toast } from 'react-hot-toast';
 import {
-  FaUsers, FaFileExcel,FaLayerGroup, FaTasks, FaPlus, FaTrash, FaFileImport,
+  FaUsers, FaFileExcel, FaLayerGroup, FaTasks, FaPlus, FaTrash, FaFileImport,
   FaSearch, FaEnvelope, FaPaperPlane, FaCheckDouble, FaEye,
   FaClock, FaUserCheck, FaFilter, FaChevronDown, FaTimes,
   FaCheck, FaCircle, FaSpinner, FaHourglassHalf, FaUserClock,
@@ -12,10 +12,11 @@ import {
   FaExclamationCircle, FaInfoCircle, FaCheckCircle, FaShieldAlt,
   FaSlidersH
 } from 'react-icons/fa';
-import { FiHome, FiChevronRight, FiSend } from 'react-icons/fi';
+import { FiHome, FiChevronRight, FiSend, FiLock } from 'react-icons/fi';
 import { Header, Sidebar } from '../../../components/header';
 import { emailApi, normalizeList } from './emailApi';
 import axios from 'axios';
+import { useUserPermissions } from '../../../utils/permission-helper';
 import API_BASE from '../../../utils/api-controller';
 import getHeaders from '../../../utils/get-headers';
 import BulkEmailImportModal from './BulkEmailImportModal';
@@ -616,9 +617,11 @@ const FieldGroup = ({ label, required, hint, error, children }) => (
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 const EmailBroadcastCreate = () => {
+  const { check } = useUserPermissions();
   const navigate = useNavigate();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [isMinimized, setIsMinimized] = useState(() => JSON.parse(localStorage.getItem('sidebarMinimized') || 'false'));
+
   const [loading, setLoading] = useState(false);
   const [activeTab, setActiveTab] = useState('manual');
 
@@ -859,24 +862,24 @@ const EmailBroadcastCreate = () => {
   };
 
   // Handle imported recipients from Excel/CSV
-const handleImportRecipients = useCallback((importedRecipients) => {
-  console.log("Importing recipients:", importedRecipients);
-  
-  // Convert imported recipients to the format expected by manual tab
-  const formattedRecipients = importedRecipients.map(r => ({
-    recipient_name: r.recipient_name || r.name || '',
-    recipient_email: r.recipient_email || r.email,
-    variable_values_json: JSON.stringify(r.variable_values_json || r.variables || {}, null, 2)
-  }));
-  
-  // Add to existing recipients
-  setRecipients(prev => [...prev, ...formattedRecipients]);
-  
-  // Switch to manual tab to show imported recipients
-  setActiveTab('manual');
-  
-  toast.success(`${formattedRecipients.length} recipients imported successfully`);
-}, []);
+  const handleImportRecipients = useCallback((importedRecipients) => {
+    console.log("Importing recipients:", importedRecipients);
+
+    // Convert imported recipients to the format expected by manual tab
+    const formattedRecipients = importedRecipients.map(r => ({
+      recipient_name: r.recipient_name || r.name || '',
+      recipient_email: r.recipient_email || r.email,
+      variable_values_json: JSON.stringify(r.variable_values_json || r.variables || {}, null, 2)
+    }));
+
+    // Add to existing recipients
+    setRecipients(prev => [...prev, ...formattedRecipients]);
+
+    // Switch to manual tab to show imported recipients
+    setActiveTab('manual');
+
+    toast.success(`${formattedRecipients.length} recipients imported successfully`);
+  }, []);
 
   const searchClients = useCallback(async () => {
     if (!clientSearch.trim()) { setClients([]); return; }
@@ -1254,82 +1257,82 @@ const handleImportRecipients = useCallback((importedRecipients) => {
     try { JSON.parse(form.global_variables_json || '{}'); } catch { err.global_variables_json = 'Invalid JSON'; }
     return err;
   }, [form, recipients, activeTab, selectedClients, selectedGroups, selectedServices, getValidRecipients, selectedTaskCount]);
-const buildPayload = async () => {
-  console.log("🔵 buildPayload STARTED");
-  console.log("Active tab:", activeTab);
-  
-  // Parse existing global variables
-  let globalVars = {};
-  try {
-    globalVars = JSON.parse(form.global_variables_json || '{}');
-  } catch (e) {
-    console.error("Error parsing global variables:", e);
-    globalVars = {};
-  }
-  
-  // Remove recipient-specific variables from global vars (they should come from recipient data only)
-  const recipientSpecificVars = ['name', 'username', 'email', 'mobile', 'city', 'state', 
-                                   'firm_name', 'firm_type', 'gst_no', 'pan_no', 'date',
-                                   'task_id', 'task_status', 'task_billing_status', 'service_name'];
-  
-  recipientSpecificVars.forEach(varName => {
-    delete globalVars[varName];
-  });
-  
-  const payload = {
-    config_id: form.config_id,
-    template_id: form.template_id,
-    broadcast_name: form.broadcast_name,
-    schedule_type: form.schedule_type,
-    daily_limit: form.daily_limit,
-    timezone: form.timezone,
-    global_variables_json: globalVars  // Only global company-level variables
+  const buildPayload = async () => {
+    console.log("🔵 buildPayload STARTED");
+    console.log("Active tab:", activeTab);
+
+    // Parse existing global variables
+    let globalVars = {};
+    try {
+      globalVars = JSON.parse(form.global_variables_json || '{}');
+    } catch (e) {
+      console.error("Error parsing global variables:", e);
+      globalVars = {};
+    }
+
+    // Remove recipient-specific variables from global vars (they should come from recipient data only)
+    const recipientSpecificVars = ['name', 'username', 'email', 'mobile', 'city', 'state',
+      'firm_name', 'firm_type', 'gst_no', 'pan_no', 'date',
+      'task_id', 'task_status', 'task_billing_status', 'service_name'];
+
+    recipientSpecificVars.forEach(varName => {
+      delete globalVars[varName];
+    });
+
+    const payload = {
+      config_id: form.config_id,
+      template_id: form.template_id,
+      broadcast_name: form.broadcast_name,
+      schedule_type: form.schedule_type,
+      daily_limit: form.daily_limit,
+      timezone: form.timezone,
+      global_variables_json: globalVars  // Only global company-level variables
+    };
+
+    if (form.fallback_config_id) payload.fallback_config_id = form.fallback_config_id;
+    if (form.schedule_type === 'scheduled') payload.scheduled_at = form.scheduled_at;
+
+    let recipientsList = [];
+
+    if (activeTab === 'manual') {
+      console.log("Manual tab - building from manual entries");
+      recipientsList = getValidRecipients().map(r => ({
+        recipient_name: r.recipient_name,
+        recipient_email: r.recipient_email,
+        variable_values_json: JSON.parse(r.variable_values_json || '{}')
+      }));
+    } else if (activeTab === 'clients') {
+      console.log("Clients tab - calling buildRecipientsFromClients");
+      recipientsList = await buildRecipientsFromClients();
+    } else if (activeTab === 'groups') {
+      console.log("Groups tab - calling buildRecipientsFromGroups");
+      recipientsList = await buildRecipientsFromGroups();
+    } else if (activeTab === 'tasks') {
+      console.log("Tasks tab - calling buildRecipientsFromTasks");
+      recipientsList = await buildRecipientsFromTasks();
+    } else if (activeTab === 'services') {
+      toast.error('Service selection requires backend processing.');
+      return null;
+    }
+
+    if (recipientsList.length === 0) {
+      console.error("No recipients found!");
+      toast.error('No valid recipients selected');
+      return null;
+    }
+
+    payload.recipients = recipientsList;
+
+    console.log("Final payload summary:", {
+      broadcast_name: payload.broadcast_name,
+      template_id: payload.template_id,
+      config_id: payload.config_id,
+      total_recipients: payload.recipients.length,
+      sample_recipient: payload.recipients[0]
+    });
+
+    return payload;
   };
-  
-  if (form.fallback_config_id) payload.fallback_config_id = form.fallback_config_id;
-  if (form.schedule_type === 'scheduled') payload.scheduled_at = form.scheduled_at;
-  
-  let recipientsList = [];
-  
-  if (activeTab === 'manual') {
-    console.log("Manual tab - building from manual entries");
-    recipientsList = getValidRecipients().map(r => ({
-      recipient_name: r.recipient_name,
-      recipient_email: r.recipient_email,
-      variable_values_json: JSON.parse(r.variable_values_json || '{}')
-    }));
-  } else if (activeTab === 'clients') {
-    console.log("Clients tab - calling buildRecipientsFromClients");
-    recipientsList = await buildRecipientsFromClients();
-  } else if (activeTab === 'groups') {
-    console.log("Groups tab - calling buildRecipientsFromGroups");
-    recipientsList = await buildRecipientsFromGroups();
-  } else if (activeTab === 'tasks') {
-    console.log("Tasks tab - calling buildRecipientsFromTasks");
-    recipientsList = await buildRecipientsFromTasks();
-  } else if (activeTab === 'services') {
-    toast.error('Service selection requires backend processing.');
-    return null;
-  }
-  
-  if (recipientsList.length === 0) {
-    console.error("No recipients found!");
-    toast.error('No valid recipients selected');
-    return null;
-  }
-  
-  payload.recipients = recipientsList;
-  
-  console.log("Final payload summary:", {
-    broadcast_name: payload.broadcast_name,
-    template_id: payload.template_id,
-    config_id: payload.config_id,
-    total_recipients: payload.recipients.length,
-    sample_recipient: payload.recipients[0]
-  });
-  
-  return payload;
-};
   // FIXED: Submit function with better error handling
   const submit = async () => {
     console.log("🔵 SUBMIT FUNCTION CALLED");
@@ -1439,6 +1442,24 @@ const buildPayload = async () => {
     toast.success(`Added {{${variableName}}} to global variables`);
   }, [form.global_variables_json]);
 
+  if (!check('broadcast_send')) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50">
+        <Header mobileMenuOpen={mobileMenuOpen} setMobileMenuOpen={setMobileMenuOpen} isMinimized={isMinimized} setIsMinimized={setIsMinimized} />
+        <Sidebar mobileMenuOpen={mobileMenuOpen} setMobileMenuOpen={setMobileMenuOpen} isMinimized={isMinimized} setIsMinimized={setIsMinimized} />
+        <div className={`pt-16 flex items-center justify-center transition-all duration-300 h-[calc(100vh-4rem)] ${isMinimized ? 'md:pl-20' : 'md:pl-[260px]'}`}>
+          <div className="text-center p-8 bg-white rounded-2xl border border-slate-200 shadow-sm max-w-sm w-full mx-4">
+            <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-4">
+              <FiLock className="w-8 h-8 text-slate-400" />
+            </div>
+            <h3 className="text-lg font-bold text-slate-800 mb-2">Access Denied</h3>
+            <p className="text-slate-500 text-sm">You do not have permission to view this page.</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <>
       <style>{styles}</style>
@@ -1470,51 +1491,51 @@ const buildPayload = async () => {
               </nav>
             </div>
 
-           <div className="ebc-header-card">
-  <div>
-    <div className="ebc-header-main-title">
-      <FaEnvelope style={{ marginRight: 10, opacity: 0.85 }} />
-      Create Email Broadcast
-    </div>
-    <div className="ebc-header-sub">Send professional emails to clients, groups, or task-based recipients</div>
-  </div>
-  <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'center' }}>
-    {/* NEW: Bulk Import Button */}
-    <button
-      onClick={() => navigate('/broadcast/bulk-import')}
-      style={{
-        background: 'linear-gradient(135deg, #059669 0%, #0d9488 100%)',
-        border: 'none',
-        borderRadius: 10,
-        padding: '8px 16px',
-        color: '#fff',
-        display: 'flex',
-        alignItems: 'center',
-        gap: 8,
-        cursor: 'pointer',
-        fontSize: '0.8rem',
-        fontWeight: 600,
-        transition: 'transform 0.2s, box-shadow 0.2s'
-      }}
-      onMouseEnter={(e) => {
-        e.currentTarget.style.transform = 'translateY(-1px)';
-        e.currentTarget.style.boxShadow = '0 4px 12px rgba(5,150,105,0.4)';
-      }}
-      onMouseLeave={(e) => {
-        e.currentTarget.style.transform = 'translateY(0)';
-        e.currentTarget.style.boxShadow = 'none';
-      }}
-    >
-      <FaFileExcel size={14} /> Bulk Import from Excel/CSV
-    </button>
-    <span className="ebc-badge" style={{ background: 'rgba(255,255,255,0.15)', color: '#fff', backdropFilter: 'blur(4px)' }}>
-      <FaPaperPlane size={10} /> Email Broadcast
-    </span>
-    <span className="ebc-badge" style={{ background: 'rgba(255,255,255,0.15)', color: '#fff', backdropFilter: 'blur(4px)' }}>
-      <FaUsers size={10} /> Multi-Recipient
-    </span>
-  </div>
-</div>
+            <div className="ebc-header-card">
+              <div>
+                <div className="ebc-header-main-title">
+                  <FaEnvelope style={{ marginRight: 10, opacity: 0.85 }} />
+                  Create Email Broadcast
+                </div>
+                <div className="ebc-header-sub">Send professional emails to clients, groups, or task-based recipients</div>
+              </div>
+              <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'center' }}>
+                {/* NEW: Bulk Import Button */}
+                <button
+                  onClick={() => navigate('/broadcast/bulk-import')}
+                  style={{
+                    background: 'linear-gradient(135deg, #059669 0%, #0d9488 100%)',
+                    border: 'none',
+                    borderRadius: 10,
+                    padding: '8px 16px',
+                    color: '#fff',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 8,
+                    cursor: 'pointer',
+                    fontSize: '0.8rem',
+                    fontWeight: 600,
+                    transition: 'transform 0.2s, box-shadow 0.2s'
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.transform = 'translateY(-1px)';
+                    e.currentTarget.style.boxShadow = '0 4px 12px rgba(5,150,105,0.4)';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.transform = 'translateY(0)';
+                    e.currentTarget.style.boxShadow = 'none';
+                  }}
+                >
+                  <FaFileExcel size={14} /> Bulk Import from Excel/CSV
+                </button>
+                <span className="ebc-badge" style={{ background: 'rgba(255,255,255,0.15)', color: '#fff', backdropFilter: 'blur(4px)' }}>
+                  <FaPaperPlane size={10} /> Email Broadcast
+                </span>
+                <span className="ebc-badge" style={{ background: 'rgba(255,255,255,0.15)', color: '#fff', backdropFilter: 'blur(4px)' }}>
+                  <FaUsers size={10} /> Multi-Recipient
+                </span>
+              </div>
+            </div>
 
             {/* ── Basic Information ── */}
             <SectionCard icon={<FaServer size={12} />} title="Basic Information">
@@ -1721,36 +1742,36 @@ const buildPayload = async () => {
               </div>
 
               {/* ── Manual Tab ── */}
-            <div className="mb-4">
-  <div className="ebc-label" style={{ marginBottom: 8 }}>
-    <FaFileImport size={11} /> Bulk Import Options
-  </div>
-  <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginBottom: 12 }}>
-    <button
-      className="ebc-btn ebc-btn-outline ebc-btn-sm"
-      onClick={() => navigate('/broadcast/bulk-import')}
-      style={{ background: '#f0fdf4', borderColor: '#059669', color: '#059669' }}
-    >
-      <FaFileExcel size={12} /> Upload Excel/CSV File
-    </button>
-    <span style={{ fontSize: '0.7rem', color: '#9ca3af', alignSelf: 'center' }}>or</span>
-  </div>
-  <div className="ebc-label" style={{ marginBottom: 8 }}>
-    <FaFileImport size={11} /> Manual CSV Import <span style={{ color: '#9ca3af', fontWeight: 400 }}>— format: name, email</span>
-  </div>
-  <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
-    <textarea
-      className="ebc-bulk-area"
-      placeholder={"Import multiple recipients (one per line)\nFormat: Name, email@example.com\nExample:\nJohn Doe, john@company.com"}
-      value={bulkInput}
-      onChange={e => setBulkInput(e.target.value)}
-      style={{ flex: 1 }}
-    />
-    <button className="ebc-btn ebc-btn-primary ebc-btn-sm" onClick={addFromText} style={{ alignSelf: 'flex-end', whiteSpace: 'nowrap' }}>
-      <FaFileImport size={12} /> Import
-    </button>
-  </div>
-</div>
+              <div className="mb-4">
+                <div className="ebc-label" style={{ marginBottom: 8 }}>
+                  <FaFileImport size={11} /> Bulk Import Options
+                </div>
+                <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginBottom: 12 }}>
+                  <button
+                    className="ebc-btn ebc-btn-outline ebc-btn-sm"
+                    onClick={() => navigate('/broadcast/bulk-import')}
+                    style={{ background: '#f0fdf4', borderColor: '#059669', color: '#059669' }}
+                  >
+                    <FaFileExcel size={12} /> Upload Excel/CSV File
+                  </button>
+                  <span style={{ fontSize: '0.7rem', color: '#9ca3af', alignSelf: 'center' }}>or</span>
+                </div>
+                <div className="ebc-label" style={{ marginBottom: 8 }}>
+                  <FaFileImport size={11} /> Manual CSV Import <span style={{ color: '#9ca3af', fontWeight: 400 }}>— format: name, email</span>
+                </div>
+                <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
+                  <textarea
+                    className="ebc-bulk-area"
+                    placeholder={"Import multiple recipients (one per line)\nFormat: Name, email@example.com\nExample:\nJohn Doe, john@company.com"}
+                    value={bulkInput}
+                    onChange={e => setBulkInput(e.target.value)}
+                    style={{ flex: 1 }}
+                  />
+                  <button className="ebc-btn ebc-btn-primary ebc-btn-sm" onClick={addFromText} style={{ alignSelf: 'flex-end', whiteSpace: 'nowrap' }}>
+                    <FaFileImport size={12} /> Import
+                  </button>
+                </div>
+              </div>
 
               {/* ── Clients Tab ── */}
               {activeTab === 'clients' && (
@@ -1967,25 +1988,25 @@ const buildPayload = async () => {
 
             {/* ── Action Footer ── */}
             <div className="ebc-footer">
-  <div style={{ display: 'flex', gap: 12, marginRight: 'auto' }}>
-    <button 
-      className="ebc-btn ebc-btn-outline"
-      onClick={() => navigate('/broadcast/bulk-import')}
-      style={{ background: '#f0fdf4', borderColor: '#059669', color: '#059669' }}
-    >
-      <FaFileExcel size={12} /> Bulk Import from Excel
-    </button>
-  </div>
-  <div style={{ display: 'flex', gap: 12 }}>
-    <button className="ebc-btn ebc-btn-outline" onClick={() => navigate('/broadcast/email')}>
-      <FaArrowLeft size={12} /> Cancel
-    </button>
-    <button className="ebc-btn ebc-btn-send" onClick={submit} disabled={loading}>
-      {loading ? <Spinner size="sm" style={{ marginRight: 6 }} /> : <FaPaperPlane size={13} />}
-      {form.schedule_type === 'now' ? 'Send Broadcast Now' : 'Schedule Broadcast'}
-    </button>
-  </div>
-</div>
+              <div style={{ display: 'flex', gap: 12, marginRight: 'auto' }}>
+                <button
+                  className="ebc-btn ebc-btn-outline"
+                  onClick={() => navigate('/broadcast/bulk-import')}
+                  style={{ background: '#f0fdf4', borderColor: '#059669', color: '#059669' }}
+                >
+                  <FaFileExcel size={12} /> Bulk Import from Excel
+                </button>
+              </div>
+              <div style={{ display: 'flex', gap: 12 }}>
+                <button className="ebc-btn ebc-btn-outline" onClick={() => navigate('/broadcast/email')}>
+                  <FaArrowLeft size={12} /> Cancel
+                </button>
+                <button className="ebc-btn ebc-btn-send" onClick={submit} disabled={loading}>
+                  {loading ? <Spinner size="sm" style={{ marginRight: 6 }} /> : <FaPaperPlane size={13} />}
+                  {form.schedule_type === 'now' ? 'Send Broadcast Now' : 'Schedule Broadcast'}
+                </button>
+              </div>
+            </div>
 
           </div>
         </div>
@@ -2072,7 +2093,7 @@ const buildPayload = async () => {
           </Modal.Footer>
         </Modal>
 
-             {/* Bulk Import Modal */}
+        {/* Bulk Import Modal */}
         <BulkEmailImportModal
           show={showImportModal}
           onHide={() => setShowImportModal(false)}

@@ -18,7 +18,8 @@ import {
     FiUserCheck,
     FiUserX,
     FiChevronLeft,
-    FiChevronRight
+    FiChevronRight,
+    FiMenu
 } from 'react-icons/fi';
 import { PiExportBold } from "react-icons/pi";
 import { PiFilePdfDuotone, PiMicrosoftExcelLogoDuotone } from "react-icons/pi";
@@ -61,6 +62,8 @@ const StaffList = () => {
     const [modalLoading, setModalLoading] = useState(false);
     const [selectedRole, setSelectedRole] = useState('');
     const [customPermissions, setCustomPermissions] = useState([]);
+    const [activeRowDropdown, setActiveRowDropdown] = useState(null);
+    const [expandedCategories, setExpandedCategories] = useState({});
 
     // Pagination states
     const [currentPage, setCurrentPage] = useState(1);
@@ -119,6 +122,44 @@ const StaffList = () => {
         return 'Other Permissions';
     };
 
+    // Human-readable labels for permission keys
+    const PERM_LABELS = {
+        task_create: 'Create Task',
+        task_cancel: 'Cancel Task',
+        task_complete: 'Complete Task',
+        task_fees_view: 'Fees View',
+        client_create: 'Create Client',
+        client_edit: 'Edit Client',
+        client_delete: 'Delete Client',
+        finance_balance_view: 'Balance View',
+        finance_entry: 'Finance Entry',
+        finance_entry_edit: 'Edit Entry',
+        finance_entry_delete: 'Delete Entry',
+        finance_report: 'Finance Report',
+        finance_billing_approve_reject: 'Billing Approve',
+        broadcast_config_edit: 'Broadcast Config',
+        broadcast_send: 'Send Broadcast',
+        broadcast_livechat: 'LiveChat',
+        setting_view_edit: 'Settings',
+        subscription_manage: 'Subscription',
+        staff_attendance_view_manage: 'Staff & Attendance',
+        office_assistance_access: 'Office Assistance',
+        recurring_task_create: 'Recurring Create',
+        recurring_task_delete: 'Recurring Delete',
+        recurring_task_complete: 'Recurring Complete',
+        recurring_task_fees_view: 'Recurring Fees'
+    };
+
+    const getPermLabel = (key) => {
+        // First: look up the actual name from API-fetched permissionOptions
+        const opt = permissionOptions.find(o => o.p_option_id === key);
+        if (opt?.name) return opt.name;
+        // Second: fall back to local label map
+        if (PERM_LABELS[key]) return PERM_LABELS[key];
+        // Third: prettify the key as last resort
+        return key.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+    };
+
     const getGroupedOptions = () => {
         const groups = {};
         permissionOptions.forEach(option => {
@@ -167,6 +208,8 @@ const StaffList = () => {
         return apiData.map((staffMember, index) => {
             const isAccepted = staffMember.is_accepted === true;
             const profile = staffMember.profile || {};
+            // Capture custom_permissions if returned by the list API
+            const customPerms = staffMember.custom_permissions || staffMember.permissions || [];
             return {
                 id: staffMember.map_id || staffMember.id || (index + 1).toString(),
                 username: staffMember.username || '',
@@ -176,6 +219,7 @@ const StaffList = () => {
                 email: profile.email || 'N/A',
                 designation: staffMember.designation || 'Not Assigned',
                 permission_role_id: staffMember.permission_role_id || staffMember.permission_role?.permission_role_id || '',
+                custom_permissions: Array.isArray(customPerms) ? customPerms : [],
                 is_accepted: isAccepted,
                 status: isAccepted ? 1 : 0,
                 is_active: staffMember.status === true,
@@ -270,6 +314,9 @@ const StaffList = () => {
             if (!event.target.closest('.dropdown-container')) {
                 setShowExportDropdown(false);
             }
+            if (!event.target.closest('.action-dropdown-container')) {
+                setActiveRowDropdown(null);
+            }
         };
 
         document.addEventListener('mousedown', handleClickOutside);
@@ -285,7 +332,15 @@ const StaffList = () => {
             (selectedStatus === 'inactive' && !staff.is_active);
 
         const matchesPermission = selectedPermission === '' || 
-            staff.permission_role_id === selectedPermission;
+            (staff.permission_role_id && (
+                String(staff.permission_role_id).toLowerCase() === String(selectedPermission).toLowerCase() ||
+                (() => {
+                    const selectedRoleObj = roles.find(r => String(r.permission_role_id).toLowerCase() === String(selectedPermission).toLowerCase());
+                    if (!selectedRoleObj) return false;
+                    return String(staff.permission_role_id).toLowerCase() === String(selectedRoleObj.permission_role_id).toLowerCase() ||
+                           String(staff.permission_role_id).toLowerCase() === String(selectedRoleObj.name).toLowerCase();
+                })()
+            ));
 
         return matchesStatus && matchesPermission;
     });
@@ -603,20 +658,6 @@ const StaffList = () => {
                                                 ))}
                                             </select>
 
-                                            {/* Permission Filter */}
-                                            <select
-                                                value={selectedPermission}
-                                                onChange={(e) => setSelectedPermission(e.target.value)}
-                                                className="px-4 py-2.5 border border-gray-300 rounded-lg bg-white text-gray-700 font-medium transition-all duration-200 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 shadow-sm text-sm"
-                                            >
-                                                <option value="">All Permissions</option>
-                                                {roles.map(role => (
-                                                    <option key={role.permission_role_id} value={role.permission_role_id}>
-                                                        {role.name}
-                                                    </option>
-                                                ))}
-                                            </select>
-
                                             {/* Export Dropdown */}
                                             <div className="dropdown-container relative">
                                                 <button
@@ -690,11 +731,11 @@ const StaffList = () => {
                                                     className="w-4 h-4 text-indigo-600 rounded border-gray-400 focus:ring-indigo-500"
                                                 />
                                             </th>
-                                            <th className="text-left p-4 font-semibold text-gray-700 text-sm">Staff</th>
-                                            <th className="text-left p-4 font-semibold text-gray-700 text-sm">Contact</th>
-                                            <th className="text-left p-4 font-semibold text-gray-700 text-sm">Permission</th>
-                                            <th className="text-left p-4 font-semibold text-gray-700 text-sm">Status</th>
-                                            <th className="text-center p-4 font-semibold text-gray-700 text-sm">Actions</th>
+                                            <th className="text-left p-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Staff</th>
+                                            <th className="text-left p-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Contact</th>
+                                            <th className="text-left p-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Permission</th>
+                                            <th className="text-left p-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Status</th>
+                                            <th className="text-center p-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Actions</th>
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y divide-gray-100">
@@ -760,13 +801,64 @@ const StaffList = () => {
                                                             </div>
                                                         </div>
                                                     </td>
-                                                    <td className="p-4">
-                                                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-indigo-100 text-indigo-800 border border-indigo-200">
-                                                            {(() => {
-                                                                const roleObj = roles.find(r => r.permission_role_id === staff.permission_role_id);
-                                                                return roleObj ? roleObj.name : 'Custom / No Role';
-                                                            })()}
-                                                        </span>
+                                                    <td className="p-4 max-w-[240px]">
+                                                        {(() => {
+                                                             const roleObj = roles.find(r => 
+                                                                 (r.permission_role_id && staff.permission_role_id && String(r.permission_role_id).toLowerCase() === String(staff.permission_role_id).toLowerCase()) ||
+                                                                 (r.name && staff.permission_role_id && String(r.name).toLowerCase() === String(staff.permission_role_id).toLowerCase())
+                                                             );
+                                                             const rolePerms = roleObj ? (roleObj.permissions || []) : [];
+                                                            const customPerms = (staff.custom_permissions || []).filter(p => !rolePerms.includes(p));
+                                                            const allPerms = [...rolePerms, ...customPerms];
+                                                            const MAX_CHIPS = 4;
+                                                            const visiblePerms = allPerms.slice(0, MAX_CHIPS);
+                                                            const remaining = allPerms.length - MAX_CHIPS;
+                                                            return (
+                                                                <div className="space-y-1.5">
+                                                                    {/* Role name badge */}
+                                                                    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold border ${
+                                                                        roleObj
+                                                                            ? 'bg-indigo-100 text-indigo-800 border-indigo-200'
+                                                                            : 'bg-gray-100 text-gray-500 border-gray-200'
+                                                                    }`}>
+                                                                        <FiShield className="w-3 h-3" />
+                                                                        {roleObj ? roleObj.name : 'No Role'}
+                                                                    </span>
+                                                                    {/* Permission chips */}
+                                                                    {allPerms.length > 0 && (
+                                                                        <div className="flex flex-wrap gap-1">
+                                                                            {visiblePerms.map(perm => {
+                                                                                const isCustom = customPerms.includes(perm);
+                                                                                return (
+                                                                                    <span
+                                                                                        key={perm}
+                                                                                        title={perm}
+                                                                                        className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium border ${
+                                                                                            isCustom
+                                                                                                ? 'bg-green-50 text-green-700 border-green-200'
+                                                                                                : 'bg-indigo-50 text-indigo-700 border-indigo-100'
+                                                                                        }`}
+                                                                                    >
+                                                                                        {getPermLabel(perm)}
+                                                                                    </span>
+                                                                                );
+                                                                            })}
+                                                                            {remaining > 0 && (
+                                                                                <span
+                                                                                    title={allPerms.slice(MAX_CHIPS).map(getPermLabel).join(', ')}
+                                                                                    className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-gray-100 text-gray-600 border border-gray-200 cursor-default"
+                                                                                >
+                                                                                    +{remaining} more
+                                                                                </span>
+                                                                            )}
+                                                                        </div>
+                                                                    )}
+                                                                    {allPerms.length === 0 && (
+                                                                        <span className="text-[10px] text-gray-400 italic">No permissions assigned</span>
+                                                                    )}
+                                                                </div>
+                                                            );
+                                                        })()}
                                                     </td>
                                                     <td className="p-4">
                                                         <button
@@ -786,32 +878,54 @@ const StaffList = () => {
                                                             />
                                                         </button>
                                                     </td>
-                                                    <td className="p-4">
-                                                        <div className="flex justify-center items-center gap-2">
+                                                    <td className="p-4 relative">
+                                                        <div className="flex justify-center items-center action-dropdown-container">
                                                             <button
-                                                                onClick={() => navigate(`/view-stuff-profile?username=${staff.username}`)}
-                                                                className="p-2 text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
-                                                                title="View Profile"
+                                                                onClick={() => setActiveRowDropdown(activeRowDropdown === staff.username ? null : staff.username)}
+                                                                className="p-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+                                                                title="Actions"
                                                             >
-                                                                <FiEye className="w-4 h-4" />
+                                                                <FiMenu className="w-4 h-4" />
                                                             </button>
-                                                            <button
-                                                                onClick={() => openPermissionModal(staff)}
-                                                                className="p-2 text-green-600 hover:bg-green-50 rounded-lg transition-colors"
-                                                                title="Change Permission"
-                                                            >
-                                                                <FiShield className="w-4 h-4" />
-                                                            </button>
-                                                            <button
-                                                                onClick={() => {
-                                                                    setSelectedStaffMember(staff);
-                                                                    setDeleteModal(true);
-                                                                }}
-                                                                className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                                                                title="Delete Staff"
-                                                            >
-                                                                <FiTrash2 className="w-4 h-4" />
-                                                            </button>
+                                                            {activeRowDropdown === staff.username && (
+                                                                <div className={`absolute right-4 w-48 bg-white rounded-lg shadow-xl border border-gray-200 z-50 overflow-hidden py-1 text-left ${
+                                                                    filteredStaff.indexOf(staff) >= filteredStaff.length - 2 && filteredStaff.length > 2
+                                                                        ? 'bottom-full mb-1'
+                                                                        : 'top-full mt-1'
+                                                                }`}>
+                                                                    <button
+                                                                        onClick={() => {
+                                                                            setActiveRowDropdown(null);
+                                                                            navigate(`/view-stuff-profile?username=${staff.username}`);
+                                                                        }}
+                                                                        className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-indigo-50 transition-colors"
+                                                                    >
+                                                                        <FiEye className="w-4 h-4 mr-2 text-indigo-600" />
+                                                                        View Profile
+                                                                    </button>
+                                                                    <button
+                                                                        onClick={() => {
+                                                                            setActiveRowDropdown(null);
+                                                                            openPermissionModal(staff);
+                                                                        }}
+                                                                        className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-indigo-50 transition-colors"
+                                                                    >
+                                                                        <FiShield className="w-4 h-4 mr-2 text-green-600" />
+                                                                        Change Permission
+                                                                    </button>
+                                                                    <button
+                                                                        onClick={() => {
+                                                                            setActiveRowDropdown(null);
+                                                                            setSelectedStaffMember(staff);
+                                                                            setDeleteModal(true);
+                                                                        }}
+                                                                        className="flex items-center w-full px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors"
+                                                                    >
+                                                                        <FiTrash2 className="w-4 h-4 mr-2 text-red-600" />
+                                                                        Delete Staff
+                                                                    </button>
+                                                                </div>
+                                                            )}
                                                         </div>
                                                     </td>
                                                 </tr>
@@ -1029,14 +1143,22 @@ const StaffList = () => {
 
             {/* Permission Modal */}
             {showPermissionModal && selectedStaffMember && (
-                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-                    <div className="bg-white rounded-lg shadow-xl w-full max-w-5xl max-h-[90vh] overflow-hidden transform transition-all duration-300 flex flex-col">
-                        <div className="bg-gradient-to-r from-indigo-600 to-indigo-700 text-white px-6 py-4 flex justify-between items-center">
+                <div className="fixed inset-0 z-50 flex items-start justify-center overflow-hidden overscroll-none p-3 sm:p-4 pointer-events-none">
+                    {/* Backdrop */}
+                    <div 
+                        className="absolute inset-0 bg-black/50 backdrop-blur-sm pointer-events-auto"
+                        onClick={() => setShowPermissionModal(false)}
+                    />
+                    
+                    {/* Modal Panel */}
+                    <div className="relative z-[1] pointer-events-auto bg-white rounded-2xl shadow-2xl w-full max-w-5xl my-2 sm:my-4 max-h-[calc(100vh-1.5rem)] sm:max-h-[calc(100vh-2rem)] overflow-hidden flex flex-col">
+                        <div className="bg-gradient-to-r from-indigo-600 to-indigo-700 text-white px-5 py-3.5 flex justify-between items-center shrink-0">
                             <div>
                                 <h2 className="text-xl font-bold">Change Permission: {selectedStaffMember.name}</h2>
                                 <p className="text-indigo-100 text-sm mt-1">Assign role and manage custom permission overrides</p>
                             </div>
                             <button
+                                type="button"
                                 onClick={() => setShowPermissionModal(false)}
                                 className="text-white hover:text-indigo-200 transition-colors duration-200 p-1 rounded-lg hover:bg-indigo-500"
                             >
@@ -1045,13 +1167,16 @@ const StaffList = () => {
                         </div>
                         
                         {modalLoading ? (
-                            <div className="p-12 flex flex-col items-center justify-center space-y-4">
+                            <div className="p-12 flex flex-col items-center justify-center space-y-4 flex-1">
                                 <div className="w-12 h-12 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin"></div>
                                 <p className="text-gray-500 font-medium">Loading user permissions...</p>
                             </div>
                         ) : (
                             <form onSubmit={handleAssignPermissions} className="flex flex-col flex-1 overflow-hidden">
-                                <div className="p-6 overflow-y-auto flex-1 space-y-6">
+                                <div 
+                                    className="px-5 py-4 flex-1 min-h-0 overflow-y-auto overscroll-y-contain [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden space-y-6"
+                                    style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+                                >
                                     {/* Role Dropdown */}
                                     <div className="bg-indigo-50 border border-indigo-200 rounded-xl p-4">
                                         <label className="block text-sm font-bold text-indigo-900 mb-2">
@@ -1074,72 +1199,175 @@ const StaffList = () => {
                                         </p>
                                     </div>
 
+                                    {/* Selected Custom Permissions Table (Shown when no role is selected and custom overrides are present) */}
+                                    {!selectedRole && customPermissions.length > 0 && (
+                                        <div className="bg-white border border-gray-200 rounded-xl p-5 shadow-sm space-y-3">
+                                            <h4 className="text-sm font-bold text-gray-800 uppercase tracking-wider">
+                                                Selected Custom Permissions ({customPermissions.length})
+                                            </h4>
+                                            <div className="overflow-x-auto border border-gray-200 rounded-lg">
+                                                <table className="w-full text-left border-collapse">
+                                                    <thead>
+                                                        <tr className="bg-gray-50 border-b border-gray-200">
+                                                            <th className="px-4 py-2 text-xs font-bold text-gray-500 uppercase tracking-wider">Permission Name</th>
+                                                            <th className="px-4 py-2 text-xs font-bold text-gray-500 uppercase tracking-wider">Category</th>
+                                                            <th className="px-4 py-2 text-xs font-bold text-gray-500 uppercase tracking-wider">Key</th>
+                                                            <th className="px-4 py-2 text-xs font-bold text-gray-500 uppercase tracking-wider text-right">Action</th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody className="divide-y divide-gray-100">
+                                                        {customPermissions.map(permKey => {
+                                                            const name = getPermLabel(permKey);
+                                                            const category = getCategoryName(permKey);
+                                                            return (
+                                                                <tr key={permKey} className="hover:bg-gray-50 transition-colors">
+                                                                    <td className="px-4 py-2 text-sm font-semibold text-gray-800">{name}</td>
+                                                                    <td className="px-4 py-2 text-xs">
+                                                                        <span className="inline-flex px-2 py-0.5 rounded-full text-[10px] font-semibold bg-indigo-50 text-indigo-700 border border-indigo-100">
+                                                                            {category}
+                                                                        </span>
+                                                                    </td>
+                                                                    <td className="px-4 py-2 text-xs font-mono text-gray-500">{permKey}</td>
+                                                                    <td className="px-4 py-2 text-sm text-right">
+                                                                        <button
+                                                                            type="button"
+                                                                            onClick={() => toggleCustomPermission(permKey)}
+                                                                            className="text-xs font-semibold text-red-600 hover:text-red-800 hover:underline"
+                                                                        >
+                                                                            Remove
+                                                                        </button>
+                                                                    </td>
+                                                                </tr>
+                                                            );
+                                                        })}
+                                                    </tbody>
+                                                </table>
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {/* Select All Toggle */}
+                                    <div className="flex items-center justify-between bg-indigo-50/50 border border-indigo-100 rounded-xl p-4">
+                                        <div className="space-y-0.5">
+                                            <span className="text-sm font-bold text-gray-800">Grant All Permissions</span>
+                                            <p className="text-xs text-gray-500">Enable all custom permissions at once as overrides</p>
+                                        </div>
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                const allOptionIds = permissionOptions.map(o => o.p_option_id);
+                                                const isAllChecked = allOptionIds.every(id => customPermissions.includes(id));
+                                                if (isAllChecked) {
+                                                    setCustomPermissions([]);
+                                                } else {
+                                                    setCustomPermissions(allOptionIds);
+                                                }
+                                            }}
+                                            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                                                permissionOptions.length > 0 && permissionOptions.every(o => customPermissions.includes(o.p_option_id))
+                                                    ? 'bg-indigo-600'
+                                                    : 'bg-gray-300'
+                                            }`}
+                                        >
+                                            <span
+                                                className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                                                    permissionOptions.length > 0 && permissionOptions.every(o => customPermissions.includes(o.p_option_id))
+                                                        ? 'translate-x-6'
+                                                        : 'translate-x-1'
+                                                }`}
+                                            />
+                                        </button>
+                                    </div>
+
                                     {/* Permissions Checklist */}
                                     <div>
                                         <h3 className="text-lg font-semibold text-gray-800 mb-4 border-b pb-2">Resolved Permissions</h3>
-                                        <div className="space-y-6">
-                                            {Object.keys(getGroupedOptions()).map(category => (
-                                                <div key={category} className="bg-white border border-gray-200 rounded-xl p-5 shadow-sm">
-                                                    <h4 className="text-md font-bold text-indigo-900 mb-3 bg-indigo-50 px-3 py-1.5 rounded-lg inline-block font-sans">
-                                                        {category}
-                                                    </h4>
-                                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                                                        {getGroupedOptions()[category]?.map(option => {
-                                                            const isInherited = getRolePermissions(selectedRole).includes(option.p_option_id);
-                                                            const isChecked = isInherited || customPermissions.includes(option.p_option_id);
-                                                            
-                                                            return (
-                                                                <div 
-                                                                    key={option.p_option_id} 
-                                                                    className={`border rounded-lg p-4 flex flex-col justify-between transition-all duration-200 ${
-                                                                        isInherited 
-                                                                            ? 'bg-indigo-50/50 border-indigo-200' 
-                                                                            : 'bg-gray-50 border-gray-200 hover:border-indigo-300'
-                                                                    }`}
-                                                                >
-                                                                    <div className="flex items-center justify-between mb-2">
-                                                                        <span className="text-sm font-semibold text-gray-700">
-                                                                            {option.name}
-                                                                        </span>
-                                                                        <button
-                                                                            type="button"
-                                                                            disabled={isInherited}
-                                                                            onClick={() => toggleCustomPermission(option.p_option_id)}
-                                                                            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                                                                                isChecked 
-                                                                                    ? (isInherited ? 'bg-indigo-500 cursor-not-allowed' : 'bg-green-500')
-                                                                                    : 'bg-gray-300'
+                                        <div className="space-y-3">
+                                            {Object.keys(getGroupedOptions()).map(category => {
+                                                const isExpanded = !!expandedCategories[category];
+                                                const options = getGroupedOptions()[category] || [];
+                                                const checkedCount = options.filter(o => 
+                                                    getRolePermissions(selectedRole).includes(o.p_option_id) || 
+                                                    customPermissions.includes(o.p_option_id)
+                                                ).length;
+                                                
+                                                return (
+                                                    <div key={category} className="bg-white border border-gray-200 rounded-xl overflow-hidden shadow-sm">
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => setExpandedCategories(prev => ({ ...prev, [category]: !prev[category] }))}
+                                                            className="w-full flex items-center justify-between px-5 py-3.5 bg-gray-50 border-b border-gray-100 hover:bg-gray-100/70 transition-colors text-left"
+                                                        >
+                                                            <div className="flex items-center gap-2">
+                                                                <span className="text-sm font-bold text-indigo-900 font-sans">{category}</span>
+                                                                <span className="text-xs bg-indigo-100 text-indigo-800 px-2 py-0.5 rounded-full font-semibold">
+                                                                    {checkedCount} / {options.length} Enabled
+                                                                </span>
+                                                            </div>
+                                                            <span className="text-gray-500 font-semibold text-xs">
+                                                                {isExpanded ? 'Collapse' : 'Expand'}
+                                                            </span>
+                                                        </button>
+                                                        {isExpanded && (
+                                                            <div className="p-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 bg-white border-t border-gray-100">
+                                                                {options.map(option => {
+                                                                    const isInherited = getRolePermissions(selectedRole).includes(option.p_option_id);
+                                                                    const isChecked = isInherited || customPermissions.includes(option.p_option_id);
+                                                                    
+                                                                    return (
+                                                                        <div 
+                                                                            key={option.p_option_id} 
+                                                                            className={`border rounded-lg p-3 flex flex-col justify-between transition-all duration-200 ${
+                                                                                isInherited 
+                                                                                    ? 'bg-indigo-50/50 border-indigo-200' 
+                                                                                    : 'bg-gray-50 border-gray-200 hover:border-indigo-300'
                                                                             }`}
                                                                         >
-                                                                            <span
-                                                                                className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                                                                                    isChecked 
-                                                                                        ? 'translate-x-6' 
-                                                                                        : 'translate-x-1'
-                                                                                }`}
-                                                                            />
-                                                                        </button>
-                                                                    </div>
-                                                                    <div className="flex justify-between items-center mt-1">
-                                                                        <span className="text-xs text-gray-500 truncate max-w-[70%]">
-                                                                            {option.remark || ''}
-                                                                        </span>
-                                                                        {isInherited && (
-                                                                            <span className="text-[10px] bg-indigo-100 text-indigo-700 px-1.5 py-0.5 rounded font-bold uppercase">
-                                                                                Role Inherited
-                                                                            </span>
-                                                                        )}
-                                                                    </div>
-                                                                </div>
-                                                            );
-                                                        })}
+                                                                            <div className="flex items-center justify-between mb-1.5">
+                                                                                <span className="text-xs font-semibold text-gray-700">
+                                                                                    {option.name}
+                                                                                </span>
+                                                                                <button
+                                                                                    type="button"
+                                                                                    disabled={isInherited}
+                                                                                    onClick={() => toggleCustomPermission(option.p_option_id)}
+                                                                                    className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${
+                                                                                        isChecked 
+                                                                                            ? (isInherited ? 'bg-indigo-500 cursor-not-allowed' : 'bg-green-500')
+                                                                                            : 'bg-gray-300'
+                                                                                    }`}
+                                                                                >
+                                                                                    <span
+                                                                                        className={`inline-block h-3 w-3 transform rounded-full bg-white transition-transform ${
+                                                                                            isChecked 
+                                                                                                ? 'translate-x-5' 
+                                                                                                : 'translate-x-1'
+                                                                                        }`}
+                                                                                    />
+                                                                                </button>
+                                                                            </div>
+                                                                            <div className="flex justify-between items-center mt-1">
+                                                                                <span className="text-[10px] text-gray-500 truncate max-w-[70%]" title={option.remark}>
+                                                                                    {option.remark || ''}
+                                                                                </span>
+                                                                                {isInherited && (
+                                                                                    <span className="text-[9px] bg-indigo-100 text-indigo-700 px-1 py-0.5 rounded font-bold uppercase">
+                                                                                        Inherited
+                                                                                    </span>
+                                                                                )}
+                                                                            </div>
+                                                                        </div>
+                                                                    );
+                                                                })}
+                                                            </div>
+                                                        )}
                                                     </div>
-                                                </div>
-                                            ))}
+                                                );
+                                            })}
                                         </div>
                                     </div>
                                 </div>
-                                <div className="border-t px-6 py-4 bg-gray-50 flex justify-end gap-3 flex-shrink-0">
+                                <div className="border-t px-5 py-3 bg-gray-50 flex justify-end gap-3 shrink-0">
                                     <motion.button
                                         type="button"
                                         onClick={() => setShowPermissionModal(false)}

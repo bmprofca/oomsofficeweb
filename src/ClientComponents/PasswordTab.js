@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { createPortal } from 'react-dom';
 import axios from 'axios';
+import { checkPermissionSync } from '../utils/permission-helper';
 import {
     FiTrash2,
     FiTrash,
@@ -816,26 +817,26 @@ const PasswordTab = ({ clientUsername }) => {
                                     Credentials for this client
                                 </p>
                             </div>
-                            {selectedCredentialIds.length > 0 && (
-                                <div className="flex shrink-0 items-center gap-2 lg:hidden">
-                                    <div className="flex h-8 w-8 items-center justify-center rounded-md bg-indigo-100 text-xs font-bold text-indigo-700">
-                                        {selectedCredentialIds.length}
-                                    </div>
-                                    <ViewportTooltip label="Delete selected credentials">
-                                        <button
-                                            type="button"
-                                            onClick={openDeleteBulk}
-                                            className="inline-flex h-10 w-10 items-center justify-center rounded-lg bg-gradient-to-r from-red-600 to-red-700 text-white shadow-md transition-all duration-200 hover:from-red-700 hover:to-red-800"
-                                        >
-                                            <FiTrash className="h-4 w-4" />
-                                        </button>
-                                    </ViewportTooltip>
-                                </div>
-                            )}
+                                    {checkPermissionSync('client_edit') && selectedCredentialIds.length > 0 && (
+                                        <div className="flex shrink-0 items-center gap-2 lg:hidden">
+                                            <div className="flex h-8 w-8 items-center justify-center rounded-md bg-indigo-100 text-xs font-bold text-indigo-700">
+                                                {selectedCredentialIds.length}
+                                            </div>
+                                            <ViewportTooltip label="Delete selected credentials">
+                                                <button
+                                                    type="button"
+                                                    onClick={openDeleteBulk}
+                                                    className="inline-flex h-10 w-10 items-center justify-center rounded-lg bg-gradient-to-r from-red-600 to-red-700 text-white shadow-md transition-all duration-200 hover:from-red-700 hover:to-red-800"
+                                                >
+                                                    <FiTrash className="h-4 w-4" />
+                                                </button>
+                                            </ViewportTooltip>
+                                        </div>
+                                    )}
                                 </div>
 
                         <div className="flex min-w-0 flex-col gap-2 sm:flex-row sm:items-stretch sm:gap-3 lg:flex-1 lg:flex-row lg:items-center lg:justify-end">
-                            {selectedCredentialIds.length > 0 && (
+                            {checkPermissionSync('client_edit') && selectedCredentialIds.length > 0 && (
                                 <div className="hidden items-center gap-2 lg:flex">
                                     <div className="flex h-8 w-8 items-center justify-center rounded-md bg-indigo-100 text-xs font-bold text-indigo-700">
                                         {selectedCredentialIds.length}
@@ -866,18 +867,20 @@ const PasswordTab = ({ clientUsername }) => {
                                     autoComplete="off"
                                 />
                             </div>
-                                            <motion.button
-                                type="button"
-                                onClick={openAdd}
-                                className="inline-flex h-10 w-full shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-lg bg-gradient-to-r from-indigo-600 to-indigo-700 px-4 text-sm font-medium text-white shadow-md transition-all duration-200 hover:from-indigo-700 hover:to-indigo-800 sm:w-auto"
-                                whileHover={{ scale: 1.02 }}
-                                whileTap={{ scale: 0.98 }}
-                            >
-                                <FiPlus className="h-4 w-4 shrink-0" />
-                                Add password
-                                            </motion.button>
-                                        </div>
-                                    </div>
+                            {checkPermissionSync('client_edit') && (
+                                <motion.button
+                                    type="button"
+                                    onClick={openAdd}
+                                    className="inline-flex h-10 w-full shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-lg bg-gradient-to-r from-indigo-600 to-indigo-700 px-4 text-sm font-medium text-white shadow-md transition-all duration-200 hover:from-indigo-700 hover:to-indigo-800 sm:w-auto"
+                                    whileHover={{ scale: 1.02 }}
+                                    whileTap={{ scale: 0.98 }}
+                                >
+                                    <FiPlus className="h-4 w-4 shrink-0" />
+                                    Add password
+                                </motion.button>
+                            )}
+                        </div>
+                    </div>
                                 </div>
 
                 <div className="overflow-x-auto [-webkit-overflow-scrolling:touch]">
@@ -1620,16 +1623,18 @@ const PasswordTab = ({ clientUsername }) => {
                                         </div>
                                         <span>View</span>
                                     </button>
-                                    <button
-                                        type="button"
-                                        onClick={() => openEdit(activeActionsItem)}
-                                        className="flex items-center w-full px-4 py-3 text-sm text-slate-700 hover:bg-gradient-to-r hover:from-amber-50 hover:to-yellow-50 transition-all duration-200"
-                                    >
-                                        <div className="p-1.5 bg-amber-100 rounded-lg mr-3">
-                                            <FiEdit className="w-3.5 h-3.5 text-amber-600" />
-                                        </div>
-                                        <span>Edit</span>
-                                    </button>
+                                    {checkPermissionSync('client_edit') && (
+                                        <button
+                                            type="button"
+                                            onClick={() => openEdit(activeActionsItem)}
+                                            className="flex items-center w-full px-4 py-3 text-sm text-slate-700 hover:bg-gradient-to-r hover:from-amber-50 hover:to-yellow-50 transition-all duration-200"
+                                        >
+                                            <div className="p-1.5 bg-amber-100 rounded-lg mr-3">
+                                                <FiEdit className="w-3.5 h-3.5 text-amber-600" />
+                                            </div>
+                                            <span>Edit</span>
+                                        </button>
+                                    )}
                                     <button
                                         type="button"
                                         onClick={() => {
@@ -1646,16 +1651,18 @@ const PasswordTab = ({ clientUsername }) => {
                                         </div>
                                         <span>Copy</span>
                                     </button>
-                                    <button
-                                        type="button"
-                                        onClick={() => openDeleteSingle(activeActionsItem)}
-                                        className="flex items-center w-full px-4 py-3 text-sm text-slate-700 text-red-600 hover:bg-red-50 transition-all duration-200"
-                                    >
-                                        <div className="p-1.5 bg-red-100 rounded-lg mr-3">
-                                            <FiTrash2 className="w-3.5 h-3.5 text-red-600" />
-                                        </div>
-                                        <span>Delete</span>
-                                    </button>
+                                    {checkPermissionSync('client_edit') && (
+                                        <button
+                                            type="button"
+                                            onClick={() => openDeleteSingle(activeActionsItem)}
+                                            className="flex items-center w-full px-4 py-3 text-sm text-slate-700 text-red-600 hover:bg-red-50 transition-all duration-200"
+                                        >
+                                            <div className="p-1.5 bg-red-100 rounded-lg mr-3">
+                                                <FiTrash2 className="w-3.5 h-3.5 text-red-600" />
+                                            </div>
+                                            <span>Delete</span>
+                                        </button>
+                                    )}
                                 </div>
                 </motion.div>
                         )}

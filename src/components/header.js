@@ -11,6 +11,8 @@ import { NavLink, useLocation } from 'react-router-dom';
 import getHeaders from '../utils/get-headers';
 import API_BASE_URL from '../utils/api-controller';
 import { useWhatsappChannel } from '../pages/broadcast/whatsapp/useWhatsappChannel';
+import { useUserPermissions } from '../utils/permission-helper';
+import { toast } from 'react-hot-toast';
 
 // ==========================================
 // 1. Constants & Styles (Modern Indigo Theme)
@@ -226,12 +228,13 @@ const isSubmenuItemActive = (submenuPath, currentPath) => {
 };
 
 // ==========================================
-// 5. NavItem Component (Updated for Billing Badge)
+// 5. NavItem Component (Updated for Billing Badge) - Force rebuild cache
 // ==========================================
-const NavItem = ({ item, isMobile, isMinimized, isHovered, currentPath, openSubmenus, toggleSubmenu, setHoveredMenu, hoveredMenu, setMobileMenuOpen, hasProjects, unreadCount, pendingBillingCount }) => {
+const NavItem = ({ item, isMobile, isMinimized, isHovered, currentPath, openSubmenus, toggleSubmenu, setHoveredMenu, hoveredMenu, setMobileMenuOpen, hasProjects, unreadCount, pendingBillingCount, checkPermission }) => {
   const navigate = useNavigate();
   const isActive = isItemActive(item, currentPath);
-  const isDisabled = requiresProject(item) && !hasProjects;
+  const isLocked = item.permission ? !checkPermission(item.permission) : false;
+  const isDisabled = (requiresProject(item) && !hasProjects) || isLocked;
   const hasSubmenu = item.submenus && item.submenus.length > 0;
   const isOpen = isMobile ? openSubmenus[`mobile-${item.key}`] : openSubmenus[item.key];
   const isMini = !isMobile && isMinimized && !isHovered;
@@ -328,19 +331,31 @@ const NavItem = ({ item, isMobile, isMinimized, isHovered, currentPath, openSubm
               <div className="ml-5 pl-4 border-l-2 border-indigo-100 my-1 space-y-0.5">
                 {item.submenus.map((sub, idx) => {
                   const isSubActive = isSubmenuItemActive(sub.path, currentPath);
+                  const isSubLocked = sub.permission ? !checkPermission(sub.permission) : false;
                   return (
                     <NavLink
                       key={idx}
-                      to={sub.path}
-                      onClick={() => isMobile && setMobileMenuOpen(false)}
-                      className={({ isActive }) =>
-                        `block px-3 py-2 rounded-md text-sm transition-all duration-200 no-underline hover:no-underline ${isActive
-                          ? 'text-indigo-700 font-semibold bg-indigo-50'
-                          : 'text-slate-500 hover:text-indigo-600 hover:bg-slate-50'
+                      to={isSubLocked ? '#' : sub.path}
+                      onClick={(e) => {
+                        if (isSubLocked) {
+                          e.preventDefault();
+                          toast.error('Need Access Permission');
+                        } else if (isMobile) {
+                          setMobileMenuOpen(false);
+                        }
+                      }}
+                      className={
+                        `flex items-center justify-between px-3 py-2 rounded-md text-sm transition-all duration-200 no-underline hover:no-underline ${
+                          isSubLocked
+                            ? 'text-slate-300 cursor-not-allowed hover:bg-transparent'
+                            : isSubActive
+                              ? 'text-indigo-700 font-semibold bg-indigo-50'
+                              : 'text-slate-500 hover:text-indigo-600 hover:bg-slate-50'
                         }`
                       }
                     >
-                      {sub.title}
+                      <span>{sub.title}</span>
+                      {isSubLocked && <FiLock size={12} className="text-slate-300/80" />}
                     </NavLink>
                   )
                 })}
@@ -355,7 +370,16 @@ const NavItem = ({ item, isMobile, isMinimized, isHovered, currentPath, openSubm
   // Render Single Link Item
   return (
     <div className="mb-1 relative">
-      <NavLink to={isDisabled ? '#' : item.path} onClick={(e) => { if (isDisabled) e.preventDefault(); else if (isMobile) setMobileMenuOpen(false); }}
+      <NavLink to={isDisabled ? '#' : item.path} onClick={(e) => {
+        if (isDisabled) {
+          e.preventDefault();
+          if (isLocked) {
+            toast.error('Need Access Permission');
+          }
+        } else if (isMobile) {
+          setMobileMenuOpen(false);
+        }
+      }}
         className={`flex items-center px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 group border no-underline hover:no-underline
           ${isDisabled ? THEME.locked : isActive ? THEME.active : THEME.inactive}
           ${isMini ? 'justify-center px-2' : ''}`}
@@ -592,6 +616,7 @@ export const Header = ({ mobileMenuOpen, setMobileMenuOpen, isMinimized, setIsMi
 // 7. Sidebar Component
 // ==========================================
 export const Sidebar = ({ mobileMenuOpen, setMobileMenuOpen, isMinimized, setIsMinimized }) => {
+  const { check } = useUserPermissions();
   const [openSubmenus, setOpenSubmenus] = useState({});
   const [hoveredMenu, setHoveredMenu] = useState(null);
   const [isHovered, setIsHovered] = useState(false);
@@ -687,21 +712,24 @@ export const Sidebar = ({ mobileMenuOpen, setMobileMenuOpen, isMinimized, setIsM
       {
         key: 'tasks', title: 'Tasks', icon: <FiUsers size={18} />,
         path: '/task/view',
+        permission: 'task_',
         submenus: [
-          { title: 'New Task', path: '/task/create' },
-          { title: 'View Task', path: '/task/view' }
+          { title: 'New Task', path: '/task/create', permission: 'task_create' },
+          { title: 'View Task', path: '/task/view', permission: 'task_view' }
         ]
       },
       {
         key: 'recurring-tasks', title: 'Recurring Tasks', icon: <FiRepeat size={18} />,
-        path: '/staff/recurring-tasks'
+        path: '/staff/recurring-tasks',
+        permission: 'recurring_task_'
       },
       {
         key: 'clients', title: 'Clients', icon: <FiUsers size={18} />,
         path: '/client/view',
+        permission: 'client_',
         submenus: [
-          { title: 'New Client', path: '/client/create' },
-          { title: 'View Client', path: '/client/view' }
+          { title: 'New Client', path: '/client/create', permission: 'client_create' },
+          { title: 'View Client', path: '/client/view', permission: 'client_view' }
         ]
       },
       {
@@ -711,29 +739,32 @@ export const Sidebar = ({ mobileMenuOpen, setMobileMenuOpen, isMinimized, setIsM
         path: '/billing',
         badgeCount: pendingBillingCount,
         badgeColor: 'bg-amber-500',
-        badgeText: 'Pending'
+        badgeText: 'Pending',
+        permission: 'finance_'
       },
-      { key: 'finance', title: 'Finance', icon: <FiBarChart2 size={18} />, path: '/finance/voucher/' },
+      { key: 'finance', title: 'Finance', icon: <FiBarChart2 size={18} />, path: '/finance/voucher/', permission: 'finance_' },
       {
         key: 'staff-management', title: 'Staff Management', icon: <FiUsers size={18} />,
+        permission: 'staff_',
         submenus: [
-          { title: 'Staff', path: '/staff/view' },
-          { title: 'Team Report', path: '/staff/team-report' },
-          { title: 'Attendance', path: '/staff/attendance' },
-          { title: 'Assistance', path: '/staff/office-assistance' }
+          { title: 'Staff', path: '/staff/view', permission: 'staff_view' },
+          { title: 'Team Report', path: '/staff/team-report', permission: 'staff_report' },
+          { title: 'Attendance', path: '/staff/attendance', permission: 'staff_attendance' },
+          { title: 'Assistance', path: '/staff/office-assistance', permission: 'office_assistance_' }
         ]
       },
-      { key: 'broadcast', title: 'Broadcast', icon: <FiMessageSquare size={18} />, path: '/broadcast' },
+      { key: 'broadcast', title: 'Broadcast', icon: <FiMessageSquare size={18} />, path: '/broadcast', permission: 'broadcast_' },
       ...(whatsappChannel === 'onechatting'
         ? [{
             key: 'whatsapp-live-chat',
             title: 'Live Chat',
             icon: <FiMessageSquare size={18} />,
             path: '/broadcast/whatsapp/onechatting/live-chat',
+            permission: 'broadcast_'
           }]
         : []),
-      { key: 'settings', title: 'Settings', icon: <FiSettings size={18} />, path: '/settings' },
-      { key: 'subscription', title: 'Subscription', icon: <FiCreditCard size={18} />, path: '/subscription' }
+      { key: 'settings', title: 'Settings', icon: <FiSettings size={18} />, path: '/settings', permission: 'setting_' },
+      { key: 'subscription', title: 'Subscription', icon: <FiCreditCard size={18} />, path: '/subscription', permission: 'subscription_' }
     ];
 
     return items;
@@ -765,6 +796,7 @@ export const Sidebar = ({ mobileMenuOpen, setMobileMenuOpen, isMinimized, setIsM
                     setMobileMenuOpen={setMobileMenuOpen}
                     unreadCount={totalUnreadCount}
                     pendingBillingCount={pendingBillingCount}
+                    checkPermission={check}
                   />
                 ))}
               </div>
@@ -798,6 +830,7 @@ export const Sidebar = ({ mobileMenuOpen, setMobileMenuOpen, isMinimized, setIsM
                 hasProjects={hasProjects}
                 unreadCount={totalUnreadCount}
                 pendingBillingCount={pendingBillingCount}
+                checkPermission={check}
               />
             ))}
           </nav>
