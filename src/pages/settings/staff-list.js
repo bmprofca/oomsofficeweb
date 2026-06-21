@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
     FiUsers,
@@ -16,15 +16,21 @@ import {
     FiUser,
     FiPhone,
     FiUserCheck,
-    FiUserX
+    FiUserX,
+    FiChevronLeft,
+    FiChevronRight
 } from 'react-icons/fi';
 import { PiExportBold } from "react-icons/pi";
 import { PiFilePdfDuotone, PiMicrosoftExcelLogoDuotone } from "react-icons/pi";
 import { AiOutlineMail } from "react-icons/ai";
 import { FaWhatsapp } from "react-icons/fa6";
 import { motion } from 'framer-motion';
+import axios from 'axios';
+import { toast } from 'react-hot-toast';
 import { Header, Sidebar } from '../../components/header';
 import DeleteConfirmationModal from '../../components/delete-confirmation';
+import getHeaders from '../../utils/get-headers';
+import API_BASE_URL from '../../utils/api-controller';
 
 const StaffList = () => {
     const navigate = useNavigate();
@@ -46,6 +52,24 @@ const StaffList = () => {
     const [deleteModal, setDeleteModal] = useState(false);
     const [selectedStaffMember, setSelectedStaffMember] = useState(null);
     
+    // Dynamic permissions & staff
+    const [staffData, setStaffData] = useState([]);
+    const [roles, setRoles] = useState([]);
+    const [permissionOptions, setPermissionOptions] = useState([]);
+    
+    // Permission assignment modal state
+    const [modalLoading, setModalLoading] = useState(false);
+    const [selectedRole, setSelectedRole] = useState('');
+    const [customPermissions, setCustomPermissions] = useState([]);
+
+    // Pagination states
+    const [currentPage, setCurrentPage] = useState(1);
+    const [itemsPerPage, setItemsPerPage] = useState(10);
+    const [totalItems, setTotalItems] = useState(0);
+    const [totalPages, setTotalPages] = useState(1);
+    const [pageJumpInput, setPageJumpInput] = useState('');
+    const [tableLoading, setTableLoading] = useState(false);
+
     const [newStaff, setNewStaff] = useState({
         name: '',
         guardian_name: '',
@@ -62,87 +86,6 @@ const StaffList = () => {
         address_line_1: '',
         address_line_2: ''
     });
-
-    // Mock data
-    const [staffData, setStaffData] = useState([
-        {
-            id: '1',
-            username: 'staff001',
-            name: 'Rajesh Kumar',
-            guardian_name: 'Suresh Kumar',
-            mobile: '+91 9876543210',
-            email: 'rajesh@company.com',
-            password: '******',
-            permission_name: 'Manager',
-            permission_id: '2',
-            status: 1,
-            designation: 'Manager',
-            created_date: '2024-01-15'
-        },
-        {
-            id: '2',
-            username: 'staff002',
-            name: 'Priya Sharma',
-            guardian_name: 'Ramesh Sharma',
-            mobile: '+91 9876543211',
-            email: 'priya@company.com',
-            password: '******',
-            permission_name: 'Supervisor',
-            permission_id: '3',
-            status: 1,
-            designation: 'Supervisor',
-            created_date: '2024-01-10'
-        },
-        {
-            id: '3',
-            username: 'staff003',
-            name: 'Amit Singh',
-            guardian_name: 'Vikram Singh',
-            mobile: '+91 9876543212',
-            email: 'amit@company.com',
-            password: '******',
-            permission_name: 'Staff',
-            permission_id: '4',
-            status: 0,
-            designation: 'Accountant',
-            created_date: '2024-01-05'
-        },
-        {
-            id: '4',
-            username: 'staff004',
-            name: 'Sneha Patel',
-            guardian_name: 'Ravi Patel',
-            mobile: '+91 9876543213',
-            email: 'sneha@company.com',
-            password: '******',
-            permission_name: 'Admin',
-            permission_id: '1',
-            status: 1,
-            designation: 'Administrator',
-            created_date: '2024-01-20'
-        },
-        {
-            id: '5',
-            username: 'staff005',
-            name: 'Rahul Verma',
-            guardian_name: 'Sanjay Verma',
-            mobile: '+91 9876543214',
-            email: 'rahul@company.com',
-            password: '******',
-            permission_name: 'Staff',
-            permission_id: '4',
-            status: 0,
-            designation: 'Assistant',
-            created_date: '2024-01-18'
-        }
-    ]);
-
-    const permissions = [
-        { permission_id: '1', name: 'Admin' },
-        { permission_id: '2', name: 'Manager' },
-        { permission_id: '3', name: 'Supervisor' },
-        { permission_id: '4', name: 'Staff' }
-    ];
 
     const designations = [
         { value: 'manager', name: 'Manager' },
@@ -162,6 +105,147 @@ const StaffList = () => {
         { value: 'active', name: 'Active' },
         { value: 'inactive', name: 'Inactive' }
     ];
+
+    const getCategoryName = (pOptionId) => {
+        const id = pOptionId.toLowerCase();
+        if (id.startsWith('task_')) return 'Task Management';
+        if (id.startsWith('client_')) return 'Client Management';
+        if (id.startsWith('finance_')) return 'Finance & Ledger';
+        if (id.startsWith('broadcast_')) return 'Broadcast & Messaging';
+        if (id.startsWith('setting_')) return 'Settings Access';
+        if (id.startsWith('subscription_')) return 'Subscription';
+        if (id.startsWith('staff_')) return 'Staff & Attendance';
+        if (id.startsWith('office_assistance_')) return 'Office Assistance';
+        return 'Other Permissions';
+    };
+
+    const getGroupedOptions = () => {
+        const groups = {};
+        permissionOptions.forEach(option => {
+            const cat = getCategoryName(option.p_option_id);
+            if (!groups[cat]) {
+                groups[cat] = [];
+            }
+            groups[cat].push(option);
+        });
+        return groups;
+    };
+
+    const getRolePermissions = (roleId) => {
+        const role = roles.find(r => r.permission_role_id === roleId);
+        return role ? (role.permissions || []) : [];
+    };
+
+    // Load initial data
+    const fetchRoles = async () => {
+        try {
+            const headers = getHeaders();
+            if (!headers) return;
+            const res = await axios.get(`${API_BASE_URL}/settings/permissions/list`, { headers });
+            if (res.data?.success) {
+                setRoles(res.data.data || []);
+            }
+        } catch (err) {
+            console.error('Error fetching roles:', err);
+        }
+    };
+
+    const fetchPermissionOptions = async () => {
+        try {
+            const headers = getHeaders();
+            if (!headers) return;
+            const res = await axios.get(`${API_BASE_URL}/settings/permissions/options`, { headers });
+            if (res.data?.success) {
+                setPermissionOptions(res.data.data || []);
+            }
+        } catch (err) {
+            console.error('Error fetching permission options:', err);
+        }
+    };
+
+    const transformStaffData = (apiData) => {
+        return apiData.map((staffMember, index) => {
+            const isAccepted = staffMember.is_accepted === true;
+            const profile = staffMember.profile || {};
+            return {
+                id: staffMember.map_id || staffMember.id || (index + 1).toString(),
+                username: staffMember.username || '',
+                name: profile.name || 'Unknown',
+                guardian_name: profile.guardian_name || profile.care_of || '',
+                mobile: profile.mobile ? `${profile.country_code || '+91'} ${profile.mobile}` : 'N/A',
+                email: profile.email || 'N/A',
+                designation: staffMember.designation || 'Not Assigned',
+                permission_role_id: staffMember.permission_role_id || staffMember.permission_role?.permission_role_id || '',
+                is_accepted: isAccepted,
+                status: isAccepted ? 1 : 0,
+                is_active: staffMember.status === true,
+                created_date: staffMember.modify_date || new Date().toISOString().split('T')[0]
+            };
+        });
+    };
+
+    const fetchStaffData = async (search = '', page = 1, limit = 10, isInitial = false) => {
+        if (isInitial) {
+            setLoading(true);
+        } else {
+            setTableLoading(true);
+        }
+        const headers = getHeaders();
+        if (!headers) {
+            setLoading(false);
+            setTableLoading(false);
+            return;
+        }
+        try {
+            const encodedSearch = encodeURIComponent(search.trim());
+            const res = await axios.get(
+                `${API_BASE_URL}/settings/staff/list?search=${encodedSearch}&page=${page}&limit=${limit}`,
+                { headers }
+            );
+            if (res.data?.success && res.data.data) {
+                setStaffData(transformStaffData(res.data.data));
+                const meta = res.data.meta || {};
+                const total = meta.total ?? 0;
+                setTotalItems(total);
+                setTotalPages(Math.max(1, meta.total_pages ?? Math.ceil(total / limit)));
+            } else {
+                setStaffData([]);
+                setTotalItems(0);
+                setTotalPages(1);
+            }
+        } catch (error) {
+            console.error('Error fetching staff list:', error);
+            setStaffData([]);
+            setTotalItems(0);
+            setTotalPages(1);
+        } finally {
+            setLoading(false);
+            setTableLoading(false);
+        }
+    };
+
+    const isSearchEffectMount = useRef(true);
+    const isPageEffectMount = useRef(true);
+
+    useEffect(() => {
+        fetchStaffData('', 1, itemsPerPage, true);
+        fetchRoles();
+        fetchPermissionOptions();
+    }, []);
+
+    useEffect(() => {
+        if (isPageEffectMount.current) { isPageEffectMount.current = false; return; }
+        fetchStaffData(searchQuery, currentPage, itemsPerPage);
+    }, [currentPage, itemsPerPage]);
+
+    useEffect(() => {
+        if (isSearchEffectMount.current) { isSearchEffectMount.current = false; return; }
+        const t = setTimeout(() => {
+            setCurrentPage(1);
+            fetchStaffData(searchQuery, 1, itemsPerPage);
+        }, 400);
+        return () => clearTimeout(t);
+    }, [searchQuery]);
 
     // Persist sidebar minimized state
     useEffect(() => {
@@ -194,22 +278,16 @@ const StaffList = () => {
         };
     }, []);
 
-    // Filter staff based on search and filters
+    // Filter staff based on status & permission dropdowns locally
     const filteredStaff = staffData.filter(staff => {
-        const matchesSearch = searchQuery === '' ||
-            staff.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            staff.mobile.includes(searchQuery) ||
-            staff.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            staff.designation.toLowerCase().includes(searchQuery.toLowerCase());
-
         const matchesStatus = selectedStatus === '' || 
-            (selectedStatus === 'active' && staff.status === 1) ||
-            (selectedStatus === 'inactive' && staff.status === 0);
+            (selectedStatus === 'active' && staff.is_active) ||
+            (selectedStatus === 'inactive' && !staff.is_active);
 
         const matchesPermission = selectedPermission === '' || 
-            staff.permission_id === selectedPermission;
+            staff.permission_role_id === selectedPermission;
 
-        return matchesSearch && matchesStatus && matchesPermission;
+        return matchesStatus && matchesPermission;
     });
 
     // Handle staff selection
@@ -234,38 +312,131 @@ const StaffList = () => {
         setSelectAll(!selectAll);
     };
 
+    const handlePageChange = (newPage) => {
+        const page = Math.max(1, Math.min(totalPages, Math.floor(newPage)));
+        if (page >= 1 && page <= totalPages) {
+            setCurrentPage(page);
+            setPageJumpInput('');
+        }
+    };
+
+    const handlePageJump = (e) => {
+        e.preventDefault();
+        const page = parseInt(pageJumpInput, 10);
+        if (!isNaN(page)) handlePageChange(page);
+    };
+
     // Handle status change
-    const handleStatusChange = async (staffId) => {
-        setLoading(true);
-        setTimeout(() => {
-            setStaffData(prev => prev.map(staff => 
-                staff.id === staffId 
-                    ? { ...staff, status: staff.status === 1 ? 0 : 1 }
-                    : staff
-            ));
-            setLoading(false);
-        }, 500);
+    const handleStatusChange = async (username, currentStatus) => {
+        setTableLoading(true);
+        const headers = getHeaders();
+        if (!headers) {
+            toast.error('Authentication required');
+            setTableLoading(false);
+            return;
+        }
+        try {
+            const newStatusString = currentStatus ? 'active' : 'deactive';
+            const res = await axios.put(`${API_BASE_URL}/settings/staff/change-status`, {
+                username,
+                status: newStatusString
+            }, { headers });
+            
+            if (res.data?.success) {
+                toast.success(res.data.message || `Staff status updated successfully`);
+                setStaffData(prev => prev.map(m => 
+                    m.username === username ? { ...m, is_active: currentStatus } : m
+                ));
+            } else {
+                toast.error(res.data?.message || 'Failed to update status');
+            }
+        } catch (err) {
+            console.error('Error updating status:', err);
+            toast.error(err.response?.data?.message || 'Failed to update status');
+        } finally {
+            setTableLoading(false);
+        }
     };
 
-    // Handle permission change
-    const handlePermissionChange = async (staffId, permissionId) => {
-        setLoading(true);
-        setTimeout(() => {
-            setStaffData(prev => prev.map(staff => 
-                staff.id === staffId 
-                    ? { 
-                        ...staff, 
-                        permission_id: permissionId,
-                        permission_name: permissions.find(p => p.permission_id === permissionId)?.name
-                    }
-                    : staff
-            ));
-            setLoading(false);
-            setShowPermissionModal(false);
-        }, 500);
+    // Handle permission override modal and assignment
+    const openPermissionModal = async (staffMember) => {
+        setSelectedStaffMember(staffMember);
+        setModalLoading(true);
+        setShowPermissionModal(true);
+        
+        try {
+            const headers = getHeaders();
+            const res = await axios.get(
+                `${API_BASE_URL}/settings/permissions/user-permissions?username=${staffMember.username}`,
+                { headers }
+            );
+            if (res.data?.success) {
+                const responseData = res.data.data || res.data;
+                const roleId = responseData.permission_role_id || '';
+                setSelectedRole(roleId);
+                
+                let custom = [];
+                if (responseData.custom_permissions) {
+                    custom = responseData.custom_permissions;
+                } else if (responseData.permissions) {
+                    const inherited = getRolePermissions(roleId);
+                    custom = responseData.permissions.filter(p => !inherited.includes(p) && p !== 'office_assistance_access');
+                }
+                setCustomPermissions(custom);
+            } else {
+                setSelectedRole('');
+                setCustomPermissions([]);
+            }
+        } catch (err) {
+            console.error('Error fetching user permissions:', err);
+            toast.error('Failed to load user permissions');
+            setSelectedRole('');
+            setCustomPermissions([]);
+        } finally {
+            setModalLoading(false);
+        }
     };
 
-    // Handle create staff
+    const handleAssignPermissions = async (e) => {
+        e.preventDefault();
+        setLoading(true);
+        try {
+            const headers = getHeaders();
+            const res = await axios.post(
+                `${API_BASE_URL}/settings/permissions/assign`,
+                {
+                    username: selectedStaffMember.username,
+                    permission_role_id: selectedRole || null,
+                    custom_permissions: customPermissions
+                },
+                { headers }
+            );
+            if (res.data?.success) {
+                toast.success('Permissions assigned successfully');
+                setShowPermissionModal(false);
+                fetchStaffData(searchQuery, currentPage, itemsPerPage);
+            } else {
+                toast.error(res.data?.message || 'Failed to assign permissions');
+            }
+        } catch (err) {
+            console.error('Error assigning permissions:', err);
+            toast.error(err.response?.data?.message || 'Failed to assign permissions');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const toggleCustomPermission = (pOptionId) => {
+        setCustomPermissions(prev => {
+            if (prev.includes(pOptionId)) {
+                return prev.filter(id => id !== pOptionId);
+            } else {
+                return [...prev, pOptionId];
+            }
+        });
+    };
+
+    // Handle create staff (locally mocked since no API available)
     const handleCreateStaff = async (e) => {
         e.preventDefault();
         setLoading(true);
@@ -275,8 +446,10 @@ const StaffList = () => {
                 username: `staff${Date.now()}`,
                 ...newStaff,
                 password: '******',
-                permission_name: permissions.find(p => p.permission_id === newStaff.permission_id)?.name,
+                permission_role_id: newStaff.permission_id,
+                is_accepted: true,
                 status: 1,
+                is_active: true,
                 created_date: new Date().toISOString().split('T')[0]
             };
             setStaffData(prev => [newStaffMember, ...prev]);
@@ -298,13 +471,15 @@ const StaffList = () => {
             });
             setShowCreateModal(false);
             setLoading(false);
+            toast.success('Staff member created successfully');
         }, 1000);
     };
 
-    // Handle delete staff
+    // Handle delete staff (locally mocked since no API available)
     const handleDeleteStaff = (staffId) => {
         setStaffData(prev => prev.filter(staff => staff.id !== staffId));
         setDeleteModal(false);
+        toast.success('Staff member deleted successfully');
     };
 
     // Handle export
@@ -312,7 +487,7 @@ const StaffList = () => {
         setExportModal({ open: true, type, data });
         setTimeout(() => {
             setExportModal({ open: false, type: '', data: null });
-            alert(`${type.toUpperCase()} export completed successfully!`);
+            toast.success(`${type.toUpperCase()} export completed successfully!`);
         }, 1500);
     };
 
@@ -400,6 +575,20 @@ const StaffList = () => {
                                         </div>
 
                                         <div className="flex gap-2">
+                                            {/* Permission Filter */}
+                                            <select
+                                                value={selectedPermission}
+                                                onChange={(e) => setSelectedPermission(e.target.value)}
+                                                className="px-4 py-2.5 border border-gray-300 rounded-lg bg-white text-gray-700 font-medium transition-all duration-200 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 shadow-sm text-sm"
+                                            >
+                                                <option value="">All Permissions</option>
+                                                {roles.map(role => (
+                                                    <option key={role.permission_role_id} value={role.permission_role_id}>
+                                                        {role.name}
+                                                    </option>
+                                                ))}
+                                            </select>
+
                                             {/* Status Filter */}
                                             <select
                                                 value={selectedStatus}
@@ -421,9 +610,9 @@ const StaffList = () => {
                                                 className="px-4 py-2.5 border border-gray-300 rounded-lg bg-white text-gray-700 font-medium transition-all duration-200 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 shadow-sm text-sm"
                                             >
                                                 <option value="">All Permissions</option>
-                                                {permissions.map(permission => (
-                                                    <option key={permission.permission_id} value={permission.permission_id}>
-                                                        {permission.name}
+                                                {roles.map(role => (
+                                                    <option key={role.permission_role_id} value={role.permission_role_id}>
+                                                        {role.name}
                                                     </option>
                                                 ))}
                                             </select>
@@ -533,12 +722,12 @@ const StaffList = () => {
                                             </tr>
                                         ) : (
                                             filteredStaff.map((staff) => (
-                                                <tr key={staff.id} className="hover:bg-gray-50 transition-colors">
+                                                <tr key={staff.username || staff.id} className="hover:bg-gray-50 transition-colors">
                                                     <td className="p-4">
                                                         <input
                                                             type="checkbox"
-                                                            checked={selectedStaff.has(staff.id)}
-                                                            onChange={() => handleStaffSelect(staff.id)}
+                                                            checked={selectedStaff.has(staff.username)}
+                                                            onChange={() => handleStaffSelect(staff.username)}
                                                             className="w-4 h-4 text-indigo-600 rounded border-gray-400 focus:ring-indigo-500"
                                                         />
                                                     </td>
@@ -573,21 +762,24 @@ const StaffList = () => {
                                                     </td>
                                                     <td className="p-4">
                                                         <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-indigo-100 text-indigo-800 border border-indigo-200">
-                                                            {staff.permission_name}
+                                                            {(() => {
+                                                                const roleObj = roles.find(r => r.permission_role_id === staff.permission_role_id);
+                                                                return roleObj ? roleObj.name : 'Custom / No Role';
+                                                            })()}
                                                         </span>
                                                     </td>
                                                     <td className="p-4">
                                                         <button
-                                                            onClick={() => handleStatusChange(staff.id)}
+                                                            onClick={() => handleStatusChange(staff.username, !staff.is_active)}
                                                             className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                                                                staff.status === 1 
+                                                                staff.is_active 
                                                                     ? 'bg-green-500' 
                                                                     : 'bg-gray-300'
                                                             }`}
                                                         >
                                                             <span
                                                                 className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                                                                    staff.status === 1 
+                                                                    staff.is_active 
                                                                         ? 'translate-x-6' 
                                                                         : 'translate-x-1'
                                                                 }`}
@@ -604,10 +796,7 @@ const StaffList = () => {
                                                                 <FiEye className="w-4 h-4" />
                                                             </button>
                                                             <button
-                                                                onClick={() => {
-                                                                    setSelectedStaffMember(staff);
-                                                                    setShowPermissionModal(true);
-                                                                }}
+                                                                onClick={() => openPermissionModal(staff)}
                                                                 className="p-2 text-green-600 hover:bg-green-50 rounded-lg transition-colors"
                                                                 title="Change Permission"
                                                             >
@@ -635,36 +824,67 @@ const StaffList = () => {
                             {/* Table Footer */}
                             <div className="border-t border-gray-200 bg-gradient-to-r from-gray-50 to-gray-100">
                                 <div className="p-4">
-                                    <div className="flex items-center justify-between">
-                                        <span className="font-semibold text-gray-800 text-sm">
-                                            Showing {filteredStaff.length} of {staffData.length} staff members
-                                        </span>
-                                        <div className="flex gap-2 items-center">
-                                            <div className="text-sm text-gray-600 mr-4">
-                                                {selectedStaff.size} staff member(s) selected
-                                            </div>
-                                            <button
-                                                className="px-4 py-2 bg-indigo-600 text-white rounded-lg text-sm font-medium transition-all duration-200 hover:bg-indigo-700 flex items-center gap-2 shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
-                                                disabled={selectedStaff.size === 0}
-                                            >
-                                                <FiMail className="w-4 h-4" />
-                                                Send Message
-                                            </button>
-                                            <button
-                                                className="px-4 py-2 bg-green-600 text-white rounded-lg text-sm font-medium transition-all duration-200 hover:bg-green-700 flex items-center gap-2 shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
-                                                disabled={selectedStaff.size === 0}
-                                            >
-                                                <FiDownload className="w-4 h-4" />
-                                                Export Selected
-                                            </button>
-                                            <button
-                                                className="px-4 py-2 bg-purple-600 text-white rounded-lg text-sm font-medium transition-all duration-200 hover:bg-purple-700 flex items-center gap-2 shadow-sm"
-                                            >
-                                                <FiPrinter className="w-4 h-4" />
-                                                Print All
-                                            </button>
-                                        </div>
-                                    </div>
+                                     <div className="flex flex-col md:flex-row items-center justify-between gap-4">
+                                         <div className="flex items-center gap-4">
+                                             <span className="font-semibold text-gray-800 text-sm">
+                                                 Showing {filteredStaff.length} of {totalItems} staff members
+                                             </span>
+                                             <select
+                                                 value={itemsPerPage}
+                                                 onChange={(e) => {
+                                                     setItemsPerPage(Number(e.target.value));
+                                                     setCurrentPage(1);
+                                                 }}
+                                                 className="px-3 py-1.5 border border-gray-300 rounded-lg text-xs bg-white text-gray-700 focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 shadow-sm font-medium"
+                                             >
+                                                 {[5, 10, 20, 50, 100].map(opt => (
+                                                     <option key={opt} value={opt}>{opt} per page</option>
+                                                 ))}
+                                             </select>
+                                         </div>
+                                         
+                                         <div className="flex gap-3 items-center flex-wrap justify-center">
+                                             <div className="text-sm text-gray-600 mr-2">
+                                                 {selectedStaff.size} staff selected
+                                             </div>
+                                             
+                                             {/* Pagination controls */}
+                                             <div className="flex items-center bg-white border border-gray-300 rounded-lg p-0.5 shadow-sm">
+                                                 <button
+                                                     type="button"
+                                                     onClick={() => handlePageChange(currentPage - 1)}
+                                                     disabled={currentPage === 1}
+                                                     className="p-2 text-gray-600 hover:bg-gray-100 disabled:opacity-50 rounded-l-md transition-colors"
+                                                 >
+                                                     <FiChevronLeft className="w-4 h-4" />
+                                                 </button>
+                                                 <span className="px-4 text-xs font-semibold text-gray-700">
+                                                     Page {currentPage} of {totalPages}
+                                                 </span>
+                                                 <button
+                                                     type="button"
+                                                     onClick={() => handlePageChange(currentPage + 1)}
+                                                     disabled={currentPage === totalPages}
+                                                     className="p-2 text-gray-600 hover:bg-gray-100 disabled:opacity-50 rounded-r-md transition-colors"
+                                                 >
+                                                     <FiChevronRight className="w-4 h-4" />
+                                                 </button>
+                                             </div>
+
+                                             <form onSubmit={handlePageJump} className="flex items-center gap-1.5">
+                                                 <input
+                                                     type="number"
+                                                     min="1"
+                                                     max={totalPages}
+                                                     value={pageJumpInput}
+                                                     onChange={(e) => setPageJumpInput(e.target.value)}
+                                                     placeholder="Go to"
+                                                     className="w-16 px-2.5 py-1.5 border border-gray-300 rounded-lg text-xs text-center focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 shadow-sm"
+                                                 />
+                                                 <button type="submit" className="hidden" />
+                                             </form>
+                                         </div>
+                                     </div>
                                 </div>
                             </div>
                         </div>
@@ -773,9 +993,9 @@ const StaffList = () => {
                                             required
                                         >
                                             <option value="">Select Permission</option>
-                                            {permissions.map(permission => (
-                                                <option key={permission.permission_id} value={permission.permission_id}>
-                                                    {permission.name}
+                                            {roles.map(role => (
+                                                <option key={role.permission_role_id} value={role.permission_role_id}>
+                                                    {role.name}
                                                 </option>
                                             ))}
                                         </select>
@@ -810,11 +1030,11 @@ const StaffList = () => {
             {/* Permission Modal */}
             {showPermissionModal && selectedStaffMember && (
                 <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-                    <div className="bg-white rounded-lg shadow-xl w-full max-w-md transform transition-all duration-300">
+                    <div className="bg-white rounded-lg shadow-xl w-full max-w-5xl max-h-[90vh] overflow-hidden transform transition-all duration-300 flex flex-col">
                         <div className="bg-gradient-to-r from-indigo-600 to-indigo-700 text-white px-6 py-4 flex justify-between items-center">
                             <div>
-                                <h2 className="text-xl font-bold">Change Permission</h2>
-                                <p className="text-indigo-100 text-sm mt-1">Update staff permission level</p>
+                                <h2 className="text-xl font-bold">Change Permission: {selectedStaffMember.name}</h2>
+                                <p className="text-indigo-100 text-sm mt-1">Assign role and manage custom permission overrides</p>
                             </div>
                             <button
                                 onClick={() => setShowPermissionModal(false)}
@@ -823,27 +1043,124 @@ const StaffList = () => {
                                 <FiX className="w-6 h-6" />
                             </button>
                         </div>
-                        <div className="p-6">
-                            <div className="mb-4">
-                                <label className="block text-sm font-medium text-gray-700 mb-2">
-                                    Select Permission Level
-                                </label>
-                                <select
-                                    className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all duration-200"
-                                    onChange={(e) => handlePermissionChange(selectedStaffMember.id, e.target.value)}
-                                >
-                                    {permissions.map(permission => (
-                                        <option 
-                                            key={permission.permission_id} 
-                                            value={permission.permission_id}
-                                            selected={permission.permission_id === selectedStaffMember?.permission_id}
-                                        >
-                                            {permission.name}
-                                        </option>
-                                    ))}
-                                </select>
+                        
+                        {modalLoading ? (
+                            <div className="p-12 flex flex-col items-center justify-center space-y-4">
+                                <div className="w-12 h-12 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin"></div>
+                                <p className="text-gray-500 font-medium">Loading user permissions...</p>
                             </div>
-                        </div>
+                        ) : (
+                            <form onSubmit={handleAssignPermissions} className="flex flex-col flex-1 overflow-hidden">
+                                <div className="p-6 overflow-y-auto flex-1 space-y-6">
+                                    {/* Role Dropdown */}
+                                    <div className="bg-indigo-50 border border-indigo-200 rounded-xl p-4">
+                                        <label className="block text-sm font-bold text-indigo-900 mb-2">
+                                            Assign Role
+                                        </label>
+                                        <select
+                                            value={selectedRole}
+                                            onChange={(e) => setSelectedRole(e.target.value)}
+                                            className="w-full md:w-1/2 px-3 py-2.5 border border-indigo-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all duration-200 bg-white text-gray-700 font-medium"
+                                        >
+                                            <option value="">No Role (Custom Overrides Only)</option>
+                                            {roles.map(role => (
+                                                <option key={role.permission_role_id} value={role.permission_role_id}>
+                                                    {role.name}
+                                                </option>
+                                            ))}
+                                        </select>
+                                        <p className="text-xs text-indigo-600 mt-2">
+                                            Selecting a role automatically grants its associated permissions (shown below). Additional permissions can be checked as custom overrides.
+                                        </p>
+                                    </div>
+
+                                    {/* Permissions Checklist */}
+                                    <div>
+                                        <h3 className="text-lg font-semibold text-gray-800 mb-4 border-b pb-2">Resolved Permissions</h3>
+                                        <div className="space-y-6">
+                                            {Object.keys(getGroupedOptions()).map(category => (
+                                                <div key={category} className="bg-white border border-gray-200 rounded-xl p-5 shadow-sm">
+                                                    <h4 className="text-md font-bold text-indigo-900 mb-3 bg-indigo-50 px-3 py-1.5 rounded-lg inline-block font-sans">
+                                                        {category}
+                                                    </h4>
+                                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                                                        {getGroupedOptions()[category]?.map(option => {
+                                                            const isInherited = getRolePermissions(selectedRole).includes(option.p_option_id);
+                                                            const isChecked = isInherited || customPermissions.includes(option.p_option_id);
+                                                            
+                                                            return (
+                                                                <div 
+                                                                    key={option.p_option_id} 
+                                                                    className={`border rounded-lg p-4 flex flex-col justify-between transition-all duration-200 ${
+                                                                        isInherited 
+                                                                            ? 'bg-indigo-50/50 border-indigo-200' 
+                                                                            : 'bg-gray-50 border-gray-200 hover:border-indigo-300'
+                                                                    }`}
+                                                                >
+                                                                    <div className="flex items-center justify-between mb-2">
+                                                                        <span className="text-sm font-semibold text-gray-700">
+                                                                            {option.name}
+                                                                        </span>
+                                                                        <button
+                                                                            type="button"
+                                                                            disabled={isInherited}
+                                                                            onClick={() => toggleCustomPermission(option.p_option_id)}
+                                                                            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                                                                                isChecked 
+                                                                                    ? (isInherited ? 'bg-indigo-500 cursor-not-allowed' : 'bg-green-500')
+                                                                                    : 'bg-gray-300'
+                                                                            }`}
+                                                                        >
+                                                                            <span
+                                                                                className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                                                                                    isChecked 
+                                                                                        ? 'translate-x-6' 
+                                                                                        : 'translate-x-1'
+                                                                                }`}
+                                                                            />
+                                                                        </button>
+                                                                    </div>
+                                                                    <div className="flex justify-between items-center mt-1">
+                                                                        <span className="text-xs text-gray-500 truncate max-w-[70%]">
+                                                                            {option.remark || ''}
+                                                                        </span>
+                                                                        {isInherited && (
+                                                                            <span className="text-[10px] bg-indigo-100 text-indigo-700 px-1.5 py-0.5 rounded font-bold uppercase">
+                                                                                Role Inherited
+                                                                            </span>
+                                                                        )}
+                                                                    </div>
+                                                                </div>
+                                                            );
+                                                        })}
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                </div>
+                                <div className="border-t px-6 py-4 bg-gray-50 flex justify-end gap-3 flex-shrink-0">
+                                    <motion.button
+                                        type="button"
+                                        onClick={() => setShowPermissionModal(false)}
+                                        className="px-6 py-2.5 text-sm font-medium border border-gray-300 rounded-lg hover:bg-gray-200 transition-all duration-200 text-gray-700"
+                                        whileHover={{ scale: 1.02 }}
+                                        whileTap={{ scale: 0.98 }}
+                                    >
+                                        Cancel
+                                    </motion.button>
+                                    <motion.button
+                                        type="submit"
+                                        disabled={loading}
+                                        className="px-6 py-2.5 text-sm font-medium bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-all duration-200 hover:shadow-md shadow-sm disabled:opacity-50"
+                                        whileHover={{ scale: 1.02 }}
+                                        whileTap={{ scale: 0.98 }}
+                                    >
+                                        {loading ? 'Saving...' : 'Save Permissions'}
+                                    </motion.button>
+                                </div>
+                            </form>
+                        )}
                     </div>
                 </div>
             )}

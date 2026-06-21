@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
     FiPlus,
@@ -19,8 +19,12 @@ import { PiFilePdfDuotone, PiMicrosoftExcelLogoDuotone } from "react-icons/pi";
 import { AiOutlineMail } from "react-icons/ai";
 import { FaWhatsapp } from "react-icons/fa6";
 import { motion } from 'framer-motion';
+import axios from 'axios';
+import { toast } from 'react-hot-toast';
 import { Header, Sidebar } from '../../components/header';
 import DeleteConfirmationModal from '../../components/delete-confirmation';
+import getHeaders from '../../utils/get-headers';
+import API_BASE_URL from '../../utils/api-controller';
 
 const PermissionList = () => {
     const navigate = useNavigate();
@@ -31,6 +35,7 @@ const PermissionList = () => {
     });
     const [loading, setLoading] = useState(false);
     const [permissionData, setPermissionData] = useState([]);
+    const [permissionOptions, setPermissionOptions] = useState([]);
     const [searchQuery, setSearchQuery] = useState('');
     const [selectedPermissions, setSelectedPermissions] = useState(new Set());
     const [selectAll, setSelectAll] = useState(false);
@@ -43,129 +48,69 @@ const PermissionList = () => {
     const [formData, setFormData] = useState({
         name: '',
         remark: '',
-        dfr: '0',
-        dtc: '0',
-        cnt: '0',
-        cnc: '0',
-        mb: '0',
-        ms: '0',
-        ctcom: '0',
-        ctcan: '0',
-        caf: '0',
-        cab: '0',
-        casl: '0',
-        caa: '0'
+        permissions: [] // Array of p_option_id strings
     });
 
-    // Mock data
-    const [permissionDataState, setPermissionDataState] = useState([
-        {
-            id: '1',
-            permission_id: 'perm001',
-            name: 'Admin Access',
-            remark: 'Full administrative access to all features',
-            dfr: '1',
-            dtc: '1',
-            cnt: '1',
-            cnc: '1',
-            mb: '1',
-            ms: '1',
-            ctcom: '1',
-            ctcan: '1',
-            caf: '1',
-            cab: '1',
-            casl: '1',
-            caa: '1'
-        },
-        {
-            id: '2',
-            permission_id: 'perm002',
-            name: 'Manager',
-            remark: 'Manager level access with reporting capabilities',
-            dfr: '1',
-            dtc: '1',
-            cnt: '1',
-            cnc: '1',
-            mb: '0',
-            ms: '0',
-            ctcom: '1',
-            ctcan: '1',
-            caf: '1',
-            cab: '1',
-            casl: '1',
-            caa: '1'
-        },
-        {
-            id: '3',
-            permission_id: 'perm003',
-            name: 'Supervisor',
-            remark: 'Supervisory access with team management',
-            dfr: '1',
-            dtc: '1',
-            cnt: '1',
-            cnc: '0',
-            mb: '0',
-            ms: '0',
-            ctcom: '1',
-            ctcan: '0',
-            caf: '0',
-            cab: '0',
-            casl: '1',
-            caa: '1'
-        },
-        {
-            id: '4',
-            permission_id: 'perm004',
-            name: 'Staff',
-            remark: 'Basic staff access with limited permissions',
-            dfr: '0',
-            dtc: '0',
-            cnt: '0',
-            cnc: '0',
-            mb: '0',
-            ms: '0',
-            ctcom: '0',
-            ctcan: '0',
-            caf: '0',
-            cab: '0',
-            casl: '0',
-            caa: '0'
-        },
-        {
-            id: '5',
-            permission_id: 'perm005',
-            name: 'View Only',
-            remark: 'Read-only access for viewing data',
-            dfr: '1',
-            dtc: '1',
-            cnt: '0',
-            cnc: '0',
-            mb: '0',
-            ms: '0',
-            ctcom: '0',
-            ctcan: '0',
-            caf: '1',
-            cab: '1',
-            casl: '1',
-            caa: '1'
-        }
-    ]);
+    const getCategoryName = (pOptionId) => {
+        const id = pOptionId.toLowerCase();
+        if (id.startsWith('task_')) return 'Task Management';
+        if (id.startsWith('client_')) return 'Client Management';
+        if (id.startsWith('finance_')) return 'Finance & Ledger';
+        if (id.startsWith('broadcast_')) return 'Broadcast & Messaging';
+        if (id.startsWith('setting_')) return 'Settings Access';
+        if (id.startsWith('subscription_')) return 'Subscription';
+        if (id.startsWith('staff_')) return 'Staff & Attendance';
+        if (id.startsWith('office_assistance_')) return 'Office Assistance';
+        return 'Other Permissions';
+    };
 
-    // Permission field labels
-    const permissionFields = [
-        { id: 'dfr', label: 'Dashboard Finance Report' },
-        { id: 'dtc', label: 'Dashboard Top Clients' },
-        { id: 'cnt', label: 'Create New Task' },
-        { id: 'cnc', label: 'Create New Client' },
-        { id: 'mb', label: 'Manage Broadcast' },
-        { id: 'ms', label: 'Manage Settings' },
-        { id: 'ctcom', label: 'Can Task Complete' },
-        { id: 'ctcan', label: 'Can Task Cancel' },
-        { id: 'caf', label: 'Can Access Finance' },
-        { id: 'cab', label: 'Can Access Billing' },
-        { id: 'casl', label: 'Can Access Staff List' },
-        { id: 'caa', label: 'Can Access Attendance' }
-    ];
+    const groupedPermissionOptions = useMemo(() => {
+        const groups = {};
+        permissionOptions.forEach(option => {
+            const cat = getCategoryName(option.p_option_id);
+            if (!groups[cat]) {
+                groups[cat] = [];
+            }
+            groups[cat].push(option);
+        });
+        return groups;
+    }, [permissionOptions]);
+
+    // Load initial data
+    const fetchPermissionData = async () => {
+        setLoading(true);
+        try {
+            const headers = getHeaders();
+            if (!headers) return;
+            const res = await axios.get(`${API_BASE_URL}/settings/permissions/list`, { headers });
+            if (res.data?.success) {
+                setPermissionData(res.data.data || []);
+            }
+        } catch (err) {
+            console.error('Error fetching roles:', err);
+            toast.error('Failed to load permission roles');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const fetchPermissionOptions = async () => {
+        try {
+            const headers = getHeaders();
+            if (!headers) return;
+            const res = await axios.get(`${API_BASE_URL}/settings/permissions/options`, { headers });
+            if (res.data?.success) {
+                setPermissionOptions(res.data.data || []);
+            }
+        } catch (err) {
+            console.error('Error fetching permission options:', err);
+        }
+    };
+
+    useEffect(() => {
+        fetchPermissionData();
+        fetchPermissionOptions();
+    }, []);
 
     // Persist sidebar minimized state
     useEffect(() => {
@@ -198,42 +143,18 @@ const PermissionList = () => {
         };
     }, []);
 
-    // Load initial data
-    useEffect(() => {
-        fetchPermissionData();
-    }, []);
-
-    const fetchPermissionData = async () => {
-        setLoading(true);
-        setTimeout(() => {
-            setPermissionData(permissionDataState);
-            setLoading(false);
-        }, 1000);
-    };
-
     const resetForm = () => {
         setFormData({
             name: '',
             remark: '',
-            dfr: '0',
-            dtc: '0',
-            cnt: '0',
-            cnc: '0',
-            mb: '0',
-            ms: '0',
-            ctcom: '0',
-            ctcan: '0',
-            caf: '0',
-            cab: '0',
-            casl: '0',
-            caa: '0'
+            permissions: []
         });
     };
 
     // Filter permissions based on search
     const filteredPermissions = permissionData.filter(permission =>
         permission.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        permission.remark.toLowerCase().includes(searchQuery.toLowerCase())
+        (permission.remark || '').toLowerCase().includes(searchQuery.toLowerCase())
     );
 
     // Handle permission selection
@@ -252,7 +173,7 @@ const PermissionList = () => {
         if (selectAll) {
             setSelectedPermissions(new Set());
         } else {
-            const allPermissionIds = new Set(filteredPermissions.map(permission => permission.id));
+            const allPermissionIds = new Set(filteredPermissions.map(permission => permission.permission_role_id || permission.id));
             setSelectedPermissions(allPermissionIds);
         }
         setSelectAll(!selectAll);
@@ -261,45 +182,90 @@ const PermissionList = () => {
     // Handle create permission
     const handleCreatePermission = async (e) => {
         e.preventDefault();
+        if (!formData.name.trim()) {
+            toast.error('Please enter a role name');
+            return;
+        }
         setLoading(true);
-        
-        setTimeout(() => {
-            const newPermission = {
-                id: `${permissionData.length + 1}`,
-                permission_id: `perm${Date.now()}`,
-                ...formData
-            };
-            setPermissionData(prev => [newPermission, ...prev]);
-            resetForm();
-            setShowCreateModal(false);
-            setLoading(false);
+        try {
+            const headers = getHeaders();
+            const res = await axios.post(`${API_BASE_URL}/settings/permissions/role/create`, {
+                name: formData.name,
+                permissions: formData.permissions,
+                remark: formData.remark
+            }, { headers });
             
-            alert('Permission created successfully!');
-        }, 1000);
+            if (res.data?.success) {
+                toast.success('Role created successfully');
+                setShowCreateModal(false);
+                resetForm();
+                fetchPermissionData();
+            } else {
+                toast.error(res.data?.message || 'Failed to create role');
+            }
+        } catch (err) {
+            console.error('Error creating role:', err);
+            toast.error(err.response?.data?.message || 'Failed to create role');
+        } finally {
+            setLoading(false);
+        }
     };
 
     // Handle edit permission
     const handleEditPermission = async (e) => {
         e.preventDefault();
+        if (!formData.name.trim()) {
+            toast.error('Please enter a role name');
+            return;
+        }
         setLoading(true);
-        
-        setTimeout(() => {
-            setPermissionData(prev => prev.map(permission => 
-                permission.permission_id === selectedPermission.permission_id 
-                    ? { ...permission, ...formData }
-                    : permission
-            ));
-            setShowEditModal(false);
-            setLoading(false);
+        try {
+            const headers = getHeaders();
+            const res = await axios.put(`${API_BASE_URL}/settings/permissions/role/update`, {
+                permission_role_id: selectedPermission.permission_role_id,
+                name: formData.name,
+                permissions: formData.permissions,
+                remark: formData.remark
+            }, { headers });
             
-            alert('Permission updated successfully!');
-        }, 1000);
+            if (res.data?.success) {
+                toast.success('Role updated successfully');
+                setShowEditModal(false);
+                resetForm();
+                fetchPermissionData();
+            } else {
+                toast.error(res.data?.message || 'Failed to update role');
+            }
+        } catch (err) {
+            console.error('Error updating role:', err);
+            toast.error(err.response?.data?.message || 'Failed to update role');
+        } finally {
+            setLoading(false);
+        }
     };
 
     // Handle delete permission
-    const handleDeletePermission = (permissionId) => {
-        setPermissionData(prev => prev.filter(permission => permission.id !== permissionId));
-        setDeleteModal(false);
+    const handleDeletePermission = async (permissionId) => {
+        setLoading(true);
+        try {
+            const headers = getHeaders();
+            const res = await axios.delete(`${API_BASE_URL}/settings/permissions/role/delete`, {
+                headers,
+                data: { permission_role_id: permissionId }
+            });
+            if (res.data?.success) {
+                toast.success('Role deleted successfully');
+                fetchPermissionData();
+            } else {
+                toast.error(res.data?.message || 'Failed to delete role');
+            }
+        } catch (err) {
+            console.error('Error deleting role:', err);
+            toast.error(err.response?.data?.message || 'Failed to delete role');
+        } finally {
+            setLoading(false);
+            setDeleteModal(false);
+        }
     };
 
     // Handle export
@@ -307,7 +273,7 @@ const PermissionList = () => {
         setExportModal({ open: true, type, data });
         setTimeout(() => {
             setExportModal({ open: false, type: '', data: null });
-            alert(`${type.toUpperCase()} export completed successfully!`);
+            toast.success(`${type.toUpperCase()} export completed successfully!`);
         }, 1500);
     };
 
@@ -315,19 +281,8 @@ const PermissionList = () => {
         setSelectedPermission(permission);
         setFormData({
             name: permission.name,
-            remark: permission.remark,
-            dfr: permission.dfr,
-            dtc: permission.dtc,
-            cnt: permission.cnt,
-            cnc: permission.cnc,
-            mb: permission.mb,
-            ms: permission.ms,
-            ctcom: permission.ctcom,
-            ctcan: permission.ctcan,
-            caf: permission.caf,
-            cab: permission.cab,
-            casl: permission.casl,
-            caa: permission.caa
+            remark: permission.remark || '',
+            permissions: permission.permissions || []
         });
         setShowEditModal(true);
     };
@@ -344,12 +299,22 @@ const PermissionList = () => {
         }));
     };
 
-    // Toggle permission value
-    const togglePermission = (field) => {
-        setFormData(prev => ({
-            ...prev,
-            [field]: prev[field] === '1' ? '0' : '1'
-        }));
+    // Toggle permission option
+    const togglePermissionOption = (pOptionId) => {
+        setFormData(prev => {
+            const permissions = prev.permissions || [];
+            if (permissions.includes(pOptionId)) {
+                return {
+                    ...prev,
+                    permissions: permissions.filter(id => id !== pOptionId)
+                };
+            } else {
+                return {
+                    ...prev,
+                    permissions: [...permissions, pOptionId]
+                };
+            }
+        });
     };
 
     // Skeleton loader component
@@ -535,12 +500,12 @@ const PermissionList = () => {
                                             </tr>
                                         ) : (
                                             filteredPermissions.map((permission, index) => (
-                                                <tr key={permission.id} className="hover:bg-gray-50 transition-colors">
+                                                <tr key={permission.permission_role_id} className="hover:bg-gray-50 transition-colors">
                                                     <td className="p-4">
                                                         <input
                                                             type="checkbox"
-                                                            checked={selectedPermissions.has(permission.id)}
-                                                            onChange={() => handlePermissionSelect(permission.id)}
+                                                            checked={selectedPermissions.has(permission.permission_role_id)}
+                                                            onChange={() => handlePermissionSelect(permission.permission_role_id)}
                                                             className="w-4 h-4 text-indigo-600 rounded border-gray-400 focus:ring-indigo-500"
                                                         />
                                                     </td>
@@ -563,7 +528,7 @@ const PermissionList = () => {
                                                     <td className="p-4">
                                                         <div className="flex justify-center items-center gap-2">
                                                             <button
-                                                                onClick={() => navigate(`/permission/details/${permission.permission_id}`)}
+                                                                onClick={() => navigate(`/permission/details/${permission.permission_role_id}`)}
                                                                 className="p-2 text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
                                                                 title="View Details"
                                                             >
@@ -682,34 +647,46 @@ const PermissionList = () => {
                                     </div>
                                     
                                     <div>
-                                        <h3 className="text-lg font-semibold text-gray-800 mb-4">Permission Settings</h3>
-                                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                                            {permissionFields.map(field => (
-                                                <div key={field.id} className="bg-gray-50 border border-gray-200 rounded-lg p-4">
-                                                    <div className="flex items-center justify-between mb-2">
-                                                        <span className="text-sm font-medium text-gray-700">
-                                                            {field.label}
-                                                        </span>
-                                                        <button
-                                                            type="button"
-                                                            onClick={() => togglePermission(field.id)}
-                                                            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                                                                formData[field.id] === '1' 
-                                                                    ? 'bg-green-500' 
-                                                                    : 'bg-gray-300'
-                                                            }`}
-                                                        >
-                                                            <span
-                                                                className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                                                                    formData[field.id] === '1' 
-                                                                        ? 'translate-x-6' 
-                                                                        : 'translate-x-1'
-                                                                }`}
-                                                            />
-                                                        </button>
-                                                    </div>
-                                                    <div className="text-xs text-gray-500">
-                                                        {formData[field.id] === '1' ? 'Allowed' : 'Not Allowed'}
+                                        <h3 className="text-lg font-semibold text-gray-800 mb-4 border-b pb-2">Permission Settings</h3>
+                                        <div className="space-y-6">
+                                            {Object.keys(groupedPermissionOptions).map(category => (
+                                                <div key={category} className="bg-white border border-gray-200 rounded-xl p-5 shadow-sm">
+                                                    <h4 className="text-md font-bold text-indigo-900 mb-3 bg-indigo-50 px-3 py-1.5 rounded-lg inline-block">
+                                                        {category}
+                                                    </h4>
+                                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                                                        {groupedPermissionOptions[category]?.map(option => {
+                                                            const isChecked = (formData.permissions || []).includes(option.p_option_id);
+                                                            return (
+                                                                <div key={option.p_option_id} className="bg-gray-50 border border-gray-200 rounded-lg p-4 flex flex-col justify-between hover:border-indigo-300 transition-all duration-200">
+                                                                    <div className="flex items-center justify-between mb-2">
+                                                                        <span className="text-sm font-semibold text-gray-700">
+                                                                            {option.name}
+                                                                        </span>
+                                                                        <button
+                                                                            type="button"
+                                                                            onClick={() => togglePermissionOption(option.p_option_id)}
+                                                                            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                                                                                isChecked 
+                                                                                    ? 'bg-green-500' 
+                                                                                    : 'bg-gray-300'
+                                                                            }`}
+                                                                        >
+                                                                            <span
+                                                                                className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                                                                                    isChecked 
+                                                                                        ? 'translate-x-6' 
+                                                                                        : 'translate-x-1'
+                                                                                }`}
+                                                                            />
+                                                                        </button>
+                                                                    </div>
+                                                                    <div className="text-xs text-gray-500">
+                                                                        {option.remark || (isChecked ? 'Allowed' : 'Not Allowed')}
+                                                                    </div>
+                                                                </div>
+                                                            );
+                                                        })}
                                                     </div>
                                                 </div>
                                             ))}
@@ -789,34 +766,46 @@ const PermissionList = () => {
                                     </div>
                                     
                                     <div>
-                                        <h3 className="text-lg font-semibold text-gray-800 mb-4">Permission Settings</h3>
-                                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                                            {permissionFields.map(field => (
-                                                <div key={field.id} className="bg-gray-50 border border-gray-200 rounded-lg p-4">
-                                                    <div className="flex items-center justify-between mb-2">
-                                                        <span className="text-sm font-medium text-gray-700">
-                                                            {field.label}
-                                                        </span>
-                                                        <button
-                                                            type="button"
-                                                            onClick={() => togglePermission(field.id)}
-                                                            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                                                                formData[field.id] === '1' 
-                                                                    ? 'bg-green-500' 
-                                                                    : 'bg-gray-300'
-                                                            }`}
-                                                        >
-                                                            <span
-                                                                className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                                                                    formData[field.id] === '1' 
-                                                                        ? 'translate-x-6' 
-                                                                        : 'translate-x-1'
-                                                                }`}
-                                                            />
-                                                        </button>
-                                                    </div>
-                                                    <div className="text-xs text-gray-500">
-                                                        {formData[field.id] === '1' ? 'Allowed' : 'Not Allowed'}
+                                        <h3 className="text-lg font-semibold text-gray-800 mb-4 border-b pb-2">Permission Settings</h3>
+                                        <div className="space-y-6">
+                                            {Object.keys(groupedPermissionOptions).map(category => (
+                                                <div key={category} className="bg-white border border-gray-200 rounded-xl p-5 shadow-sm">
+                                                    <h4 className="text-md font-bold text-indigo-900 mb-3 bg-indigo-50 px-3 py-1.5 rounded-lg inline-block">
+                                                        {category}
+                                                    </h4>
+                                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                                                        {groupedPermissionOptions[category]?.map(option => {
+                                                            const isChecked = (formData.permissions || []).includes(option.p_option_id);
+                                                            return (
+                                                                <div key={option.p_option_id} className="bg-gray-50 border border-gray-200 rounded-lg p-4 flex flex-col justify-between hover:border-indigo-300 transition-all duration-200">
+                                                                    <div className="flex items-center justify-between mb-2">
+                                                                        <span className="text-sm font-semibold text-gray-700">
+                                                                            {option.name}
+                                                                        </span>
+                                                                        <button
+                                                                            type="button"
+                                                                            onClick={() => togglePermissionOption(option.p_option_id)}
+                                                                            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                                                                                isChecked 
+                                                                                    ? 'bg-green-500' 
+                                                                                    : 'bg-gray-300'
+                                                                            }`}
+                                                                        >
+                                                                            <span
+                                                                                className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                                                                                    isChecked 
+                                                                                        ? 'translate-x-6' 
+                                                                                        : 'translate-x-1'
+                                                                                }`}
+                                                                            />
+                                                                        </button>
+                                                                    </div>
+                                                                    <div className="text-xs text-gray-500">
+                                                                        {option.remark || (isChecked ? 'Allowed' : 'Not Allowed')}
+                                                                    </div>
+                                                                </div>
+                                                            );
+                                                        })}
                                                     </div>
                                                 </div>
                                             ))}
@@ -879,7 +868,7 @@ const PermissionList = () => {
                     message={`Are you sure you want to delete the "${selectedPermission.name}" permission? This action cannot be undone and may affect users with this permission level.`}
                     onConfirm={(res) => {
                         if (res.confirmed) {
-                            handleDeletePermission(selectedPermission.id);
+                            handleDeletePermission(selectedPermission.permission_role_id);
                         }
                         setDeleteModal(false);
                     }}
