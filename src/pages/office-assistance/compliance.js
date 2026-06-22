@@ -292,10 +292,10 @@ const getUpcomingDueDateInfo = (assign, allSchedules) => {
 
     const pending = sorted.find(s => s.status !== 'Complete' && s.status !== 'Sale' && s.status !== 'N/A');
     if (pending) {
-        const dateStr = getPeriodDueDate(pending);
+        const dateStatus = getPeriodDueDateStatus(pending);
         return {
-            text: `${dateStr} (${pending.period_name})`,
-            color: 'text-amber-600 font-semibold',
+            text: `${dateStatus.text} (${pending.period_name})`,
+            color: dateStatus.color,
             allDates: sorted.map(s => `${s.period_name}: ${getPeriodDueDate(s)} (${s.status})`).join('\n')
         };
     }
@@ -452,7 +452,66 @@ const isPeriodDueDateActive = (period) => {
     }
     if (!dueDateObj || isNaN(dueDateObj.getTime())) return false;
     const today = new Date();
-    return dueDateObj.getMonth() === today.getMonth() && dueDateObj.getFullYear() === today.getFullYear();
+    const todayCopy = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+    const startOfDueDateMonth = new Date(dueDateObj.getFullYear(), dueDateObj.getMonth(), 1);
+    return todayCopy >= startOfDueDateMonth;
+};
+
+const getPeriodDueDateStatus = (period) => {
+    if (!period) return { text: '—', color: 'text-slate-500' };
+    
+    const dueDateText = getPeriodDueDate(period);
+    if (dueDateText === '—') {
+        return { text: '—', color: 'text-slate-500' };
+    }
+    
+    const isComplete = period.status === 'Complete' || period.status === 'Sale';
+    if (isComplete) {
+        return { text: `Due: ${dueDateText}`, color: 'text-slate-500' };
+    }
+    
+    let dueDateObj = null;
+    if (period.due_date) {
+        dueDateObj = new Date(period.due_date);
+    } else {
+        dueDateObj = new Date(dueDateText);
+    }
+    
+    if (!dueDateObj || isNaN(dueDateObj.getTime())) {
+        return { text: `Due: ${dueDateText}`, color: 'text-slate-500' };
+    }
+    
+    const today = new Date();
+    const todayCopy = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+    const dueDateCopy = new Date(dueDateObj.getFullYear(), dueDateObj.getMonth(), dueDateObj.getDate());
+    
+    const diffTime = todayCopy.getTime() - dueDateCopy.getTime();
+    const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24));
+    
+    const isOverdue = diffDays > 0;
+    
+    const startOfDueDateMonth = new Date(dueDateObj.getFullYear(), dueDateObj.getMonth(), 1);
+    const hasMonthStarted = todayCopy >= startOfDueDateMonth;
+    const isMonthRunning = today.getMonth() === dueDateObj.getMonth() && today.getFullYear() === dueDateObj.getFullYear();
+    
+    if (hasMonthStarted) {
+        if (isOverdue) {
+            return {
+                text: `Due Date Passed (${diffDays} days)`,
+                color: 'text-rose-600 font-bold',
+                isOverdue: true
+            };
+        } else if (isMonthRunning) {
+            const daysRemaining = -diffDays;
+            return {
+                text: `${daysRemaining} Days Remaining for due`,
+                color: 'text-amber-600 font-bold',
+                daysRemaining
+            };
+        }
+    }
+    
+    return { text: `Due: ${dueDateText}`, color: 'text-slate-500' };
 };
 
 const matchPeriodName = (dbName, headerName, frequency) => {
@@ -2224,9 +2283,14 @@ const ComplianceServices = () => {
                                                                                                                 }`}>
                                                                                                                 {period.status}
                                                                                                             </span>
-                                                                                                            <div className="text-[11px] text-slate-500 font-semibold mt-1">
-                                                                                                                Due: {getPeriodDueDate(period)}
-                                                                                                            </div>
+                                                                                                            {(() => {
+                                                                                                                const dueInfo = getPeriodDueDateStatus(period);
+                                                                                                                return (
+                                                                                                                    <div className={`text-[11px] font-semibold mt-1 ${dueInfo.color}`}>
+                                                                                                                        {dueInfo.text}
+                                                                                                                    </div>
+                                                                                                                );
+                                                                                                            })()}
                                                                                                             {/* Share Invoice button for Complete periods */}
                                                                                                             {isComplete && (
                                                                                                                 <button
@@ -3892,9 +3956,14 @@ const ComplianceServices = () => {
                                                                 {period.status}
                                                             </span>
                                                         </div>
-                                                        <div className="text-[11px] text-slate-500 font-semibold">
-                                                            Due: {getPeriodDueDate(period)}
-                                                        </div>
+                                                        {(() => {
+                                                            const dueInfo = getPeriodDueDateStatus(period);
+                                                            return (
+                                                                <div className={`text-[11px] font-semibold ${dueInfo.color}`}>
+                                                                    {dueInfo.text}
+                                                                </div>
+                                                            );
+                                                        })()}
                                                     </div>
                                                 </div>
                                             );

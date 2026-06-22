@@ -2693,7 +2693,7 @@ try {
                                                             e.stopPropagation();
                                                             downloadSampleCSV();
                                                         }}
-                                                        className="text-xs font-bold text-indigo-650 hover:text-indigo-750 flex items-center gap-1 cursor-pointer bg-white border border-slate-250 px-2.5 py-1.5 rounded-lg shadow-sm hover:bg-slate-50 transition-colors"
+                                                        className="text-xs font-bold text-indigo-600 hover:text-indigo-700 flex items-center gap-1 cursor-pointer bg-white border border-slate-250 px-2.5 py-1.5 rounded-lg shadow-sm hover:bg-slate-50 transition-colors"
                                                     >
                                                         <FiUpload className="w-3.5 h-3.5 rotate-180" />
                                                         Demo Template

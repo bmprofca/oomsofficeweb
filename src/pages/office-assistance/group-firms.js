@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { FiUsers, FiCheckCircle, FiSearch, FiMoreVertical, FiEye, FiXCircle, FiEdit, FiTrash2 } from 'react-icons/fi';
+import { FiUsers, FiCheckCircle, FiSearch, FiMoreVertical, FiEye, FiXCircle, FiEdit, FiTrash2, FiUpload } from 'react-icons/fi';
 import { Header, Sidebar } from '../../components/header';
 import getHeaders from "../../utils/get-headers";
 import axios from 'axios';
@@ -36,6 +36,13 @@ const GroupFirms = () => {
     const [selectedFirms, setSelectedFirms] = useState([]);
     const [showBulkDeleteModal, setShowBulkDeleteModal] = useState(false);
 
+    // Import states
+    const [showImportModal, setShowImportModal] = useState(false);
+    const [importFile, setImportFile] = useState(null);
+    const [importing, setImporting] = useState(false);
+    const [previewData, setPreviewData] = useState(null);
+    const [importError, setImportError] = useState(null);
+
 
 
     const [searchParams] = useSearchParams();
@@ -53,6 +60,61 @@ const GroupFirms = () => {
         const newFirmIds = [...firmIds];
         newFirmIds[index] = value;
         setFirmIds(newFirmIds);
+    };
+
+    const downloadSampleCSV = () => {
+        const headers = [
+            'Client Name', 'Mobile', 'Email', 'PAN', 'Gender', 'DOB', 'State', 'District', 'City', 'Pincode',
+            'Care Of', 'Guardian', 'Firm Name', 'Business Type', 'GSTIN', 'Firm PAN',
+            'Opening Balance', 'Opening Balance Type', 'Opening Balance Date'
+        ];
+        
+        const row1 = [
+            'Alice Smith', '9876543210', 'alice@example.com', 'ABCDE1234F', 'female', '1993-04-12', 
+            'West Bengal', 'Cooch Behar', 'Cooch Behar', '736134', 'S/O', 'Robert Smith', 
+            'Alice Smith', 'Individual', '19ABCDE1234F1Z5', 'ABCDE1234F', '500', 'credit', '2026-06-02'
+        ];
+        
+        const row2 = [
+            'John Doe', '9998887776', 'john.doe@example.com', 'WXYZS9876Q', 'male', '1988-11-23', 
+            'Delhi', 'New Delhi', 'New Delhi', '110001', 'S/O', 'Arthur Doe', 
+            'Doe Consulting', 'Proprietorship', '07WXYZS9876Q1Z9', 'WXYZS9876Q', '1200', 'debit', '2026-06-02'
+        ];
+
+        const csvContent = [
+            headers.join(','),
+            row1.join(','),
+            row2.join(',')
+        ].join('\n');
+
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = 'sample_clients_import.csv';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+    };
+
+    const downloadBlankTemplate = () => {
+        const headers = [
+            'Client Name', 'Mobile', 'Email', 'PAN', 'Gender', 'DOB', 'State', 'District', 'City', 'Pincode',
+            'Care Of', 'Guardian', 'Firm Name', 'Business Type', 'GSTIN', 'Firm PAN',
+            'Opening Balance', 'Opening Balance Type', 'Opening Balance Date'
+        ];
+        
+        const csvContent = headers.join(',') + '\n';
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = 'blank_clients_template.csv';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
     };
 
     // Dropdown toggle function - NEW
@@ -272,6 +334,98 @@ const GroupFirms = () => {
         }
     };
 
+    const handleFileChange = (e) => {
+        const file = e.target.files[0];
+        if (file) {
+            setImportFile(file);
+            setPreviewData(null);
+            setImportError(null);
+        }
+    };
+
+    const handleImportPreview = async () => {
+        if (!importFile) return;
+        setImporting(true);
+        setImportError(null);
+        setPreviewData(null);
+        
+        try {
+            const formData = new FormData();
+            formData.append('group_id', groupId);
+            formData.append('file', importFile);
+            
+            const response = await axios.post(`${BASE_URL}/group/import?preview=true`, formData, {
+                headers: {
+                    ...getHeaders(),
+                    'Content-Type': 'multipart/form-data'
+                }
+            });
+            
+            if (response.data.success) {
+                setPreviewData(response.data.data);
+            } else {
+                setImportError(response.data.message || 'Validation failed');
+            }
+        } catch (error) {
+            console.error('Preview error:', error);
+            if (error.response?.data?.errors) {
+                setPreviewData({
+                    errors: error.response.data.errors,
+                    invalid_count: error.response.data.errors.length,
+                    total_rows: error.response.data.errors.length,
+                    valid_count: 0
+                });
+            } else {
+                setImportError(error.response?.data?.message || error.message || 'Failed to parse import file');
+            }
+        } finally {
+            setImporting(false);
+        }
+    };
+
+    const handleImportCommit = async () => {
+        if (!importFile) return;
+        setImporting(true);
+        setImportError(null);
+        
+        try {
+            const formData = new FormData();
+            formData.append('group_id', groupId);
+            formData.append('file', importFile);
+            
+            const response = await axios.post(`${BASE_URL}/group/import`, formData, {
+                headers: {
+                    ...getHeaders(),
+                    'Content-Type': 'multipart/form-data'
+                }
+            });
+            
+            if (response.data.success) {
+                alert(response.data.message || 'Bulk import completed successfully');
+                setShowImportModal(false);
+                setImportFile(null);
+                setPreviewData(null);
+                fetchGroupFirmsData(searchTerm);
+            } else {
+                setImportError(response.data.message || 'Import failed');
+            }
+        } catch (error) {
+            console.error('Import error:', error);
+            if (error.response?.data?.errors) {
+                setPreviewData({
+                    errors: error.response.data.errors,
+                    invalid_count: error.response.data.errors.length,
+                    total_rows: error.response.data.errors.length,
+                    valid_count: 0
+                });
+            } else {
+                setImportError(error.response?.data?.message || error.message || 'Failed to complete import');
+            }
+        } finally {
+            setImporting(false);
+        }
+    };
+
 
     // Effects
     useEffect(() => {
@@ -431,6 +585,22 @@ const GroupFirms = () => {
                                                 className="pl-10 pr-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 w-64"
                                             />
                                         </div>
+                                        <motion.button
+                                            onClick={() => {
+                                                setShowImportModal(true);
+                                                setImportFile(null);
+                                                setPreviewData(null);
+                                                setImportError(null);
+                                            }}
+                                            className="px-6 py-2.5 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white rounded-lg text-sm font-semibold flex items-center gap-2 shadow-sm hover:shadow-lg"
+                                            whileHover={{ scale: 1.02 }}
+                                            whileTap={{ scale: 0.98 }}
+                                        >
+                                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                                            </svg>
+                                            Bulk Import
+                                        </motion.button>
                                         <motion.button
                                             onClick={() => setShowCreateModal(true)}
                                             className="px-6 py-2.5 bg-gradient-to-r from-emerald-600 to-emerald-700 hover:from-emerald-700 hover:to-emerald-800 text-white rounded-lg text-sm font-semibold flex items-center gap-2 shadow-sm hover:shadow-lg"
@@ -987,6 +1157,323 @@ const GroupFirms = () => {
                                 </button>
                             </div>
                         </div>
+                    </div>
+                )}
+
+                {showImportModal && (
+                    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+                        <motion.div
+                            initial={{ opacity: 0, scale: 0.95 }}
+                            animate={{ opacity: 1, scale: 1 }}
+                            exit={{ opacity: 0, scale: 0.95 }}
+                            className="bg-white rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto shadow-2xl flex flex-col"
+                        >
+                            {/* Modal Header */}
+                            <div className="border-b border-gray-150 p-6 flex justify-between items-center bg-slate-50/50">
+                                <div>
+                                    <h3 className="text-lg font-bold text-gray-900">Bulk Import Clients & Firms</h3>
+                                    <p className="text-xs text-gray-500 mt-1">Import new or map existing clients and firms via spreadsheet</p>
+                                </div>
+                                <button
+                                    onClick={() => setShowImportModal(false)}
+                                    className="p-2 hover:bg-gray-100 rounded-xl transition-all"
+                                >
+                                    <svg className="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                    </svg>
+                                </button>
+                            </div>
+
+                            {/* Modal Content */}
+                            <div className="p-6 flex-1 overflow-y-auto space-y-6">
+                                {/* Upload Box */}
+                                {!previewData && (
+                                    <div className="border-2 border-dashed border-slate-300 hover:border-blue-500 rounded-2xl p-8 text-center bg-slate-50/30 transition-all flex flex-col items-center justify-center">
+                                        <svg className="w-12 h-12 text-slate-400 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 13h6m-3-3v6m5 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                        </svg>
+                                        <p className="text-sm font-semibold text-slate-700 mb-1">
+                                            Select spreadsheet file (.xlsx, .xls, .csv)
+                                        </p>
+                                        <p className="text-xs text-slate-400 mb-4">
+                                            Ensure column headers map to Name, Mobile, Email, and PAN
+                                        </p>
+                                        <label className="cursor-pointer px-5 py-2.5 bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 text-xs font-bold rounded-xl shadow-xs transition-all">
+                                            Choose File
+                                            <input
+                                                type="file"
+                                                accept=".xlsx,.xls,.csv"
+                                                onChange={handleFileChange}
+                                                className="hidden"
+                                            />
+                                        </label>
+                                        {importFile && (
+                                            <div className="mt-4 flex items-center gap-2 p-2 bg-blue-50 border border-blue-100 rounded-xl text-xs font-semibold text-blue-700">
+                                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                                </svg>
+                                                {importFile.name} ({(importFile.size / 1024).toFixed(1)} KB)
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
+
+                                {/* Import instructions and templates download */}
+                                {!previewData && (
+                                    <div className="bg-slate-50 border border-slate-200 rounded-2xl p-5 space-y-4">
+                                        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+                                            <div>
+                                                <h4 className="text-xs font-bold text-slate-700 uppercase tracking-wide">
+                                                    Import Guidelines & Templates
+                                                </h4>
+                                                <p className="text-[10px] text-slate-400 mt-0.5">Use these templates to prepare your file</p>
+                                            </div>
+                                            <div className="flex gap-2">
+                                                <button
+                                                    type="button"
+                                                    onClick={downloadBlankTemplate}
+                                                    className="text-[11px] font-bold text-blue-600 hover:text-blue-700 flex items-center gap-1 bg-white border border-slate-200 px-3 py-1.5 rounded-lg shadow-2xs hover:bg-slate-50 transition-colors"
+                                                >
+                                                    <FiUpload className="w-3.5 h-3.5 rotate-180" />
+                                                    Blank Template
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    onClick={downloadSampleCSV}
+                                                    className="text-[11px] font-bold text-blue-600 hover:text-blue-700 flex items-center gap-1 bg-white border border-slate-200 px-3 py-1.5 rounded-lg shadow-2xs hover:bg-slate-50 transition-colors"
+                                                >
+                                                    <FiUpload className="w-3.5 h-3.5 rotate-180" />
+                                                    Demo Template
+                                                </button>
+                                            </div>
+                                        </div>
+                                        
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
+                                            <div className="bg-white p-3.5 rounded-xl border border-slate-150 shadow-2xs">
+                                                <span className="font-bold text-slate-800 block mb-1.5 flex items-center gap-1.5">
+                                                    <span className="w-1.5 h-1.5 bg-blue-500 rounded-full"></span>
+                                                    Required Headers
+                                                </span>
+                                                <ul className="list-disc pl-4 text-slate-500 space-y-1">
+                                                    <li><strong>Client Name</strong> (aliases: Name, Full Name)</li>
+                                                    <li><strong>Mobile</strong> (aliases: Phone, Contact)</li>
+                                                    <li><strong>Email</strong> (aliases: Email Address)</li>
+                                                    <li><strong>PAN</strong> (aliases: PAN Number, pan_no)</li>
+                                                </ul>
+                                            </div>
+                                            <div className="bg-white p-3.5 rounded-xl border border-slate-150 shadow-2xs">
+                                                <span className="font-bold text-slate-800 block mb-1.5 flex items-center gap-1.5">
+                                                    <span className="w-1.5 h-1.5 bg-indigo-500 rounded-full"></span>
+                                                    Optional Headers
+                                                </span>
+                                                <ul className="list-disc pl-4 text-slate-500 space-y-1">
+                                                    <li><strong>Firm</strong>: Firm Name, Business Type, GSTIN</li>
+                                                    <li><strong>Location</strong>: State, District, City, Pincode</li>
+                                                    <li><strong>Personal</strong>: DOB, Gender, Care Of, Guardian</li>
+                                                </ul>
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* Error Notification */}
+                                {importError && (
+                                    <div className="p-4 bg-red-50 border border-red-150 rounded-xl flex items-start gap-3">
+                                        <svg className="w-5 h-5 text-red-500 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                                        </svg>
+                                        <div className="text-xs font-medium text-red-700">
+                                            {importError}
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* Preview Data and Summary */}
+                                {previewData && (
+                                    <div className="space-y-6">
+                                        {/* Metrics Grid */}
+                                        <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+                                            <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl text-center">
+                                                <span className="text-[10px] uppercase font-bold text-slate-400 block mb-0.5">Total Rows</span>
+                                                <span className="text-lg font-extrabold text-slate-700">{previewData.total_rows}</span>
+                                            </div>
+                                            <div className="p-3 bg-emerald-50 border border-emerald-100 rounded-xl text-center">
+                                                <span className="text-[10px] uppercase font-bold text-emerald-600 block mb-0.5">Valid Rows</span>
+                                                <span className="text-lg font-extrabold text-emerald-700">{previewData.valid_count}</span>
+                                            </div>
+                                            <div className="p-3 bg-red-50 border border-red-100 rounded-xl text-center">
+                                                <span className="text-[10px] uppercase font-bold text-red-600 block mb-0.5">Invalid Rows</span>
+                                                <span className="text-lg font-extrabold text-red-700">{previewData.invalid_count}</span>
+                                            </div>
+                                            <div className="p-3 bg-blue-50 border border-blue-100 rounded-xl text-center">
+                                                <span className="text-[10px] uppercase font-bold text-blue-600 block mb-0.5">New Clients</span>
+                                                <span className="text-lg font-extrabold text-blue-700">{previewData.new_clients_count}</span>
+                                            </div>
+                                            <div className="p-3 bg-purple-50 border border-purple-100 rounded-xl text-center">
+                                                <span className="text-[10px] uppercase font-bold text-purple-600 block mb-0.5">Matched</span>
+                                                <span className="text-lg font-extrabold text-purple-700">{previewData.matched_clients_count}</span>
+                                            </div>
+                                        </div>
+
+                                        {/* Validation Errors section */}
+                                        {previewData.errors && previewData.errors.length > 0 && (
+                                            <div className="border border-red-150 rounded-2xl overflow-hidden bg-red-50/20">
+                                                <div className="bg-red-50 border-b border-red-150 px-4 py-3 flex items-center gap-2">
+                                                    <svg className="w-4 h-4 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                                                    </svg>
+                                                    <h4 className="text-xs font-bold text-red-800 uppercase tracking-wide">Validation Failures</h4>
+                                                </div>
+                                                <div className="p-4 max-h-44 overflow-y-auto divide-y divide-red-100">
+                                                    {previewData.errors.map((err, eIdx) => (
+                                                        <div key={eIdx} className="py-2.5 first:pt-0 last:pb-0 text-xs flex items-start gap-3">
+                                                            <span className="px-2 py-0.5 bg-red-100 text-red-800 rounded font-bold">
+                                                                Row {err.row}
+                                                            </span>
+                                                            <div className="flex-1">
+                                                                {err.name && <div className="font-semibold text-slate-800 mb-0.5">{err.name}</div>}
+                                                                <ul className="list-disc pl-4 text-red-700 space-y-0.5">
+                                                                    {err.errors.map((msg, mIdx) => (
+                                                                        <li key={mIdx}>{msg}</li>
+                                                                    ))}
+                                                                </ul>
+                                                            </div>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        )}
+
+                                        {/* Matches section */}
+                                        {previewData.matches && previewData.matches.length > 0 && (
+                                            <div className="border border-purple-200 rounded-2xl overflow-hidden bg-purple-50/10">
+                                                <div className="bg-purple-50 border-b border-purple-100 px-4 py-3 flex items-center gap-2">
+                                                    <svg className="w-4 h-4 text-purple-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                                    </svg>
+                                                    <h4 className="text-xs font-bold text-purple-800 uppercase tracking-wide">Matched Existing Records</h4>
+                                                </div>
+                                                <div className="p-4 max-h-44 overflow-y-auto divide-y divide-purple-100/50">
+                                                    {previewData.matches.map((m, mIdx) => (
+                                                        <div key={mIdx} className="py-2.5 first:pt-0 last:pb-0 flex items-center justify-between text-xs gap-4">
+                                                            <div>
+                                                                <div className="font-bold text-slate-800">{m.name}</div>
+                                                                <div className="text-[10px] text-slate-450 mt-0.5">PAN: {m.pan_number} · Row {m.row}</div>
+                                                            </div>
+                                                            <div className="text-right">
+                                                                <span className={`inline-flex px-2 py-0.5 rounded-full text-[9px] font-bold border uppercase tracking-wider ${m.already_in_group 
+                                                                    ? 'bg-slate-50 border-slate-200 text-slate-400' 
+                                                                    : 'bg-indigo-50 border-indigo-100 text-indigo-700'}`}>
+                                                                    {m.already_in_group ? 'Already in Group' : 'Mapping to Group'}
+                                                                </span>
+                                                                <div className="text-[10px] text-slate-400 mt-0.5">{m.firm_name || 'Individual'}</div>
+                                                            </div>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        )}
+
+                                        {/* Preview list */}
+                                        {previewData.preview && previewData.preview.length > 0 && (
+                                            <div className="border border-slate-200 rounded-2xl overflow-hidden">
+                                                <div className="bg-slate-50 border-b border-slate-200 px-4 py-3">
+                                                    <h4 className="text-xs font-bold text-slate-700 uppercase tracking-wide">New Imports Preview</h4>
+                                                </div>
+                                                <div className="p-4 max-h-44 overflow-y-auto divide-y divide-slate-100">
+                                                    {previewData.preview.map((p, pIdx) => (
+                                                        <div key={pIdx} className="py-2.5 first:pt-0 last:pb-0 flex items-center justify-between text-xs gap-4">
+                                                            <div>
+                                                                <div className="font-bold text-slate-800">{p.name}</div>
+                                                                <div className="text-[10px] text-slate-450 mt-0.5">PAN: {p.pan_number} · Mobile: {p.mobile}</div>
+                                                            </div>
+                                                            <div className="text-right">
+                                                                <span className="px-2 py-0.5 bg-blue-50 text-blue-700 rounded font-bold uppercase text-[9px]">
+                                                                    New Client
+                                                                </span>
+                                                                <div className="text-[10px] text-slate-400 mt-0.5">{p.firm?.firm_name || 'Individual'}</div>
+                                                            </div>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* Modal Footer */}
+                            <div className="border-t border-gray-150 p-6 bg-slate-50/50 flex justify-end gap-3 rounded-b-2xl">
+                                <button
+                                    onClick={() => {
+                                        setShowImportModal(false);
+                                        setImportFile(null);
+                                        setPreviewData(null);
+                                        setImportError(null);
+                                    }}
+                                    disabled={importing}
+                                    className="px-5 py-2.5 border border-slate-300 hover:bg-slate-100 text-slate-700 text-xs font-bold rounded-xl shadow-xs transition-all disabled:opacity-50"
+                                >
+                                    Cancel
+                                </button>
+
+                                {previewData ? (
+                                    <>
+                                        <button
+                                            onClick={() => {
+                                                setPreviewData(null);
+                                                setImportFile(null);
+                                                setImportError(null);
+                                            }}
+                                            disabled={importing}
+                                            className="px-5 py-2.5 border border-slate-300 bg-white hover:bg-slate-50 text-slate-700 text-xs font-bold rounded-xl shadow-xs transition-all disabled:opacity-50"
+                                        >
+                                            Choose Another File
+                                        </button>
+                                        <button
+                                            onClick={handleImportCommit}
+                                            disabled={importing || (previewData.invalid_count > 0)}
+                                            className="px-6 py-2.5 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white text-xs font-bold rounded-xl shadow-md hover:shadow-lg transition-all disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-2"
+                                        >
+                                            {importing ? (
+                                                <>
+                                                    <span className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
+                                                    Importing...
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
+                                                    </svg>
+                                                    Confirm & Commit Import
+                                                </>
+                                            )}
+                                        </button>
+                                    </>
+                                ) : (
+                                    <button
+                                        onClick={handleImportPreview}
+                                        disabled={importing || !importFile}
+                                        className="px-6 py-2.5 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white text-xs font-bold rounded-xl shadow-md hover:shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                                    >
+                                        {importing ? (
+                                            <>
+                                                <span className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
+                                                Validating...
+                                            </>
+                                        ) : (
+                                            <>
+                                                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                                                </svg>
+                                                Validate & Preview File
+                                            </>
+                                        )}
+                                    </button>
+                                )}
+                            </div>
+                        </motion.div>
                     </div>
                 )}
 

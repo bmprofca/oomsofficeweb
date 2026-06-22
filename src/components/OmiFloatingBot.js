@@ -214,7 +214,7 @@ const OmiFloatingBot = () => {
       {/* Floating launcher button */}
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="fixed bottom-6 right-6 z-50 w-14 h-14 rounded-full bg-gradient-to-tr from-blue-600 to-indigo-650 hover:from-blue-700 hover:to-indigo-750 text-white flex items-center justify-center shadow-2xl transition-all duration-300 transform hover:scale-105 active:scale-95 border border-white/20"
+        className="fixed bottom-6 right-6 z-50 w-14 h-14 rounded-full bg-gradient-to-tr from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white flex items-center justify-center shadow-2xl transition-all duration-300 transform hover:scale-105 active:scale-95 border border-white/20"
         title="Open OOMS Metrics Assistant"
       >
         <AnimatePresence mode="wait">
@@ -258,7 +258,7 @@ const OmiFloatingBot = () => {
             className="fixed bottom-24 right-6 w-[360px] sm:w-[380px] h-[500px] max-h-[calc(100vh-8rem)] z-50 bg-white border border-slate-200 rounded-3xl shadow-2xl flex flex-col overflow-hidden"
           >
             {/* Header */}
-            <div className="bg-gradient-to-r from-blue-600 to-indigo-650 p-4 text-white flex justify-between items-center shadow-md shrink-0">
+            <div className="bg-gradient-to-r from-blue-600 to-indigo-600 p-4 text-white flex justify-between items-center shadow-md shrink-0">
               <div className="flex items-center gap-2.5">
                 <div className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center border border-white/20">
                   <span className="font-extrabold text-[10px] tracking-wider">OMI</span>
@@ -307,7 +307,7 @@ const OmiFloatingBot = () => {
                     <div>
                       <div className={`p-3 rounded-2xl ${
                         isUser
-                          ? 'bg-gradient-to-r from-blue-600 to-indigo-650 text-white rounded-tr-none shadow-sm'
+                          ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-tr-none shadow-sm'
                           : 'bg-white border border-slate-200/80 text-slate-800 rounded-tl-none shadow-sm'
                       }`}>
                         {isUser ? <p className="text-xs leading-relaxed font-sans">{msg.text}</p> : formatMessageText(msg.text)}
@@ -370,7 +370,7 @@ const OmiFloatingBot = () => {
                 <button
                   onClick={() => handleSendMessage()}
                   disabled={!inputValue.trim() || isTyping}
-                  className="px-3 py-1.5 bg-gradient-to-r from-blue-600 to-indigo-650 hover:from-blue-700 hover:to-indigo-750 disabled:from-slate-200 disabled:to-slate-200 disabled:text-slate-450 text-white font-bold transition-all flex items-center justify-center shrink-0"
+                  className="px-3 py-1.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 disabled:from-slate-200 disabled:to-slate-200 disabled:text-slate-455 text-white font-bold transition-all flex items-center justify-center shrink-0"
                 >
                   <FiSend className="w-3.5 h-3.5" />
                 </button>
