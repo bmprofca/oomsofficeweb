@@ -21,10 +21,79 @@ import {
 } from 'react-icons/fi';
 import getHeaders from '../utils/get-headers';
 import API_BASE_URL from '../utils/api-controller';
+import { useUserPermissions } from '../utils/permission-helper';
+
+const getStatValue = (stats, cardValue) => {
+    if (!stats) return 0;
+    
+    // Helper to search both singular and plural versions of the key
+    const getValue = (obj, key) => {
+        if (!obj) return undefined;
+        
+        let val = obj[key];
+        if (val === undefined && !key.endsWith('s')) {
+            val = obj[key + 's'];
+        }
+        if (val === undefined && key.endsWith('s')) {
+            val = obj[key.slice(0, -1)];
+        }
+        
+        if (val !== undefined) {
+            // Un-nest if it's an object with a 'value' field
+            if (val && typeof val === 'object' && 'value' in val) {
+                return val.value;
+            }
+            return val;
+        }
+        return undefined;
+    };
+
+    // 1. Check root level
+    let val = getValue(stats, cardValue);
+    if (val !== undefined) return val;
+
+    // 2. Check nested additional_metrics
+    if (stats.additional_metrics) {
+        val = getValue(stats.additional_metrics, cardValue);
+        if (val !== undefined) return val;
+    }
+
+    // 3. Fallback alternative keys mapping
+    if (cardValue === 'total_client') {
+        val = getValue(stats, 'clients_count') ?? getValue(stats, 'total_clients_count');
+        if (val !== undefined) return val;
+    }
+    if (cardValue === 'active_client') {
+        val = getValue(stats, 'active_clients_count');
+        if (val !== undefined) return val;
+    }
+    if (cardValue === 'total_staff') {
+        val = getValue(stats, 'total_employees') ?? getValue(stats, 'staff_count');
+        if (val !== undefined) return val;
+    }
+    if (cardValue === 'present_today') {
+        val = getValue(stats, 'today_attendance') ?? getValue(stats, 'present_staff_today') ?? getValue(stats, 'attendance');
+        if (val !== undefined) return val;
+        if (stats.additional_metrics) {
+            val = getValue(stats.additional_metrics, 'today_attendance') ?? getValue(stats.additional_metrics, 'present_staff_today');
+            if (val !== undefined) return val;
+        }
+    }
+    if (cardValue === 'task_created_today') {
+        val = getValue(stats, 'tasks_created') ?? getValue(stats, 'today_tasks_created');
+        if (val !== undefined) return val;
+    }
+    if (cardValue === 'task_completed_today') {
+        val = getValue(stats, 'tasks_completed') ?? getValue(stats, 'today_tasks_completed');
+        if (val !== undefined) return val;
+    }
+
+    return 0;
+};
 
 // Main Stat Card Component
 const StatCard = ({ card, stats, isCustomizing, onDragStart, onDragOver, onDrop, onDragEnd, draggedCard, dragOverCard, draggedCardSource, formatCurrency, formatNumber, blurEnabled, onClick }) => {
-    const value = stats[card.value] || 0;
+    const value = getStatValue(stats, card.value);
     const IconComponent = card.icon;
     const isDragged = draggedCard === card.id && draggedCardSource === 'additionalStats';
     const isDragOver = dragOverCard === card.id && draggedCardSource === 'additionalStats';
@@ -177,6 +246,7 @@ const AdditionalStatsComponent = ({
     blurEnabled = false,
     onNavigate = (link) => window.location.href = link
 }) => {
+    const { check } = useUserPermissions();
     const [stats, setStats] = useState(externalStats || {});
     const [additionalMetrics, setAdditionalMetrics] = useState(null);
     const [loading, setLoading] = useState(!externalStats);
@@ -407,25 +477,27 @@ const AdditionalStatsComponent = ({
 
             {/* Main Stats Cards */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-                {cards.map((card) => (
-                    <StatCard
-                        key={card.id}
-                        card={card}
-                        stats={stats}
-                        isCustomizing={isCustomizing}
-                        onDragStart={onCardDragStart}
-                        onDragOver={onCardDragOver}
-                        onDrop={handleCardDrop}
-                        onDragEnd={onCardDragEnd}
-                        draggedCard={draggedCard}
-                        dragOverCard={dragOverCard}
-                        draggedCardSource="additionalStats"
-                        formatCurrency={formatCurrency}
-                        formatNumber={formatNumber}
-                        blurEnabled={blurEnabled}
-                        onClick={handleCardClick}
-                    />
-                ))}
+                {cards
+                    .filter(card => card.id !== 'net-profit' || check('finance_balance_view'))
+                    .map((card) => (
+                        <StatCard
+                            key={card.id}
+                            card={card}
+                            stats={stats}
+                            isCustomizing={isCustomizing}
+                            onDragStart={onCardDragStart}
+                            onDragOver={onCardDragOver}
+                            onDrop={handleCardDrop}
+                            onDragEnd={onCardDragEnd}
+                            draggedCard={draggedCard}
+                            dragOverCard={dragOverCard}
+                            draggedCardSource="additionalStats"
+                            formatCurrency={formatCurrency}
+                            formatNumber={formatNumber}
+                            blurEnabled={blurEnabled}
+                            onClick={handleCardClick}
+                        />
+                    ))}
             </div>
 
             {/* Additional Metrics Section */}
@@ -475,46 +547,48 @@ const AdditionalStatsComponent = ({
                         </AdditionalMetricsCard>
 
                         {/* Financial Metrics */}
-                        <AdditionalMetricsCard 
-                            title="Financial Overview" 
-                            icon={FiDollarSign}
-                            gradient="bg-gradient-to-r from-green-500 to-emerald-600"
-                        >
-                            <div className="space-y-3">
-                                <div className="flex justify-between items-center pb-2 border-b">
-                                    <span className="text-gray-600">Today's Income</span>
-                                    <span className="text-2xl font-bold text-green-600">
-                                        {formatCurrency(additionalMetrics.total_income_today)}
-                                    </span>
-                                </div>
-                                <div className="flex justify-between items-center pb-2 border-b">
-                                    <span className="text-gray-600">Today's Expense</span>
-                                    <span className="text-2xl font-bold text-red-600">
-                                        {formatCurrency(additionalMetrics.total_expense_today)}
-                                    </span>
-                                </div>
-                                {additionalMetrics.transaction_breakdown && (
-                                    <div className="mt-3 pt-2">
-                                        <p className="text-sm font-semibold text-gray-700 mb-2">Transaction Breakdown:</p>
-                                        <div className="grid grid-cols-2 gap-2">
-                                            <div className="bg-green-50 p-2 rounded-lg">
-                                                <p className="text-xs text-green-600">Credit</p>
-                                                <p className="font-bold">{formatCurrency(additionalMetrics.transaction_breakdown.credit?.amount)}</p>
-                                                <p className="text-xs text-gray-500">{formatNumber(additionalMetrics.transaction_breakdown.credit?.count)} transactions</p>
-                                            </div>
-                                            <div className="bg-red-50 p-2 rounded-lg">
-                                                <p className="text-xs text-red-600">Debit</p>
-                                                <p className="font-bold">{formatCurrency(additionalMetrics.transaction_breakdown.debit?.amount)}</p>
-                                                <p className="text-xs text-gray-500">{formatNumber(additionalMetrics.transaction_breakdown.debit?.count)} transactions</p>
+                        {check('finance_balance_view') && (
+                            <AdditionalMetricsCard 
+                                title="Financial Overview" 
+                                icon={FiDollarSign}
+                                gradient="bg-gradient-to-r from-green-500 to-emerald-600"
+                            >
+                                <div className="space-y-3">
+                                    <div className="flex justify-between items-center pb-2 border-b">
+                                        <span className="text-gray-600">Today's Income</span>
+                                        <span className="text-2xl font-bold text-green-600">
+                                            {formatCurrency(additionalMetrics.total_income_today)}
+                                        </span>
+                                    </div>
+                                    <div className="flex justify-between items-center pb-2 border-b">
+                                        <span className="text-gray-600">Today's Expense</span>
+                                        <span className="text-2xl font-bold text-red-600">
+                                            {formatCurrency(additionalMetrics.total_expense_today)}
+                                        </span>
+                                    </div>
+                                    {additionalMetrics.transaction_breakdown && (
+                                        <div className="mt-3 pt-2">
+                                            <p className="text-sm font-semibold text-gray-700 mb-2">Transaction Breakdown:</p>
+                                            <div className="grid grid-cols-2 gap-2">
+                                                <div className="bg-green-50 p-2 rounded-lg">
+                                                    <p className="text-xs text-green-600">Credit</p>
+                                                    <p className="font-bold">{formatCurrency(additionalMetrics.transaction_breakdown.credit?.amount)}</p>
+                                                    <p className="text-xs text-gray-500">{formatNumber(additionalMetrics.transaction_breakdown.credit?.count)} transactions</p>
+                                                </div>
+                                                <div className="bg-red-50 p-2 rounded-lg">
+                                                    <p className="text-xs text-red-600">Debit</p>
+                                                    <p className="font-bold">{formatCurrency(additionalMetrics.transaction_breakdown.debit?.amount)}</p>
+                                                    <p className="text-xs text-gray-500">{formatNumber(additionalMetrics.transaction_breakdown.debit?.count)} transactions</p>
+                                                </div>
                                             </div>
                                         </div>
-                                    </div>
-                                )}
-                            </div>
-                        </AdditionalMetricsCard>
+                                    )}
+                                </div>
+                            </AdditionalMetricsCard>
+                        )}
 
                         {/* Billing Status */}
-                        {additionalMetrics.billing_status_breakdown && (
+                        {check('finance_balance_view') && additionalMetrics.billing_status_breakdown && (
                             <AdditionalMetricsCard 
                                 title="Billing Status" 
                                 icon={FiCreditCard}

@@ -56,6 +56,11 @@ const PermissionList = () => {
 
     const getCategoryName = (pOptionId) => {
         const id = pOptionId.toLowerCase();
+        if (id.startsWith('recurring_task_')) return 'Recurring Task';
+        if (id.startsWith('dashboard_') || 
+            ['sales_overview_view', 'quick_stats_view', 'task_summary_view', 'service_wise_sales_view', 'staff_wise_sales_view', 'top_clients_view', 'dashboard_statistics_view'].includes(id)) {
+            return 'Dashboard Statistics';
+        }
         if (id.startsWith('task_')) return 'Task Management';
         if (id.startsWith('client_')) return 'Client Management';
         if (id.startsWith('finance_')) return 'Finance & Ledger';
@@ -92,7 +97,14 @@ const PermissionList = () => {
         recurring_task_create: 'Recurring Create',
         recurring_task_delete: 'Recurring Delete',
         recurring_task_complete: 'Recurring Complete',
-        recurring_task_fees_view: 'Recurring Fees'
+        recurring_task_fees_view: 'Recurring Fees',
+        sales_overview_view: 'Sales Overview',
+        quick_stats_view: 'Quick Stats',
+        task_summary_view: 'Task Summary',
+        service_wise_sales_view: 'Service Wise Sales',
+        staff_wise_sales_view: 'Staff Wise Sales',
+        top_clients_view: 'Top Clients',
+        dashboard_statistics_view: 'Dashboard Statistics'
     };
 
     const getPermLabel = (key) => {
@@ -136,7 +148,22 @@ const PermissionList = () => {
             if (!headers) return;
             const res = await axios.get(`${API_BASE_URL}/settings/permissions/options`, { headers });
             if (res.data?.success) {
-                setPermissionOptions(res.data.data || []);
+                let options = res.data.data || [];
+                const dashboardOptions = [
+                    { p_option_id: 'sales_overview_view', name: 'Sales Overview View', remark: 'View sales overview widget' },
+                    { p_option_id: 'quick_stats_view', name: 'Quick Stats View', remark: 'View quick stats widget' },
+                    { p_option_id: 'task_summary_view', name: 'Task Summary View', remark: 'View task summary widget' },
+                    { p_option_id: 'service_wise_sales_view', name: 'Service Wise Sales View', remark: 'View service wise sales widget' },
+                    { p_option_id: 'staff_wise_sales_view', name: 'Staff Wise Sales View', remark: 'View staff wise sales widget' },
+                    { p_option_id: 'top_clients_view', name: 'Top Clients View', remark: 'View top clients widget' },
+                    { p_option_id: 'dashboard_statistics_view', name: 'Dashboard Statistics View', remark: 'View dashboard statistics cards' }
+                ];
+                dashboardOptions.forEach(opt => {
+                    if (!options.some(o => o.p_option_id === opt.p_option_id)) {
+                        options.push(opt);
+                    }
+                });
+                setPermissionOptions(options);
             }
         } catch (err) {
             console.error('Error fetching permission options:', err);

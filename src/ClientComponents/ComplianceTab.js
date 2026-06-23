@@ -29,7 +29,8 @@ const getRequiredFieldsForService = (service) => {
             { key: 'ptax_password', label: 'Password', type: 'password' }
         ];
     }
-    if (name.includes('gstr-1') || svcId.includes('gstr-1') || name.includes('gstr1') || svcId.includes('gstr1')) {
+    if (name.includes('gstr-1') || svcId.includes('gstr-1') || name.includes('gstr1') || svcId.includes('gstr1') ||
+        name.includes('gstr-3b') || svcId.includes('gstr-3b') || name.includes('gstr3b') || svcId.includes('gstr3b')) {
         return [
             { key: 'gst_login_id', label: 'GST Login ID', type: 'text' },
             { key: 'gst_password', label: 'Password', type: 'password' }
@@ -54,7 +55,7 @@ const CredentialRow = ({ label, val, type }) => {
             <span className="font-semibold text-slate-500 w-1/3 truncate" title={label}>{label}</span>
             <div className="flex items-center gap-2 w-2/3 justify-end">
                 <span className="font-mono text-slate-800 break-all select-all font-semibold">
-                    {isPassword && !visible ? '••••••••' : (val || '—')}
+                    {!val ? '—' : (isPassword && !visible ? '••••••••' : val)}
                 </span>
                 <div className="flex items-center gap-1 shrink-0">
                     {isPassword && (
@@ -104,21 +105,22 @@ const CredentialsCard = ({ schema, credentials }) => {
 };
 
 const ClientFilingCredentials = ({ assignment }) => {
-    const credentials = assignment.custom_fields;
-    if (!credentials || typeof credentials !== 'object' || Object.keys(credentials).length === 0) {
-        return null;
-    }
+    const credentials = assignment.custom_fields || {};
 
     let schema = assignment.required_fields || [];
     if (schema.length === 0) {
         schema = getRequiredFieldsForService(assignment);
     }
-    if (schema.length === 0) {
+    if (schema.length === 0 && Object.keys(credentials).length > 0) {
         schema = Object.keys(credentials).map(key => {
             const label = key.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
             const type = (key.toLowerCase().includes('pass') || key.toLowerCase().includes('secret')) ? 'password' : 'text';
             return { key, label, type };
         });
+    }
+
+    if (schema.length === 0) {
+        return null;
     }
 
     return <CredentialsCard schema={schema} credentials={credentials} />;

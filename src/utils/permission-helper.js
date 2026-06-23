@@ -39,7 +39,7 @@ export const fetchUserPermissions = async (force = false) => {
         if (!force) {
             const cached = localStorage.getItem(cacheKey);
             const cachedTime = localStorage.getItem(cacheTimeKey);
-            const isExpired = !cachedTime || (now - parseInt(cachedTime, 10)) > 2 * 60 * 1000; // 2-minute TTL
+            const isExpired = !cachedTime || (now - parseInt(cachedTime, 10)) > 5 * 1000; // 5-second TTL
 
             if (cached && !isExpired) {
                 try {
@@ -110,7 +110,14 @@ export const fetchUserPermissions = async (force = false) => {
                         'recurring_task_create',
                         'recurring_task_delete',
                         'recurring_task_complete',
-                        'recurring_task_fees_view'
+                        'recurring_task_fees_view',
+                        'sales_overview_view',
+                        'quick_stats_view',
+                        'task_summary_view',
+                        'service_wise_sales_view',
+                        'staff_wise_sales_view',
+                        'top_clients_view',
+                        'dashboard_statistics_view'
                     ];
 
                     const checkPromises = permissionsToCheck.map(async (perm) => {
@@ -189,7 +196,7 @@ export const useUserPermissions = () => {
 
             // 2. Fetch fresh permissions from the server in the background
             const cachedTime = localStorage.getItem(cacheTimeKey);
-            const TTL = 2 * 60 * 1000; // 2-minute cache TTL
+            const TTL = 5 * 1000; // 5-second cache TTL
             const isExpired = !cachedTime || (Date.now() - parseInt(cachedTime, 10)) > TTL;
 
             if (!cached || isExpired) {

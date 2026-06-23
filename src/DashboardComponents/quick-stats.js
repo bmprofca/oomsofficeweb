@@ -26,6 +26,7 @@ import {
 } from 'react-icons/fi';
 import getHeaders from '../utils/get-headers';
 import API_BASE_URL from '../utils/api-controller';
+import { useUserPermissions } from '../utils/permission-helper';
 
 const QuickStats = ({
     stats: propStats = {},
@@ -44,6 +45,7 @@ const QuickStats = ({
     setQuickStatsCards,
     onRefresh
 }) => {
+    const { check } = useUserPermissions();
     const [localCards, setLocalCards] = useState(quickStatsCards);
     const [collapsedCards, setCollapsedCards] = useState(() => {
         const saved = localStorage.getItem('quickStatsCollapsedCards');
@@ -74,11 +76,15 @@ const QuickStats = ({
             if (result.success && result.data) {
                 // Transform API data to include both count and amount
                 const transformedStats = {
-                  pending_billing: {
-        // Use ?? to ensure 0 is treated as a valid number, not "falsy"
-        count: result.data.pending_billing?.count ?? 0, 
-        amount: 0
-    },
+                    pending_billing: {
+                        // Use ?? to ensure 0 is treated as a valid number, not "falsy"
+                        count: result.data.pending_billing?.count ?? 0, 
+                        amount: 0
+                    },
+                    pending_for_billing: {
+                        count: result.data.pending_billing?.count ?? 0,
+                        amount: 0
+                    },
                     creditor: {
                         count: result.data.creditors?.count || 0,
                         amount: result.data.creditors?.total_amount || 0
@@ -109,7 +115,8 @@ const QuickStats = ({
             console.error('Quick Stats API Error:', err);
             // Fallback to prop stats if API fails
             setApiStats({
-                pending_billing: { count: propStats.pending_for_billing || 0, amount: 0 },
+                pending_billing: { count: propStats.pending_for_billing || propStats.pending_billing || 0, amount: 0 },
+                pending_for_billing: { count: propStats.pending_for_billing || propStats.pending_billing || 0, amount: 0 },
                 creditor: { count: 0, amount: propStats.creditor || 0 },
                 debtor: { count: 0, amount: propStats.debtor || 0 },
                 today_received: { count: 0, amount: propStats.today_received || 0 },
@@ -452,7 +459,13 @@ const QuickStats = ({
         }
     ];
 
-    const cardsToRender = localCards.length > 0 ? localCards : defaultCards;
+    const balanceCardIds = ['creditors', 'debtors', 'today-received', 'today-payment'];
+    const cardsToRender = (localCards.length > 0 ? localCards : defaultCards).filter(card => {
+        if (balanceCardIds.includes(card.id)) {
+            return check('finance_balance_view');
+        }
+        return true;
+    });
 
     return (
         <div className="w-full relative">

@@ -1,11 +1,11 @@
 // components/dashboard/SalesOverviewWidget.jsx
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { 
-    FiTrendingUp, 
-    FiTrendingDown, 
-    FiBarChart2, 
-    FiDownload, 
+import {
+    FiTrendingUp,
+    FiTrendingDown,
+    FiBarChart2,
+    FiDownload,
     FiAward,
     FiAlertCircle,
     FiSettings,
@@ -14,6 +14,7 @@ import {
 } from 'react-icons/fi';
 import getHeaders from '../utils/get-headers';
 import API_BASE_URL from '../utils/api-controller';
+import { useUserPermissions } from '../utils/permission-helper';
 
 // Theme Templates
 const THEMES = {
@@ -159,7 +160,7 @@ const WidgetWrapper = ({ widgetId, title, children, theme, className = "" }) => 
 // Theme Selector Component
 const ThemeSelector = ({ currentTheme, onThemeChange, onClose }) => {
     return (
-        <motion.div 
+        <motion.div
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 0.95 }}
@@ -167,7 +168,7 @@ const ThemeSelector = ({ currentTheme, onThemeChange, onClose }) => {
         >
             <div className="px-4 py-3 bg-gradient-to-r from-gray-50 to-white border-b border-gray-200 flex items-center justify-between">
                 <h4 className="font-semibold text-gray-800">Select Theme</h4>
-                <button 
+                <button
                     onClick={onClose}
                     className="p-1 hover:bg-gray-100 rounded-lg transition-colors"
                 >
@@ -182,11 +183,10 @@ const ThemeSelector = ({ currentTheme, onThemeChange, onClose }) => {
                             whileHover={{ scale: 1.02 }}
                             whileTap={{ scale: 0.98 }}
                             onClick={() => onThemeChange(theme.id)}
-                            className={`p-3 rounded-xl border-2 transition-all ${
-                                currentTheme === theme.id 
-                                    ? `border-${theme.accentColor}-500 shadow-md` 
+                            className={`p-3 rounded-xl border-2 transition-all ${currentTheme === theme.id
+                                    ? `border-${theme.accentColor}-500 shadow-md`
                                     : 'border-gray-200 hover:border-gray-300'
-                            }`}
+                                }`}
                         >
                             <div className={`w-full h-12 rounded-lg bg-gradient-to-r ${theme.gradient} mb-2`} />
                             <p className={`text-sm font-medium ${currentTheme === theme.id ? `text-${theme.accentColor}-600` : 'text-gray-700'}`}>
@@ -201,6 +201,7 @@ const ThemeSelector = ({ currentTheme, onThemeChange, onClose }) => {
 };
 
 const SalesOverviewWidget = () => {
+    const { check } = useUserPermissions();
     const [stats, setStats] = useState({
         total_sale: 0,
         growth_rate: 0,
@@ -365,7 +366,7 @@ const SalesOverviewWidget = () => {
                     </div>
                     <h3 className="text-lg font-semibold text-gray-800 mb-2">Unable to Load Data</h3>
                     <p className="text-gray-600 mb-4">{error}</p>
-                    <button 
+                    <button
                         onClick={fetchDashboardSummary}
                         className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
                     >
@@ -393,7 +394,7 @@ const SalesOverviewWidget = () => {
             {/* Theme Selector Dropdown */}
             <AnimatePresence>
                 {showThemeSelector && (
-                    <ThemeSelector 
+                    <ThemeSelector
                         currentTheme={currentTheme}
                         onThemeChange={handleThemeChange}
                         onClose={() => setShowThemeSelector(false)}
@@ -406,7 +407,7 @@ const SalesOverviewWidget = () => {
                     <div className={`absolute inset-0 bg-gradient-to-br ${theme.bgGradient}`} />
                     <div className={`absolute top-0 right-0 w-64 h-64 bg-gradient-to-br ${theme.gradient} opacity-10 rounded-full -translate-y-32 translate-x-32`} />
                     <div className={`absolute bottom-0 left-0 w-96 h-96 bg-gradient-to-tr ${theme.gradient} opacity-5 rounded-full -translate-x-48 translate-y-48`} />
-                    
+
                     <div className="relative p-8 md:p-12">
                         <div className="flex flex-col lg:flex-row items-center justify-between gap-8">
                             <div className="flex-1">
@@ -423,7 +424,7 @@ const SalesOverviewWidget = () => {
                                     <div>
                                         <div className="flex items-center gap-2">
                                             <h3 className="text-2xl md:text-3xl font-bold text-gray-800">
-                                                Congratulations! 
+                                                Congratulations!
                                             </h3>
                                         </div>
                                         <p className="text-gray-600 mt-2">Outstanding performance this fiscal year!</p>
@@ -432,18 +433,26 @@ const SalesOverviewWidget = () => {
 
                                 <div className="mb-8">
                                     <p className="text-gray-500 mb-2">FY {stats.financial_year} Total Sales</p>
-                                    <div className="flex items-end gap-4 flex-wrap">
-                                        <div className={`text-4xl md:text-5xl font-bold bg-gradient-to-r ${theme.gradient} bg-clip-text text-transparent`}>
-                                            {formatCurrency(stats.total_sale)}
+                                    {check('finance_balance_view') ? (
+                                        <div className="flex items-end gap-4 flex-wrap">
+                                            <div className={`text-4xl md:text-5xl font-bold bg-gradient-to-r ${theme.gradient} bg-clip-text text-transparent`}>
+                                                {formatCurrency(stats.total_sale)}
+                                            </div>
+                                            <div className={`flex items-center gap-2 px-3 py-1 bg-gradient-to-r ${theme.badgeGradient} rounded-full ${getTrendColor(stats.growth_rate)}`}>
+                                                {getTrendIcon(stats.growth_rate)}
+                                                <span className="text-sm font-semibold">
+                                                    {stats.growth_rate > 0 ? '+' : ''}{stats.growth_rate.toFixed(1)}%
+                                                </span>
+                                            </div>
                                         </div>
-                                        <div className={`flex items-center gap-2 px-3 py-1 bg-gradient-to-r ${theme.badgeGradient} rounded-full ${getTrendColor(stats.growth_rate)}`}>
-                                            {getTrendIcon(stats.growth_rate)}
-                                            <span className="text-sm font-semibold">
-                                                {stats.growth_rate > 0 ? '+' : ''}{stats.growth_rate.toFixed(1)}%
-                                            </span>
+                                    ) : (
+                                        <div className="text-2xl font-semibold text-gray-400 italic">
+                                            ₹ ••••• (No Permission)
                                         </div>
-                                    </div>
-                                    <p className="text-gray-500 mt-3">Achieved {achievementPercentage}% of annual target</p>
+                                    )}
+                                    {check('finance_balance_view') && (
+                                        <p className="text-gray-500 mt-3">Achieved {achievementPercentage}% of annual target</p>
+                                    )}
                                 </div>
 
                                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
@@ -453,10 +462,12 @@ const SalesOverviewWidget = () => {
                                             {stats.growth_rate > 0 ? '+' : ''}{stats.growth_rate.toFixed(1)}%
                                         </div>
                                     </div>
-                                    <div className="bg-white/50 backdrop-blur-sm p-4 rounded-xl border border-gray-100 hover:shadow-md transition-shadow">
-                                        <div className="text-sm text-gray-600">Net Profit</div>
-                                        <div className={`text-xl font-bold ${theme.statsColors[0]}`}>{formatCurrency(stats.net_profit)}</div>
-                                    </div>
+                                    {check('finance_balance_view') && (
+                                        <div className="bg-white/50 backdrop-blur-sm p-4 rounded-xl border border-gray-100 hover:shadow-md transition-shadow">
+                                            <div className="text-sm text-gray-600">Net Profit</div>
+                                            <div className={`text-xl font-bold ${theme.statsColors[0]}`}>{formatCurrency(stats.net_profit)}</div>
+                                        </div>
+                                    )}
                                     <div className="bg-white/50 backdrop-blur-sm p-4 rounded-xl border border-gray-100 hover:shadow-md transition-shadow">
                                         <div className="text-sm text-gray-600">Active Clients</div>
                                         <div className={`text-xl font-bold ${theme.statsColors[1]}`}>{stats.active_client}</div>
@@ -471,70 +482,76 @@ const SalesOverviewWidget = () => {
                                 </div>
 
                                 <div className="flex flex-wrap gap-3">
-                                    <motion.button 
-                                        className={`px-6 py-3 bg-gradient-to-r ${theme.buttonGradient} text-white rounded-xl hover:shadow-xl transition-all duration-300 hover:scale-105`}
-                                        whileHover={{ scale: 1.05 }}
-                                        whileTap={{ scale: 0.95 }}
-                                        onClick={() => window.location.href = '/reports/sales'}
-                                    >
-                                        <div className="flex items-center gap-2">
-                                            <FiBarChart2 className="w-5 h-5" />
-                                            View Sales Report
-                                        </div>
-                                    </motion.button>
-                                    <motion.button 
-                                        className="px-6 py-3 bg-white text-gray-700 rounded-xl border border-gray-200 hover:bg-gray-50 transition-all duration-300 hover:shadow-lg hover:scale-105"
-                                        whileHover={{ scale: 1.05 }}
-                                        whileTap={{ scale: 0.95 }}
-                                        onClick={() => {
-                                            console.log('Export data');
-                                        }}
-                                    >
-                                        <div className="flex items-center gap-2">
-                                            <FiDownload className="w-5 h-5" />
-                                            Export Data
-                                        </div>
-                                    </motion.button>
+                                    {check('finance_balance_view') && (
+                                        <motion.button
+                                            className={`px-6 py-3 bg-gradient-to-r ${theme.buttonGradient} text-white rounded-xl hover:shadow-xl transition-all duration-300 hover:scale-105`}
+                                            whileHover={{ scale: 1.05 }}
+                                            whileTap={{ scale: 0.95 }}
+                                            onClick={() => window.location.href = '/reports/sales'}
+                                        >
+                                            <div className="flex items-center gap-2">
+                                                <FiBarChart2 className="w-5 h-5" />
+                                                View Sales Report
+                                            </div>
+                                        </motion.button>
+                                    )}
+                                    {check('finance_balance_view') && (
+                                        <motion.button
+                                            className="px-6 py-3 bg-white text-gray-700 rounded-xl border border-gray-200 hover:bg-gray-50 transition-all duration-300 hover:shadow-lg hover:scale-105"
+                                            whileHover={{ scale: 1.05 }}
+                                            whileTap={{ scale: 0.95 }}
+                                            onClick={() => {
+                                                console.log('Export data');
+                                            }}
+                                        >
+                                            <div className="flex items-center gap-2">
+                                                <FiDownload className="w-5 h-5" />
+                                                Export Data
+                                            </div>
+                                        </motion.button>
+                                    )}
                                 </div>
                             </div>
 
-                            <div className="lg:w-1/3">
-                                <div className="relative">
-                                    <div className="w-64 h-64 mx-auto relative">
-                                        <svg className="w-full h-full" viewBox="0 0 100 100">
-                                            <circle cx="50" cy="50" r="45" fill="none" stroke="#e5e7eb" strokeWidth="4"/>
-                                            <motion.circle 
-                                                cx="50" cy="50" r="45" fill="none" 
-                                                stroke={`url(#gradient-${theme.id})`} strokeWidth="6" strokeLinecap="round"
-                                                initial={{ strokeDasharray: '0, 283' }}
-                                                animate={{ strokeDasharray: `${(achievementPercentage / 100) * 283}, 283` }}
-                                                transition={{ duration: 1.5, ease: "easeOut" }}
-                                                transform="rotate(-90 50 50)"
-                                            />
-                                            <defs>
-                                                <linearGradient id={`gradient-${theme.id}`} x1="0%" y1="0%" x2="100%" y2="100%">
-                                                    <stop offset="0%" stopColor={theme.circleGradient.start} />
-                                                    <stop offset="100%" stopColor={theme.circleGradient.end} />
-                                                </linearGradient>
-                                            </defs>
-                                        </svg>
-                                        
-                                        <div className="absolute inset-0 flex items-center justify-center">
-                                            <div className="text-center">
-                                                <div className={`text-4xl font-bold ${theme.statsColors[0]}`}>{achievementPercentage}%</div>
-                                                <div className="text-gray-600 text-sm">Target Achieved</div>
+                            {check('finance_balance_view') && (
+                                <div className="lg:w-1/3">
+                                    <div className="relative">
+                                        <div className="w-64 h-64 mx-auto relative">
+                                            <svg className="w-full h-full" viewBox="0 0 100 100">
+                                                <circle cx="50" cy="50" r="45" fill="none" stroke="#e5e7eb" strokeWidth="4" />
+                                                <motion.circle
+                                                    cx="50" cy="50" r="45" fill="none"
+                                                    stroke={`url(#gradient-${theme.id})`} strokeWidth="6" strokeLinecap="round"
+                                                    initial={{ strokeDasharray: '0, 283' }}
+                                                    animate={{ strokeDasharray: `${(achievementPercentage / 100) * 283}, 283` }}
+                                                    transition={{ duration: 1.5, ease: "easeOut" }}
+                                                    transform="rotate(-90 50 50)"
+                                                />
+                                                <defs>
+                                                    <linearGradient id={`gradient-${theme.id}`} x1="0%" y1="0%" x2="100%" y2="100%">
+                                                        <stop offset="0%" stopColor={theme.circleGradient.start} />
+                                                        <stop offset="100%" stopColor={theme.circleGradient.end} />
+                                                    </linearGradient>
+                                                </defs>
+                                            </svg>
+
+                                            <div className="absolute inset-0 flex items-center justify-center">
+                                                <div className="text-center">
+                                                    <div className={`text-4xl font-bold ${theme.statsColors[0]}`}>{achievementPercentage}%</div>
+                                                    <div className="text-gray-600 text-sm">Target Achieved</div>
+                                                </div>
                                             </div>
                                         </div>
-                                    </div>
-                                    
-                                    <div className={`absolute -top-4 -right-4 w-16 h-16 bg-gradient-to-br ${theme.gradient} rounded-full flex items-center justify-center shadow-lg`}>
-                                        <FiAward className="w-8 h-8 text-white" />
-                                    </div>
-                                    <div className={`absolute -bottom-4 -left-4 w-12 h-12 bg-gradient-to-br ${theme.gradient} rounded-full flex items-center justify-center shadow-lg`}>
-                                        <FiTrendingUp className="w-6 h-6 text-white" />
+
+                                        <div className={`absolute -top-4 -right-4 w-16 h-16 bg-gradient-to-br ${theme.gradient} rounded-full flex items-center justify-center shadow-lg`}>
+                                            <FiAward className="w-8 h-8 text-white" />
+                                        </div>
+                                        <div className={`absolute -bottom-4 -left-4 w-12 h-12 bg-gradient-to-br ${theme.gradient} rounded-full flex items-center justify-center shadow-lg`}>
+                                            <FiTrendingUp className="w-6 h-6 text-white" />
+                                        </div>
                                     </div>
                                 </div>
-                            </div>
+                            )}
                         </div>
                     </div>
                 </div>

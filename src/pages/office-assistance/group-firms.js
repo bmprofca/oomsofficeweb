@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { FiUsers, FiCheckCircle, FiSearch, FiMoreVertical, FiEye, FiXCircle, FiEdit, FiTrash2, FiUpload } from 'react-icons/fi';
+import { FiUsers, FiCheckCircle, FiSearch, FiMoreVertical, FiEye, FiXCircle, FiEdit, FiTrash2, FiUpload, FiSettings, FiX } from 'react-icons/fi';
 import { Header, Sidebar } from '../../components/header';
 import getHeaders from "../../utils/get-headers";
 import axios from 'axios';
@@ -42,6 +42,56 @@ const GroupFirms = () => {
     const [importing, setImporting] = useState(false);
     const [previewData, setPreviewData] = useState(null);
     const [importError, setImportError] = useState(null);
+
+    const defaultMappings = {
+        name: '',
+        mobile: '',
+        email: '',
+        pan_number: '',
+        gender: '',
+        date_of_birth: '',
+        state: '',
+        district: '',
+        city: '',
+        pincode: '',
+        care_of: '',
+        guardian_name: '',
+        firm_name: '',
+        firm_type: '',
+        gst: '',
+        firm_pan: '',
+        opening_balance: '',
+        opening_balance_type: '',
+        opening_balance_date: ''
+    };
+
+    const [columnMappings, setColumnMappings] = useState({ ...defaultMappings });
+    const [fileHeaders, setFileHeaders] = useState([]);
+
+    const resetImportModal = () => {
+        setShowImportModal(false);
+        setImportFile(null);
+        setPreviewData(null);
+        setImportError(null);
+        setFileHeaders([]);
+        setColumnMappings({ ...defaultMappings });
+    };
+
+    // Load SheetJS CDN script dynamically when modal opens
+    useEffect(() => {
+        if (showImportModal && !window.XLSX) {
+            const script = document.createElement("script");
+            script.src = "https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js";
+            script.async = true;
+            script.onload = () => {
+                console.log("SheetJS loaded successfully");
+            };
+            document.body.appendChild(script);
+            return () => {
+                document.body.removeChild(script);
+            };
+        }
+    }, [showImportModal]);
 
 
 
@@ -334,17 +384,116 @@ const GroupFirms = () => {
         }
     };
 
+    const parseFile = (file) => {
+        if (!window.XLSX) {
+            setImportError("Spreadsheet parser library is loading. Please try again in a few seconds.");
+            return;
+        }
+
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            try {
+                const data = new Uint8Array(e.target.result);
+                const workbook = window.XLSX.read(data, { type: 'array' });
+                const firstSheetName = workbook.SheetNames[0];
+                const worksheet = workbook.Sheets[firstSheetName];
+                
+                // Get raw rows
+                const rows = window.XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+                
+                if (rows.length === 0) {
+                    setImportError("The selected file is empty.");
+                    return;
+                }
+
+                const headers = rows[0].map(h => String(h || '').trim());
+                setFileHeaders(headers);
+
+                // Auto-detect columns based on aliases
+                const newMappings = { ...defaultMappings };
+                
+                const aliasMap = {
+                    name: ['client name', 'name', 'full name', 'fullname'],
+                    mobile: ['mobile', 'phone', 'mobile number', 'mobile_no', 'contact'],
+                    email: ['email', 'email address', 'e-mail', 'mail'],
+                    pan_number: ['pan', 'pan number', 'pan_no', 'client_pan'],
+                    gender: ['gender', 'sex'],
+                    date_of_birth: ['dob', 'date of birth', 'date_of_birth', 'birth date'],
+                    state: ['state'],
+                    district: ['district'],
+                    city: ['city', 'town', 'village', 'city/town/village'],
+                    pincode: ['pincode', 'pin', 'zipcode', 'postal code'],
+                    care_of: ['care of', 'care_of', 'c/o'],
+                    guardian_name: ['guardian', 'guardian name', 'guardian_name'],
+                    firm_name: ['firm', 'firm name', 'company name', 'business name'],
+                    firm_type: ['business type', 'firm type', 'company type'],
+                    gst: ['gst', 'gstin', 'gst number'],
+                    firm_pan: ['firm pan', 'business pan'],
+                    opening_balance: ['opening balance', 'balance', 'opening_bal'],
+                    opening_balance_type: ['opening balance type', 'type', 'bal_type'],
+                    opening_balance_date: ['opening balance date', 'bal_date']
+                };
+
+                Object.keys(aliasMap).forEach(key => {
+                    const matchedHeader = headers.find(h => {
+                        const cleanH = h.toLowerCase().trim();
+                        return aliasMap[key].includes(cleanH) || cleanH.includes(key.replace('_', ''));
+                    });
+                    if (matchedHeader) {
+                        newMappings[key] = matchedHeader;
+                    }
+                });
+
+                setColumnMappings(newMappings);
+            } catch (err) {
+                console.error("Error parsing file:", err);
+                setImportError("Failed to parse the file. Please ensure it is a valid Excel or CSV file.");
+            }
+        };
+        reader.readAsArrayBuffer(file);
+    };
+
     const handleFileChange = (e) => {
         const file = e.target.files[0];
         if (file) {
             setImportFile(file);
             setPreviewData(null);
             setImportError(null);
+            setFileHeaders([]);
+            setColumnMappings({ ...defaultMappings });
+            parseFile(file);
         }
     };
 
     const handleImportPreview = async () => {
         if (!importFile) return;
+
+        // Check if all required fields are mapped
+        const required = {
+            name: 'Client Name',
+            mobile: 'Mobile',
+            email: 'Email',
+            pan_number: 'PAN',
+            gender: 'Gender',
+            date_of_birth: 'DOB',
+            state: 'State',
+            district: 'District',
+            city: 'City',
+            pincode: 'Pincode'
+        };
+
+        const missing = [];
+        Object.keys(required).forEach(key => {
+            if (!columnMappings[key]) {
+                missing.push(required[key]);
+            }
+        });
+
+        if (missing.length > 0) {
+            setImportError(`Please map all required columns before proceeding. Missing: ${missing.join(', ')}`);
+            return;
+        }
+
         setImporting(true);
         setImportError(null);
         setPreviewData(null);
@@ -353,6 +502,14 @@ const GroupFirms = () => {
             const formData = new FormData();
             formData.append('group_id', groupId);
             formData.append('file', importFile);
+            
+            const filteredMappings = {};
+            Object.keys(columnMappings).forEach(key => {
+                if (columnMappings[key]) {
+                    filteredMappings[key] = columnMappings[key];
+                }
+            });
+            formData.append('column_mapping', JSON.stringify(filteredMappings));
             
             const response = await axios.post(`${BASE_URL}/group/import?preview=true`, formData, {
                 headers: {
@@ -385,6 +542,33 @@ const GroupFirms = () => {
 
     const handleImportCommit = async () => {
         if (!importFile) return;
+
+        // Check if all required fields are mapped
+        const required = {
+            name: 'Client Name',
+            mobile: 'Mobile',
+            email: 'Email',
+            pan_number: 'PAN',
+            gender: 'Gender',
+            date_of_birth: 'DOB',
+            state: 'State',
+            district: 'District',
+            city: 'City',
+            pincode: 'Pincode'
+        };
+
+        const missing = [];
+        Object.keys(required).forEach(key => {
+            if (!columnMappings[key]) {
+                missing.push(required[key]);
+            }
+        });
+
+        if (missing.length > 0) {
+            setImportError(`Please map all required columns before proceeding. Missing: ${missing.join(', ')}`);
+            return;
+        }
+
         setImporting(true);
         setImportError(null);
         
@@ -392,6 +576,14 @@ const GroupFirms = () => {
             const formData = new FormData();
             formData.append('group_id', groupId);
             formData.append('file', importFile);
+            
+            const filteredMappings = {};
+            Object.keys(columnMappings).forEach(key => {
+                if (columnMappings[key]) {
+                    filteredMappings[key] = columnMappings[key];
+                }
+            });
+            formData.append('column_mapping', JSON.stringify(filteredMappings));
             
             const response = await axios.post(`${BASE_URL}/group/import`, formData, {
                 headers: {
@@ -405,6 +597,8 @@ const GroupFirms = () => {
                 setShowImportModal(false);
                 setImportFile(null);
                 setPreviewData(null);
+                setFileHeaders([]);
+                setColumnMappings({ ...defaultMappings });
                 fetchGroupFirmsData(searchTerm);
             } else {
                 setImportError(response.data.message || 'Import failed');
@@ -1166,7 +1360,7 @@ const GroupFirms = () => {
                             initial={{ opacity: 0, scale: 0.95 }}
                             animate={{ opacity: 1, scale: 1 }}
                             exit={{ opacity: 0, scale: 0.95 }}
-                            className="bg-white rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto shadow-2xl flex flex-col"
+                            className="bg-white rounded-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto shadow-2xl flex flex-col"
                         >
                             {/* Modal Header */}
                             <div className="border-b border-gray-150 p-6 flex justify-between items-center bg-slate-50/50">
@@ -1175,7 +1369,7 @@ const GroupFirms = () => {
                                     <p className="text-xs text-gray-500 mt-1">Import new or map existing clients and firms via spreadsheet</p>
                                 </div>
                                 <button
-                                    onClick={() => setShowImportModal(false)}
+                                    onClick={resetImportModal}
                                     className="p-2 hover:bg-gray-100 rounded-xl transition-all"
                                 >
                                     <svg className="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1218,8 +1412,96 @@ const GroupFirms = () => {
                                     </div>
                                 )}
 
+                                {/* Mappings View */}
+                                {importFile && fileHeaders.length > 0 && !previewData && (
+                                    <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 md:p-5 space-y-4 animate-fade-in">
+                                        <div>
+                                            <h4 className="text-xs font-bold text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
+                                                <FiSettings className="w-4 h-4 text-blue-600 animate-spin-slow" />
+                                                Define Column Mappings
+                                            </h4>
+                                            <p className="text-[11px] text-slate-500 mt-1">
+                                                Map the expected client profile details to the headers in your uploaded spreadsheet. Required columns must be selected.
+                                            </p>
+                                        </div>
+                                        
+                                        {/* Required fields */}
+                                        <div className="space-y-3 pb-2 border-b border-slate-200/60">
+                                            <h5 className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Required Fields</h5>
+                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                                {[
+                                                    { key: 'name', label: 'Client Name *', placeholder: '-- Map Name Column --' },
+                                                    { key: 'mobile', label: 'Mobile Number *', placeholder: '-- Map Mobile Column --' },
+                                                    { key: 'email', label: 'Email Address *', placeholder: '-- Map Email Column --' },
+                                                    { key: 'pan_number', label: 'PAN Number *', placeholder: '-- Map PAN Column --' },
+                                                    { key: 'gender', label: 'Gender *', placeholder: '-- Map Gender Column --' },
+                                                    { key: 'date_of_birth', label: 'Date of Birth *', placeholder: '-- Map DOB Column --' },
+                                                    { key: 'state', label: 'State *', placeholder: '-- Map State Column --' },
+                                                    { key: 'district', label: 'District *', placeholder: '-- Map District Column --' },
+                                                    { key: 'city', label: 'City/Town/Village *', placeholder: '-- Map City Column --' },
+                                                    { key: 'pincode', label: 'Pincode *', placeholder: '-- Map Pincode Column --' }
+                                                ].map(field => (
+                                                    <div key={field.key} className="bg-white p-2.5 border border-slate-200 rounded-lg space-y-1 shadow-sm">
+                                                        <label className="block text-[11px] font-bold text-slate-700">{field.label}</label>
+                                                        <select
+                                                            value={columnMappings[field.key] || ''}
+                                                            onChange={(e) => setColumnMappings(prev => ({
+                                                                ...prev,
+                                                                [field.key]: e.target.value
+                                                            }))}
+                                                            className={`w-full px-2 py-1 border rounded text-xs bg-white outline-none focus:ring-1 focus:ring-blue-500 ${
+                                                                !columnMappings[field.key] ? 'border-amber-300 bg-amber-50/10' : 'border-slate-300'
+                                                            }`}
+                                                        >
+                                                            <option value="">{field.placeholder}</option>
+                                                            {fileHeaders.map(h => (
+                                                                <option key={h} value={h}>{h}</option>
+                                                            ))}
+                                                        </select>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+
+                                        {/* Optional fields */}
+                                        <div className="space-y-3 pt-1">
+                                            <h5 className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Optional Fields</h5>
+                                            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+                                                {[
+                                                    { key: 'care_of', label: 'Care Of (C/O)' },
+                                                    { key: 'guardian_name', label: 'Guardian Name' },
+                                                    { key: 'firm_name', label: 'Firm Name' },
+                                                    { key: 'firm_type', label: 'Business Type' },
+                                                    { key: 'gst', label: 'GSTIN' },
+                                                    { key: 'firm_pan', label: 'Firm PAN' },
+                                                    { key: 'opening_balance', label: 'Opening Balance' },
+                                                    { key: 'opening_balance_type', label: 'Balance Type' },
+                                                    { key: 'opening_balance_date', label: 'Balance Date' }
+                                                ].map(field => (
+                                                    <div key={field.key} className="bg-white p-2.5 border border-slate-200 rounded-lg space-y-1 shadow-sm">
+                                                        <label className="block text-[10px] font-bold text-slate-600">{field.label}</label>
+                                                        <select
+                                                            value={columnMappings[field.key] || ''}
+                                                            onChange={(e) => setColumnMappings(prev => ({
+                                                                ...prev,
+                                                                [field.key]: e.target.value
+                                                            }))}
+                                                            className="w-full px-2 py-1 border border-slate-300 rounded text-xs bg-white outline-none focus:ring-1 focus:ring-blue-500"
+                                                        >
+                                                            <option value="">-- Skip Column --</option>
+                                                            {fileHeaders.map(h => (
+                                                                <option key={h} value={h}>{h}</option>
+                                                            ))}
+                                                        </select>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
+
                                 {/* Import instructions and templates download */}
-                                {!previewData && (
+                                {!previewData && !importFile && (
                                     <div className="bg-slate-50 border border-slate-200 rounded-2xl p-5 space-y-4">
                                         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
                                             <div>
@@ -1405,12 +1687,7 @@ const GroupFirms = () => {
                             {/* Modal Footer */}
                             <div className="border-t border-gray-150 p-6 bg-slate-50/50 flex justify-end gap-3 rounded-b-2xl">
                                 <button
-                                    onClick={() => {
-                                        setShowImportModal(false);
-                                        setImportFile(null);
-                                        setPreviewData(null);
-                                        setImportError(null);
-                                    }}
+                                    onClick={resetImportModal}
                                     disabled={importing}
                                     className="px-5 py-2.5 border border-slate-300 hover:bg-slate-100 text-slate-700 text-xs font-bold rounded-xl shadow-xs transition-all disabled:opacity-50"
                                 >
@@ -1424,6 +1701,8 @@ const GroupFirms = () => {
                                                 setPreviewData(null);
                                                 setImportFile(null);
                                                 setImportError(null);
+                                                setFileHeaders([]);
+                                                setColumnMappings({ ...defaultMappings });
                                             }}
                                             disabled={importing}
                                             className="px-5 py-2.5 border border-slate-300 bg-white hover:bg-slate-50 text-slate-700 text-xs font-bold rounded-xl shadow-xs transition-all disabled:opacity-50"

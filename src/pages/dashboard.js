@@ -43,12 +43,14 @@ import {
     FiMaximize2,
     FiArrowUp,
     FiArrowDown,
-    FiHome
+    FiHome,
+    FiLock
 } from 'react-icons/fi';
 import { motion, AnimatePresence } from 'framer-motion';
 import TaskSummary from '../DashboardComponents/task-summary';
 import getHeaders from '../utils/get-headers';
 import API_BASE_URL from '../utils/api-controller';
+import { useUserPermissions } from '../utils/permission-helper';
 import AdditionalStatsComponent from '../DashboardComponents/additional-stats';
 import QuickStats from '../DashboardComponents/quick-stats';
 import ServiceWiseSales from '../DashboardComponents/serviceWiseSales';
@@ -296,6 +298,7 @@ const getDefaultAdditionalStatsCards = () => [
 
 const Dashboard = () => {
     const navigate = useNavigate();
+    const { check } = useUserPermissions();
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
     const [isMinimized, setIsMinimized] = useState(() => {
         const saved = localStorage.getItem('sidebarMinimized');
@@ -498,16 +501,39 @@ const Dashboard = () => {
     const displayQuickStatsCards = isCustomizing && workingQuickStatsCards ? workingQuickStatsCards : quickStatsCards;
     const displayAdditionalStatsCards = isCustomizing && workingAdditionalStatsCards ? workingAdditionalStatsCards : additionalStatsCards;
 
+    // Map widget ID to its corresponding permission check key
+    const widgetPermissionMap = useMemo(() => ({
+        'sales-overview': 'sales_overview_view',
+        'quick-stats': 'quick_stats_view',
+        'task-summary': 'task_summary_view',
+        'service-wise-sales': 'service_wise_sales_view',
+        'staff-wise-sales': 'staff_wise_sales_view',
+        'top-clients': 'top_clients_view',
+        'additional-stats': 'dashboard_statistics_view',
+        'performance-metrics': 'dashboard_statistics_view',
+        'revenue-trend': 'sales_overview_view',
+        'client-acquisition': 'dashboard_statistics_view',
+        'goal-progress': 'dashboard_statistics_view'
+    }), []);
+
+    const hasAnyDashboardPermission = useMemo(() => {
+        return Object.values(widgetPermissionMap).some(perm => check(perm));
+    }, [check, widgetPermissionMap]);
+
     // Memoized visible and hidden widgets for performance
     const visibleWidgets = useMemo(() =>
-        displayWidgets.filter(w => w.visible).sort((a, b) => a.order - b.order),
-        [displayWidgets]
+        displayWidgets.filter(w => {
+            if (!w.visible) return false;
+            const perm = widgetPermissionMap[w.id];
+            return perm ? check(perm) : true;
+        }).sort((a, b) => a.order - b.order),
+        [displayWidgets, check, widgetPermissionMap]
     );
 
     const hiddenWidgets = useMemo(() => [
-        ...displayWidgets.filter(w => !w.visible),
-        ...availableWidgets.filter(aw => !displayWidgets.find(w => w.id === aw.id))
-    ], [displayWidgets, availableWidgets]);
+        ...displayWidgets.filter(w => !w.visible && (widgetPermissionMap[w.id] ? check(widgetPermissionMap[w.id]) : true)),
+        ...availableWidgets.filter(aw => !displayWidgets.find(w => w.id === aw.id) && (widgetPermissionMap[aw.id] ? check(widgetPermissionMap[aw.id]) : true))
+    ], [displayWidgets, availableWidgets, check, widgetPermissionMap]);
 
     // Persist sidebar minimized state
     useEffect(() => {
@@ -1312,54 +1338,78 @@ const Dashboard = () => {
                                 </div>
                             </motion.div>
                         </div>
-
-                        {/* Customize Button */}
-                        <div className="flex items-center justify-center">
-                            <motion.button
-                                onClick={() => setIsCustomizing(!isCustomizing)}
-                                className={`p-2.5 rounded-lg shadow-lg transition-all duration-300 border ${isCustomizing
-                                        ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white border-indigo-600'
-                                        : 'bg-white text-gray-700 border-gray-200 hover:border-indigo-300'
-                                    }`}
-                                whileHover={{ scale: 1.02 }}
-                                whileTap={{ scale: 0.98 }}
-                            >
-                                <FiLayout className="w-4 h-4" />
-                            </motion.button>
-                        </div>
+                                   {/* Customize Button */}
+                        {hasAnyDashboardPermission && (
+                            <div className="flex items-center justify-center">
+                                <motion.button
+                                    onClick={() => setIsCustomizing(!isCustomizing)}
+                                    className={`p-2.5 rounded-lg shadow-lg transition-all duration-300 border ${isCustomizing
+                                            ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white border-indigo-600'
+                                            : 'bg-white text-gray-700 border-gray-200 hover:border-indigo-300'
+                                        }`}
+                                    whileHover={{ scale: 1.02 }}
+                                    whileTap={{ scale: 0.98 }}
+                                >
+                                    <FiLayout className="w-4 h-4" />
+                                </motion.button>
+                            </div>
+                        )}
                     </div>
-
+ 
                     {/* Dashboard Widgets Grid */}
                     <div className="space-y-6">
-                        {visibleWidgets.map((widget) => {
-                            switch (widget.component) {
-                                case 'SalesOverview':
-                                    return <SalesOverviewWidgetComponent key={widget.id} />;
-                                case 'QuickStats':
-                                    return <QuickStatsWidget key={widget.id} />;
-                                case 'TaskSummary':
-                                    return <TaskSummaryWidget key={widget.id} />;
-
-                                case 'ServiceWiseSales':
-                                    return <ServiceWiseSalesWidget key={widget.id} />;
-                                case 'StaffWiseSales':
-                                    return <StaffWiseSalesWidget key={widget.id} />;
-                                case 'TopClients':
-                                    return <TopClientsWidget key={widget.id} />;
-                                case 'AdditionalStats':
-                                    return <AdditionalStatsWidget key={widget.id} />;
-                                case 'PerformanceMetrics':
-                                    return <PerformanceMetricsWidget key={widget.id} />;
-                                case 'RevenueTrend':
-                                    return <RevenueTrendWidget key={widget.id} />;
-                                case 'ClientAcquisition':
-                                    return <ClientAcquisitionWidget key={widget.id} />;
-                                case 'GoalProgress':
-                                    return <GoalProgressWidget key={widget.id} />;
-                                default:
-                                    return null;
-                            }
-                        })}
+                        {!hasAnyDashboardPermission ? (
+                            <motion.div 
+                                className="bg-white/80 backdrop-blur-md rounded-2xl border border-gray-200 p-12 shadow-xl text-center max-w-xl mx-auto my-12"
+                                initial={{ opacity: 0, scale: 0.95 }}
+                                animate={{ opacity: 1, scale: 1 }}
+                                transition={{ duration: 0.4 }}
+                            >
+                                <div className="inline-flex p-4 bg-red-50 rounded-full mb-4 text-red-500 animate-float">
+                                    <FiLock className="w-12 h-12" />
+                                </div>
+                                <h3 className="text-xl font-bold text-gray-800 mb-2">Access Denied</h3>
+                                <p className="text-gray-600 mb-6">
+                                    No Permission. You need permission to access the Dashboard.
+                                </p>
+                                <div className="text-xs text-gray-400 bg-gray-50 py-2 px-4 rounded-lg inline-block font-mono">
+                                    Please contact your administrator to request access.
+                                </div>
+                            </motion.div>
+                        ) : visibleWidgets.length === 0 ? (
+                            <div className="text-center py-12 text-gray-500 bg-white/50 backdrop-blur-sm rounded-2xl border border-dashed border-gray-200">
+                                No widgets visible. Use the customize button at the top right to customize your dashboard layout.
+                            </div>
+                        ) : (
+                            visibleWidgets.map((widget) => {
+                                switch (widget.component) {
+                                    case 'SalesOverview':
+                                        return <SalesOverviewWidgetComponent key={widget.id} />;
+                                    case 'QuickStats':
+                                        return <QuickStatsWidget key={widget.id} />;
+                                    case 'TaskSummary':
+                                        return <TaskSummaryWidget key={widget.id} />;
+                                    case 'ServiceWiseSales':
+                                        return <ServiceWiseSalesWidget key={widget.id} />;
+                                    case 'StaffWiseSales':
+                                        return <StaffWiseSalesWidget key={widget.id} />;
+                                    case 'TopClients':
+                                        return <TopClientsWidget key={widget.id} />;
+                                    case 'AdditionalStats':
+                                        return <AdditionalStatsWidget key={widget.id} />;
+                                    case 'PerformanceMetrics':
+                                        return <PerformanceMetricsWidget key={widget.id} />;
+                                    case 'RevenueTrend':
+                                        return <RevenueTrendWidget key={widget.id} />;
+                                    case 'ClientAcquisition':
+                                        return <ClientAcquisitionWidget key={widget.id} />;
+                                    case 'GoalProgress':
+                                        return <GoalProgressWidget key={widget.id} />;
+                                    default:
+                                        return null;
+                                }
+                            })
+                        )}
                     </div>
                 </div>
             </div>
