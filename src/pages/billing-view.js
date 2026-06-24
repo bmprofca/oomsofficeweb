@@ -13,7 +13,6 @@ import {
     FiChevronDown,
     FiChevronLeft,
     FiChevronRight,
-    FiFilter,
     FiClock,
     FiCheckSquare,
     FiDollarSign,
@@ -52,11 +51,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import API_BASE_URL from '../utils/api-controller';
 import getHeaders from '../utils/get-headers';
 
-const BILL_LIST_PATH = {
-    pending: '/billing/list/pending',
-    generated: '/billing/list/generated',
-    nonbillable: '/billing/list/nonbillable',
-};
+const BILL_LIST = '/billing/list';
+const BILLING_STATUSES = ['pending', 'generated', 'nonbillable'];
 
 const BILLING_GENERATE_BILLABLE = '/billing/generate/billable';
 const BILLING_GENERATE_NONBILLABLE = '/billing/generate/nonbillable';
@@ -281,7 +277,6 @@ const BillDisplay = () => {
     /** Local input value; list API uses `searchQuery`, updated on keyup (and paste) */
     const [searchInput, setSearchInput] = useState('');
     const [searchQuery, setSearchQuery] = useState('');
-    const [selectedService, setSelectedService] = useState('');
     const [loading, setLoading] = useState(false);
     const listFetchAbortRef = useRef(null);
     const listFetchSeqRef = useRef(0);
@@ -348,17 +343,6 @@ const BillDisplay = () => {
             subDescription: 'Write off',
             iconBg: 'bg-gradient-to-br from-rose-500/15 to-pink-500/15',
         }
-    ];
-
-    // Service options
-    const serviceOptions = [
-        { value: '', name: 'All Services' },
-        { value: '1', name: 'Tax Filing' },
-        { value: '2', name: 'Audit Services' },
-        { value: '3', name: 'GST Return' },
-        { value: '4', name: 'Company Registration' },
-        { value: '5', name: 'Accounting' },
-        { value: '6', name: 'Legal Compliance' }
     ];
 
     // Billing list from API (current tab)
@@ -438,21 +422,25 @@ const BillDisplay = () => {
     const fetchTabCounts = useCallback(async () => {
         const headers = getHeaders();
         if (!headers) return;
-        const tabs = ['pending', 'generated', 'nonbillable'];
         try {
             const results = await Promise.all(
-                tabs.map((tab) =>
-                    fetch(
-                        `${API_BASE_URL}${BILL_LIST_PATH[tab]}?page_no=1&limit=1`,
-                        { method: 'GET', headers }
-                    ).then((r) => r.json())
-                )
+                BILLING_STATUSES.map((status) => {
+                    const params = new URLSearchParams({
+                        page_no: '1',
+                        limit: '1',
+                        status,
+                    });
+                    return fetch(`${API_BASE_URL}${BILL_LIST}?${params.toString()}`, {
+                        method: 'GET',
+                        headers,
+                    }).then((r) => r.json());
+                })
             );
             setCountsByTab((prev) => {
                 const next = { ...prev };
                 results.forEach((json, i) => {
                     if (json?.success && json.pagination != null) {
-                        next[tabs[i]] = Number(json.pagination.total) || 0;
+                        next[BILLING_STATUSES[i]] = Number(json.pagination.total) || 0;
                     }
                 });
                 return next;
@@ -478,19 +466,19 @@ const BillDisplay = () => {
             setLoading(true);
             setListError(null);
             try {
-                const path = BILL_LIST_PATH[tab];
-                if (!path) {
-                    throw new Error('Unknown billing list type');
+                const status = String(tab || '').toLowerCase();
+                if (!BILLING_STATUSES.includes(status)) {
+                    throw new Error('Unknown billing list status');
                 }
                 const params = new URLSearchParams({
                     page_no: String(pageNo),
                     limit: String(pagination.limit),
+                    status,
                 });
                 const q = searchQuery.trim();
                 if (q) params.append('search', q);
-                if (selectedService) params.append('service_id', selectedService);
 
-                const response = await fetch(`${API_BASE_URL}${path}?${params.toString()}`, {
+                const response = await fetch(`${API_BASE_URL}${BILL_LIST}?${params.toString()}`, {
                     method: 'GET',
                     headers,
                     signal: ac.signal,
@@ -528,10 +516,10 @@ const BillDisplay = () => {
                 }
             }
         },
-        [searchQuery, selectedService, pagination.limit]
+        [searchQuery, pagination.limit]
     );
 
-    const filterKey = `${searchQuery.trim()}\0${selectedService}`;
+    const filterKey = searchQuery.trim();
     const prevFilterKeyRef = useRef(null);
 
     useEffect(() => {
@@ -1009,23 +997,6 @@ const BillDisplay = () => {
 
                                     <div className="w-full lg:w-auto">
                                         <div className="flex flex-col lg:flex-row gap-3">
-                                            <div className="flex flex-col sm:flex-row gap-2">
-                                                <div className="relative min-w-[160px]">
-                                                    <select
-                                                        value={selectedService}
-                                                        onChange={(e) => setSelectedService(e.target.value)}
-                                                        className="pl-9 pr-4 py-2 text-sm border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-white outline-none transition-all w-full appearance-none"
-                                                    >
-                                                        {serviceOptions.map((service) => (
-                                                            <option key={service.value} value={service.value}>
-                                                                {service.name}
-                                                            </option>
-                                                        ))}
-                                                    </select>
-                                                    <FiFilter className="absolute left-2.5 top-1/2 transform -translate-y-1/2 w-3.5 h-3.5 text-gray-400" />
-                                                </div>
-                                            </div>
-
                                             <div className="flex gap-2">
                                                 <div className="relative flex-1 lg:flex-none lg:w-64">
                                                     <input

@@ -23,6 +23,7 @@ import API_BASE_URL from '../utils/api-controller';
 import getHeaders from '../utils/get-headers';
 import useDebouncedValue from '../hooks/useDebouncedValue';
 import TablePagination from '../components/TablePagination';
+import QuotationApproveModal from '../components/Modals/QuotationApproveModal';
 
 const STATUS_OPTIONS = [
     { value: '', label: 'All status' },
@@ -520,7 +521,8 @@ const QuotationDetailsModal = ({ quotation, onClose }) => {
     );
 };
 
-const newCreateItem = () => ({
+const initialCreateForm = () => ({
+    firm_id: '',
     service_id: '',
     fees: '',
     tax_rate: '',
@@ -841,16 +843,16 @@ const QuotationTab = ({ clientUsername }) => {
     const [statusConfirmState, setStatusConfirmState] = useState({
         open: false,
         quotation: null,
-        nextStatus: '',
+    });
+    const [approveModalState, setApproveModalState] = useState({
+        open: false,
+        quotation: null,
     });
     const [changingStatus, setChangingStatus] = useState(false);
     const [services, setServices] = useState([]);
     const [servicesLoading, setServicesLoading] = useState(false);
     const [creatingQuotation, setCreatingQuotation] = useState(false);
-    const [createForm, setCreateForm] = useState({
-        firm_id: '',
-        items: [newCreateItem()],
-    });
+    const [createForm, setCreateForm] = useState(initialCreateForm);
     const [editingQuotation, setEditingQuotation] = useState(false);
     const [editForm, setEditForm] = useState({
         quotation_id: '',
@@ -994,29 +996,19 @@ const QuotationTab = ({ clientUsername }) => {
 
     const rowsForTable = useMemo(() => (loading ? Array.from({ length: 6 }, (_, i) => ({ __skeleton: true, id: `s-${i}` })) : quotations), [loading, quotations]);
     const createTotals = useMemo(() => {
-        const fees = createForm.items.reduce((sum, item) => {
-            const n = Number(item.fees);
-            return sum + (Number.isFinite(n) ? n : 0);
-        }, 0);
-        const tax = createForm.items.reduce((sum, item) => {
-            const feesNum = Number(item.fees);
-            const rateNum = Number(item.tax_rate);
-            if (!Number.isFinite(feesNum) || !Number.isFinite(rateNum)) return sum;
-            return sum + (feesNum * rateNum) / 100;
-        }, 0);
-        const total = fees + tax;
-        return { fees, tax, total };
-    }, [createForm.items]);
+        const feesNum = Number(createForm.fees);
+        const rateNum = Number(createForm.tax_rate);
+        const fees = Number.isFinite(feesNum) ? feesNum : 0;
+        const tax = Number.isFinite(feesNum) && Number.isFinite(rateNum) ? (feesNum * rateNum) / 100 : 0;
+        return { fees, tax, total: fees + tax };
+    }, [createForm.fees, createForm.tax_rate]);
     const isCreateFormValid = useMemo(() => {
         const resolvedFirmId = createForm.firm_id || (firms.length === 1 ? firms[0]?.firm_id : '');
         if (!resolvedFirmId) return false;
-        if (!Array.isArray(createForm.items) || createForm.items.length === 0) return false;
-        return createForm.items.every((item) => {
-            const sid = String(item.service_id || '').trim();
-            const fees = Number(item.fees);
-            const rate = Number(item.tax_rate);
-            return Boolean(sid) && Number.isFinite(fees) && fees >= 0 && Number.isFinite(rate) && rate >= 0;
-        });
+        const sid = String(createForm.service_id || '').trim();
+        const fees = Number(createForm.fees);
+        const rate = Number(createForm.tax_rate);
+        return Boolean(sid) && Number.isFinite(fees) && fees >= 0 && Number.isFinite(rate) && rate >= 0;
     }, [createForm, firms]);
     const editTotals = useMemo(() => {
         const fees = editForm.items.reduce((sum, item) => {
@@ -1136,31 +1128,35 @@ const QuotationTab = ({ clientUsername }) => {
         setActiveMenuAnchorEl(null);
     };
 
-    const openStatusChangeConfirm = (row, nextStatus) => {
-        const normalized = String(nextStatus || '').toLowerCase();
-        if (normalized !== 'approved' && normalized !== 'rejected') return;
+    const openRejectConfirm = (row) => {
         const currentStatus = String(row?.status || '').toLowerCase();
-        if (currentStatus === normalized) return;
+        if (currentStatus === 'rejected' || currentStatus === 'approved') return;
         setStatusConfirmState({
             open: true,
             quotation: row || null,
-            nextStatus: normalized,
         });
         setActiveMenuId(null);
         setActiveMenuRow(null);
         setActiveMenuAnchorEl(null);
     };
 
-    const handleConfirmStatusChange = async () => {
+    const openApproveModal = (row) => {
+        const currentStatus = String(row?.status || '').toLowerCase();
+        if (currentStatus === 'approved') return;
+        setApproveModalState({
+            open: true,
+            quotation: row || null,
+        });
+        setActiveMenuId(null);
+        setActiveMenuRow(null);
+        setActiveMenuAnchorEl(null);
+    };
+
+    const handleConfirmReject = async () => {
         const quotation = statusConfirmState.quotation;
-        const nextStatus = String(statusConfirmState.nextStatus || '').toLowerCase();
         const quotationId = String(getQuotationId(quotation) || '').trim();
         if (!quotationId) {
             toast.error('Quotation id is missing');
-            return;
-        }
-        if (nextStatus !== 'approved' && nextStatus !== 'rejected') {
-            toast.error('Invalid status selected');
             return;
         }
         const headers = getHeaders();
@@ -1170,11 +1166,11 @@ const QuotationTab = ({ clientUsername }) => {
         }
 
         setChangingStatus(true);
-        const loadingToast = toast.loading(`Updating status to ${nextStatus}...`);
+        const loadingToast = toast.loading('Rejecting quotation...');
         try {
             const response = await axios.put(
                 `${API_BASE_URL}/quotation/change-status`,
-                { quotation_id: quotationId, status: nextStatus },
+                { quotation_id: quotationId, status: 'rejected' },
                 { headers }
             );
             const result = response.data || {};
@@ -1183,7 +1179,7 @@ const QuotationTab = ({ clientUsername }) => {
                 throw new Error(result.message || 'Failed to update quotation status');
             }
             toast.success(result.message || 'Quotation status updated successfully');
-            setStatusConfirmState({ open: false, quotation: null, nextStatus: '' });
+            setStatusConfirmState({ open: false, quotation: null });
             await fetchQuotations({
                 page_no: pagination.page_no,
                 limit: pagination.limit,
@@ -1197,6 +1193,17 @@ const QuotationTab = ({ clientUsername }) => {
         } finally {
             setChangingStatus(false);
         }
+    };
+
+    const handleApproveSuccess = async () => {
+        setApproveModalState({ open: false, quotation: null });
+        await fetchQuotations({
+            page_no: pagination.page_no,
+            limit: pagination.limit,
+            searchText: debouncedSearch,
+            statusValue: status,
+            firmIdValue: debouncedFirmId,
+        });
     };
 
     const handleOpenShareModal = (row) => {
@@ -1254,10 +1261,7 @@ const QuotationTab = ({ clientUsername }) => {
     };
 
     const resetCreateForm = () => {
-        setCreateForm({
-            firm_id: '',
-            items: [newCreateItem()],
-        });
+        setCreateForm(initialCreateForm());
     };
 
     const handleEditItemFieldChange = (index, field, value) => {
@@ -1291,36 +1295,24 @@ const QuotationTab = ({ clientUsername }) => {
         });
     };
 
-    const handleCreateItemFieldChange = (index, field, value) => {
+    const handleCreateFieldChange = (field, value) => {
         setCreateForm((prev) => {
-            const nextItems = [...prev.items];
-            nextItems[index] = { ...nextItems[index], [field]: value };
+            const next = { ...prev, [field]: value };
 
             if (field === 'service_id') {
                 const selected = services.find((s) => String(s.service_id) === String(value));
                 if (selected) {
                     const defaultFees = selected?.fees ?? selected?.amount?.fees ?? '';
                     const defaultTax = selected?.tax_rate ?? selected?.tax ?? selected?.gst_rate ?? selected?.gst ?? '';
-                    nextItems[index].fees = defaultFees === '' ? '' : String(defaultFees);
-                    nextItems[index].tax_rate = defaultTax === '' ? '' : String(defaultTax);
+                    next.fees = defaultFees === '' ? '' : String(defaultFees);
+                    next.tax_rate = defaultTax === '' ? '' : String(defaultTax);
                 } else if (!String(value || '').trim()) {
-                    nextItems[index].fees = '';
-                    nextItems[index].tax_rate = '';
+                    next.fees = '';
+                    next.tax_rate = '';
                 }
             }
 
-            return { ...prev, items: nextItems };
-        });
-    };
-
-    const addCreateItemRow = () => {
-        setCreateForm((prev) => ({ ...prev, items: [...prev.items, newCreateItem()] }));
-    };
-
-    const removeCreateItemRow = (index) => {
-        setCreateForm((prev) => {
-            const next = prev.items.filter((_, idx) => idx !== index);
-            return { ...prev, items: next.length ? next : [newCreateItem()] };
+            return next;
         });
     };
 
@@ -1336,23 +1328,19 @@ const QuotationTab = ({ clientUsername }) => {
             return;
         }
 
-        const cleanedItems = createForm.items
-            .map((item) => ({
-                service_id: String(item.service_id || '').trim(),
-                fees: Number(item.fees),
-                tax_rate: Number(item.tax_rate),
-            }))
-            .filter((item) => item.service_id && Number.isFinite(item.fees) && Number.isFinite(item.tax_rate));
+        const serviceId = String(createForm.service_id || '').trim();
+        const fees = Number(createForm.fees);
+        const taxRate = Number(createForm.tax_rate);
 
-        if (!cleanedItems.length) {
-            toast.error('Add at least one valid service row');
+        if (!serviceId || !Number.isFinite(fees) || fees < 0 || !Number.isFinite(taxRate) || taxRate < 0) {
+            toast.error('Please fill service, fees and tax rate');
             return;
         }
 
         const payload = {
             username: effectiveUsername,
             firm_id: resolvedFirmId,
-            items: cleanedItems,
+            items: [{ service_id: serviceId, fees, tax_rate: taxRate }],
         };
 
         const headers = getHeaders();
@@ -1709,10 +1697,10 @@ const QuotationTab = ({ clientUsername }) => {
                 }}
                 onShare={() => handleOpenShareModal(activeMenuRow)}
                 onEdit={() => handleEditQuotation(activeMenuRow)}
-                onApprove={() => openStatusChangeConfirm(activeMenuRow, 'approved')}
-                onReject={() => openStatusChangeConfirm(activeMenuRow, 'rejected')}
-                canApprove={String(activeMenuRow?.status || '').toLowerCase() !== 'approved'}
-                canReject={String(activeMenuRow?.status || '').toLowerCase() !== 'rejected'}
+                onApprove={() => openApproveModal(activeMenuRow)}
+                onReject={() => openRejectConfirm(activeMenuRow)}
+                canApprove={String(activeMenuRow?.status || 'pending').toLowerCase() === 'pending'}
+                canReject={String(activeMenuRow?.status || 'pending').toLowerCase() === 'pending'}
             />
 
             <AnimatePresence>
@@ -1724,7 +1712,7 @@ const QuotationTab = ({ clientUsername }) => {
                         className="fixed inset-0 bg-black/50 flex items-center justify-center p-3 sm:p-4 z-50 backdrop-blur-sm"
                         onClick={() => {
                             if (changingStatus) return;
-                            setStatusConfirmState({ open: false, quotation: null, nextStatus: '' });
+                            setStatusConfirmState({ open: false, quotation: null });
                         }}
                     >
                         <motion.div
@@ -1735,21 +1723,17 @@ const QuotationTab = ({ clientUsername }) => {
                             onClick={(e) => e.stopPropagation()}
                         >
                             <div className="px-5 py-4 border-b border-slate-200 bg-slate-50">
-                                <h3 className="text-sm font-semibold text-slate-800">Confirm Status Change</h3>
-                                                </div>
-                            <div className="px-5 py-4 space-y-3">
+                                <h3 className="text-sm font-semibold text-slate-800">Reject Quotation</h3>
+                            </div>
+                            <div className="px-5 py-4">
                                 <p className="text-sm text-slate-700">
-                                    Are you sure you want to{' '}
-                                    <span className="font-semibold">
-                                        {statusConfirmState.nextStatus === 'approved' ? 'approve' : 'reject'}
-                                    </span>{' '}
-                                    this quotation?
+                                    Are you sure you want to <span className="font-semibold text-red-700">reject</span> this quotation?
                                 </p>
-                                            </div>
+                            </div>
                             <div className="px-5 py-3 border-t border-slate-200 bg-slate-50/60 flex justify-end gap-2">
                                 <button
                                     type="button"
-                                    onClick={() => setStatusConfirmState({ open: false, quotation: null, nextStatus: '' })}
+                                    onClick={() => setStatusConfirmState({ open: false, quotation: null })}
                                     disabled={changingStatus}
                                     className="px-4 py-2 rounded-xl border border-slate-200 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-60"
                                 >
@@ -1757,24 +1741,22 @@ const QuotationTab = ({ clientUsername }) => {
                                 </button>
                                 <button
                                     type="button"
-                                    onClick={handleConfirmStatusChange}
+                                    onClick={handleConfirmReject}
                                     disabled={changingStatus}
-                                    className={`px-4 py-2 rounded-xl text-sm font-semibold text-white disabled:opacity-60 ${
-                                        statusConfirmState.nextStatus === 'approved'
-                                            ? 'bg-emerald-600 hover:bg-emerald-700'
-                                            : 'bg-red-600 hover:bg-red-700'
-                                    }`}
+                                    className="px-4 py-2 rounded-xl text-sm font-semibold text-white bg-red-600 hover:bg-red-700 disabled:opacity-60"
                                 >
-                                    {changingStatus
-                                        ? 'Updating...'
-                                        : statusConfirmState.nextStatus === 'approved'
-                                            ? 'Confirm Approve'
-                                            : 'Confirm Reject'}
+                                    {changingStatus ? 'Rejecting...' : 'Confirm Reject'}
                                 </button>
-                                            </div>
+                            </div>
                         </motion.div>
                     </motion.div>
                 )}
+                <QuotationApproveModal
+                    isOpen={approveModalState.open}
+                    quotation={approveModalState.quotation}
+                    onClose={() => setApproveModalState({ open: false, quotation: null })}
+                    onSuccess={handleApproveSuccess}
+                />
                 {showCreateModal && (
                     <motion.div
                         initial={{ opacity: 0 }}
@@ -1831,81 +1813,50 @@ const QuotationTab = ({ clientUsername }) => {
                                             </div>
 
                                     <div className="rounded-xl border border-slate-200 overflow-hidden">
-                                        <div className="flex items-center justify-between bg-slate-50 border-b border-slate-200 px-4 py-3">
-                                            <h4 className="text-sm font-semibold text-slate-700">Services</h4>
-                                            <button
-                                                type="button"
-                                                onClick={addCreateItemRow}
-                                                className="inline-flex items-center gap-1.5 rounded-lg border border-indigo-200 bg-indigo-50 px-2.5 py-1.5 text-xs font-medium text-indigo-700 hover:bg-indigo-100"
-                                            >
-                                                <FiPlus className="h-3.5 w-3.5" />
-                                                Add row
-                                            </button>
-                                            </div>
+                                        <div className="bg-slate-50 border-b border-slate-200 px-4 py-3">
+                                            <h4 className="text-sm font-semibold text-slate-700">Service</h4>
+                                        </div>
 
-                                        <div className="overflow-x-auto">
-                                            <table className="w-full min-w-[42rem]">
-                                                <thead className="bg-white border-b border-slate-200">
-                                                    <tr>
-                                                        <th className="px-3 py-2.5 text-left text-xs font-semibold text-slate-600 uppercase">#</th>
-                                                        <th className="px-3 py-2.5 text-left text-xs font-semibold text-slate-600 uppercase">Service *</th>
-                                                        <th className="px-3 py-2.5 text-right text-xs font-semibold text-slate-600 uppercase">Fees *</th>
-                                                        <th className="px-3 py-2.5 text-right text-xs font-semibold text-slate-600 uppercase">Tax Rate (%) *</th>
-                                                        <th className="px-3 py-2.5 text-right text-xs font-semibold text-slate-600 uppercase">Action</th>
-                                                    </tr>
-                                                </thead>
-                                                <tbody className="divide-y divide-slate-200">
-                                                    {createForm.items.map((item, idx) => (
-                                                        <tr key={`create-item-${idx}`} className="hover:bg-slate-50/60">
-                                                            <td className="px-3 py-2.5 text-sm text-slate-600">{idx + 1}</td>
-                                                            <td className="px-3 py-2.5">
-                                                                <SearchableServiceSelect
-                                                                    services={services}
-                                                                    value={item.service_id}
-                                                                    loading={servicesLoading}
-                                                                    onChange={(val) => handleCreateItemFieldChange(idx, 'service_id', val)}
-                                                                />
-                                        </td>
-                                                            <td className="px-3 py-2.5">
-                                                                <input
-                                                                    type="number"
-                                                                    min="0"
-                                                                    step="0.01"
-                                                                    value={item.fees}
-                                                                    onChange={(e) => handleCreateItemFieldChange(idx, 'fees', e.target.value)}
-                                                                    onWheel={(e) => e.currentTarget.blur()}
-                                                                    className="w-full h-9 rounded-lg border border-slate-200 px-2.5 text-sm text-right [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/30"
-                                                                    placeholder="0"
-                                                                    required
-                                                                />
-                                                            </td>
-                                                            <td className="px-3 py-2.5">
-                                                                <input
-                                                                    type="number"
-                                                                    min="0"
-                                                                    step="0.01"
-                                                                    value={item.tax_rate}
-                                                                    onChange={(e) => handleCreateItemFieldChange(idx, 'tax_rate', e.target.value)}
-                                                                    onWheel={(e) => e.currentTarget.blur()}
-                                                                    className="w-full h-9 rounded-lg border border-slate-200 px-2.5 text-sm text-right [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/30"
-                                                                    placeholder="0"
-                                                                    required
-                                                                />
-                                                            </td>
-                                                            <td className="px-3 py-2.5 text-right">
-                                                                <button
-                                                                    type="button"
-                                                                    onClick={() => removeCreateItemRow(idx)}
-                                                                    className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-red-200 bg-red-50 text-red-600 hover:bg-red-100"
-                                                                    title="Remove row"
-                                                                >
-                                                                    <FiTrash2 className="h-4 w-4" />
-                                                                </button>
-                                        </td>
-                                                        </tr>
-                                                    ))}
-                        </tbody>
-                    </table>
+                                        <div className="space-y-4 p-4">
+                                            <div>
+                                                <label className="block text-sm font-semibold text-slate-700 mb-1">Service *</label>
+                                                <SearchableServiceSelect
+                                                    services={services}
+                                                    value={createForm.service_id}
+                                                    loading={servicesLoading}
+                                                    onChange={(val) => handleCreateFieldChange('service_id', val)}
+                                                />
+                                            </div>
+                                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                                <div>
+                                                    <label className="block text-sm font-semibold text-slate-700 mb-1">Fees *</label>
+                                                    <input
+                                                        type="number"
+                                                        min="0"
+                                                        step="0.01"
+                                                        value={createForm.fees}
+                                                        onChange={(e) => handleCreateFieldChange('fees', e.target.value)}
+                                                        onWheel={(e) => e.currentTarget.blur()}
+                                                        className="w-full h-9 rounded-lg border border-slate-200 px-2.5 text-sm text-right [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/30"
+                                                        placeholder="0"
+                                                        required
+                                                    />
+                                                </div>
+                                                <div>
+                                                    <label className="block text-sm font-semibold text-slate-700 mb-1">Tax Rate (%) *</label>
+                                                    <input
+                                                        type="number"
+                                                        min="0"
+                                                        step="0.01"
+                                                        value={createForm.tax_rate}
+                                                        onChange={(e) => handleCreateFieldChange('tax_rate', e.target.value)}
+                                                        onWheel={(e) => e.currentTarget.blur()}
+                                                        className="w-full h-9 rounded-lg border border-slate-200 px-2.5 text-sm text-right [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/30"
+                                                        placeholder="0"
+                                                        required
+                                                    />
+                                                </div>
+                                            </div>
                                         </div>
                                     </div>
                 </div>
