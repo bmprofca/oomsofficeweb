@@ -570,6 +570,8 @@ const getPeriodSchedule = (assignmentSchedules, header, frequency) => {
 
 const ComplianceTab = ({ clientUsername }) => {
     const currentUsername = (localStorage.getItem('user_username') || '').toLowerCase().trim();
+    const isBranchOwner = localStorage.getItem('branch_owned') === 'true';
+    const isAdmin = currentUsername === 'admin';
     const [subTab, setSubTab] = useState('active'); // 'active' | 'pending' | 'history'
     const [complianceData, setComplianceData] = useState({
         active: [],
@@ -1242,8 +1244,10 @@ const ComplianceTab = ({ clientUsername }) => {
         const currentUsername = (localStorage.getItem('user_username') || '').toLowerCase().trim();
         const assignedStaffs = getAssignedStaffList(selectedPeriodAssign || selectedPeriod);
         const assignedStaffUsernames = assignedStaffs.map(emp => (emp.username || '').toLowerCase().trim());
+        const isBranchOwner = localStorage.getItem('branch_owned') === 'true';
+        const isAdmin = currentUsername === 'admin';
 
-        if (currentUsername && assignedStaffUsernames.length > 0 && !assignedStaffUsernames.includes(currentUsername)) {
+        if (!isAdmin && !isBranchOwner && currentUsername && assignedStaffUsernames.length > 0 && !assignedStaffUsernames.includes(currentUsername)) {
             const allowedNames = assignedStaffs.map(emp => emp.name || emp.username).join(', ');
             toast.error(`Only the assigned staff members (${allowedNames}) are permitted to update the payment status.`);
             return;
@@ -1341,7 +1345,7 @@ const ComplianceTab = ({ clientUsername }) => {
 
         const assignedStaffs = getAssignedStaffList(assign);
         const assignedStaffUsernames = assignedStaffs.map(emp => (emp.username || '').toLowerCase().trim());
-        const isUpdatePermitted = (!currentUsername || assignedStaffUsernames.length === 0 || assignedStaffUsernames.includes(currentUsername)) && checkPermissionSync('recurring_task_complete');
+        const isUpdatePermitted = (isAdmin || isBranchOwner || !currentUsername || assignedStaffUsernames.length === 0 || assignedStaffUsernames.includes(currentUsername)) && checkPermissionSync('recurring_task_complete');
         const isComplete = st === 'Complete' || st === 'Sale';
         const shortDueDate = dueDateText === '—' ? '' : dueDateText.split(' ').slice(0, 2).join(' ');
         const canUpdate = isUpdatePermitted && (isPeriodDueDateActive(period) || isComplete);
@@ -1944,7 +1948,7 @@ const ComplianceTab = ({ clientUsername }) => {
                                                                 return filteredSchedules.map((period) => {
                                                                     const assignedStaffs = getAssignedStaffList(assign);
                                                                     const assignedStaffUsernames = assignedStaffs.map(emp => (emp.username || '').toLowerCase().trim());
-                                                                    const isUpdatePermitted = (!currentUsername || assignedStaffUsernames.length === 0 || assignedStaffUsernames.includes(currentUsername)) && checkPermissionSync('recurring_task_complete');
+                                                                    const isUpdatePermitted = (isAdmin || isBranchOwner || !currentUsername || assignedStaffUsernames.length === 0 || assignedStaffUsernames.includes(currentUsername)) && checkPermissionSync('recurring_task_complete');
                                                                     const isComplete = period.status === 'Complete' || period.status === 'Sale';
                                                                     const canUpdate = isUpdatePermitted && (isPeriodDueDateActive(period) || isComplete);
 
@@ -2785,7 +2789,7 @@ const ComplianceTab = ({ clientUsername }) => {
                     const currentUsername = (localStorage.getItem('user_username') || '').toLowerCase().trim();
                     const assignedStaffs = getAssignedStaffList(selectedPeriodAssign || selectedPeriod);
                     const assignedStaffUsernames = assignedStaffs.map(emp => (emp.username || '').toLowerCase().trim());
-                    const isUpdatePermitted = (!currentUsername || assignedStaffUsernames.length === 0 || assignedStaffUsernames.includes(currentUsername)) && checkPermissionSync('recurring_task_complete');
+                    const isUpdatePermitted = (isAdmin || isBranchOwner || !currentUsername || assignedStaffUsernames.length === 0 || assignedStaffUsernames.includes(currentUsername)) && checkPermissionSync('recurring_task_complete');
 
                     return (
                         <div className="fixed inset-0 z-[200] flex items-start justify-center overflow-hidden overscroll-none p-3 sm:p-4 pointer-events-none">
@@ -3503,7 +3507,7 @@ const ComplianceTab = ({ clientUsername }) => {
                                             {schedules.map((period) => {
                                                 const assignedStaffs = getAssignedStaffList(fullCalendarAssignment);
                                                 const assignedStaffUsernames = assignedStaffs.map(emp => (emp.username || '').toLowerCase().trim());
-                                                const isUpdatePermitted = (!currentUsername || assignedStaffUsernames.length === 0 || assignedStaffUsernames.includes(currentUsername)) && checkPermissionSync('recurring_task_complete');
+                                                const isUpdatePermitted = (isAdmin || isBranchOwner || !currentUsername || assignedStaffUsernames.length === 0 || assignedStaffUsernames.includes(currentUsername)) && checkPermissionSync('recurring_task_complete');
                                                 const isComplete = period.status === 'Complete' || period.status === 'Sale';
 
                                                 return (
