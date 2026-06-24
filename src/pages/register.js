@@ -146,440 +146,408 @@ const Register = () => {
     const isStep3Empty = formData.otp.length !== 6;
 
     return (
-        <div className="min-h-screen bg-white flex flex-col md:flex-row relative overflow-hidden font-sans page-container">
+        <div className="ooms-root h-screen h-[100dvh] overflow-hidden bg-[#f3f6fc] flex items-center justify-center p-4 sm:p-6 font-sans page-container">
             {/* Google Font Integration */}
             <link rel="preconnect" href="https://fonts.googleapis.com" />
             <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="true" />
             <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
 
-            {/* Left Side - Branding (Desktop Only) */}
-            <div className="hidden md:flex md:w-1/2 bg-[#080b18] text-white p-12 lg:p-16 relative overflow-hidden flex-col justify-between select-none">
-                {/* Dotted Grid Background */}
-                <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_transparent_20%,_#080b18_80%),_radial-gradient(#ffffff04_1px,_transparent_1px)] [background-size:24px_24px] pointer-events-none"></div>
+            {/* Main Premium Card Container */}
+            <div className="bg-white rounded-[32px] shadow-[0_20px_50px_rgba(99,102,241,0.06)] border border-slate-100/80 flex flex-col md:flex-row overflow-hidden w-full max-w-[920px] h-full md:h-[580px] max-h-full relative">
 
-                {/* Glowing Radial Blobs */}
-                <div className="absolute top-[-10%] right-[-10%] w-[500px] h-[500px] rounded-full bg-[radial-gradient(circle_at_center,_#3b82f612_0%,_transparent_70%)] filter blur-3xl pointer-events-none"></div>
-                <div className="absolute bottom-[-10%] left-[-10%] w-[500px] h-[500px] rounded-full bg-[radial-gradient(circle_at_center,_#8b5cf612_0%,_transparent_70%)] filter blur-3xl pointer-events-none"></div>
+                {/* ═══════════════════════════════════════════════
+                    LEFT — Brand Panel (Premium Dark Widget Art)
+                ═══════════════════════════════════════════════ */}
+                <div className="hidden md:flex md:w-[46%] bg-[#080b18] text-white flex-col justify-between p-8 relative overflow-hidden select-none">
+                    {/* Dotted Grid Background */}
+                    <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_transparent_20%,_#080b18_80%),_radial-gradient(#ffffff04_1px,_transparent_1px)] [background-size:24px_24px] pointer-events-none"></div>
 
-                {/* Header Logo */}
-                <div className="relative z-10 flex items-center space-x-3">
-                    <div className="w-10 h-10 bg-indigo-600 rounded-xl flex items-center justify-center shadow-lg shadow-indigo-600/20 border border-white/[0.08]">
-                        <FiShield className="text-xl text-white" />
+                    {/* Glowing Radial Blobs */}
+                    <div className="absolute top-[-10%] right-[-10%] w-[500px] h-[500px] rounded-full bg-[radial-gradient(circle_at_center,_#3b82f612_0%,_transparent_70%)] filter blur-3xl pointer-events-none"></div>
+                    <div className="absolute bottom-[-10%] left-[-10%] w-[500px] h-[500px] rounded-full bg-[radial-gradient(circle_at_center,_#8b5cf612_0%,_transparent_70%)] filter blur-3xl pointer-events-none"></div>
+
+                    {/* Logo & Brand */}
+                    <div className="relative z-10 flex items-center space-x-3">
+                        <div className="w-10 h-10 bg-indigo-600 rounded-xl flex items-center justify-center shadow-lg shadow-indigo-600/20 border border-white/[0.08]">
+                            <FiShield className="text-xl text-white" />
+                        </div>
+                        <span className="text-xl font-bold tracking-tight text-white">OOMS</span>
                     </div>
-                    <span className="text-xl font-bold tracking-tight text-white">OOMS</span>
-                </div>
 
-                {/* Content & Infographics */}
-                <div className="relative z-10 my-auto py-12 max-w-lg">
-                    <h1 className="text-4xl lg:text-5xl font-extrabold text-white tracking-tight leading-tight">
-                        Join OOMS,<br />
-                        <span className="bg-gradient-to-r from-blue-400 via-indigo-300 to-purple-400 bg-clip-text text-transparent">
-                            register your firm.
-                        </span>
-                    </h1>
-                    <p className="text-slate-400 text-sm max-w-sm mt-4 leading-relaxed font-normal">
-                        Set up your firm details, verify your mobile, and access secure office management tools.
-                    </p>
+                    {/* Content & Infographics */}
+                    <div className="relative z-10 my-auto py-4 flex flex-col justify-center">
+                        <h1 className="text-3xl font-extrabold text-white tracking-tight leading-tight">
+                            Join OOMS,<br />
+                            <span className="bg-gradient-to-r from-blue-400 via-indigo-300 to-purple-400 bg-clip-text text-transparent">
+                                register your firm.
+                            </span>
+                        </h1>
+                        <p className="text-slate-400 text-xs mt-3 leading-relaxed font-normal">
+                            Set up your firm details, verify your mobile, and access secure office management tools.
+                        </p>
 
-                    {/* Infographic Panels */}
-                    <div className="mt-12 space-y-6">
-                        {/* Task Status Progress Panel */}
-                        <div className="bg-white/[0.02] border border-white/[0.06] backdrop-blur-md rounded-2xl p-5 shadow-2xl relative overflow-hidden transition-all duration-500 hover:border-white/[0.12] hover:bg-white/[0.04]">
-                            <div className="flex items-center justify-between mb-4">
-                                <div className="flex items-center space-x-2.5">
-                                    <div className="w-8 h-8 rounded-lg bg-indigo-500/10 flex items-center justify-center border border-indigo-500/20">
-                                        <FiBriefcase className="text-indigo-400" />
+                        {/* Infographic Panels */}
+                        <div className="mt-6 space-y-4">
+                            {/* Task Status Progress Panel */}
+                            <div className="bg-white/[0.02] border border-white/[0.06] backdrop-blur-md rounded-2xl p-4 shadow-2xl relative overflow-hidden transition-all duration-500 hover:border-white/[0.12] hover:bg-white/[0.04]">
+                                <div className="flex items-center justify-between mb-3">
+                                    <div className="flex items-center space-x-2.5">
+                                        <div className="w-8 h-8 rounded-lg bg-indigo-500/10 flex items-center justify-center border border-indigo-500/20">
+                                            <FiBriefcase className="text-indigo-400" />
+                                        </div>
+                                        <div>
+                                            <span className="text-[9px] font-bold text-slate-500 uppercase tracking-wider block">Registration</span>
+                                            <span className="text-xs font-semibold text-slate-200">Account Setup Status</span>
+                                        </div>
                                     </div>
+                                    <span className="bg-amber-500/10 text-amber-400 text-[10px] font-bold px-2 py-0.5 rounded border border-amber-500/20">
+                                        Step {step}/3
+                                    </span>
+                                </div>
+                                <div className="w-full bg-slate-900 rounded-full h-1.5 overflow-hidden">
+                                    <div className="bg-indigo-500 h-full rounded-full transition-all duration-500" style={{ width: `${(step / 3) * 100}%` }} />
+                                </div>
+                                <span className="text-[9px] text-slate-500 block mt-2">Progress saved automatically</span>
+                            </div>
+
+                            {/* Metric Counter Panel */}
+                            <div className="bg-white/[0.02] border border-white/[0.06] backdrop-blur-md rounded-2xl p-4 shadow-2xl relative overflow-hidden transition-all duration-500 hover:border-white/[0.12] hover:bg-white/[0.04]">
+                                <div className="flex items-center justify-between mb-2">
                                     <div>
-                                        <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">Registration</span>
-                                        <span className="text-xs font-semibold text-slate-200">Account Setup Status</span>
+                                        <span className="text-[9px] font-bold text-slate-500 uppercase tracking-wider block">Office Efficiency</span>
+                                        <span className="text-xl font-bold text-slate-100 mt-1 block">99.9% Automated</span>
+                                    </div>
+                                    <div className="w-8 h-8 rounded-lg bg-indigo-500/10 flex items-center justify-center border border-indigo-500/20">
+                                        <FiTrendingUp className="text-indigo-400 text-base" />
                                     </div>
                                 </div>
-                                <span className="bg-amber-500/10 text-amber-400 text-[10px] font-bold px-2 py-0.5 rounded border border-amber-500/20">
-                                    Step {step}/3
-                                </span>
+                                <div className="w-full h-[1px] bg-white/[0.08]" />
+                                <span className="text-[9px] text-slate-500 block mt-2">Scale operations and automate filing</span>
                             </div>
-                            <div className="w-full bg-slate-900 rounded-full h-1.5 overflow-hidden">
-                                <div className="bg-indigo-500 h-full rounded-full transition-all duration-500" style={{ width: `${(step / 3) * 100}%` }} />
-                            </div>
-                            <span className="text-[10px] text-slate-500 block mt-2.5">Progress saved automatically</span>
                         </div>
+                    </div>
 
-                        {/* Metric Counter Panel */}
-                        <div className="bg-white/[0.02] border border-white/[0.06] backdrop-blur-md rounded-2xl p-5 shadow-2xl relative overflow-hidden transition-all duration-500 hover:border-white/[0.12] hover:bg-white/[0.04]">
-                            <div className="flex items-center justify-between mb-3">
-                                <div>
-                                    <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">Office Efficiency</span>
-                                    <span className="text-2xl font-bold text-slate-100 mt-1 block">99.9% Automated</span>
-                                </div>
-                                <div className="w-10 h-10 rounded-xl bg-indigo-500/10 flex items-center justify-center border border-indigo-500/20">
-                                    <FiTrendingUp className="text-indigo-400 text-lg" />
-                                </div>
-                            </div>
-                            <div className="w-full h-[1px] bg-white/[0.08]" />
-                            <span className="text-[10px] text-slate-500 block mt-2.5">Scale operations and automate filing</span>
+                    {/* Footer Metrics */}
+                    <div className="relative z-10 grid grid-cols-3 gap-4 pt-4 border-t border-white/[0.08]">
+                        <div>
+                            <span className="text-xl font-extrabold text-white block">10K+</span>
+                            <span className="text-[9px] text-slate-500 uppercase tracking-wider font-bold block mt-0.5">Clients</span>
+                        </div>
+                        <div>
+                            <span className="text-xl font-extrabold text-white block">99.9%</span>
+                            <span className="text-[9px] text-slate-500 uppercase tracking-wider font-bold block mt-0.5">Uptime</span>
+                        </div>
+                        <div>
+                            <span className="text-xl font-extrabold text-white block">4.9★</span>
+                            <span className="text-[9px] text-slate-500 uppercase tracking-wider font-bold block mt-0.5">Rating</span>
                         </div>
                     </div>
                 </div>
 
-                {/* Footer Metrics */}
-                <div className="relative z-10 grid grid-cols-3 gap-6 pt-8 border-t border-white/[0.08]">
-                    <div>
-                        <span className="text-2xl font-extrabold text-white block">10K+</span>
-                        <span className="text-[10px] text-slate-500 uppercase tracking-wider font-bold block mt-1">Clients</span>
-                    </div>
-                    <div>
-                        <span className="text-2xl font-extrabold text-white block">99.9%</span>
-                        <span className="text-[10px] text-slate-500 uppercase tracking-wider font-bold block mt-1">Uptime</span>
-                    </div>
-                    <div>
-                        <span className="text-2xl font-extrabold text-white block">4.9★</span>
-                        <span className="text-[10px] text-slate-500 uppercase tracking-wider font-bold block mt-1">Rating</span>
-                    </div>
-                </div>
-            </div>
-
-            {/* Right Side - Interactive Forms */}
-            <div className="w-full md:w-1/2 min-h-screen bg-white p-8 sm:p-12 lg:p-20 flex flex-col justify-between relative z-10">
-                {/* Mobile Header Logo */}
-                <div className="flex items-center space-x-3 mb-8 md:hidden">
-                    <div className="w-10 h-10 bg-indigo-600 rounded-xl flex items-center justify-center shadow-lg shadow-indigo-600/20">
-                        <FiShield className="text-xl text-white" />
-                    </div>
-                    <span className="text-xl font-bold tracking-tight text-slate-800 font-sans">OOMS</span>
-                </div>
-
-                {/* Form Wrapper Container */}
-                <div className="max-w-sm w-full mx-auto my-auto py-8">
-                    {/* Progress Indicator Steps */}
-                    <div className="flex space-x-2 mb-10 w-full">
-                        <div className={`h-1 flex-1 rounded-full transition-all duration-500 ${step >= 1 ? 'bg-indigo-600' : 'bg-slate-100'}`} />
-                        <div className={`h-1 flex-1 rounded-full transition-all duration-500 ${step >= 2 ? 'bg-indigo-600' : 'bg-slate-100'}`} />
-                        <div className={`h-1 flex-1 rounded-full transition-all duration-500 ${step >= 3 ? 'bg-indigo-600' : 'bg-slate-100'}`} />
-                    </div>
-
-                    {/* Step 1: Basic Details */}
-                    {step === 1 && (
-                        <div className="animate-fade-in">
-                            <div className="mb-8">
-                                <h2 className="text-3xl font-extrabold text-[#090b16] tracking-tight">Create your account</h2>
-                                <p className="text-slate-500 text-sm mt-2 font-normal leading-relaxed">Enter your personal details to begin registration.</p>
+                {/* ═══════════════════════════════════════════════
+                    RIGHT — Form Panel
+                ═══════════════════════════════════════════════ */}
+                <div className="w-full md:w-[54%] flex flex-col justify-between p-6 sm:p-8 bg-white relative md:overflow-y-hidden overflow-y-auto scrollbar-hide">
+                    {/* Top Right Mini Brand (Mobile Only) */}
+                    <div className="flex md:hidden items-center justify-between w-full mb-6">
+                        <div className="flex items-center gap-2">
+                            <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-[#4f35e3] to-[#3b82f6] flex items-center justify-center text-white shadow-md">
+                                <FiShield size={16} />
                             </div>
-
-                            <form onSubmit={handleBasicSubmit} className="space-y-5">
-                                {/* Name Input */}
-                                <div className="space-y-2">
-                                    <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">Full Name</label>
-                                    <div className="relative group">
-                                        <input
-                                            ref={nameRef}
-                                            type="text"
-                                            name="name"
-                                            value={formData.name}
-                                            onChange={handleInputChange}
-                                            className="w-full pl-12 pr-4 py-4 bg-slate-50/60 border border-slate-200/80 rounded-2xl focus:ring-4 focus:border-indigo-500 focus:ring-indigo-100/40 outline-none transition-all duration-300 font-medium"
-                                            placeholder="e.g. John Doe"
-                                            required
-                                        />
-                                        <div className="absolute left-4 top-1/2 transform -translate-y-1/2 text-slate-400 group-focus-within:text-indigo-600 transition-colors pointer-events-none">
-                                            <FiUser className="w-5 h-5" />
-                                        </div>
-                                    </div>
-                                </div>
-
-                                {/* Email Input */}
-                                <div className="space-y-2">
-                                    <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">Email Address</label>
-                                    <div className="relative group">
-                                        <input
-                                            type="email"
-                                            name="email"
-                                            value={formData.email}
-                                            onChange={handleInputChange}
-                                            className="w-full pl-12 pr-4 py-4 bg-slate-50/60 border border-slate-200/80 rounded-2xl focus:ring-4 focus:border-indigo-500 focus:ring-indigo-100/40 outline-none transition-all duration-300 font-medium"
-                                            placeholder="e.g. john@company.com"
-                                            required
-                                        />
-                                        <div className="absolute left-4 top-1/2 transform -translate-y-1/2 text-slate-400 group-focus-within:text-indigo-600 transition-colors pointer-events-none">
-                                            <FiMail className="w-5 h-5" />
-                                        </div>
-                                    </div>
-                                </div>
-
-                                {/* Mobile Input */}
-                                <div className="space-y-2">
-                                    <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">Mobile Number</label>
-                                    <div className="relative group">
-                                        <input
-                                            type="tel"
-                                            name="mobile"
-                                            value={formData.mobile}
-                                            onChange={handleInputChange}
-                                            className="w-full pl-12 pr-4 py-4 bg-slate-50/60 border border-slate-200/80 rounded-2xl focus:ring-4 focus:border-indigo-500 focus:ring-indigo-100/40 outline-none transition-all duration-300 font-medium"
-                                            placeholder="e.g. 9876543210"
-                                            required
-                                        />
-                                        <div className="absolute left-4 top-1/2 transform -translate-y-1/2 text-slate-400 group-focus-within:text-indigo-600 transition-colors pointer-events-none">
-                                            <FiPhone className="w-5 h-5" />
-                                        </div>
-                                    </div>
-                                </div>
-
-                                {/* Submit button */}
-                                <button
-                                    type="submit"
-                                    disabled={loading || isStep1Empty}
-                                    className={`w-full py-4 px-6 rounded-2xl font-semibold transition-all duration-200 flex items-center justify-center group mt-4 ${
-                                        isStep1Empty
-                                            ? 'bg-[#f1f5f9] text-[#94a3b8] cursor-not-allowed'
-                                            : 'bg-[#0c111d] hover:bg-[#161c2d] text-white shadow-lg shadow-slate-950/5 hover:shadow-xl hover:shadow-slate-950/15 active:scale-[0.98]'
-                                    }`}
-                                >
-                                    {loading ? (
-                                        <>
-                                            <FiRefreshCw className="animate-spin mr-3" />
-                                            Processing...
-                                        </>
-                                    ) : (
-                                        <>
-                                            Continue
-                                            <FiArrowRight className="ml-2 group-hover:translate-x-0.5 transition-transform" />
-                                        </>
-                                    )}
-                                </button>
-                            </form>
+                            <span className="text-sm font-bold text-slate-800">OOMS</span>
                         </div>
-                    )}
+                    </div>
 
-                    {/* Step 2: Business Details */}
-                    {step === 2 && (
-                        <div className="animate-fade-in">
-                            <div className="mb-8">
-                                <h2 className="text-3xl font-extrabold text-[#090b16] tracking-tight">Business details</h2>
-                                <p className="text-slate-500 text-sm mt-2 font-normal leading-relaxed">Enter your business name & firm configuration.</p>
+                    {/* Form Wrapper Container */}
+                    <div className="my-auto w-full max-w-[340px] mx-auto space-y-4">
+                        <div className="text-center">
+                            <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-[#4f35e3] to-[#3b82f6] flex items-center justify-center text-white shadow-lg mb-2 mx-auto">
+                                <FiShield size={20} />
                             </div>
+                            <h2 className="text-2xl font-black text-slate-800 tracking-tight">
+                                {step === 1 && "Create account"}
+                                {step === 2 && "Business details"}
+                                {step === 3 && "Verify mobile"}
+                            </h2>
+                            <p className="text-xs text-slate-450 mt-1">
+                                {step === 1 && "Enter your details to get started"}
+                                {step === 2 && "Enter business name & configuration"}
+                                {step === 3 && `Code sent to +91 ${formData.mobile}`}
+                            </p>
 
-                            <form onSubmit={handleBusinessSubmit} className="space-y-5">
-                                {/* Short Firm Name */}
-                                <div className="space-y-2">
-                                    <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">Firm Name (Short)</label>
-                                    <div className="relative group">
-                                        <input
-                                            ref={firmRef}
-                                            type="text"
-                                            name="firmNameShort"
-                                            value={formData.firmNameShort}
-                                            onChange={handleInputChange}
-                                            className="w-full pl-12 pr-4 py-4 bg-slate-50/60 border border-slate-200/80 rounded-2xl focus:ring-4 focus:border-indigo-500 focus:ring-indigo-100/40 outline-none transition-all duration-300 font-medium"
-                                            placeholder="e.g. ACME Corp"
-                                            required
-                                        />
-                                        <div className="absolute left-4 top-1/2 transform -translate-y-1/2 text-slate-400 group-focus-within:text-indigo-600 transition-colors pointer-events-none">
-                                            <FiBriefcase className="w-5 h-5" />
-                                        </div>
-                                    </div>
-                                </div>
-
-                                {/* Long Firm Name */}
-                                <div className="space-y-2">
-                                    <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">Firm Name (Long)</label>
-                                    <div className="relative group">
-                                        <input
-                                            type="text"
-                                            name="firmNameLong"
-                                            value={formData.firmNameLong}
-                                            onChange={handleInputChange}
-                                            className="w-full pl-12 pr-4 py-4 bg-slate-50/60 border border-slate-200/80 rounded-2xl focus:ring-4 focus:border-indigo-500 focus:ring-indigo-100/40 outline-none transition-all duration-300 font-medium"
-                                            placeholder="e.g. ACME Solutions Private Limited"
-                                            required
-                                        />
-                                        <div className="absolute left-4 top-1/2 transform -translate-y-1/2 text-slate-400 group-focus-within:text-indigo-600 transition-colors pointer-events-none">
-                                            <FiBriefcase className="w-5 h-5" />
-                                        </div>
-                                    </div>
-                                </div>
-
-                                {/* Form control buttons */}
-                                <div className="flex space-x-3 pt-2">
-                                    <button
-                                        type="button"
-                                        onClick={() => setStep(1)}
-                                        className="flex-1 py-4 border border-slate-200 text-slate-600 rounded-2xl font-semibold hover:bg-slate-50 active:scale-[0.99] transition-all flex items-center justify-center gap-1.5"
-                                    >
-                                        <FiArrowLeft /> Back
-                                    </button>
-
-                                    <button
-                                        type="submit"
-                                        disabled={loading || isStep2Empty}
-                                        className={`flex-1 py-4 rounded-2xl font-semibold transition-all duration-200 flex items-center justify-center group ${
-                                            isStep2Empty
-                                                ? 'bg-[#f1f5f9] text-[#94a3b8] cursor-not-allowed'
-                                                : 'bg-[#0c111d] hover:bg-[#161c2d] text-white shadow-lg active:scale-[0.98]'
-                                        }`}
-                                    >
-                                        {loading ? (
-                                            <FiRefreshCw className="animate-spin" />
-                                        ) : (
-                                            <>
-                                                Continue <FiArrowRight className="ml-1 group-hover:translate-x-0.5 transition-transform" />
-                                            </>
-                                        )}
-                                    </button>
-                                </div>
-                            </form>
+                            {/* Step Progress Bar */}
+                            <div className="flex gap-1.5 justify-center mt-3">
+                                <div className={`h-[4px] w-8 rounded-full transition-all duration-300 ${step >= 1 ? 'bg-[#5c3fe6]' : 'bg-slate-100'}`} />
+                                <div className={`h-[4px] w-8 rounded-full transition-all duration-300 ${step >= 2 ? 'bg-[#5c3fe6]' : 'bg-slate-100'}`} />
+                                <div className={`h-[4px] w-8 rounded-full transition-all duration-300 ${step >= 3 ? 'bg-[#5c3fe6]' : 'bg-slate-100'}`} />
+                            </div>
                         </div>
-                    )}
 
-                    {/* Step 3: Verify OTP */}
-                    {step === 3 && (
-                        <div className="animate-fade-in">
-                            <div className="mb-8">
-                                <h2 className="text-3xl font-extrabold text-[#090b16] tracking-tight">Verify mobile</h2>
-                                <p className="text-slate-500 text-sm mt-2 font-normal leading-relaxed">
-                                    Enter the verification code sent to <strong className="text-slate-800 font-semibold">+91 {formData.mobile}</strong>.
-                                </p>
-                            </div>
-
-                            <form onSubmit={handleOtpSubmit} className="space-y-6">
-                                {/* OTP Code Boxes */}
-                                <div className="space-y-2">
-                                    <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block mb-3">
-                                        Enter 6-digit OTP
-                                    </label>
-                                    <div className="flex justify-between space-x-2">
-                                        {otpDigits.map((digit, index) => (
+                        {/* Step 1: Basic Details */}
+                        {step === 1 && (
+                            <div className="animate-fade-in space-y-4">
+                                <form onSubmit={handleBasicSubmit} className="space-y-4">
+                                    {/* Name Input */}
+                                    <div className="space-y-1.5">
+                                        <label className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">Full Name</label>
+                                        <div className="relative group">
                                             <input
-                                                key={index}
-                                                ref={otpRefs.current[index]}
+                                                ref={nameRef}
                                                 type="text"
-                                                value={digit}
-                                                onChange={(e) => handleOtpChange(index, e.target.value)}
-                                                onKeyDown={(e) => handleOtpKeyDown(index, e)}
-                                                onPaste={handlePaste}
-                                                className="w-12 h-14 text-center text-2xl font-bold bg-slate-50/60 border border-slate-200/80 rounded-xl focus:border-indigo-600 focus:bg-white focus:ring-4 focus:ring-indigo-100/40 outline-none transition-all duration-300"
-                                                maxLength="1"
+                                                name="name"
+                                                value={formData.name}
+                                                onChange={handleInputChange}
+                                                className="w-full pl-10 pr-4 py-2.5 text-xs font-semibold bg-slate-50 border border-slate-200/80 rounded-xl outline-none transition-all duration-200 placeholder:text-slate-350 text-slate-800 focus:border-indigo-500 focus:bg-white focus:ring-4 focus:ring-indigo-500/10"
+                                                placeholder="e.g. John Doe"
                                                 required
                                             />
-                                        ))}
+                                            <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400">
+                                                <FiUser size={13} />
+                                            </span>
+                                        </div>
                                     </div>
-                                </div>
 
-                                <div className="flex items-center justify-between text-[13px] font-semibold">
-                                    <span className="text-slate-400 font-medium">Didn't receive code?</span>
-                                    <button
-                                        type="button"
-                                        onClick={handleResendOtp}
-                                        className="text-indigo-600 hover:text-indigo-700 transition-colors"
-                                    >
-                                        Resend OTP
-                                    </button>
-                                </div>
+                                    {/* Email Input */}
+                                    <div className="space-y-1.5">
+                                        <label className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">Email Address</label>
+                                        <div className="relative group">
+                                            <input
+                                                type="email"
+                                                name="email"
+                                                value={formData.email}
+                                                onChange={handleInputChange}
+                                                className="w-full pl-10 pr-4 py-2.5 text-xs font-semibold bg-slate-50 border border-slate-200/80 rounded-xl outline-none transition-all duration-200 placeholder:text-slate-350 text-slate-800 focus:border-indigo-500 focus:bg-white focus:ring-4 focus:ring-indigo-500/10"
+                                                placeholder="e.g. john@company.com"
+                                                required
+                                            />
+                                            <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400">
+                                                <FiMail size={13} />
+                                            </span>
+                                        </div>
+                                    </div>
 
-                                <div className="flex space-x-3 pt-2">
-                                    <button
-                                        type="button"
-                                        onClick={() => setStep(2)}
-                                        className="flex-1 py-4 border border-slate-200 text-slate-600 rounded-2xl font-semibold hover:bg-slate-50 active:scale-[0.99] transition-all flex items-center justify-center gap-1.5"
-                                    >
-                                        <FiArrowLeft /> Back
-                                    </button>
+                                    {/* Mobile Input */}
+                                    <div className="space-y-1.5">
+                                        <label className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">Mobile Number</label>
+                                        <div className="relative group">
+                                            <input
+                                                type="tel"
+                                                name="mobile"
+                                                value={formData.mobile}
+                                                onChange={handleInputChange}
+                                                className="w-full pl-10 pr-4 py-2.5 text-xs font-semibold bg-slate-50 border border-slate-200/80 rounded-xl outline-none transition-all duration-200 placeholder:text-slate-350 text-slate-800 focus:border-indigo-500 focus:bg-white focus:ring-4 focus:ring-indigo-500/10"
+                                                placeholder="e.g. 9876543210"
+                                                required
+                                            />
+                                            <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400">
+                                                <FiPhone size={13} />
+                                            </span>
+                                        </div>
+                                    </div>
 
+                                    {/* Submit button */}
                                     <button
                                         type="submit"
-                                        disabled={loading || isStep3Empty}
-                                        className={`flex-1 py-4 rounded-2xl font-semibold transition-all duration-200 flex items-center justify-center group ${
-                                            isStep3Empty
-                                                ? 'bg-[#f1f5f9] text-[#94a3b8] cursor-not-allowed'
-                                                : 'bg-[#4f46e5] hover:bg-[#4338ca] text-white shadow-lg active:scale-[0.98]'
-                                        }`}
+                                        disabled={loading || isStep1Empty}
+                                        className={`w-full py-3 px-6 rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-all duration-200 shadow-md shadow-indigo-500/5 mt-2
+                                            ${isStep1Empty || loading
+                                                ? 'bg-slate-100 text-slate-400 cursor-not-allowed'
+                                                : 'bg-[#5c3fe6] hover:bg-[#4b30c5] text-white shadow-indigo-500/20 active:scale-[0.985]'
+                                            }`}
                                     >
                                         {loading ? (
-                                            <FiRefreshCw className="animate-spin" />
+                                            <><FiRefreshCw className="animate-spin" size={13} /> Processing...</>
                                         ) : (
-                                            <>
-                                                Complete <FiCheck className="ml-1" />
-                                            </>
+                                            <>Continue <FiArrowRight size={13} /></>
                                         )}
                                     </button>
+                                </form>
+                            </div>
+                        )}
+
+                        {/* Step 2: Business Details */}
+                        {step === 2 && (
+                            <div className="animate-fade-in space-y-4">
+                                <form onSubmit={handleBusinessSubmit} className="space-y-4">
+                                    {/* Short Firm Name */}
+                                    <div className="space-y-1.5">
+                                        <label className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">Firm Name (Short)</label>
+                                        <div className="relative group">
+                                            <input
+                                                ref={firmRef}
+                                                type="text"
+                                                name="firmNameShort"
+                                                value={formData.firmNameShort}
+                                                onChange={handleInputChange}
+                                                className="w-full pl-10 pr-4 py-2.5 text-xs font-semibold bg-slate-50 border border-slate-200/80 rounded-xl outline-none transition-all duration-200 placeholder:text-slate-350 text-slate-800 focus:border-indigo-500 focus:bg-white focus:ring-4 focus:ring-indigo-500/10"
+                                                placeholder="e.g. ACME Corp"
+                                                required
+                                            />
+                                            <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400">
+                                                <FiBriefcase size={13} />
+                                            </span>
+                                        </div>
+                                    </div>
+
+                                    {/* Long Firm Name */}
+                                    <div className="space-y-1.5">
+                                        <label className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">Firm Name (Long)</label>
+                                        <div className="relative group">
+                                            <input
+                                                type="text"
+                                                name="firmNameLong"
+                                                value={formData.firmNameLong}
+                                                onChange={handleInputChange}
+                                                className="w-full pl-10 pr-4 py-2.5 text-xs font-semibold bg-slate-50 border border-slate-200/80 rounded-xl outline-none transition-all duration-200 placeholder:text-slate-350 text-slate-800 focus:border-indigo-500 focus:bg-white focus:ring-4 focus:ring-indigo-500/10"
+                                                placeholder="e.g. ACME Solutions Private Limited"
+                                                required
+                                            />
+                                            <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400">
+                                                <FiBriefcase size={13} />
+                                            </span>
+                                        </div>
+                                    </div>
+
+                                    {/* Form control buttons */}
+                                    <div className="flex space-x-3 pt-2">
+                                        <button
+                                            type="button"
+                                            onClick={() => setStep(1)}
+                                            className="flex-1 py-3 border border-slate-200 text-slate-500 text-xs font-bold rounded-xl hover:bg-slate-50 active:scale-[0.985] transition-colors flex items-center justify-center gap-1.5"
+                                        >
+                                            <FiArrowLeft size={13} /> Back
+                                        </button>
+
+                                        <button
+                                            type="submit"
+                                            disabled={loading || isStep2Empty}
+                                            className={`flex-1 py-3 rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-all duration-200 shadow-md shadow-indigo-500/5
+                                                ${isStep2Empty || loading
+                                                    ? 'bg-slate-100 text-slate-400 cursor-not-allowed'
+                                                    : 'bg-[#5c3fe6] hover:bg-[#4b30c5] text-white shadow-indigo-500/20 active:scale-[0.985]'
+                                                }`}
+                                        >
+                                            {loading ? (
+                                                <FiRefreshCw className="animate-spin" size={13} />
+                                            ) : (
+                                                <>Continue <FiArrowRight size={13} /></>
+                                            )}
+                                        </button>
+                                    </div>
+                                </form>
+                            </div>
+                        )}
+
+                        {/* Step 3: Verify OTP */}
+                        {step === 3 && (
+                            <div className="animate-fade-in space-y-4">
+                                <form onSubmit={handleOtpSubmit} className="space-y-4">
+                                    {/* OTP Code Boxes */}
+                                    <div className="space-y-1.5">
+                                        <label className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block mb-2">
+                                            Enter 6-digit OTP
+                                        </label>
+                                        <div className="grid grid-cols-6 gap-2">
+                                            {otpDigits.map((digit, index) => (
+                                                <input
+                                                    key={index}
+                                                    ref={otpRefs.current[index]}
+                                                    type="text"
+                                                    value={digit}
+                                                    onChange={(e) => handleOtpChange(index, e.target.value)}
+                                                    onKeyDown={(e) => handleOtpKeyDown(index, e)}
+                                                    onPaste={handlePaste}
+                                                    className="w-full text-center text-lg font-bold rounded-xl border outline-none transition-all duration-150 py-2.5 bg-slate-50 border-slate-200 text-slate-800 focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 focus:bg-white"
+                                                    maxLength="1"
+                                                    inputMode="numeric"
+                                                    required
+                                                />
+                                            ))}
+                                        </div>
+                                    </div>
+
+                                    <div className="flex items-center justify-between text-[11px] font-bold text-slate-400">
+                                        <span>Didn't receive code?</span>
+                                        <button
+                                            type="button"
+                                            onClick={handleResendOtp}
+                                            className="text-[#5c3fe6] hover:text-[#4b30c5] transition-colors"
+                                        >
+                                            Resend OTP
+                                        </button>
+                                    </div>
+
+                                    <div className="flex space-x-3 pt-2">
+                                        <button
+                                            type="button"
+                                            onClick={() => setStep(2)}
+                                            className="flex-1 py-3 border border-slate-200 text-slate-500 text-xs font-bold rounded-xl hover:bg-slate-50 active:scale-[0.985] transition-colors flex items-center justify-center gap-1.5"
+                                        >
+                                            <FiArrowLeft size={13} /> Back
+                                        </button>
+
+                                        <button
+                                            type="submit"
+                                            disabled={loading || isStep3Empty}
+                                            className={`flex-1 py-3 rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-all duration-200 shadow-md shadow-indigo-500/5
+                                                ${isStep3Empty || loading
+                                                    ? 'bg-slate-100 text-slate-400 cursor-not-allowed'
+                                                    : 'bg-[#5c3fe6] hover:bg-[#4b30c5] text-white shadow-indigo-500/20 active:scale-[0.985]'
+                                                }`}
+                                        >
+                                            {loading ? (
+                                                <FiRefreshCw className="animate-spin" size={13} />
+                                            ) : (
+                                                <>Complete <FiCheck size={13} /></>
+                                            )}
+                                        </button>
+                                    </div>
+                                </form>
+                            </div>
+                        )}
+
+                        {/* Sign in Redirection */}
+                        {step === 1 && (
+                            <div className="space-y-4">
+                                <div className="flex items-center gap-3 my-3 text-[10px] text-slate-350 font-bold uppercase tracking-wider">
+                                    <div className="flex-1 h-px bg-slate-100" />
+                                    <span>or</span>
+                                    <div className="flex-1 h-px bg-slate-100" />
                                 </div>
-                            </form>
-                        </div>
-                    )}
 
-                    {/* Bottom sign-in redirection */}
-                    {step === 1 && (
-                        <div className="text-center pt-8 border-t border-slate-100 mt-8">
-                            <p className="text-slate-400 text-sm font-semibold">
-                                Already have an account?{' '}
-                                <button
-                                    type="button"
-                                    onClick={() => navigate('/login')}
-                                    className="text-indigo-600 hover:text-indigo-700 font-bold ml-1 transition-colors hover:underline"
-                                >
-                                    Sign in
-                                </button>
-                            </p>
-                        </div>
-                    )}
-                </div>
+                                <p className="text-center text-[12px] text-slate-400 font-semibold">
+                                    Already have an account?{' '}
+                                    <button
+                                        type="button"
+                                        onClick={() => navigate('/login')}
+                                        className="text-[#5c3fe6] font-bold hover:text-[#4b30c5] hover:underline transition-colors"
+                                    >
+                                        Sign in
+                                    </button>
+                                </p>
+                            </div>
+                        )}
+                    </div>
 
-                {/* Footer Section */}
-                <div className="text-center text-xs text-slate-400 mt-auto pt-8 select-none">
-                    By continuing, you agree to our{' '}
-                    <button className="text-slate-500 hover:underline font-medium">Terms of Service</button>
-                    {' '}and{' '}
-                    <button className="text-slate-500 hover:underline font-medium">Privacy Policy</button>
+                    {/* Bottom Security/Terms Note */}
+                    <div className="text-[10px] text-slate-400 font-semibold text-center mt-4">
+                        By registering, you agree to our{' '}
+                        <button type="button" className="text-slate-500 hover:underline">Terms</button> &{' '}
+                        <button type="button" className="text-slate-500 hover:underline">Privacy Policy</button>
+                    </div>
                 </div>
             </div>
 
-            {/* Animations styles */}
-            <style jsx>{`
-                .page-container {
+            {/* Custom Styles for Keyframe Animations */}
+            <style>{`
+                .ooms-root, .ooms-root * {
                     font-family: 'Plus Jakarta Sans', sans-serif !important;
                 }
-
-                @keyframes blob {
-                    0% {
-                        transform: translate(0px, 0px) scale(1);
-                    }
-                    33% {
-                        transform: translate(30px, -50px) scale(1.1);
-                    }
-                    66% {
-                        transform: translate(-20px, 20px) scale(0.9);
-                    }
-                    100% {
-                        transform: translate(0px, 0px) scale(1);
-                    }
-                }
-                
-                .animate-blob {
-                    animation: blob 7s infinite;
-                }
-                
-                .animation-delay-2000 {
-                    animation-delay: 2s;
-                }
-                
-                .animation-delay-4000 {
-                    animation-delay: 4s;
-                }
-
                 @keyframes fade-in {
-                    from {
-                        opacity: 0;
-                        transform: translateY(8px);
-                    }
-                    to {
-                        opacity: 1;
-                        transform: translateY(0);
-                    }
+                    from { opacity: 0; transform: translateY(10px); }
+                    to   { opacity: 1; transform: translateY(0); }
                 }
-
-                .animate-fade-in {
-                    animation: fade-in 0.3s ease-out forwards;
-                }
+                .animate-fade-in { animation: fade-in 0.3s ease-out forwards; }
             `}</style>
         </div>
     );
