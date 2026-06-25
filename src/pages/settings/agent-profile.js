@@ -15,12 +15,12 @@ import {
     FiX,
 } from 'react-icons/fi';
 import { Header, Sidebar } from '../../components/header';
-import ProfileTab from '../../CAComponents/ProfileTab';
-import TaskTab from '../../CAComponents/TaskTab';
-import LedgerTab from '../../CAComponents/LedgerTab';
-import { fetchCaDetailsProfile } from '../../services/caService';
+import ProfileTab from '../../AgentComponents/ProfileTab';
+import TaskTab from '../../AgentComponents/TaskTab';
+import LedgerTab from '../../AgentComponents/LedgerTab';
+import { fetchAgentDetailsProfile } from '../../services/agentService';
 
-const EMPTY_CA_DATA = {
+const EMPTY_AGENT_DATA = {
     name: '',
     care_of: '',
     guardian_name: '',
@@ -85,7 +85,7 @@ const formatDate = (dateString) => {
     return date.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
 };
 
-const CAProfile = () => {
+const AgentProfile = () => {
     const { username: usernameParam, tab = 'profile' } = useParams();
     const username = decodeURIComponent(usernameParam || '').trim();
     const navigate = useNavigate();
@@ -96,13 +96,13 @@ const CAProfile = () => {
         return saved ? JSON.parse(saved) : false;
     });
     const [tabsMinimized, setTabsMinimized] = useState(() => {
-        const saved = localStorage.getItem('caTabsMinimized');
+        const saved = localStorage.getItem('agentTabsMinimized');
         return saved ? JSON.parse(saved) : true;
     });
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const [previousUsername, setPreviousUsername] = useState(null);
-    const [caData, setCaData] = useState(EMPTY_CA_DATA);
+    const [agentData, setAgentData] = useState(EMPTY_AGENT_DATA);
 
     const profileTabs = [
         { id: 'profile', name: 'Profile', icon: FiUser },
@@ -110,7 +110,7 @@ const CAProfile = () => {
         { id: 'ledger', name: 'Ledger', icon: FiDollarSign },
     ];
 
-    const fetchCaData = useCallback(
+    const fetchAgentData = useCallback(
         async (currentUsername) => {
             const usernameToFetch = currentUsername || username;
 
@@ -124,11 +124,11 @@ const CAProfile = () => {
                 setLoading(true);
                 setError(null);
 
-                const result = await fetchCaDetailsProfile(usernameToFetch);
+                const result = await fetchAgentDetailsProfile(usernameToFetch);
 
                 if (result?.success && result.data) {
                     const apiData = result.data;
-                    setCaData({
+                    setAgentData({
                         name: apiData.basic?.name || '',
                         care_of: apiData.basic?.care_of || '',
                         guardian_name: apiData.basic?.guardian_name || '',
@@ -152,12 +152,12 @@ const CAProfile = () => {
                         credit: apiData.transactional?.credit ?? 0,
                     });
                 } else {
-                    setError(result?.message || 'Failed to fetch CA profile');
+                    setError(result?.message || 'Failed to fetch agent profile');
                 }
             } catch (err) {
-                console.error('CA profile fetch:', err);
+                console.error('Agent profile fetch:', err);
                 if (err.response?.status === 404) {
-                    setError(`CA with username "${usernameToFetch}" not found.`);
+                    setError(`Agent with username "${usernameToFetch}" not found.`);
                 } else if (err.response?.status === 401) {
                     setError('Unauthorized. Please login again.');
                 } else {
@@ -166,7 +166,7 @@ const CAProfile = () => {
                             (err.request
                                 ? 'No response from server. Please check your connection.'
                                 : err.message) ||
-                            'Failed to fetch CA profile'
+                            'Failed to fetch agent profile'
                     );
                 }
             } finally {
@@ -178,32 +178,32 @@ const CAProfile = () => {
 
     useEffect(() => {
         if (username && username !== previousUsername) {
-            setCaData(EMPTY_CA_DATA);
+            setAgentData(EMPTY_AGENT_DATA);
             setError(null);
             setPreviousUsername(username);
-            fetchCaData(username);
+            fetchAgentData(username);
         }
 
         if (username && !tab) {
-            navigate(`/staff/office-assistance/ca-profile/${encodeURIComponent(username)}/profile`, {
+            navigate(`/settings/agent-profile/${encodeURIComponent(username)}/profile`, {
                 replace: true,
             });
         }
-    }, [username, tab, previousUsername, fetchCaData, navigate]);
+    }, [username, tab, previousUsername, fetchAgentData, navigate]);
 
     useEffect(() => {
         if (username && !previousUsername) {
             setPreviousUsername(username);
-            fetchCaData(username);
+            fetchAgentData(username);
         }
-    }, [username, previousUsername, fetchCaData]);
+    }, [username, previousUsername, fetchAgentData]);
 
     useEffect(() => {
         localStorage.setItem('sidebarMinimized', JSON.stringify(isMinimized));
     }, [isMinimized]);
 
     useEffect(() => {
-        localStorage.setItem('caTabsMinimized', JSON.stringify(tabsMinimized));
+        localStorage.setItem('agentTabsMinimized', JSON.stringify(tabsMinimized));
     }, [tabsMinimized]);
 
     useEffect(() => {
@@ -214,11 +214,11 @@ const CAProfile = () => {
     }, [mobileMenuOpen]);
 
     const handleEditField = (field, value) => {
-        setCaData((prev) => ({ ...prev, [field]: value }));
+        setAgentData((prev) => ({ ...prev, [field]: value }));
     };
 
     const handleTabClick = (tabId) => {
-        navigate(`/staff/office-assistance/ca-profile/${encodeURIComponent(username)}/${tabId}`);
+        navigate(`/settings/agent-profile/${encodeURIComponent(username)}/${tabId}`);
     };
 
     const renderTabContent = () => {
@@ -232,21 +232,21 @@ const CAProfile = () => {
         const tabComponents = {
             profile: (
                 <ProfileTab
-                    caData={caData}
+                    agentData={agentData}
                     onEdit={handleEditField}
                     loading={loading}
-                    caUsername={username}
-                    onRefresh={() => fetchCaData(username)}
+                    agentUsername={username}
+                    onRefresh={() => fetchAgentData(username)}
                 />
             ),
-            tasks: <TaskTab caUsername={username} />,
+            tasks: <TaskTab agentUsername={username} />,
             ledger: (
                 <LedgerTab
-                    caUsername={username}
-                    caName={caData.name}
-                    caEmail={caData.email}
-                    caMobile={caData.mobile}
-                    caCountryCode={caData.country_code}
+                    agentUsername={username}
+                    agentName={agentData.name}
+                    agentEmail={agentData.email}
+                    agentMobile={agentData.mobile}
+                    agentCountryCode={agentData.country_code}
                 />
             ),
         };
@@ -279,7 +279,7 @@ const CAProfile = () => {
                         {loading && (
                             <div className="mb-6 flex flex-col items-center justify-center rounded-xl border border-gray-200 bg-white p-8 shadow-md">
                                 <div className="mb-4 h-12 w-12 animate-spin rounded-full border-4 border-blue-200 border-t-blue-600" />
-                                <p className="font-medium text-gray-600">Loading CA profile...</p>
+                                <p className="font-medium text-gray-600">Loading agent profile...</p>
                             </div>
                         )}
 
@@ -297,7 +297,7 @@ const CAProfile = () => {
                                 <div className="flex gap-3">
                                     <button
                                         type="button"
-                                        onClick={() => fetchCaData(username)}
+                                        onClick={() => fetchAgentData(username)}
                                         className="flex items-center gap-2 rounded-lg bg-gradient-to-r from-blue-600 to-indigo-600 px-4 py-2 text-sm font-medium text-white transition-all duration-200 hover:from-blue-700 hover:to-indigo-700"
                                     >
                                         <FiRefreshCw className="h-4 w-4" />
@@ -305,7 +305,7 @@ const CAProfile = () => {
                                     </button>
                                     <button
                                         type="button"
-                                        onClick={() => navigate('/staff/office-assistance/ca-list')}
+                                        onClick={() => navigate('/settings/agent-list')}
                                         className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 transition-all duration-200 hover:bg-gray-100"
                                     >
                                         Go Back
@@ -322,15 +322,15 @@ const CAProfile = () => {
                                 >
                                     <button
                                         type="button"
-                                        onClick={() => navigate('/staff/office-assistance/ca-list')}
+                                        onClick={() => navigate('/settings/agent-list')}
                                         className="inline-flex items-center gap-1 rounded-md px-1.5 py-1 font-medium text-slate-600 transition-colors hover:bg-slate-100 hover:text-slate-900"
                                     >
                                         <FiHome className="h-3.5 w-3.5 shrink-0 opacity-70" aria-hidden />
-                                        Chartered Accountants
+                                        Branch Agents
                                     </button>
                                     <FiChevronRight className="h-3.5 w-3.5 shrink-0 text-slate-300" aria-hidden />
                                     <span className="max-w-[12rem] truncate font-medium text-slate-800 sm:max-w-xs">
-                                        {caData.name || '—'}
+                                        {agentData.name || '—'}
                                     </span>
                                     <FiChevronRight className="h-3.5 w-3.5 shrink-0 text-slate-300" aria-hidden />
                                     <span className="text-slate-600">{tabLabel}</span>
@@ -349,14 +349,14 @@ const CAProfile = () => {
                                     initial={{ opacity: 0, y: 6 }}
                                     animate={{ opacity: 1, y: 0 }}
                                     transition={{ duration: 0.26, ease: [0.22, 1, 0.36, 1] }}
-                                    aria-label="CA summary"
+                                    aria-label="Agent summary"
                                 >
                                     <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-2.5">
                                         <div className="flex min-w-0 items-center gap-3">
                                             <div className="relative h-10 w-10 shrink-0 overflow-hidden rounded-full border-2 border-white bg-slate-100 shadow-sm ring-1 ring-slate-200/90 sm:h-11 sm:w-11">
-                                                {caData.image ? (
+                                                {agentData.image ? (
                                                     <img
-                                                        src={caData.image}
+                                                        src={agentData.image}
                                                         alt=""
                                                         className="h-full w-full object-cover"
                                                     />
@@ -368,26 +368,26 @@ const CAProfile = () => {
                                             </div>
                                             <div className="min-w-0 flex-1 text-left">
                                                 <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500">
-                                                    Chartered Accountant
+                                                    Agent
                                                 </p>
                                                 <div className="mt-0.5 flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
                                                     <h1 className="min-w-0 max-w-full truncate text-[0.9375rem] font-semibold leading-tight tracking-tight text-slate-900 sm:text-lg">
-                                                        {caData.name || '—'}
+                                                        {agentData.name || '—'}
                                                     </h1>
                                                     <span
                                                         className={`inline-flex shrink-0 items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-semibold leading-none ${
-                                                            caData.is_active
+                                                            agentData.is_active
                                                                 ? 'border-emerald-200 bg-emerald-50 text-emerald-800'
                                                                 : 'border-amber-200 bg-amber-50 text-amber-900'
                                                         }`}
                                                     >
                                                         <span
                                                             className={`h-1.5 w-1.5 rounded-full ${
-                                                                caData.is_active ? 'bg-emerald-500' : 'bg-amber-500'
+                                                                agentData.is_active ? 'bg-emerald-500' : 'bg-amber-500'
                                                             }`}
                                                             aria-hidden
                                                         />
-                                                        {caData.is_active ? 'Active' : 'Inactive'}
+                                                        {agentData.is_active ? 'Active' : 'Inactive'}
                                                     </span>
                                                 </div>
                                             </div>
@@ -409,19 +409,19 @@ const CAProfile = () => {
                                             </span>
                                             <span
                                                 className={`mt-0.5 text-center text-sm font-semibold tabular-nums tracking-tight sm:text-base ${
-                                                    Number(caData.balance ?? 0) < 0
+                                                    Number(agentData.balance ?? 0) < 0
                                                         ? 'text-rose-700'
-                                                        : Number(caData.balance ?? 0) > 0
+                                                        : Number(agentData.balance ?? 0) > 0
                                                           ? 'text-emerald-700'
                                                           : 'text-slate-800'
                                                 }`}
                                             >
-                                                {Number(caData.balance ?? 0) < 0
-                                                    ? `- ₹${Math.abs(caData.balance).toLocaleString('en-IN', {
+                                                {Number(agentData.balance ?? 0) < 0
+                                                    ? `- ₹${Math.abs(agentData.balance).toLocaleString('en-IN', {
                                                           minimumFractionDigits: 2,
                                                           maximumFractionDigits: 2,
                                                       })}`
-                                                    : `₹${Number(caData.balance ?? 0).toLocaleString('en-IN', {
+                                                    : `₹${Number(agentData.balance ?? 0).toLocaleString('en-IN', {
                                                           minimumFractionDigits: 2,
                                                           maximumFractionDigits: 2,
                                                       })}`}
@@ -444,8 +444,8 @@ const CAProfile = () => {
                                             </dt>
                                             <dd className="mt-0.5 truncate text-xs font-medium text-slate-900 sm:text-[13px]">
                                                 {(() => {
-                                                    const prefix = (caData.care_of || '').trim();
-                                                    const gname = (caData.guardian_name || '').trim();
+                                                    const prefix = (agentData.care_of || '').trim();
+                                                    const gname = (agentData.guardian_name || '').trim();
                                                     const line = [prefix, gname].filter(Boolean).join(' ').trim();
                                                     return line || '—';
                                                 })()}
@@ -462,7 +462,7 @@ const CAProfile = () => {
                                                 Date of birth
                                             </dt>
                                             <dd className="mt-0.5 text-xs font-medium tabular-nums text-slate-900 sm:text-[13px]">
-                                                {formatDate(caData.date_of_birth) || '—'}
+                                                {formatDate(agentData.date_of_birth) || '—'}
                                             </dd>
                                         </div>
                                         <div
@@ -478,8 +478,8 @@ const CAProfile = () => {
                                             <dd className="mt-0.5 flex min-w-0 items-center gap-1.5 text-xs font-medium text-slate-900 sm:text-[13px]">
                                                 <FiPhone className="h-3.5 w-3.5 shrink-0 text-slate-500" aria-hidden />
                                                 <span className="min-w-0 truncate">
-                                                    {caData.mobile
-                                                        ? `+${caData.country_code || '91'} ${caData.mobile}`
+                                                    {agentData.mobile
+                                                        ? `+${agentData.country_code || '91'} ${agentData.mobile}`
                                                         : '—'}
                                                 </span>
                                             </dd>
@@ -496,7 +496,7 @@ const CAProfile = () => {
                                             </dt>
                                             <dd className="mt-0.5 flex min-w-0 items-center gap-1.5 text-xs font-medium text-slate-900 sm:text-[13px]">
                                                 <FiMail className="h-3.5 w-3.5 shrink-0 text-slate-500" aria-hidden />
-                                                <span className="min-w-0 truncate">{caData.email || '—'}</span>
+                                                <span className="min-w-0 truncate">{agentData.email || '—'}</span>
                                             </dd>
                                         </div>
                                     </dl>
@@ -590,4 +590,4 @@ const CAProfile = () => {
     );
 };
 
-export default CAProfile;
+export default AgentProfile;

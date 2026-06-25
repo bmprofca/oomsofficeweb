@@ -12,7 +12,8 @@ import BodyScrollLockObserver from './components/BodyScrollLockObserver';
 import Login from './pages/login';
 import PageNotFound from './pages/error/page-not-found';
 import Dashboard from './pages/dashboard';
-import TaskCreate from './pages/task-create';
+import TaskCreateRoute from './pages/task-create/TaskCreateRoute';
+import { TaskCreateProvider } from './context/TaskCreateProvider';
 // import TaskEdit from './pages/task-edit';
 import Register from './pages/register';
 import InvitationRequest from './pages/public/InvitationRequest';
@@ -83,6 +84,7 @@ import GatewayConfig from './pages/settings/gateway-setting';
 import ViewBranch from './pages/settings/branch';
 import ViewAdmins from './pages/settings/admin';
 import AgentList from './pages/settings/agent-list';
+import AgentProfile from './pages/settings/agent-profile';
 import Subscription from './pages/settings/subscription';
 import WebsiteSettings from './pages/settings/website';
 import WidgetSettings from './pages/settings/widget';
@@ -137,6 +139,7 @@ const root = ReactDOM.createRoot(document.getElementById('root'));
 root.render(
   <GoogleOAuthProvider clientId={GOOGLE_CLIENT_ID}>
     <BrowserRouter>
+      <TaskCreateProvider>
       <Toaster position="top-center" toastOptions={{ duration: 4000 }} />
       <WhatsappChannelBootstrap />
       {/* Locks body scroll whenever any full-viewport modal/overlay is open — app-wide fix */}
@@ -170,7 +173,7 @@ root.render(
 
         <Route path="/task/create" element={
           <ProtectedRoute>
-            <TaskCreate />
+            <TaskCreateRoute />
           </ProtectedRoute>
         } />
 
@@ -442,6 +445,12 @@ root.render(
           </ProtectedRoute>
         } />
 
+        <Route path="/staff/office-assistance/ca-profile/:username/:tab" element={
+          <ProtectedRoute>
+            <CAProfile />
+          </ProtectedRoute>
+        } />
+
         <Route path="/staff/office-assistance/auto-reminder" element={
           <ProtectedRoute>
             <AutoReminder />
@@ -653,6 +662,18 @@ root.render(
           </ProtectedRoute>
         } />
 
+        <Route path="/settings/agent-profile/:username" element={
+          <ProtectedRoute>
+            <AgentProfile />
+          </ProtectedRoute>
+        } />
+
+        <Route path="/settings/agent-profile/:username/:tab" element={
+          <ProtectedRoute>
+            <AgentProfile />
+          </ProtectedRoute>
+        } />
+
         <Route path="/settings/website" element={
           <ProtectedRoute>
             <WebsiteSettings />
@@ -732,6 +753,7 @@ root.render(
           </ProtectedRoute>
         } />
       </Routes>
+      </TaskCreateProvider>
     </BrowserRouter>
   </GoogleOAuthProvider>
 );

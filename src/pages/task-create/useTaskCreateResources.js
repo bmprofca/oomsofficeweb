@@ -7,31 +7,43 @@ import { fetchAgentList } from '../../services/agentService';
 
 const mapMember = (row) => ({
     username: row.username,
-    name: row.profile?.name || row.username,
-    email: row.profile?.email || '',
-    mobile: row.profile?.mobile || '',
+    name: row.profile?.name || row.name || row.username,
+    email: row.profile?.email || row.email || '',
+    mobile: row.profile?.mobile || row.mobile || '',
 });
 
-const isAssignable = (row) => Boolean(row?.is_accepted && row?.status);
+const isAssignable = (row) => {
+    if (row?.is_accepted != null) return Boolean(row?.is_accepted && row?.status);
+    return Boolean(row?.status);
+};
 
-async function fetchPaginatedList(fetchPage, { useMeta = true } = {}) {
+async function fetchPaginatedList(fetchPage, { maxPages = 100 } = {}) {
     const all = [];
     let page = 1;
     const limit = 100;
     for (;;) {
+        if (page > maxPages) {
+            console.warn('fetchPaginatedList: stopped at max page limit');
+            break;
+        }
         const result = await fetchPage({ search: '', page, limit });
         if (!result?.success) break;
-        all.push(...(Array.isArray(result.data) ? result.data : []));
-        const isLast = useMeta
-            ? Boolean(result.meta?.is_last_page)
-            : Boolean(result.pagination?.is_last_page);
+        const rows = Array.isArray(result.data) ? result.data : [];
+        all.push(...rows);
+        const pag = result.pagination || result.meta || {};
+        const totalPages = Number(pag.total_pages);
+        const isLast =
+            pag.is_last_page === true ||
+            pag.is_last_page === 1 ||
+            (Number.isFinite(totalPages) && totalPages > 0 && page >= totalPages) ||
+            rows.length < limit;
         if (isLast) break;
         page += 1;
     }
     return all;
 }
 
-export default function useTaskCreateResources() {
+export default function useTaskCreateResources({ enabled = true } = {}) {
     const [loading, setLoading] = useState(true);
     const [services, setServices] = useState([]);
     const [groups, setGroups] = useState([]);
@@ -43,6 +55,7 @@ export default function useTaskCreateResources() {
     const [error, setError] = useState('');
 
     const load = useCallback(async () => {
+        if (!enabled) return;
         const headers = getHeaders();
         if (!headers) {
             setError('Authentication required. Please sign in again.');
@@ -69,8 +82,7 @@ export default function useTaskCreateResources() {
                     (p) =>
                         fetch(`${base}/group/list?search=&page=${p.page}&limit=${p.limit}`, { headers }).then(
                             (r) => r.json()
-                        ),
-                    { useMeta: false }
+                        )
                 ),
                 fetchPaginatedList(async (p) => {
                     const res = await fetch(
@@ -110,11 +122,15 @@ export default function useTaskCreateResources() {
         } finally {
             setLoading(false);
         }
-    }, []);
+    }, [enabled]);
 
     useEffect(() => {
+        if (!enabled) {
+            setLoading(false);
+            return;
+        }
         load();
-    }, [load]);
+    }, [enabled, load]);
 
     return {
         loading,

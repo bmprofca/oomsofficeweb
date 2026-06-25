@@ -3,6 +3,7 @@ import React, { useState, useEffect, useLayoutEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { Sidebar, Header } from '../components/header';
 import { useNavigate } from 'react-router-dom';
+import { useTaskCreate } from '../context/TaskCreateProvider';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
     FiUsers, FiBriefcase, FiCalendar, FiUserCheck,
@@ -601,6 +602,7 @@ const TaskDisplay = () => {
     const [activeRowDropdown, setActiveRowDropdown] = useState(null);
     const [exportModal, setExportModal] = useState({ open: false, type: '', data: null });
     const navigate = useNavigate();
+    const { openTaskCreate } = useTaskCreate();
     const [deleteModal, setDeleteModal] = useState(false);
     const [showMoreMenu, setShowMoreMenu] = useState(false);
     const [viewMode, setViewMode] = useState('table');
@@ -1522,7 +1524,12 @@ const TaskDisplay = () => {
 
                                             <motion.button
                                                 disabled={!check('task_create')}
-                                                onClick={() => check('task_create') && navigate('/task/create')}
+                                                onClick={() =>
+                                                    check('task_create') &&
+                                                    openTaskCreate({
+                                                        onNavigateToTaskList: () => navigate('/task/view'),
+                                                    })
+                                                }
                                                 className={`px-3 py-2 rounded-lg text-sm font-medium flex items-center gap-2 shadow-sm transition-all duration-200 ${
                                                     check('task_create')
                                                         ? 'bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white'

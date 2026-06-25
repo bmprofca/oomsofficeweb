@@ -57,6 +57,7 @@ import ServiceWiseSales from '../DashboardComponents/serviceWiseSales';
 import StaffWiseSales from '../DashboardComponents/staffWiseSales';
 import TopClients from '../DashboardComponents/TopClients';
 import { useNavigate } from 'react-router-dom';
+import { useTaskCreate } from '../context/TaskCreateProvider';
 import SalesOverviewWidget from '../DashboardComponents/SalesOverviewWidget';
 import BranchSetupModal from '../../src/DashboardComponents/BranchSetupModal';
 import OmiFloatingBot from '../components/OmiFloatingBot';
@@ -65,6 +66,11 @@ import OmiFloatingBot from '../components/OmiFloatingBot';
 const DASHBOARD_VERSION = '5';
 const QUICK_STATS_VERSION = '2';
 const ADDITIONAL_STATS_VERSION = '2';
+
+const hasValidBranchInStorage = () => {
+    const branchId = localStorage.getItem('branch_id');
+    return !!(branchId && branchId !== 'null' && branchId !== 'undefined' && branchId !== '');
+};
 
 // Helper function to migrate old quick stats links
 const migrateQuickStatsLinks = (cards) => {
@@ -298,6 +304,7 @@ const getDefaultAdditionalStatsCards = () => [
 
 const Dashboard = () => {
     const navigate = useNavigate();
+    const { openTaskCreate } = useTaskCreate();
     const { check } = useUserPermissions();
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
     const [isMinimized, setIsMinimized] = useState(() => {
@@ -311,10 +318,10 @@ const Dashboard = () => {
     const [topClients, setTopClients] = useState([]);
     const [refreshKey, setRefreshKey] = useState(0);
 
-    // Branch validation state
-    const [hasBranch, setHasBranch] = useState(false);
+    // Branch validation state — read localStorage synchronously to avoid welcome overlay flicker
+    const [hasBranch, setHasBranch] = useState(hasValidBranchInStorage);
     const [showBranchModal, setShowBranchModal] = useState(false);
-    const [branchValidated, setBranchValidated] = useState(false);
+    const [branchValidated, setBranchValidated] = useState(hasValidBranchInStorage);
 
     // Customization state
     const [isCustomizing, setIsCustomizing] = useState(false);
@@ -457,19 +464,6 @@ const Dashboard = () => {
             description: 'Monitor business goals and targets'
         }
     ], []);
-
-    // Check for branch_id in localStorage on mount
-    useEffect(() => {
-        const branchId = localStorage.getItem('branch_id');
-        if (branchId && branchId !== 'null' && branchId !== 'undefined' && branchId !== '') {
-            setHasBranch(true);
-            setBranchValidated(true);
-        } else {
-            setHasBranch(false);
-            setBranchValidated(false);
-            // Don't auto-open modal - wait for button click
-        }
-    }, []);
 
     const handleBranchCreated = (branchData) => {
         setHasBranch(true);
@@ -852,8 +846,8 @@ const Dashboard = () => {
                                                 onClick={() => moveWidgetUp(index)}
                                                 disabled={index === 0}
                                                 className={`p-1 rounded transition-all duration-200 ${index === 0
-                                                        ? 'text-gray-300 cursor-not-allowed'
-                                                        : 'text-gray-600 hover:bg-gray-100 hover:text-indigo-600'
+                                                    ? 'text-gray-300 cursor-not-allowed'
+                                                    : 'text-gray-600 hover:bg-gray-100 hover:text-indigo-600'
                                                     }`}
                                                 title="Move up"
                                             >
@@ -863,8 +857,8 @@ const Dashboard = () => {
                                                 onClick={() => moveWidgetDown(index)}
                                                 disabled={index === visibleWidgets.length - 1}
                                                 className={`p-1 rounded transition-all duration-200 ${index === visibleWidgets.length - 1
-                                                        ? 'text-gray-300 cursor-not-allowed'
-                                                        : 'text-gray-600 hover:bg-gray-100 hover:text-indigo-600'
+                                                    ? 'text-gray-300 cursor-not-allowed'
+                                                    : 'text-gray-600 hover:bg-gray-100 hover:text-indigo-600'
                                                     }`}
                                                 title="Move down"
                                             >
@@ -979,7 +973,7 @@ const Dashboard = () => {
             <TaskSummary
                 taskStats={taskStats}
                 onRefresh={() => fetchDashboardData()}
-                onCreateTask={() => navigate('/task/create')}
+                onCreateTask={() => openTaskCreate({ onNavigateToTaskList: () => navigate('/task/view') })}
             />
         </WidgetWrapper>
     ));
@@ -1338,14 +1332,14 @@ const Dashboard = () => {
                                 </div>
                             </motion.div>
                         </div>
-                                   {/* Customize Button */}
+                        {/* Customize Button */}
                         {hasAnyDashboardPermission && (
                             <div className="flex items-center justify-center">
                                 <motion.button
                                     onClick={() => setIsCustomizing(!isCustomizing)}
                                     className={`p-2.5 rounded-lg shadow-lg transition-all duration-300 border ${isCustomizing
-                                            ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white border-indigo-600'
-                                            : 'bg-white text-gray-700 border-gray-200 hover:border-indigo-300'
+                                        ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white border-indigo-600'
+                                        : 'bg-white text-gray-700 border-gray-200 hover:border-indigo-300'
                                         }`}
                                     whileHover={{ scale: 1.02 }}
                                     whileTap={{ scale: 0.98 }}
@@ -1355,11 +1349,11 @@ const Dashboard = () => {
                             </div>
                         )}
                     </div>
- 
+
                     {/* Dashboard Widgets Grid */}
                     <div className="space-y-6">
                         {!hasAnyDashboardPermission ? (
-                            <motion.div 
+                            <motion.div
                                 className="bg-white/80 backdrop-blur-md rounded-2xl border border-gray-200 p-12 shadow-xl text-center max-w-xl mx-auto my-12"
                                 initial={{ opacity: 0, scale: 0.95 }}
                                 animate={{ opacity: 1, scale: 1 }}

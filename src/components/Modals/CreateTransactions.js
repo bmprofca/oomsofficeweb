@@ -937,7 +937,7 @@ const FirmClientSearchFields = ({
 };
 
 // Receive Modal - API Integrated with Bank Search (No Client Search)
-export const ReceiveModal = ({ isOpen, onClose, bankDetails, bankId, onSubmit, formatCurrency, summary, clientUsername, clientName, showClient = true, showBank = true, showSummary = true, bankPageClientLookup = false }) => {
+export const ReceiveModal = ({ isOpen, onClose, bankDetails, bankId, onSubmit, formatCurrency, summary, clientUsername, clientName, showClient = true, showBank = true, showSummary = true, bankPageClientLookup = false, partyType = 'client', partyLabel = 'client' }) => {
     const [loading, setLoading] = useState(false);
     const [selectedBank, setSelectedBank] = useState(bankDetails || (bankId ? { bank_id: bankId, bank: 'Selected Bank' } : null));
     const [showBankSearch, setShowBankSearch] = useState(false);
@@ -980,7 +980,7 @@ export const ReceiveModal = ({ isOpen, onClose, bankDetails, bankId, onSubmit, f
         }
 
         if (!hasPresetClient && !firmLookup.selectedFirm?.username) {
-            toast.error('Please select a client');
+            toast.error(`Please select a ${partyLabel}`);
             return;
         }
 
@@ -1002,7 +1002,7 @@ export const ReceiveModal = ({ isOpen, onClose, bankDetails, bankId, onSubmit, f
         const payload = {
             amount: parsedAmount,
             party1_id: resolvedParty1,
-            party1_type: "client",
+            party1_type: partyType,
             party2_id: hasPresetBank ? bankId : effectiveBank.bank_id,
             party2_type: "bank",
             remark: description || `Payment received from ${resolvedName}`,
@@ -1170,7 +1170,7 @@ export const ReceiveModal = ({ isOpen, onClose, bankDetails, bankId, onSubmit, f
 };
 
 // Payment Modal - API Integrated with Bank Search
-export const PaymentModal = ({ isOpen, onClose, bankDetails, bankId, onSubmit, formatCurrency, summary, clientUsername, clientName, showClient = true, showBank = true, showSummary = true, bankPageClientLookup = false }) => {
+export const PaymentModal = ({ isOpen, onClose, bankDetails, bankId, onSubmit, formatCurrency, summary, clientUsername, clientName, showClient = true, showBank = true, showSummary = true, bankPageClientLookup = false, partyType = 'client', partyLabel = 'client' }) => {
     const [loading, setLoading] = useState(false);
     const [selectedBank, setSelectedBank] = useState(bankDetails || (bankId ? { bank_id: bankId, bank: 'Selected Bank' } : null));
     const [showBankSearch, setShowBankSearch] = useState(false);
@@ -1205,7 +1205,7 @@ export const PaymentModal = ({ isOpen, onClose, bankDetails, bankId, onSubmit, f
         }
 
         if (!hasPresetClient && !firmLookup.selectedFirm?.username) {
-            toast.error('Please select a client');
+            toast.error(`Please select a ${partyLabel}`);
             return;
         }
 
@@ -1236,7 +1236,7 @@ export const PaymentModal = ({ isOpen, onClose, bankDetails, bankId, onSubmit, f
             party1_id: party1BankId,
             party1_type: "bank",
             party2_id: resolvedParty2,
-            party2_type: "client",
+            party2_type: partyType,
             remark: description || `Payment made to ${resolvedName}`,
             transaction_date: date
         };
@@ -4414,6 +4414,8 @@ export const TransactionModalManager = ({
     toBankId = '',
     showFromClient = true,
     showToClient = true,
+    partyType = 'client',
+    partyLabel = 'client',
 }) => {
     const modalProps = {
         isOpen,
@@ -4439,6 +4441,8 @@ export const TransactionModalManager = ({
         toBankId,
         showFromClient,
         showToClient,
+        partyType,
+        partyLabel,
     };
 
     switch (modalType) {

@@ -16,54 +16,38 @@ export const fetchAgentList = async ({ search = '', page = 1, limit = 20 } = {})
     return response.data;
 };
 
-export const checkAgentUser = async (email) => {
+export const createAgent = async ({ profile = {}, address = {}, opening_balance } = {}) => {
     const headers = withHeaders();
-    const response = await axios.post(
-        `${API_BASE_URL}/agent/check-user`,
-        { email: String(email || '').trim() },
-        { headers }
-    );
+    const payload = { profile, address };
+    if (
+        opening_balance &&
+        opening_balance.amount !== undefined &&
+        opening_balance.amount !== null &&
+        opening_balance.amount !== ''
+    ) {
+        payload.opening_balance = opening_balance;
+    }
+    const response = await axios.post(`${API_BASE_URL}/agent/create`, payload, { headers });
     return response.data;
 };
 
-export const createAgentInvitation = async (username) => {
+export const fetchAgentDetailsProfile = async (username) => {
     const headers = withHeaders();
-    const response = await axios.post(
-        `${API_BASE_URL}/agent/create`,
-        { username: String(username || '').trim() },
-        { headers }
-    );
-    return response.data;
-};
-
-export const deleteAgent = async (mapId) => {
-    const headers = withHeaders();
-    const response = await axios.post(
-        `${API_BASE_URL}/agent/delete`,
-        { map_id: mapId },
-        { headers }
-    );
-    return response.data;
-};
-
-export const resendAgentInvitation = async (mapId) => {
-    const headers = withHeaders();
-    const response = await axios.post(
-        `${API_BASE_URL}/agent/resend-invitation`,
-        { map_id: String(mapId || '').trim() },
-        { headers }
-    );
-    return response.data;
-};
-
-export const fetchAgentProfile = async (username) => {
-    const headers = withHeaders();
-    const response = await axios.get(`${API_BASE_URL}/agent/profile`, {
+    const response = await axios.get(`${API_BASE_URL}/agent/details/profile`, {
         headers,
         params: { username: String(username || '').trim() },
     });
     return response.data;
 };
+
+export const editAgentProfile = async (payload) => {
+    const headers = withHeaders();
+    const response = await axios.post(`${API_BASE_URL}/agent/details/edit-profile`, payload, { headers });
+    return response.data;
+};
+
+/** @deprecated Use fetchAgentDetailsProfile */
+export const fetchAgentProfile = fetchAgentDetailsProfile;
 
 export const changeAgentStatus = async (username, status) => {
     const headers = withHeaders();

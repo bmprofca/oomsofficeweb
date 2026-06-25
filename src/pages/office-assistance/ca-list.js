@@ -1,68 +1,44 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Link, useNavigate } from 'react-router-dom';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import {
-    FiAlertCircle,
-    FiCheckCircle,
-    FiClock,
     FiMail,
     FiMoreVertical,
     FiPhone,
     FiPlus,
     FiRefreshCw,
-    FiSearch,
-    FiTrash2,
     FiUser,
     FiUserCheck,
-    FiUserPlus,
     FiUserX,
-    FiX,
 } from 'react-icons/fi';
-import toast from 'react-hot-toast';
 import { Header, Sidebar } from '../../components/header';
 import TablePagination from '../../components/TablePagination';
 import AppDialog from '../../components/AppDialog';
+import CaCreateModal from '../../components/Modals/CaCreateModal';
 import useDebouncedValue from '../../hooks/useDebouncedValue';
 import {
     changeCaStatus,
-    checkCaUser,
-    createCaInvitation,
-    deleteCa,
     fetchCaList,
-    resendCaInvitation,
 } from '../../services/caService';
 
 const ACTIONS_MENU_WIDTH = 200;
-const ACTIONS_MENU_HEIGHT = 200;
+const ACTIONS_MENU_HEIGHT = 120;
 
-const isCaAccepted = (row) => Boolean(row?.is_accepted);
+const rowKey = (row) => row?.username || String(row?.id ?? '');
+
+const formatPhone = (row) => {
+    if (!row) return '—';
+    const code = row.country_code ? `+${String(row.country_code).replace(/^\+/, '')}` : '';
+    const mobile = row.mobile || '';
+    if (!mobile) return '—';
+    return code ? `${code} ${mobile}` : mobile;
+};
 
 const formatCurrency = (value) => {
     const n = Number(value);
     if (!Number.isFinite(n)) return '—';
     return `₹${n.toLocaleString('en-IN', { maximumFractionDigits: 2 })}`;
-};
-
-const formatDate = (value) => {
-    if (!value) return '—';
-    const dt = new Date(value);
-    if (Number.isNaN(dt.getTime())) return '—';
-    return dt.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
-};
-
-const formatPhone = (profile) => {
-    if (!profile) return '—';
-    const code = profile.country_code ? `+${String(profile.country_code).replace(/^\+/, '')}` : '';
-    const mobile = profile.mobile || '';
-    if (!mobile) return '—';
-    return code ? `${code} ${mobile}` : mobile;
-};
-
-const formatUserContactPhone = (user) => {
-    if (!user?.mobile) return null;
-    const code = user.country_code ? `+${String(user.country_code).replace(/^\+/, '')}` : '';
-    return code ? `${code} ${user.mobile}` : String(user.mobile);
 };
 
 const SkeletonPulse = ({ className = '' }) => (
@@ -95,11 +71,6 @@ const CAList = () => {
     const dropdownAnchorRef = useRef(null);
 
     const [showAddModal, setShowAddModal] = useState(false);
-    const [inviteEmail, setInviteEmail] = useState('');
-    const [checkingUser, setCheckingUser] = useState(false);
-    const [inviting, setInviting] = useState(false);
-    const [checkedUser, setCheckedUser] = useState(null);
-    const [checkFeedback, setCheckFeedback] = useState({ type: null, message: '' });
 
     const [dialog, setDialog] = useState({
         open: false,
@@ -134,7 +105,7 @@ const CAList = () => {
             }
 
             setCaRows(Array.isArray(result.data) ? result.data : []);
-            const meta = result.meta || {};
+            const meta = result.pagination || result.meta || {};
             setPagination((prev) => ({
                 ...prev,
                 page: meta.page != null ? Number(meta.page) : prev.page,
@@ -196,14 +167,14 @@ const CAList = () => {
     }, []);
 
     const activeItem = useMemo(
-        () => caRows.find((row) => row.map_id === activeRowDropdown) || null,
+        () => caRows.find((row) => rowKey(row) === activeRowDropdown) || null,
         [caRows, activeRowDropdown]
     );
 
     const rowsForTable = useMemo(
         () =>
             loading
-                ? Array.from({ length: 6 }, (_, i) => ({ __skeleton: true, map_id: `sk-${i}` }))
+                ? Array.from({ length: 6 }, (_, i) => ({ __skeleton: true, id: `sk-${i}` }))
                 : caRows,
         [loading, caRows]
     );
@@ -239,111 +210,15 @@ const CAList = () => {
         }
     };
 
-    const resetAddModal = () => {
-        setInviteEmail('');
-        setCheckedUser(null);
-        setCheckFeedback({ type: null, message: '' });
-        setCheckingUser(false);
-        setInviting(false);
-    };
-
-    const handleVerifyEmail = async () => {
-        const email = inviteEmail.trim();
-        if (!email) {
-            setCheckedUser(null);
-            setCheckFeedback({ type: 'error', message: 'Email is required.' });
-            return;
-        }
-        setCheckingUser(true);
-        setCheckedUser(null);
-        setCheckFeedback({ type: null, message: '' });
-        try {
-            const result = await checkCaUser(email);
-            const message = result?.message || '';
-
-            if (!result?.success) {
-                setCheckFeedback({
-                    type: 'error',
-                    message: message || 'User not found. Please check the email address.',
-                });
-                return;
-            }
-
-            if (message === 'CA already exists') {
-                setCheckFeedback({
-                    type: 'warning',
-                    message: 'This CA is already added and has accepted the invitation.',
-                });
-                return;
-            }
-
-            if (message === 'CA already exists but not accepted yet') {
-                setCheckFeedback({
-                    type: 'info',
-                    message: 'Invitation already sent. Waiting for the CA to accept.',
-                });
-                return;
-            }
-
-            if (result.data?.username) {
-                setCheckedUser(result.data);
-                setCheckFeedback({ type: null, message: '' });
-            } else {
-                setCheckFeedback({
-                    type: 'error',
-                    message: message || 'Unable to verify user. Please try again.',
-                });
-            }
-        } catch (e) {
-            console.error('CA check-user:', e);
-            setCheckFeedback({
-                type: 'error',
-                message: e.response?.data?.message || e.message || 'Failed to verify email. Please try again.',
-            });
-        } finally {
-            setCheckingUser(false);
-        }
-    };
-
-    const handleSendInvitation = async () => {
-        if (!checkedUser?.username) return;
-        setInviting(true);
-        try {
-            const result = await createCaInvitation(checkedUser.username);
-            if (result?.success) {
-                const link = result.data?.invitation_link;
-                toast.success(result.message || 'Invitation sent successfully');
-                if (link) {
-                    try {
-                        await navigator.clipboard.writeText(link);
-                        toast.success('Invitation link copied to clipboard');
-                    } catch {
-                        /* clipboard optional */
-                    }
-                }
-                setShowAddModal(false);
-                resetAddModal();
-                await loadCaList();
-            } else {
-                toast.error(result?.message || 'Failed to send invitation');
-            }
-        } catch (e) {
-            console.error('CA create:', e);
-            toast.error(e.response?.data?.message || e.message || 'Failed to send invitation');
-        } finally {
-            setInviting(false);
-        }
-    };
-
     const handleToggleStatus = (row) => {
-        if (!row?.username || !isCaAccepted(row)) return;
+        if (!row?.username) return;
         const nextStatus = row.status ? 'deactive' : 'active';
         const label = nextStatus === 'active' ? 'activate' : 'deactivate';
         setActiveRowDropdown(null);
         showConfirm({
             variant: nextStatus === 'deactive' ? 'warning' : 'confirm',
             title: `${nextStatus === 'active' ? 'Activate' : 'Deactivate'} CA`,
-            message: `Are you sure you want to ${label} ${row.profile?.name || row.username}?`,
+            message: `Are you sure you want to ${label} ${row.name || 'this CA'}?`,
             confirmText: nextStatus === 'active' ? 'Activate' : 'Deactivate',
             cancelText: 'Cancel',
             onConfirm: async () => {
@@ -374,92 +249,8 @@ const CAList = () => {
         });
     };
 
-    const handleResendInvitation = (row) => {
-        if (!row?.map_id || isCaAccepted(row)) return;
-        setActiveRowDropdown(null);
-        showConfirm({
-            variant: 'confirm',
-            title: 'Resend Invitation',
-            message: `Resend invitation to ${row.profile?.name || row.username}? The previous invitation link will stop working.`,
-            confirmText: 'Resend',
-            cancelText: 'Cancel',
-            onConfirm: async () => {
-                try {
-                    const result = await resendCaInvitation(row.map_id);
-                    if (result?.success) {
-                        const link = result.data?.invitation_link;
-                        if (link) {
-                            try {
-                                await navigator.clipboard.writeText(link);
-                            } catch {
-                                /* clipboard optional */
-                            }
-                        }
-                        await loadCaList();
-                        return {
-                            variant: 'success',
-                            title: 'Invitation Resent',
-                            message: link
-                                ? `${result.message || 'Invitation resent successfully.'} New link copied to clipboard.`
-                                : result.message || 'Invitation resent successfully.',
-                        };
-                    }
-                    return {
-                        variant: 'error',
-                        title: 'Resend Failed',
-                        message: result?.message || 'Could not resend invitation.',
-                    };
-                } catch (e) {
-                    console.error('CA resend-invitation:', e);
-                    return {
-                        variant: 'error',
-                        title: 'Error',
-                        message: e.response?.data?.message || e.message || 'Failed to resend invitation.',
-                    };
-                }
-            },
-        });
-    };
-
-    const handleDelete = (row) => {
-        if (!row?.map_id || isCaAccepted(row)) return;
-        setActiveRowDropdown(null);
-        showConfirm({
-            variant: 'danger',
-            title: 'Remove CA',
-            message: `Remove ${row.profile?.name || row.username} from this branch? This action cannot be undone.`,
-            confirmText: 'Remove',
-            cancelText: 'Cancel',
-            onConfirm: async () => {
-                try {
-                    const result = await deleteCa(row.map_id);
-                    if (result?.success) {
-                        await loadCaList();
-                        return {
-                            variant: 'success',
-                            title: 'CA Removed',
-                            message: result.message || 'CA deleted successfully.',
-                        };
-                    }
-                    return {
-                        variant: 'error',
-                        title: 'Delete Failed',
-                        message: result?.message || 'Could not delete CA.',
-                    };
-                } catch (e) {
-                    console.error('CA delete:', e);
-                    return {
-                        variant: 'error',
-                        title: 'Error',
-                        message: e.response?.data?.message || e.message || 'Failed to delete CA.',
-                    };
-                }
-            },
-        });
-    };
-
-    const toggleRowDropdown = (mapId, e) => {
-        if (activeRowDropdown === mapId) {
+    const toggleRowDropdown = (id, e) => {
+        if (activeRowDropdown === id) {
             setActiveRowDropdown(null);
             return;
         }
@@ -473,7 +264,7 @@ const CAList = () => {
             right: window.innerWidth - rect.right,
             openUpward,
         });
-        setActiveRowDropdown(mapId);
+        setActiveRowDropdown(id);
     };
 
     return (
@@ -496,7 +287,7 @@ const CAList = () => {
                     <div className="mb-6">
                         <h1 className="text-xl font-bold text-slate-900">Chartered Accountants</h1>
                         <p className="text-sm text-slate-500 mt-1">
-                            Invite and manage CAs for this branch
+                            Create and manage chartered accountants for this branch
                         </p>
                     </div>
 
@@ -521,14 +312,11 @@ const CAList = () => {
                                 </button>
                                 <button
                                     type="button"
-                                    onClick={() => {
-                                        resetAddModal();
-                                        setShowAddModal(true);
-                                    }}
+                                    onClick={() => setShowAddModal(true)}
                                     className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-indigo-600 text-white text-sm font-semibold hover:bg-indigo-700"
                                 >
                                     <FiPlus className="w-4 h-4" />
-                                    Add CA
+                                    Create CA
                                 </button>
                             </div>
                         </div>
@@ -540,14 +328,13 @@ const CAList = () => {
                         )}
 
                         <div className="overflow-x-auto">
-                            <table className="w-full min-w-[56rem] text-sm">
+                            <table className="w-full min-w-[48rem] text-sm">
                                 <thead className="bg-slate-50 border-b border-slate-200">
                                     <tr>
                                         <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase w-12">#</th>
                                         <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase">CA</th>
                                         <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase">Contact</th>
                                         <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase">Balance</th>
-                                        <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase">Invitation</th>
                                         <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase">Status</th>
                                         <th className="px-4 py-3 text-center text-xs font-semibold text-slate-600 uppercase w-14">Action</th>
                                     </tr>
@@ -555,39 +342,38 @@ const CAList = () => {
                                 <tbody className="divide-y divide-slate-100">
                                     {!loading && rowsForTable.length === 0 ? (
                                         <tr>
-                                            <td colSpan="7" className="px-6 py-14 text-center">
+                                            <td colSpan="6" className="px-6 py-14 text-center">
                                                 <FiUser className="w-10 h-10 text-slate-300 mx-auto mb-3" />
                                                 <p className="font-medium text-slate-700">No CAs found</p>
-                                                <p className="text-sm text-slate-500 mt-1">Add a CA by email invitation</p>
+                                                <p className="text-sm text-slate-500 mt-1">Create a new chartered accountant</p>
                                             </td>
                                         </tr>
                                     ) : (
                                         rowsForTable.map((row, index) => {
+                                            const key = rowKey(row) || `row-${index}`;
                                             if (row.__skeleton) {
                                                 return (
-                                                    <tr key={row.map_id}>
+                                                    <tr key={key}>
                                                         <td className="px-4 py-4"><SkeletonPulse className="h-4 w-6" /></td>
                                                         <td className="px-4 py-4"><SkeletonPulse className="h-10 w-40" /></td>
                                                         <td className="px-4 py-4"><SkeletonPulse className="h-8 w-36" /></td>
                                                         <td className="px-4 py-4"><SkeletonPulse className="h-4 w-20" /></td>
-                                                        <td className="px-4 py-4"><SkeletonPulse className="h-6 w-24" /></td>
                                                         <td className="px-4 py-4"><SkeletonPulse className="h-6 w-20" /></td>
                                                         <td className="px-4 py-4"><SkeletonPulse className="h-6 w-6 mx-auto" /></td>
                                                     </tr>
                                                 );
                                             }
 
-                                            const profile = row.profile || {};
                                             const serialNo = (pagination.page - 1) * pagination.limit + index + 1;
 
                                             return (
-                                                <tr key={row.map_id} className="hover:bg-slate-50/80">
+                                                <tr key={key} className="hover:bg-slate-50/80">
                                                     <td className="px-4 py-4 text-slate-600">{serialNo}</td>
                                                     <td className="px-4 py-4">
                                                         <div className="flex items-center gap-3">
-                                                            {profile.image ? (
+                                                            {row.image ? (
                                                                 <img
-                                                                    src={profile.image}
+                                                                    src={row.image}
                                                                     alt=""
                                                                     className="w-10 h-10 rounded-full object-cover border border-slate-200"
                                                                 />
@@ -597,31 +383,33 @@ const CAList = () => {
                                                                 </div>
                                                             )}
                                                             <div>
-                                                                {isCaAccepted(row) ? (
+                                                                {row.username ? (
                                                                     <Link
-                                                                        to={`/staff/office-assistance/ca-profile/${encodeURIComponent(row.username)}`}
+                                                                        to={`/staff/office-assistance/ca-profile/${encodeURIComponent(row.username)}/profile`}
+                                                                        state={{ caRow: row }}
                                                                         className="font-semibold text-indigo-600 hover:text-indigo-800 no-underline"
                                                                     >
-                                                                        {profile.name || row.username}
+                                                                        {row.name || '—'}
                                                                     </Link>
                                                                 ) : (
                                                                     <span className="font-semibold text-slate-800">
-                                                                        {profile.name || row.username}
+                                                                        {row.name || '—'}
                                                                     </span>
                                                                 )}
-                                                                <p className="text-xs text-slate-500 mt-0.5">@{row.username}</p>
                                                             </div>
                                                         </div>
                                                     </td>
                                                     <td className="px-4 py-4">
                                                         <div className="space-y-1 text-slate-600">
-                                                            <div className="flex items-center gap-1.5">
-                                                                <FiPhone className="w-3.5 h-3.5 shrink-0" />
-                                                                {formatPhone(profile)}
-                                                            </div>
+                                                            {row.mobile && (
+                                                                <div className="flex items-center gap-1.5">
+                                                                    <FiPhone className="w-3.5 h-3.5 shrink-0" />
+                                                                    {formatPhone(row)}
+                                                                </div>
+                                                            )}
                                                             <div className="flex items-center gap-1.5 text-xs text-slate-500">
                                                                 <FiMail className="w-3.5 h-3.5 shrink-0" />
-                                                                {profile.email || '—'}
+                                                                {row.email || '—'}
                                                             </div>
                                                         </div>
                                                     </td>
@@ -631,35 +419,20 @@ const CAList = () => {
                                                     <td className="px-4 py-4">
                                                         <span
                                                             className={`inline-flex px-2.5 py-1 rounded-full text-xs font-semibold ${
-                                                                row.is_accepted
-                                                                    ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                                                                    : 'bg-amber-50 text-amber-700 border border-amber-200'
+                                                                row.status
+                                                                    ? 'bg-green-50 text-green-700 border border-green-200'
+                                                                    : 'bg-slate-100 text-slate-600 border border-slate-200'
                                                             }`}
                                                         >
-                                                            {row.is_accepted ? 'Accepted' : 'Pending'}
+                                                            {row.status ? 'Active' : 'Inactive'}
                                                         </span>
-                                                    </td>
-                                                    <td className="px-4 py-4">
-                                                        {isCaAccepted(row) ? (
-                                                            <span
-                                                                className={`inline-flex px-2.5 py-1 rounded-full text-xs font-semibold ${
-                                                                    row.status
-                                                                        ? 'bg-green-50 text-green-700 border border-green-200'
-                                                                        : 'bg-slate-100 text-slate-600 border border-slate-200'
-                                                                }`}
-                                                            >
-                                                                {row.status ? 'Active' : 'Inactive'}
-                                                            </span>
-                                                        ) : (
-                                                            <span className="text-xs text-slate-400">—</span>
-                                                        )}
                                                     </td>
                                                     <td className="px-4 py-4">
                                                         <div className="flex justify-center">
                                                             <button
                                                                 type="button"
                                                                 className="ca-list-dropdown p-1.5 text-slate-400 hover:text-slate-700 rounded hover:bg-slate-100"
-                                                                onClick={(e) => toggleRowDropdown(row.map_id, e)}
+                                                                onClick={(e) => toggleRowDropdown(rowKey(row), e)}
                                                             >
                                                                 <FiMoreVertical className="w-4 h-4" />
                                                             </button>
@@ -713,262 +486,47 @@ const CAList = () => {
                         }}
                     >
                         <div className="py-1">
-                            {isCaAccepted(activeItem) ? (
-                                <>
-                                    <button
-                                        type="button"
-                                        className="flex items-center w-full px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50"
-                                        onClick={() => {
-                                            setActiveRowDropdown(null);
-                                            navigate(
-                                                `/staff/office-assistance/ca-profile/${encodeURIComponent(activeItem.username)}`
-                                            );
-                                        }}
-                                    >
-                                        <FiUser className="w-4 h-4 mr-3 text-indigo-500" />
-                                        View Profile
-                                    </button>
-                                    <button
-                                        type="button"
-                                        className="flex items-center w-full px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50"
-                                        onClick={() => handleToggleStatus(activeItem)}
-                                    >
-                                        {activeItem.status ? (
-                                            <>
-                                                <FiUserX className="w-4 h-4 mr-3 text-amber-500" />
-                                                Deactivate
-                                            </>
-                                        ) : (
-                                            <>
-                                                <FiUserCheck className="w-4 h-4 mr-3 text-emerald-500" />
-                                                Activate
-                                            </>
-                                        )}
-                                    </button>
-                                </>
-                            ) : (
-                                <>
-                                    <button
-                                        type="button"
-                                        className="flex items-center w-full px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50"
-                                        onClick={() => handleResendInvitation(activeItem)}
-                                    >
-                                        <FiMail className="w-4 h-4 mr-3 text-indigo-500" />
-                                        Resend Invitation
-                                    </button>
-                                    <div className="border-t border-slate-100" />
-                                    <button
-                                        type="button"
-                                        className="flex items-center w-full px-4 py-2.5 text-sm text-rose-700 hover:bg-rose-50"
-                                        onClick={() => handleDelete(activeItem)}
-                                    >
-                                        <FiTrash2 className="w-4 h-4 mr-3 text-rose-500" />
-                                        Remove
-                                    </button>
-                                </>
-                            )}
+                            <button
+                                type="button"
+                                className="flex items-center w-full px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50"
+                                onClick={() => {
+                                    setActiveRowDropdown(null);
+                                    navigate(
+                                        `/staff/office-assistance/ca-profile/${encodeURIComponent(activeItem.username)}/profile`,
+                                        { state: { caRow: activeItem } }
+                                    );
+                                }}
+                            >
+                                <FiUser className="w-4 h-4 mr-3 text-indigo-500" />
+                                View Profile
+                            </button>
+                            <button
+                                type="button"
+                                className="flex items-center w-full px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50"
+                                onClick={() => handleToggleStatus(activeItem)}
+                            >
+                                {activeItem.status ? (
+                                    <>
+                                        <FiUserX className="w-4 h-4 mr-3 text-amber-500" />
+                                        Deactivate
+                                    </>
+                                ) : (
+                                    <>
+                                        <FiUserCheck className="w-4 h-4 mr-3 text-emerald-500" />
+                                        Activate
+                                    </>
+                                )}
+                            </button>
                         </div>
                     </motion.div>,
                     document.body
                 )}
 
-            <AnimatePresence>
-                {showAddModal && (
-                    <div className="fixed inset-0 z-[10050] flex items-start justify-center overflow-hidden overscroll-none p-3 sm:p-4 pointer-events-none">
-                        <motion.div
-                            initial={{ opacity: 0 }}
-                            animate={{ opacity: 1 }}
-                            exit={{ opacity: 0 }}
-                            className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm pointer-events-auto"
-                            onClick={() => {
-                                if (!checkingUser && !inviting) {
-                                    setShowAddModal(false);
-                                    resetAddModal();
-                                }
-                            }}
-                        />
-                        <motion.div
-                            initial={{ opacity: 0 }}
-                            animate={{ opacity: 1 }}
-                            exit={{ opacity: 0 }}
-                            className="relative z-[1] pointer-events-auto bg-white rounded-xl shadow-xl w-full max-w-[26rem] my-2 sm:my-4 max-h-[calc(100vh-1.5rem)] sm:max-h-[calc(100vh-2rem)] overflow-hidden flex flex-col border border-slate-200"
-                            onClick={(e) => e.stopPropagation()}
-                        >
-                            <div className="shrink-0 flex items-center justify-between gap-2 px-3.5 py-2.5 border-b border-indigo-500/20 bg-indigo-600 text-white">
-                                <div className="flex items-center gap-2 min-w-0">
-                                    <FiUserPlus className="w-4 h-4 shrink-0 opacity-90" />
-                                    <h3 className="text-sm font-semibold truncate">Invite CA</h3>
-                                </div>
-                                <button
-                                    type="button"
-                                    onClick={() => {
-                                        setShowAddModal(false);
-                                        resetAddModal();
-                                    }}
-                                    disabled={checkingUser || inviting}
-                                    className="p-1 rounded-md hover:bg-white/15 text-white/90 disabled:opacity-50 shrink-0"
-                                    aria-label="Close"
-                                >
-                                    <FiX className="w-4 h-4" />
-                                </button>
-                            </div>
-
-                            <div
-                                className="px-3.5 py-3 flex-1 min-h-0 overflow-y-auto overscroll-y-contain space-y-2.5 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden"
-                                style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
-                            >
-                                <p className="text-[11px] leading-relaxed text-slate-500">
-                                    Enter the user&apos;s platform email to verify, then send the branch invitation.
-                                </p>
-
-                                <div className="flex items-center gap-1 text-[10px] font-medium uppercase tracking-wide text-slate-400">
-                                    <span className={checkedUser ? 'text-slate-400' : 'text-indigo-600'}>1. Verify</span>
-                                    <span>·</span>
-                                    <span className={checkedUser ? 'text-indigo-600' : 'text-slate-400'}>2. Invite</span>
-                                </div>
-
-                                <div className="space-y-2">
-                                    <label className="block text-xs font-medium text-slate-700">
-                                        Email address <span className="text-rose-500">*</span>
-                                    </label>
-                                    <div className="flex gap-1.5">
-                                        <div className="relative flex-1 min-w-0">
-                                            <FiMail className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 pointer-events-none" />
-                                            <input
-                                                type="email"
-                                                value={inviteEmail}
-                                                onChange={(e) => {
-                                                    setInviteEmail(e.target.value);
-                                                    setCheckedUser(null);
-                                                    setCheckFeedback({ type: null, message: '' });
-                                                }}
-                                                onKeyDown={(e) => {
-                                                    if (e.key === 'Enter' && !checkingUser && inviteEmail.trim()) {
-                                                        e.preventDefault();
-                                                        handleVerifyEmail();
-                                                    }
-                                                }}
-                                                placeholder="ca.user@example.com"
-                                                autoFocus
-                                                className={`w-full pl-8 pr-2.5 py-1.5 text-sm bg-white border rounded-md outline-none ${
-                                                    checkFeedback.type === 'error'
-                                                        ? 'border-rose-300 focus:ring-1 focus:ring-rose-400/30 focus:border-rose-400'
-                                                        : 'border-slate-200 focus:ring-1 focus:ring-indigo-400/30 focus:border-indigo-400'
-                                                }`}
-                                            />
-                                        </div>
-                                        <button
-                                            type="button"
-                                            onClick={handleVerifyEmail}
-                                            disabled={checkingUser || !inviteEmail.trim()}
-                                            className="shrink-0 inline-flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-md text-white bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50"
-                                        >
-                                            {checkingUser ? (
-                                                <FiRefreshCw className="w-3.5 h-3.5 animate-spin" />
-                                            ) : (
-                                                <FiSearch className="w-3.5 h-3.5" />
-                                            )}
-                                            {checkingUser ? 'Checking' : 'Check'}
-                                        </button>
-                                    </div>
-                                </div>
-
-                                {checkFeedback.type && checkFeedback.message && (
-                                    <div
-                                        className={`flex items-start gap-2 rounded-md border px-2.5 py-2 ${
-                                            checkFeedback.type === 'error'
-                                                ? 'border-rose-200 bg-rose-50 text-rose-900'
-                                                : checkFeedback.type === 'warning'
-                                                  ? 'border-amber-200 bg-amber-50 text-amber-900'
-                                                  : 'border-sky-200 bg-sky-50 text-sky-900'
-                                        }`}
-                                    >
-                                        <span className="mt-0.5 shrink-0">
-                                            {checkFeedback.type === 'error' && (
-                                                <FiAlertCircle className="w-3.5 h-3.5 text-rose-500" />
-                                            )}
-                                            {checkFeedback.type === 'warning' && (
-                                                <FiCheckCircle className="w-3.5 h-3.5 text-amber-500" />
-                                            )}
-                                            {checkFeedback.type === 'info' && (
-                                                <FiClock className="w-3.5 h-3.5 text-sky-500" />
-                                            )}
-                                        </span>
-                                        <div className="min-w-0">
-                                            <p className="text-[11px] font-semibold leading-snug">
-                                                {checkFeedback.type === 'error' && 'Could not verify user'}
-                                                {checkFeedback.type === 'warning' && 'Already on this branch'}
-                                                {checkFeedback.type === 'info' && 'Invitation pending'}
-                                            </p>
-                                            <p className="text-[11px] mt-0.5 opacity-90 leading-snug">{checkFeedback.message}</p>
-                                        </div>
-                                    </div>
-                                )}
-
-                                {checkedUser && (
-                                    <motion.div
-                                        initial={{ opacity: 0, y: 4 }}
-                                        animate={{ opacity: 1, y: 0 }}
-                                        transition={{ duration: 0.2 }}
-                                        className="overflow-hidden rounded-md border border-emerald-200 bg-emerald-50/50 divide-y divide-emerald-100/90"
-                                    >
-                                        <div className="flex items-center gap-2 px-2.5 py-1.5">
-                                            <FiUser className="h-3.5 w-3.5 shrink-0 text-slate-400" />
-                                            <span className="min-w-0 truncate text-xs text-slate-700">
-                                                {checkedUser.name || '—'}
-                                            </span>
-                                        </div>
-                                        <div className="flex items-center gap-2 px-2.5 py-1.5">
-                                            <FiMail className="h-3.5 w-3.5 shrink-0 text-slate-400" />
-                                            <span className="min-w-0 truncate text-xs text-slate-700">
-                                                {checkedUser.email || inviteEmail || '—'}
-                                            </span>
-                                        </div>
-                                        <div className="flex items-center gap-2 px-2.5 py-1.5">
-                                            <FiPhone className="h-3.5 w-3.5 shrink-0 text-slate-400" />
-                                            <span className="min-w-0 truncate text-xs text-slate-700 tabular-nums">
-                                                {formatUserContactPhone(checkedUser) || '—'}
-                                            </span>
-                                        </div>
-                                    </motion.div>
-                                )}
-                            </div>
-
-                            <div className="shrink-0 flex gap-2 px-3.5 py-2.5 border-t border-slate-200 bg-slate-50">
-                                <button
-                                    type="button"
-                                    onClick={() => {
-                                        setShowAddModal(false);
-                                        resetAddModal();
-                                    }}
-                                    disabled={checkingUser || inviting}
-                                    className="flex-1 sm:flex-none px-3 py-1.5 text-xs font-medium text-slate-600 border border-slate-200 rounded-md bg-white hover:bg-slate-50 disabled:opacity-60"
-                                >
-                                    Cancel
-                                </button>
-                                <button
-                                    type="button"
-                                    onClick={handleSendInvitation}
-                                    disabled={!checkedUser?.username || inviting || checkingUser}
-                                    className="flex-1 sm:flex-none inline-flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-white bg-indigo-600 rounded-md hover:bg-indigo-700 disabled:opacity-50"
-                                >
-                                    {inviting ? (
-                                        <>
-                                            <FiRefreshCw className="w-3.5 h-3.5 animate-spin" />
-                                            Sending…
-                                        </>
-                                    ) : (
-                                        <>
-                                            <FiMail className="w-3.5 h-3.5" />
-                                            Send invitation
-                                        </>
-                                    )}
-                                </button>
-                            </div>
-                        </motion.div>
-                    </div>
-                )}
-            </AnimatePresence>
+            <CaCreateModal
+                isOpen={showAddModal}
+                onClose={() => setShowAddModal(false)}
+                onSuccess={() => loadCaList()}
+            />
 
             <AppDialog dialog={dialog} onClose={closeDialog} onConfirm={handleDialogConfirm} />
         </div>

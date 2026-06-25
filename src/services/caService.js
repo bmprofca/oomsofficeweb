@@ -16,23 +16,18 @@ export const fetchCaList = async ({ search = '', page = 1, limit = 20 } = {}) =>
     return response.data;
 };
 
-export const checkCaUser = async (email) => {
+export const createCa = async ({ profile = {}, address = {}, opening_balance } = {}) => {
     const headers = withHeaders();
-    const response = await axios.post(
-        `${API_BASE_URL}/ca/check-user`,
-        { email: String(email || '').trim() },
-        { headers }
-    );
-    return response.data;
-};
-
-export const createCaInvitation = async (username) => {
-    const headers = withHeaders();
-    const response = await axios.post(
-        `${API_BASE_URL}/ca/create`,
-        { username: String(username || '').trim() },
-        { headers }
-    );
+    const payload = { profile, address };
+    if (
+        opening_balance &&
+        opening_balance.amount !== undefined &&
+        opening_balance.amount !== null &&
+        opening_balance.amount !== ''
+    ) {
+        payload.opening_balance = opening_balance;
+    }
+    const response = await axios.post(`${API_BASE_URL}/ca/create`, payload, { headers });
     return response.data;
 };
 
@@ -56,14 +51,23 @@ export const resendCaInvitation = async (mapId) => {
     return response.data;
 };
 
-export const fetchCaProfile = async (username) => {
+export const fetchCaDetailsProfile = async (username) => {
     const headers = withHeaders();
-    const response = await axios.get(`${API_BASE_URL}/ca/profile`, {
+    const response = await axios.get(`${API_BASE_URL}/ca/details/profile`, {
         headers,
         params: { username: String(username || '').trim() },
     });
     return response.data;
 };
+
+export const editCaProfile = async (payload) => {
+    const headers = withHeaders();
+    const response = await axios.post(`${API_BASE_URL}/ca/details/edit-profile`, payload, { headers });
+    return response.data;
+};
+
+/** @deprecated Use fetchCaDetailsProfile */
+export const fetchCaProfile = fetchCaDetailsProfile;
 
 export const changeCaStatus = async (username, status) => {
     const headers = withHeaders();

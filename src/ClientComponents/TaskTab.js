@@ -1,19 +1,19 @@
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useTaskCreate } from '../context/TaskCreateProvider';
 import { motion, AnimatePresence } from 'framer-motion';
 import toast from 'react-hot-toast';
 import axios from 'axios';
 import { checkPermissionSync } from '../utils/permission-helper';
 import {
     FiPlus, FiCheckCircle, FiClock, FiTarget,
-    FiEdit, FiEye, FiTrash2, FiArrowLeft, FiX, FiXCircle,
+    FiEdit, FiEye, FiTrash2, FiArrowLeft, FiX, FiXCircle, FiUser,
 } from 'react-icons/fi';
 import TaskTable from '../TaskComponent/TaskTable';
 import MultiSelectInput from '../components/MultiSelectInput';
 import SelectInput from '../components/SelectInput';
 import TablePagination from '../components/TablePagination';
 import TaskStatusChange from '../components/Modals/TaskStatusChange';
-import CreateTask from '../components/Modals/CreateTask';
 import getHeaders from '../utils/get-headers';
 import API_BASE_URL from '../utils/api-controller';
 
@@ -32,6 +32,49 @@ const TASK_TAB_COLUMN_CONFIG = [
         id: '1',
         name: 'Task Details',
         items: [
+            { id: 'service_name', label: 'Service Name' },
+            { id: 'fees', label: 'Fees' },
+            { id: 'firm_name', label: 'Firm Name' },
+        ],
+        fixed: false,
+    },
+    {
+        id: '2',
+        name: 'Dates',
+        items: [
+            { id: 'create_date', label: 'Create Date' },
+            { id: 'due_date', label: 'Due Date' },
+            { id: 'target_date', label: 'Target Date' },
+        ],
+        fixed: false,
+    },
+    {
+        id: '3',
+        name: 'Staffs',
+        items: [{ id: 'staffs', label: 'Staffs' }],
+        fixed: false,
+    },
+    {
+        id: '4',
+        name: 'Status',
+        items: [{ id: 'status', label: 'Status' }],
+        fixed: true,
+    },
+    {
+        id: '5',
+        name: 'Action',
+        items: [{ id: 'menu', label: 'Actions' }],
+        fixed: true,
+    },
+];
+
+/** CA profile tab — includes client column (tasks across clients for one CA) */
+const TASK_TAB_COLUMN_CONFIG_CA = [
+    {
+        id: '1',
+        name: 'Task Details',
+        items: [
+            { id: 'client_name', label: 'Client' },
             { id: 'service_name', label: 'Service Name' },
             { id: 'fees', label: 'Fees' },
             { id: 'firm_name', label: 'Firm Name' },
@@ -108,9 +151,27 @@ const getStatusText = (status) => {
 
 const SEARCH_DEBOUNCE_MS = 400;
 
-const TaskTab = ({ clientUsername: clientUsernameProp } = {}) => {
+const TaskTab = ({
+    clientUsername: clientUsernameProp,
+    caUsername: caUsernameProp,
+    agentUsername: agentUsernameProp,
+} = {}) => {
     const navigate = useNavigate();
+    const { openTaskCreate } = useTaskCreate();
     const taskListAbortRef = useRef(null);
+
+    const caUsernameTrimmed =
+        caUsernameProp != null && String(caUsernameProp).trim() !== ''
+            ? String(caUsernameProp).trim()
+            : '';
+    const agentUsernameTrimmed =
+        agentUsernameProp != null && String(agentUsernameProp).trim() !== ''
+            ? String(agentUsernameProp).trim()
+            : '';
+    const isCaMode = Boolean(caUsernameTrimmed);
+    const isAgentMode = Boolean(agentUsernameTrimmed);
+    const isProfileScopedMode = isCaMode || isAgentMode;
+    const columnConfig = isProfileScopedMode ? TASK_TAB_COLUMN_CONFIG_CA : TASK_TAB_COLUMN_CONFIG;
 
     const [tasks, setTasks] = useState([]);
     const [searchTerm, setSearchTerm] = useState('');
@@ -138,10 +199,41 @@ const TaskTab = ({ clientUsername: clientUsernameProp } = {}) => {
         cancel: 0,
         inProcess: 0,
     });
-    const [createTaskModalOpen, setCreateTaskModalOpen] = useState(false);
+    const handleOpenCreateTask = () => {
+        const baseOptions = {
+            onSuccess: () => {
+                fetchTasks();
+                fetchTaskStatistics();
+            },
+            onNavigateToTaskList: () => {
+                const q =
+                    clientUsernameTrimmed !== ''
+                        ? `?username=${encodeURIComponent(clientUsernameTrimmed)}`
+                        : '';
+                navigate(`/task/view${q}`);
+            },
+        };
+
+        if (isCaMode) {
+            openTaskCreate({ ...baseOptions, ca: caUsernameTrimmed });
+            return;
+        }
+
+        if (isAgentMode) {
+            openTaskCreate({ ...baseOptions, agent: agentUsernameTrimmed });
+            return;
+        }
+
+        if (clientUsernameTrimmed) {
+            openTaskCreate({ ...baseOptions, client: clientUsernameTrimmed });
+            return;
+        }
+
+        openTaskCreate(baseOptions);
+    };
 
     const clientUsernameTrimmed =
-        clientUsernameProp != null && String(clientUsernameProp).trim() !== ''
+        !isProfileScopedMode && clientUsernameProp != null && String(clientUsernameProp).trim() !== ''
             ? String(clientUsernameProp).trim()
             : '';
 
@@ -157,7 +249,7 @@ const TaskTab = ({ clientUsername: clientUsernameProp } = {}) => {
     }, [debouncedSearch, statusFilterValues, selectedFirmId]);
 
     useEffect(() => {
-        if (!clientUsernameTrimmed) {
+        if (isProfileScopedMode || !clientUsernameTrimmed) {
             setFirmOptions([]);
             return;
         }
@@ -187,15 +279,96 @@ const TaskTab = ({ clientUsername: clientUsernameProp } = {}) => {
         return () => {
             cancelled = true;
         };
-    }, [clientUsernameTrimmed]);
+    }, [clientUsernameTrimmed, isProfileScopedMode]);
 
     const fetchTaskStatistics = useCallback(async () => {
+        const headers = getHeaders();
+        if (!headers) return;
+
+        if (isCaMode) {
+            if (!caUsernameTrimmed) {
+                setTaskStatistics({ total: 0, complete: 0, cancel: 0, inProcess: 0 });
+                return;
+            }
+
+            const fetchCount = async (statuses = []) => {
+                const queryParams = new URLSearchParams({
+                    ca: caUsernameTrimmed,
+                    page_no: '1',
+                    limit: '1',
+                });
+                statuses.forEach((status) => queryParams.append('status', status));
+                const response = await fetch(
+                    `${API_BASE_URL}/task/list?${queryParams.toString()}`,
+                    { method: 'GET', headers }
+                );
+                if (!response.ok) return 0;
+                const responseData = await response.json();
+                return (
+                    responseData.pagination?.total ??
+                    responseData.meta?.total ??
+                    (Array.isArray(responseData.data) ? responseData.data.length : 0)
+                );
+            };
+
+            try {
+                const [total, complete, cancel, inProcess] = await Promise.all([
+                    fetchCount(),
+                    fetchCount(['complete']),
+                    fetchCount(['cancel']),
+                    fetchCount(['in process', 'pending from client', 'pending from department']),
+                ]);
+                setTaskStatistics({ total, complete, cancel, inProcess });
+            } catch (error) {
+                console.error('Error fetching CA task statistics:', error);
+            }
+            return;
+        }
+
+        if (isAgentMode) {
+            if (!agentUsernameTrimmed) {
+                setTaskStatistics({ total: 0, complete: 0, cancel: 0, inProcess: 0 });
+                return;
+            }
+
+            const fetchCount = async (statuses = []) => {
+                const queryParams = new URLSearchParams({
+                    agent: agentUsernameTrimmed,
+                    page_no: '1',
+                    limit: '1',
+                });
+                statuses.forEach((status) => queryParams.append('status', status));
+                const response = await fetch(
+                    `${API_BASE_URL}/task/list?${queryParams.toString()}`,
+                    { method: 'GET', headers }
+                );
+                if (!response.ok) return 0;
+                const responseData = await response.json();
+                return (
+                    responseData.pagination?.total ??
+                    responseData.meta?.total ??
+                    (Array.isArray(responseData.data) ? responseData.data.length : 0)
+                );
+            };
+
+            try {
+                const [total, complete, cancel, inProcess] = await Promise.all([
+                    fetchCount(),
+                    fetchCount(['complete']),
+                    fetchCount(['cancel']),
+                    fetchCount(['in process', 'pending from client', 'pending from department']),
+                ]);
+                setTaskStatistics({ total, complete, cancel, inProcess });
+            } catch (error) {
+                console.error('Error fetching agent task statistics:', error);
+            }
+            return;
+        }
+
         if (!clientUsernameTrimmed) {
             setTaskStatistics({ total: 0, complete: 0, cancel: 0, inProcess: 0 });
             return;
         }
-        const headers = getHeaders();
-        if (!headers) return;
 
         try {
             const response = await fetch(
@@ -221,14 +394,14 @@ const TaskTab = ({ clientUsername: clientUsernameProp } = {}) => {
         } catch (error) {
             console.error('Error fetching task statistics:', error);
         }
-    }, [clientUsernameTrimmed]);
+    }, [clientUsernameTrimmed, caUsernameTrimmed, agentUsernameTrimmed, isCaMode, isAgentMode]);
 
     useEffect(() => {
         fetchTaskStatistics();
     }, [fetchTaskStatistics]);
 
     const fetchTasks = useCallback(async () => {
-        if (!clientUsernameTrimmed) {
+        if (!clientUsernameTrimmed && !caUsernameTrimmed && !agentUsernameTrimmed) {
             setTasks([]);
             setPagination((prev) => ({ ...prev, total: 0 }));
             setLoading(false);
@@ -255,7 +428,13 @@ const TaskTab = ({ clientUsername: clientUsernameProp } = {}) => {
                 limit: String(pagination.limit),
             });
             queryParams.append('search', debouncedSearch || '');
-            queryParams.append('username', clientUsernameTrimmed);
+            if (isCaMode) {
+                queryParams.append('ca', caUsernameTrimmed);
+            } else if (isAgentMode) {
+                queryParams.append('agent', agentUsernameTrimmed);
+            } else {
+                queryParams.append('username', clientUsernameTrimmed);
+            }
             queryParams.append('firm_id', selectedFirmId || '');
             queryParams.append('service_id', '');
             statusFilterValues.forEach((status) => queryParams.append('status', status));
@@ -292,6 +471,10 @@ const TaskTab = ({ clientUsername: clientUsernameProp } = {}) => {
         }
     }, [
         clientUsernameTrimmed,
+        caUsernameTrimmed,
+        agentUsernameTrimmed,
+        isCaMode,
+        isAgentMode,
         pagination.page_no,
         pagination.limit,
         debouncedSearch,
@@ -414,6 +597,26 @@ const TaskTab = ({ clientUsername: clientUsernameProp } = {}) => {
             };
 
             switch (fieldId) {
+                case 'client_name': {
+                    const clientName = task.client?.profile?.name || task.client?.name || '-';
+                    return (
+                        <div className="flex items-center gap-2">
+                            <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-indigo-500 to-indigo-600 shadow-sm">
+                                <FiUser className="h-3.5 w-3.5 text-white" />
+                            </div>
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    const clientUser = task.client?.username;
+                                    if (clientUser) nav(`/client/profile/${clientUser}`);
+                                }}
+                                className="text-left text-sm font-semibold text-slate-800 transition-colors hover:text-indigo-600"
+                            >
+                                {safeGetString(clientName)}
+                            </button>
+                        </div>
+                    );
+                }
                 case 'firm_name': {
                     const firmName = task.firm?.firm_name || task.firm_name || '-';
                     return <div className="text-slate-700 font-medium text-sm">{safeGetString(firmName)}</div>;
@@ -670,15 +873,21 @@ const TaskTab = ({ clientUsername: clientUsernameProp } = {}) => {
             <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center mb-8 gap-6">
                 <div className="space-y-2">
                     <h3 className="text-base sm:text-lg font-bold text-slate-800 bg-gradient-to-r from-blue-600 to-indigo-700 bg-clip-text text-transparent">
-                        Task Management
+                        {isCaMode ? 'CA Task Management' : isAgentMode ? 'Agent Task Management' : 'Task Management'}
                     </h3>
-                    <p className="text-xs sm:text-sm text-slate-600">Track, assign, and manage client tasks efficiently</p>
+                    <p className="text-xs sm:text-sm text-slate-600">
+                        {isCaMode
+                            ? 'Tasks assigned to this chartered accountant'
+                            : isAgentMode
+                              ? 'Tasks assigned to this agent'
+                              : 'Track, assign, and manage client tasks efficiently'}
+                    </p>
                 </div>
                 {checkPermissionSync('task_create') && (
                     <div className="flex items-center gap-3">
                         <motion.button
                             type="button"
-                            onClick={() => setCreateTaskModalOpen(true)}
+                            onClick={handleOpenCreateTask}
                             className="flex items-center justify-center gap-2 px-6 py-3 bg-gradient-to-r from-blue-600 to-indigo-700 text-white rounded-xl hover:shadow-lg hover:shadow-blue-500/25 transition-all duration-300 font-semibold"
                             whileHover={{ scale: 1.02, y: -2 }}
                             whileTap={{ scale: 0.98 }}
@@ -748,6 +957,8 @@ const TaskTab = ({ clientUsername: clientUsernameProp } = {}) => {
                     />
                 </div>
                 <div className="flex w-full md:w-auto md:flex-none md:shrink-0 items-stretch gap-1.5 min-w-0">
+                    {!isProfileScopedMode && (
+                    <>
                     <div className="min-w-0 w-full md:w-[10rem]">
                         <SelectInput
                             options={firmOptions}
@@ -769,6 +980,8 @@ const TaskTab = ({ clientUsername: clientUsernameProp } = {}) => {
                             <FiX className="h-4 w-4" />
                         </button>
                 )}
+                    </>
+                    )}
             </div>
                 <div className="w-full md:min-w-[220px] md:max-w-sm flex items-center [&_button]:min-h-[40px]">
                     <MultiSelectInput
@@ -796,7 +1009,7 @@ const TaskTab = ({ clientUsername: clientUsernameProp } = {}) => {
                     handleTaskSelect={handleTaskSelect}
                     selectAll={selectAll}
                     handleSelectAll={handleSelectAll}
-                    columnConfig={TASK_TAB_COLUMN_CONFIG}
+                    columnConfig={columnConfig}
                     renderCellContent={renderCellContent}
                     loading={loading}
                     toggleRowDropdown={toggleRowDropdown}
@@ -840,23 +1053,6 @@ const TaskTab = ({ clientUsername: clientUsernameProp } = {}) => {
                 currentStatus={statusModal.currentStatus}
                 onStatusChange={handleStatusChange}
                 statusOptions={STATUS_OPTIONS}
-            />
-
-            <CreateTask
-                isOpen={createTaskModalOpen}
-                onClose={() => setCreateTaskModalOpen(false)}
-                onSuccess={() => {
-                    fetchTasks();
-                    fetchTaskStatistics();
-                }}
-                onNavigateToTaskList={() => {
-                    setCreateTaskModalOpen(false);
-                    const q =
-                        clientUsernameTrimmed !== ''
-                            ? `?username=${encodeURIComponent(clientUsernameTrimmed)}`
-                            : '';
-                    navigate(`/task/view${q}`);
-                }}
             />
         </motion.div>
     );

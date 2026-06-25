@@ -3,6 +3,7 @@ import { motion } from 'framer-motion';
 import { FiArrowLeft, FiArrowRight, FiSearch, FiUserCheck, FiUserPlus } from 'react-icons/fi';
 import SearchablePickField, {
     assignableMemberExtractor,
+    formatMemberSelectedLabel,
     memberLabelMapping,
 } from '../SearchablePickField';
 
@@ -23,22 +24,31 @@ export default function TeamStep({
     addAllEmployees,
     removeAllEmployees,
     staffLoading,
+    lockedFields = {},
 }) {
+    const caLocked = Boolean(lockedFields.ca);
+    const agentLocked = Boolean(lockedFields.agent);
+
     return (
         <div className="space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <SearchablePickField
                     label="CA"
                     icon={FiUserCheck}
+                    locked={caLocked}
                     selected={selectedCa}
                     onClear={() => {
+                        if (caLocked) return;
                         setSelectedCa(null);
                         setForm((p) => ({ ...p, ca: '' }));
                     }}
                     onSelect={(item) => {
+                        if (caLocked) return;
                         setSelectedCa({
                             username: item.username,
-                            name: item.profile?.name || item.username,
+                            name: item.name || item.profile?.name,
+                            mobile: item.mobile || item.profile?.mobile,
+                            balance: item.balance ?? item.profile?.balance,
                         });
                         setForm((p) => ({ ...p, ca: item.username }));
                     }}
@@ -47,21 +57,26 @@ export default function TeamStep({
                     valueKey="username"
                     labelMapping={memberLabelMapping}
                     dataExtractor={assignableMemberExtractor}
-                    placeholder="Search CA by name, email..."
-                    renderSelected={(s) => s.name}
+                    placeholder="Search CA by name or mobile..."
+                    renderSelected={(s) => formatMemberSelectedLabel(s)}
                 />
                 <SearchablePickField
                     label="Agent"
                     icon={FiUserPlus}
+                    locked={agentLocked}
                     selected={selectedAgent}
                     onClear={() => {
+                        if (agentLocked) return;
                         setSelectedAgent(null);
                         setForm((p) => ({ ...p, agent: '' }));
                     }}
                     onSelect={(item) => {
+                        if (agentLocked) return;
                         setSelectedAgent({
                             username: item.username,
-                            name: item.profile?.name || item.username,
+                            name: item.name || item.profile?.name,
+                            mobile: item.mobile || item.profile?.mobile,
+                            balance: item.balance ?? item.profile?.balance,
                         });
                         setForm((p) => ({ ...p, agent: item.username }));
                     }}
@@ -70,8 +85,8 @@ export default function TeamStep({
                     valueKey="username"
                     labelMapping={memberLabelMapping}
                     dataExtractor={assignableMemberExtractor}
-                    placeholder="Search agent by name, email..."
-                    renderSelected={(s) => s.name}
+                    placeholder="Search agent by name or mobile..."
+                    renderSelected={(s) => formatMemberSelectedLabel(s)}
                 />
             </div>
 
