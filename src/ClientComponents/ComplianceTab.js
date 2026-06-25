@@ -570,6 +570,8 @@ const getPeriodSchedule = (assignmentSchedules, header, frequency) => {
 
 const ComplianceTab = ({ clientUsername }) => {
     const currentUsername = (localStorage.getItem('user_username') || '').toLowerCase().trim();
+    const isBranchOwner = localStorage.getItem('branch_owned') === 'true';
+    const isAdmin = currentUsername === 'admin';
     const [subTab, setSubTab] = useState('active'); // 'active' | 'pending' | 'history'
     const [complianceData, setComplianceData] = useState({
         active: [],
@@ -652,7 +654,9 @@ const ComplianceTab = ({ clientUsername }) => {
         ca_id: '',
         pay_from_month: '',
         quarters: [],
-        status: 'active'
+        status: 'active',
+        financial_year: '',
+        custom_fields: {}
     });
 
     const [editCaSearchQuery, setEditCaSearchQuery] = useState('');
@@ -844,7 +848,9 @@ const ComplianceTab = ({ clientUsername }) => {
                 return map[m] || m;
             })(),
             quarters,
-            status: assign.status || 'active'
+            status: assign.status || 'active',
+            financial_year: assign.financial_year || '',
+            custom_fields: assign.custom_fields || {}
         });
 
         // Pre-fill CA if present
@@ -886,6 +892,8 @@ const ComplianceTab = ({ clientUsername }) => {
                 status: editForm.status
             };
             if (editForm.ca_id) payload.ca_id = editForm.ca_id;
+            if (editForm.financial_year) payload.financial_year = editForm.financial_year;
+            if (editForm.custom_fields) payload.custom_fields = editForm.custom_fields;
             const svc = globalServices.find(s => String(s.service_id) === String(editAssignment.service_id));
             const isGstr1 = editAssignment.service_id === 'GSTR-1' || (svc?.name && /gstr-1/i.test(svc.name));
             const editFreq = isGstr1 ? 'monthly' : (svc?.frequency?.toLowerCase() || editAssignment.frequency?.toLowerCase() || '');
@@ -1242,8 +1250,10 @@ const ComplianceTab = ({ clientUsername }) => {
         const currentUsername = (localStorage.getItem('user_username') || '').toLowerCase().trim();
         const assignedStaffs = getAssignedStaffList(selectedPeriodAssign || selectedPeriod);
         const assignedStaffUsernames = assignedStaffs.map(emp => (emp.username || '').toLowerCase().trim());
+        const isBranchOwner = localStorage.getItem('branch_owned') === 'true';
+        const isAdmin = currentUsername === 'admin';
 
-        if (currentUsername && assignedStaffUsernames.length > 0 && !assignedStaffUsernames.includes(currentUsername)) {
+        if (!isAdmin && !isBranchOwner && currentUsername && assignedStaffUsernames.length > 0 && !assignedStaffUsernames.includes(currentUsername)) {
             const allowedNames = assignedStaffs.map(emp => emp.name || emp.username).join(', ');
             toast.error(`Only the assigned staff members (${allowedNames}) are permitted to update the payment status.`);
             return;
@@ -1341,7 +1351,7 @@ const ComplianceTab = ({ clientUsername }) => {
 
         const assignedStaffs = getAssignedStaffList(assign);
         const assignedStaffUsernames = assignedStaffs.map(emp => (emp.username || '').toLowerCase().trim());
-        const isUpdatePermitted = (!currentUsername || assignedStaffUsernames.length === 0 || assignedStaffUsernames.includes(currentUsername)) && checkPermissionSync('recurring_task_complete');
+        const isUpdatePermitted = (isAdmin || isBranchOwner || !currentUsername || assignedStaffUsernames.length === 0 || assignedStaffUsernames.includes(currentUsername)) && checkPermissionSync('recurring_task_complete');
         const isComplete = st === 'Complete' || st === 'Sale';
         const shortDueDate = dueDateText === '—' ? '' : dueDateText.split(' ').slice(0, 2).join(' ');
         const canUpdate = isUpdatePermitted && (isPeriodDueDateActive(period) || isComplete);
@@ -1944,7 +1954,7 @@ const ComplianceTab = ({ clientUsername }) => {
                                                                 return filteredSchedules.map((period) => {
                                                                     const assignedStaffs = getAssignedStaffList(assign);
                                                                     const assignedStaffUsernames = assignedStaffs.map(emp => (emp.username || '').toLowerCase().trim());
-                                                                    const isUpdatePermitted = (!currentUsername || assignedStaffUsernames.length === 0 || assignedStaffUsernames.includes(currentUsername)) && checkPermissionSync('recurring_task_complete');
+                                                                    const isUpdatePermitted = (isAdmin || isBranchOwner || !currentUsername || assignedStaffUsernames.length === 0 || assignedStaffUsernames.includes(currentUsername)) && checkPermissionSync('recurring_task_complete');
                                                                     const isComplete = period.status === 'Complete' || period.status === 'Sale';
                                                                     const canUpdate = isUpdatePermitted && (isPeriodDueDateActive(period) || isComplete);
 
@@ -2439,10 +2449,19 @@ const ComplianceTab = ({ clientUsername }) => {
                                             <option value="">Select recurring task template…</option>
                                             {globalServices.map(s => (
                                                 <option key={s.id} value={s.service_id}>
-                                                    {s.name} {checkPermissionSync('recurring_task_fees_view') ? `(₹${formatCurrency(s.default_amount)})` : '(₹----)'}
+                                                    {s.name} ({s.frequency}) {checkPermissionSync('recurring_task_fees_view') ? `(₹${formatCurrency(s.default_amount)})` : '(₹----)'}
                                                 </option>
                                             ))}
                                         </select>
+                                        {assignForm.service_id && (() => {
+                                            const matched = globalServices.find(s => s.service_id === assignForm.service_id);
+                                            if (!matched) return null;
+                                            return (
+                                                <div className="text-[11px] text-indigo-650 font-semibold mt-1">
+                                                    Frequency: <span className="uppercase">{matched.frequency}</span>
+                                                </div>
+                                            );
+                                        })()}
                                     </div>
 
                                     {/* Custom Amount */}
@@ -2785,7 +2804,7 @@ const ComplianceTab = ({ clientUsername }) => {
                     const currentUsername = (localStorage.getItem('user_username') || '').toLowerCase().trim();
                     const assignedStaffs = getAssignedStaffList(selectedPeriodAssign || selectedPeriod);
                     const assignedStaffUsernames = assignedStaffs.map(emp => (emp.username || '').toLowerCase().trim());
-                    const isUpdatePermitted = (!currentUsername || assignedStaffUsernames.length === 0 || assignedStaffUsernames.includes(currentUsername)) && checkPermissionSync('recurring_task_complete');
+                    const isUpdatePermitted = (isAdmin || isBranchOwner || !currentUsername || assignedStaffUsernames.length === 0 || assignedStaffUsernames.includes(currentUsername)) && checkPermissionSync('recurring_task_complete');
 
                     return (
                         <div className="fixed inset-0 z-[200] flex items-start justify-center overflow-hidden overscroll-none p-3 sm:p-4 pointer-events-none">
@@ -3064,6 +3083,29 @@ const ComplianceTab = ({ clientUsername }) => {
                                             </div>
                                         )}
 
+                                        {/* Financial Year */}
+                                        <div className="space-y-1">
+                                            <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Financial Year *</label>
+                                            <select
+                                                value={editForm.financial_year}
+                                                onChange={(e) => setEditForm(prev => ({ ...prev, financial_year: e.target.value }))}
+                                                className="w-full px-3 py-2.5 text-xs text-slate-700 border border-slate-200 rounded-xl focus:ring-2 focus:ring-violet-500 focus:border-transparent outline-none bg-white font-medium"
+                                                required
+                                            >
+                                                <option value="2020-2021">2020-2021</option>
+                                                <option value="2021-2022">2021-2022</option>
+                                                <option value="2022-2023">2022-2023</option>
+                                                <option value="2023-2024">2023-2024</option>
+                                                <option value="2024-2025">2024-2025</option>
+                                                <option value="2025-2026">2025-2026</option>
+                                                <option value="2026-2027">2026-2027</option>
+                                                <option value="2027-2028">2027-2028</option>
+                                                <option value="2028-2029">2028-2029</option>
+                                                <option value="2029-2030">2029-2030</option>
+                                                <option value="2030-2031">2030-2031</option>
+                                            </select>
+                                        </div>
+
                                         {/* Pay From Month (monthly only) */}
                                         {editFreq === 'monthly' && (
                                             <div className="space-y-1">
@@ -3109,6 +3151,47 @@ const ComplianceTab = ({ clientUsername }) => {
                                                 <p className="text-[10px] text-slate-400">Leave unselected to keep all quarters.</p>
                                             </div>
                                         )}
+
+                                        {/* Dynamic Required Credentials Inputs */}
+                                        {(() => {
+                                            const selectedService = globalServices.find(s => String(s.service_id) === String(editAssignment.service_id));
+                                            const requiredFields = getRequiredFieldsForService(selectedService);
+                                            if (requiredFields.length === 0) return null;
+                                            return (
+                                                <div className="space-y-4 border border-violet-100 rounded-2xl p-4 bg-violet-50/30">
+                                                    <span className="block text-xs font-bold text-violet-750 uppercase tracking-wider mb-2">Filing Credentials</span>
+                                                    {requiredFields.map(field => {
+                                                        const onChange = (e) => setEditForm(prev => ({
+                                                            ...prev,
+                                                            custom_fields: {
+                                                                ...(prev.custom_fields || {}),
+                                                                [field.key]: e.target.value
+                                                            }
+                                                        }));
+                                                        return field.type === 'password' ? (
+                                                            <PasswordField
+                                                                key={field.key}
+                                                                label={field.label}
+                                                                value={editForm.custom_fields?.[field.key] || ''}
+                                                                onChange={onChange}
+                                                                required
+                                                            />
+                                                        ) : (
+                                                            <div key={field.key} className="space-y-1">
+                                                                <label className="block text-xs font-bold text-slate-500">{field.label} *</label>
+                                                                <input
+                                                                    type="text"
+                                                                    value={editForm.custom_fields?.[field.key] || ''}
+                                                                    onChange={onChange}
+                                                                    className="w-full px-3 py-2.5 text-xs text-slate-700 border border-slate-200 rounded-xl focus:ring-2 focus:ring-violet-500 focus:border-transparent outline-none bg-white font-medium"
+                                                                    required
+                                                                />
+                                                            </div>
+                                                        );
+                                                    })}
+                                                </div>
+                                            );
+                                        })()}
 
                                         {/* Assigned Staff */}
                                         <div className="space-y-2">
@@ -3503,7 +3586,7 @@ const ComplianceTab = ({ clientUsername }) => {
                                             {schedules.map((period) => {
                                                 const assignedStaffs = getAssignedStaffList(fullCalendarAssignment);
                                                 const assignedStaffUsernames = assignedStaffs.map(emp => (emp.username || '').toLowerCase().trim());
-                                                const isUpdatePermitted = (!currentUsername || assignedStaffUsernames.length === 0 || assignedStaffUsernames.includes(currentUsername)) && checkPermissionSync('recurring_task_complete');
+                                                const isUpdatePermitted = (isAdmin || isBranchOwner || !currentUsername || assignedStaffUsernames.length === 0 || assignedStaffUsernames.includes(currentUsername)) && checkPermissionSync('recurring_task_complete');
                                                 const isComplete = period.status === 'Complete' || period.status === 'Sale';
 
                                                 return (
