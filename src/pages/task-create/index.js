@@ -1,16 +1,11 @@
-import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { Sidebar, Header } from '../components/header';
-import CreateTask from '../components/Modals/CreateTask';
-import { useUserPermissions } from '../utils/permission-helper';
+import React, { useEffect, useState } from 'react';
 import { FiLock } from 'react-icons/fi';
+import { Header, Sidebar } from '../../components/header';
+import { useUserPermissions } from '../../utils/permission-helper';
+import TaskCreateForm from './TaskCreateForm';
+import './task-create.css';
 
-/**
- * Full-page create task route: app chrome + {@link CreateTask} in embedded mode.
- * For modal usage, import `CreateTask` directly and pass `isOpen` / `onClose`.
- */
 const TaskCreate = () => {
-    const navigate = useNavigate();
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
     const [isMinimized, setIsMinimized] = useState(() => {
         const saved = localStorage.getItem('sidebarMinimized');
@@ -23,11 +18,7 @@ const TaskCreate = () => {
     }, [isMinimized]);
 
     useEffect(() => {
-        if (mobileMenuOpen) {
-            document.body.style.overflow = 'hidden';
-        } else {
-            document.body.style.overflow = 'auto';
-        }
+        document.body.style.overflow = mobileMenuOpen ? 'hidden' : 'auto';
         return () => {
             document.body.style.overflow = 'auto';
         };
@@ -48,7 +39,11 @@ const TaskCreate = () => {
                     isMinimized={isMinimized}
                     setIsMinimized={setIsMinimized}
                 />
-                <div className={`pt-16 flex items-center justify-center transition-all duration-300 h-[calc(100vh-4rem)] ${isMinimized ? 'md:pl-20' : 'md:pl-[260px]'}`}>
+                <div
+                    className={`pt-16 flex items-center justify-center transition-all duration-300 h-[calc(100vh-4rem)] ${
+                        isMinimized ? 'md:pl-20' : 'md:pl-[260px]'
+                    }`}
+                >
                     <div className="text-center p-8 bg-white rounded-2xl border border-slate-200 shadow-sm max-w-sm w-full mx-4">
                         <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-4">
                             <FiLock className="w-8 h-8 text-slate-400" />
@@ -75,20 +70,17 @@ const TaskCreate = () => {
                 isMinimized={isMinimized}
                 setIsMinimized={setIsMinimized}
             />
-            <div
+            <main
                 className={`pt-16 transition-all duration-300 ease-in-out ${
                     isMinimized ? 'md:pl-20' : 'md:pl-[260px]'
-                } overflow-x-hidden min-w-0 w-full max-w-full flex-1`}
+                } overflow-x-hidden min-w-0 w-full max-w-full`}
             >
-                <CreateTask
-                    embedded
-                    isOpen
-                    onNavigateToTaskList={() => navigate('/task/view')}
-                />
-            </div>
+                <div className="tc-page max-w-7xl mx-auto">
+                    <TaskCreateForm />
+                </div>
+            </main>
         </div>
     );
 };
-
 
 export default TaskCreate;

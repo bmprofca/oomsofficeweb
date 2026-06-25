@@ -4,7 +4,6 @@ import {
     FiShield,
     FiFileText,
     FiSettings,
-    FiMail,
     FiPhone,
     FiCalendar,
     FiLock,
@@ -43,6 +42,20 @@ const Settings = () => {
             permission: "setting_view_edit"
         },
         {
+            title: "Admin",
+            description: "Invite & manage branch admins",
+            icon: <FiUserCheck className="w-5 h-5 text-indigo-600" />,
+            link: "/settings/admin",
+            color: "bg-indigo-100",
+        },
+        {
+            title: "Agents",
+            description: "Invite & manage branch agents",
+            icon: <FiUsers className="w-5 h-5 text-teal-600" />,
+            link: "/settings/agent-list",
+            color: "bg-teal-100",
+        },
+        {
             title: "Staff Permissions",
             description: "Manage staff access rights",
             icon: <FiShield className="w-5 h-5 text-green-600" />,
@@ -65,14 +78,6 @@ const Settings = () => {
             link: "/settings/app-setting",
             color: "bg-orange-100",
             show: userData.isHeadBranch,
-            permission: "setting_view_edit"
-        },
-        {
-            title: "Email Configuration",
-            description: "Set up your SMTP settings",
-            icon: <FiMail className="w-5 h-5 text-red-600" />,
-            link: "/settings/email-setting",
-            color: "bg-red-100",
             permission: "setting_view_edit"
         }
     ];

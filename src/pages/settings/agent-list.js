@@ -1,6 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Link, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
     FiAlertCircle,
@@ -12,6 +11,7 @@ import {
     FiPlus,
     FiRefreshCw,
     FiSearch,
+    FiUsers,
     FiTrash2,
     FiUser,
     FiUserCheck,
@@ -25,30 +25,23 @@ import TablePagination from '../../components/TablePagination';
 import AppDialog from '../../components/AppDialog';
 import useDebouncedValue from '../../hooks/useDebouncedValue';
 import {
-    changeCaStatus,
-    checkCaUser,
-    createCaInvitation,
-    deleteCa,
-    fetchCaList,
-    resendCaInvitation,
-} from '../../services/caService';
+    changeAgentStatus,
+    checkAgentUser,
+    createAgentInvitation,
+    deleteAgent,
+    fetchAgentList,
+    resendAgentInvitation,
+} from '../../services/agentService';
 
 const ACTIONS_MENU_WIDTH = 200;
-const ACTIONS_MENU_HEIGHT = 200;
+const ACTIONS_MENU_HEIGHT = 160;
 
-const isCaAccepted = (row) => Boolean(row?.is_accepted);
+const isAgentAccepted = (row) => Boolean(row?.is_accepted);
 
 const formatCurrency = (value) => {
     const n = Number(value);
     if (!Number.isFinite(n)) return '—';
     return `₹${n.toLocaleString('en-IN', { maximumFractionDigits: 2 })}`;
-};
-
-const formatDate = (value) => {
-    if (!value) return '—';
-    const dt = new Date(value);
-    if (Number.isNaN(dt.getTime())) return '—';
-    return dt.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
 };
 
 const formatPhone = (profile) => {
@@ -69,8 +62,7 @@ const SkeletonPulse = ({ className = '' }) => (
     <div className={`animate-pulse rounded-md bg-gray-200/90 ${className}`} />
 );
 
-const CAList = () => {
-    const navigate = useNavigate();
+const AgentList = () => {
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
     const [isMinimized, setIsMinimized] = useState(() => {
         const saved = localStorage.getItem('sidebarMinimized');
@@ -79,7 +71,7 @@ const CAList = () => {
 
     const [searchTerm, setSearchTerm] = useState('');
     const debouncedSearch = useDebouncedValue(searchTerm, 400);
-    const [caRows, setCaRows] = useState([]);
+    const [agentRows, setAgentRows] = useState([]);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
     const [pagination, setPagination] = useState({
@@ -114,7 +106,7 @@ const CAList = () => {
 
     const listAbortRef = useRef(null);
 
-    const loadCaList = useCallback(async () => {
+    const loadAgentList = useCallback(async () => {
         listAbortRef.current?.abort();
         const ac = new AbortController();
         listAbortRef.current = ac;
@@ -122,7 +114,7 @@ const CAList = () => {
         setLoading(true);
         setError('');
         try {
-            const result = await fetchCaList({
+            const result = await fetchAgentList({
                 search: debouncedSearch,
                 page: pagination.page,
                 limit: pagination.limit,
@@ -130,10 +122,10 @@ const CAList = () => {
             if (ac.signal.aborted) return;
 
             if (!result?.success) {
-                throw new Error(result?.message || 'Failed to fetch CA list');
+                throw new Error(result?.message || 'Failed to fetch agent list');
             }
 
-            setCaRows(Array.isArray(result.data) ? result.data : []);
+            setAgentRows(Array.isArray(result.data) ? result.data : []);
             const meta = result.meta || {};
             setPagination((prev) => ({
                 ...prev,
@@ -145,9 +137,9 @@ const CAList = () => {
             }));
         } catch (e) {
             if (e.name === 'AbortError') return;
-            console.error('CA list fetch:', e);
-            setCaRows([]);
-            setError(e.response?.data?.message || e.message || 'Failed to load CA list');
+            console.error('Agent list fetch:', e);
+            setAgentRows([]);
+            setError(e.response?.data?.message || e.message || 'Failed to load agent list');
         } finally {
             if (listAbortRef.current === ac) setLoading(false);
         }
@@ -158,8 +150,8 @@ const CAList = () => {
     }, [debouncedSearch]);
 
     useEffect(() => {
-        loadCaList();
-    }, [loadCaList]);
+        loadAgentList();
+    }, [loadAgentList]);
 
     useEffect(() => {
         localStorage.setItem('sidebarMinimized', JSON.stringify(isMinimized));
@@ -175,8 +167,8 @@ const CAList = () => {
     useEffect(() => {
         const handleClickOutside = (e) => {
             if (
-                !e.target.closest('.ca-list-dropdown') &&
-                !e.target.closest('[data-ca-list-actions-menu]')
+                !e.target.closest('.agent-list-dropdown') &&
+                !e.target.closest('[data-agent-list-actions-menu]')
             ) {
                 setActiveRowDropdown(null);
             }
@@ -196,16 +188,16 @@ const CAList = () => {
     }, []);
 
     const activeItem = useMemo(
-        () => caRows.find((row) => row.map_id === activeRowDropdown) || null,
-        [caRows, activeRowDropdown]
+        () => agentRows.find((row) => row.map_id === activeRowDropdown) || null,
+        [agentRows, activeRowDropdown]
     );
 
     const rowsForTable = useMemo(
         () =>
             loading
                 ? Array.from({ length: 6 }, (_, i) => ({ __skeleton: true, map_id: `sk-${i}` }))
-                : caRows,
-        [loading, caRows]
+                : agentRows,
+        [loading, agentRows]
     );
 
     const showConfirm = ({ variant = 'warning', title, message, confirmText = 'Confirm', cancelText = 'Cancel', onConfirm }) => {
@@ -258,7 +250,7 @@ const CAList = () => {
         setCheckedUser(null);
         setCheckFeedback({ type: null, message: '' });
         try {
-            const result = await checkCaUser(email);
+            const result = await checkAgentUser(email);
             const message = result?.message || '';
 
             if (!result?.success) {
@@ -269,18 +261,18 @@ const CAList = () => {
                 return;
             }
 
-            if (message === 'CA already exists') {
+            if (message === 'Agent already exists') {
                 setCheckFeedback({
                     type: 'warning',
-                    message: 'This CA is already added and has accepted the invitation.',
+                    message: 'This agent is already added and has accepted the invitation.',
                 });
                 return;
             }
 
-            if (message === 'CA already exists but not accepted yet') {
+            if (message === 'Agent already exists but not accepted yet') {
                 setCheckFeedback({
                     type: 'info',
-                    message: 'Invitation already sent. Waiting for the CA to accept.',
+                    message: 'Invitation already sent. Waiting for the agent to accept.',
                 });
                 return;
             }
@@ -295,7 +287,7 @@ const CAList = () => {
                 });
             }
         } catch (e) {
-            console.error('CA check-user:', e);
+            console.error('Agent check-user:', e);
             setCheckFeedback({
                 type: 'error',
                 message: e.response?.data?.message || e.message || 'Failed to verify email. Please try again.',
@@ -309,7 +301,7 @@ const CAList = () => {
         if (!checkedUser?.username) return;
         setInviting(true);
         try {
-            const result = await createCaInvitation(checkedUser.username);
+            const result = await createAgentInvitation(checkedUser.username);
             if (result?.success) {
                 const link = result.data?.invitation_link;
                 toast.success(result.message || 'Invitation sent successfully');
@@ -323,12 +315,12 @@ const CAList = () => {
                 }
                 setShowAddModal(false);
                 resetAddModal();
-                await loadCaList();
+                await loadAgentList();
             } else {
                 toast.error(result?.message || 'Failed to send invitation');
             }
         } catch (e) {
-            console.error('CA create:', e);
+            console.error('Agent create:', e);
             toast.error(e.response?.data?.message || e.message || 'Failed to send invitation');
         } finally {
             setInviting(false);
@@ -336,38 +328,38 @@ const CAList = () => {
     };
 
     const handleToggleStatus = (row) => {
-        if (!row?.username || !isCaAccepted(row)) return;
+        if (!row?.username || !isAgentAccepted(row)) return;
         const nextStatus = row.status ? 'deactive' : 'active';
         const label = nextStatus === 'active' ? 'activate' : 'deactivate';
         setActiveRowDropdown(null);
         showConfirm({
             variant: nextStatus === 'deactive' ? 'warning' : 'confirm',
-            title: `${nextStatus === 'active' ? 'Activate' : 'Deactivate'} CA`,
+            title: `${nextStatus === 'active' ? 'Activate' : 'Deactivate'} Agent`,
             message: `Are you sure you want to ${label} ${row.profile?.name || row.username}?`,
             confirmText: nextStatus === 'active' ? 'Activate' : 'Deactivate',
             cancelText: 'Cancel',
             onConfirm: async () => {
                 try {
-                    const result = await changeCaStatus(row.username, nextStatus);
+                    const result = await changeAgentStatus(row.username, nextStatus);
                     if (result?.success) {
-                        await loadCaList();
+                        await loadAgentList();
                         return {
                             variant: 'success',
                             title: 'Status Updated',
-                            message: result.message || 'CA status updated successfully.',
+                            message: result.message || 'Agent status updated successfully.',
                         };
                     }
                     return {
                         variant: 'error',
                         title: 'Update Failed',
-                        message: result?.message || 'Could not update CA status.',
+                        message: result?.message || 'Could not update agent status.',
                     };
                 } catch (e) {
-                    console.error('CA change-status:', e);
+                    console.error('Agent change-status:', e);
                     return {
                         variant: 'error',
                         title: 'Error',
-                        message: e.response?.data?.message || e.message || 'Failed to update CA status.',
+                        message: e.response?.data?.message || e.message || 'Failed to update agent status.',
                     };
                 }
             },
@@ -375,7 +367,7 @@ const CAList = () => {
     };
 
     const handleResendInvitation = (row) => {
-        if (!row?.map_id || isCaAccepted(row)) return;
+        if (!row?.map_id || isAgentAccepted(row)) return;
         setActiveRowDropdown(null);
         showConfirm({
             variant: 'confirm',
@@ -385,7 +377,7 @@ const CAList = () => {
             cancelText: 'Cancel',
             onConfirm: async () => {
                 try {
-                    const result = await resendCaInvitation(row.map_id);
+                    const result = await resendAgentInvitation(row.map_id);
                     if (result?.success) {
                         const link = result.data?.invitation_link;
                         if (link) {
@@ -395,7 +387,7 @@ const CAList = () => {
                                 /* clipboard optional */
                             }
                         }
-                        await loadCaList();
+                        await loadAgentList();
                         return {
                             variant: 'success',
                             title: 'Invitation Resent',
@@ -410,7 +402,7 @@ const CAList = () => {
                         message: result?.message || 'Could not resend invitation.',
                     };
                 } catch (e) {
-                    console.error('CA resend-invitation:', e);
+                    console.error('Agent resend-invitation:', e);
                     return {
                         variant: 'error',
                         title: 'Error',
@@ -422,36 +414,36 @@ const CAList = () => {
     };
 
     const handleDelete = (row) => {
-        if (!row?.map_id || isCaAccepted(row)) return;
+        if (!row?.map_id || isAgentAccepted(row)) return;
         setActiveRowDropdown(null);
         showConfirm({
             variant: 'danger',
-            title: 'Remove CA',
+            title: 'Remove Agent',
             message: `Remove ${row.profile?.name || row.username} from this branch? This action cannot be undone.`,
             confirmText: 'Remove',
             cancelText: 'Cancel',
             onConfirm: async () => {
                 try {
-                    const result = await deleteCa(row.map_id);
+                    const result = await deleteAgent(row.map_id);
                     if (result?.success) {
-                        await loadCaList();
+                        await loadAgentList();
                         return {
                             variant: 'success',
-                            title: 'CA Removed',
-                            message: result.message || 'CA deleted successfully.',
+                            title: 'Agent Removed',
+                            message: result.message || 'Agent deleted successfully.',
                         };
                     }
                     return {
                         variant: 'error',
                         title: 'Delete Failed',
-                        message: result?.message || 'Could not delete CA.',
+                        message: result?.message || 'Could not delete agent.',
                     };
                 } catch (e) {
-                    console.error('CA delete:', e);
+                    console.error('Agent delete:', e);
                     return {
                         variant: 'error',
                         title: 'Error',
-                        message: e.response?.data?.message || e.message || 'Failed to delete CA.',
+                        message: e.response?.data?.message || e.message || 'Failed to delete agent.',
                     };
                 }
             },
@@ -494,9 +486,9 @@ const CAList = () => {
             <div className={`pt-16 transition-all duration-300 ${isMinimized ? 'md:pl-20' : 'md:pl-[260px]'}`}>
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
                     <div className="mb-6">
-                        <h1 className="text-xl font-bold text-slate-900">Chartered Accountants</h1>
+                        <h1 className="text-xl font-bold text-slate-900">Branch Agents</h1>
                         <p className="text-sm text-slate-500 mt-1">
-                            Invite and manage CAs for this branch
+                            Invite and manage agents for this branch
                         </p>
                     </div>
 
@@ -512,7 +504,7 @@ const CAList = () => {
                             <div className="flex items-center gap-2 shrink-0">
                                 <button
                                     type="button"
-                                    onClick={loadCaList}
+                                    onClick={loadAgentList}
                                     disabled={loading}
                                     className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-slate-200 bg-white text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-60"
                                 >
@@ -528,7 +520,7 @@ const CAList = () => {
                                     className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-indigo-600 text-white text-sm font-semibold hover:bg-indigo-700"
                                 >
                                     <FiPlus className="w-4 h-4" />
-                                    Add CA
+                                    Add Agent
                                 </button>
                             </div>
                         </div>
@@ -540,11 +532,11 @@ const CAList = () => {
                         )}
 
                         <div className="overflow-x-auto">
-                            <table className="w-full min-w-[56rem] text-sm">
+                            <table className="w-full min-w-[52rem] text-sm">
                                 <thead className="bg-slate-50 border-b border-slate-200">
                                     <tr>
                                         <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase w-12">#</th>
-                                        <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase">CA</th>
+                                        <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase">Agent</th>
                                         <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase">Contact</th>
                                         <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase">Balance</th>
                                         <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase">Invitation</th>
@@ -556,9 +548,9 @@ const CAList = () => {
                                     {!loading && rowsForTable.length === 0 ? (
                                         <tr>
                                             <td colSpan="7" className="px-6 py-14 text-center">
-                                                <FiUser className="w-10 h-10 text-slate-300 mx-auto mb-3" />
-                                                <p className="font-medium text-slate-700">No CAs found</p>
-                                                <p className="text-sm text-slate-500 mt-1">Add a CA by email invitation</p>
+                                                <FiUsers className="w-10 h-10 text-slate-300 mx-auto mb-3" />
+                                                <p className="font-medium text-slate-700">No agents found</p>
+                                                <p className="text-sm text-slate-500 mt-1">Add an agent by email invitation</p>
                                             </td>
                                         </tr>
                                     ) : (
@@ -593,22 +585,13 @@ const CAList = () => {
                                                                 />
                                                             ) : (
                                                                 <div className="w-10 h-10 rounded-full bg-indigo-50 flex items-center justify-center">
-                                                                    <FiUser className="w-5 h-5 text-indigo-600" />
+                                                                    <FiUsers className="w-5 h-5 text-indigo-600" />
                                                                 </div>
                                                             )}
                                                             <div>
-                                                                {isCaAccepted(row) ? (
-                                                                    <Link
-                                                                        to={`/staff/office-assistance/ca-profile/${encodeURIComponent(row.username)}`}
-                                                                        className="font-semibold text-indigo-600 hover:text-indigo-800 no-underline"
-                                                                    >
-                                                                        {profile.name || row.username}
-                                                                    </Link>
-                                                                ) : (
-                                                                    <span className="font-semibold text-slate-800">
-                                                                        {profile.name || row.username}
-                                                                    </span>
-                                                                )}
+                                                                <span className="font-semibold text-slate-800">
+                                                                    {profile.name || row.username}
+                                                                </span>
                                                                 <p className="text-xs text-slate-500 mt-0.5">@{row.username}</p>
                                                             </div>
                                                         </div>
@@ -640,7 +623,7 @@ const CAList = () => {
                                                         </span>
                                                     </td>
                                                     <td className="px-4 py-4">
-                                                        {isCaAccepted(row) ? (
+                                                        {isAgentAccepted(row) ? (
                                                             <span
                                                                 className={`inline-flex px-2.5 py-1 rounded-full text-xs font-semibold ${
                                                                     row.status
@@ -658,7 +641,7 @@ const CAList = () => {
                                                         <div className="flex justify-center">
                                                             <button
                                                                 type="button"
-                                                                className="ca-list-dropdown p-1.5 text-slate-400 hover:text-slate-700 rounded hover:bg-slate-100"
+                                                                className="agent-list-dropdown p-1.5 text-slate-400 hover:text-slate-700 rounded hover:bg-slate-100"
                                                                 onClick={(e) => toggleRowDropdown(row.map_id, e)}
                                                             >
                                                                 <FiMoreVertical className="w-4 h-4" />
@@ -673,7 +656,7 @@ const CAList = () => {
                             </table>
                         </div>
 
-                        {(loading || caRows.length > 0) && (
+                        {(loading || agentRows.length > 0) && (
                             <TablePagination
                                 showRange
                                 showRows
@@ -703,8 +686,8 @@ const CAList = () => {
                         initial={{ opacity: 0, scale: 0.95, y: dropdownPos.openUpward ? 6 : -6 }}
                         animate={{ opacity: 1, scale: 1, y: 0 }}
                         transition={{ duration: 0.12 }}
-                        data-ca-list-actions-menu
-                        className="ca-list-dropdown fixed bg-white rounded-xl shadow-2xl border border-slate-200 overflow-hidden z-[9999]"
+                        data-agent-list-actions-menu
+                        className="agent-list-dropdown fixed bg-white rounded-xl shadow-2xl border border-slate-200 overflow-hidden z-[9999]"
                         style={{
                             top: dropdownPos.top,
                             bottom: dropdownPos.bottom,
@@ -713,39 +696,24 @@ const CAList = () => {
                         }}
                     >
                         <div className="py-1">
-                            {isCaAccepted(activeItem) ? (
-                                <>
-                                    <button
-                                        type="button"
-                                        className="flex items-center w-full px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50"
-                                        onClick={() => {
-                                            setActiveRowDropdown(null);
-                                            navigate(
-                                                `/staff/office-assistance/ca-profile/${encodeURIComponent(activeItem.username)}`
-                                            );
-                                        }}
-                                    >
-                                        <FiUser className="w-4 h-4 mr-3 text-indigo-500" />
-                                        View Profile
-                                    </button>
-                                    <button
-                                        type="button"
-                                        className="flex items-center w-full px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50"
-                                        onClick={() => handleToggleStatus(activeItem)}
-                                    >
-                                        {activeItem.status ? (
-                                            <>
-                                                <FiUserX className="w-4 h-4 mr-3 text-amber-500" />
-                                                Deactivate
-                                            </>
-                                        ) : (
-                                            <>
-                                                <FiUserCheck className="w-4 h-4 mr-3 text-emerald-500" />
-                                                Activate
-                                            </>
-                                        )}
-                                    </button>
-                                </>
+                            {isAgentAccepted(activeItem) ? (
+                                <button
+                                    type="button"
+                                    className="flex items-center w-full px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50"
+                                    onClick={() => handleToggleStatus(activeItem)}
+                                >
+                                    {activeItem.status ? (
+                                        <>
+                                            <FiUserX className="w-4 h-4 mr-3 text-amber-500" />
+                                            Deactivate
+                                        </>
+                                    ) : (
+                                        <>
+                                            <FiUserCheck className="w-4 h-4 mr-3 text-emerald-500" />
+                                            Activate
+                                        </>
+                                    )}
+                                </button>
                             ) : (
                                 <>
                                     <button
@@ -797,7 +765,7 @@ const CAList = () => {
                             <div className="shrink-0 flex items-center justify-between gap-2 px-3.5 py-2.5 border-b border-indigo-500/20 bg-indigo-600 text-white">
                                 <div className="flex items-center gap-2 min-w-0">
                                     <FiUserPlus className="w-4 h-4 shrink-0 opacity-90" />
-                                    <h3 className="text-sm font-semibold truncate">Invite CA</h3>
+                                    <h3 className="text-sm font-semibold truncate">Invite Agent</h3>
                                 </div>
                                 <button
                                     type="button"
@@ -818,7 +786,7 @@ const CAList = () => {
                                 style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
                             >
                                 <p className="text-[11px] leading-relaxed text-slate-500">
-                                    Enter the user&apos;s platform email to verify, then send the branch invitation.
+                                    Enter the user&apos;s platform email to verify, then send the branch agent invitation.
                                 </p>
 
                                 <div className="flex items-center gap-1 text-[10px] font-medium uppercase tracking-wide text-slate-400">
@@ -848,7 +816,7 @@ const CAList = () => {
                                                         handleVerifyEmail();
                                                     }
                                                 }}
-                                                placeholder="ca.user@example.com"
+                                                placeholder="agent.user@example.com"
                                                 autoFocus
                                                 className={`w-full pl-8 pr-2.5 py-1.5 text-sm bg-white border rounded-md outline-none ${
                                                     checkFeedback.type === 'error'
@@ -975,4 +943,4 @@ const CAList = () => {
     );
 };
 
-export default CAList;
+export default AgentList;

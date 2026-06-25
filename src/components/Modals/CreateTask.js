@@ -34,6 +34,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { DatePickerField } from '../PortalDatePicker';
 import { toast } from 'react-hot-toast';
 import { checkPermissionSync } from '../../utils/permission-helper';
+import { fetchCaList } from '../../services/caService';
+import { fetchAgentList } from '../../services/agentService';
 
 /**
  * Multi-step create-task wizard. Use as a modal anywhere, or pass embedded for full-page layout (with app shell).
@@ -204,13 +206,13 @@ const CreateTask = ({
         }).catch(err => console.error('Failed to fetch years:', err));
     }, []);
 
-    // CA search (min 3 chars) – {{ENDPOINT}}/ca/search?search=...
+    // CA search – GET /ca/list (branch CAs)
     const [caSearchQuery, setCaSearchQuery] = useState('');
     const [caSearchResults, setCaSearchResults] = useState([]);
     const [caSearchLoading, setCaSearchLoading] = useState(false);
     const [selectedCaDisplay, setSelectedCaDisplay] = useState(null); // { username, name } for display when formData.ca is set
 
-    // Agent search (min 3 chars) – {{ENDPOINT}}/agent/search?search=...
+    // Agent search – GET /agent/list (branch agents)
     const [agentSearchQuery, setAgentSearchQuery] = useState('');
     const [agentSearchResults, setAgentSearchResults] = useState([]);
     const [agentSearchLoading, setAgentSearchLoading] = useState(false);
@@ -855,32 +857,41 @@ const CreateTask = ({
         };
     }, [firmSearchQuery]);
 
-    // CA search: debounced, min 3 chars – GET /ca/search?search=...
+    const mapBranchMemberRow = (row) => ({
+        username: row.username,
+        name: row.profile?.name || row.username,
+        email: row.profile?.email || '',
+        mobile: row.profile?.mobile || '',
+    });
+
+    const isAssignableBranchMember = (row) => Boolean(row?.is_accepted && row?.status);
+
+    // CA search: debounced – fetchCaList
     const caSearchAbortRef = useRef(null);
-    const caSearchTimeoutRef = useRef(null);
     useEffect(() => {
         const term = (caSearchQuery || '').trim();
-        if (term.length < 3) {
+        if (!term) {
             setCaSearchResults([]);
             setCaSearchLoading(false);
             return;
         }
-        const t = setTimeout(() => {
-            setCaSearchLoading(true);
+        const t = setTimeout(async () => {
             caSearchAbortRef.current?.abort();
             const controller = new AbortController();
             caSearchAbortRef.current = controller;
-            const url = `${API_BASE_URL.replace(/\/$/, '')}/ca/search?search=${encodeURIComponent(term)}`;
-            fetch(url, { headers: getHeaders(), signal: controller.signal })
-                .then(res => res.json())
-                .then((data) => {
-                    const list = Array.isArray(data?.data) ? data.data : [];
-                    setCaSearchResults(list);
-                })
-                .catch((err) => {
-                    if (err?.name !== 'AbortError') setCaSearchResults([]);
-                })
-                .finally(() => setCaSearchLoading(false));
+            setCaSearchLoading(true);
+            try {
+                const result = await fetchCaList({ search: term, page: 1, limit: 20 });
+                if (controller.signal.aborted) return;
+                const rows = Array.isArray(result?.data) ? result.data : [];
+                setCaSearchResults(
+                    rows.filter(isAssignableBranchMember).map(mapBranchMemberRow)
+                );
+            } catch (err) {
+                if (err?.name !== 'AbortError') setCaSearchResults([]);
+            } finally {
+                if (!controller.signal.aborted) setCaSearchLoading(false);
+            }
         }, 400);
         return () => {
             clearTimeout(t);
@@ -888,31 +899,32 @@ const CreateTask = ({
         };
     }, [caSearchQuery]);
 
-    // Agent search: debounced, min 3 chars – GET /agent/search?search=...
+    // Agent search: debounced – fetchAgentList
     const agentSearchAbortRef = useRef(null);
     useEffect(() => {
         const term = (agentSearchQuery || '').trim();
-        if (term.length < 3) {
+        if (!term) {
             setAgentSearchResults([]);
             setAgentSearchLoading(false);
             return;
         }
-        const t = setTimeout(() => {
-            setAgentSearchLoading(true);
+        const t = setTimeout(async () => {
             agentSearchAbortRef.current?.abort();
             const controller = new AbortController();
             agentSearchAbortRef.current = controller;
-            const url = `${API_BASE_URL.replace(/\/$/, '')}/agent/search?search=${encodeURIComponent(term)}`;
-            fetch(url, { headers: getHeaders(), signal: controller.signal })
-                .then(res => res.json())
-                .then((data) => {
-                    const list = Array.isArray(data?.data) ? data.data : [];
-                    setAgentSearchResults(list);
-                })
-                .catch((err) => {
-                    if (err?.name !== 'AbortError') setAgentSearchResults([]);
-                })
-                .finally(() => setAgentSearchLoading(false));
+            setAgentSearchLoading(true);
+            try {
+                const result = await fetchAgentList({ search: term, page: 1, limit: 20 });
+                if (controller.signal.aborted) return;
+                const rows = Array.isArray(result?.data) ? result.data : [];
+                setAgentSearchResults(
+                    rows.filter(isAssignableBranchMember).map(mapBranchMemberRow)
+                );
+            } catch (err) {
+                if (err?.name !== 'AbortError') setAgentSearchResults([]);
+            } finally {
+                if (!controller.signal.aborted) setAgentSearchLoading(false);
+            }
         }, 400);
         return () => {
             clearTimeout(t);
@@ -1700,10 +1712,10 @@ const CreateTask = ({
                                                                 type="text"
                                                                 value={caSearchQuery}
                                                                 onChange={(e) => setCaSearchQuery(e.target.value)}
-                                                                placeholder="Search CA (min 3 characters)..."
+                                                                placeholder="Search CA by name, email..."
                                                                 className="flex-1 min-w-0 pl-9 pr-3 py-2.5 text-sm border-0 bg-transparent focus:ring-0 focus:outline-none placeholder-gray-400"
                                                             />
-                                                            {caSearchQuery.trim().length >= 3 && (
+                                                            {caSearchQuery.trim().length >= 1 && (
                                                                 <div className="absolute z-20 left-0 right-0 top-full mt-1 bg-white border border-gray-200 rounded-xl shadow-lg max-h-56 overflow-y-auto task-scrollbar-hide">
                                                                     {caSearchLoading && <div className="p-3 text-sm text-gray-500">Searching...</div>}
                                                                     {!caSearchLoading && caSearchResults.length === 0 && <div className="p-3 text-sm text-gray-500">No results</div>}
@@ -1750,10 +1762,10 @@ const CreateTask = ({
                                                                 type="text"
                                                                 value={agentSearchQuery}
                                                                 onChange={(e) => setAgentSearchQuery(e.target.value)}
-                                                                placeholder="Search Agent (min 3 characters)..."
+                                                                placeholder="Search agent by name, email..."
                                                                 className="flex-1 min-w-0 pl-9 pr-3 py-2.5 text-sm border-0 bg-transparent focus:ring-0 focus:outline-none placeholder-gray-400"
                                                             />
-                                                            {agentSearchQuery.trim().length >= 3 && (
+                                                            {agentSearchQuery.trim().length >= 1 && (
                                                                 <div className="absolute z-20 left-0 right-0 top-full mt-1 bg-white border border-gray-200 rounded-xl shadow-lg max-h-56 overflow-y-auto task-scrollbar-hide">
                                                                     {agentSearchLoading && <div className="p-3 text-sm text-gray-500">Searching...</div>}
                                                                     {!agentSearchLoading && agentSearchResults.length === 0 && <div className="p-3 text-sm text-gray-500">No results</div>}

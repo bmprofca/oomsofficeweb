@@ -227,7 +227,15 @@ const Login = () => {
         fetchWhatsappChannel().catch(() => { });
         const welcomeName = result.profile?.name || result.username || 'User';
         toast.success(`Welcome ${welcomeName}! Login successful!`);
-        setTimeout(() => { window.location.href = '/'; }, 1500);
+        setTimeout(() => {
+            const redirect = sessionStorage.getItem('post_login_redirect');
+            if (redirect) {
+                sessionStorage.removeItem('post_login_redirect');
+                window.location.href = redirect;
+            } else {
+                window.location.href = '/';
+            }
+        }, 1500);
     };
 
     const handleBranchSelect = (branchId) => {

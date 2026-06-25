@@ -15,6 +15,7 @@ import Dashboard from './pages/dashboard';
 import TaskCreate from './pages/task-create';
 // import TaskEdit from './pages/task-edit';
 import Register from './pages/register';
+import InvitationRequest from './pages/public/InvitationRequest';
 import TaskDisplay from './pages/task-display';
 import CreateClient from './pages/client-create';
 import ViewClients from './pages/client-view';
@@ -47,6 +48,7 @@ import Groups from './pages/office-assistance/groups';
 import GroupFirms from './pages/office-assistance/group-firms';
 import ViewInactiveClients from './pages/office-assistance/inactive-client';
 import CAList from './pages/office-assistance/ca-list';
+import CAProfile from './pages/office-assistance/ca-profile';
 import AutoReminder from './pages/office-assistance/auto-reminder';
 import Broadcast from './pages/broadcast';
 import EmailBroadcastReport from './pages/broadcast/email/EmailBordcastReport';
@@ -74,12 +76,12 @@ import StaffList from './pages/settings/staff-list';
 import PermissionList from './pages/settings/permission';
 import InvoiceSettings from './pages/settings/invoice-setting';
 import AppSettings from './pages/settings/app-setting';
-import EmailConfig from './pages/settings/email-setting';
 import DefaultDaterange from './pages/settings/daterange-setting';
 import GoogleAuthentication from './pages/settings/google-auth';
 import GatewayConfig from './pages/settings/gateway-setting';
 import ViewBranch from './pages/settings/branch';
 import ViewAdmins from './pages/settings/admin';
+import AgentList from './pages/settings/agent-list';
 import Subscription from './pages/settings/subscription';
 import WebsiteSettings from './pages/settings/website';
 import WidgetSettings from './pages/settings/widget';
@@ -149,6 +151,8 @@ root.render(
             <Register />
           </PublicRoute>
         } />
+
+        <Route path="/invitation/:token" element={<InvitationRequest />} />
 
         {/* Protected Routes */}
         <Route path="/" element={
@@ -431,6 +435,12 @@ root.render(
           </ProtectedRoute>
         } />
 
+        <Route path="/staff/office-assistance/ca-profile/:username" element={
+          <ProtectedRoute>
+            <CAProfile />
+          </ProtectedRoute>
+        } />
+
         <Route path="/staff/office-assistance/auto-reminder" element={
           <ProtectedRoute>
             <AutoReminder />
@@ -600,12 +610,6 @@ root.render(
           </ProtectedRoute>
         } />
 
-        <Route path="/settings/email-setting" element={
-          <ProtectedRoute>
-            <EmailConfig />
-          </ProtectedRoute>
-        } />
-
         <Route path="/settings/daterange-setting" element={
           <ProtectedRoute>
             <DefaultDaterange />
@@ -633,6 +637,12 @@ root.render(
         <Route path="/settings/admin" element={
           <ProtectedRoute>
             <ViewAdmins />
+          </ProtectedRoute>
+        } />
+
+        <Route path="/settings/agent-list" element={
+          <ProtectedRoute>
+            <AgentList />
           </ProtectedRoute>
         } />
 
