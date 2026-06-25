@@ -50,6 +50,7 @@ import ViewInactiveClients from './pages/office-assistance/inactive-client';
 import CAList from './pages/office-assistance/ca-list';
 import CAProfile from './pages/office-assistance/ca-profile';
 import AutoReminder from './pages/office-assistance/auto-reminder';
+import ServiceRequestList from './pages/office-assistance/service-request-list';
 import Broadcast from './pages/broadcast';
 import EmailBroadcastReport from './pages/broadcast/email/EmailBordcastReport';
 import TextMessageOoms from './pages/broadcast/message/ooms';
@@ -444,6 +445,12 @@ root.render(
         <Route path="/staff/office-assistance/auto-reminder" element={
           <ProtectedRoute>
             <AutoReminder />
+          </ProtectedRoute>
+        } />
+
+        <Route path="/staff/office-assistance/service-requests" element={
+          <ProtectedRoute>
+            <ServiceRequestList />
           </ProtectedRoute>
         } />
 
