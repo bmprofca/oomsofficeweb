@@ -15,6 +15,7 @@ import {
 import { FaWhatsapp } from 'react-icons/fa6';
 import { MdEmail } from 'react-icons/md';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { toast } from 'react-hot-toast';
 import { Header, Sidebar } from '../../components/header';
@@ -569,6 +570,7 @@ const getPeriodSchedule = (assignmentSchedules, header, frequency) => {
 
 const ComplianceServices = () => {
     const { check } = useUserPermissions();
+    const navigate = useNavigate();
     const currentUsername = (localStorage.getItem('user_username') || '').toLowerCase().trim();
     const isBranchOwner = localStorage.getItem('branch_owned') === 'true';
     const isAdmin = currentUsername === 'admin';
@@ -1948,8 +1950,7 @@ const ComplianceServices = () => {
                                                     filteredAssignments.map((assign, idx) => (
                                                         <React.Fragment key={`${assign.assignment_id}-${idx}`}>
                                                             <tr
-                                                                onClick={() => handleSelectAssignment(assign.assignment_id)}
-                                                                className={`hover:bg-slate-50/50 cursor-pointer transition-colors ${selectedAssignmentId === assign.assignment_id ? 'bg-indigo-50/20' : ''
+                                                                className={`hover:bg-slate-50/50 transition-colors ${selectedAssignmentId === assign.assignment_id ? 'bg-indigo-50/20' : ''
                                                                     }`}
                                                             >
                                                                 <td className="px-4 py-3 text-center font-mono text-xs text-slate-400">
@@ -2052,6 +2053,18 @@ const ComplianceServices = () => {
                                                                                                 type="button"
                                                                                                 onClick={(e) => {
                                                                                                     e.stopPropagation();
+                                                                                                    navigate(`/office-assistance/compliance/assignment/${assign.assignment_id}`);
+                                                                                                    setActiveDropdownId(null);
+                                                                                                }}
+                                                                                                className="flex items-center w-full px-3 py-2 text-xs text-slate-700 hover:bg-indigo-55 transition-colors font-medium border-b border-slate-100"
+                                                                                            >
+                                                                                                <FiEye className="w-3.5 h-3.5 text-slate-400 mr-2" />
+                                                                                                View Details
+                                                                                            </button>
+                                                                                            <button
+                                                                                                type="button"
+                                                                                                onClick={(e) => {
+                                                                                                    e.stopPropagation();
                                                                                                     openEditModal(assign);
                                                                                                     setActiveDropdownId(null);
                                                                                                 }}
@@ -2126,207 +2139,12 @@ const ComplianceServices = () => {
                                                                                         </div>
                                                                                     </motion.div>
                                                                                 )}
-                                                                            </AnimatePresence>
-                                                                        </div>
-                                                                        <button
-                                                                            type="button"
-                                                                            onClick={(e) => { e.stopPropagation(); handleSelectAssignment(assign.assignment_id); }}
-                                                                            className="text-slate-400 hover:text-indigo-650 transition-colors p-1"
-                                                                        >
-                                                                            {selectedAssignmentId === assign.assignment_id ? (
-                                                                                <FiChevronDown className="w-4 h-4" />
-                                                                            ) : (
-                                                                                <FiChevronRight className="w-4 h-4" />
-                                                                            )}
-                                                                        </button>
+                                                                        </AnimatePresence>
                                                                     </div>
-                                                                </td>
-                                                            </tr>
-
-                                                            {/* Expanded Schedule Details */}
-                                                            {selectedAssignmentId === assign.assignment_id && (
-                                                                <tr>
-                                                                    <td colSpan={8} className="bg-slate-50/40 p-4 border-t border-b border-indigo-100/50">
-                                                                        <div className="mb-3 flex justify-between items-center">
-                                                                            <h6 className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">
-                                                                                Schedule Details for {assign.financial_year}
-                                                                            </h6>
-                                                                            {(() => {
-                                                                                const assignedStaffs = getAssignedStaffList(assign);
-                                                                                if (assignedStaffs.length === 0) return null;
-                                                                                return (
-                                                                                    <div className="flex flex-wrap gap-1 items-center">
-                                                                                        <span className="text-[10px] text-slate-400 uppercase tracking-wider mr-1">Staff:</span>
-                                                                                        {assignedStaffs.map((emp, idx) => (
-                                                                                            <button
-                                                                                                type="button"
-                                                                                                key={emp.username || idx}
-                                                                                                onClick={() => setSelectedStaffDetails(emp)}
-                                                                                                className="text-[10px] text-slate-655 bg-white border border-slate-200 rounded-md px-2 py-0.5 hover:border-indigo-300 hover:text-indigo-650 transition-colors font-medium shadow-2xs cursor-pointer animate-pulse"
-                                                                                            >
-                                                                                                {emp.name}
-                                                                                            </button>
-                                                                                        ))}
-                                                                                    </div>
-                                                                                );
-                                                                            })()}
-                                                                        </div>
-
-                                                                        {schedulesLoading ? (
-                                                                            <div className="flex items-center gap-2 text-xs text-slate-400 py-4">
-                                                                                <span className="w-3.5 h-3.5 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin"></span>
-                                                                                Loading periods…
-                                                                            </div>
-                                                                        ) : (
-                                                                            <div className="flex flex-col md:flex-row gap-6 items-start">
-                                                                                <div className="flex-1 w-full">
-                                                                                    {/* Monthly 6-month window label */}
-                                                                                    <div className="flex items-center justify-between mb-3">
-                                                                                        <span className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider">
-                                                                                            Showing periods: {(() => {
-                                                                                                const sorted = [...schedules].sort((a, b) => {
-                                                                                                    if (a.financial_year !== b.financial_year) {
-                                                                                                        return a.financial_year.localeCompare(b.financial_year);
-                                                                                                    }
-                                                                                                    const freq = assign.frequency?.toLowerCase();
-                                                                                                    if (freq === 'monthly') {
-                                                                                                        const MONTH_ORDER = ['April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December', 'January', 'February', 'March'];
-                                                                                                        return MONTH_ORDER.indexOf(a.period_name) - MONTH_ORDER.indexOf(b.period_name);
-                                                                                                    }
-                                                                                                    if (freq === 'quarterly') {
-                                                                                                        const getQIdx = (name) => {
-                                                                                                            if (isQ1(name)) return 0;
-                                                                                                            if (isQ2(name)) return 1;
-                                                                                                            if (isQ3(name)) return 2;
-                                                                                                            if (isQ4(name)) return 3;
-                                                                                                            return -1;
-                                                                                                        };
-                                                                                                        return getQIdx(a.period_name) - getQIdx(b.period_name);
-                                                                                                    }
-                                                                                                    if (freq === 'halfyearly') {
-                                                                                                        const getHIdx = (name) => {
-                                                                                                            if (isH1(name)) return 0;
-                                                                                                            if (isH2(name)) return 1;
-                                                                                                            return -1;
-                                                                                                        };
-                                                                                                        return getHIdx(a.period_name) - getHIdx(b.period_name);
-                                                                                                    }
-                                                                                                    return 0;
-                                                                                                });
-                                                                                                return sorted.map(s => `${s.period_name} (${s.financial_year})`).join(', ');
-                                                                                            })()}
-                                                                                        </span>
-                                                                                    </div>
-                                                                                    <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 gap-3">
-                                                                                        {(() => {
-                                                                                            const filteredSchedules = [...schedules].sort((a, b) => {
-                                                                                                if (a.financial_year !== b.financial_year) {
-                                                                                                    return a.financial_year.localeCompare(b.financial_year);
-                                                                                                }
-                                                                                                const freq = assign.frequency?.toLowerCase();
-                                                                                                if (freq === 'monthly') {
-                                                                                                    const MONTH_ORDER = ['April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December', 'January', 'February', 'March'];
-                                                                                                    return MONTH_ORDER.indexOf(a.period_name) - MONTH_ORDER.indexOf(b.period_name);
-                                                                                                }
-                                                                                                if (freq === 'quarterly') {
-                                                                                                    const getQIdx = (name) => {
-                                                                                                        if (isQ1(name)) return 0;
-                                                                                                        if (isQ2(name)) return 1;
-                                                                                                        if (isQ3(name)) return 2;
-                                                                                                        if (isQ4(name)) return 3;
-                                                                                                        return -1;
-                                                                                                    };
-                                                                                                    return getQIdx(a.period_name) - getQIdx(b.period_name);
-                                                                                                }
-                                                                                                if (freq === 'halfyearly') {
-                                                                                                    const getHIdx = (name) => {
-                                                                                                        if (isH1(name)) return 0;
-                                                                                                        if (isH2(name)) return 1;
-                                                                                                        return -1;
-                                                                                                    };
-                                                                                                    return getHIdx(a.period_name) - getHIdx(b.period_name);
-                                                                                                }
-                                                                                                return 0;
-                                                                                            });
-
-                                                                                            return filteredSchedules.map((period) => {
-                                                                                                const assignedStaffs = getAssignedStaffList(assign);
-                                                                                                const assignedStaffUsernames = assignedStaffs.map(emp => (emp.username || '').toLowerCase().trim());
-                                                                                                const isUpdatePermitted = isAdmin || isBranchOwner || !currentUsername || assignedStaffUsernames.length === 0 || assignedStaffUsernames.includes(currentUsername);
-                                                                                                const isComplete = period.status === 'Complete' || period.status === 'Sale';
-
-                                                                                                return (
-                                                                                                    <div
-                                                                                                        key={period.schedule_id}
-                                                                                                        onClick={() => isUpdatePermitted && !isComplete && isPeriodDueDateActive(period) && openStatusModal(period, assign)}
-                                                                                                        className={`border rounded-xl p-3 shadow-xs transition-all flex flex-col justify-between min-h-[90px] group ${isUpdatePermitted && !isComplete && isPeriodDueDateActive(period)
-                                                                                                            ? "bg-white border-slate-200 hover:border-indigo-300 hover:shadow-sm cursor-pointer"
-                                                                                                            : isComplete
-                                                                                                                ? "bg-emerald-50/40 border-emerald-200 cursor-default"
-                                                                                                                : "bg-slate-50/50 border-slate-200/60 opacity-60 cursor-not-allowed"
-                                                                                                            }`}
-                                                                                                        title={
-                                                                                                            isComplete
-                                                                                                                ? `Completed — record locked`
-                                                                                                                : !isPeriodDueDateActive(period)
-                                                                                                                    ? `Only the currently running due date (${getPeriodDueDate(period)}) can be updated`
-                                                                                                                    : isUpdatePermitted
-                                                                                                                        ? undefined
-                                                                                                                        : `Restricted (Only assigned staff: ${assignedStaffs.map(e => e.name || e.username).join(', ')})`
-                                                                                                        }
-                                                                                                    >
-                                                                                                        <div className="flex items-start justify-between gap-1.5">
-                                                                                                            <span className={`text-xs font-semibold leading-tight truncate ${isUpdatePermitted ? "text-slate-700 group-hover:text-indigo-600" : "text-slate-400"
-                                                                                                                }`}>
-                                                                                                                {period.period_name}
-                                                                                                            </span>
-                                                                                                            <FiInfo className={`w-3 h-3 shrink-0 ${isUpdatePermitted ? "text-slate-350 group-hover:text-indigo-400" : "text-slate-200"
-                                                                                                                }`} />
-                                                                                                        </div>
-                                                                                                        <div className="mt-2.5 space-y-1.5">
-                                                                                                            <span className={`text-[11px] font-bold block ${isUpdatePermitted ? "text-slate-808" : "text-slate-400"
-                                                                                                                }`}>
-                                                                                                                {check('recurring_task_fees_view') ? `₹${formatCurrency(period.amount)}` : <span className="blur-[3px] select-none">₹9,999.00</span>}
-                                                                                                            </span>
-                                                                                                            <span className={`inline-flex px-1.5 py-0.5 rounded text-[9px] font-bold border uppercase tracking-wider ${isUpdatePermitted
-                                                                                                                ? (STATUS_BADGES[period.status] || 'bg-slate-50')
-                                                                                                                : 'bg-slate-100/70 border-slate-200/50 text-slate-400'
-                                                                                                                }`}>
-                                                                                                                {period.status}
-                                                                                                            </span>
-                                                                                                            {(() => {
-                                                                                                                const dueInfo = getPeriodDueDateStatus(period);
-                                                                                                                return (
-                                                                                                                    <div className={`text-[11px] font-semibold mt-1 ${dueInfo.color}`}>
-                                                                                                                        {dueInfo.text}
-                                                                                                                    </div>
-                                                                                                                );
-                                                                                                            })()}
-                                                                                                            {/* Share Invoice button for Complete periods */}
-                                                                                                            {isComplete && (
-                                                                                                                <button
-                                                                                                                    type="button"
-                                                                                                                    onClick={(e) => { e.stopPropagation(); setShareModal({ open: true, period, assign }); setSharePhone(''); setShareEmail(''); }}
-                                                                                                                    className="mt-1.5 w-full flex items-center justify-center gap-1 py-1 rounded-lg text-[9px] font-bold uppercase tracking-wider bg-emerald-600 text-white hover:bg-emerald-700 transition-colors"
-                                                                                                                >
-                                                                                                                    <FiShare2 className="w-2.5 h-2.5" />
-                                                                                                                    Share Invoice
-                                                                                                                </button>
-                                                                                                            )}
-                                                                                                        </div>
-                                                                                                    </div>
-                                                                                                );
-                                                                                            });
-                                                                                        })()}
-                                                                                    </div>
-                                                                                </div>
-                                                                                <ClientFilingCredentials assignment={assign} />
-                                                                            </div>
-                                                                        )}
-                                                                    </td>
-                                                                </tr>
-                                                            )}
-                                                        </React.Fragment>
+                                                                </div>
+                                                            </td>
+                                                        </tr>
+                                                    </React.Fragment>
                                                     ))
                                                 )}
                                             </tbody>

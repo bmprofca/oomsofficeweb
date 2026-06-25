@@ -10,6 +10,7 @@ import {
     FiCreditCard,
     FiGitBranch,
     FiUserCheck,
+    FiDatabase,
 } from 'react-icons/fi';
 import { useNavigate } from 'react-router-dom';
 import { Header, Sidebar } from '../components/header';
@@ -78,6 +79,15 @@ const Settings = () => {
             link: "/settings/app-setting",
             color: "bg-orange-100",
             show: userData.isHeadBranch,
+            permission: "setting_view_edit"
+        },
+
+        {
+            title: "Backup & Export",
+            description: "Generate and download database backups",
+            icon: <FiDatabase className="w-5 h-5 text-teal-600" />,
+            link: "/settings/backup",
+            color: "bg-teal-100",
             permission: "setting_view_edit"
         }
     ];

@@ -43,6 +43,7 @@ import PasswordGroups from './pages/office-assistance/password-group';
 import ImportantLinks from './pages/office-assistance/important-link';
 import Services from './pages/office-assistance/services';
 import ComplianceServices from './pages/office-assistance/compliance';
+import ComplianceAssignmentDetails from './pages/office-assistance/ComplianceAssignmentDetails';
 import RecurringGroups from './pages/office-assistance/recurring-group';
 import Groups from './pages/office-assistance/groups';
 import GroupFirms from './pages/office-assistance/group-firms';
@@ -86,6 +87,7 @@ import AgentList from './pages/settings/agent-list';
 import Subscription from './pages/settings/subscription';
 import WebsiteSettings from './pages/settings/website';
 import WidgetSettings from './pages/settings/widget';
+import Backup from './pages/settings/backup';
 import LedgerGroup from './finance/ledger-group';
 import ExpenseDetails from './pages/expense-details';
 import DiscountVoucherDetails from './pages/discount';
@@ -206,6 +208,12 @@ root.render(
         <Route path="/recurring-task/detailed" element={
           <ProtectedRoute>
             <RecurringTaskDetailedPage />
+          </ProtectedRoute>
+        } />
+
+        <Route path="/office-assistance/compliance/assignment/:assignment_id" element={
+          <ProtectedRoute>
+            <ComplianceAssignmentDetails />
           </ProtectedRoute>
         } />
 
@@ -614,6 +622,12 @@ root.render(
         <Route path="/settings/app-setting" element={
           <ProtectedRoute>
             <AppSettings />
+          </ProtectedRoute>
+        } />
+
+        <Route path="/settings/backup" element={
+          <ProtectedRoute>
+            <Backup />
           </ProtectedRoute>
         } />
 

@@ -1670,8 +1670,7 @@ const ComplianceTab = ({ clientUsername }) => {
                         filteredActiveAssignments.map((assign, idx) => (
                             <React.Fragment key={`${assign.assignment_id}-${idx}`}>
                                 <tr
-                                    onClick={() => handleSelectAssignment(assign.assignment_id)}
-                                    className={`hover:bg-slate-50/50 cursor-pointer transition-colors ${selectedAssignmentId === assign.assignment_id ? 'bg-indigo-50/10' : ''}`}
+                                    className={`hover:bg-slate-50/50 transition-colors ${selectedAssignmentId === assign.assignment_id ? 'bg-indigo-50/10' : ''}`}
                                 >
                                     <td className="px-4 py-3 text-center font-mono text-xs text-slate-400">
                                         {idx + 1}
@@ -1779,6 +1778,27 @@ const ComplianceTab = ({ clientUsername }) => {
                                                             className="absolute right-0 mt-1 w-40 bg-white rounded-xl shadow-xl border border-slate-200 z-55 overflow-hidden text-left"
                                                         >
                                                             <div className="py-1">
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={(e) => {
+                                                                        e.stopPropagation();
+                                                                        handleSelectAssignment(assign.assignment_id);
+                                                                        setActiveDropdownId(null);
+                                                                    }}
+                                                                    className="flex items-center w-full px-3 py-2 text-xs text-slate-700 hover:bg-indigo-55 transition-colors font-medium border-b border-slate-100"
+                                                                >
+                                                                    {selectedAssignmentId === assign.assignment_id ? (
+                                                                        <>
+                                                                            <FiEyeOff className="w-3.5 h-3.5 text-slate-400 mr-2" />
+                                                                            Hide Details
+                                                                        </>
+                                                                    ) : (
+                                                                        <>
+                                                                            <FiEye className="w-3.5 h-3.5 text-slate-400 mr-2" />
+                                                                            View Details
+                                                                        </>
+                                                                    )}
+                                                                </button>
                                                                 {assign.status === 'Sale' && assign.invoice_no ? (
                                                                     <a
                                                                         href="/billing"
@@ -1875,11 +1895,6 @@ const ComplianceTab = ({ clientUsername }) => {
                                                     )}
                                                 </AnimatePresence>
                                             </div>
-                                            {selectedAssignmentId === assign.assignment_id ? (
-                                                <FiChevronDown className="w-4 h-4 text-slate-400" />
-                                            ) : (
-                                                <FiChevronRight className="w-4 h-4 text-slate-400" />
-                                            )}
                                         </div>
                                     </td>
                                 </tr>
