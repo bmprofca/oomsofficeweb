@@ -12,6 +12,7 @@ import getHeaders from '../utils/get-headers';
 import API_BASE_URL from '../utils/api-controller';
 import { useWhatsappChannel } from '../pages/broadcast/whatsapp/useWhatsappChannel';
 import { useUserPermissions } from '../utils/permission-helper';
+import { useTaskCreate } from '../context/TaskCreateProvider';
 import { toast } from 'react-hot-toast';
 
 // ==========================================
@@ -232,6 +233,7 @@ const isSubmenuItemActive = (submenuPath, currentPath) => {
 // ==========================================
 const NavItem = ({ item, isMobile, isMinimized, isHovered, currentPath, openSubmenus, toggleSubmenu, setHoveredMenu, hoveredMenu, setMobileMenuOpen, hasProjects, unreadCount, pendingBillingCount, checkPermission }) => {
   const navigate = useNavigate();
+  const { openTaskCreate } = useTaskCreate();
   const isActive = isItemActive(item, currentPath);
   const isLocked = item.permission ? !checkPermission(item.permission) : false;
   const isDisabled = (requiresProject(item) && !hasProjects) || isLocked;
@@ -241,7 +243,19 @@ const NavItem = ({ item, isMobile, isMinimized, isHovered, currentPath, openSubm
   const showUnreadBadge = item.key === 'live-chat' && unreadCount > 0;
   const showBillingBadge = item.key === 'billing' && pendingBillingCount > 0;
   const isTaskOrClientMenu = item.key === 'tasks' || item.key === 'clients';
-  const createSubItem = item.submenus?.find((s) => String(s.path || '').includes('/create')) || item.submenus?.[0];
+  const createSubItem =
+    item.submenus?.find((s) => s.action === 'openTaskCreate' || String(s.path || '').includes('/create')) ||
+    item.submenus?.[0];
+
+  const handleQuickCreate = (e) => {
+    e.stopPropagation();
+    if (item.key === 'tasks') {
+      openTaskCreate({ onNavigateToTaskList: () => navigate('/task/view') });
+    } else if (createSubItem?.path) {
+      navigate(createSubItem.path);
+    }
+    if (isMobile) setMobileMenuOpen(false);
+  };
 
   // Render Submenu Item (Parent)
   if (hasSubmenu) {
@@ -282,21 +296,11 @@ const NavItem = ({ item, isMobile, isMinimized, isHovered, currentPath, openSubm
                 tabIndex={0}
                 aria-label={`Create ${item.title}`}
                 title={`Create ${item.title}`}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  if (createSubItem?.path) {
-                    navigate(createSubItem.path);
-                    if (isMobile) setMobileMenuOpen(false);
-                  }
-                }}
+                onClick={handleQuickCreate}
                 onKeyDown={(e) => {
                   if (e.key === 'Enter' || e.key === ' ') {
                     e.preventDefault();
-                    e.stopPropagation();
-                    if (createSubItem?.path) {
-                      navigate(createSubItem.path);
-                      if (isMobile) setMobileMenuOpen(false);
-                    }
+                    handleQuickCreate(e);
                   }
                 }}
                 className="inline-flex items-center justify-center p-1.5 rounded-lg hover:bg-indigo-50/50 transition-colors cursor-pointer"
@@ -714,7 +718,7 @@ export const Sidebar = ({ mobileMenuOpen, setMobileMenuOpen, isMinimized, setIsM
         path: '/task/view',
         permission: 'task_',
         submenus: [
-          { title: 'New Task', path: '/task/create', permission: 'task_create' },
+          { title: 'New Task', action: 'openTaskCreate', permission: 'task_create' },
           { title: 'View Task', path: '/task/view', permission: 'task_view' }
         ]
       },

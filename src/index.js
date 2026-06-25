@@ -12,7 +12,6 @@ import BodyScrollLockObserver from './components/BodyScrollLockObserver';
 import Login from './pages/login';
 import PageNotFound from './pages/error/page-not-found';
 import Dashboard from './pages/dashboard';
-import TaskCreateRoute from './pages/task-create/TaskCreateRoute';
 import { TaskCreateProvider } from './context/TaskCreateProvider';
 // import TaskEdit from './pages/task-edit';
 import Register from './pages/register';
@@ -170,12 +169,6 @@ root.render(
         <Route path="/my-profile" element={
           <ProtectedRoute>
             <MyProfile />
-          </ProtectedRoute>
-        } />
-
-        <Route path="/task/create" element={
-          <ProtectedRoute>
-            <TaskCreateRoute />
           </ProtectedRoute>
         } />
 

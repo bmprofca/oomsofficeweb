@@ -31,6 +31,7 @@ import {
     FiLock
 } from 'react-icons/fi';
 import { useUserPermissions } from '../utils/permission-helper';
+import { useTaskCreate } from '../context/TaskCreateProvider';
 import { toast } from 'react-hot-toast';
 
 // Sidebar Component
@@ -43,6 +44,7 @@ export const Sidebar = ({ sidebarOpen, setSidebarOpen, sidebarCollapsed, setSide
     const location = useLocation();
     const whatsappChannel = useWhatsappChannel();
     const { check } = useUserPermissions();
+    const { openTaskCreate } = useTaskCreate();
 
     const menuItems = useMemo(() => {
         const items = [
@@ -64,7 +66,7 @@ export const Sidebar = ({ sidebarOpen, setSidebarOpen, sidebarCollapsed, setSide
                     id: 'task-create',
                     label: 'New Task',
                     icon: <FiUser className="w-4 h-4" />,
-                    path: '/task/create',
+                    action: 'openTaskCreate',
                     permission: 'task_create'
                 },
                 {
@@ -233,10 +235,25 @@ export const Sidebar = ({ sidebarOpen, setSidebarOpen, sidebarCollapsed, setSide
         }
     };
 
+    const runSubmenuAction = (subItem) => {
+        if (subItem.action === 'openTaskCreate') {
+            openTaskCreate({ onNavigateToTaskList: () => navigate('/task/view') });
+            return true;
+        }
+        return false;
+    };
+
     const handleSubmenuItemClick = (subItem) => {
-        navigate(subItem.path);
-        setSidebarOpen(false);
-        setActiveSubmenu(null);
+        if (runSubmenuAction(subItem)) {
+            setSidebarOpen(false);
+            setActiveSubmenu(null);
+            return;
+        }
+        if (subItem.path) {
+            navigate(subItem.path);
+            setSidebarOpen(false);
+            setActiveSubmenu(null);
+        }
     };
 
     const handleMainItemNavigation = (item) => {
@@ -267,13 +284,15 @@ export const Sidebar = ({ sidebarOpen, setSidebarOpen, sidebarCollapsed, setSide
             return true;
         }
         if (item.submenu) {
-            return item.submenu.some(subItem => subItem.path === location.pathname);
+            return item.submenu.some(
+                (subItem) => subItem.path && subItem.path === location.pathname
+            );
         }
         return false;
     };
 
     const isActiveSubmenuItem = (subItem) => {
-        return subItem.path === location.pathname;
+        return Boolean(subItem.path && subItem.path === location.pathname);
     };
 
     // Close submenu when clicking outside
@@ -431,6 +450,13 @@ export const Sidebar = ({ sidebarOpen, setSidebarOpen, sidebarCollapsed, setSide
                                                                         e.stopPropagation();
                                                                         if (isCreateLocked) {
                                                                             toast.error('Need Access Permission');
+                                                                        } else if (item.id === 'task') {
+                                                                            openTaskCreate({
+                                                                                onNavigateToTaskList: () =>
+                                                                                    navigate('/task/view'),
+                                                                            });
+                                                                            setSidebarOpen(false);
+                                                                            setActiveSubmenu(null);
                                                                         } else if (createSubItem?.path) {
                                                                             navigate(createSubItem.path);
                                                                             setSidebarOpen(false);
@@ -601,7 +627,6 @@ export const Header = ({ setSidebarOpen, sidebarCollapsed, setSidebarCollapsed, 
         const titles = {
             '/dashboard': 'Dashboard',
             '/task': 'Tasks',
-            '/task/create': 'Create Task',
             '/task/view': 'View Tasks',
             '/clients': 'Clients',
             '/client/create': 'Create Client',
