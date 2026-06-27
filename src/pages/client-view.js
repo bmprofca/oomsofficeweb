@@ -40,7 +40,8 @@ import {
     FiSave,
     FiList,
     FiRefreshCw,
-    FiExternalLink
+    FiExternalLink,
+    FiAlertCircle
 } from 'react-icons/fi';
 import { PiExportBold } from "react-icons/pi";
 import { PiFilePdfDuotone, PiMicrosoftExcelLogoDuotone } from "react-icons/pi";
@@ -91,9 +92,9 @@ const PaymentReminderModal = ({ isOpen, onClose, selectedClients, clientsData })
                 const client = clientsData.find(c => c._id === clientId);
                 return client;
             }).filter(Boolean);
-            
+
             setSelectedClientsList(clients);
-            
+
             // Get usernames from selected clients
             const usernames = clients.map(client => client?.username).filter(Boolean);
             setSelectedClientUsernames(usernames);
@@ -110,17 +111,17 @@ const PaymentReminderModal = ({ isOpen, onClose, selectedClients, clientsData })
         setResults(null);
 
         const headers = getHeaders();
-        
+
         try {
             const response = await axios.post(
                 `${API_BASE_URL}/payment-reminder/payment-reminder/bulk-send`,
                 { usernames: selectedClientUsernames },
                 { headers }
             );
-            
+
             if (response.data.success) {
                 setResults(response.data.data);
-                
+
                 const result = response.data.data;
                 if (result.sent > 0) {
                     toast.success(`✅ ${result.sent} payment reminder(s) sent successfully!`);
@@ -200,7 +201,7 @@ const PaymentReminderModal = ({ isOpen, onClose, selectedClients, clientsData })
                                     <FiUsers className="w-4 h-4 text-purple-600" />
                                     Selected Clients ({selectedClientsList.length})
                                 </h3>
-                                
+
                                 {selectedClientsList.length > 0 ? (
                                     <div className="space-y-2 max-h-48 overflow-y-auto">
                                         {selectedClientsList.map((client, index) => (
@@ -249,16 +250,15 @@ const PaymentReminderModal = ({ isOpen, onClose, selectedClients, clientsData })
                                             <div className="text-xs text-red-700">Failed</div>
                                         </div>
                                     </div>
-                                    
+
                                     {results.details && results.details.length > 0 && (
                                         <div className="space-y-1 max-h-32 overflow-y-auto">
                                             {results.details.slice(0, 5).map((detail, idx) => (
                                                 <div key={idx} className="text-xs p-1 rounded flex justify-between">
                                                     <span className="font-mono">{detail.username}</span>
-                                                    <span className={`font-medium ${
-                                                        detail.status === 'sent' ? 'text-green-600' : 
+                                                    <span className={`font-medium ${detail.status === 'sent' ? 'text-green-600' :
                                                         detail.status === 'skipped' ? 'text-yellow-600' : 'text-red-600'
-                                                    }`}>
+                                                        }`}>
                                                         {detail.status}
                                                         {detail.reason && ` (${detail.reason})`}
                                                     </span>
@@ -304,9 +304,8 @@ const PaymentReminderModal = ({ isOpen, onClose, selectedClients, clientsData })
                                 <motion.button
                                     onClick={handleSendReminders}
                                     disabled={loading || selectedClientUsernames.length === 0}
-                                    className={`flex-1 px-4 py-2.5 bg-gradient-to-r from-purple-600 to-purple-700 text-white rounded-lg font-medium text-sm flex items-center justify-center gap-2 ${
-                                        (loading || selectedClientUsernames.length === 0) ? 'opacity-50 cursor-not-allowed' : 'hover:from-purple-700 hover:to-purple-800'
-                                    }`}
+                                    className={`flex-1 px-4 py-2.5 bg-gradient-to-r from-purple-600 to-purple-700 text-white rounded-lg font-medium text-sm flex items-center justify-center gap-2 ${(loading || selectedClientUsernames.length === 0) ? 'opacity-50 cursor-not-allowed' : 'hover:from-purple-700 hover:to-purple-800'
+                                        }`}
                                     whileHover={(loading || selectedClientUsernames.length === 0) ? {} : { scale: 1.02 }}
                                     whileTap={(loading || selectedClientUsernames.length === 0) ? {} : { scale: 0.98 }}
                                 >
@@ -761,6 +760,41 @@ const TableViewSwitch = ({ viewMode, setViewMode }) => {
     );
 };
 
+// Shared fetch error state for client list
+const ClientFetchError = ({ message, onRetry }) => (
+    <div className="flex items-center justify-center py-12 px-4">
+        <div className="text-center max-w-md">
+            <div className="w-14 h-14 bg-red-50 rounded-full flex items-center justify-center mx-auto mb-4">
+                <FiAlertCircle className="w-7 h-7 text-red-500" />
+            </div>
+            <p className="text-gray-800 font-semibold text-sm mb-1">Unable to load clients</p>
+            <p className="text-gray-500 text-xs mb-4">{message}</p>
+            {onRetry && (
+                <motion.button
+                    type="button"
+                    onClick={onRetry}
+                    className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg transition-colors"
+                    whileHover={{ scale: 1.03 }}
+                    whileTap={{ scale: 0.97 }}
+                >
+                    <FiRefreshCw className="w-4 h-4" />
+                    Try again
+                </motion.button>
+            )}
+        </div>
+    </div>
+);
+
+const getFetchErrorMessage = (error) => {
+    if (error?.code === 'ECONNABORTED' || String(error?.message || '').toLowerCase().includes('timeout')) {
+        return 'Request timed out. Please check your connection and try again.';
+    }
+    if (!error?.response) {
+        return 'Unable to reach the server. Please check your network connection or try again later.';
+    }
+    return error.response?.data?.message || `Server error (${error.response.status}). Please try again later.`;
+};
+
 // Client Table Component (keep your existing code but remove the actions dropdown payment reminder - we'll add it in the main component)
 const ClientTable = ({
     clients,
@@ -771,6 +805,8 @@ const ClientTable = ({
     columnConfig,
     renderCellContent,
     loading,
+    fetchError,
+    onRetryFetch,
     toggleRowDropdown,
     activeRowDropdown,
     setActiveRowDropdown,
@@ -1052,6 +1088,8 @@ const ClientTable = ({
                             <SkeletonRow key={index} />
                         ))}
                     </div>
+                ) : fetchError ? (
+                    <ClientFetchError message={fetchError} onRetry={onRetryFetch} />
                 ) : clients.length === 0 ? (
                     <div className="flex items-center justify-center py-8 text-gray-500 px-4">
                         <div className="text-center">
@@ -1131,6 +1169,8 @@ const ClientCards = ({
     columnConfig,
     renderCellContent,
     loading,
+    fetchError,
+    onRetryFetch,
     toggleRowDropdown,
     activeRowDropdown,
     setActiveRowDropdown,
@@ -1195,6 +1235,8 @@ const ClientCards = ({
                         <SkeletonCard key={index} />
                     ))}
                 </div>
+            ) : fetchError ? (
+                <ClientFetchError message={fetchError} onRetry={onRetryFetch} />
             ) : clients.length === 0 ? (
                 <div className="flex items-center justify-center py-8 text-gray-500 px-4">
                     <div className="text-center">
@@ -1405,6 +1447,7 @@ const ViewClients = () => {
     });
     const [showFilterDropdown, setShowFilterDropdown] = useState(false);
     const [loading, setLoading] = useState(false);
+    const [fetchError, setFetchError] = useState(null);
     const [searchQuery, setSearchQuery] = useState('');
     const [selectedStatus, setSelectedStatus] = useState('');
     const [selectedGroup, setSelectedGroup] = useState('');
@@ -1425,10 +1468,10 @@ const ViewClients = () => {
     const [isMobile, setIsMobile] = useState(false);
     const [statusModal, setStatusModal] = useState({ open: false, clientId: null, currentStatus: '' });
     const [firmsModal, setFirmsModal] = useState({ open: false, firms: [], clientName: '' });
-    
+
     // Payment Reminder Modal State
     const [paymentReminderModalOpen, setPaymentReminderModalOpen] = useState(false);
-    
+
     // Export Modal State
     const [exportModalOpen, setExportModalOpen] = useState(false);
     const [exportData, setExportData] = useState([]);
@@ -1459,12 +1502,15 @@ const ViewClients = () => {
     const fetchClients = useCallback(async (page = 1, limit = 10) => {
         const headers = getHeaders();
         if (!headers) {
-            console.error('Cannot fetch clients: Missing authentication headers');
+            setFetchError('Authentication headers are missing. Please sign in again.');
+            setClients([]);
+            setLoading(false);
             return;
         }
 
         try {
             setLoading(true);
+            setFetchError(null);
 
             const params = new URLSearchParams({
                 search: searchQuery,
@@ -1523,39 +1569,23 @@ const ViewClients = () => {
 
                 setClients(transformedClients);
                 setPagination(paginationData);
+                setFetchError(null);
 
             } else {
-                console.error('No data in response');
+                setClients([]);
+                setFetchError('Invalid response from server. Please try again.');
             }
         } catch (error) {
             console.error('Error fetching clients:', error);
-
-            const dummyData = Array.from({ length: 15 }, (_, i) => ({
-                _id: `${i + 1}`,
-                id: `${i + 1}`,
-                username: `user${i + 1}`,
-                name: `Client ${i + 1}`,
-                guardian_name: `Guardian ${i + 1}`,
-                mobile: `98765432${(i + 10).toString().padStart(2, '0')}`,
-                status: i % 3 === 0 ? 'ACTIVE' : i % 3 === 1 ? 'INACTIVE' : 'PENDING',
-                balance: (i + 1) * 1000 * (i % 2 === 0 ? 1 : -1),
-                firms: [],
-                firm_count: 0
-            }));
-
-            const total = 15;
-            const total_pages = Math.ceil(total / limit);
-            const is_last_page = page >= total_pages;
-
-            setClients(dummyData.slice((page - 1) * limit, page * limit));
-
+            setClients([]);
             setPagination({
-                page: page,
-                limit: limit,
-                total: total,
-                total_pages: total_pages,
-                is_last_page: is_last_page
+                page: 1,
+                limit,
+                total: 0,
+                total_pages: 1,
+                is_last_page: true
             });
+            setFetchError(getFetchErrorMessage(error));
         } finally {
             setLoading(false);
         }
@@ -1711,7 +1741,7 @@ const ViewClients = () => {
         visibleColumns.forEach(col => {
             col.items.forEach(item => {
                 if (item.id === 'actions') return;
-                
+
                 exportColumnsConfig.push({
                     header: item.label,
                     key: item.id,
@@ -1723,11 +1753,11 @@ const ViewClients = () => {
         // Build data rows from clients state
         clientsToExport.forEach(client => {
             const row = {};
-            
+
             visibleColumns.forEach(col => {
                 col.items.forEach(item => {
                     if (item.id === 'actions') return;
-                    
+
                     let value = '';
                     switch (item.id) {
                         case 'name':
@@ -1744,8 +1774,8 @@ const ViewClients = () => {
                             value = check('task_fees_view') ? (client.balance || 0) : '----';
                             break;
                         case 'status':
-                            value = client.status === 'ACTIVE' ? 'Active' : 
-                                    client.status === 'INACTIVE' ? 'Inactive' : 'Pending';
+                            value = client.status === 'ACTIVE' ? 'Active' :
+                                client.status === 'INACTIVE' ? 'Inactive' : 'Pending';
                             break;
                         case 'guardian_name':
                             value = client.guardian_name || 'N/A';
@@ -1782,7 +1812,7 @@ const ViewClients = () => {
 
     const handleExportClick = () => {
         const { data, columns } = prepareExportData();
-        
+
         if (data.length === 0) {
             toast.error('No data to export');
             return;
@@ -2876,11 +2906,10 @@ const ViewClients = () => {
                                             <motion.button
                                                 disabled={!check('client_create')}
                                                 onClick={() => check('client_create') && navigate('/client/create')}
-                                                className={`px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200 flex items-center gap-2 shadow-sm whitespace-nowrap ${
-                                                    check('client_create')
-                                                        ? 'bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white'
-                                                        : 'bg-gray-100 border border-gray-200 text-gray-400 cursor-not-allowed opacity-60'
-                                                }`}
+                                                className={`px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200 flex items-center gap-2 shadow-sm whitespace-nowrap ${check('client_create')
+                                                    ? 'bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white'
+                                                    : 'bg-gray-100 border border-gray-200 text-gray-400 cursor-not-allowed opacity-60'
+                                                    }`}
                                                 whileHover={check('client_create') ? { scale: 1.05 } : {}}
                                                 whileTap={check('client_create') ? { scale: 0.95 } : {}}
                                                 title={check('client_create') ? 'Add Client' : 'Locked (No permission)'}
@@ -2970,6 +2999,8 @@ const ViewClients = () => {
                                     columnConfig={columnConfig}
                                     renderCellContent={renderCellContent}
                                     loading={loading}
+                                    fetchError={fetchError}
+                                    onRetryFetch={() => fetchClients(pagination.page, pagination.limit)}
                                     toggleRowDropdown={toggleRowDropdown}
                                     activeRowDropdown={activeRowDropdown}
                                     setActiveRowDropdown={setActiveRowDropdown}
@@ -2988,6 +3019,8 @@ const ViewClients = () => {
                                     columnConfig={columnConfig}
                                     renderCellContent={renderCellContent}
                                     loading={loading}
+                                    fetchError={fetchError}
+                                    onRetryFetch={() => fetchClients(pagination.page, pagination.limit)}
                                     toggleRowDropdown={toggleRowDropdown}
                                     activeRowDropdown={activeRowDropdown}
                                     setActiveRowDropdown={setActiveRowDropdown}

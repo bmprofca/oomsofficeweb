@@ -2,7 +2,7 @@ import { io } from 'socket.io-client';
 import { emitDeveloperAuth, isMyProject } from './oneChattingSocketUtils';
 
 export const W1CHAT_SOCKET_URL =
-  process.env.REACT_APP_W1CHAT_SOCKET_URL || 'https://api.w1chat.com';
+  process.env.REACT_APP_W1CHAT_SOCKET_URL || 'https://server.onechatting.com';
 
 export const CONNECTION_STATES = {
   DISCONNECTED: 'disconnected',

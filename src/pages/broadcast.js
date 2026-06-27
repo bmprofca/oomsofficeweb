@@ -135,31 +135,15 @@ const Broadcast = () => {
             permission: "broadcast_send"
         },
         {
-            title: "Static Templates",
-            description: "Manage static WhatsApp templates",
-            icon: <FiLayers className="w-5 h-5" />,
-            link: "./whatsapp/ooms?tab=static-template",
+            title: "Template",
+            description: "Manage WhatsApp templates",
+            icon: <FiFileText className="w-5 h-5" />,
+            link: "/broadcast/whatsapp/system/template",
             color: "bg-green-100 text-green-600",
             permission: "broadcast_config_edit"
         },
         {
-            title: "Dynamic Templates",
-            description: "Manage dynamic WhatsApp templates",
-            icon: <FiDatabase className="w-5 h-5" />,
-            link: "./whatsapp/ooms?tab=dynamic-template",
-            color: "bg-green-100 text-green-600",
-            permission: "broadcast_config_edit"
-        },
-        {
-            title: "Configuration",
-            description: "WhatsApp connection settings",
-            icon: <FiSettings className="w-5 h-5" />,
-            link: "./whatsapp/ooms?tab=configuration",
-            color: "bg-green-100 text-green-600",
-            permission: "broadcast_config_edit"
-        },
-        {
-            title: "Reports",
+            title: "Report",
             description: "View WhatsApp delivery reports",
             icon: <FiBarChart2 className="w-5 h-5" />,
             link: "./report?tab=whatsapp",
@@ -372,9 +356,9 @@ const Broadcast = () => {
     const renderCardGrid = (cards) => (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-4">
             {cards.map((card, index) => {
-                const hasPermission = card.permission 
-                    ? (Array.isArray(card.permission) 
-                        ? card.permission.some(p => check(p)) 
+                const hasPermission = card.permission
+                    ? (Array.isArray(card.permission)
+                        ? card.permission.some(p => check(p))
                         : check(card.permission))
                     : true;
 

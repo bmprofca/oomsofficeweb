@@ -97,6 +97,16 @@ export const whatsappApi = {
     whatsappAxios.put('/broadcast/whatsapp/whatsappweb/template-map/set', payload).then(unwrap),
   unsetWhatsAppWebTemplateMap: (payload) =>
     whatsappAxios.put('/broadcast/whatsapp/whatsappweb/template-map/unset', payload).then(unwrap),
+  getWpSystemTemplateMapList: () =>
+    whatsappAxios.get('/broadcast/whatsapp/wp-system/template-map-list').then(unwrap),
+  getWpSystemTemplatesByType: (type) =>
+    whatsappAxios
+      .get('/broadcast/whatsapp/wp-system/templates', { params: { type } })
+      .then(unwrap),
+  setWpSystemTemplateMap: (payload) =>
+    whatsappAxios.put('/broadcast/whatsapp/wp-system/template-map/set', payload).then(unwrap),
+  unsetWpSystemTemplateMap: (payload) =>
+    whatsappAxios.put('/broadcast/whatsapp/wp-system/template-map/unset', payload).then(unwrap),
 };
 
 export const normalizeList = (data) => (Array.isArray(data) ? data : []);

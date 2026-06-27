@@ -1,6 +1,6 @@
 import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { FiBriefcase, FiCalendar, FiDollarSign, FiPhone, FiEye, FiEdit, FiTrash2, FiCheckCircle, FiArrowLeft, FiUser, FiMail } from 'react-icons/fi';
+import { FiBriefcase, FiCalendar, FiDollarSign, FiPhone, FiEye, FiEdit, FiTrash2, FiCheckCircle, FiArrowLeft, FiArrowRight, FiUser, FiMail, FiClock, FiLoader } from 'react-icons/fi';
 import { checkPermissionSync } from '../utils/permission-helper';
 
 const TaskCards = ({ 
@@ -11,6 +11,8 @@ const TaskCards = ({
     toggleRowDropdown,
     activeRowDropdown,
     handleGetInOut,
+    getTaskInOutState,
+    getInOutLoadingId,
     setActiveRowDropdown,
     navigate,
     openStatusModal,
@@ -21,6 +23,17 @@ const TaskCards = ({
     getStatusColor,
     formatStatus
 }) => {
+    const getCardShellClass = (task, isSelected = false) => {
+        const inOutState = getTaskInOutState?.(task) || {};
+        if (inOutState.mode === 'self') {
+            return `bg-emerald-700/20 border border-gray-200 ${isSelected ? 'ring-2 ring-emerald-600' : ''}`;
+        }
+        if (inOutState.mode === 'other') {
+            return `bg-amber-700/20 border border-gray-200 ${isSelected ? 'ring-2 ring-amber-600' : ''}`;
+        }
+        return `bg-white border border-gray-200 ${isSelected ? 'ring-2 ring-indigo-500' : ''}`;
+    };
+
     const SkeletonCard = () => (
         <div className="bg-white rounded-lg border border-gray-200 p-4 animate-pulse">
             <div className="flex items-start justify-between mb-3">
@@ -67,11 +80,13 @@ const TaskCards = ({
                         const daysLeft = getDaysLeft(task.dates?.due_date);
                         const isOverdue = daysLeft < 0;
                         const isSelected = selectedTasks.has(task.task_id);
+                        const inOutState = getTaskInOutState?.(task) || {};
+                        const isGetInOutLoading = getInOutLoadingId === task.task_id;
 
                         return (
                             <motion.div
                                 key={task.task_id}
-                                className={`bg-white rounded-lg border border-gray-200 hover:border-gray-300 hover:shadow-md transition-all duration-200 overflow-hidden ${isSelected ? 'ring-2 ring-indigo-500' : ''}`}
+                                className={`rounded-lg border hover:shadow-md transition-all duration-200 overflow-hidden ${getCardShellClass(task, isSelected)}`}
                                 initial={{ opacity: 0, scale: 0.95 }}
                                 animate={{ opacity: 1, scale: 1 }}
                                 transition={{ delay: index * 0.05 }}
@@ -141,15 +156,50 @@ const TaskCards = ({
                                                             animate={{ opacity: 1, y: 0, scale: 1 }}
                                                             exit={{ opacity: 0, y: -8, scale: 0.96 }}
                                                         >
-                                                            {/* <button 
-                                                                onClick={() => { handleGetInOut(task.task_id, 'in'); setActiveRowDropdown(null); }} 
-                                                                className="flex items-center w-full px-3 py-2.5 text-[11px] text-indigo-600 hover:bg-indigo-50 font-semibold"
-                                                            >
-                                                                <FiArrowLeft className="mr-2 w-3.5 h-3.5" /> GET IN
-                                                            </button> */}
-                                                            
-                                                            {/* <div className="border-t my-1"></div> */}
-                                                            
+                                                            {inOutState.badge && (
+                                                                <div className={`px-3 py-2 text-[10px] font-medium border-b ${
+                                                                    inOutState.mode === 'self'
+                                                                        ? 'bg-emerald-50 text-emerald-800 border-emerald-100'
+                                                                        : 'bg-amber-50 text-amber-800 border-amber-100'
+                                                                }`}>
+                                                                    {inOutState.badge}
+                                                                </div>
+                                                            )}
+
+                                                            {inOutState.showGetIn && (
+                                                                <button
+                                                                    disabled={isGetInOutLoading}
+                                                                    onClick={() => { handleGetInOut(task.task_id, 'in'); setActiveRowDropdown(null); }}
+                                                                    className="flex items-center w-full px-3 py-2.5 text-[11px] text-indigo-600 hover:bg-indigo-50 font-semibold disabled:opacity-60"
+                                                                >
+                                                                    {isGetInOutLoading ? (
+                                                                        <FiLoader className="mr-2 w-3.5 h-3.5 animate-spin" />
+                                                                    ) : (
+                                                                        <FiArrowLeft className="mr-2 w-3.5 h-3.5" />
+                                                                    )}
+                                                                    GET IN
+                                                                </button>
+                                                            )}
+
+                                                            {inOutState.showGetOut && (
+                                                                <button
+                                                                    disabled={isGetInOutLoading}
+                                                                    onClick={() => { handleGetInOut(task.task_id, 'out'); setActiveRowDropdown(null); }}
+                                                                    className="flex items-center w-full px-3 py-2.5 text-[11px] text-orange-600 hover:bg-orange-50 font-semibold disabled:opacity-60"
+                                                                >
+                                                                    {isGetInOutLoading ? (
+                                                                        <FiLoader className="mr-2 w-3.5 h-3.5 animate-spin" />
+                                                                    ) : (
+                                                                        <FiArrowRight className="mr-2 w-3.5 h-3.5" />
+                                                                    )}
+                                                                    GET OUT
+                                                                </button>
+                                                            )}
+
+                                                            {(inOutState.showGetIn || inOutState.showGetOut) && (
+                                                                <div className="border-t my-1" />
+                                                            )}
+
                                                             <button 
                                                                 onClick={() => { openStatusModal(task.task_id, task.status); setActiveRowDropdown(null); }} 
                                                                 className="flex items-center w-full px-3 py-2.5 text-[11px] text-blue-600 hover:bg-blue-50 font-semibold"
@@ -230,14 +280,24 @@ const TaskCards = ({
                                             File: {task.file_no || '-'}
                                         </div>
 
-                                        {/* Status */}
-                                        <div className="pt-2 border-t border-gray-100">
+                                        {/* Status & Working badge */}
+                                        <div className="pt-2 border-t border-gray-100 space-y-1.5">
                                             <div className="flex items-center gap-1">
                                                 <span className="text-[10px] font-medium text-gray-600">Status:</span>
                                                 <div className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-bold ${getStatusColor(task.status)}`}>
                                                     {formatStatus(task.status)}
                                                 </div>
                                             </div>
+                                            {inOutState.badge && (
+                                                <div className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-semibold ${
+                                                    inOutState.mode === 'self'
+                                                        ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                                                        : 'bg-amber-50 text-amber-700 border border-amber-200'
+                                                }`}>
+                                                    <FiClock className="w-2.5 h-2.5" />
+                                                    {inOutState.badge}
+                                                </div>
+                                            )}
                                         </div>
                                     </div>
                                 </div>

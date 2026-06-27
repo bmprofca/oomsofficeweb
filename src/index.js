@@ -62,6 +62,7 @@ import OneChattingLiveChat from './pages/broadcast/whatsapp/OneChattingLiveChat'
 import OneChattingTemplates from './pages/broadcast/whatsapp/OneChattingTemplates';
 import WhatsAppWebSession from './pages/broadcast/whatsapp/WhatsAppWebSession';
 import WhatsAppWebTemplates from './pages/broadcast/whatsapp/WhatsAppWebTemplates';
+import OomsSystemTemplates from './pages/broadcast/whatsapp/OomsSystemTemplates';
 import PushNotification from './pages/broadcast/push-notification/notification';
 import EmailConfigList from './pages/broadcast/email/EmailConfigList';
 import EmailTemplateList from './pages/broadcast/email/EmailTemplateList';
@@ -484,6 +485,12 @@ root.render(
         <Route path="/broadcast/text-message/ooms" element={
           <ProtectedRoute>
             <TextMessageOoms />
+          </ProtectedRoute>
+        } />
+
+        <Route path="/broadcast/whatsapp/system/template" element={
+          <ProtectedRoute>
+            <OomsSystemTemplates />
           </ProtectedRoute>
         } />
 

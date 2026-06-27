@@ -39,6 +39,14 @@ import EditTaskModal from '../TaskComponent/EdittaskModal';
 import getHeaders from '../utils/get-headers';
 import API_BASE_URL from '../utils/api-controller';
 import { useUserPermissions, checkPermissionSync } from '../utils/permission-helper';
+import { taskGetIn, taskGetOut } from '../services/taskService';
+
+const getLoggedInUsername = () =>
+    localStorage.getItem('user_username') || localStorage.getItem('username') || '';
+
+const isBranchAdmin = () =>
+    localStorage.getItem('branch_owned') === 'true' ||
+    getLoggedInUsername().toLowerCase() === 'admin';
 
 // ============================================
 // CONSTANTS & HELPERS
@@ -54,6 +62,8 @@ const statusOptions = [
 ];
 const DEFAULT_SELECTED_STATUSES = ['in process', 'pending from client', 'pending from department'];
 
+const STAFF_TABLE_META_FIELD_IDS = new Set(['staff_ca', 'staff_agent']);
+
 const availableFields = [
     { id: 'task_id', label: 'Task ID', type: 'text' },
     { id: 'client_name', label: 'Client Name', type: 'text' },
@@ -64,7 +74,7 @@ const availableFields = [
     { id: 'fees', label: 'Fees', type: 'currency' },
     { id: 'due_date', label: 'Due Date', type: 'date' },
     { id: 'create_date', label: 'Create Date', type: 'date' },
-    { id: 'target_date', label: 'Target Date', type: 'date' },
+    { id: 'due_days', label: 'Due Days', type: 'text' },
     { id: 'billing_status', label: 'Billing Status', type: 'text' },
     { id: 'status', label: 'Status', type: 'status' },
     { id: 'staffs', label: 'Staffs', type: 'array' },
@@ -73,8 +83,17 @@ const availableFields = [
     { id: 'menu', label: 'Actions', type: 'actions' }
 ];
 
-// Replace your existing defaultColumnConfig with this simplified version
 const defaultColumnConfig = [
+    {
+        id: '2',
+        name: 'Task',
+        items: [
+            { id: 'service_name', label: 'Service Name' },
+            { id: 'fees', label: 'Fees' },
+            { id: 'firm_name', label: 'Firm Name' }
+        ],
+        fixed: false
+    },
     {
         id: '1',
         name: 'Client',
@@ -86,22 +105,12 @@ const defaultColumnConfig = [
         fixed: false
     },
     {
-        id: '2',
-        name: 'Task Details',
-        items: [
-            { id: 'service_name', label: 'Service Name' },
-            { id: 'fees', label: 'Fees' },
-            { id: 'firm_name', label: 'Firm Name' }
-        ],
-        fixed: false
-    },
-    {
         id: '3',
         name: 'Dates',
         items: [
             { id: 'create_date', label: 'Create Date' },
             { id: 'due_date', label: 'Due Date' },
-            { id: 'target_date', label: 'Target Date' }
+            { id: 'due_days', label: 'Show Due Days' }
         ],
         fixed: false
     },
@@ -109,7 +118,9 @@ const defaultColumnConfig = [
         id: '4',
         name: 'Staffs',
         items: [
-            { id: 'staffs', label: 'Staffs' }
+            { id: 'staffs', label: 'Staffs' },
+            { id: 'staff_ca', label: 'Show CA' },
+            { id: 'staff_agent', label: 'Show Agent' }
         ],
         fixed: false
     },
@@ -131,6 +142,48 @@ const defaultColumnConfig = [
     }
 ];
 
+const normalizeColumnConfig = (columns) => {
+    if (!Array.isArray(columns)) return defaultColumnConfig;
+
+    return columns.map((col) => {
+        let items = (col.items || []).map((item) => {
+            if (item.id === 'target_date') {
+                return { ...item, id: 'due_days', label: 'Show Due Days' };
+            }
+            return item;
+        });
+
+        if (items.some((item) => item.id === 'staffs')) {
+            if (!items.some((item) => item.id === 'staff_ca')) {
+                items = [...items, { id: 'staff_ca', label: 'Show CA' }];
+            }
+            if (!items.some((item) => item.id === 'staff_agent')) {
+                items = [...items, { id: 'staff_agent', label: 'Show Agent' }];
+            }
+        }
+
+        return {
+            ...col,
+            name: col.name === 'Task Details' ? 'Task' : col.name,
+            fixed: col.name === 'Status' || col.name === 'Action',
+            items,
+        };
+    });
+};
+
+const migrateHiddenFields = (hiddenFields, columns) => {
+    const next = { ...(hiddenFields || {}) };
+    (columns || []).forEach((col) => {
+        const oldKey = `${col.id}_target_date`;
+        const newKey = `${col.id}_due_days`;
+        if (next[oldKey] !== undefined && next[newKey] === undefined) {
+            next[newKey] = next[oldKey];
+            delete next[oldKey];
+        }
+    });
+    return next;
+};
+
 // Helper functions
 const formatDate = (dateString) => {
     if (!dateString) return '-';
@@ -144,6 +197,15 @@ const getDaysLeft = (dueDate) => {
     const today = new Date();
     const diffTime = due - today;
     return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+};
+
+const formatDueDaysLabel = (dueDate) => {
+    if (!dueDate) return null;
+    const daysLeft = getDaysLeft(dueDate);
+    if (daysLeft === null || daysLeft === undefined) return null;
+    if (daysLeft < 0) return `OD by ${Math.abs(daysLeft)}D`;
+    if (daysLeft === 0) return 'Due today';
+    return `Due in ${daysLeft}D`;
 };
 
 const getStatusStyle = (status) => {
@@ -598,7 +660,6 @@ const TaskDisplay = () => {
     const [settingsModalOpen, setSettingsModalOpen] = useState(false);
     const [columnConfig, setColumnConfig] = useState([]);
     const [selectedTasks, setSelectedTasks] = useState(new Set());
-    const [selectAll, setSelectAll] = useState(false);
     const [activeRowDropdown, setActiveRowDropdown] = useState(null);
     const [exportModal, setExportModal] = useState({ open: false, type: '', data: null });
     const navigate = useNavigate();
@@ -627,8 +688,10 @@ const TaskDisplay = () => {
     const taskListAbortRef = useRef(null);
     const skipNextAutoFetchRef = useRef(false);
     const rowMenuButtonRefs = useRef({});
+    const rowContextPositionRef = useRef(null);
     const rowDropdownRef = useRef(null);
     const [rowDropdownPosition, setRowDropdownPosition] = useState({ top: 8, left: 8 });
+    const [getInOutLoadingId, setGetInOutLoadingId] = useState(null);
 
     // Export Modal State
     const [exportModalOpen, setExportModalOpen] = useState(false);
@@ -651,20 +714,12 @@ const TaskDisplay = () => {
 
                 // Check if it's the new format (with hidden states) or old format
                 if (parsedConfig.columns) {
-                    // New format with hidden states
-                    const updatedConfig = parsedConfig.columns.map(col => ({
-                        ...col,
-                        fixed: col.name === 'Status' || col.name === 'Action'
-                    }));
+                    const updatedConfig = normalizeColumnConfig(parsedConfig.columns);
                     setColumnConfig(updatedConfig);
                     setHiddenColumns(parsedConfig.hiddenColumns || {});
-                    setHiddenFields(parsedConfig.hiddenFields || {});
+                    setHiddenFields(migrateHiddenFields(parsedConfig.hiddenFields || {}, updatedConfig));
                 } else {
-                    // Old format (just columns array)
-                    const updatedConfig = parsedConfig.map(col => ({
-                        ...col,
-                        fixed: col.name === 'Status' || col.name === 'Action'
-                    }));
+                    const updatedConfig = normalizeColumnConfig(parsedConfig);
                     setColumnConfig(updatedConfig);
                     setHiddenColumns({});
                     setHiddenFields({});
@@ -709,7 +764,10 @@ const TaskDisplay = () => {
             const clickedRowTrigger = event.target.closest('.task-row-action-trigger');
             if (!clickedInsideDropdown && !clickedRowMenu && !clickedRowTrigger) {
                 if (showMoreMenu) setShowMoreMenu(false);
-                if (activeRowDropdown !== null) setActiveRowDropdown(null);
+                if (activeRowDropdown !== null) {
+                    setActiveRowDropdown(null);
+                    rowContextPositionRef.current = null;
+                }
             }
         };
 
@@ -747,8 +805,18 @@ const TaskDisplay = () => {
         if (!activeRowDropdown) return undefined;
 
         const syncPosition = () => {
-            const button = rowMenuButtonRefs.current[activeRowDropdown];
             const dropdownHeight = rowDropdownRef.current?.offsetHeight || 220;
+            const dropdownWidth = 224;
+
+            if (rowContextPositionRef.current) {
+                let { top, left } = rowContextPositionRef.current;
+                left = Math.max(8, Math.min(left, window.innerWidth - dropdownWidth - 8));
+                top = Math.max(8, Math.min(top, window.innerHeight - dropdownHeight - 8));
+                setRowDropdownPosition({ top, left });
+                return;
+            }
+
+            const button = rowMenuButtonRefs.current[activeRowDropdown];
             if (button) {
                 setRowDropdownPosition(getRowDropdownPosition(button, dropdownHeight));
             }
@@ -764,7 +832,7 @@ const TaskDisplay = () => {
             window.removeEventListener('resize', syncPosition);
             window.removeEventListener('scroll', syncPosition, true);
         };
-    }, [activeRowDropdown, tasks]);
+    }, [activeRowDropdown, tasks, isMinimized]);
 
     useEffect(() => {
         if (activeRowDropdown && !tasks.some((t) => t.task_id === activeRowDropdown)) {
@@ -795,15 +863,19 @@ const TaskDisplay = () => {
     // ============================================
 
     const getVisibleColumnConfig = () => {
-        // Filter out hidden columns
         const visibleColumns = columnConfig.filter(col => !hiddenColumns[col.id]);
 
-        // Filter out hidden fields from each column
         return visibleColumns.map(col => ({
             ...col,
-            items: col.items.filter(item => !hiddenFields[`${col.id}_${item.id}`])
+            items: col.items.filter(item =>
+                !hiddenFields[`${col.id}_${item.id}`] &&
+                !STAFF_TABLE_META_FIELD_IDS.has(item.id)
+            )
         }));
     };
+
+    const getStaffColumnId = () =>
+        columnConfig.find((col) => col.items?.some((item) => item.id === 'staffs'))?.id || '4';
 
     // ============================================
     // DATA FETCHING FUNCTIONS
@@ -918,7 +990,6 @@ const TaskDisplay = () => {
                         : task
                 ));
                 setSelectedTasks(new Set());
-                setSelectAll(false);
                 alert(`Successfully updated ${taskIds.length} task${taskIds.length !== 1 ? 's' : ''} to ${statusOptions.find(s => s.value === newStatus)?.name || newStatus}`);
             } else {
                 throw new Error(responseData.message || 'Failed to update statuses');
@@ -961,9 +1032,43 @@ const TaskDisplay = () => {
         }
     };
 
-    const handleGetInOut = (taskId, action) => {
-        console.log(`Task ${taskId} - ${action}`);
+    const canForceGetOut = () => isBranchAdmin() || check('task_get_in');
+
+    const getTaskInOutState = (task) => {
+        const me = getLoggedInUsername();
+        const inUser = task?.in_user;
+
+        if (!inUser?.username) {
+            return {
+                mode: 'free',
+                showGetIn: true,
+                showGetOut: false,
+                badge: null,
+                inUser: null,
+            };
+        }
+
+        if (inUser.username === me) {
+            return {
+                mode: 'self',
+                showGetIn: false,
+                showGetOut: true,
+                badge: 'You',
+                inUser,
+            };
+        }
+
+        return {
+            mode: 'other',
+            showGetIn: false,
+            showGetOut: canForceGetOut(),
+            badge: inUser.name || inUser.username,
+            inUser,
+        };
     };
+
+    const allTasksSelected = tasks.length > 0 && selectedTasks.size === tasks.length;
+    const isSelectionIndeterminate = selectedTasks.size > 0 && selectedTasks.size < tasks.length;
 
     const handleTaskSelect = (taskId) => {
         const newSelected = new Set(selectedTasks);
@@ -973,27 +1078,91 @@ const TaskDisplay = () => {
             newSelected.add(taskId);
         }
         setSelectedTasks(newSelected);
-        setSelectAll(false);
     };
 
     const handleSelectAll = () => {
-        if (selectAll) {
+        if (allTasksSelected) {
             setSelectedTasks(new Set());
         } else {
-            const allTaskIds = new Set(tasks.map(task => task.task_id));
-            setSelectedTasks(allTaskIds);
+            setSelectedTasks(new Set(tasks.map((task) => task.task_id)));
         }
-        setSelectAll(!selectAll);
+    };
+
+    const handleGetInOut = async (taskId, action) => {
+        if (!taskId || getInOutLoadingId) return;
+
+        setGetInOutLoadingId(taskId);
+        setActiveRowDropdown(null);
+
+        try {
+            const responseData = action === 'in'
+                ? await taskGetIn(taskId)
+                : await taskGetOut(taskId);
+
+            if (responseData?.success) {
+                toast.success(responseData.message || (action === 'in' ? 'Get in successful' : 'Get out successful'));
+                setTasks((prev) =>
+                    prev.map((task) =>
+                        task.task_id === taskId
+                            ? {
+                                ...task,
+                                in_user: action === 'in'
+                                    ? (responseData.data?.in_user ?? task.in_user)
+                                    : null,
+                            }
+                            : task
+                    )
+                );
+                return;
+            }
+
+            if (responseData?.in_user) {
+                setTasks((prev) =>
+                    prev.map((task) =>
+                        task.task_id === taskId
+                            ? { ...task, in_user: responseData.in_user }
+                            : task
+                    )
+                );
+            }
+
+            toast.error(responseData?.message || 'Operation failed');
+        } catch (error) {
+            const responseData = error.response?.data;
+            if (responseData?.in_user) {
+                setTasks((prev) =>
+                    prev.map((task) =>
+                        task.task_id === taskId
+                            ? { ...task, in_user: responseData.in_user }
+                            : task
+                    )
+                );
+            }
+            console.error(`Error during get ${action}:`, error);
+            toast.error(responseData?.message || error.message || 'Operation failed');
+        } finally {
+            setGetInOutLoadingId(null);
+        }
     };
 
     const toggleRowDropdown = (taskId, buttonElement) => {
         if (activeRowDropdown === taskId) {
             setActiveRowDropdown(null);
+            rowContextPositionRef.current = null;
             return;
         }
+        rowContextPositionRef.current = null;
         if (buttonElement) {
             rowMenuButtonRefs.current[taskId] = buttonElement;
         }
+        setActiveRowDropdown(taskId);
+    };
+
+    const handleRowContextMenu = (e, taskId) => {
+        e.preventDefault();
+        e.stopPropagation();
+        rowContextPositionRef.current = { top: e.clientY, left: e.clientX };
+        rowMenuButtonRefs.current[taskId] = null;
         setActiveRowDropdown(taskId);
     };
 
@@ -1091,7 +1260,7 @@ const TaskDisplay = () => {
     const prepareExportData = () => {
         // Get visible columns configuration
         const visibleColumns = getVisibleColumnConfig();
-        
+
         // Prepare columns for export
         const exportColumnsConfig = [];
         const exportDataList = [];
@@ -1108,7 +1277,7 @@ const TaskDisplay = () => {
         });
 
         // Build data array for selected tasks or all tasks
-        const tasksToExport = selectedTasks.size > 0 
+        const tasksToExport = selectedTasks.size > 0
             ? tasks.filter(task => selectedTasks.has(task.task_id))
             : tasks;
 
@@ -1146,18 +1315,36 @@ const TaskDisplay = () => {
                         case 'create_date':
                             value = formatDate(task.dates?.create_date);
                             break;
-                        case 'target_date':
-                            value = formatDate(task.dates?.target_date);
+                        case 'due_days':
+                        case 'target_date': {
+                            const dueDate = task.dates?.due_date;
+                            if (!dueDate) {
+                                value = '';
+                                break;
+                            }
+                            const daysLeftExport = getDaysLeft(dueDate);
+                            if (daysLeftExport < 0) {
+                                value = `OD by ${Math.abs(daysLeftExport)}D`;
+                            } else if (daysLeftExport === 0) {
+                                value = 'Due today';
+                            } else {
+                                value = `Due in ${daysLeftExport}D`;
+                            }
                             break;
+                        }
                         case 'billing_status':
                             value = task.billing_status || '';
                             break;
                         case 'status':
                             value = formatStatus(task.status);
                             break;
-                        case 'staffs':
-                            value = (task.staffs || []).map(s => s.name).join(', ');
+                        case 'staffs': {
+                            const staffNames = (task.staffs || []).map((s) => s.name).filter(Boolean);
+                            if (task.has_ca && task.ca?.name) staffNames.push(`CA: ${task.ca.name}`);
+                            if (task.has_agent && task.agent?.name) staffNames.push(`Agent: ${task.agent.name}`);
+                            value = staffNames.join(', ');
                             break;
+                        }
                         case 'is_recurring':
                             value = task.is_recurring ? 'Yes' : 'No';
                             break;
@@ -1179,7 +1366,7 @@ const TaskDisplay = () => {
     // Handle export click
     const handleExportClick = () => {
         const { data, columns } = prepareExportData();
-        
+
         if (data.length === 0) {
             toast.error('No data to export');
             return;
@@ -1279,34 +1466,41 @@ const TaskDisplay = () => {
                         )}
                     </div>
                 );
-            case 'due_date':
+            case 'due_date': {
+                const dueDateValue = task.dates?.due_date ? formatDate(task.dates.due_date) : '-';
+                const dueTitle = task.dates?.due_date ? `Due Date: ${dueDateValue}` : 'Due Date';
                 return (
-                    <div className="flex items-center gap-2">
-                        <div className="text-gray-700 font-medium text-sm">
-                            {task.dates?.due_date ? formatDate(task.dates.due_date) : '-'}
-                        </div>
-                        {task.dates?.due_date && (
-                            <span className={`text-xs font-bold ${isOverdue ? 'text-red-600' : daysLeft <= 7 ? 'text-orange-600' : 'text-green-600'}`}>
-                                {isOverdue
-                                    ? `Overdue by ${Math.abs(daysLeft)} day${Math.abs(daysLeft) > 1 ? 's' : ''}`
-                                    : `Due in ${daysLeft} day${daysLeft > 1 ? 's' : ''}`
-                                }
-                            </span>
-                        )}
+                    <div className="flex items-center gap-1.5 text-gray-700 font-medium text-sm" title={dueTitle}>
+                        <FiCalendar className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" />
+                        <span>{dueDateValue}</span>
                     </div>
                 );
-            case 'create_date':
+            }
+            case 'create_date': {
+                const createDateValue = task.dates?.create_date ? formatDate(task.dates.create_date) : '-';
+                const createTitle = task.dates?.create_date ? `Create Date: ${createDateValue}` : 'Create Date';
                 return (
-                    <div className="text-gray-700 font-medium text-sm">
-                        {task.dates?.create_date ? formatDate(task.dates.create_date) : '-'}
+                    <div className="flex items-center gap-1.5 text-gray-700 font-medium text-sm" title={createTitle}>
+                        <FiClock className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" />
+                        <span>{createDateValue}</span>
                     </div>
                 );
-            case 'target_date':
+            }
+            case 'due_days':
+            case 'target_date': {
+                const dueDaysLabel = formatDueDaysLabel(task.dates?.due_date);
+                if (!dueDaysLabel) {
+                    return <span className="text-gray-400 text-sm">-</span>;
+                }
                 return (
-                    <div className="text-gray-700 font-medium text-sm">
-                        {task.dates?.target_date ? formatDate(task.dates.target_date) : '-'}
-                    </div>
+                    <span
+                        className={`text-sm font-semibold ${isOverdue ? 'text-red-600' : daysLeft <= 7 ? 'text-orange-600' : 'text-green-600'}`}
+                        title={dueDaysLabel}
+                    >
+                        {dueDaysLabel}
+                    </span>
                 );
+            }
             case 'billing_status':
                 const billingStatus = task.billing_status || '-';
                 return (
@@ -1314,72 +1508,114 @@ const TaskDisplay = () => {
                         {safeGetString(billingStatus)}
                     </span>
                 );
-            case 'staffs':
+            case 'staffs': {
                 const staffs = task.staffs || [];
-                if (staffs.length === 1) {
-                    const staffName = safeGetString(staffs[0].name || 'S');
-                    return (
-                        <button
-                            onClick={() => openUsersModal(staffs, task.service?.name)}
-                            className="flex items-center justify-start cursor-pointer hover:opacity-80 transition-opacity"
-                            title={`Click to view ${staffName}'s details`}
-                        >
-                            <div className="w-8 h-8 bg-gradient-to-br from-indigo-500 to-indigo-600 rounded-full border-2 border-white flex items-center justify-center text-xs font-bold text-white">
-                                {staffName.charAt(0)}
+                const staffColId = getStaffColumnId();
+                const showCa = !hiddenFields[`${staffColId}_staff_ca`];
+                const showAgent = !hiddenFields[`${staffColId}_staff_agent`];
+                const caName = showCa && task.has_ca && task.ca
+                    ? safeGetString(task.ca.name || task.ca.username)
+                    : null;
+                const agentName = showAgent && task.has_agent && task.agent
+                    ? safeGetString(task.agent.name || task.agent.username)
+                    : null;
+
+                const renderStaffAvatars = () => {
+                    if (staffs.length === 1) {
+                        const staffName = safeGetString(staffs[0].name || 'S');
+                        return (
+                            <button
+                                type="button"
+                                onClick={() => openUsersModal(staffs, task.service?.name)}
+                                className="flex items-center justify-start cursor-pointer hover:opacity-80 transition-opacity"
+                                title={`Click to view ${staffName}'s details`}
+                            >
+                                <div className="w-8 h-8 bg-gradient-to-br from-indigo-500 to-indigo-600 rounded-full border-2 border-white flex items-center justify-center text-xs font-bold text-white">
+                                    {staffName.charAt(0)}
+                                </div>
+                            </button>
+                        );
+                    }
+                    if (staffs.length === 2) {
+                        return (
+                            <div className="flex -space-x-2">
+                                {staffs.map((staff, staffIndex) => {
+                                    const staffName = safeGetString(staff.name || 'S');
+                                    return (
+                                        <button
+                                            type="button"
+                                            key={staff.assign_id || staffIndex}
+                                            onClick={() => openUsersModal(staffs, task.service?.name)}
+                                            className="flex items-center justify-center cursor-pointer hover:opacity-80 transition-opacity"
+                                            title={`Click to view ${staffName}'s details`}
+                                        >
+                                            <div className="w-8 h-8 bg-gradient-to-br from-indigo-500 to-indigo-600 rounded-full border-2 border-white flex items-center justify-center text-xs font-bold text-white">
+                                                {staffName.charAt(0)}
+                                            </div>
+                                        </button>
+                                    );
+                                })}
                             </div>
-                        </button>
-                    );
-                } else if (staffs.length === 2) {
-                    return (
-                        <div className="flex -space-x-2">
-                            {staffs.map((staff, staffIndex) => {
-                                const staffName = safeGetString(staff.name || 'S');
-                                return (
-                                    <button
-                                        key={staff.assign_id || staffIndex}
-                                        onClick={() => openUsersModal(staffs, task.service?.name)}
-                                        className="flex items-center justify-center cursor-pointer hover:opacity-80 transition-opacity"
-                                        title={`Click to view ${staffName}'s details`}
-                                    >
-                                        <div className="w-8 h-8 bg-gradient-to-br from-indigo-500 to-indigo-600 rounded-full border-2 border-white flex items-center justify-center text-xs font-bold text-white">
+                        );
+                    }
+                    if (staffs.length > 2) {
+                        const showMoreCount = staffs.length - 2;
+                        return (
+                            <div className="flex -space-x-2">
+                                {staffs.slice(0, 2).map((staff, staffIndex) => {
+                                    const staffName = safeGetString(staff.name || 'S');
+                                    return (
+                                        <button
+                                            type="button"
+                                            key={staff.assign_id || staffIndex}
+                                            onClick={() => openUsersModal(staffs, task.service?.name)}
+                                            className="w-8 h-8 bg-gradient-to-br from-indigo-500 to-indigo-600 rounded-full border-2 border-white flex items-center justify-center text-xs font-bold text-white hover:opacity-80 transition-opacity"
+                                            title={`Click to view all ${staffs.length} staff members`}
+                                        >
                                             {staffName.charAt(0)}
-                                        </div>
-                                    </button>
-                                );
-                            })}
-                        </div>
-                    );
-                } else if (staffs.length > 2) {
-                    const showMoreCount = staffs.length - 2;
-                    return (
-                        <div className="flex -space-x-2">
-                            {staffs.slice(0, 2).map((staff, staffIndex) => {
-                                const staffName = safeGetString(staff.name || 'S');
-                                return (
-                                    <button
-                                        key={staff.assign_id || staffIndex}
-                                        onClick={() => openUsersModal(staffs, task.service?.name)}
-                                        className="w-8 h-8 bg-gradient-to-br from-indigo-500 to-indigo-600 rounded-full border-2 border-white flex items-center justify-center text-xs font-bold text-white hover:opacity-80 transition-opacity"
-                                        title={`Click to view all ${staffs.length} staff members`}
-                                    >
-                                        {staffName.charAt(0)}
-                                    </button>
-                                );
-                            })}
-                            {staffs.length > 2 && (
+                                        </button>
+                                    );
+                                })}
                                 <button
+                                    type="button"
                                     onClick={() => openUsersModal(staffs, task.service?.name)}
                                     className="w-8 h-8 bg-gradient-to-br from-indigo-500 to-indigo-600 rounded-full border-2 border-white flex items-center justify-center text-xs font-bold text-white"
                                     title={`Click to view all ${staffs.length} staff members`}
                                 >
                                     +{showMoreCount}
                                 </button>
-                            )}
-                        </div>
-                    );
-                } else {
+                            </div>
+                        );
+                    }
+                    return null;
+                };
+
+                if (staffs.length === 0 && !caName && !agentName) {
                     return <span className="text-gray-400 text-sm">-</span>;
                 }
+
+                return (
+                    <div className="flex flex-col items-start gap-1.5 min-w-0 max-w-full">
+                        {renderStaffAvatars()}
+                        {caName && (
+                            <span
+                                className="text-[10px] font-semibold text-violet-700 bg-violet-50 px-1.5 py-0.5 rounded truncate max-w-full"
+                                title={`CA: ${caName}`}
+                            >
+                                CA: {caName}
+                            </span>
+                        )}
+                        {agentName && (
+                            <span
+                                className="text-[10px] font-semibold text-sky-700 bg-sky-50 px-1.5 py-0.5 rounded truncate max-w-full"
+                                title={`Agent: ${agentName}`}
+                            >
+                                Agent: {agentName}
+                            </span>
+                        )}
+                    </div>
+                );
+            }
             case 'is_recurring':
                 return (
                     <span className={`text-xs font-medium ${task.is_recurring ? 'text-green-600' : 'text-gray-400'}`}>
@@ -1411,13 +1647,31 @@ const TaskDisplay = () => {
                                         task.status || '-';
 
                 return (
-                    <button
-                        type="button"
-                        onClick={() => openStatusModal(task.task_id, task.status, task.service?.name || task.service_name || '')}
-                        className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-medium ${statusColorClass} hover:opacity-90 transition-opacity`}
-                    >
-                        {safeGetString(statusText)}
-                    </button>
+                    <div className="flex flex-col items-start gap-1">
+                        <button
+                            type="button"
+                            onClick={() => openStatusModal(task.task_id, task.status, task.service?.name || task.service_name || '')}
+                            className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-medium ${statusColorClass} hover:opacity-90 transition-opacity`}
+                        >
+                            {safeGetString(statusText)}
+                        </button>
+                        {(() => {
+                            const inOutState = getTaskInOutState(task);
+                            if (!inOutState.badge) return null;
+                            const isSelf = inOutState.mode === 'self';
+                            return (
+                                <span
+                                    className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold ${isSelf
+                                        ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                                        : 'bg-amber-50 text-amber-700 border border-amber-200'
+                                        }`}
+                                >
+                                    {isSelf ? <FiUserCheck className="w-3 h-3" /> : <FiClock className="w-3 h-3" />}
+                                    {inOutState.badge}
+                                </span>
+                            );
+                        })()}
+                    </div>
                 );
             case 'menu':
                 return (
@@ -1461,7 +1715,7 @@ const TaskDisplay = () => {
     const rowActionTask = activeRowDropdown
         ? tasks.find((t) => t.task_id === activeRowDropdown)
         : null;
-        const openBulkStatusModal = () => {
+    const openBulkStatusModal = () => {
         if (selectedTasks.size === 0) return;
         setBulkStatusModal({ open: true, loading: false });
     };
@@ -1530,11 +1784,10 @@ const TaskDisplay = () => {
                                                         onNavigateToTaskList: () => navigate('/task/view'),
                                                     })
                                                 }
-                                                className={`px-3 py-2 rounded-lg text-sm font-medium flex items-center gap-2 shadow-sm transition-all duration-200 ${
-                                                    check('task_create')
-                                                        ? 'bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white'
-                                                        : 'bg-gray-100 border border-gray-200 text-gray-400 cursor-not-allowed opacity-60'
-                                                }`}
+                                                className={`px-3 py-2 rounded-lg text-sm font-medium flex items-center gap-2 shadow-sm transition-all duration-200 ${check('task_create')
+                                                    ? 'bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white'
+                                                    : 'bg-gray-100 border border-gray-200 text-gray-400 cursor-not-allowed opacity-60'
+                                                    }`}
                                                 whileHover={check('task_create') ? { scale: 1.05 } : {}}
                                                 whileTap={check('task_create') ? { scale: 0.95 } : {}}
                                                 title={check('task_create') ? 'Create Task' : 'Locked (No permission)'}
@@ -1573,22 +1826,22 @@ const TaskDisplay = () => {
                                                             exit={{ opacity: 0, y: -8 }}
                                                         >
                                                             <div className="px-3 py-2 text-xs font-semibold text-gray-500 uppercase border-b border-gray-100">Export Options</div>
-                                                            <button 
-                                                                onClick={() => { handleExportClick(); setShowMoreMenu(false); }} 
+                                                            <button
+                                                                onClick={() => { handleExportClick(); setShowMoreMenu(false); }}
                                                                 className="flex items-center w-full px-3 py-2.5 text-sm text-gray-700 hover:bg-green-50 transition-colors"
                                                             >
                                                                 <PiMicrosoftExcelLogoDuotone className="w-4 h-4 mr-2 text-green-600" />
                                                                 Export as Excel
                                                             </button>
-                                                            <button 
-                                                                onClick={() => { handleExportClick(); setShowMoreMenu(false); }} 
+                                                            <button
+                                                                onClick={() => { handleExportClick(); setShowMoreMenu(false); }}
                                                                 className="flex items-center w-full px-3 py-2.5 text-sm text-gray-700 hover:bg-blue-50 transition-colors"
                                                             >
                                                                 <FaFileCsv className="w-4 h-4 mr-2 text-blue-600" />
                                                                 Export as CSV
                                                             </button>
-                                                            <button 
-                                                                onClick={() => { handleExportClick(); setShowMoreMenu(false); }} 
+                                                            <button
+                                                                onClick={() => { handleExportClick(); setShowMoreMenu(false); }}
                                                                 className="flex items-center w-full px-3 py-2.5 text-sm text-gray-700 hover:bg-red-50 transition-colors"
                                                             >
                                                                 <PiFilePdfDuotone className="w-4 h-4 mr-2 text-red-600" />
@@ -1635,7 +1888,8 @@ const TaskDisplay = () => {
                                     tasks={tasks}
                                     selectedTasks={selectedTasks}
                                     handleTaskSelect={handleTaskSelect}
-                                    selectAll={selectAll}
+                                    selectAll={allTasksSelected}
+                                    isSelectionIndeterminate={isSelectionIndeterminate}
                                     handleSelectAll={handleSelectAll}
                                     columnConfig={getVisibleColumnConfig()}
                                     renderCellContent={renderCellContent}
@@ -1643,6 +1897,8 @@ const TaskDisplay = () => {
                                     toggleRowDropdown={toggleRowDropdown}
                                     activeRowDropdown={activeRowDropdown}
                                     handleGetInOut={handleGetInOut}
+                                    getTaskInOutState={getTaskInOutState}
+                                    getInOutLoadingId={getInOutLoadingId}
                                     setActiveRowDropdown={setActiveRowDropdown}
                                     navigate={navigate}
                                     openStatusModal={openStatusModal}
@@ -1653,6 +1909,7 @@ const TaskDisplay = () => {
                                     getDaysLeft={getDaysLeft}
                                     getStatusStyle={getStatusStyle}
                                     getStatusText={getStatusText}
+                                    onRowContextMenu={handleRowContextMenu}
                                 />
                             ) : (
                                 <TaskCards
@@ -1665,6 +1922,8 @@ const TaskDisplay = () => {
                                     toggleRowDropdown={toggleRowDropdown}
                                     activeRowDropdown={activeRowDropdown}
                                     handleGetInOut={handleGetInOut}
+                                    getTaskInOutState={getTaskInOutState}
+                                    getInOutLoadingId={getInOutLoadingId}
                                     setActiveRowDropdown={setActiveRowDropdown}
                                     navigate={navigate}
                                     openStatusModal={openStatusModal}
@@ -1754,29 +2013,59 @@ const TaskDisplay = () => {
                         }}
                     >
                         <div className="py-1">
-                            {check('task_update') ? (
-                                <button
-                                    type="button"
-                                    onClick={() => {
-                                        handleGetInOut(rowActionTask.task_id, 'in');
-                                        setActiveRowDropdown(null);
-                                    }}
-                                    className="flex items-center w-full px-4 py-2.5 text-sm text-indigo-600 hover:bg-indigo-50 transition-colors"
-                                >
-                                    <FiArrowLeft className="mr-2 text-indigo-600 w-4 h-4" />
-                                    GET IN
-                                </button>
-                            ) : (
-                                <button
-                                    disabled
-                                    className="flex items-center w-full px-4 py-2.5 text-sm text-gray-400 cursor-not-allowed opacity-60 bg-gray-50 transition-colors"
-                                >
-                                    <FiLock className="mr-2 text-gray-400 w-4 h-4" />
-                                    GET IN
-                                </button>
-                            )}
+                            {(() => {
+                                const inOutState = getTaskInOutState(rowActionTask);
+                                const isLoading = getInOutLoadingId === rowActionTask.task_id;
 
-                            <div className="border-t my-1" />
+                                return (
+                                    <>
+                                        {inOutState.badge && (
+                                            <div className={`px-4 py-2 text-xs font-medium border-b ${inOutState.mode === 'self'
+                                                ? 'bg-emerald-50 text-emerald-800 border-emerald-100'
+                                                : 'bg-amber-50 text-amber-800 border-amber-100'
+                                                }`}>
+                                                {inOutState.badge}
+                                            </div>
+                                        )}
+
+                                        {inOutState.showGetIn && (
+                                            <button
+                                                type="button"
+                                                disabled={isLoading}
+                                                onClick={() => handleGetInOut(rowActionTask.task_id, 'in')}
+                                                className="flex items-center w-full px-4 py-2.5 text-sm text-indigo-600 hover:bg-indigo-50 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+                                            >
+                                                {isLoading ? (
+                                                    <FiLoader className="mr-2 text-indigo-600 w-4 h-4 animate-spin" />
+                                                ) : (
+                                                    <FiArrowLeft className="mr-2 text-indigo-600 w-4 h-4" />
+                                                )}
+                                                GET IN
+                                            </button>
+                                        )}
+
+                                        {inOutState.showGetOut && (
+                                            <button
+                                                type="button"
+                                                disabled={isLoading}
+                                                onClick={() => handleGetInOut(rowActionTask.task_id, 'out')}
+                                                className="flex items-center w-full px-4 py-2.5 text-sm text-orange-600 hover:bg-orange-50 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+                                            >
+                                                {isLoading ? (
+                                                    <FiLoader className="mr-2 text-orange-600 w-4 h-4 animate-spin" />
+                                                ) : (
+                                                    <FiArrowRight className="mr-2 text-orange-600 w-4 h-4" />
+                                                )}
+                                                GET OUT
+                                            </button>
+                                        )}
+
+                                        {(inOutState.showGetIn || inOutState.showGetOut) && (
+                                            <div className="border-t my-1" />
+                                        )}
+                                    </>
+                                );
+                            })()}
 
                             {check('task_update') ? (
                                 <button
