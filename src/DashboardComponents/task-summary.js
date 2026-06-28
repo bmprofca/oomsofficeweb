@@ -481,7 +481,7 @@ const TaskSummary = ({ onRefresh: externalRefresh, onCreateTask }) => {
                                                     onClick={() => navigateToTaskView(null, service.id)}
                                                 >
                                                     <div className="font-semibold text-gray-800">
-                                                        {isRecurring && <span className="text-red-500 font-bold mr-1.5">( R )</span>}
+                                                        {isRecurring && <span className="text-red-500 font-bold mr-1.5">( C )</span>}
                                                         {service.name}
                                                     </div>
                                                 <div className="text-sm text-gray-500">{service.category} • {service.total_tasks} tasks</div>

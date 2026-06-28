@@ -319,7 +319,7 @@ const getScheduleInfo = (row) => {
   const map = {
     immediate: { Icon: FiZap,       color: '#d97706', label: 'Immediate' },
     scheduled: { Icon: FiClock,     color: '#2563eb', label: 'Scheduled' },
-    recurring: { Icon: FiRefreshCw, color: '#0891b2', label: 'Recurring' },
+    recurring: { Icon: FiRefreshCw, color: '#0891b2', label: 'Compliance' },
     now:       { Icon: FiZap,       color: '#d97706', label: 'Immediate' },
   };
   const cfg = map[row.schedule_type?.toLowerCase()] || map.immediate;

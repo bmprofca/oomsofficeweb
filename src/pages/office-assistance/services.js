@@ -127,7 +127,7 @@ const TYPE_COLORS = {
 const typeBadge = (type) => {
     const t = (type || 'other').toLowerCase();
     const cls = TYPE_COLORS[t] || TYPE_COLORS.other;
-    const label = t === 'compliance' ? 'recurring task' : t;
+    const label = t === 'compliance' ? 'compliance task' : t;
     return (
         <span className={`inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-semibold border ${cls} uppercase tracking-wide`}>
             {label}
@@ -314,7 +314,7 @@ const FeeForm = ({ form, onChange, loading, showDueDate = false }) => {
                         placeholder="e.g. 10"
                         className="w-full px-3 py-2.5 text-sm text-gray-700 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none disabled:opacity-60"
                     />
-                    <p className="text-[10px] text-gray-400 mt-1">Day of the month when this recurring task is due (1–31).</p>
+                    <p className="text-[10px] text-gray-400 mt-1">Day of the month when this compliance task is due (1–31).</p>
                 </div>
             ) : null}
 

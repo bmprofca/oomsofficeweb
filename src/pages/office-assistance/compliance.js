@@ -1,13 +1,13 @@
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Link, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import {
   FiArrowLeft,
   FiArrowRight,
   FiCalendar,
   FiClock,
+  FiEdit2,
   FiEye,
-  FiHome,
   FiLoader,
   FiMail,
   FiPhone,
@@ -21,15 +21,21 @@ import TablePagination from '../../components/TablePagination';
 import { useUserPermissions } from '../../utils/permission-helper';
 import { taskGetIn, taskGetOut } from '../../services/taskService';
 import {
+  addComplianceFirm,
   changeComplianceTaskStatus,
   COMPLIANCE_TASK_STATUSES,
+  editComplianceFirm,
   extractApiError,
+  fetchComplianceFirmDetails,
   fetchComplianceServices,
   fetchComplianceTaskList,
   getCurrentComplianceYear,
   normalizeAssignees,
 } from '../../services/complianceService';
-import { formatMoney } from './complianceShared';
+import axios from 'axios';
+import getHeaders from '../../utils/get-headers';
+import API_BASE_URL from '../../utils/api-controller';
+import { formatMoney, FirmFormModal } from './complianceShared';
 import AssignedStaffList from '../../components/Modals/AssignedStaffList';
 import TaskStatusChange from '../../components/Modals/TaskStatusChange';
 
@@ -289,6 +295,7 @@ const getPeriodLabel = (row, periodOptions) => {
 };
 
 const getFirmFileNo = (firm) => firm?.file_no || firm?.file_number || '';
+const getFirmType = (firm) => firm?.firm_type || '';
 
 const formatDueDate = (value) => {
   if (!value) return '—';
@@ -319,12 +326,36 @@ const rowClientContact = (row) => {
   const profile = row?.client?.profile || {};
   const client = row?.client || {};
   return {
+    username: profile.username || client.username || '',
     name: profile.name || client.name || profile.username || client.username || '',
     mobile: profile.mobile || client.mobile || '',
     email: profile.email || client.email || '',
   };
 };
 const rowCharges = (row) => row?.charges || {};
+
+const buildFirmEditInitialFromRow = (row, details = null) => {
+  const firm = rowFirm(row);
+  const service = rowService(row);
+  const charges = rowCharges(row);
+  const source = details && typeof details === 'object' ? details : {};
+
+  return {
+    id: source.id ?? source.compliance_firm_id ?? row.compliance_firm_id
+      ?? firm.compliance_firm_id ?? firm.id ?? row.id,
+    service_id: source.service_id ?? service.service_id ?? '',
+    firm_id: source.firm_id ?? firm.firm_id ?? '',
+    fees: source.fees ?? charges.fees ?? '',
+    tax_rate: source.tax_rate ?? charges.tax_rate ?? charges.gst_rate ?? 18,
+    due_date: source.due_date ?? firm.due_date ?? row.due_day ?? '10',
+    effective_from: source.effective_from ?? row.effective_from ?? firm.effective_from ?? '',
+    staffs: source.staffs ?? row.staffs,
+    ca: source.ca ?? row.ca,
+    agent: source.agent ?? row.agent,
+  };
+};
+
+const isTaskNotStarted = (row) => !row?.task_id || !row?.status;
 
 const taskRowKey = (row) => {
   const dates = rowDates(row);
@@ -508,19 +539,24 @@ const StartWorkingModal = ({ row, loading, onConfirm, onCancel }) => {
   );
 };
 
-const ComplianceServices = () => {
+export const ComplianceTaskBoard = ({
+  username: usernameProp = '',
+  firmId: firmIdProp = '',
+  embedded = false,
+  isMinimized = false,
+}) => {
   const navigate = useNavigate();
   const { check } = useUserPermissions();
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [isMinimized, setIsMinimized] = useState(() =>
-    JSON.parse(localStorage.getItem('sidebarMinimized') || 'false'),
-  );
+  const username = String(usernameProp || '').trim();
+  const isClientScoped = Boolean(username);
 
   const [services, setServices] = useState([]);
   const [serviceId, setServiceId] = useState('');
   const [complianceYear, setComplianceYear] = useState(getCurrentComplianceYear());
   const [compliancePeriod, setCompliancePeriod] = useState('');
   const [periodOptions, setPeriodOptions] = useState(null);
+  const [selectedFirmId, setSelectedFirmId] = useState(firmIdProp || '');
+  const [firmOptions, setFirmOptions] = useState([]);
 
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -543,6 +579,9 @@ const ComplianceServices = () => {
   const rowContextPositionRef = useRef(null);
   const rowDropdownRef = useRef(null);
   const [rowDropdownPosition, setRowDropdownPosition] = useState({ top: 8, left: 8 });
+  const [firmModal, setFirmModal] = useState(null);
+  const [firmModalSaving, setFirmModalSaving] = useState(false);
+  const [firmEditOpening, setFirmEditOpening] = useState(false);
 
   const selectedService = useMemo(
     () => services.find((item) => item.service_id === serviceId) || null,
@@ -570,6 +609,42 @@ const ComplianceServices = () => {
     [check],
   );
 
+  useEffect(() => {
+    setSelectedFirmId(firmIdProp || '');
+  }, [firmIdProp, username]);
+
+  useEffect(() => {
+    if (!isClientScoped) {
+      setFirmOptions([]);
+      return undefined;
+    }
+
+    let cancelled = false;
+    (async () => {
+      try {
+        const headers = getHeaders();
+        const response = await axios.get(
+          `${API_BASE_URL}/client/details/firms/list?username=${encodeURIComponent(username)}`,
+          { headers },
+        );
+        if (cancelled) return;
+        const firmsData = response.data?.data?.firms || [];
+        setFirmOptions(
+          firmsData.map((firm) => ({
+            value: firm.firm_id,
+            label: firm.firm_name || firm.name || String(firm.firm_id),
+          })),
+        );
+      } catch {
+        if (!cancelled) setFirmOptions([]);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [isClientScoped, username]);
+
   const loadServices = useCallback(async () => {
     try {
       const res = await fetchComplianceServices({ page_no: 1, limit: 100 });
@@ -591,6 +666,8 @@ const ComplianceServices = () => {
           serviceId && complianceYear && compliancePeriod ? compliancePeriod : '',
         page_no: pagination.page,
         limit: pagination.limit,
+        username,
+        firm_id: selectedFirmId || '',
       });
       setRows(res.data);
       setPeriodOptions(res.query_payload?.period_options ?? null);
@@ -602,11 +679,7 @@ const ComplianceServices = () => {
     } finally {
       setLoading(false);
     }
-  }, [serviceId, complianceYear, compliancePeriod, pagination.page, pagination.limit]);
-
-  useEffect(() => {
-    localStorage.setItem('sidebarMinimized', JSON.stringify(isMinimized));
-  }, [isMinimized]);
+  }, [serviceId, complianceYear, compliancePeriod, pagination.page, pagination.limit, username, selectedFirmId]);
 
   useEffect(() => {
     loadServices();
@@ -813,378 +886,494 @@ const ComplianceServices = () => {
     }
   };
 
+  const handleOpenEditFirmModal = async (row) => {
+    setActiveActionRowKey(null);
+    rowContextPositionRef.current = null;
+
+    const firm = rowFirm(row);
+    const service = rowService(row);
+
+    if (!service.service_id || !firm.firm_id) {
+      toast.error('Missing service or firm on this row');
+      return;
+    }
+
+    setFirmEditOpening(true);
+    try {
+      let details = null;
+      try {
+        const res = await fetchComplianceFirmDetails({
+          service_id: service.service_id,
+          firm_id: firm.firm_id,
+        });
+        details = res?.data ?? res;
+      } catch {
+        details = null;
+      }
+
+      setFirmModal({
+        mode: 'edit',
+        firm: buildFirmEditInitialFromRow(row, details),
+        clientUsername: row?.client?.profile?.username || row?.client?.username || '',
+      });
+    } finally {
+      setFirmEditOpening(false);
+    }
+  };
+
+  const handleSaveFirmModal = async (form) => {
+    setFirmModalSaving(true);
+    try {
+      if (firmModal?.mode === 'add') {
+        const res = await addComplianceFirm({
+          service_id: form.service_id,
+          firm_id: form.firm_id,
+          effective_from: form.effective_from,
+          fees: form.fees,
+          tax_rate: form.tax_rate,
+          due_date: form.due_date,
+          staffs: form.staffs,
+          ca: form.ca,
+          agent: form.agent,
+        });
+        toast.success(res?.message || 'Compliance firm assigned');
+      } else {
+        const firmId = firmModal?.firm?.id ?? firmModal?.firm?.compliance_firm_id;
+        if (!firmId) {
+          toast.error('Compliance firm assignment id is missing');
+          return;
+        }
+        const res = await editComplianceFirm({
+          id: firmId,
+          service_id: form.service_id,
+          firm_id: form.firm_id,
+          effective_from: form.effective_from,
+          fees: form.fees,
+          tax_rate: form.tax_rate,
+          due_date: form.due_date,
+          staffs: form.staffs,
+          ca: form.ca,
+          agent: form.agent,
+        });
+        toast.success(res?.message || 'Compliance firm updated');
+      }
+      setFirmModal(null);
+      loadTasks();
+    } catch (error) {
+      toast.error(extractApiError(
+        error,
+        firmModal?.mode === 'add' ? 'Failed to assign compliance firm' : 'Failed to update compliance firm',
+      ));
+    } finally {
+      setFirmModalSaving(false);
+    }
+  };
+
   const actionRow = activeActionRowKey
     ? rows.find((row) => taskRowKey(row) === activeActionRowKey)
     : null;
 
-  return (
-    <div className="min-h-screen bg-gray-50">
-      <Header
-        mobileMenuOpen={mobileMenuOpen}
-        setMobileMenuOpen={setMobileMenuOpen}
-        isMinimized={isMinimized}
-        setIsMinimized={setIsMinimized}
-      />
-      <Sidebar
-        mobileMenuOpen={mobileMenuOpen}
-        setMobileMenuOpen={setMobileMenuOpen}
-        isMinimized={isMinimized}
-        setIsMinimized={setIsMinimized}
-      />
+  const hideClientColumn = isClientScoped;
+  const tableColSpan = hideClientColumn ? 7 : 8;
+  const cardShellClass = embedded
+    ? 'bg-white rounded-lg overflow-hidden shadow-sm border border-gray-200 flex flex-col w-full'
+    : 'bg-white rounded-lg overflow-hidden shadow-sm border border-gray-200 flex flex-col mx-2 sm:mx-4 md:mx-8 my-3 md:my-4';
 
-      <div
-        className={`pt-16 transition-all duration-300 ease-in-out ${isMinimized ? 'md:pl-20' : 'md:pl-[260px]'}`}
-      >
-        <div className="h-full flex flex-col">
-          <div className="bg-white rounded-lg overflow-hidden shadow-sm border border-gray-200 flex flex-col mx-2 sm:mx-4 md:mx-8 my-3 md:my-4">
-            <div className="border-b border-gray-200 px-3 md:px-4 py-3 bg-gradient-to-r from-gray-50 to-white">
-              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-                <div>
-                  <h1 className="text-base md:text-lg font-bold text-gray-800 leading-tight">Compliance Tasks</h1>
-                  <p className="text-xs text-gray-500 mt-0.5">Track recurring compliance work by firm and period</p>
-                </div>
-                <nav className="flex items-center text-xs text-gray-500">
-                  <Link to="/" className="flex items-center gap-1 hover:text-indigo-600 transition-colors">
-                    <FiHome className="w-3.5 h-3.5" />
-                    <span>Dashboard</span>
-                  </Link>
-                </nav>
-              </div>
-            </div>
-
-            <div className={`${TOOLBAR_ROW} flex-wrap`}>
-              <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3 flex-1 min-w-0 w-full">
-                <div>
-                  <label className="block text-xs font-medium text-gray-500 mb-1">Service</label>
-                  <select
-                    value={serviceId}
-                    onChange={(e) => {
-                      setServiceId(e.target.value);
-                      setCompliancePeriod('');
-                      setPeriodOptions(null);
-                      setPagination((prev) => ({ ...prev, page: 1 }));
-                    }}
-                    className={TOOLBAR_INPUT}
-                  >
-                    <option value="">All services</option>
-                    {branchServices.map((service) => (
-                      <option key={service.service_id} value={service.service_id}>
-                        {getServiceLabel(service)}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-medium text-gray-500 mb-1">
-                    Compliance year
-                  </label>
-                  <select
-                    value={complianceYear}
-                    onChange={(e) => {
-                      setComplianceYear(e.target.value);
-                      setPagination((prev) => ({ ...prev, page: 1 }));
-                    }}
-                    className={TOOLBAR_INPUT}
-                  >
-                    {yearOptions.map((year) => (
-                      <option key={year} value={year}>
-                        {year}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-medium text-gray-500 mb-1">Period</label>
-                  <select
-                    value={compliancePeriod}
-                    onChange={(e) => {
-                      setCompliancePeriod(e.target.value);
-                      setPagination((prev) => ({ ...prev, page: 1 }));
-                    }}
-                    disabled={!periodSelectEnabled}
-                    className={`${TOOLBAR_INPUT} disabled:opacity-60`}
-                  >
-                    <option value="">
-                      {!serviceId
-                        ? 'Select a service first'
-                        : !periodSelectEnabled
-                          ? 'All periods in year (yearly service)'
-                          : 'All periods in year'}
-                    </option>
-                    {periodChoices.map((period) => (
-                      <option key={period.value} value={period.value}>
-                        {period.label || period.value}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div className="flex items-end">
-                  <button
-                    type="button"
-                    onClick={loadTasks}
-                    disabled={loading}
-                    className="p-2 rounded-lg border border-gray-300 text-gray-600 hover:bg-gray-50 disabled:opacity-50"
-                    title="Refresh"
-                  >
-                    <FiRefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
-                  </button>
-                </div>
-              </div>
-
-              {selectedService ? (
-                <p className="text-xs text-gray-500 m-0">
-                  {getServiceLabel(selectedService)}
-                  {periodOptions?.frequency ? ` · ${periodOptions.frequency}` : ''}
-                  {compliancePeriod
-                    ? ` · Period: ${compliancePeriod}`
-                    : serviceId
-                      ? ' · All periods in selected year'
-                      : ''}
-                </p>
-              ) : null}
-            </div>
-
-            <div className="flex-1 flex flex-col overflow-hidden">
-              <div className="overflow-x-hidden flex-1">
-                <table className="w-full table-auto">
-                  <thead>
-                    <tr className={TABLE_HEAD_ROW}>
-                      <th className={TABLE_TH_FIRST}>#</th>
-                      <th className={TABLE_TH}>Service</th>
-                      <th className={TABLE_TH}>Due</th>
-                      <th className={TABLE_TH}>Client</th>
-                      <th className={TABLE_TH}>Firm</th>
-                      <th className={TABLE_TH}>Staff</th>
-                      <th className={TABLE_TH}>Status</th>
-                      <th className={`${TABLE_TH} text-center`}>
-                        <FiSettings className="w-4 h-4 text-gray-600 mx-auto" />
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody className="bg-white">
-                    {loading ? (
-                      Array.from({ length: 5 }).map((_, index) => (
-                        <tr key={index} className="animate-pulse">
-                          <td className={TABLE_TD_FIRST}><div className={`${CELL_INDEX} h-3.5 bg-gray-200 rounded w-6`} /></td>
-                          <td className={TABLE_TD}><StackedSkeletonCell rows={3} /></td>
-                          <td className={TABLE_TD}><StackedSkeletonCell rows={2} /></td>
-                          <td className={TABLE_TD}><StackedSkeletonCell rows={3} /></td>
-                          <td className={TABLE_TD}><StackedSkeletonCell rows={2} /></td>
-                          <td className={TABLE_TD}><StackedSkeletonCell rows={2} /></td>
-                          <td className={TABLE_TD}><StackedSkeletonCell rows={2} /></td>
-                          <td className={TABLE_TD}><div className="h-8 w-8 bg-gray-200 rounded-full mx-auto" /></td>
-                        </tr>
-                      ))
-                    ) : rows.length === 0 ? (
-                      <tr>
-                        <td colSpan={8} className={`${TABLE_TD} py-12 text-center`}>
-                          <p className="text-sm font-medium text-gray-500 m-0">No compliance tasks found</p>
-                          <p className="text-xs text-gray-400 mt-1 m-0">Try adjusting the filters above.</p>
-                        </td>
-                      </tr>
-                    ) : (
-                      rows.map((row, idx) => {
-                        const rowKey = taskRowKey(row);
-                        const dates = rowDates(row);
-                        const firm = rowFirm(row);
-                        const service = rowService(row);
-                        const client = rowClientContact(row);
-                        const charges = rowCharges(row);
-                        const currentStatus = row.status || '';
-                        const isUpdating = statusUpdatingKey === rowKey;
-                        const serialNo = (pagination.page - 1) * pagination.limit + idx + 1;
-                        const periodLabel = getPeriodLabel(row, periodOptions);
-                        const feesLabel = formatFeesWithGst(charges);
-                        const dueDaysLabel = formatDueDaysLabel(dates.due_date);
-                        const fileNo = getFirmFileNo(firm);
-                        const overdue = isDueOverdue(dates.due_date);
-
-                        const statusButton = !currentStatus ? (
-                          <button
-                            type="button"
-                            onClick={() => setStartWorkingTarget(row)}
-                            disabled={isUpdating || startWorkingLoading}
-                            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg transition-colors disabled:opacity-50"
-                          >
-                            {isUpdating ? (
-                              <FiLoader className="w-3.5 h-3.5 animate-spin" />
-                            ) : null}
-                            Start
-                          </button>
-                        ) : (
-                          <button
-                            type="button"
-                            onClick={() => openStatusModal(row)}
-                            title={getStatusHoverTitle(currentStatus)}
-                            className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-medium ${getStatusColorClass(currentStatus)} hover:opacity-90 transition-opacity`}
-                          >
-                            {getStatusDisplayText(currentStatus)}
-                          </button>
-                        );
-
-                        const inOutBadgeVisible = row.task_id
-                          && row.status
-                          && getTaskInOutState(row, canForceGetOut).badge;
-                        const statusItems = inOutBadgeVisible
-                          ? [
-                            statusButton,
-                            <ComplianceInOutBadge row={row} canForceGetOut={canForceGetOut} />,
-                          ]
-                          : [statusButton];
-
-                        return (
-                          <tr
-                            key={rowKey}
-                            className={getRowBackgroundClass(row, canForceGetOut)}
-                            onContextMenu={(e) => {
-                              if (e.target.closest('button, a, input, label, .compliance-row-action-trigger')) return;
-                              handleRowContextMenu(e, rowKey);
-                            }}
-                          >
-                            <td className={`${TABLE_TD_FIRST} ${CELL_INDEX}`}>{serialNo}</td>
-                            <td className={TABLE_TD}>
-                              <StackedColumnCell
-                                items={[
-                                  (
-                                    <span className={`${CELL_TITLE} truncate max-w-full block`}>
-                                      {service.name || service.service_id || '—'}
-                                    </span>
-                                  ),
-                                  periodLabel ? (
-                                    <span className={`${CELL_BODY} block`}>{periodLabel}</span>
-                                  ) : (
-                                    <CellDash />
-                                  ),
-                                  feesLabel ? (
-                                    <span className={FEES_CHIP}>{feesLabel}</span>
-                                  ) : (
-                                    <CellDash />
-                                  ),
-                                ]}
-                              />
-                            </td>
-                            <td className={TABLE_TD}>
-                              <StackedColumnCell
-                                items={[
-                                  (
-                                    <div
-                                      className={`flex items-center gap-1.5 font-medium text-sm ${getDueDateColorClass(dates.due_date)}`}
-                                      title={dates.due_date ? `Due Date: ${formatDueDate(dates.due_date)}` : 'Due Date'}
-                                    >
-                                      <FiCalendar className={`w-3.5 h-3.5 flex-shrink-0 ${overdue ? 'text-red-500' : 'text-gray-400'}`} />
-                                      <span>{formatDueDate(dates.due_date)}</span>
-                                    </div>
-                                  ),
-                                  dueDaysLabel ? (
-                                    <span className={`text-sm ${getDueDaysColorClass(dates.due_date)}`}>
-                                      {dueDaysLabel}
-                                    </span>
-                                  ) : (
-                                    <CellDash />
-                                  ),
-                                ]}
-                              />
-                            </td>
-                            <td className={TABLE_TD}>
-                              <StackedColumnCell
-                                items={[
-                                  (
-                                    <span className={`${CELL_TITLE} truncate max-w-full block`}>
-                                      {client.name || '—'}
-                                    </span>
-                                  ),
-                                  (
-                                    <div className="flex items-center gap-2 text-gray-700 font-medium text-sm min-w-0">
-                                      <FiPhone className="w-3 h-3 text-gray-400 flex-shrink-0" />
-                                      <span className="truncate">{client.mobile || '—'}</span>
-                                    </div>
-                                  ),
-                                  (
-                                    <div className="flex items-center gap-2 text-gray-700 font-medium text-sm min-w-0">
-                                      <FiMail className="w-3 h-3 text-gray-400 flex-shrink-0" />
-                                      <span className="truncate" title={client.email || ''}>
-                                        {client.email || '—'}
-                                      </span>
-                                    </div>
-                                  ),
-                                ]}
-                              />
-                            </td>
-                            <td className={TABLE_TD}>
-                              <StackedColumnCell
-                                items={[
-                                  (
-                                    <span className={`${CELL_BODY} truncate max-w-full block`}>
-                                      {firm.firm_name || firm.firm_id || '—'}
-                                    </span>
-                                  ),
-                                  (
-                                    <span className={`${CELL_BODY} block`}>{fileNo || '—'}</span>
-                                  ),
-                                ]}
-                              />
-                            </td>
-                            <td className={TABLE_TD}>
-                              <StackedColumnCell
-                                items={[
-                                  (
-                                    <StaffAvatarsCell
-                                      row={row}
-                                      onOpenStaffModal={(users, taskName) =>
-                                        setStaffModal({ open: true, users, taskName })
-                                      }
-                                    />
-                                  ),
-                                  <StaffRolesCell row={row} />,
-                                ]}
-                              />
-                            </td>
-                            <td className={TABLE_TD}>
-                              <StackedColumnCell items={statusItems} />
-                            </td>
-                            <td className={`${TABLE_TD} relative overflow-visible`}>
-                              <div className="flex items-center justify-center w-full">
-                                <button
-                                  type="button"
-                                  ref={(el) => {
-                                    if (el) rowMenuButtonRefs.current[rowKey] = el;
-                                  }}
-                                  onClick={(e) => toggleActionMenu(rowKey, e.currentTarget)}
-                                  className="compliance-row-action-trigger w-8 h-8 flex flex-col items-center justify-center rounded-full bg-gray-100 hover:bg-gray-200 transition-colors space-y-0.5"
-                                  title="Actions"
-                                >
-                                  <div className="w-1 h-1 rounded-full bg-gray-600" />
-                                  <div className="w-1 h-1 rounded-full bg-gray-600" />
-                                  <div className="w-1 h-1 rounded-full bg-gray-600" />
-                                </button>
-                              </div>
-                            </td>
-                          </tr>
-                        );
-                      })
-                    )}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-
-            {!loading && pagination.total_pages > 1 ? (
-              <TablePagination
-                page={pagination.page}
-                limit={pagination.limit}
-                total={pagination.total}
-                totalPages={pagination.total_pages}
-                onPageChange={(page) => setPagination((prev) => ({ ...prev, page }))}
-                onLimitChange={(limit) =>
-                  setPagination((prev) => ({ ...prev, limit, page: 1 }))
-                }
-              />
-            ) : null}
+  const boardContent = (
+    <>
+      <div className={cardShellClass}>
+        <div className="border-b border-gray-200 px-3 md:px-4 py-3 bg-gradient-to-r from-gray-50 to-white">
+          <div>
+            <h1 className="text-base md:text-lg font-bold text-gray-800 leading-tight">
+              Compliance Tasks
+            </h1>
+            <p className="text-xs text-gray-500 mt-0.5">
+              {isClientScoped
+                ? 'Compliance schedule and work status for this client'
+                : 'Track compliance work by firm and period'}
+            </p>
           </div>
         </div>
+
+        <div className={`${TOOLBAR_ROW} flex-wrap`}>
+          <div className={`grid grid-cols-1 sm:grid-cols-2 ${isClientScoped ? 'xl:grid-cols-5' : 'xl:grid-cols-4'} gap-3 flex-1 min-w-0 w-full`}>
+            <div>
+              <label className="block text-xs font-medium text-gray-500 mb-1">Service</label>
+              <select
+                value={serviceId}
+                onChange={(e) => {
+                  setServiceId(e.target.value);
+                  setCompliancePeriod('');
+                  setPeriodOptions(null);
+                  setPagination((prev) => ({ ...prev, page: 1 }));
+                }}
+                className={TOOLBAR_INPUT}
+              >
+                <option value="">All services</option>
+                {branchServices.map((service) => (
+                  <option key={service.service_id} value={service.service_id}>
+                    {getServiceLabel(service)}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-xs font-medium text-gray-500 mb-1">
+                Compliance year
+              </label>
+              <select
+                value={complianceYear}
+                onChange={(e) => {
+                  setComplianceYear(e.target.value);
+                  setPagination((prev) => ({ ...prev, page: 1 }));
+                }}
+                className={TOOLBAR_INPUT}
+              >
+                {yearOptions.map((year) => (
+                  <option key={year} value={year}>
+                    {year}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-xs font-medium text-gray-500 mb-1">Period</label>
+              <select
+                value={compliancePeriod}
+                onChange={(e) => {
+                  setCompliancePeriod(e.target.value);
+                  setPagination((prev) => ({ ...prev, page: 1 }));
+                }}
+                disabled={!periodSelectEnabled}
+                className={`${TOOLBAR_INPUT} disabled:opacity-60`}
+              >
+                <option value="">
+                  {!serviceId
+                    ? 'Select a service first'
+                    : !periodSelectEnabled
+                      ? 'All periods in year (yearly service)'
+                      : 'All periods in year'}
+                </option>
+                {periodChoices.map((period) => (
+                  <option key={period.value} value={period.value}>
+                    {period.label || period.value}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {isClientScoped ? (
+              <div>
+                <label className="block text-xs font-medium text-gray-500 mb-1">Firm</label>
+                <select
+                  value={selectedFirmId}
+                  onChange={(e) => {
+                    setSelectedFirmId(e.target.value);
+                    setPagination((prev) => ({ ...prev, page: 1 }));
+                  }}
+                  className={TOOLBAR_INPUT}
+                >
+                  <option value="">All firms</option>
+                  {firmOptions.map((firm) => (
+                    <option key={firm.value} value={firm.value}>
+                      {firm.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            ) : null}
+
+            <div className="flex items-end">
+              <button
+                type="button"
+                onClick={loadTasks}
+                disabled={loading}
+                className="p-2 rounded-lg border border-gray-300 text-gray-600 hover:bg-gray-50 disabled:opacity-50"
+                title="Refresh"
+              >
+                <FiRefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+              </button>
+            </div>
+          </div>
+
+          {selectedService ? (
+            <p className="text-xs text-gray-500 m-0">
+              {getServiceLabel(selectedService)}
+              {periodOptions?.frequency ? ` · ${periodOptions.frequency}` : ''}
+              {compliancePeriod
+                ? ` · Period: ${compliancePeriod}`
+                : serviceId
+                  ? ' · All periods in selected year'
+                  : ''}
+            </p>
+          ) : null}
+        </div>
+
+        <div className="flex-1 flex flex-col overflow-hidden">
+          <div className="overflow-x-hidden flex-1">
+            <table className="w-full table-auto">
+              <thead>
+                <tr className={TABLE_HEAD_ROW}>
+                  <th className={TABLE_TH_FIRST}>#</th>
+                  <th className={TABLE_TH}>Service</th>
+                  <th className={TABLE_TH}>Due</th>
+                  {!hideClientColumn ? <th className={TABLE_TH}>Client</th> : null}
+                  <th className={TABLE_TH}>Firm</th>
+                  <th className={TABLE_TH}>Staff</th>
+                  <th className={TABLE_TH}>Status</th>
+                  <th className={`${TABLE_TH} text-center`}>
+                    <FiSettings className="w-4 h-4 text-gray-600 mx-auto" />
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="bg-white">
+                {loading ? (
+                  Array.from({ length: 5 }).map((_, index) => (
+                    <tr key={index} className="animate-pulse">
+                      <td className={TABLE_TD_FIRST}><div className={`${CELL_INDEX} h-3.5 bg-gray-200 rounded w-6`} /></td>
+                      <td className={TABLE_TD}><StackedSkeletonCell rows={3} /></td>
+                          <td className={TABLE_TD}><StackedSkeletonCell rows={2} /></td>
+                          {!hideClientColumn ? (
+                            <td className={TABLE_TD}><StackedSkeletonCell rows={3} /></td>
+                          ) : null}
+                          <td className={TABLE_TD}><StackedSkeletonCell rows={3} /></td>
+                      <td className={TABLE_TD}><StackedSkeletonCell rows={2} /></td>
+                      <td className={TABLE_TD}><StackedSkeletonCell rows={2} /></td>
+                      <td className={TABLE_TD}><div className="h-8 w-8 bg-gray-200 rounded-full mx-auto" /></td>
+                    </tr>
+                  ))
+                ) : rows.length === 0 ? (
+                  <tr>
+                    <td colSpan={tableColSpan} className={`${TABLE_TD} py-12 text-center`}>
+                      <p className="text-sm font-medium text-gray-500 m-0">No compliance tasks found</p>
+                      <p className="text-xs text-gray-400 mt-1 m-0">Try adjusting the filters above.</p>
+                    </td>
+                  </tr>
+                ) : (
+                  rows.map((row, idx) => {
+                    const rowKey = taskRowKey(row);
+                    const dates = rowDates(row);
+                    const firm = rowFirm(row);
+                    const service = rowService(row);
+                    const client = rowClientContact(row);
+                    const charges = rowCharges(row);
+                    const currentStatus = row.status || '';
+                    const isUpdating = statusUpdatingKey === rowKey;
+                    const serialNo = (pagination.page - 1) * pagination.limit + idx + 1;
+                    const periodLabel = getPeriodLabel(row, periodOptions);
+                    const feesLabel = formatFeesWithGst(charges);
+                    const dueDaysLabel = formatDueDaysLabel(dates.due_date);
+                    const fileNo = getFirmFileNo(firm);
+                    const firmType = getFirmType(firm);
+                    const serviceName = service.name || service.service_id || '—';
+                    const overdue = isDueOverdue(dates.due_date);
+
+                    const statusButton = !currentStatus ? (
+                      <button
+                        type="button"
+                        onClick={() => setStartWorkingTarget(row)}
+                        disabled={isUpdating || startWorkingLoading}
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg transition-colors disabled:opacity-50"
+                      >
+                        {isUpdating ? (
+                          <FiLoader className="w-3.5 h-3.5 animate-spin" />
+                        ) : null}
+                        Start
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => openStatusModal(row)}
+                        title={getStatusHoverTitle(currentStatus)}
+                        className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-medium ${getStatusColorClass(currentStatus)} hover:opacity-90 transition-opacity`}
+                      >
+                        {getStatusDisplayText(currentStatus)}
+                      </button>
+                    );
+
+                    const inOutBadgeVisible = row.task_id
+                      && row.status
+                      && getTaskInOutState(row, canForceGetOut).badge;
+                    const statusItems = inOutBadgeVisible
+                      ? [
+                        statusButton,
+                        <ComplianceInOutBadge row={row} canForceGetOut={canForceGetOut} />,
+                      ]
+                      : [statusButton];
+
+                    return (
+                      <tr
+                        key={rowKey}
+                        className={getRowBackgroundClass(row, canForceGetOut)}
+                        onContextMenu={(e) => {
+                          if (e.target.closest('button, a, input, label, .compliance-row-action-trigger')) return;
+                          handleRowContextMenu(e, rowKey);
+                        }}
+                      >
+                        <td className={`${TABLE_TD_FIRST} ${CELL_INDEX}`}>{serialNo}</td>
+                        <td className={TABLE_TD}>
+                          <StackedColumnCell
+                            items={[
+                              row.task_id ? (
+                                <button
+                                  type="button"
+                                  onClick={() => navigate(`/task/${row.task_id}`)}
+                                  className={`${CELL_TITLE} truncate max-w-full block text-left hover:text-indigo-600 transition-colors`}
+                                >
+                                  {serviceName}
+                                </button>
+                              ) : (
+                                <span className={`${CELL_TITLE} truncate max-w-full block`}>
+                                  {serviceName}
+                                </span>
+                              ),
+                              periodLabel ? (
+                                <span className={`${CELL_BODY} block`}>{periodLabel}</span>
+                              ) : (
+                                <CellDash />
+                              ),
+                              feesLabel ? (
+                                <span className={FEES_CHIP}>{feesLabel}</span>
+                              ) : (
+                                <CellDash />
+                              ),
+                            ]}
+                          />
+                        </td>
+                        <td className={TABLE_TD}>
+                          <StackedColumnCell
+                            items={[
+                              (
+                                <div
+                                  className={`flex items-center gap-1.5 font-medium text-sm ${getDueDateColorClass(dates.due_date)}`}
+                                  title={dates.due_date ? `Due Date: ${formatDueDate(dates.due_date)}` : 'Due Date'}
+                                >
+                                  <FiCalendar className={`w-3.5 h-3.5 flex-shrink-0 ${overdue ? 'text-red-500' : 'text-gray-400'}`} />
+                                  <span>{formatDueDate(dates.due_date)}</span>
+                                </div>
+                              ),
+                              dueDaysLabel ? (
+                                <span className={`text-sm ${getDueDaysColorClass(dates.due_date)}`}>
+                                  {dueDaysLabel}
+                                </span>
+                              ) : (
+                                <CellDash />
+                              ),
+                            ]}
+                          />
+                        </td>
+                        {!hideClientColumn ? (
+                          <td className={TABLE_TD}>
+                            <StackedColumnCell
+                              items={[
+                                client.username ? (
+                                  <button
+                                    type="button"
+                                    onClick={() => navigate(`/client/profile/${client.username}`)}
+                                    className={`${CELL_TITLE} truncate max-w-full block text-left hover:text-indigo-600 transition-colors`}
+                                  >
+                                    {client.name || '—'}
+                                  </button>
+                                ) : (
+                                  <span className={`${CELL_TITLE} truncate max-w-full block`}>
+                                    {client.name || '—'}
+                                  </span>
+                                ),
+                                (
+                                  <div className="flex items-center gap-2 text-gray-700 font-medium text-sm min-w-0">
+                                    <FiPhone className="w-3 h-3 text-gray-400 flex-shrink-0" />
+                                    <span className="truncate">{client.mobile || '—'}</span>
+                                  </div>
+                                ),
+                                (
+                                  <div className="flex items-center gap-2 text-gray-700 font-medium text-sm min-w-0">
+                                    <FiMail className="w-3 h-3 text-gray-400 flex-shrink-0" />
+                                    <span className="truncate" title={client.email || ''}>
+                                      {client.email || '—'}
+                                    </span>
+                                  </div>
+                                ),
+                              ]}
+                            />
+                          </td>
+                        ) : null}
+                        <td className={TABLE_TD}>
+                          <StackedColumnCell
+                            items={[
+                              (
+                                <span className={`${CELL_BODY} truncate max-w-full block`}>
+                                  {firm.firm_name || firm.firm_id || '—'}
+                                </span>
+                              ),
+                              firmType ? (
+                                <span className={`${CELL_BODY} block capitalize`}>{firmType}</span>
+                              ) : (
+                                <CellDash />
+                              ),
+                              (
+                                <span className={`${CELL_BODY} block`}>{fileNo || '—'}</span>
+                              ),
+                            ]}
+                          />
+                        </td>
+                        <td className={TABLE_TD}>
+                          <StackedColumnCell
+                            items={[
+                              (
+                                <StaffAvatarsCell
+                                  row={row}
+                                  onOpenStaffModal={(users, taskName) =>
+                                    setStaffModal({ open: true, users, taskName })
+                                  }
+                                />
+                              ),
+                              <StaffRolesCell row={row} />,
+                            ]}
+                          />
+                        </td>
+                        <td className={TABLE_TD}>
+                          <StackedColumnCell items={statusItems} />
+                        </td>
+                        <td className={`${TABLE_TD} relative overflow-visible`}>
+                          <div className="flex items-center justify-center w-full">
+                            <button
+                              type="button"
+                              ref={(el) => {
+                                if (el) rowMenuButtonRefs.current[rowKey] = el;
+                              }}
+                              onClick={(e) => toggleActionMenu(rowKey, e.currentTarget)}
+                              className="compliance-row-action-trigger w-8 h-8 flex flex-col items-center justify-center rounded-full bg-gray-100 hover:bg-gray-200 transition-colors space-y-0.5"
+                              title="Actions"
+                            >
+                              <div className="w-1 h-1 rounded-full bg-gray-600" />
+                              <div className="w-1 h-1 rounded-full bg-gray-600" />
+                              <div className="w-1 h-1 rounded-full bg-gray-600" />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        {!loading && pagination.total_pages > 1 ? (
+          <TablePagination
+            page={pagination.page}
+            limit={pagination.limit}
+            total={pagination.total}
+            totalPages={pagination.total_pages}
+            onPageChange={(page) => setPagination((prev) => ({ ...prev, page }))}
+            onLimitChange={(limit) =>
+              setPagination((prev) => ({ ...prev, limit, page: 1 }))
+            }
+          />
+        ) : null}
       </div>
 
       <StartWorkingModal
@@ -1210,6 +1399,25 @@ const ComplianceServices = () => {
         users={staffModal.users}
         taskName={staffModal.taskName}
       />
+
+      {firmModal ? (
+        <FirmFormModal
+          isOpen={Boolean(firmModal)}
+          mode={firmModal.mode}
+          initialFirm={firmModal.mode === 'edit' ? firmModal.firm : undefined}
+          services={branchServices}
+          saving={firmModalSaving}
+          yearOptions={yearOptions}
+          clientUsername={isClientScoped ? username : (firmModal.clientUsername || '')}
+          presetFirmOptions={isClientScoped ? firmOptions : null}
+          defaultServiceId={firmModal.mode === 'add' ? serviceId : ''}
+          defaultFirmId={firmModal.mode === 'add' ? selectedFirmId : ''}
+          addTitle="Assign firm to compliance"
+          editTitle="Edit firm assignment"
+          onClose={() => !firmModalSaving && setFirmModal(null)}
+          onSubmit={handleSaveFirmModal}
+        />
+      ) : null}
 
       {actionRow &&
         typeof document !== 'undefined' &&
@@ -1277,6 +1485,24 @@ const ComplianceServices = () => {
                       <div className="border-t my-1" />
                     ) : null}
 
+                    {!taskStarted && !isClientScoped ? (
+                      <button
+                        type="button"
+                        disabled={firmEditOpening}
+                        onClick={() => handleOpenEditFirmModal(actionRow)}
+                        className="flex items-center w-full px-4 py-2.5 text-sm text-gray-700 hover:bg-indigo-50 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+                      >
+                        {firmEditOpening ? (
+                          <FiLoader className="mr-2 text-indigo-600 w-4 h-4 animate-spin" />
+                        ) : (
+                          <FiEdit2 className="mr-2 text-indigo-600 w-4 h-4" />
+                        )}
+                        Edit Assignment
+                      </button>
+                    ) : null}
+
+                    {!taskStarted && !isClientScoped ? <div className="border-t my-1" /> : null}
+
                     <button
                       type="button"
                       onClick={() => {
@@ -1300,6 +1526,44 @@ const ComplianceServices = () => {
           </div>,
           document.body,
         )}
+    </>
+  );
+
+  return boardContent;
+};
+
+const ComplianceServices = () => {
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [isMinimized, setIsMinimized] = useState(() =>
+    JSON.parse(localStorage.getItem('sidebarMinimized') || 'false'),
+  );
+
+  useEffect(() => {
+    localStorage.setItem('sidebarMinimized', JSON.stringify(isMinimized));
+  }, [isMinimized]);
+
+  return (
+    <div className="min-h-screen bg-gray-50">
+      <Header
+        mobileMenuOpen={mobileMenuOpen}
+        setMobileMenuOpen={setMobileMenuOpen}
+        isMinimized={isMinimized}
+        setIsMinimized={setIsMinimized}
+      />
+      <Sidebar
+        mobileMenuOpen={mobileMenuOpen}
+        setMobileMenuOpen={setMobileMenuOpen}
+        isMinimized={isMinimized}
+        setIsMinimized={setIsMinimized}
+      />
+
+      <div
+        className={`pt-16 transition-all duration-300 ease-in-out ${isMinimized ? 'md:pl-20' : 'md:pl-[260px]'}`}
+      >
+        <div className="h-full flex flex-col">
+          <ComplianceTaskBoard embedded={false} isMinimized={isMinimized} />
+        </div>
+      </div>
     </div>
   );
 };

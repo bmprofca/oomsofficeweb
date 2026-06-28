@@ -664,10 +664,10 @@ const RecurringGroups = () => {
                             <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 mb-6">
                                 <div>
                                     <h5 className="text-2xl font-bold text-gray-800 mb-2">
-                                        Recurring Groups Management
+                                        Compliance Groups Management
                                     </h5>
                                     <p className="text-gray-600 text-sm">
-                                        Manage recurring service groups and schedules
+                                        Manage compliance service groups and schedules
                                     </p>
                                 </div>
 
@@ -838,11 +838,11 @@ const RecurringGroups = () => {
                                                     <FiSettings className="w-12 h-12 text-gray-400" />
                                                 </div>
                                                 <p className="text-gray-500 text-lg font-medium mb-2">
-                                                    {groups.length === 0 ? 'No recurring groups available' : 'No matching groups found'}
+                                                    {groups.length === 0 ? 'No compliance groups available' : 'No matching groups found'}
                                                 </p>
                                                 <p className="text-gray-400 text-sm mb-4">
                                                     {groups.length === 0 
-                                                        ? 'Get started by creating your first recurring group' 
+                                                        ? 'Get started by creating your first compliance group' 
                                                         : 'Try adjusting your search or filter criteria'}
                                                 </p>
                                                 <motion.button
@@ -1021,8 +1021,8 @@ const RecurringGroups = () => {
                         <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 z-10">
                             <div className="flex justify-between items-center">
                                 <div>
-                                    <h5 className="text-xl font-bold text-gray-800">Create New Recurring Group</h5>
-                                    <p className="text-gray-600 text-sm mt-1">Add a new recurring service group</p>
+                                    <h5 className="text-xl font-bold text-gray-800">Create New Compliance Group</h5>
+                                    <p className="text-gray-600 text-sm mt-1">Add a new compliance service group</p>
                                 </div>
                                 <button
                                     onClick={() => setShowCreateModal(false)}
@@ -1070,7 +1070,7 @@ const RecurringGroups = () => {
                                     </div>
                                     <div className="md:col-span-2">
                                         <label className="block text-sm font-semibold text-gray-700 mb-2">
-                                            Recurring Period *
+                                            Compliance Period *
                                         </label>
                                         <select
                                             value={createForm.period}
@@ -1129,7 +1129,7 @@ const RecurringGroups = () => {
                         <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 z-10">
                             <div className="flex justify-between items-center">
                                 <div>
-                                    <h5 className="text-xl font-bold text-gray-800">Edit Recurring Group</h5>
+                                    <h5 className="text-xl font-bold text-gray-800">Edit Compliance Group</h5>
                                     <p className="text-gray-600 text-sm mt-1">Update group details for {selectedGroup.name}</p>
                                 </div>
                                 <button

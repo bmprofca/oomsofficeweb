@@ -334,10 +334,10 @@ const RecurringTaskDetailedPage = () => {
                   </div>
                   <div>
                     <h1 className="text-lg font-bold text-slate-800">
-                      Recurring Tasks: {category} List
+                      Compliance: {category} List
                     </h1>
                     <p className="text-xs text-slate-500">
-                      Drill-down breakdown of recurring tasks categorized under {category}
+                      Drill-down breakdown of compliance tasks categorized under {category}
                     </p>
                   </div>
                 </div>
@@ -431,7 +431,7 @@ const RecurringTaskDetailedPage = () => {
                     {records.length === 0 ? (
                       <tr>
                         <td colSpan={8} className="text-center py-14 text-slate-405 font-medium">
-                          No recurring task records found matching current query
+                          No compliance records found matching current query
                         </td>
                       </tr>
                     ) : (
@@ -601,7 +601,7 @@ const RecurringTaskDetailedPage = () => {
                 </div>
                 <h3 className="text-sm font-bold text-slate-800">Delete Assignment?</h3>
                 <p className="text-xs text-slate-500 leading-relaxed">
-                  This will permanently delete the recurring task assignment and all its schedule periods. This action cannot be undone.
+                  This will permanently delete the compliance task assignment and all its schedule periods. This action cannot be undone.
                 </p>
               </div>
               <div className="px-5 py-3 bg-slate-50 border-t border-slate-100 flex gap-2">

@@ -13,6 +13,7 @@ import {
 import { motion, AnimatePresence } from 'framer-motion';
 import { Header, Sidebar } from '../../components/header';
 import getHeaders from "../../utils/get-headers";
+import API_BASE_URL from '../../utils/api-controller';
 import axios from 'axios';
 import { PiExportBold } from "react-icons/pi";
 
@@ -52,8 +53,6 @@ const Groups = () => {
         name: '',
         remark: ''
     });
-
-    const BASE_URL = 'https://api.ooms.in/api/v1';
 
     // Persist sidebar minimized state
     useEffect(() => {
@@ -95,7 +94,7 @@ const Groups = () => {
             const params = new URLSearchParams({ page: page.toString(), limit: limit.toString() });
             if (search) params.append('search', search);
 
-            const response = await axios.get(`${BASE_URL}/group/list?${params.toString()}`, { headers });
+            const response = await axios.get(`${API_BASE_URL}/group/list?${params.toString()}`, { headers });
 
             if (response.data.success) {
                 // ✅ PERFECT MAPPING - Matches YOUR API exactly
@@ -166,7 +165,7 @@ const Groups = () => {
             }
 
             await axios.put(
-                `${BASE_URL}/group/edit`,
+                `${API_BASE_URL}/group/edit`,
                 {
                     group_id: editingGroupId,
                     name: editForm.name,
@@ -211,7 +210,7 @@ const Groups = () => {
 
             // ✅ UPDATED: Correct endpoint + form data format
             await axios.delete(
-                `${BASE_URL}/group/delete`,
+                `${API_BASE_URL}/group/delete`,
                 {
                     headers,
                     data: {
@@ -254,7 +253,7 @@ const Groups = () => {
             const headers = getHeaders();
 
             // ✅ REAL CREATE API - ONLY name + remark (as you specified)
-            const response = await axios.post(`${BASE_URL}/group/create`, {
+            const response = await axios.post(`${API_BASE_URL}/group/create`, {
                 name: createForm.name.trim(),
                 remark: createForm.remark.trim()
             }, { headers });
@@ -306,7 +305,7 @@ const Groups = () => {
 
             // API call using is_active
             const headers = getHeaders();
-            await axios.put(`${BASE_URL}/group/toggle-status`, {
+            await axios.put(`${API_BASE_URL}/group/toggle-status`, {
                 group_id: group.group_id,
                 is_active: newStatus  // Send boolean
             }, { headers });
@@ -816,8 +815,8 @@ const Groups = () => {
                                                                     id={`group-${group.group_id}-switch`}
                                                                 />
                                                                 <div className={`w-14 h-7 rounded-full transition-colors duration-300 ease-in-out ${group.is_active
-                                                                        ? 'bg-gradient-to-r from-green-500 to-emerald-500'
-                                                                        : 'bg-gradient-to-r from-gray-300 to-gray-400'
+                                                                    ? 'bg-gradient-to-r from-green-500 to-emerald-500'
+                                                                    : 'bg-gradient-to-r from-gray-300 to-gray-400'
                                                                     }`}>
                                                                     <div className={`absolute top-0.5 ${group.is_active ? 'left-7' : 'left-0.5'
                                                                         } bg-white rounded-full h-6 w-6 transition-all duration-300 ease-in-out border border-gray-300 shadow-sm`}></div>

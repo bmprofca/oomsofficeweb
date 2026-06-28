@@ -14,6 +14,7 @@ import { Header, Sidebar } from '../../components/header';
 import DateFilter from '../../components/DateFilter';
 import moment from 'moment';
 import getHeaders from "../../utils/get-headers";
+import API_BASE_URL from '../../utils/api-controller';
 import axios from 'axios';
 import SearchableSelect from '../../components/SearchableSelect';
 
@@ -24,9 +25,6 @@ const ViewFileIndex = () => {
         const saved = localStorage.getItem('sidebarMinimized');
         return saved ? JSON.parse(saved) : false;
     });
-    // Base Api Url
-    const BASE_URL = 'https://api.ooms.in/api/v1';
-
     // Main states
     const [loading, setLoading] = useState(false);
     const [fileData, setFileData] = useState([]);
@@ -119,7 +117,7 @@ const ViewFileIndex = () => {
             }
 
             const response = await axios.get(
-                `${BASE_URL}/assistance/file-index/list?${params.toString()}`,
+                `${API_BASE_URL}/assistance/file-index/list?${params.toString()}`,
                 { headers }
             );
 
@@ -163,7 +161,7 @@ const ViewFileIndex = () => {
             setLoading(true);
             const headers = getHeaders();
 
-            const response = await fetch(`${BASE_URL}/assistance/file-index/delete`, {
+            const response = await fetch(`${API_BASE_URL}/assistance/file-index/delete`, {
                 method: 'DELETE',
                 headers: { ...headers, 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -270,7 +268,7 @@ const ViewFileIndex = () => {
             };
 
 
-            const response = await fetch(`${BASE_URL}/assistance/file-index/create`, {
+            const response = await fetch(`${API_BASE_URL}/assistance/file-index/create`, {
                 method: 'POST',
                 headers: {
                     ...headers,
@@ -332,7 +330,7 @@ const ViewFileIndex = () => {
 
 
         try {
-            const response = await fetch(`${BASE_URL}/assistance/file-index/edit`, {
+            const response = await fetch(`${API_BASE_URL}/assistance/file-index/edit`, {
                 method: 'PUT',
                 headers: { ...headers, 'Content-Type': 'application/json' },
                 body: JSON.stringify(apiPayload)

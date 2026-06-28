@@ -586,7 +586,7 @@ const BillingTab = ({ clientUsername: clientUsernameProp } = {}) => {
                                                     <div className="text-sm text-slate-600">{row.firm_name}</div>
                                                     {row.is_recurring && (
                                                         <span className="inline-flex text-[10px] font-medium px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-100">
-                                                            Recurring
+                                                            Compliance
                                                         </span>
                                                     )}
                                                 </div>

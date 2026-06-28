@@ -254,7 +254,7 @@ const NotesTab = ({ clientUsername }) => {
             }
 
             const response = await axios.post(
-                'https://api.ooms.in/api/v1/upload',
+                `${API_BASE_URL}/upload`,
                 formData,
                 {
                     headers: {
@@ -1312,15 +1312,15 @@ const NotesTab = ({ clientUsername }) => {
                                                     {/* Badges row */}
                                                     <div className="flex items-center gap-1.5 mb-1.5">
                                                         <span className={`inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-md border ${p === 'high' ? 'bg-red-50 text-red-600 border-red-200' :
-                                                                p === 'medium' ? 'bg-amber-50 text-amber-600 border-amber-200' :
-                                                                    'bg-emerald-50 text-emerald-600 border-emerald-200'
+                                                            p === 'medium' ? 'bg-amber-50 text-amber-600 border-amber-200' :
+                                                                'bg-emerald-50 text-emerald-600 border-emerald-200'
                                                             }`}>
                                                             <span className="w-1.5 h-1.5 rounded-full bg-current" />
                                                             {p ? p.charAt(0).toUpperCase() + p.slice(1) : '—'}
                                                         </span>
                                                         <span className={`inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-md border ${s === 'complete' ? 'bg-green-50 text-green-700 border-green-200' :
-                                                                s === 'cancel' ? 'bg-rose-50 text-rose-600 border-rose-200' :
-                                                                    'bg-yellow-50 text-yellow-700 border-yellow-200'
+                                                            s === 'cancel' ? 'bg-rose-50 text-rose-600 border-rose-200' :
+                                                                'bg-yellow-50 text-yellow-700 border-yellow-200'
                                                             }`}>
                                                             <span className="w-1.5 h-1.5 rounded-full bg-current" />
                                                             {s ? s.charAt(0).toUpperCase() + s.slice(1) : '—'}

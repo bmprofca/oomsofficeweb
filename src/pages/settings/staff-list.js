@@ -111,7 +111,7 @@ const StaffList = () => {
 
     const getCategoryName = (pOptionId) => {
         const id = pOptionId.toLowerCase();
-        if (id.startsWith('recurring_task_')) return 'Recurring Task';
+        if (id.startsWith('recurring_task_')) return 'Compliance';
         if (id.startsWith('dashboard_') || 
             ['sales_overview_view', 'quick_stats_view', 'task_summary_view', 'service_wise_sales_view', 'staff_wise_sales_view', 'top_clients_view', 'dashboard_statistics_view'].includes(id)) {
             return 'Dashboard Statistics';
@@ -149,10 +149,10 @@ const StaffList = () => {
         subscription_manage: 'Subscription',
         staff_attendance_view_manage: 'Staff & Attendance',
         office_assistance_access: 'Office Assistance',
-        recurring_task_create: 'Recurring Create',
-        recurring_task_delete: 'Recurring Delete',
-        recurring_task_complete: 'Recurring Complete',
-        recurring_task_fees_view: 'Recurring Fees',
+        recurring_task_create: 'Compliance Create',
+        recurring_task_delete: 'Compliance Delete',
+        recurring_task_complete: 'Compliance Complete',
+        recurring_task_fees_view: 'Compliance Fees',
         sales_overview_view: 'Sales Overview',
         quick_stats_view: 'Quick Stats',
         task_summary_view: 'Task Summary',

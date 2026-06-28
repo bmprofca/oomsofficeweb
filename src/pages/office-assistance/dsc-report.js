@@ -36,6 +36,7 @@ import moment from 'moment';
 import SearchableSelect from '../../components/SearchableSelect'
 import SearchableSelectOptions from "../../components/SelectSearchableOptionsComponent";
 import getHeaders from "../../utils/get-headers";
+import API_BASE_URL from '../../utils/api-controller';
 
 
 
@@ -46,7 +47,6 @@ const ViewDSCRegister = () => {
         const saved = localStorage.getItem('sidebarMinimized');
         return saved ? JSON.parse(saved) : false;
     });
-    const BASE_URL = 'https://api.ooms.in/api/v1';
     // Main states
     const [loading, setLoading] = useState(false);
     const [dscData, setDscData] = useState([]);
@@ -138,7 +138,7 @@ const ViewDSCRegister = () => {
         setLoading(true);
         try {
             const headers = getHeaders();
-            const url = `${BASE_URL}/assistance/dsc/types`;
+            const url = `${API_BASE_URL}/assistance/dsc/types`;
 
             const response = await fetch(url, {
                 method: 'GET',
@@ -169,7 +169,7 @@ const ViewDSCRegister = () => {
         try {
             const headers = getHeaders();
 
-            const url = `${BASE_URL}/assistance/dsc/companies`;
+            const url = `${API_BASE_URL}/assistance/dsc/companies`;
 
             const response = await fetch(url, {
                 method: 'GET',
@@ -212,7 +212,7 @@ const ViewDSCRegister = () => {
             if (expires_from) params.append('expires_from', expires_from);
             if (expires_to) params.append('expires_to', expires_to);
 
-            const url = `${BASE_URL}/assistance/dsc/list?${params.toString()}`;
+            const url = `${API_BASE_URL}/assistance/dsc/list?${params.toString()}`;
             const response = await fetch(url, {
                 method: "GET",
                 headers: headers
@@ -267,7 +267,7 @@ const ViewDSCRegister = () => {
         try {
             const headers = getHeaders();
 
-            const response = await fetch(`${BASE_URL}/assistance/dsc/delete`, {
+            const response = await fetch(`${API_BASE_URL}/assistance/dsc/delete`, {
                 method: 'DELETE',
                 headers: headers,
                 body: JSON.stringify({ dsc_id: dscToDelete })
@@ -435,7 +435,7 @@ const ViewDSCRegister = () => {
                 year: createForm.duration,
             };
 
-            const response = await fetch(`${BASE_URL}/assistance/dsc/create`, {
+            const response = await fetch(`${API_BASE_URL}/assistance/dsc/create`, {
                 method: 'POST',
                 headers: headers,
                 body: JSON.stringify(payload),
@@ -495,7 +495,7 @@ const ViewDSCRegister = () => {
 
         try {
             const response = await fetch(
-                `${BASE_URL}/assistance/dsc/edit`,
+                `${API_BASE_URL}/assistance/dsc/edit`,
                 {
                     method: 'PUT',
                     headers: headers,

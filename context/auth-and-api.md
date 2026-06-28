@@ -2,7 +2,7 @@
 
 ## Base URL
 
-- `https://api.ooms.in/api/v1`
+- `https://server.ooms.in/api/v1`
 
 ## Header contract (via `getHeaders()`)
 
@@ -19,4 +19,3 @@
 
 - If any auth field is missing, `getHeaders()` can return `null`.
 - Upload endpoints commonly use `axios` + `FormData` and merge auth headers.
-

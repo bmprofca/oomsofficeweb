@@ -86,7 +86,7 @@ const PurchaseForm = ({
                     name: service.name,
                     fees: parseFloat(service.fees),
                     category: service.category_name,
-                    duration: service.is_recurring ? 'Recurring' : 'One-time',
+                    duration: service.is_recurring ? 'Compliance' : 'One-time',
                     gst_rate: parseFloat(service.gst_rate),
                     sac_code: service.sac_code,
                     remark: service.remark

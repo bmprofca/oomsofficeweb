@@ -513,7 +513,7 @@ const DetailsTab = ({ taskData: initialData, task_id, onTaskUpdated }) => {
                                     <p className="text-xs text-slate-500">Client Email</p>
                                     <p className="text-xs text-slate-700 inline-flex items-center gap-1"><FiMail className="w-3 h-3 text-slate-500" />{taskData.client?.profile?.email || 'N/A'}</p>
                                 </div>
-                                <div><p className="text-xs text-slate-500">Recurring</p><p className="font-semibold text-slate-800">{taskData.is_recurring ? 'Yes' : 'No'}</p></div>
+                                <div><p className="text-xs text-slate-500">Compliance</p><p className="font-semibold text-slate-800">{taskData.is_recurring ? 'Yes' : 'No'}</p></div>
                                 {taskData.billing_status === 'complete' && taskData.invoice_no && (
                                     <div className="sm:col-span-2">
                                         <p className="text-xs text-slate-500">Invoice No</p>

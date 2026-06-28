@@ -16,8 +16,7 @@ import {
 } from 'react-icons/fi';
 import { GoogleLogin } from '@react-oauth/google';
 import { fetchWhatsappChannel } from './broadcast/whatsapp/whatsappChannelStore';
-
-const BASE_URL = 'https://api.ooms.in/api/v1';
+import API_BASE_URL from '../utils/api-controller';
 
 const Login = () => {
     const navigate = useNavigate();
@@ -120,7 +119,7 @@ const Login = () => {
         if (!validateLoginId(formData.login_id)) { setIsValidEmail(false); toast.error('Please enter a valid email address or 10-digit mobile number'); return; }
         setLoading(true);
         try {
-            const response = await fetch(`${BASE_URL}/auth/login/send-otp`, {
+            const response = await fetch(`${API_BASE_URL}/auth/login/send-otp`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ login_id: formData.login_id })
@@ -147,7 +146,7 @@ const Login = () => {
         if (formData.otp.length !== 6) { toast.error('Please enter 6-digit OTP'); return; }
         setLoading(true);
         try {
-            const response = await fetch(`${BASE_URL}/auth/login/verify-otp`, {
+            const response = await fetch(`${API_BASE_URL}/auth/login/verify-otp`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ login_id: formData.login_id, otp: formData.otp })
@@ -177,7 +176,7 @@ const Login = () => {
         setLoading(true);
         try {
             const idToken = credentialResponse.credential;
-            const response = await fetch(`${BASE_URL}/auth/google-auth`, {
+            const response = await fetch(`${API_BASE_URL}/auth/google-auth`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ google_token: idToken })
@@ -246,7 +245,7 @@ const Login = () => {
     const handleResendOtp = async () => {
         setLoading(true);
         try {
-            const response = await fetch(`${BASE_URL}/auth/login/send-otp`, {
+            const response = await fetch(`${API_BASE_URL}/auth/login/send-otp`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ login_id: formData.login_id })
@@ -292,7 +291,7 @@ const Login = () => {
 
             {/* Main Premium Card Container */}
             <div className="bg-white rounded-[32px] shadow-[0_20px_50px_rgba(99,102,241,0.06)] border border-slate-100/80 flex flex-col md:flex-row overflow-hidden w-full max-w-[920px] h-full md:h-[580px] max-h-full relative">
-                
+
                 {/* ═══════════════════════════════════════════════
                     LEFT — Brand Panel (Premium Dark Widget Art)
                 ═══════════════════════════════════════════════ */}
@@ -314,15 +313,15 @@ const Login = () => {
 
                     {/* Widgets Visual Art (Glassmorphic Mockup) */}
                     <div className="relative z-10 my-auto py-6 flex flex-col items-center">
-                        
+
                         {/* Upper Widget: User Card */}
                         <div className="w-full max-w-[240px] bg-white/10 backdrop-blur-md border border-white/15 rounded-2xl p-4 shadow-xl relative animate-float">
-                            
+
                             {/* Compliant Badge */}
                             <span className="absolute -top-2 -right-2 bg-[#10b981] border border-emerald-400 text-white text-[9px] font-bold px-2 py-0.5 rounded-full shadow-md flex items-center gap-0.5">
                                 ✓ Compliant
                             </span>
-                            
+
                             {/* Profile Info */}
                             <div className="flex items-center gap-2.5 mb-3">
                                 <div className="w-8 h-8 rounded-full bg-white/15 flex items-center justify-center text-white text-[10px]">
@@ -333,7 +332,7 @@ const Login = () => {
                                     <div className="h-1.5 w-12 bg-white/15 rounded-full" />
                                 </div>
                             </div>
-                            
+
                             {/* Dots list */}
                             <div className="flex gap-1">
                                 <div className="w-3 h-1.5 rounded-full bg-white/40" />
@@ -401,7 +400,7 @@ const Login = () => {
                     RIGHT — Form Panel
                 ═══════════════════════════════════════════════ */}
                 <div className="w-full md:w-[54%] flex flex-col justify-between p-6 sm:p-8 bg-white relative md:overflow-y-hidden overflow-y-auto scrollbar-hide">
-                    
+
                     {/* Top Right Mini Brand (Mobile Only) */}
                     <div className="flex md:hidden items-center justify-between w-full mb-6">
                         <div className="flex items-center gap-2">
@@ -414,7 +413,7 @@ const Login = () => {
 
                     {/* Centered Area */}
                     <div className="my-auto w-full max-w-[340px] mx-auto space-y-4">
-                        
+
                         {/* Shield icon & Title */}
                         {!loginSuccess && (
                             <div className="text-center">

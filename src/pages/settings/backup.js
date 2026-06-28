@@ -38,8 +38,8 @@ const SECTION_INFO = {
         color: "text-purple-600 bg-purple-50 border-purple-200"
     },
     recurring_tasks: {
-        title: "Recurring Tasks & Schedules",
-        description: "Compliance assignments and recurring calendar schedules",
+        title: "Compliance & Schedules",
+        description: "Compliance assignments and calendar schedules",
         color: "text-amber-600 bg-amber-50 border-amber-200"
     },
     billing: {

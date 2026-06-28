@@ -78,7 +78,7 @@ const availableFields = [
     { id: 'billing_status', label: 'Billing Status', type: 'text' },
     { id: 'status', label: 'Status', type: 'status' },
     { id: 'staffs', label: 'Staffs', type: 'array' },
-    { id: 'is_recurring', label: 'Is Recurring', type: 'boolean' },
+    { id: 'is_recurring', label: 'Is Compliance', type: 'boolean' },
     { id: 'create_by', label: 'Created By', type: 'text' },
     { id: 'menu', label: 'Actions', type: 'actions' }
 ];

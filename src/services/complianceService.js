@@ -133,6 +133,73 @@ export const buildEffectiveFrom = (frequency, fields = {}) => {
   return `${fields.month}-${fields.year}`;
 };
 
+export const parseEffectiveFromFields = (frequency, effectiveFrom) => {
+  if (!effectiveFrom) return getDefaultEffectiveFromFields(frequency);
+
+  const normalized = normalizeFrequency(frequency);
+  const str = String(effectiveFrom).trim();
+
+  if (normalized === 'yearly') {
+    const match = str.match(/^(\d{4})-(\d{4})$/);
+    if (match) {
+      return { fyStart: Number(match[1]), fyEnd: Number(match[2]) };
+    }
+    return getDefaultEffectiveFromFields(frequency);
+  }
+
+  const lastDash = str.lastIndexOf('-');
+  if (lastDash <= 0) return getDefaultEffectiveFromFields(frequency);
+
+  if (normalized === 'quarterly' || normalized === 'half-yearly') {
+    return {
+      period: str.slice(0, lastDash),
+      fyStartYear: Number(str.slice(lastDash + 1)),
+    };
+  }
+
+  return {
+    month: str.slice(0, lastDash),
+    year: Number(str.slice(lastDash + 1)),
+  };
+};
+
+/** Ensures edit-mode year dropdowns include the assignment's saved effective-from year. */
+export const mergeYearOptionsForEffectiveFrom = (yearOptions = [], frequency, effectiveFrom) => {
+  const options = [...yearOptions];
+  if (!effectiveFrom) return options;
+
+  const normalized = normalizeFrequency(frequency);
+  const str = String(effectiveFrom).trim();
+
+  if (normalized === 'yearly') {
+    const match = str.match(/^(\d{4})-(\d{4})$/);
+    if (match) {
+      const fy = `${match[1]}-${match[2]}`;
+      if (!options.includes(fy)) options.unshift(fy);
+    }
+    return options;
+  }
+
+  const lastDash = str.lastIndexOf('-');
+  if (lastDash <= 0) return options;
+
+  const tailYear = Number(str.slice(lastDash + 1));
+  if (!Number.isFinite(tailYear)) return options;
+
+  if (normalized === 'quarterly' || normalized === 'half-yearly') {
+    const fyLabel = `${tailYear}-${tailYear + 1}`;
+    if (!options.includes(fyLabel)) options.push(fyLabel);
+    return options.sort();
+  }
+
+  // monthly — calendar year; FY ranges containing tailYear are usually already present
+  const containingFy = `${tailYear}-${tailYear + 1}`;
+  if (!options.includes(containingFy)) options.push(containingFy);
+  const prevFy = `${tailYear - 1}-${tailYear}`;
+  if (!options.includes(prevFy)) options.unshift(prevFy);
+  return options.sort();
+};
+
 const getCalendarYearForPeriod = (complianceYear, period) => {
   const [fyStart, fyEnd] = String(complianceYear || '')
     .split('-')

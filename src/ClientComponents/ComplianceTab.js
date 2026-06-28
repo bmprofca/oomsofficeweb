@@ -1185,7 +1185,7 @@ const ComplianceTab = ({ clientUsername }) => {
             });
 
             if (res.data?.success) {
-                toast.success('Recurring task assigned successfully');
+                toast.success('Compliance task assigned successfully');
                 setShowAssignModal(false);
                 setAssignForm({
                     targetType: 'single',
@@ -1208,7 +1208,7 @@ const ComplianceTab = ({ clientUsername }) => {
             }
         } catch (err) {
             console.error('Error assigning recurring task:', err);
-            toast.error(err.response?.data?.message || 'Failed to assign recurring task');
+            toast.error(err.response?.data?.message || 'Failed to assign compliance task');
         } finally {
             setSubmittingAssign(false);
         }
@@ -1421,7 +1421,7 @@ const ComplianceTab = ({ clientUsername }) => {
                             <tr>
                                 <td colSpan={4 + periodHeaders.length} className="px-4 py-12 text-center text-slate-400">
                                     <FiBriefcase className="w-8 h-8 mx-auto mb-2 opacity-50" />
-                                    <p className="text-xs font-medium text-slate-500">No active recurring task assignments matching filters</p>
+                                    <p className="text-xs font-medium text-slate-500">No active compliance task assignments matching filters</p>
                                 </td>
                             </tr>
                         ) : (
@@ -1663,7 +1663,7 @@ const ComplianceTab = ({ clientUsername }) => {
                         <tr>
                             <td colSpan={9} className="px-4 py-10 text-center text-slate-400">
                                 <FiBriefcase className="w-8 h-8 mx-auto mb-2 opacity-40" />
-                                <p className="text-xs font-medium text-slate-500">No active recurring task assignments matching filters</p>
+                                <p className="text-xs font-medium text-slate-500">No active compliance task assignments matching filters</p>
                             </td>
                         </tr>
                     ) : (
@@ -2057,7 +2057,7 @@ const ComplianceTab = ({ clientUsername }) => {
                     </div>
                     <div>
                         <h3 className="text-base sm:text-lg font-bold text-slate-800 leading-tight">
-                            Recurring Task
+                            Compliance
                         </h3>
                         <p className="text-xs text-slate-500">Track and assign global regulatory filings for this client</p>
                     </div>
@@ -2078,7 +2078,7 @@ const ComplianceTab = ({ clientUsername }) => {
                             whileTap={{ scale: 0.98 }}
                         >
                             <FiPlus className="w-4 h-4" />
-                            Assign Recurring Task
+                            Assign Compliance
                         </motion.button>
                     )}
                 </div>
@@ -2130,7 +2130,7 @@ const ComplianceTab = ({ clientUsername }) => {
             {loading && complianceData.active.length === 0 && complianceData.pending.length === 0 && complianceData.history.length === 0 ? (
                 <div className="text-center py-12 text-slate-400">
                     <div className="w-10 h-10 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin mx-auto mb-3"></div>
-                    <p className="text-xs font-medium">Fetching recurring tasks...</p>
+                    <p className="text-xs font-medium">Fetching compliance tasks...</p>
                 </div>
             ) : error ? (
                 <div className="text-center py-8 text-rose-500">
@@ -2359,7 +2359,7 @@ const ComplianceTab = ({ clientUsername }) => {
                             <div className="flex items-center justify-between px-5 py-3.5 bg-gradient-to-r from-indigo-600 to-violet-600 text-white shrink-0">
                                 <div className="flex items-center gap-2">
                                     <FiLayers className="w-5 h-5" />
-                                    <h3 className="text-sm font-bold">Assign Recurring Task to Client</h3>
+                                    <h3 className="text-sm font-bold">Assign Compliance to Client</h3>
                                 </div>
                                 <button
                                     onClick={() => setShowAssignModal(false)}
@@ -2445,7 +2445,7 @@ const ComplianceTab = ({ clientUsername }) => {
 
                                     {/* Compliance Service Select */}
                                     <div className="space-y-1">
-                                        <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Recurring Task *</label>
+                                        <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Compliance Task *</label>
                                         <select
                                             value={assignForm.service_id}
                                             onChange={(e) => {
@@ -2461,7 +2461,7 @@ const ComplianceTab = ({ clientUsername }) => {
                                             className="w-full px-3 py-2.5 text-xs text-slate-700 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none bg-white"
                                             required
                                         >
-                                            <option value="">Select recurring task template…</option>
+                                            <option value="">Select compliance task template…</option>
                                             {globalServices.map(s => (
                                                 <option key={s.id} value={s.service_id}>
                                                     {s.name} ({s.frequency}) {checkPermissionSync('recurring_task_fees_view') ? `(₹${formatCurrency(s.default_amount)})` : '(₹----)'}
@@ -3438,7 +3438,7 @@ const ComplianceTab = ({ clientUsername }) => {
                                 </div>
                                 <h3 className="text-sm font-bold text-slate-800">Delete Assignment?</h3>
                                 <p className="text-xs text-slate-500 leading-relaxed">
-                                    This will permanently delete the recurring task assignment and all its schedule periods. This action cannot be undone.
+                                    This will permanently delete the compliance task assignment and all its schedule periods. This action cannot be undone.
                                 </p>
                             </div>
                             <div className="px-5 py-3 bg-slate-50 border-t border-slate-100 flex gap-2">
@@ -3546,9 +3546,9 @@ const ComplianceTab = ({ clientUsername }) => {
                                     type="button"
                                     onClick={() => {
                                         if (!broadcastPhone && !broadcastEmail) { toast.error('Enter at least one contact'); return; }
-                                        const msg = `Dear Client, this is a friendly reminder regarding your recurring task "${broadcastModal.assign?.service_name}" for the financial year ${broadcastModal.assign?.financial_year}. Please ensure any pending requirements are shared with us so we can proceed. Thank you!`;
+                                        const msg = `Dear Client, this is a friendly reminder regarding your compliance task "${broadcastModal.assign?.service_name}" for the financial year ${broadcastModal.assign?.financial_year}. Please ensure any pending requirements are shared with us so we can proceed. Thank you!`;
                                         if (broadcastPhone) window.open(`https://wa.me/${broadcastPhone.replace(/[^0-9]/g, '')}?text=${encodeURIComponent(msg)}`, '_blank');
-                                        if (broadcastEmail) window.open(`mailto:${broadcastEmail}?subject=Recurring Task Reminder - ${broadcastModal.assign?.service_name}&body=${encodeURIComponent(msg)}`);
+                                        if (broadcastEmail) window.open(`mailto:${broadcastEmail}?subject=Compliance Task Reminder - ${broadcastModal.assign?.service_name}&body=${encodeURIComponent(msg)}`);
                                         setBroadcastModal({ open: false, assign: null });
                                         toast.success('Reminder broadcasted successfully!');
                                     }}

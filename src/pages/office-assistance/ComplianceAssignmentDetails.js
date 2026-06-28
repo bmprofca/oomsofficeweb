@@ -385,7 +385,7 @@ const ComplianceAssignmentDetails = () => {
                     setAssignment(found);
                     await fetchSchedules(assignment_id);
                 } else {
-                    toast.error('Recurring task assignment not found');
+                    toast.error('Compliance task assignment not found');
                 }
             }
         } catch (err) {
@@ -550,7 +550,7 @@ const ComplianceAssignmentDetails = () => {
                         <div className="flex items-center gap-1.5 text-xs text-slate-500 font-medium">
                             <span className="cursor-pointer hover:text-indigo-650 transition-colors" onClick={() => navigate('/')}>Dashboard</span>
                             <FiChevronRight className="w-3 h-3 text-slate-350" />
-                            <span className="cursor-pointer hover:text-indigo-650 transition-colors" onClick={() => navigate('/staff/recurring-tasks')}>Recurring Tasks</span>
+                            <span className="cursor-pointer hover:text-indigo-650 transition-colors" onClick={() => navigate('/staff/recurring-tasks')}>Compliance</span>
                             <FiChevronRight className="w-3 h-3 text-slate-350" />
                             <span className="text-slate-700 font-semibold">Assignment Details</span>
                         </div>
@@ -559,7 +559,7 @@ const ComplianceAssignmentDetails = () => {
                             className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-slate-605 hover:text-indigo-650 bg-white border border-slate-200 rounded-lg shadow-2xs transition-colors cursor-pointer"
                         >
                             <FiArrowLeft className="w-3.5 h-3.5" />
-                            Back to Recurring Tasks
+                            Back to Compliance
                         </button>
                     </div>
 

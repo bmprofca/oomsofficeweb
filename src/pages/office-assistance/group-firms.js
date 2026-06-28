@@ -3,6 +3,7 @@ import { useSearchParams } from 'react-router-dom';
 import { FiUsers, FiCheckCircle, FiSearch, FiMoreVertical, FiEye, FiXCircle, FiEdit, FiTrash2, FiUpload, FiSettings, FiX } from 'react-icons/fi';
 import { Header, Sidebar } from '../../components/header';
 import getHeaders from "../../utils/get-headers";
+import API_BASE_URL from '../../utils/api-controller';
 import axios from 'axios';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -97,7 +98,6 @@ const GroupFirms = () => {
 
     const [searchParams] = useSearchParams();
     const groupId = searchParams.get('group_id');
-    const BASE_URL = 'https://api.ooms.in/api/v1';
 
     // Modal helper functions
     const addFirmIdField = () => setFirmIds([...firmIds, '']);
@@ -118,16 +118,16 @@ const GroupFirms = () => {
             'Care Of', 'Guardian', 'Firm Name', 'Business Type', 'GSTIN', 'Firm PAN',
             'Opening Balance', 'Opening Balance Type', 'Opening Balance Date'
         ];
-        
+
         const row1 = [
-            'Alice Smith', '9876543210', 'alice@example.com', 'ABCDE1234F', 'female', '1993-04-12', 
-            'West Bengal', 'Cooch Behar', 'Cooch Behar', '736134', 'S/O', 'Robert Smith', 
+            'Alice Smith', '9876543210', 'alice@example.com', 'ABCDE1234F', 'female', '1993-04-12',
+            'West Bengal', 'Cooch Behar', 'Cooch Behar', '736134', 'S/O', 'Robert Smith',
             'Alice Smith', 'Individual', '19ABCDE1234F1Z5', 'ABCDE1234F', '500', 'credit', '2026-06-02'
         ];
-        
+
         const row2 = [
-            'John Doe', '9998887776', 'john.doe@example.com', 'WXYZS9876Q', 'male', '1988-11-23', 
-            'Delhi', 'New Delhi', 'New Delhi', '110001', 'S/O', 'Arthur Doe', 
+            'John Doe', '9998887776', 'john.doe@example.com', 'WXYZS9876Q', 'male', '1988-11-23',
+            'Delhi', 'New Delhi', 'New Delhi', '110001', 'S/O', 'Arthur Doe',
             'Doe Consulting', 'Proprietorship', '07WXYZS9876Q1Z9', 'WXYZS9876Q', '1200', 'debit', '2026-06-02'
         ];
 
@@ -154,7 +154,7 @@ const GroupFirms = () => {
             'Care Of', 'Guardian', 'Firm Name', 'Business Type', 'GSTIN', 'Firm PAN',
             'Opening Balance', 'Opening Balance Type', 'Opening Balance Date'
         ];
-        
+
         const csvContent = headers.join(',') + '\n';
         const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
         const url = URL.createObjectURL(blob);
@@ -196,7 +196,7 @@ const GroupFirms = () => {
             const headers = getHeaders();
             console.log("headers=> " + JSON.stringify(headers));
             console.log(groupId)
-            const response = await axios.get(`${BASE_URL}/group/group-firms/list`, {
+            const response = await axios.get(`${API_BASE_URL}/group/group-firms/list`, {
                 headers,
                 params: {
                     group_id: groupId,
@@ -249,7 +249,7 @@ const GroupFirms = () => {
             setLoading(true);
             const headers = getHeaders();
 
-            const response = await axios.post(`${BASE_URL}/group/add-firm`, {
+            const response = await axios.post(`${API_BASE_URL}/group/add-firm`, {
                 group_id: groupId,
                 firm_ids: validFirmIds
             }, { headers });
@@ -292,7 +292,7 @@ const GroupFirms = () => {
         setDeleteLoading(true);
         try {
             const headers = getHeaders();
-            const response = await axios.delete(`${BASE_URL}/group/group-firms/remove`, {
+            const response = await axios.delete(`${API_BASE_URL}/group/group-firms/remove`, {
                 headers,
                 data: {  // Send body with DELETE request
                     group_id: groupId,
@@ -359,7 +359,7 @@ const GroupFirms = () => {
             const headers = getHeaders();
 
             const response = await fetch(
-                `${BASE_URL}/group/group-firms/remove`,
+                `${API_BASE_URL}/group/group-firms/remove`,
                 {
                     method: "DELETE",
                     headers,
@@ -397,10 +397,10 @@ const GroupFirms = () => {
                 const workbook = window.XLSX.read(data, { type: 'array' });
                 const firstSheetName = workbook.SheetNames[0];
                 const worksheet = workbook.Sheets[firstSheetName];
-                
+
                 // Get raw rows
                 const rows = window.XLSX.utils.sheet_to_json(worksheet, { header: 1 });
-                
+
                 if (rows.length === 0) {
                     setImportError("The selected file is empty.");
                     return;
@@ -411,7 +411,7 @@ const GroupFirms = () => {
 
                 // Auto-detect columns based on aliases
                 const newMappings = { ...defaultMappings };
-                
+
                 const aliasMap = {
                     name: ['client name', 'name', 'full name', 'fullname'],
                     mobile: ['mobile', 'phone', 'mobile number', 'mobile_no', 'contact'],
@@ -497,12 +497,12 @@ const GroupFirms = () => {
         setImporting(true);
         setImportError(null);
         setPreviewData(null);
-        
+
         try {
             const formData = new FormData();
             formData.append('group_id', groupId);
             formData.append('file', importFile);
-            
+
             const filteredMappings = {};
             Object.keys(columnMappings).forEach(key => {
                 if (columnMappings[key]) {
@@ -510,14 +510,14 @@ const GroupFirms = () => {
                 }
             });
             formData.append('column_mapping', JSON.stringify(filteredMappings));
-            
-            const response = await axios.post(`${BASE_URL}/group/import?preview=true`, formData, {
+
+            const response = await axios.post(`${API_BASE_URL}/group/import?preview=true`, formData, {
                 headers: {
                     ...getHeaders(),
                     'Content-Type': 'multipart/form-data'
                 }
             });
-            
+
             if (response.data.success) {
                 setPreviewData(response.data.data);
             } else {
@@ -571,12 +571,12 @@ const GroupFirms = () => {
 
         setImporting(true);
         setImportError(null);
-        
+
         try {
             const formData = new FormData();
             formData.append('group_id', groupId);
             formData.append('file', importFile);
-            
+
             const filteredMappings = {};
             Object.keys(columnMappings).forEach(key => {
                 if (columnMappings[key]) {
@@ -584,14 +584,14 @@ const GroupFirms = () => {
                 }
             });
             formData.append('column_mapping', JSON.stringify(filteredMappings));
-            
-            const response = await axios.post(`${BASE_URL}/group/import`, formData, {
+
+            const response = await axios.post(`${API_BASE_URL}/group/import`, formData, {
                 headers: {
                     ...getHeaders(),
                     'Content-Type': 'multipart/form-data'
                 }
             });
-            
+
             if (response.data.success) {
                 alert(response.data.message || 'Bulk import completed successfully');
                 setShowImportModal(false);
@@ -1424,7 +1424,7 @@ const GroupFirms = () => {
                                                 Map the expected client profile details to the headers in your uploaded spreadsheet. Required columns must be selected.
                                             </p>
                                         </div>
-                                        
+
                                         {/* Required fields */}
                                         <div className="space-y-3 pb-2 border-b border-slate-200/60">
                                             <h5 className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Required Fields</h5>
@@ -1449,9 +1449,8 @@ const GroupFirms = () => {
                                                                 ...prev,
                                                                 [field.key]: e.target.value
                                                             }))}
-                                                            className={`w-full px-2 py-1 border rounded text-xs bg-white outline-none focus:ring-1 focus:ring-blue-500 ${
-                                                                !columnMappings[field.key] ? 'border-amber-300 bg-amber-50/10' : 'border-slate-300'
-                                                            }`}
+                                                            className={`w-full px-2 py-1 border rounded text-xs bg-white outline-none focus:ring-1 focus:ring-blue-500 ${!columnMappings[field.key] ? 'border-amber-300 bg-amber-50/10' : 'border-slate-300'
+                                                                }`}
                                                         >
                                                             <option value="">{field.placeholder}</option>
                                                             {fileHeaders.map(h => (
@@ -1529,7 +1528,7 @@ const GroupFirms = () => {
                                                 </button>
                                             </div>
                                         </div>
-                                        
+
                                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
                                             <div className="bg-white p-3.5 rounded-xl border border-slate-150 shadow-2xs">
                                                 <span className="font-bold text-slate-800 block mb-1.5 flex items-center gap-1.5">
@@ -1643,8 +1642,8 @@ const GroupFirms = () => {
                                                                 <div className="text-[10px] text-slate-450 mt-0.5">PAN: {m.pan_number} · Row {m.row}</div>
                                                             </div>
                                                             <div className="text-right">
-                                                                <span className={`inline-flex px-2 py-0.5 rounded-full text-[9px] font-bold border uppercase tracking-wider ${m.already_in_group 
-                                                                    ? 'bg-slate-50 border-slate-200 text-slate-400' 
+                                                                <span className={`inline-flex px-2 py-0.5 rounded-full text-[9px] font-bold border uppercase tracking-wider ${m.already_in_group
+                                                                    ? 'bg-slate-50 border-slate-200 text-slate-400'
                                                                     : 'bg-indigo-50 border-indigo-100 text-indigo-700'}`}>
                                                                     {m.already_in_group ? 'Already in Group' : 'Mapping to Group'}
                                                                 </span>

@@ -152,9 +152,9 @@ const RecurringTaskSummary = ({ onRefresh: externalRefresh }) => {
                         <FiLayers className="w-6 h-6 text-indigo-600" />
                     </div>
                     <div>
-                        <h3 className="text-xl font-bold text-gray-800">Recurring Task Summary</h3>
+                        <h3 className="text-xl font-bold text-gray-800">Compliance Summary</h3>
                         <p className="text-gray-500">
-                            Real-time recurring task tracking
+                            Real-time compliance tracking
                             {summary && (
                                 <span className="ml-2 text-sm text-indigo-600 font-semibold">
                                     • Total Services: {summary.total_services} • Active Tasks: {summary.total_active_tasks}
@@ -352,7 +352,7 @@ const RecurringTaskSummary = ({ onRefresh: externalRefresh }) => {
                                 {taskStats.length === 0 ? (
                                     <tr>
                                         <td colSpan="10" className="text-center py-12 text-gray-500 font-medium">
-                                            No recurring task summary stats found
+                                            No compliance summary stats found
                                         </td>
                                     </tr>
                                 ) : (

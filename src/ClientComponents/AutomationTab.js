@@ -28,8 +28,8 @@ const AutomationTab = () => {
     const automationFeatures = [
         {
             key: 'recurringTasks',
-            title: 'Recurring Task Automation',
-            description: 'Automatically create and assign recurring compliance tasks based on predefined schedules',
+            title: 'Compliance Automation',
+            description: 'Automatically create and assign compliance tasks based on predefined schedules',
             icon: FiRepeat,
             category: 'Task Management',
             impact: 'High',

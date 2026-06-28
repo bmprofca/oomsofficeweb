@@ -1369,7 +1369,7 @@ const BillDisplay = () => {
                                                                         </h4>
                                                                         {item.is_recurring && (
                                                                             <span className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-rose-100 text-rose-800">
-                                                                                R
+                                                                                C
                                                                             </span>
                                                                         )}
                                                                     </div>

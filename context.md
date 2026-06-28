@@ -10,15 +10,15 @@
 
 ## Tech Stack
 
-| Layer | Technology |
-|---|---|
-| Framework | React (functional components + hooks) |
-| Styling | Tailwind CSS |
-| Animations | Framer Motion (`motion`, `AnimatePresence`) |
-| Icons | `react-icons` (fi, pi, tb, md, hi, bs, fa6, ai) |
-| HTTP | Native `fetch` (most APIs); `axios` for some multipart uploads (e.g. `/upload`) |
-| Toasts | `react-hot-toast` (`toast.success` / `toast.error`) on several settings flows |
-| Auth | localStorage tokens passed as request headers |
+| Layer      | Technology                                                                      |
+| ---------- | ------------------------------------------------------------------------------- |
+| Framework  | React (functional components + hooks)                                           |
+| Styling    | Tailwind CSS                                                                    |
+| Animations | Framer Motion (`motion`, `AnimatePresence`)                                     |
+| Icons      | `react-icons` (fi, pi, tb, md, hi, bs, fa6, ai)                                 |
+| HTTP       | Native `fetch` (most APIs); `axios` for some multipart uploads (e.g. `/upload`) |
+| Toasts     | `react-hot-toast` (`toast.success` / `toast.error`) on several settings flows   |
+| Auth       | localStorage tokens passed as request headers                                   |
 
 ---
 
@@ -98,7 +98,7 @@ src/
 │   └── SearchComponent.js      # Search within client profile
 │
 └── utils/
-    ├── api-controller.js       # API base URL: https://api.ooms.in/api/v1
+    ├── api-controller.js       # API base URL: https://server.ooms.in/api/v1
     ├── get-headers.js          # Auth headers from localStorage
     └── body-scroll-lock.js     # Scroll lock utility
 ```
@@ -125,7 +125,7 @@ Returns `null` if any field is missing (triggers auth error handling in callers)
 ## API Base URL
 
 ```
-https://api.ooms.in/api/v1
+https://server.ooms.in/api/v1
 ```
 
 All API calls are prefixed with this URL. Import: `import API_BASE_URL from '../utils/api-controller'`
@@ -135,41 +135,47 @@ All API calls are prefixed with this URL. Import: `import API_BASE_URL from '../
 ## Common Patterns Used Across the App
 
 ### Abort-safe data fetching
+
 ```js
 const abortRef = useRef(null);
 const seqRef = useRef(0);
 
 const fetchData = useCallback(async () => {
-    abortRef.current?.abort();
-    const ac = new AbortController();
-    abortRef.current = ac;
-    const seq = ++seqRef.current;
-    setLoading(true);
-    try {
-        const res = await fetch(url, { signal: ac.signal });
-        if (seq !== seqRef.current) return; // stale response guard
-        // ...
-    } catch (e) {
-        if (e.name === 'AbortError') return;
-    } finally {
-        if (seq === seqRef.current) setLoading(false);
-    }
+  abortRef.current?.abort();
+  const ac = new AbortController();
+  abortRef.current = ac;
+  const seq = ++seqRef.current;
+  setLoading(true);
+  try {
+    const res = await fetch(url, { signal: ac.signal });
+    if (seq !== seqRef.current) return; // stale response guard
+    // ...
+  } catch (e) {
+    if (e.name === "AbortError") return;
+  } finally {
+    if (seq === seqRef.current) setLoading(false);
+  }
 }, [deps]);
 ```
 
 ### Sidebar minimized state
+
 Persisted in `localStorage` key `sidebarMinimized`. All pages read this to apply `lg:pl-20` (minimized) or `lg:pl-72` (expanded) left padding. **Keep main content left padding and any fixed/offset UI** (e.g. bulk bars, wide cards) **in sync with the real sidebar width** (`md:` / `lg:` breakpoints and px values) so content does not sit under the drawer; some pages (e.g. **`billing-view.js`**) use explicit pixel offsets (`288px` / `80px`) where `pl-*` alone is not enough.
 
 ### SkeletonPulse component
+
 Used for loading placeholders:
+
 ```jsx
-const SkeletonPulse = ({ className = '' }) => (
-    <div className={`animate-pulse rounded-md bg-gray-200/90 ${className}`} />
+const SkeletonPulse = ({ className = "" }) => (
+  <div className={`animate-pulse rounded-md bg-gray-200/90 ${className}`} />
 );
 ```
 
 ### AppDialog — reusable in-app dialog
+
 Defined in `billing-view.js` (and pattern should be reused elsewhere). Replaces `window.alert` and `window.confirm`. Rendered via `createPortal` to `document.body`. Supports:
+
 - `variant`: `'confirm'` | `'warning'` | `'danger'` | `'success'` | `'error'`
 - `onConfirm`: async function that returns `{ variant, title, message }` to show a result dialog, or `null`/`undefined` to close
 - Loading state (spinner on confirm button, backdrop click blocked)
@@ -180,9 +186,11 @@ Defined in `billing-view.js` (and pattern should be reused elsewhere). Replaces 
 ## `billing-view.js` — Billing Management Page
 
 ### Purpose
+
 Manages billing for completed tasks. Three tabs: **Pending** (tasks awaiting billing), **Generated** (invoices created), **Non-Billable** (tasks marked as non-billable).
 
 ### API Endpoints
+
 ```
 GET  /billing/list/pending        List pending billing tasks
 GET  /billing/list/generated      List generated bills
@@ -193,6 +201,7 @@ GET  /billing/stats               Billing statistics
 ```
 
 ### Query Parameters for list endpoints
+
 ```
 page_no     Page number (1-based)
 limit       Items per page (5 | 10 | 20 | 50 | 100, default 20)
@@ -201,6 +210,7 @@ service_id  Filter by service (optional)
 ```
 
 ### API Response shape
+
 ```json
 {
   "success": true,
@@ -216,6 +226,7 @@ service_id  Filter by service (optional)
 ```
 
 ### Task object normalized by `normalizeBillingRow()`
+
 ```js
 {
   id, task_id,
@@ -237,9 +248,11 @@ service_id  Filter by service (optional)
 ```
 
 ### Tab card counts
+
 Fetched in parallel with `Promise.all` using `limit=1` on each tab endpoint to read `pagination.total`.
 
 ### Features implemented
+
 1. **Skeleton loading** — 8 animated `SkeletonPulse` rows shown whenever `loading === true` (on initial load, tab switch, pagination, filter change)
 2. **Portal action menu** — Row action menu rendered via `createPortal` to avoid `overflow-x-auto` clipping. Button position captured via `getBoundingClientRect()`. Auto-detects viewport space to open upward or downward.
 3. **Confirmation dialogs** — All `window.confirm` / `alert` replaced with `AppDialog` modal. Variants: generate bill (warning), non-billable (danger), success/error results.
@@ -249,6 +262,7 @@ Fetched in parallel with `Promise.all` using `limit=1` on each tab endpoint to r
 7. **Scroll-close dropdown** — Row dropdown closes on any scroll event (`window.addEventListener('scroll', ..., true)`).
 
 ### State key points
+
 - `selectedBillType`: `'pending'` | `'generated'` | `'nonbillable'`
 - `billingData`: current page rows (cleared on tab switch)
 - `pagination`: `{ page_no, limit, total, total_pages, is_last_page }`
@@ -259,13 +273,14 @@ Fetched in parallel with `Promise.all` using `limit=1` on each tab endpoint to r
 - `dialog`: AppDialog state (variant, title, message, onConfirm, loading, etc.)
 
 ### Bulk action bottom bar
+
 Fixed bar at bottom of screen when items are selected (Pending tab only). Slides in/out with spring animation. Contains: selected count, info note, "Generate bill", "Non-billable", "Clear" buttons. Offset by sidebar width (`left: isMinimized ? 80px : 288px`).
 
 ---
 
 ## `sale-display.js` — Sales list (Sales Register)
 
-- **Sticky table header:** Block **(1)** — title **Sales Register** + **date range** subtitle (en-dash variants normalized to ` - ` for display). Block **(2)** — single **`flex-nowrap`** row: **search** (`min-w-0 flex-1` wrapper, input `w-full`, min width ~`8rem`) → **`DateFilter`** (compact via `className`, see `DateFilter.js`) → **Export** dropdown → **Add Sale** (rightmost; search flex fills space so actions stay aligned to the right).
+- **Sticky table header:** Block **(1)** — title **Sales Register** + **date range** subtitle (en-dash variants normalized to `-` for display). Block **(2)** — single **`flex-nowrap`** row: **search** (`min-w-0 flex-1` wrapper, input `w-full`, min width ~`8rem`) → **`DateFilter`** (compact via `className`, see `DateFilter.js`) → **Export** dropdown → **Add Sale** (rightmost; search flex fills space so actions stay aligned to the right).
 - **Stats** from API **`stats`** (e.g. net / tax / total amounts + count); rupee affordances use **`TbCurrencyRupee`** where used in this page.
 - **Pagination:** server-driven list (no client **`slice`** over the full dataset). Footer follows the **Ledger-style** pattern (`meta` / totals, `LIMIT_OPTIONS`, page jump) — align with `LedgerTab.js` when changing limits or filters (reset page 1 on filter/limit change).
 
@@ -274,6 +289,7 @@ Fixed bar at bottom of screen when items are selected (Pending tab only). Slides
 ## `LedgerTab.js` — Client Ledger (in ClientComponents)
 
 ### Features
+
 - Transaction list with debit / credit / balance columns
 - Opening balance row (always shown, including `₹0.00`)
 - `transaction_type` display from API
@@ -287,6 +303,7 @@ Fixed bar at bottom of screen when items are selected (Pending tab only). Slides
 - Row action menu with "Details" option
 
 ### API Response shape for ledger
+
 ```json
 {
   "opening_balance": { "debit": 0, "credit": 0, "balance": 0 },
@@ -462,6 +479,7 @@ Implemented a full Email Broadcast frontend module with Bootstrap-based admin UI
 Backend router mount is `/broadcast/email`; all module APIs use this prefix:
 
 #### SMTP Config
+
 - `POST /broadcast/email/config/create`
 - `PUT /broadcast/email/config/update`
 - `GET /broadcast/email/config/list`
@@ -471,6 +489,7 @@ Backend router mount is `/broadcast/email`; all module APIs use this prefix:
 - `PUT /broadcast/email/config/change-status`
 
 #### Template
+
 - `POST /broadcast/email/template/create`
 - `PUT /broadcast/email/template/update`
 - `GET /broadcast/email/template/list`
@@ -479,6 +498,7 @@ Backend router mount is `/broadcast/email`; all module APIs use this prefix:
 - `PUT /broadcast/email/template/change-status`
 
 #### Broadcast
+
 - `POST /broadcast/email/broadcast/create`
 - `GET /broadcast/email/broadcast/list`
 - `GET /broadcast/email/broadcast/details/:broadcast_id`
@@ -516,21 +536,25 @@ These components live inside `src/TaskComponent/` and are rendered as tabs insid
 ### `NotesTab.js`
 
 #### Purpose
+
 Displays and manages notes attached to a task. Notes can be of three types: **Text**, **File attachment**, or **Voice recording**.
 
 #### API Endpoints
+
 ```
 GET  /task/details/notes        Fetch notes list (params: task_id, search, page, limit)
 POST /task/details/notes/add    Add a new note
 ```
 
 #### Key state
+
 - `activeFilter`: `'all'` | `'text'` | `'file'` | `'voice'` — drives list filter tabs
 - `notes`, `notesLoading`, `totalNotes`, `currentPage`, `hasMore`
 - `showAddModal`, `newNote` — add note form state
 - `isRecording`, `recordingBlob`, `recordingSeconds` — voice recording state
 
 #### Implemented behaviours
+
 1. **Single unified `useEffect`** with debounce for `task_id` and `searchTerm` changes (prevents duplicate API calls on mount).
 2. **`openAddModal()`** pre-selects `newNote.type` based on `activeFilter`:
    - `'all'` or `'text'` → `'text'`
@@ -544,9 +568,11 @@ POST /task/details/notes/add    Add a new note
 ### `SubTaskTab.js`
 
 #### Purpose
+
 Manages subtasks for a task. Subtasks can be of type `"text"` (free text) or `"service"` (linked to a service).
 
 #### API Endpoints
+
 ```
 GET  /task/details/subtask/list           List subtasks (task_id)
 POST /task/details/subtask/add            Add subtask(s)
@@ -556,9 +582,11 @@ DELETE /task/details/subtask/delete       Delete subtask
 ```
 
 #### Status options
+
 `pending` | `complete` | `cancel`
 
 #### Key behaviours
+
 1. **Subtask types displayed as** `"service"` (API type `"task"`) or `"text"`.
 2. **`service_id` hidden** in the table for subtasks with `type="task"`.
 3. **Status changes** call `PUT /details/subtask/status` with body `{ task_id, subtask_id, status }`. Status is **not** part of the edit modal.
@@ -568,6 +596,7 @@ DELETE /task/details/subtask/delete       Delete subtask
 7. **`react-hot-toast`** for all API success/error feedback. No modal alerts for API responses.
 
 #### Payload shapes
+
 ```js
 // PUT /details/subtask/status
 { task_id, subtask_id, status }
@@ -581,9 +610,11 @@ DELETE /task/details/subtask/delete       Delete subtask
 ### `StaffTab.js`
 
 #### Purpose
+
 Displays staff assigned to a task and provides an assignment UI with a two-box transfer layout.
 
 #### API Endpoints
+
 ```
 GET  /settings/staff/list           All branch staff (paginated, limit 100, fetched until last page)
 GET  /task/details/staff/list       Staff currently assigned to the task
@@ -591,6 +622,7 @@ PUT  /task/details/staff/update     Assign/unassign staff (full replace: send re
 ```
 
 #### Key state
+
 - `staffList` — currently assigned staff (task)
 - `allBranchStaff` — all staff in the branch (loaded once on tab open, paginated loop)
 - `selectedStaff` — array of usernames in the assignment modal (right-box)
@@ -599,11 +631,14 @@ PUT  /task/details/staff/update     Assign/unassign staff (full replace: send re
 - `viewStaff` — staff object for the view details modal
 
 #### Staff fetching
+
 On tab mount, two parallel fetches run:
+
 1. `fetchStaffList()` — loads currently assigned staff for this task.
 2. `fetchAllBranchStaff()` — loops `GET /settings/staff/list?limit=100&page=N` until `meta.is_last_page === true`. Standardised through `mapBranchStaffItem()`.
 
 #### Assignment modal (two-box transfer UI)
+
 - **Available Staff** (left box): all branch staff not in `selectedStaff`, filtered by search
 - **Selected Staff** (right box): staff currently selected for assignment
 - Transfer buttons (`FiArrowRight` / `FiArrowLeft`) are vertically centred between the two boxes
@@ -611,23 +646,27 @@ On tab mount, two parallel fetches run:
 - Submitting with an empty `selectedStaff` array shows a confirmation modal before calling the API
 
 #### Assign API payload
+
 ```js
 PUT /task/details/staff/update
 { task_id, staff_ids: [username1, username2, ...] }
 ```
 
 #### Multi-select table (assigned staff)
+
 - First column: `AnimatedCheckbox` — custom framer-motion checkbox (handles `checked` and `indeterminate` states)
 - Header checkbox: select all / deselect all visible rows; reflects indeterminate state when some rows are selected
 - Selected rows highlighted with `bg-indigo-50`
 - `tableSelectedRows` resets when `staffList` changes
 
 #### Bulk action bar
+
 - Appears (via `AnimatePresence`) when `tableSelectedRows.length > 0`
 - Shows count, "Clear" button, and `bg-red-600` "Delete Selected (N)" button
 - Disabled while API is in flight
 
 #### Delete logic (unified — `performDelete`)
+
 ```js
 // DRY helper used for single AND bulk delete
 performDelete(usernamesToRemove) {
@@ -637,11 +676,13 @@ performDelete(usernamesToRemove) {
   executeAssignStaff(remaining); // calls PUT /task/details/staff/update
 }
 ```
+
 - Single-row delete → `requestDelete([member.username])`
 - Bulk delete → `requestDelete(tableSelectedRows)`
 - Both route through a custom `deleteConfirm` confirmation modal before executing
 
 #### View Staff modal (eye button)
+
 - Width `max-w-xl`, height capped at `90vh`, fixed header/footer, scrollable body
 - Header text: "Assigned Staff Details"
 - Body starts with a compact profile strip (avatar initials, name, designation badge)
@@ -654,9 +695,11 @@ performDelete(usernamesToRemove) {
 ### `DetailsTab.js`
 
 #### Purpose
+
 Displays and manages core task details: firm, service, fees, tax, CA, agent, dates, status, and billing.
 
 #### API Endpoints
+
 ```
 GET  /service/list                          Load service options (on mount)
 GET  /task/details/search?query=...         Search firms (debounced)
@@ -669,23 +712,34 @@ POST /billing/generate/nonbillable          Mark as non-billable
 ```
 
 #### Status options
+
 ```js
-['in process', 'pending from client', 'pending from department', 'complete', 'cancel']
+[
+  "in process",
+  "pending from client",
+  "pending from department",
+  "complete",
+  "cancel",
+];
 ```
+
 `'unassign'` is **not** a valid option and is excluded.
 
 #### Status change rules
+
 - Status `'complete'` → locked once set. Dropdown is replaced with a static green badge. No further status changes allowed.
 - Status `'cancel'` or `'complete'` → shows a **confirmation modal** before calling the API. Other statuses change immediately.
 - Confirmation modal is green-themed for `complete`, red-themed for `cancel`.
 - `handleStatusChange(newStatus)` intercepts → sets `statusConfirm`. `executeStatusChange(newStatus)` performs the actual API call.
 
 #### Edit modal
+
 - Triggered by "Edit Task" button → `showEditModal = true`
 - Width `max-w-3xl`, height capped at `92vh`, fixed header/footer, scrollable body (`overflow-y-auto [scrollbar-width:thin]`)
 - `editForm` state holds all editable fields: `firm_id`, `firmOption`, `service_id`, `fees`, `tax_rate`, `has_ca`, `ca_id`, `caDisplay`, `has_agent`, `agent_id`, `agentDisplay`, `due_date`, `target_date`
 
 #### Edit API payload
+
 ```js
 PUT /task/edit/:task_id
 {
@@ -696,20 +750,23 @@ PUT /task/edit/:task_id
   target_date // "YYYY-MM-DD"
 }
 ```
+
 `ca_id` and `agent_id` are only included in the payload when `has_ca`/`has_agent` is `true`.
 
 #### Billing status logic
-| `billing_status` | Meaning |
-|---|---|
-| `'pending'` | Bill generation pending |
-| `'complete'` | Bill (invoice) generated |
-| `'non billable'` | Marked as non-billable |
+
+| `billing_status` | Meaning                  |
+| ---------------- | ------------------------ |
+| `'pending'`      | Bill generation pending  |
+| `'complete'`     | Bill (invoice) generated |
+| `'non billable'` | Marked as non-billable   |
 
 - **Generate Bill section** is shown only when `taskData.status === 'complete'` **AND** `taskData.billing_status === 'pending'`
 - When `billing_status === 'complete'`, `invoice_no` is displayed in the view
 - Billing status badge colours: `complete` = green, `non billable` = blue, `pending` = amber
 
 #### Billing confirmation modal
+
 - Opened by "Generate Bill" or "Generate Non Billable" buttons → `setBillingModal('bill' | 'nonbillable')`
 - Modal layout: `flex flex-col`, `maxHeight: '90vh'`, `flex-shrink-0` header/footer, `flex-1 min-h-0 overflow-y-auto` body (prevents header/footer from going off-screen)
 - Shows fee breakdown (Base Fees, Tax, Total) for billable; strikethrough for non-billable
@@ -717,22 +774,26 @@ PUT /task/edit/:task_id
 - `handleConfirmBilling()` calls the appropriate endpoint, shows toast, updates `taskData` locally on success
 
 #### Conditional field locking (`billGenerated`)
+
 When `billing_status === 'complete' || 'non billable'`:
+
 - An amber warning banner is shown at the top of the edit modal body
 - **Editable**: `fees`, CA toggle + search, Agent toggle + search
 - **Locked** (replaced with `LockedField` component with lock icon): Firm, Service, Tax Rate, Due Date, Target Date
 
 #### Input enhancements
+
 - **Fees / Tax Rate**: `type="text" inputMode="decimal"` (no spinners, no scroll-to-change). Dynamic "Total Amount" preview shown when `fees > 0`: `fees * (1 + tax_rate/100)`, formatted with `toLocaleString('en-IN')`.
 - **Service select**: Searchable custom dropdown (client-side filter of `services` array).
 - **Firm search results**: Show Firm name (bold), Client name, Mobile, File No, PAN No in a 2×2 grid.
 - **CA / Agent**: Toggle switches (`h-6 w-10`) to enable/disable. When enabled, searchable input with clear button and detailed results.
 
 #### Helper components (local to this file)
+
 ```jsx
-InfoPair     // View mode: label + value row with border-b
-SectionTitle // Section header with icon + title
-LockedField  // Read-only field in edit modal with lock icon
+InfoPair; // View mode: label + value row with border-b
+SectionTitle; // Section header with icon + title
+LockedField; // Read-only field in edit modal with lock icon
 ```
 
 ---
@@ -768,21 +829,21 @@ Use this when implementing the same table footer on other pages. Source: lines ~
 
 Footer sits **below the scrollable `<table>`** (inside the card). It shows:
 
-1. **Range summary** — “Showing *start* to *end* of *total* entries”
+1. **Range summary** — “Showing _start_ to _end_ of _total_ entries”
 2. **Page size** — `<select>` bound to `itemsPerPage` with fixed options
 3. **Prev / current / total / next** — bordered buttons + highlighted current page pill
 4. **Go to page** — number input + submit (“Go”) to jump
 
 ### State
 
-| State | Typical initial | Notes |
-|--------|-----------------|--------|
-| `currentPage` | `1` | 1-based; sent to API as `page_no` |
-| `totalPages` | `1` | Set after fetch: `Math.max(1, Math.ceil(total / limit))` |
-| `totalItems` | `0` | From API `meta.total` |
-| `itemsPerPage` | `20` | Drives `limit` query param |
-| `LIMIT_OPTIONS` | `[5, 10, 20, 50, 100]` | Constant; map to `<option>`s |
-| `pageJumpInput` | `''` | Controlled string for “go to”; cleared after successful jump |
+| State           | Typical initial        | Notes                                                        |
+| --------------- | ---------------------- | ------------------------------------------------------------ |
+| `currentPage`   | `1`                    | 1-based; sent to API as `page_no`                            |
+| `totalPages`    | `1`                    | Set after fetch: `Math.max(1, Math.ceil(total / limit))`     |
+| `totalItems`    | `0`                    | From API `meta.total`                                        |
+| `itemsPerPage`  | `20`                   | Drives `limit` query param                                   |
+| `LIMIT_OPTIONS` | `[5, 10, 20, 50, 100]` | Constant; map to `<option>`s                                 |
+| `pageJumpInput` | `''`                   | Controlled string for “go to”; cleared after successful jump |
 
 ### API response (ledger)
 
@@ -808,7 +869,7 @@ const handlePageChange = (newPage) => {
   const page = Math.max(1, Math.min(totalPages, Math.floor(newPage)));
   if (page >= 1 && page <= totalPages) {
     setCurrentPage(page);
-    setPageJumpInput('');
+    setPageJumpInput("");
   }
 };
 

@@ -154,7 +154,7 @@ In-out: text-[10px] font-semibold px-2 py-0.5 rounded-full + border
         Other: bg-amber-50 text-amber-700 border-amber-200
 ```
 
-### Recurring flag
+### Compliance flag
 
 ```txt
 text-xs font-medium

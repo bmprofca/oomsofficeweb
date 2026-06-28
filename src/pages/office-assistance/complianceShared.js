@@ -11,8 +11,10 @@ import {
   fetchStaffOptions,
   getDefaultEffectiveFromFields,
   HALF_YEARLY_PERIODS,
+  mergeYearOptionsForEffectiveFrom,
   normalizeAssignees,
   normalizeFrequency,
+  parseEffectiveFromFields,
   QUARTERLY_PERIODS,
 } from '../../services/complianceService';
 
@@ -47,17 +49,55 @@ const MultiSelectField = ({ label, options, value, onChange, disabled }) => (
   </div>
 );
 
+const buildCalendarYearOptions = (yearOptions, selectedYear) => {
+  const calendarYears = (yearOptions || []).flatMap((year) => {
+    const [start, end] = year.split('-').map(Number);
+    return [start, end].filter(Number.isFinite);
+  });
+  const uniqueYears = [...new Set(calendarYears)];
+  const yearNum = Number(selectedYear);
+  if (Number.isFinite(yearNum) && !uniqueYears.includes(yearNum)) {
+    uniqueYears.push(yearNum);
+    uniqueYears.sort((a, b) => a - b);
+  }
+  return uniqueYears;
+};
+
+const buildFyYearOptions = (yearOptions, fyStart, fyEnd) => {
+  const options = [...(yearOptions || [])];
+  if (Number.isFinite(fyStart) && Number.isFinite(fyEnd)) {
+    const fy = `${fyStart}-${fyEnd}`;
+    if (!options.includes(fy)) options.unshift(fy);
+  }
+  return options;
+};
+
+const buildFyStartYearOptions = (yearOptions, fyStartYear) => {
+  const options = [...(yearOptions || [])];
+  const yearNum = Number(fyStartYear);
+  if (Number.isFinite(yearNum)) {
+    const fyLabel = `${yearNum}-${yearNum + 1}`;
+    if (!options.includes(fyLabel)) options.push(fyLabel);
+  }
+  return options.sort();
+};
+
 const EffectiveFromField = ({ frequency, value, onChange, disabled, yearOptions }) => {
   const normalized = normalizeFrequency(frequency);
 
   if (normalized === 'yearly') {
+    const fyOptions = buildFyYearOptions(yearOptions, value.fyStart, value.fyEnd);
+    const fyValue = Number.isFinite(value.fyStart) && Number.isFinite(value.fyEnd)
+      ? `${value.fyStart}-${value.fyEnd}`
+      : fyOptions[0] || '';
+
     return (
       <div>
         <label className="block text-sm font-medium text-gray-700 mb-1">
           Effective from (FY) <span className="text-red-500">*</span>
         </label>
         <select
-          value={`${value.fyStart}-${value.fyEnd}`}
+          value={fyValue}
           onChange={(e) => {
             const [fyStart, fyEnd] = e.target.value.split('-').map(Number);
             onChange({ ...value, fyStart, fyEnd });
@@ -65,7 +105,7 @@ const EffectiveFromField = ({ frequency, value, onChange, disabled, yearOptions 
           disabled={disabled}
           className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none disabled:opacity-60"
         >
-          {yearOptions.map((year) => (
+          {fyOptions.map((year) => (
             <option key={year} value={year}>
               {year}
             </option>
@@ -79,6 +119,11 @@ const EffectiveFromField = ({ frequency, value, onChange, disabled, yearOptions 
   }
 
   if (normalized === 'quarterly') {
+    const resolvedYearOptions = buildFyStartYearOptions(yearOptions, value.fyStartYear);
+    const fyStartYearValue = Number.isFinite(Number(value.fyStartYear))
+      ? Number(value.fyStartYear)
+      : Number(resolvedYearOptions[0]?.split('-')[0]) || '';
+
     return (
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:col-span-2">
         <div>
@@ -86,7 +131,7 @@ const EffectiveFromField = ({ frequency, value, onChange, disabled, yearOptions 
             Effective from quarter <span className="text-red-500">*</span>
           </label>
           <select
-            value={value.period}
+            value={value.period || QUARTERLY_PERIODS[0]}
             onChange={(e) => onChange({ ...value, period: e.target.value })}
             disabled={disabled}
             className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none disabled:opacity-60"
@@ -103,12 +148,12 @@ const EffectiveFromField = ({ frequency, value, onChange, disabled, yearOptions 
             FY start year <span className="text-red-500">*</span>
           </label>
           <select
-            value={value.fyStartYear}
+            value={fyStartYearValue}
             onChange={(e) => onChange({ ...value, fyStartYear: Number(e.target.value) })}
             disabled={disabled}
             className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none disabled:opacity-60"
           >
-            {yearOptions.map((year) => {
+            {resolvedYearOptions.map((year) => {
               const fyStart = Number(year.split('-')[0]);
               return (
                 <option key={year} value={fyStart}>
@@ -126,6 +171,11 @@ const EffectiveFromField = ({ frequency, value, onChange, disabled, yearOptions 
   }
 
   if (normalized === 'half-yearly') {
+    const resolvedYearOptions = buildFyStartYearOptions(yearOptions, value.fyStartYear);
+    const fyStartYearValue = Number.isFinite(Number(value.fyStartYear))
+      ? Number(value.fyStartYear)
+      : Number(resolvedYearOptions[0]?.split('-')[0]) || '';
+
     return (
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:col-span-2">
         <div>
@@ -133,7 +183,7 @@ const EffectiveFromField = ({ frequency, value, onChange, disabled, yearOptions 
             Effective from half <span className="text-red-500">*</span>
           </label>
           <select
-            value={value.period}
+            value={value.period || HALF_YEARLY_PERIODS[0]}
             onChange={(e) => onChange({ ...value, period: e.target.value })}
             disabled={disabled}
             className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none disabled:opacity-60"
@@ -150,12 +200,12 @@ const EffectiveFromField = ({ frequency, value, onChange, disabled, yearOptions 
             FY start year <span className="text-red-500">*</span>
           </label>
           <select
-            value={value.fyStartYear}
+            value={fyStartYearValue}
             onChange={(e) => onChange({ ...value, fyStartYear: Number(e.target.value) })}
             disabled={disabled}
             className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none disabled:opacity-60"
           >
-            {yearOptions.map((year) => {
+            {resolvedYearOptions.map((year) => {
               const fyStart = Number(year.split('-')[0]);
               return (
                 <option key={year} value={fyStart}>
@@ -172,11 +222,9 @@ const EffectiveFromField = ({ frequency, value, onChange, disabled, yearOptions 
     );
   }
 
-  const calendarYears = yearOptions.flatMap((year) => {
-    const [start, end] = year.split('-').map(Number);
-    return [start, end];
-  });
-  const uniqueYears = [...new Set(calendarYears)];
+  const uniqueYears = buildCalendarYearOptions(yearOptions, value.year);
+  const monthValue = value.month || COMPLIANCE_MONTHS[0];
+  const yearValue = Number.isFinite(Number(value.year)) ? Number(value.year) : uniqueYears[0];
 
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:col-span-2">
@@ -185,7 +233,7 @@ const EffectiveFromField = ({ frequency, value, onChange, disabled, yearOptions 
           Effective from month <span className="text-red-500">*</span>
         </label>
         <select
-          value={value.month}
+          value={monthValue}
           onChange={(e) => onChange({ ...value, month: e.target.value })}
           disabled={disabled}
           className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none disabled:opacity-60"
@@ -202,7 +250,7 @@ const EffectiveFromField = ({ frequency, value, onChange, disabled, yearOptions 
           Year <span className="text-red-500">*</span>
         </label>
         <select
-          value={value.year}
+          value={yearValue}
           onChange={(e) => onChange({ ...value, year: Number(e.target.value) })}
           disabled={disabled}
           className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none disabled:opacity-60"
@@ -221,7 +269,22 @@ const EffectiveFromField = ({ frequency, value, onChange, disabled, yearOptions 
   );
 };
 
-export const FirmFormModal = ({ isOpen, mode, initialFirm, services, saving, onClose, onSubmit, yearOptions }) => {
+export const FirmFormModal = ({
+  isOpen,
+  mode,
+  initialFirm,
+  services,
+  saving,
+  onClose,
+  onSubmit,
+  yearOptions,
+  clientUsername = '',
+  presetFirmOptions = null,
+  defaultServiceId = '',
+  defaultFirmId = '',
+  addTitle,
+  editTitle,
+}) => {
   const [form, setForm] = useState({
     service_id: '',
     firm_id: '',
@@ -246,10 +309,37 @@ export const FirmFormModal = ({ isOpen, mode, initialFirm, services, saving, onC
     [services, form.service_id],
   );
 
+  const resolvedYearOptions = useMemo(() => {
+    const frequency = selectedFormService?.frequency;
+    const effectiveFrom = mode === 'edit' ? initialFirm?.effective_from : '';
+    return mergeYearOptionsForEffectiveFrom(yearOptions || [], frequency, effectiveFrom);
+  }, [yearOptions, mode, initialFirm?.effective_from, selectedFormService?.frequency]);
+
+  const handleServiceChange = (newServiceId) => {
+    const newService = services.find((item) => item.service_id === newServiceId);
+    setForm((prev) => ({ ...prev, service_id: newServiceId }));
+
+    if (!newService) return;
+
+    if (mode === 'add') {
+      setEffectiveFromFields(getDefaultEffectiveFromFields(newService.frequency));
+      return;
+    }
+
+    if (newServiceId === initialFirm?.service_id && initialFirm?.effective_from) {
+      setEffectiveFromFields(
+        parseEffectiveFromFields(newService.frequency, initialFirm.effective_from),
+      );
+    } else {
+      setEffectiveFromFields(getDefaultEffectiveFromFields(newService.frequency));
+    }
+  };
+
   useEffect(() => {
     if (!isOpen) return;
 
     if (mode === 'edit' && initialFirm) {
+      const editService = services.find((item) => item.service_id === initialFirm.service_id) || services[0];
       setForm({
         service_id: initialFirm.service_id || '',
         firm_id: initialFirm.firm_id || '',
@@ -260,11 +350,15 @@ export const FirmFormModal = ({ isOpen, mode, initialFirm, services, saving, onC
         ca: normalizeAssignees(initialFirm.ca),
         agent: normalizeAssignees(initialFirm.agent),
       });
+      setEffectiveFromFields(
+        parseEffectiveFromFields(editService?.frequency, initialFirm.effective_from),
+      );
     } else {
-      const defaultService = services[0];
+      const defaultService =
+        services.find((item) => item.service_id === defaultServiceId) || services[0];
       setForm({
-        service_id: defaultService?.service_id || '',
-        firm_id: '',
+        service_id: defaultServiceId || defaultService?.service_id || '',
+        firm_id: defaultFirmId || '',
         fees: '',
         tax_rate: '18',
         due_date: '10',
@@ -274,7 +368,7 @@ export const FirmFormModal = ({ isOpen, mode, initialFirm, services, saving, onC
       });
       setEffectiveFromFields(getDefaultEffectiveFromFields(defaultService?.frequency));
     }
-  }, [isOpen, mode, initialFirm, services]);
+  }, [isOpen, mode, initialFirm, services, defaultServiceId, defaultFirmId]);
 
   useEffect(() => {
     if (!isOpen || mode !== 'add' || !selectedFormService) return;
@@ -287,19 +381,31 @@ export const FirmFormModal = ({ isOpen, mode, initialFirm, services, saving, onC
     const loadOptions = async () => {
       setOptionsLoading(true);
       try {
+        const firmOptionsPromise = Array.isArray(presetFirmOptions)
+          ? Promise.resolve(null)
+          : fetchFirmOptions({
+            page_no: 1,
+            limit: 100,
+            username: clientUsername,
+          });
+
         const [firmsRes, staffRes, caRes, agentRes] = await Promise.all([
-          fetchFirmOptions({ page_no: 1, limit: 100 }),
+          firmOptionsPromise,
           fetchStaffOptions({ page: 1, limit: 100 }),
           fetchCaOptions({ page: 1, limit: 100 }),
           fetchAgentOptions({ page: 1, limit: 100 }),
         ]);
 
-        setFirmOptions(
-          (firmsRes?.data || []).map((item) => ({
-            value: item.firm_id,
-            label: `${item.firm_name || item.firm_id} (${item.firm_id})`,
-          })),
-        );
+        if (Array.isArray(presetFirmOptions)) {
+          setFirmOptions(presetFirmOptions);
+        } else {
+          setFirmOptions(
+            (firmsRes?.data || []).map((item) => ({
+              value: item.firm_id,
+              label: `${item.firm_name || item.firm_id} (${item.firm_id})`,
+            })),
+          );
+        }
         setStaffOptions(
           (staffRes?.data || []).map((item) => ({
             value: item.username,
@@ -326,7 +432,7 @@ export const FirmFormModal = ({ isOpen, mode, initialFirm, services, saving, onC
     };
 
     loadOptions();
-  }, [isOpen]);
+  }, [isOpen, clientUsername, presetFirmOptions]);
 
   if (!isOpen) return null;
 
@@ -341,6 +447,9 @@ export const FirmFormModal = ({ isOpen, mode, initialFirm, services, saving, onC
         toast.error('Service and firm are required');
         return;
       }
+    } else if (!form.service_id || !form.firm_id) {
+      toast.error('Service and firm are required');
+      return;
     }
 
     if (!Number.isFinite(fees) || fees < 0) {
@@ -357,16 +466,14 @@ export const FirmFormModal = ({ isOpen, mode, initialFirm, services, saving, onC
     }
 
     let effective_from;
-    if (mode === 'add') {
-      if (!selectedFormService) {
-        toast.error('Select a compliance service');
-        return;
-      }
-      effective_from = buildEffectiveFrom(selectedFormService.frequency, effectiveFromFields);
-      if (!effective_from) {
-        toast.error('Effective from is required');
-        return;
-      }
+    if (!selectedFormService) {
+      toast.error('Select a compliance service');
+      return;
+    }
+    effective_from = buildEffectiveFrom(selectedFormService.frequency, effectiveFromFields);
+    if (!effective_from) {
+      toast.error('Effective from is required');
+      return;
     }
 
     onSubmit({
@@ -374,7 +481,7 @@ export const FirmFormModal = ({ isOpen, mode, initialFirm, services, saving, onC
       fees,
       tax_rate,
       due_date,
-      ...(mode === 'add' ? { effective_from } : {}),
+      effective_from,
     });
   };
 
@@ -387,7 +494,9 @@ export const FirmFormModal = ({ isOpen, mode, initialFirm, services, saving, onC
       <div className="relative w-full max-w-2xl max-h-[92vh] bg-white rounded-xl shadow-xl border border-gray-200 flex flex-col overflow-hidden">
         <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200">
           <h3 className="text-base font-semibold text-gray-800 m-0">
-            {mode === 'add' ? 'Add compliance firm' : 'Edit compliance firm'}
+            {mode === 'add'
+              ? (addTitle || 'Add compliance firm')
+              : (editTitle || 'Edit compliance firm')}
           </h3>
           <button
             type="button"
@@ -414,8 +523,8 @@ export const FirmFormModal = ({ isOpen, mode, initialFirm, services, saving, onC
                   </label>
                   <select
                     value={form.service_id}
-                    onChange={(e) => setForm((prev) => ({ ...prev, service_id: e.target.value }))}
-                    disabled={saving || mode === 'edit'}
+                    onChange={(e) => handleServiceChange(e.target.value)}
+                    disabled={saving}
                     className={inputClass}
                   >
                     <option value="">Select service</option>
@@ -427,25 +536,14 @@ export const FirmFormModal = ({ isOpen, mode, initialFirm, services, saving, onC
                   </select>
                 </div>
 
-                {mode === 'add' && selectedFormService ? (
+                {selectedFormService ? (
                   <EffectiveFromField
                     frequency={selectedFormService.frequency}
                     value={effectiveFromFields}
                     onChange={setEffectiveFromFields}
                     disabled={saving}
-                    yearOptions={yearOptions}
+                    yearOptions={resolvedYearOptions}
                   />
-                ) : null}
-
-                {mode === 'edit' && initialFirm?.effective_from ? (
-                  <div className="sm:col-span-2">
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Effective from
-                    </label>
-                    <p className="text-sm text-gray-800 m-0 px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg">
-                      {initialFirm.effective_from}
-                    </p>
-                  </div>
                 ) : null}
 
                 <div>
@@ -455,10 +553,15 @@ export const FirmFormModal = ({ isOpen, mode, initialFirm, services, saving, onC
                   <select
                     value={form.firm_id}
                     onChange={(e) => setForm((prev) => ({ ...prev, firm_id: e.target.value }))}
-                    disabled={saving || mode === 'edit'}
+                    disabled={saving}
                     className={inputClass}
                   >
                     <option value="">Select firm</option>
+                    {firmOptions.length === 0 ? (
+                      <option value="" disabled>
+                        {clientUsername ? 'No firms for this client' : 'No firms available'}
+                      </option>
+                    ) : null}
                     {firmOptions.map((option) => (
                       <option key={option.value} value={option.value}>
                         {option.label}
