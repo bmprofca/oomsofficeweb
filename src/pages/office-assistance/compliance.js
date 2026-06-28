@@ -1,4024 +1,1392 @@
-import React, {
-    useState,
-    useEffect,
-    useRef,
-    useCallback,
-    useMemo
-} from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { Link } from 'react-router-dom';
 import {
-    FiSearch, FiPlus, FiRefreshCw, FiCheckCircle, FiAlertCircle,
-    FiLayers, FiChevronRight, FiChevronDown, FiDollarSign, FiCheck,
-    FiX, FiEye, FiInfo, FiBookOpen, FiBriefcase, FiCalendar, FiArrowRight,
-    FiUser, FiEdit2, FiTrash2, FiShare2, FiChevronLeft, FiMenu,
-    FiEyeOff, FiCopy, FiLock, FiRepeat
+  FiEdit2,
+  FiHome,
+  FiLoader,
+  FiPlus,
+  FiRefreshCw,
+  FiSearch,
+  FiTrash2,
+  FiX,
 } from 'react-icons/fi';
-import { FaWhatsapp } from 'react-icons/fa6';
-import { MdEmail } from 'react-icons/md';
-import { motion, AnimatePresence } from 'framer-motion';
-import { useNavigate } from 'react-router-dom';
-import axios from 'axios';
 import { toast } from 'react-hot-toast';
 import { Header, Sidebar } from '../../components/header';
-import getHeaders from '../../utils/get-headers';
-import API_BASE_URL from '../../utils/api-controller';
-import AssignedStaffList from '../../components/Modals/AssignedStaffList';
-import { useUserPermissions } from '../../utils/permission-helper';
+import TablePagination from '../../components/TablePagination';
+import {
+  addComplianceFirm,
+  buildEffectiveFrom,
+  changeComplianceTaskStatus,
+  COMPLIANCE_MONTHS,
+  COMPLIANCE_TASK_STATUSES,
+  deleteComplianceFirm,
+  editComplianceFirm,
+  extractApiError,
+  fetchAgentOptions,
+  fetchCaOptions,
+  fetchComplianceFirms,
+  fetchComplianceServices,
+  fetchComplianceTaskList,
+  fetchFirmOptions,
+  fetchStaffOptions,
+  getCurrentComplianceYear,
+  getDefaultEffectiveFromFields,
+  getPeriodOptions,
+  HALF_YEARLY_PERIODS,
+  normalizeAssignees,
+  normalizeFrequency,
+  QUARTERLY_PERIODS,
+} from '../../services/complianceService';
 
-/* ─── Helpers ────────────────────────────────────────────────────── */
-const getRequiredFieldsForService = (service) => {
-    if (!service) return [];
-    if (service.required_fields && Array.isArray(service.required_fields) && service.required_fields.length > 0) {
-        return service.required_fields;
-    }
-    const name = (service.name || '').toLowerCase();
-    const svcId = (service.service_id || '').toLowerCase();
-    if (name.includes('professional tax') || name.includes('ptax') || svcId.includes('ptax')) {
-        return [
-            { key: 'ptax_reg_no', label: 'Professional Tax Reg No', type: 'text' },
-            { key: 'ptax_password', label: 'Password', type: 'password' }
-        ];
-    }
-    if (name.includes('gstr-1') || svcId.includes('gstr-1') || name.includes('gstr1') || svcId.includes('gstr1') ||
-        name.includes('gstr-3b') || svcId.includes('gstr-3b') || name.includes('gstr3b') || svcId.includes('gstr3b')) {
-        return [
-            { key: 'gst_login_id', label: 'GST Login ID', type: 'text' },
-            { key: 'gst_password', label: 'Password', type: 'password' }
-        ];
-    }
-    return [];
+const GST_RATE_OPTIONS = [0, 5, 12, 18, 28];
+
+const formatMoney = (value) =>
+  Number(value || 0).toLocaleString('en-IN', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+
+const StatusBadge = ({ status }) => {
+  if (!status) {
+    return (
+      <span className="inline-flex px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-600">
+        Not started
+      </span>
+    );
+  }
+
+  const styles = {
+    'in process': 'bg-blue-100 text-blue-700',
+    'pending from client': 'bg-amber-100 text-amber-700',
+    'pending from department': 'bg-orange-100 text-orange-700',
+    complete: 'bg-green-100 text-green-700',
+    cancel: 'bg-red-100 text-red-700',
+  };
+
+  return (
+    <span
+      className={`inline-flex px-2 py-0.5 rounded-full text-xs font-medium capitalize ${
+        styles[status] || 'bg-gray-100 text-gray-600'
+      }`}
+    >
+      {status}
+    </span>
+  );
 };
 
-const formatCurrency = (amount) => {
-    const num = parseFloat(amount || 0);
-    return num.toLocaleString('en-IN', {
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2
-    });
+const MultiSelectField = ({ label, options, value, onChange, disabled }) => (
+  <div>
+    <label className="block text-sm font-medium text-gray-700 mb-1">{label}</label>
+    <select
+      multiple
+      value={value}
+      onChange={(event) => {
+        const selected = Array.from(event.target.selectedOptions).map((option) => option.value);
+        onChange(selected);
+      }}
+      disabled={disabled}
+      className="w-full min-h-[110px] px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none disabled:opacity-60"
+    >
+      {options.map((option) => (
+        <option key={option.value} value={option.value}>
+          {option.label}
+        </option>
+      ))}
+    </select>
+    <p className="text-xs text-gray-500 mt-1 m-0">Hold Cmd/Ctrl to select multiple usernames.</p>
+  </div>
+);
+
+const EffectiveFromField = ({ frequency, value, onChange, disabled, yearOptions }) => {
+  const normalized = normalizeFrequency(frequency);
+
+  if (normalized === 'yearly') {
+    return (
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-1">
+          Effective from (FY) <span className="text-red-500">*</span>
+        </label>
+        <select
+          value={`${value.fyStart}-${value.fyEnd}`}
+          onChange={(e) => {
+            const [fyStart, fyEnd] = e.target.value.split('-').map(Number);
+            onChange({ ...value, fyStart, fyEnd });
+          }}
+          disabled={disabled}
+          className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none disabled:opacity-60"
+        >
+          {yearOptions.map((year) => (
+            <option key={year} value={year}>
+              {year}
+            </option>
+          ))}
+        </select>
+        <p className="text-xs text-gray-500 mt-1 m-0">
+          First financial year from which this firm is assigned.
+        </p>
+      </div>
+    );
+  }
+
+  if (normalized === 'quarterly') {
+    return (
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:col-span-2">
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            Effective from quarter <span className="text-red-500">*</span>
+          </label>
+          <select
+            value={value.period}
+            onChange={(e) => onChange({ ...value, period: e.target.value })}
+            disabled={disabled}
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none disabled:opacity-60"
+          >
+            {QUARTERLY_PERIODS.map((period) => (
+              <option key={period} value={period}>
+                {period}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            FY start year <span className="text-red-500">*</span>
+          </label>
+          <select
+            value={value.fyStartYear}
+            onChange={(e) => onChange({ ...value, fyStartYear: Number(e.target.value) })}
+            disabled={disabled}
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none disabled:opacity-60"
+          >
+            {yearOptions.map((year) => {
+              const fyStart = Number(year.split('-')[0]);
+              return (
+                <option key={year} value={fyStart}>
+                  {fyStart} (FY {year})
+                </option>
+              );
+            })}
+          </select>
+        </div>
+        <p className="text-xs text-gray-500 m-0 sm:col-span-2">
+          Example: Q2 (Jul-Sep)-2026 — tasks before this quarter are blocked.
+        </p>
+      </div>
+    );
+  }
+
+  if (normalized === 'half-yearly') {
+    return (
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:col-span-2">
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            Effective from half <span className="text-red-500">*</span>
+          </label>
+          <select
+            value={value.period}
+            onChange={(e) => onChange({ ...value, period: e.target.value })}
+            disabled={disabled}
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none disabled:opacity-60"
+          >
+            {HALF_YEARLY_PERIODS.map((period) => (
+              <option key={period} value={period}>
+                {period}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            FY start year <span className="text-red-500">*</span>
+          </label>
+          <select
+            value={value.fyStartYear}
+            onChange={(e) => onChange({ ...value, fyStartYear: Number(e.target.value) })}
+            disabled={disabled}
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none disabled:opacity-60"
+          >
+            {yearOptions.map((year) => {
+              const fyStart = Number(year.split('-')[0]);
+              return (
+                <option key={year} value={fyStart}>
+                  {fyStart} (FY {year})
+                </option>
+              );
+            })}
+          </select>
+        </div>
+        <p className="text-xs text-gray-500 m-0 sm:col-span-2">
+          Example: H1 (Apr-Sep)-2026 — tasks before this half are blocked.
+        </p>
+      </div>
+    );
+  }
+
+  const calendarYears = yearOptions.flatMap((year) => {
+    const [start, end] = year.split('-').map(Number);
+    return [start, end];
+  });
+  const uniqueYears = [...new Set(calendarYears)];
+
+  return (
+    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:col-span-2">
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-1">
+          Effective from month <span className="text-red-500">*</span>
+        </label>
+        <select
+          value={value.month}
+          onChange={(e) => onChange({ ...value, month: e.target.value })}
+          disabled={disabled}
+          className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none disabled:opacity-60"
+        >
+          {COMPLIANCE_MONTHS.map((month) => (
+            <option key={month} value={month}>
+              {month}
+            </option>
+          ))}
+        </select>
+      </div>
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-1">
+          Year <span className="text-red-500">*</span>
+        </label>
+        <select
+          value={value.year}
+          onChange={(e) => onChange({ ...value, year: Number(e.target.value) })}
+          disabled={disabled}
+          className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none disabled:opacity-60"
+        >
+          {uniqueYears.map((year) => (
+            <option key={year} value={year}>
+              {year}
+            </option>
+          ))}
+        </select>
+      </div>
+      <p className="text-xs text-gray-500 m-0 sm:col-span-2">
+        Example: May-2026 — April 2026 tasks are blocked; May 2026 onward are allowed.
+      </p>
+    </div>
+  );
 };
 
-const CredentialRow = ({ label, val, type }) => {
-    const [visible, setVisible] = useState(false);
+const FirmFormModal = ({ isOpen, mode, initialFirm, services, saving, onClose, onSubmit, yearOptions }) => {
+  const [form, setForm] = useState({
+    service_id: '',
+    firm_id: '',
+    fees: '',
+    tax_rate: '18',
+    due_date: '10',
+    staffs: [],
+    ca: [],
+    agent: [],
+  });
+  const [firmOptions, setFirmOptions] = useState([]);
+  const [staffOptions, setStaffOptions] = useState([]);
+  const [caOptions, setCaOptions] = useState([]);
+  const [agentOptions, setAgentOptions] = useState([]);
+  const [optionsLoading, setOptionsLoading] = useState(false);
+  const [effectiveFromFields, setEffectiveFromFields] = useState(() =>
+    getDefaultEffectiveFromFields('monthly'),
+  );
 
-    const handleCopy = (e) => {
-        e.stopPropagation();
-        navigator.clipboard.writeText(val || '');
-        toast.success(`${label} copied to clipboard`);
+  const selectedFormService = useMemo(
+    () => services.find((item) => item.service_id === form.service_id) || null,
+    [services, form.service_id],
+  );
+
+  useEffect(() => {
+    if (!isOpen) return;
+
+    if (mode === 'edit' && initialFirm) {
+      setForm({
+        service_id: initialFirm.service_id || '',
+        firm_id: initialFirm.firm_id || '',
+        fees: String(initialFirm.fees ?? ''),
+        tax_rate: String(initialFirm.tax_rate ?? '18'),
+        due_date: String(initialFirm.due_date ?? '10'),
+        staffs: normalizeAssignees(initialFirm.staffs),
+        ca: normalizeAssignees(initialFirm.ca),
+        agent: normalizeAssignees(initialFirm.agent),
+      });
+    } else {
+      const defaultService = services[0];
+      setForm({
+        service_id: defaultService?.service_id || '',
+        firm_id: '',
+        fees: '',
+        tax_rate: '18',
+        due_date: '10',
+        staffs: [],
+        ca: [],
+        agent: [],
+      });
+      setEffectiveFromFields(getDefaultEffectiveFromFields(defaultService?.frequency));
+    }
+  }, [isOpen, mode, initialFirm, services]);
+
+  useEffect(() => {
+    if (!isOpen || mode !== 'add' || !selectedFormService) return;
+    setEffectiveFromFields(getDefaultEffectiveFromFields(selectedFormService.frequency));
+  }, [isOpen, mode, selectedFormService?.service_id, selectedFormService?.frequency]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const loadOptions = async () => {
+      setOptionsLoading(true);
+      try {
+        const [firmsRes, staffRes, caRes, agentRes] = await Promise.all([
+          fetchFirmOptions({ page_no: 1, limit: 100 }),
+          fetchStaffOptions({ page: 1, limit: 100 }),
+          fetchCaOptions({ page: 1, limit: 100 }),
+          fetchAgentOptions({ page: 1, limit: 100 }),
+        ]);
+
+        setFirmOptions(
+          (firmsRes?.data || []).map((item) => ({
+            value: item.firm_id,
+            label: `${item.firm_name || item.firm_id} (${item.firm_id})`,
+          })),
+        );
+        setStaffOptions(
+          (staffRes?.data || []).map((item) => ({
+            value: item.username,
+            label: item.name ? `${item.name} (${item.username})` : item.username,
+          })),
+        );
+        setCaOptions(
+          (caRes?.data || []).map((item) => ({
+            value: item.username,
+            label: item.name ? `${item.name} (${item.username})` : item.username,
+          })),
+        );
+        setAgentOptions(
+          (agentRes?.data || []).map((item) => ({
+            value: item.username,
+            label: item.name ? `${item.name} (${item.username})` : item.username,
+          })),
+        );
+      } catch (error) {
+        toast.error(extractApiError(error, 'Failed to load form options'));
+      } finally {
+        setOptionsLoading(false);
+      }
     };
 
-    const isPassword = type === 'password' || label.toLowerCase().includes('pass') || label.toLowerCase().includes('secret');
+    loadOptions();
+  }, [isOpen]);
 
-    return (
-        <div className="flex items-center justify-between py-1.5 border-b border-slate-100 last:border-0 text-xs">
-            <span className="font-semibold text-slate-500 w-1/3 truncate" title={label}>{label}</span>
-            <div className="flex items-center gap-2 w-2/3 justify-end">
-                <span className="font-mono text-slate-800 break-all select-all font-semibold">
-                    {!val ? '—' : (isPassword && !visible ? '••••••••' : val)}
-                </span>
-                <div className="flex items-center gap-1 shrink-0">
-                    {isPassword && (
-                        <button
-                            type="button"
-                            onClick={() => setVisible(!visible)}
-                            className="p-1 hover:bg-slate-150 rounded text-slate-400 hover:text-slate-700 transition-colors"
-                        >
-                            {visible ? <FiEyeOff className="w-3.5 h-3.5" /> : <FiEye className="w-3.5 h-3.5" />}
-                        </button>
-                    )}
-                    <button
-                        type="button"
-                        onClick={handleCopy}
-                        className="p-1 hover:bg-slate-150 rounded text-slate-400 hover:text-slate-700 transition-colors"
-                        title="Copy to Clipboard"
-                    >
-                        <FiCopy className="w-3.5 h-3.5" />
-                    </button>
+  if (!isOpen) return null;
+
+  const handleSubmit = (event) => {
+    event.preventDefault();
+    const fees = Number(form.fees);
+    const tax_rate = Number(form.tax_rate);
+    const due_date = Number(form.due_date);
+
+    if (mode === 'add') {
+      if (!form.service_id || !form.firm_id) {
+        toast.error('Service and firm are required');
+        return;
+      }
+    }
+
+    if (!Number.isFinite(fees) || fees < 0) {
+      toast.error('Enter a valid fees amount');
+      return;
+    }
+    if (!Number.isFinite(tax_rate) || tax_rate < 0) {
+      toast.error('Enter a valid tax rate');
+      return;
+    }
+    if (!Number.isInteger(due_date) || due_date < 1 || due_date > 31) {
+      toast.error('Due date must be between 1 and 31');
+      return;
+    }
+
+    let effective_from;
+    if (mode === 'add') {
+      if (!selectedFormService) {
+        toast.error('Select a compliance service');
+        return;
+      }
+      effective_from = buildEffectiveFrom(selectedFormService.frequency, effectiveFromFields);
+      if (!effective_from) {
+        toast.error('Effective from is required');
+        return;
+      }
+    }
+
+    onSubmit({
+      ...form,
+      fees,
+      tax_rate,
+      due_date,
+      ...(mode === 'add' ? { effective_from } : {}),
+    });
+  };
+
+  const inputClass =
+    'w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none disabled:opacity-60';
+
+  return (
+    <div className="fixed inset-0 z-[1100] flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-black/50" onClick={saving ? undefined : onClose} />
+      <div className="relative w-full max-w-2xl max-h-[92vh] bg-white rounded-xl shadow-xl border border-gray-200 flex flex-col overflow-hidden">
+        <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200">
+          <h3 className="text-base font-semibold text-gray-800 m-0">
+            {mode === 'add' ? 'Add compliance firm' : 'Edit compliance firm'}
+          </h3>
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={saving}
+            className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-500 disabled:opacity-50"
+          >
+            <FiX className="w-5 h-5" />
+          </button>
+        </div>
+
+        <form onSubmit={handleSubmit} className="p-4 space-y-4 overflow-y-auto min-h-0">
+          {optionsLoading ? (
+            <div className="flex items-center gap-2 text-sm text-gray-500 py-6 justify-center">
+              <FiLoader className="w-4 h-4 animate-spin" />
+              Loading options...
+            </div>
+          ) : (
+            <>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Service <span className="text-red-500">*</span>
+                  </label>
+                  <select
+                    value={form.service_id}
+                    onChange={(e) => setForm((prev) => ({ ...prev, service_id: e.target.value }))}
+                    disabled={saving || mode === 'edit'}
+                    className={inputClass}
+                  >
+                    <option value="">Select service</option>
+                    {services.map((service) => (
+                      <option key={service.service_id} value={service.service_id}>
+                        {service.service_name || service.service_id}
+                      </option>
+                    ))}
+                  </select>
                 </div>
-            </div>
-        </div>
-    );
+
+                {mode === 'add' && selectedFormService ? (
+                  <EffectiveFromField
+                    frequency={selectedFormService.frequency}
+                    value={effectiveFromFields}
+                    onChange={setEffectiveFromFields}
+                    disabled={saving}
+                    yearOptions={yearOptions}
+                  />
+                ) : null}
+
+                {mode === 'edit' && initialFirm?.effective_from ? (
+                  <div className="sm:col-span-2">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Effective from
+                    </label>
+                    <p className="text-sm text-gray-800 m-0 px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg">
+                      {initialFirm.effective_from}
+                    </p>
+                  </div>
+                ) : null}
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Firm <span className="text-red-500">*</span>
+                  </label>
+                  <select
+                    value={form.firm_id}
+                    onChange={(e) => setForm((prev) => ({ ...prev, firm_id: e.target.value }))}
+                    disabled={saving || mode === 'edit'}
+                    className={inputClass}
+                  >
+                    <option value="">Select firm</option>
+                    {firmOptions.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Fees <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={form.fees}
+                    onChange={(e) => setForm((prev) => ({ ...prev, fees: e.target.value }))}
+                    disabled={saving}
+                    className={inputClass}
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Tax rate (%) <span className="text-red-500">*</span>
+                  </label>
+                  <select
+                    value={form.tax_rate}
+                    onChange={(e) => setForm((prev) => ({ ...prev, tax_rate: e.target.value }))}
+                    disabled={saving}
+                    className={inputClass}
+                  >
+                    {GST_RATE_OPTIONS.map((rate) => (
+                      <option key={rate} value={rate}>
+                        {rate}%
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Due day of month <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="number"
+                    min="1"
+                    max="31"
+                    value={form.due_date}
+                    onChange={(e) => setForm((prev) => ({ ...prev, due_date: e.target.value }))}
+                    disabled={saving}
+                    className={inputClass}
+                  />
+                </div>
+              </div>
+
+              <MultiSelectField
+                label="Staff"
+                options={staffOptions}
+                value={form.staffs}
+                onChange={(staffs) => setForm((prev) => ({ ...prev, staffs }))}
+                disabled={saving}
+              />
+              <MultiSelectField
+                label="CA"
+                options={caOptions}
+                value={form.ca}
+                onChange={(ca) => setForm((prev) => ({ ...prev, ca }))}
+                disabled={saving}
+              />
+              <MultiSelectField
+                label="Agent"
+                options={agentOptions}
+                value={form.agent}
+                onChange={(agent) => setForm((prev) => ({ ...prev, agent }))}
+                disabled={saving}
+              />
+            </>
+          )}
+
+          <div className="flex justify-end gap-2 pt-2">
+            <button
+              type="button"
+              onClick={onClose}
+              disabled={saving}
+              className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg disabled:opacity-50"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={saving || optionsLoading}
+              className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg disabled:opacity-50"
+            >
+              {saving ? <FiLoader className="w-4 h-4 animate-spin" /> : null}
+              {mode === 'add' ? 'Add firm' : 'Save changes'}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
 };
 
-const CredentialsCard = ({ schema, credentials }) => {
-    return (
-        <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm w-full md:max-w-xs shrink-0 self-start">
-            <h5 className="text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-2 border-b border-slate-100 pb-1.5 flex items-center gap-1.5">
-                <FiLock className="w-3.5 h-3.5 text-indigo-500" /> Client Filing Credentials
-            </h5>
-            <div className="divide-y divide-slate-50">
-                {schema.map(field => {
-                    const val = credentials[field.key];
-                    return (
-                        <CredentialRow
-                            key={field.key}
-                            label={field.label}
-                            val={val}
-                            type={field.type}
-                        />
-                    );
-                })}
-            </div>
-        </div>
-    );
-};
+const taskRowToFirm = (row) => ({
+  id: row.compliance_firm_id,
+  service_id: row.service_id,
+  service_name: row.service_name,
+  firm_id: row.firm_id,
+  firm_name: row.firm_name,
+  fees: row.fees,
+  tax_rate: row.tax_rate,
+  due_date: row.due_day,
+  effective_from: row.effective_from,
+  staffs: row.staffs,
+  ca: row.ca,
+  agent: row.agent,
+});
 
-const ClientFilingCredentials = ({ assignment }) => {
-    const credentials = assignment.custom_fields || {};
-
-    let schema = assignment.required_fields || [];
-    if (schema.length === 0) {
-        schema = getRequiredFieldsForService(assignment);
-    }
-    if (schema.length === 0 && Object.keys(credentials).length > 0) {
-        schema = Object.keys(credentials).map(key => {
-            const label = key.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
-            const type = (key.toLowerCase().includes('pass') || key.toLowerCase().includes('secret')) ? 'password' : 'text';
-            return { key, label, type };
-        });
-    }
-
-    if (schema.length === 0) {
-        return null;
-    }
-
-    return <CredentialsCard schema={schema} credentials={credentials} />;
-};
-
-const PasswordField = ({ label, value, onChange, required, disabled }) => {
-    const [visible, setVisible] = useState(false);
-    return (
-        <div className="space-y-1">
-            <div className="flex justify-between items-center">
-                <label className="block text-xs font-bold text-slate-500">{label} *</label>
-            </div>
-            <div className="relative">
-                <input
-                    type={visible ? 'text' : 'password'}
-                    value={value}
-                    onChange={onChange}
-                    disabled={disabled}
-                    className="w-full pl-3 pr-10 py-2.5 text-xs text-slate-705 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none bg-white font-medium"
-                    required={required}
-                />
-                <button
-                    type="button"
-                    onClick={() => setVisible(!visible)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 p-1 hover:bg-slate-100 rounded text-slate-400 hover:text-slate-700 transition-colors"
-                >
-                    {visible ? <FiEyeOff className="w-4 h-4" /> : <FiEye className="w-4 h-4" />}
-                </button>
-            </div>
-        </div>
-    );
-};
-
-const STATUS_BADGES = {
-    'Pending From The Department': 'bg-amber-100 text-amber-800 border-amber-200',
-    'Pending From Client': 'bg-orange-100 text-orange-800 border-orange-200',
-    'Pending': 'bg-amber-100 text-amber-800 border-amber-200',
-    'Complete': 'bg-emerald-100 text-emerald-800 border-emerald-200',
-    'Sale': 'bg-emerald-100 text-emerald-800 border-emerald-200',
-    'N/A': 'bg-slate-100 text-slate-500 border-slate-200',
-    'Cancel': 'bg-rose-100 text-rose-800 border-rose-200',
-    'Outsource': 'bg-blue-100 text-blue-800 border-blue-200'
-};
-
-const FREQ_BADGES = {
-    'monthly': 'bg-sky-50 text-sky-700 border-sky-200',
-    'quarterly': 'bg-indigo-50 text-indigo-700 border-indigo-200',
-    'halfyearly': 'bg-purple-50 text-purple-700 border-purple-200',
-    'yearly': 'bg-violet-50 text-violet-700 border-violet-200'
-};
-
-const MONTH_MAP = {
-    'Apr': 'April',
-    'May': 'May',
-    'Jun': 'June',
-    'Jul': 'July',
-    'Aug': 'August',
-    'Sep': 'September',
-    'Oct': 'October',
-    'Nov': 'November',
-    'Dec': 'December',
-    'Jan': 'January',
-    'Feb': 'February',
-    'Mar': 'March'
-};
-
-const isQ1 = (name) => {
-    const n = name?.toLowerCase() || '';
-    return n.includes('q1') || n.includes('1q') || n.includes('apr-jun') || n.includes('apr - jun') || n.includes('quarter 1') || n.includes('quarter-1') || n.includes('quarter_1') || n.includes('1st quarter');
-};
-const isQ2 = (name) => {
-    const n = name?.toLowerCase() || '';
-    return n.includes('q2') || n.includes('2q') || n.includes('jul-sep') || n.includes('jul - sep') || n.includes('quarter 2') || n.includes('quarter-2') || n.includes('quarter_2') || n.includes('2nd quarter');
-};
-const isQ3 = (name) => {
-    const n = name?.toLowerCase() || '';
-    return n.includes('q3') || n.includes('3q') || n.includes('oct-dec') || n.includes('oct - dec') || n.includes('quarter 3') || n.includes('quarter-3') || n.includes('quarter_3') || n.includes('3rd quarter');
-};
-const isQ4 = (name) => {
-    const n = name?.toLowerCase() || '';
-    return n.includes('q4') || n.includes('4q') || n.includes('jan-mar') || n.includes('jan - mar') || n.includes('quarter 4') || n.includes('quarter-4') || n.includes('quarter_4') || n.includes('4th quarter');
-};
-
-const isH1 = (name) => {
-    const n = name?.toLowerCase() || '';
-    return n.includes('h1') || n.includes('1h') || n.includes('apr-sep') || n.includes('apr - sep') || n.includes('half yearly 1') || n.includes('half-yearly-1');
-};
-const isH2 = (name) => {
-    const n = name?.toLowerCase() || '';
-    return n.includes('h2') || n.includes('2h') || n.includes('oct-mar') || n.includes('oct - mar') || n.includes('half yearly 2') || n.includes('half-yearly-2');
-};
-
-const getPeriodDueDate = (period) => {
-    if (period.due_date) {
-        return new Date(period.due_date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
-    }
-
-    const MONTHS = ['April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December', 'January', 'February', 'March'];
-    const pName = period.period_name;
-    const fy = period.financial_year || '2026-2027';
-    const parts = fy.split('-');
-    const startYear = parseInt(parts[0]) || 2026;
-    const endYear = parseInt(parts[1]) || 2027;
-
-    if (pName && MONTHS.includes(pName)) {
-        const mIdx = MONTHS.indexOf(pName);
-        const year = mIdx < 9 ? startYear : endYear;
-        let dueYear = mIdx === 8 ? endYear : (mIdx > 8 ? endYear : startYear);
-        const MONTH_NAMES = ['May', 'June', 'July', 'August', 'September', 'October', 'November', 'December', 'January', 'February', 'March', 'April'];
-        const dueDay = (period.service_id === 'GSTR-1' || /gstr-1/i.test(period.service_name || '')) ? 11 : 20;
-        return `${dueDay} ${MONTH_NAMES[mIdx]} ${dueYear}`;
-    }
-
-    if (isQ1(pName)) return `31 Jul ${startYear}`;
-    if (isQ2(pName)) return `31 Oct ${startYear}`;
-    if (isQ3(pName)) return `31 Jan ${endYear}`;
-    if (isQ4(pName)) return `30 Apr ${endYear}`;
-
-    if (pName === 'Yearly' || pName === 'Year' || pName?.toLowerCase().includes('yearly')) return `31 Dec ${endYear}`;
-
-    return '—';
-};
-
-const getUpcomingDueDateInfo = (assign, allSchedules) => {
-    const assignSchedules = allSchedules.filter(s => s.assignment_id === assign.assignment_id);
-    if (assignSchedules.length === 0) return { text: 'N/A', color: 'text-slate-400' };
-
-    const MONTH_ORDER = ['April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December', 'January', 'February', 'March'];
-
-    const sorted = [...assignSchedules].sort((a, b) => {
-        const freq = assign.frequency?.toLowerCase();
-        if (freq === 'monthly') {
-            return MONTH_ORDER.indexOf(a.period_name) - MONTH_ORDER.indexOf(b.period_name);
-        }
-        if (freq === 'quarterly') {
-            const getQIdx = (name) => {
-                if (isQ1(name)) return 0;
-                if (isQ2(name)) return 1;
-                if (isQ3(name)) return 2;
-                if (isQ4(name)) return 3;
-                return -1;
-            };
-            return getQIdx(a.period_name) - getQIdx(b.period_name);
-        }
-        if (freq === 'halfyearly') {
-            const getHIdx = (name) => {
-                if (isH1(name)) return 0;
-                if (isH2(name)) return 1;
-                return -1;
-            };
-            return getHIdx(a.period_name) - getHIdx(b.period_name);
-        }
-        return 0;
-    });
-
-    const pending = sorted.find(s => s.status !== 'Complete' && s.status !== 'Sale' && s.status !== 'N/A');
-    if (pending) {
-        const dateStatus = getPeriodDueDateStatus(pending);
-        return {
-            text: `${dateStatus.text} (${pending.period_name})`,
-            color: dateStatus.color,
-            allDates: sorted.map(s => `${s.period_name}: ${getPeriodDueDate(s)} (${s.status})`).join('\n')
-        };
-    }
-
-    return {
-        text: 'All Completed',
-        color: 'text-emerald-600 font-semibold',
-        allDates: sorted.map(s => `${s.period_name}: ${getPeriodDueDate(s)} (${s.status})`).join('\n')
-    };
-};
-
-const getQuarterIndex = (month) => {
-    if (month >= 3 && month <= 5) return 0; // APR-JUN
-    if (month >= 6 && month <= 8) return 1; // JUL-SEP
-    if (month >= 9 && month <= 11) return 2; // OCT-DEC
-    return 3; // JAN-MAR
-};
-
-const getHalfYearIndex = (month) => {
-    if (month >= 3 && month <= 8) return 0; // APR-SEP
-    return 1; // OCT-MAR
-};
-
-const getMonthlyPeriods = (today) => {
-    const periods = [];
-    const MONTH_NAMES_SHORT = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-    for (let i = 5; i >= 0; i--) {
-        const d = new Date(today.getFullYear(), today.getMonth() - i, 1);
-        const monthNameShort = MONTH_NAMES_SHORT[d.getMonth()];
-        const period_name = MONTH_MAP[monthNameShort] || monthNameShort;
-        const monthVal = d.getMonth();
-        const yr = d.getFullYear();
-        let fyStart = yr;
-        if (monthVal < 3) {
-            fyStart = yr - 1;
-        }
-        const financial_year = `${fyStart}-${fyStart + 1}`;
-        periods.push({
-            label: monthNameShort,
-            period_name,
-            financial_year
-        });
-    }
-    return periods;
-};
-
-const getQuarterlyPeriods = (today) => {
-    const QUARTER_LABELS = ['APR-JUN', 'JUL-SEP', 'OCT-DEC', 'JAN-MAR'];
-    const periods = [];
-    for (let i = 3; i >= 0; i--) {
-        const d = new Date(today.getFullYear(), today.getMonth() - 3 * i, 1);
-        const qIdx = getQuarterIndex(d.getMonth());
-        const label = QUARTER_LABELS[qIdx];
-        const monthVal = d.getMonth();
-        const yr = d.getFullYear();
-        let fyStart = yr;
-        if (monthVal < 3) {
-            fyStart = yr - 1;
-        }
-        const financial_year = `${fyStart}-${fyStart + 1}`;
-        periods.push({
-            label,
-            period_name: label,
-            financial_year
-        });
-    }
-    return periods;
-};
-
-const getHalfYearlyPeriods = (today) => {
-    const HALF_YEAR_LABELS = ['APR-SEP', 'OCT-MAR'];
-    const periods = [];
-    for (let i = 1; i >= 0; i--) {
-        const d = new Date(today.getFullYear(), today.getMonth() - 6 * i, 1);
-        const hIdx = getHalfYearIndex(d.getMonth());
-        const label = HALF_YEAR_LABELS[hIdx];
-        const monthVal = d.getMonth();
-        const yr = d.getFullYear();
-        let fyStart = yr;
-        if (monthVal < 3) {
-            fyStart = yr - 1;
-        }
-        const financial_year = `${fyStart}-${fyStart + 1}`;
-        periods.push({
-            label,
-            period_name: label,
-            financial_year
-        });
-    }
-    return periods;
-};
-
-const getYearlyPeriods = (today) => {
-    const periods = [];
-    const monthVal = today.getMonth();
-    const yr = today.getFullYear();
-    let currentFyStart = yr;
-    if (monthVal < 3) {
-        currentFyStart = yr - 1;
-    }
-    for (let i = 2; i >= 0; i--) {
-        const fyStart = currentFyStart - i;
-        const financial_year = `${fyStart}-${fyStart + 1}`;
-        periods.push({
-            label: financial_year,
-            period_name: 'APR-MAR',
-            financial_year
-        });
-    }
-    return periods;
-};
-
-const getPeriodHeadersForFreq = (frequency) => {
-    const today = new Date();
-    const freq = frequency?.toLowerCase();
-    if (freq === 'monthly') {
-        return getMonthlyPeriods(today);
-    }
-    if (freq === 'quarterly') {
-        return getQuarterlyPeriods(today);
-    }
-    if (freq === 'halfyearly') {
-        return getHalfYearlyPeriods(today);
-    }
-    if (freq === 'yearly') {
-        return getYearlyPeriods(today);
-    }
-    return [];
-};
-
-const isStatusMatch = (scheduleStatus, filterValue) => {
-    if (!filterValue) return true;
-    const s = String(scheduleStatus || '').toLowerCase();
-    const f = String(filterValue).toLowerCase();
-    if (f === 'pending') {
-        return s.includes('pending') || s === 'pfc';
-    }
-    if (f === 'complete' || f === 'sale') {
-        return s === 'complete' || s === 'sale';
-    }
-    return s === f;
-};
-
-const isPeriodDueDateActive = (period) => {
-    if (!period) return false;
-    let dueDateObj = null;
-    if (period.due_date) {
-        dueDateObj = new Date(period.due_date);
-    } else {
-        const dateStr = getPeriodDueDate(period);
-        if (dateStr && dateStr !== '—') {
-            dueDateObj = new Date(dateStr);
-        }
-    }
-    if (!dueDateObj || isNaN(dueDateObj.getTime())) return false;
-    const today = new Date();
-    const todayCopy = new Date(today.getFullYear(), today.getMonth(), today.getDate());
-    const startOfDueDateMonth = new Date(dueDateObj.getFullYear(), dueDateObj.getMonth(), 1);
-    return todayCopy >= startOfDueDateMonth;
-};
-
-const getPeriodDueDateStatus = (period) => {
-    if (!period) return { text: '—', color: 'text-slate-500' };
-
-    const dueDateText = getPeriodDueDate(period);
-    if (dueDateText === '—') {
-        return { text: '—', color: 'text-slate-500' };
-    }
-
-    const isComplete = period.status === 'Complete' || period.status === 'Sale';
-    if (isComplete) {
-        return { text: `Due: ${dueDateText}`, color: 'text-slate-500' };
-    }
-
-    let dueDateObj = null;
-    if (period.due_date) {
-        dueDateObj = new Date(period.due_date);
-    } else {
-        dueDateObj = new Date(dueDateText);
-    }
-
-    if (!dueDateObj || isNaN(dueDateObj.getTime())) {
-        return { text: `Due: ${dueDateText}`, color: 'text-slate-500' };
-    }
-
-    const today = new Date();
-    const todayCopy = new Date(today.getFullYear(), today.getMonth(), today.getDate());
-    const dueDateCopy = new Date(dueDateObj.getFullYear(), dueDateObj.getMonth(), dueDateObj.getDate());
-
-    const diffTime = todayCopy.getTime() - dueDateCopy.getTime();
-    const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24));
-
-    const isOverdue = diffDays > 0;
-
-    const startOfDueDateMonth = new Date(dueDateObj.getFullYear(), dueDateObj.getMonth(), 1);
-    const hasMonthStarted = todayCopy >= startOfDueDateMonth;
-    const isMonthRunning = today.getMonth() === dueDateObj.getMonth() && today.getFullYear() === dueDateObj.getFullYear();
-
-    if (hasMonthStarted) {
-        if (isOverdue) {
-            return {
-                text: `Due Date Passed (${diffDays} days)`,
-                color: 'text-rose-600 font-bold',
-                isOverdue: true
-            };
-        } else if (isMonthRunning) {
-            const daysRemaining = -diffDays;
-            return {
-                text: `${daysRemaining} Days Remaining for due`,
-                color: 'text-amber-600 font-bold',
-                daysRemaining
-            };
-        }
-    }
-
-    return { text: `Due: ${dueDateText}`, color: 'text-slate-500' };
-};
-
-const matchPeriodName = (dbName, headerName, frequency) => {
-    if (!dbName || !headerName) return false;
-    const db = dbName.toLowerCase().trim();
-    const hdr = headerName.toLowerCase().trim();
-    if (db === hdr) return true;
-
-    const freq = frequency?.toLowerCase();
-    if (freq === 'monthly') {
-        const getShortMonth = (name) => {
-            const key = Object.keys(MONTH_MAP).find(k => k.toLowerCase() === name || MONTH_MAP[k].toLowerCase() === name);
-            return key ? key.toLowerCase() : name;
-        };
-        return getShortMonth(db) === getShortMonth(hdr);
-    }
-    if (freq === 'quarterly') {
-        const getQNumber = (name) => {
-            if (isQ1(name)) return 1;
-            if (isQ2(name)) return 2;
-            if (isQ3(name)) return 3;
-            if (isQ4(name)) return 4;
-            return -1;
-        };
-        const dbQ = getQNumber(db);
-        const hdrQ = getQNumber(hdr);
-        return dbQ !== -1 && dbQ === hdrQ;
-    }
-    if (freq === 'halfyearly') {
-        const getHNumber = (name) => {
-            if (isH1(name)) return 1;
-            if (isH2(name)) return 2;
-            return -1;
-        };
-        const dbH = getHNumber(db);
-        const hdrH = getHNumber(hdr);
-        return dbH !== -1 && dbH === hdrH;
-    }
-    return false;
-};
-
-const getPeriodSchedule = (assignmentSchedules, header, frequency) => {
-    if (!header || !assignmentSchedules) return null;
-    const freq = frequency?.toLowerCase();
-    return assignmentSchedules.find(p => {
-        if (freq === 'yearly') {
-            return p.financial_year === header.financial_year;
-        }
-        return matchPeriodName(p.period_name, header.period_name, frequency) &&
-            p.financial_year === header.financial_year;
-    });
-};
+const taskRowKey = (row) =>
+  `${row.firm_id}:${row.compliance_year}:${row.compliance_period}`;
 
 const ComplianceServices = () => {
-    const { check } = useUserPermissions();
-    const navigate = useNavigate();
-    const currentUsername = (localStorage.getItem('user_username') || '').toLowerCase().trim();
-    const isBranchOwner = localStorage.getItem('branch_owned') === 'true';
-    const isAdmin = currentUsername === 'admin';
-    // Layout states
-    const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-    const [isMinimized, setIsMinimized] = useState(() => {
-        try {
-            return JSON.parse(localStorage.getItem('sidebarMinimized')) || false;
-        } catch {
-            return false;
-        }
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [isMinimized, setIsMinimized] = useState(() =>
+    JSON.parse(localStorage.getItem('sidebarMinimized') || 'false'),
+  );
+
+  const [activeView, setActiveView] = useState('tasks');
+
+  const [services, setServices] = useState([]);
+  const [serviceId, setServiceId] = useState('');
+  const [complianceYear, setComplianceYear] = useState(getCurrentComplianceYear());
+  const [compliancePeriod, setCompliancePeriod] = useState('');
+  const [searchInput, setSearchInput] = useState('');
+  const [search, setSearch] = useState('');
+
+  const [rows, setRows] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [pagination, setPagination] = useState({
+    page: 1,
+    limit: 20,
+    total: 0,
+    total_pages: 1,
+    has_more: false,
+  });
+
+  const [statusUpdatingKey, setStatusUpdatingKey] = useState(null);
+
+  const [firmModal, setFirmModal] = useState(null);
+  const [firmSaving, setFirmSaving] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState(null);
+  const [deleteLoading, setDeleteLoading] = useState(false);
+
+  const selectedService = useMemo(
+    () => services.find((item) => item.service_id === serviceId) || null,
+    [services, serviceId],
+  );
+
+  const periodOptions = useMemo(
+    () => getPeriodOptions(selectedService?.frequency),
+    [selectedService],
+  );
+
+  const branchServices = useMemo(
+    () => services.filter((item) => item.is_added === 1 || item.is_added === true || item.is_added === '1'),
+    [services],
+  );
+
+  const yearOptions = useMemo(() => {
+    const currentStart = Number(getCurrentComplianceYear().split('-')[0]);
+    return Array.from({ length: 5 }, (_, index) => {
+      const start = currentStart - 2 + index;
+      return `${start}-${start + 1}`;
     });
+  }, []);
 
-    useEffect(() => {
-        localStorage.setItem('sidebarMinimized', JSON.stringify(isMinimized));
-    }, [isMinimized]);
+  const isCurrentFy = complianceYear === getCurrentComplianceYear();
 
-    // Tab control: 'services' by default now
-    const [activeTab, setActiveTab] = useState('services');
+  const loadServices = useCallback(async () => {
+    try {
+      const res = await fetchComplianceServices({ page_no: 1, limit: 100 });
+      const list = Array.isArray(res?.data) ? res.data : [];
+      setServices(list);
+    } catch (error) {
+      toast.error(extractApiError(error, 'Failed to load compliance services'));
+      setServices([]);
+    }
+  }, []);
 
-    // Predefined Services list states (still fetched for the assign form dropdown)
-    const [services, setServices] = useState([]);
-    const [servicesLoading, setServicesLoading] = useState(false);
-    const [serviceSearch, setServiceSearch] = useState('');
+  const loadTasks = useCallback(async () => {
+    setLoading(true);
+    try {
+      const res = await fetchComplianceTaskList({
+        service_id: serviceId,
+        compliance_year: complianceYear,
+        compliance_period: compliancePeriod,
+        page_no: pagination.page,
+        limit: pagination.limit,
+      });
+      setRows(res.data);
+      setPagination((prev) => ({ ...prev, ...res.pagination }));
+    } catch (error) {
+      toast.error(extractApiError(error, 'Failed to load compliance tasks'));
+      setRows([]);
+    } finally {
+      setLoading(false);
+    }
+  }, [serviceId, complianceYear, compliancePeriod, pagination.page, pagination.limit]);
 
-    // Active dropdown, broadcast, and calendar modal states
-    const [activeDropdownId, setActiveDropdownId] = useState(null);
-    const [broadcastModal, setBroadcastModal] = useState({ open: false, assign: null });
-    const [broadcastPhone, setBroadcastPhone] = useState('');
-    const [broadcastEmail, setBroadcastEmail] = useState('');
-    const [showFullCalendarModal, setShowFullCalendarModal] = useState(false);
-    const [fullCalendarAssignment, setFullCalendarAssignment] = useState(null);
+  const loadFirms = useCallback(async () => {
+    setLoading(true);
+    try {
+      const res = await fetchComplianceFirms({
+        service_id: serviceId,
+        search,
+        page_no: pagination.page,
+        limit: pagination.limit,
+      });
+      setRows(res.data);
+      setPagination((prev) => ({ ...prev, ...res.pagination }));
+    } catch (error) {
+      toast.error(extractApiError(error, 'Failed to load compliance firms'));
+      setRows([]);
+    } finally {
+      setLoading(false);
+    }
+  }, [serviceId, search, pagination.page, pagination.limit]);
 
-    useEffect(() => {
-        const handleOutsideClick = (e) => {
-            if (!e.target.closest('.dropdown-container')) {
-                setActiveDropdownId(null);
-            }
-        };
-        document.addEventListener('click', handleOutsideClick);
-        return () => document.removeEventListener('click', handleOutsideClick);
-    }, []);
+  const reloadList = useCallback(() => {
+    if (activeView === 'tasks') loadTasks();
+    else loadFirms();
+  }, [activeView, loadTasks, loadFirms]);
 
-    // Edit / Delete assignment state
-    const [editAssignment, setEditAssignment] = useState(null); // assignment object being edited
-    const [showEditModal, setShowEditModal] = useState(false);
-    const [deletingAssignmentId, setDeletingAssignmentId] = useState(null);
-    const [confirmDeleteId, setConfirmDeleteId] = useState(null);
-    const [submittingEdit, setSubmittingEdit] = useState(false);
+  useEffect(() => {
+    localStorage.setItem('sidebarMinimized', JSON.stringify(isMinimized));
+  }, [isMinimized]);
 
-    // Edit form state
-    const [editForm, setEditForm] = useState({
-        custom_amount: '',
-        employee_usernames: [],
-        ca_id: '',
-        pay_from_month: '',
-        quarters: [],
-        status: 'active',
-        financial_year: '',
-        custom_fields: {}
-    });
+  useEffect(() => {
+    loadServices();
+  }, [loadServices]);
 
-    // Edit modal - CA search states
-    const [editCaSearchQuery, setEditCaSearchQuery] = useState('');
-    const [editCaSearchResults, setEditCaSearchResults] = useState([]);
-    const [editCaSearchLoading, setEditCaSearchLoading] = useState(false);
-    const [editSelectedCa, setEditSelectedCa] = useState(null);
-    const [showEditCaDropdown, setShowEditCaDropdown] = useState(false);
-    const editCaAbortRef = useRef(null);
+  useEffect(() => {
+    setPagination((prev) => ({ ...prev, page: 1 }));
+    setRows([]);
+  }, [activeView]);
 
-    // Edit modal - staff search state
-    const [editStaffSearchQuery, setEditStaffSearchQuery] = useState('');
+  useEffect(() => {
+    if (activeView === 'tasks') loadTasks();
+    else loadFirms();
+  }, [activeView, loadTasks, loadFirms]);
 
-    // Credentials modal state
-    const [showCredentialsModal, setShowCredentialsModal] = useState(false);
-    const [credentialsAssignment, setCredentialsAssignment] = useState(null);
-    const [credentialsForm, setCredentialsForm] = useState({});
-    const [submittingCredentials, setSubmittingCredentials] = useState(false);
+  const handleSearch = (event) => {
+    event.preventDefault();
+    setPagination((prev) => ({ ...prev, page: 1 }));
+    setSearch(searchInput.trim());
+  };
 
-    // Share Invoice modal state
-    const [shareModal, setShareModal] = useState({ open: false, period: null, assign: null });
-    const [sharePhone, setSharePhone] = useState('');
-    const [shareEmail, setShareEmail] = useState('');
+  const handleStatusChange = async (row, nextStatus) => {
+    if (!nextStatus) return;
 
-    // Assignments states
-    const [assignments, setAssignments] = useState([]);
-    const [assignmentsLoading, setAssignmentsLoading] = useState(false);
-    const [assignmentSearch, setAssignmentSearch] = useState('');
-    const [selectedAssignmentId, setSelectedAssignmentId] = useState(null);
+    if (row.status === 'complete') {
+      toast.error('Completed tasks cannot be changed');
+      return;
+    }
 
-    // Period schedules states
-    const [schedules, setSchedules] = useState([]);
-    const [schedulesLoading, setSchedulesLoading] = useState(false);
+    const rowKey = taskRowKey(row);
+    setStatusUpdatingKey(rowKey);
+    try {
+      const res = await changeComplianceTaskStatus({
+        service_id: row.service_id,
+        firm_id: row.firm_id,
+        status: nextStatus,
+        compliance_year: row.compliance_year,
+        compliance_period: row.compliance_period,
+      });
+      const saved = res?.data || {};
+      setRows((prev) =>
+        prev.map((item) =>
+          taskRowKey(item) === rowKey
+            ? {
+                ...item,
+                has_task: true,
+                task_id: saved.task_id ?? item.task_id,
+                status: saved.status || nextStatus,
+              }
+            : item,
+        ),
+      );
+      toast.success(res?.message || 'Task status updated');
+    } catch (error) {
+      toast.error(extractApiError(error, 'Failed to update task status'));
+    } finally {
+      setStatusUpdatingKey(null);
+    }
+  };
 
-    // Modals control
-    const [showAssignModal, setShowAssignModal] = useState(false);
-    const [showStatusModal, setShowStatusModal] = useState(false);
-    const [submittingAssign, setSubmittingAssign] = useState(false);
-    const [submittingStatus, setSubmittingStatus] = useState(false);
-
-    // Status Modal target period
-    const [selectedPeriod, setSelectedPeriod] = useState(null); // { schedule_id, period_name, status, amount }
-    const [selectedPeriodAssign, setSelectedPeriodAssign] = useState(null);
-    const [selectedStaffDetails, setSelectedStaffDetails] = useState(null);
-    const [staffListModal, setStaffListModal] = useState({ open: false, staffs: [], serviceName: '' });
-    const [staffSearchQuery, setStaffSearchQuery] = useState('');
-    const [showStaffDropdown, setShowStaffDropdown] = useState(false);
-    const [statusForm, setStatusForm] = useState({ status: 'Pending', amount: '' });
-
-    // Assign Form states
-    const [assignForm, setAssignForm] = useState({
-        targetType: 'single',
-        firm_id: '',
-        firms: [],
-        groups: [],
-        service_id: '',
-        financial_year: '2026-2027',
-        custom_amount: '',
-        employee_usernames: [],
-        ca_id: '',
-        pay_from_month: '',
-        quarters: [],
-        custom_fields: {}
-    });
-
-    // Staff and CA states for assigning compliance
-    const [staffList, setStaffList] = useState([]);
-    const [staffLoading, setStaffLoading] = useState(false);
-    const [allSchedules, setAllSchedules] = useState([]);
-    const [selectedFilingStatus, setSelectedFilingStatus] = useState('Pending');
-
-    // Helper to extract assigned staff list
-    const getAssignedStaffList = useCallback((assign) => {
-        if (!assign) return [];
-
-        let usernames = [];
-        if (assign.employees && Array.isArray(assign.employees)) {
-            assign.employees.forEach(emp => {
-                const u = emp.username || emp.employee_id || '';
-                if (String(u).includes(',')) {
-                    usernames.push(...String(u).split(',').map(x => x.trim()).filter(Boolean));
-                } else if (u) {
-                    usernames.push(String(u).trim());
-                }
-            });
-        } else {
-            const empUser = assign.employee?.username || assign.employee?.employee_id || '';
-            const usernamesStr = assign.employee_username || assign.employee_id || (typeof assign.employee === 'string' ? assign.employee : empUser);
-            if (usernamesStr) {
-                usernames = String(usernamesStr).split(',').map(u => u.trim()).filter(Boolean);
-            } else if (assign.employee) {
-                return [assign.employee];
-            }
-        }
-
-        if (usernames.length > 0) {
-            return usernames.map(username => {
-                const matched = staffList.find(s => s.username === username);
-                return matched || { username, name: username };
-            });
-        }
-
-        return [];
-    }, [staffList]);
-    const [caSearchQuery, setCaSearchQuery] = useState('');
-    const [caSearchResults, setCaSearchResults] = useState([]);
-    const [caSearchLoading, setCaSearchLoading] = useState(false);
-    const [selectedCa, setSelectedCa] = useState(null);
-    const [showCaDropdown, setShowCaDropdown] = useState(false);
-    const caAbortRef = useRef(null);
-
-    // Open edit modal — pre-fill form from assignment object
-    const openEditModal = useCallback((assign) => {
-        setEditAssignment(assign);
-
-        // Resolve employee_usernames from the assignment
-        let empUsernames = [];
-        if (assign.employees && Array.isArray(assign.employees)) {
-            assign.employees.forEach(emp => {
-                const u = emp.username || emp.employee_id || '';
-                String(u).split(',').map(x => x.trim()).filter(Boolean).forEach(x => empUsernames.push(x));
-            });
-        } else {
-            const raw = assign.employee_username || assign.employee_id || '';
-            empUsernames = String(raw).split(',').map(u => u.trim()).filter(Boolean);
-        }
-
-        // Resolve quarters (may come back as e.g. "2,3,4" or [2,3,4])
-        let quarters = [];
-        if (assign.quarters) {
-            if (Array.isArray(assign.quarters)) {
-                quarters = assign.quarters.map(Number);
-            } else {
-                quarters = String(assign.quarters).split(',').map(x => parseInt(x.trim(), 10)).filter(n => !isNaN(n));
-            }
-        }
-
-        setEditForm({
-            custom_amount: String(assign.custom_amount || ''),
-            employee_usernames: empUsernames,
-            ca_id: assign.ca_id || assign.ca?.username || '',
-            pay_from_month: (() => {
-                let m = assign.pay_from_month || assign.period_name;
-                if (!m && typeof allSchedules !== 'undefined' && Array.isArray(allSchedules)) {
-                    const assignSchedules = allSchedules.filter(s => s.assignment_id === assign.assignment_id);
-                    if (assignSchedules.length > 0) {
-                        const MONTH_ORDER = ['April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December', 'January', 'February', 'March'];
-                        const sorted = [...assignSchedules].sort((a, b) => MONTH_ORDER.indexOf(a.period_name) - MONTH_ORDER.indexOf(b.period_name));
-                        m = sorted[0]?.period_name;
-                    }
-                }
-                m = (m || '').trim();
-                if (!m) return '';
-                m = m.charAt(0).toUpperCase() + m.slice(1).toLowerCase();
-                const map = {
-                    'Apr': 'April', 'May': 'May', 'Jun': 'June', 'Jul': 'July', 'Aug': 'August', 'Sep': 'September',
-                    'Oct': 'October', 'Nov': 'November', 'Dec': 'December', 'Jan': 'January', 'Feb': 'February', 'Mar': 'March'
-                };
-                return map[m] || m;
-            })(),
-            quarters,
-            status: assign.status || 'active',
-            financial_year: assign.financial_year || '',
-            custom_fields: assign.custom_fields || {}
+  const handleSaveFirm = async (form) => {
+    setFirmSaving(true);
+    try {
+      if (firmModal?.mode === 'add') {
+        const res = await addComplianceFirm({
+          service_id: form.service_id,
+          firm_id: form.firm_id,
+          effective_from: form.effective_from,
+          fees: form.fees,
+          tax_rate: form.tax_rate,
+          due_date: form.due_date,
+          staffs: form.staffs,
+          ca: form.ca,
+          agent: form.agent,
         });
+        toast.success(res?.message || 'Compliance firm added');
+      } else {
+        const firmId = firmModal.firm.id ?? firmModal.firm.compliance_firm_id;
+        const res = await editComplianceFirm({
+          id: firmId,
+          fees: form.fees,
+          tax_rate: form.tax_rate,
+          due_date: form.due_date,
+          staffs: form.staffs,
+          ca: form.ca,
+          agent: form.agent,
+        });
+        toast.success(res?.message || 'Compliance firm updated');
+      }
+      setFirmModal(null);
+      reloadList();
+    } catch (error) {
+      toast.error(extractApiError(error, 'Failed to save compliance firm'));
+    } finally {
+      setFirmSaving(false);
+    }
+  };
 
-        // Pre-fill CA if present
-        if (assign.ca) {
-            setEditSelectedCa(assign.ca);
-        } else if (assign.ca_id) {
-            setEditSelectedCa({ username: assign.ca_id, name: assign.ca_id });
-        } else {
-            setEditSelectedCa(null);
-        }
+  const handleDeleteFirm = async () => {
+    if (!deleteTarget) return;
+    setDeleteLoading(true);
+    try {
+      const firmId = deleteTarget.id ?? deleteTarget.compliance_firm_id;
+      const res = await deleteComplianceFirm({ id: firmId });
+      toast.success(res?.message || 'Compliance firm deleted');
+      setDeleteTarget(null);
+      reloadList();
+    } catch (error) {
+      toast.error(extractApiError(error, 'Failed to delete compliance firm'));
+    } finally {
+      setDeleteLoading(false);
+    }
+  };
 
-        setEditCaSearchQuery('');
-        setEditCaSearchResults([]);
-        setEditStaffSearchQuery('');
-        setShowEditModal(true);
-    }, [allSchedules]);
+  const switchView = (view) => {
+    setActiveView(view);
+    setPagination((prev) => ({ ...prev, page: 1 }));
+  };
 
-    const filteredStaffResults = useMemo(() => {
-        const query = staffSearchQuery.trim().toLowerCase();
-        if (!query) return [];
-        return staffList.filter(s =>
-            (s.name || '').toLowerCase().includes(query) ||
-            (s.username || '').toLowerCase().includes(query)
-        );
-    }, [staffList, staffSearchQuery]);
+  return (
+    <div className="min-h-screen bg-gray-50">
+      <Header
+        mobileMenuOpen={mobileMenuOpen}
+        setMobileMenuOpen={setMobileMenuOpen}
+        isMinimized={isMinimized}
+        setIsMinimized={setIsMinimized}
+      />
+      <Sidebar
+        mobileMenuOpen={mobileMenuOpen}
+        setMobileMenuOpen={setMobileMenuOpen}
+        isMinimized={isMinimized}
+        setIsMinimized={setIsMinimized}
+      />
 
-    // Searchable Firm Dropdown states
-    const [firmSearchQuery, setFirmSearchQuery] = useState('');
-    const [firmSearchResults, setFirmSearchResults] = useState([]);
-    const [firmSearchLoading, setFirmSearchLoading] = useState(false);
-    const [selectedFirm, setSelectedFirm] = useState(null);
-    const [selectedFirmsData, setSelectedFirmsData] = useState([]);
-    const [showFirmDropdown, setShowFirmDropdown] = useState(false);
-    const [selectedFY, setSelectedFY] = useState('2026-2027');
-    const [selectedServiceFilter, setSelectedServiceFilter] = useState('');
-    const selectedServiceObj = services.find(s => String(s.service_id) === String(selectedServiceFilter) || String(s.name) === String(selectedServiceFilter));
-    const activeFrequency = selectedServiceObj ? selectedServiceObj.frequency?.toLowerCase() : 'monthly';
-    const isServiceFiltered = selectedServiceFilter !== '';
+      <div
+        className={`pt-16 transition-all duration-300 ${isMinimized ? 'md:pl-20' : 'md:pl-[260px]'}`}
+      >
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 md:px-8 py-6">
+          <nav className="flex items-center text-sm text-gray-600 mb-4">
+            <Link to="/" className="flex items-center gap-1 hover:text-indigo-600 transition-colors">
+              <FiHome className="w-4 h-4" />
+              <span>Dashboard</span>
+            </Link>
+            <span className="mx-2 text-gray-400">/</span>
+            <span className="text-gray-900 font-medium">Compliance</span>
+          </nav>
 
-    const renderCell = (period, assign) => {
-        if (!period) return <td key={Math.random()} className="px-2 py-3 text-center text-slate-350 font-mono">N/A</td>;
+          <div className="mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div>
+              <h1 className="text-2xl font-bold text-gray-800">Compliance</h1>
+              <p className="text-sm text-gray-500 mt-1">
+                {activeView === 'tasks'
+                  ? 'Task board — one row per firm per period'
+                  : 'Firm assignments — one row per service assignment'}
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setFirmModal({ mode: 'add' })}
+              className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg shrink-0"
+            >
+              <FiPlus className="w-4 h-4" />
+              Add firm
+            </button>
+          </div>
 
-        let statusLetter = 'P';
-        let cellClass = 'bg-amber-50 text-amber-700 border-amber-200';
-        const st = period.status;
-        if (st === 'Complete' || st === 'Sale') {
-            statusLetter = 'C';
-            cellClass = 'bg-emerald-50 text-emerald-700 border-emerald-200';
-        } else if (st === 'Pending From Client' || st === 'PFC') {
-            statusLetter = 'PC';
-            cellClass = 'bg-orange-50 text-orange-700 border-orange-200';
-        } else if (st === 'Cancel' || st === 'Outsource') {
-            statusLetter = 'Cn';
-            cellClass = 'bg-rose-50 text-rose-700 border-rose-200';
-        } else if (st === 'N/A') {
-            statusLetter = 'N';
-            cellClass = 'bg-slate-50 text-slate-400 border-slate-200';
-        } else if (st === 'Pending From The Department' || st === 'Pending') {
-            statusLetter = 'P';
-            cellClass = 'bg-amber-50 text-amber-700 border-amber-200';
-        }
+          <div className="flex gap-1 mb-4 p-1 bg-gray-100 rounded-lg w-fit">
+            <button
+              type="button"
+              onClick={() => switchView('tasks')}
+              className={`px-4 py-2 text-sm font-medium rounded-md transition-colors ${
+                activeView === 'tasks'
+                  ? 'bg-white text-indigo-700 shadow-sm'
+                  : 'text-gray-600 hover:text-gray-900'
+              }`}
+            >
+              Task board
+            </button>
+            <button
+              type="button"
+              onClick={() => switchView('firms')}
+              className={`px-4 py-2 text-sm font-medium rounded-md transition-colors ${
+                activeView === 'firms'
+                  ? 'bg-white text-indigo-700 shadow-sm'
+                  : 'text-gray-600 hover:text-gray-900'
+              }`}
+            >
+              Firm assignments
+            </button>
+          </div>
 
-        const dueDateText = getPeriodDueDate(period);
-        const showDirectDueDate = selectedFilingStatus === '';
-
-        const assignedStaffs = getAssignedStaffList(assign);
-        const assignedStaffUsernames = assignedStaffs.map(emp => (emp.username || '').toLowerCase().trim());
-        const isUpdatePermitted = (isAdmin || isBranchOwner || !currentUsername || assignedStaffUsernames.length === 0 || assignedStaffUsernames.includes(currentUsername)) && check('recurring_task_complete');
-        const isComplete = st === 'Complete' || st === 'Sale';
-
-        return (
-            <td key={period.schedule_id} className="px-2 py-2 text-center align-middle">
-                <div className="flex flex-col items-center gap-0.5">
-                    <div
-                        onClick={() => isUpdatePermitted && !isComplete && isPeriodDueDateActive(period) && openStatusModal(period, assign)}
-                        className={`inline-flex items-center justify-center gap-1 min-w-[32px] h-[26px] rounded border text-[10px] font-bold select-none ${isUpdatePermitted && !isComplete && isPeriodDueDateActive(period)
-                            ? `cursor-pointer transition-all hover:scale-105 ${cellClass}`
-                            : isComplete
-                                ? `${cellClass} cursor-default`
-                                : "bg-slate-50 text-slate-350 border-slate-100 cursor-not-allowed opacity-50"
-                            }`}
-                        title={
-                            !check('recurring_task_complete')
-                                ? 'Locked (No permission to complete tasks)'
-                                : isComplete
-                                    ? `Completed — locked`
-                                    : !isPeriodDueDateActive(period)
-                                        ? `Only the currently running due date (${dueDateText}) can be updated`
-                                        : isUpdatePermitted
-                                            ? (showDirectDueDate ? `Due Date: ${dueDateText}` : `Status: ${period.status}`)
-                                            : `Restricted (Only assigned staff: ${assignedStaffs.map(e => e.name || e.username).join(', ')})`
-                        }
-                    >
-                        <span className="px-1.5 h-full flex items-center justify-center flex-grow text-center">
-                            {statusLetter}
-                        </span>
-                    </div>
-                    <span className="text-[10px] text-slate-500 font-semibold leading-none mt-1 block select-none">{dueDateText.split(' ').slice(0, 2).join(' ')}</span>
+          <div className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden">
+            <div className="px-6 py-4 border-b border-gray-200 space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3">
+                <div>
+                  <label className="block text-xs font-medium text-gray-500 mb-1">Service</label>
+                  <select
+                    value={serviceId}
+                    onChange={(e) => {
+                      setServiceId(e.target.value);
+                      setPagination((prev) => ({ ...prev, page: 1 }));
+                    }}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
+                  >
+                    <option value="">All services</option>
+                    {branchServices.map((service) => (
+                      <option key={service.service_id} value={service.service_id}>
+                        {service.service_name || service.service_id}
+                      </option>
+                    ))}
+                  </select>
                 </div>
-            </td>
-        );
-    };
-    const firmAbortRef = useRef(null);
 
-    // Firm groups states
-    const [groupsList, setGroupsList] = useState([]);
-    const [groupsLoading, setGroupsLoading] = useState(false);
-
-    const fetchGroups = useCallback(async () => {
-        setGroupsLoading(true);
-        try {
-            const res = await axios.get(`${API_BASE_URL}/group/list`, {
-                headers: getHeaders()
-            });
-            if (res.data?.success) {
-                setGroupsList(res.data.data || []);
-            }
-        } catch (err) {
-            console.error('Error fetching groups list:', err);
-        } finally {
-            setGroupsLoading(false);
-        }
-    }, []);
-
-    // Filter assignments inline
-    const filteredAssignments = assignments.filter(assign => {
-        const fyMatch = selectedFY === '' || (() => {
-            const normalizeFY = (fy) => {
-                if (!fy) return '';
-                let clean = fy.toLowerCase().replace(/fy/g, '').trim().replace(/\s+/g, '');
-                const parts = clean.split('-');
-                if (parts.length !== 2) return fy;
-                let start = parts[0].length === 2 ? '20' + parts[0] : parts[0];
-                let end = parts[1].length === 2 ? '20' + parts[1] : parts[1];
-                return start.length === 4 && end.length === 4 ? `${start}-${end}` : fy;
-            };
-            return normalizeFY(assign.financial_year) === normalizeFY(selectedFY);
-        })();
-
-        const serviceMatch = selectedServiceFilter === '' ||
-            String(assign.service_id) === String(selectedServiceFilter) ||
-            String(assign.service_name) === String(selectedServiceFilter);
-
-        const statusMatch = selectedFilingStatus === '' || (() => {
-            const assignSchedules = allSchedules.filter(s => s.assignment_id === assign.assignment_id);
-            return assignSchedules.some(s => isStatusMatch(s.status, selectedFilingStatus));
-        })();
-
-        return fyMatch && serviceMatch && statusMatch;
-    });
-
-    const periodHeaders = useMemo(() => {
-        if (!isServiceFiltered) return [];
-        return getPeriodHeadersForFreq(activeFrequency);
-    }, [isServiceFiltered, activeFrequency]);
-
-    // Dynamic stats
-    const [stats, setStats] = useState({
-        totalAssigned: 0,
-        activeServices: 0,
-        totalSalesAmount: 0,
-        pendingActions: 0
-    });
-
-    // Fetch Predefined Services
-    const fetchServices = useCallback(async (search = '') => {
-        setServicesLoading(true);
-        try {
-            const res = await axios.get(`${API_BASE_URL}/recurring-task/services`, {
-                headers: getHeaders(),
-                params: { search }
-            });
-            if (res.data?.success) {
-                const activeList = (res.data.data || []).filter(s => s.status === 'Active');
-                setServices(activeList);
-                // Update active services count
-                setStats(prev => ({ ...prev, activeServices: activeList.length }));
-            }
-        } catch (err) {
-            console.error('Error fetching recurring task templates:', err);
-            toast.error('Failed to load recurring task templates');
-        } finally {
-            setServicesLoading(false);
-        }
-    }, []);
-
-    // Fetch Assignments
-    const fetchAssignments = useCallback(async (search = '') => {
-        setAssignmentsLoading(true);
-        try {
-            const res = await axios.get(`${API_BASE_URL}/recurring-task/assignments`, {
-                headers: getHeaders(),
-                params: { search }
-            });
-            if (res.data?.success) {
-                const list = res.data.data || [];
-                setAssignments(list);
-
-                // Calculate dynamic metrics
-                const total = list.length;
-                setStats(prev => ({ ...prev, totalAssigned: total }));
-            }
-        } catch (err) {
-            console.error('Error fetching assignments:', err);
-            toast.error('Failed to load assignments');
-        } finally {
-            setAssignmentsLoading(false);
-        }
-    }, []);
-
-    // Fetch schedules for selected assignment
-    const fetchSchedules = useCallback(async (assignmentId) => {
-        if (!assignmentId) return;
-        setSchedulesLoading(true);
-        try {
-            const res = await axios.get(`${API_BASE_URL}/recurring-task/schedule`, {
-                headers: getHeaders(),
-                params: { assignment_id: assignmentId }
-            });
-            if (res.data?.success) {
-                setSchedules(res.data.data || []);
-            }
-        } catch (err) {
-            console.error('Error fetching schedules:', err);
-            toast.error('Failed to load schedules');
-        } finally {
-            setSchedulesLoading(false);
-        }
-    }, []);
-
-    // Fetch Staff List for assigning
-    const fetchStaff = useCallback(async () => {
-        setStaffLoading(true);
-        const base = API_BASE_URL.replace(/\/$/, '');
-        let page = 1;
-        const limit = 100;
-        const all = [];
-        try {
-            for (; ;) {
-                const res = await axios.get(`${base}/settings/staff/list`, {
-                    headers: getHeaders(),
-                    params: { search: '', page, limit }
-                });
-                const list = res.data?.data || [];
-                all.push(...list);
-                if (res.data?.meta?.is_last_page || list.length < limit) break;
-                page += 1;
-            }
-            setStaffList(all.map(item => ({
-                username: item.username,
-                name: item.profile?.name ?? item.username,
-                email: item.profile?.email ?? item.email ?? '—',
-                mobile: item.profile?.mobile ?? item.profile?.phone ?? item.phone ?? '—'
-            })));
-        } catch (err) {
-            console.error('Failed to fetch staff list:', err);
-        } finally {
-            setStaffLoading(false);
-        }
-    }, []);
-    const fetchAllStats = useCallback(async () => {
-        try {
-            const res = await axios.get(`${API_BASE_URL}/recurring-task/schedule`, {
-                headers: getHeaders()
-            });
-            if (res.data?.success) {
-                const allSchedulesData = res.data.data || [];
-                setAllSchedules(allSchedulesData);
-                const salesAmount = allSchedulesData
-                    .filter(s => s.status === 'Sale')
-                    .reduce((sum, s) => sum + parseFloat(s.amount || 0), 0);
-                const pendingCount = allSchedulesData.filter(s => s.status === 'Pending').length;
-
-                setStats(prev => ({
-                    ...prev,
-                    totalSalesAmount: salesAmount,
-                    pendingActions: pendingCount
-                }));
-            }
-        } catch (err) {
-            console.error('Error calculating recurring task schedules stats:', err);
-        }
-    }, []);
-
-    // Load initial data
-    useEffect(() => {
-        fetchServices();
-        fetchAssignments();
-        fetchStaff();
-        fetchGroups();
-        fetchAllStats();
-    }, [fetchServices, fetchAssignments, fetchStaff, fetchGroups, fetchAllStats]);
-
-    // Handle CA search autocomplete (Assign modal)
-    useEffect(() => {
-        const term = caSearchQuery.trim();
-        if (term.length < 3) {
-            setCaSearchResults([]);
-            return;
-        }
-
-        const t = setTimeout(async () => {
-            setCaSearchLoading(true);
-            caAbortRef.current?.abort();
-            const ctrl = new AbortController();
-            caAbortRef.current = ctrl;
-
-            try {
-                const res = await fetch(`${API_BASE_URL.replace(/\/$/, '')}/ca/search?search=${encodeURIComponent(term)}`, {
-                    headers: getHeaders(),
-                    signal: ctrl.signal
-                });
-                const data = await res.json();
-                if (data.success && Array.isArray(data.data)) {
-                    setCaSearchResults(data.data);
-                } else {
-                    setCaSearchResults([]);
-                }
-            } catch (e) {
-                if (e?.name !== 'AbortError') setCaSearchResults([]);
-            } finally {
-                setCaSearchLoading(false);
-            }
-        }, 350);
-
-        return () => {
-            clearTimeout(t);
-            caAbortRef.current?.abort();
-        };
-    }, [caSearchQuery]);
-
-    // Handle CA search autocomplete (Edit modal)
-    useEffect(() => {
-        const term = editCaSearchQuery.trim();
-        if (term.length < 3) {
-            setEditCaSearchResults([]);
-            return;
-        }
-
-        const t = setTimeout(async () => {
-            setEditCaSearchLoading(true);
-            editCaAbortRef.current?.abort();
-            const ctrl = new AbortController();
-            editCaAbortRef.current = ctrl;
-
-            try {
-                const res = await fetch(`${API_BASE_URL.replace(/\/$/, '')}/ca/search?search=${encodeURIComponent(term)}`, {
-                    headers: getHeaders(),
-                    signal: ctrl.signal
-                });
-                const data = await res.json();
-                if (data.success && Array.isArray(data.data)) {
-                    setEditCaSearchResults(data.data);
-                } else {
-                    setEditCaSearchResults([]);
-                }
-            } catch (e) {
-                if (e?.name !== 'AbortError') setEditCaSearchResults([]);
-            } finally {
-                setEditCaSearchLoading(false);
-            }
-        }, 350);
-
-        return () => {
-            clearTimeout(t);
-            editCaAbortRef.current?.abort();
-        };
-    }, [editCaSearchQuery]);
-
-    // Handle service search change
-    useEffect(() => {
-        const t = setTimeout(() => {
-            fetchServices(serviceSearch);
-        }, 400);
-        return () => clearTimeout(t);
-    }, [serviceSearch, fetchServices]);
-
-    // Handle assignment search change
-    useEffect(() => {
-        const t = setTimeout(() => {
-            fetchAssignments(assignmentSearch);
-        }, 400);
-        return () => clearTimeout(t);
-    }, [assignmentSearch, fetchAssignments]);
-
-    // Handle firm search autocomplete
-    useEffect(() => {
-        if (!showFirmDropdown) return;
-
-        const term = firmSearchQuery.trim();
-        const debounceMs = term ? 350 : 0;
-
-        const t = setTimeout(async () => {
-            setFirmSearchLoading(true);
-            firmAbortRef.current?.abort();
-            const ctrl = new AbortController();
-            firmAbortRef.current = ctrl;
-
-            try {
-                const params = new URLSearchParams({
-                    page_no: '1',
-                    limit: '20',
-                    search: term,
-                });
-                const res = await fetch(
-                    `${API_BASE_URL.replace(/\/$/, '')}/firm/list?${params.toString()}`,
-                    {
-                        headers: getHeaders(),
-                        signal: ctrl.signal,
-                    },
-                );
-                const data = await res.json();
-                if (data.success && Array.isArray(data.data)) {
-                    setFirmSearchResults(
-                        data.data.map((f) => ({
-                            id: f.firm_id,
-                            name: f.firm_name,
-                            client_name: f.client?.name || '',
-                            pan_no: f.pan_no || f.client?.pan_number || '',
-                        })),
-                    );
-                } else {
-                    setFirmSearchResults([]);
-                }
-            } catch (e) {
-                if (e?.name !== 'AbortError') setFirmSearchResults([]);
-            } finally {
-                setFirmSearchLoading(false);
-            }
-        }, debounceMs);
-
-        return () => {
-            clearTimeout(t);
-            firmAbortRef.current?.abort();
-        };
-    }, [firmSearchQuery, showFirmDropdown]);
-
-    // Handle selecting a firm in dropdown
-    const handleSelectFirm = (firm) => {
-        setSelectedFirm(firm);
-        setAssignForm(prev => ({ ...prev, firm_id: firm.id }));
-        setFirmSearchQuery('');
-        setFirmSearchResults([]);
-        setShowFirmDropdown(false);
-    };
-
-    // Handle assignment selection to view schedules
-    const handleSelectAssignment = (assignmentId) => {
-        if (selectedAssignmentId === assignmentId) {
-            setSelectedAssignmentId(null);
-            setSchedules([]);
-        } else {
-            setSelectedAssignmentId(assignmentId);
-            fetchSchedules(assignmentId);
-        }
-    };
-
-    // Open status update modal
-    const openStatusModal = (period, assign = null) => {
-        setSelectedPeriod(period);
-        setSelectedPeriodAssign(assign);
-        setStatusForm({
-            status: period.status,
-            amount: String(period.amount)
-        });
-        setShowStatusModal(true);
-    };
-
-    const handleOpenBroadcast = (assign) => {
-        setBroadcastModal({ open: true, assign });
-        setBroadcastPhone(assign.client_mobile || assign.client_phone || assign.mobile || assign.phone || '');
-        setBroadcastEmail(assign.client_email || assign.email || '');
-    };
-
-    const handleOpenFullCalendar = (assign) => {
-        setFullCalendarAssignment(assign);
-        fetchSchedules(assign.assignment_id);
-        setShowFullCalendarModal(true);
-    };
-
-    // Submit Assign Form
-    const handleAssignSubmit = async (e) => {
-        e.preventDefault();
-        const isSingle = assignForm.targetType === 'single';
-        const isMultiple = assignForm.targetType === 'multiple';
-        const isGroup = assignForm.targetType === 'group';
-
-        if (isSingle && !assignForm.firm_id) {
-            toast.error('Please select a client firm');
-            return;
-        }
-        if (isMultiple && (!assignForm.firms || assignForm.firms.length === 0)) {
-            toast.error('Please select at least one firm');
-            return;
-        }
-        if (isGroup && (!assignForm.groups || assignForm.groups.length === 0)) {
-            toast.error('Please select at least one firm group');
-            return;
-        }
-        const hasFeesPerm = check('recurring_task_fees_view');
-        const customAmountToValidate = hasFeesPerm ? assignForm.custom_amount : '0';
-        if (!assignForm.service_id || !customAmountToValidate || (!assignForm.employee_usernames || assignForm.employee_usernames.length === 0)) {
-            toast.error('Please fill in all required fields (Service and Assigned Staff)');
-            return;
-        }
-
-        const selectedService = services.find(s => s.service_id === assignForm.service_id);
-        const requiredFields = getRequiredFieldsForService(selectedService);
-        for (const field of requiredFields) {
-            if (!assignForm.custom_fields?.[field.key]?.trim()) {
-                toast.error(`Please fill in the required field: ${field.label}`);
-                return;
-            }
-        }
-
-        setSubmittingAssign(true);
-        try {
-            const payload = {
-                service_id: assignForm.service_id,
-                financial_year: assignForm.financial_year,
-                employee_username: assignForm.employee_usernames,
-                employee_id: assignForm.employee_usernames,
-                custom_amount: hasFeesPerm ? parseFloat(assignForm.custom_amount) : 0,
-                custom_fields: assignForm.custom_fields || {}
-            };
-            if (isSingle) {
-                payload.firm_id = assignForm.firm_id;
-            } else if (isMultiple) {
-                payload.firms = assignForm.firms;
-            } else if (isGroup) {
-                payload.groups = assignForm.groups;
-            }
-
-            if (assignForm.ca_id) {
-                payload.ca_id = assignForm.ca_id;
-            }
-            const isGstr1 = assignForm.service_id === 'GSTR-1' || (selectedService?.name && /gstr-1/i.test(selectedService.name));
-            const effectiveFreq = isGstr1 ? 'monthly' : selectedService?.frequency?.toLowerCase();
-
-            if (effectiveFreq === 'monthly' && assignForm.pay_from_month) {
-                payload.pay_from_month = assignForm.pay_from_month;
-            }
-            if (effectiveFreq === 'quarterly' && assignForm.quarters?.length > 0) {
-                payload.quarters = assignForm.quarters;
-            }
-
-            const res = await axios.post(`${API_BASE_URL}/recurring-task/assign`, payload, {
-                headers: getHeaders()
-            });
-
-            if (res.data?.success) {
-                toast.success('Recurring task assigned successfully');
-                setShowAssignModal(false);
-                setAssignForm({
-                    targetType: 'single',
-                    firm_id: '',
-                    firms: [],
-                    groups: [],
-                    service_id: '',
-                    financial_year: '2026-2027',
-                    custom_amount: '',
-                    employee_usernames: [],
-                    ca_id: '',
-                    pay_from_month: '',
-                    quarters: [],
-                    custom_fields: {}
-                });
-                setSelectedFirm(null);
-                setSelectedFirmsData([]);
-                setSelectedCa(null);
-                setCaSearchQuery('');
-                fetchAssignments();
-                fetchAllStats();
-            }
-        } catch (err) {
-            console.error('Error assigning service:', err);
-            toast.error(err.response?.data?.message || 'Failed to assign recurring task');
-        } finally {
-            setSubmittingAssign(false);
-        }
-    };
-
-    // Submit Edit Assignment Form
-    const handleEditSubmit = async (e) => {
-        e.preventDefault();
-        if (!editAssignment) return;
-
-        const hasFeesPerm = check('recurring_task_fees_view');
-        const customAmountToValidate = hasFeesPerm ? editForm.custom_amount : '0';
-        if (!customAmountToValidate || isNaN(parseFloat(customAmountToValidate))) {
-            toast.error('Please enter a valid custom fees amount');
-            return;
-        }
-        if (!editForm.employee_usernames || editForm.employee_usernames.length === 0) {
-            toast.error('Please select at least one assigned staff member');
-            return;
-        }
-
-        setSubmittingEdit(true);
-        try {
-            const payload = {
-                custom_amount: hasFeesPerm ? parseFloat(editForm.custom_amount) : (editAssignment.custom_amount || 0),
-                employee_username: editForm.employee_usernames.join(','),
-                status: editForm.status
-            };
-            if (editForm.ca_id) payload.ca_id = editForm.ca_id;
-            if (editForm.financial_year) payload.financial_year = editForm.financial_year;
-            if (editForm.custom_fields) payload.custom_fields = editForm.custom_fields;
-            const svc = services.find(s => String(s.service_id) === String(editAssignment.service_id));
-            const isGstr1 = editAssignment.service_id === 'GSTR-1' || (svc?.name && /gstr-1/i.test(svc.name));
-            const editFreq = isGstr1 ? 'monthly' : (svc?.frequency?.toLowerCase() || editAssignment.frequency?.toLowerCase() || '');
-            if (editFreq === 'monthly') {
-                payload.pay_from_month = editForm.pay_from_month || '';
-            }
-            if (editForm.quarters && editForm.quarters.length > 0) {
-                payload.quarters = editForm.quarters.join(',');
-            }
-
-            await axios.put(
-                `${API_BASE_URL}/recurring-task/assignments/${editAssignment.assignment_id}`,
-                payload,
-                { headers: getHeaders() }
-            );
-
-            toast.success('Assignment updated successfully');
-            setShowEditModal(false);
-            setEditAssignment(null);
-            fetchAssignments();
-            fetchAllStats();
-        } catch (err) {
-            console.error('Error updating assignment:', err);
-            toast.error(err.response?.data?.message || 'Failed to update assignment');
-        } finally {
-            setSubmittingEdit(false);
-        }
-    };
-
-    // Open credentials modal
-    const openCredentialsModal = (assign) => {
-        setCredentialsAssignment(assign);
-        setCredentialsForm(assign.custom_fields || {});
-        setShowCredentialsModal(true);
-    };
-
-    // Submit Credentials Form
-    const handleCredentialsSubmit = async (e) => {
-        e.preventDefault();
-        if (!credentialsAssignment) return;
-
-        setSubmittingCredentials(true);
-        try {
-            await axios.put(
-                `${API_BASE_URL}/recurring-task/assignments/${credentialsAssignment.assignment_id}`,
-                { custom_fields: credentialsForm },
-                { headers: getHeaders() }
-            );
-            toast.success('Credentials updated successfully');
-            setShowCredentialsModal(false);
-            setCredentialsAssignment(null);
-            fetchAssignments();
-            fetchAllStats();
-        } catch (err) {
-            console.error('Error updating credentials:', err);
-            toast.error(err.response?.data?.message || 'Failed to update credentials');
-        } finally {
-            setSubmittingCredentials(false);
-        }
-    };
-
-    // Submit Status Update Form
-    const handleStatusSubmit = async (e) => {
-        e.preventDefault();
-        const currentUsername = (localStorage.getItem('user_username') || '').toLowerCase().trim();
-        const assignedStaffs = getAssignedStaffList(selectedPeriodAssign || selectedPeriod);
-        const assignedStaffUsernames = assignedStaffs.map(emp => (emp.username || '').toLowerCase().trim());
-        const isBranchOwner = localStorage.getItem('branch_owned') === 'true';
-        const isAdmin = currentUsername === 'admin';
-
-        if (!isAdmin && !isBranchOwner && currentUsername && assignedStaffUsernames.length > 0 && !assignedStaffUsernames.includes(currentUsername)) {
-            const allowedNames = assignedStaffs.map(emp => emp.name || emp.username).join(', ');
-            toast.error(`Only the assigned staff members (${allowedNames}) are permitted to update the payment status.`);
-            return;
-        }
-
-        const hasFeesPerm = check('recurring_task_fees_view');
-        const statusAmountToValidate = hasFeesPerm ? statusForm.amount : '0';
-        if (!statusAmountToValidate || isNaN(parseFloat(statusAmountToValidate))) {
-            toast.error('Please enter a valid amount');
-            return;
-        }
-
-        setSubmittingStatus(true);
-        try {
-            const res = await axios.post(`${API_BASE_URL}/recurring-task/update-period-status`, {
-                schedule_id: selectedPeriod.schedule_id,
-                status: statusForm.status,
-                amount: hasFeesPerm ? parseFloat(statusForm.amount) : (selectedPeriod.amount || 0)
-            }, {
-                headers: getHeaders()
-            });
-
-            if (res.data?.success) {
-                toast.success('Period status updated successfully');
-                setShowStatusModal(false);
-                setSelectedPeriod(null);
-
-                // Refresh schedules and assignments to update ledger & stats
-                fetchSchedules(selectedAssignmentId);
-                fetchAssignments();
-
-                // Refresh main stats
-                const statsRes = await axios.get(`${API_BASE_URL}/recurring-task/schedule`, { headers: getHeaders() });
-                if (statsRes.data?.success) {
-                    const allSchedulesData = statsRes.data.data || [];
-                    setAllSchedules(allSchedulesData);
-                    const salesAmount = allSchedulesData
-                        .filter(s => s.status === 'Sale')
-                        .reduce((sum, s) => sum + parseFloat(s.amount || 0), 0);
-                    const pendingCount = allSchedulesData.filter(s => s.status === 'Pending').length;
-
-                    setStats(prev => ({
-                        ...prev,
-                        totalSalesAmount: salesAmount,
-                        pendingActions: pendingCount
-                    }));
-                }
-            }
-        } catch (err) {
-            console.error('Error updating status:', err);
-            toast.error(err.response?.data?.message || 'Failed to update status');
-        } finally {
-            setSubmittingStatus(false);
-        }
-    };
-
-    return (
-        <div className="min-h-screen bg-slate-50">
-            <Header mobileMenuOpen={mobileMenuOpen} setMobileMenuOpen={setMobileMenuOpen} isMinimized={isMinimized} setIsMinimized={setIsMinimized} />
-            <Sidebar mobileMenuOpen={mobileMenuOpen} setMobileMenuOpen={setMobileMenuOpen} isMinimized={isMinimized} setIsMinimized={setIsMinimized} />
-
-            <div className={`pt-16 transition-all duration-300 ease-in-out ${isMinimized ? 'md:pl-20' : 'md:pl-[260px]'}`}>
-                <div className="max-w-full mx-auto px-4 sm:px-6 lg:px-8 py-6">
-
-                    {/* Page Title */}
-                    <div className="mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-                        <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 rounded-xl bg-indigo-600 flex items-center justify-center shadow-lg shadow-indigo-200 text-white">
-                                <FiLayers className="w-5 h-5" />
-                            </div>
-                            <div>
-                                <h1 className="text-xl font-bold text-slate-800 leading-tight">Recurring Tasks</h1>
-                                <p className="text-xs text-slate-500">Manage client regulatory schedules, assignment frequencies, and automatic ledger sales</p>
-                            </div>
-                        </div>
-                        {activeTab === 'assignments' && (
-                            <motion.button
-                                disabled={!check('recurring_task_create')}
-                                onClick={() => check('recurring_task_create') && setShowAssignModal(true)}
-                                className={`flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl shadow-md transition-all text-xs font-semibold ${check('recurring_task_create')
-                                    ? 'bg-gradient-to-r from-indigo-600 to-violet-600 text-white hover:shadow-lg'
-                                    : 'bg-gray-100 border border-gray-200 text-gray-400 cursor-not-allowed opacity-60'
-                                    }`}
-                                whileHover={check('recurring_task_create') ? { scale: 1.02, y: -1 } : {}}
-                                whileTap={check('recurring_task_create') ? { scale: 0.98 } : {}}
-                                title={check('recurring_task_create') ? 'Assign Recurring Task' : 'Locked (No permission)'}
-                            >
-                                {check('recurring_task_create') ? <FiPlus className="w-4 h-4" /> : <FiLock className="w-4 h-4" />}
-                                Assign Recurring Task
-                            </motion.button>
-                        )}
-                    </div>
-
-                    {/* Stats Dashboard */}
-                    <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-                        {[
-                            { label: 'Assigned Entities', value: stats.totalAssigned, color: 'bg-blue-500', icon: FiBriefcase },
-                            { label: 'Recurring Tasks', value: stats.activeServices, color: 'bg-indigo-500', icon: FiLayers },
-                            { label: 'Total Sales Posted', value: check('recurring_task_fees_view') ? `₹${formatCurrency(stats.totalSalesAmount)}` : '₹••••', color: 'bg-emerald-500', icon: FiDollarSign },
-                            { label: 'Pending Periods', value: stats.pendingActions, color: 'bg-amber-500', icon: FiAlertCircle }
-                        ].map((item, idx) => (
-                            <div key={idx} className="bg-white rounded-2xl border border-slate-200/80 p-4 shadow-sm flex items-center justify-between">
-                                <div>
-                                    <span className="text-[10px] sm:text-xs font-semibold text-slate-400 uppercase tracking-wider block">{item.label}</span>
-                                    <span className="text-sm sm:text-lg font-bold text-slate-800 mt-1 block">{item.value}</span>
-                                </div>
-                                <div className={`w-8 h-8 rounded-lg ${item.color} bg-opacity-10 flex items-center justify-center text-slate-700`}>
-                                    <item.icon className="w-4.5 h-4.5" />
-                                </div>
-                            </div>
+                {activeView === 'tasks' ? (
+                  <>
+                    <div>
+                      <label className="block text-xs font-medium text-gray-500 mb-1">
+                        Compliance year
+                      </label>
+                      <select
+                        value={complianceYear}
+                        onChange={(e) => {
+                          setComplianceYear(e.target.value);
+                          setPagination((prev) => ({ ...prev, page: 1 }));
+                        }}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
+                      >
+                        {yearOptions.map((year) => (
+                          <option key={year} value={year}>
+                            {year}
+                          </option>
                         ))}
+                      </select>
                     </div>
 
-                    {/* Main Workspace Card */}
-                    <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden mb-8">
-                        {/* Tabs */}
-                        <div className="flex border-b border-slate-100 px-4 pt-3 gap-1 bg-slate-50/20">
-                            {[
-                                { id: 'services', label: 'Active Recurring Tasks', icon: <FiRepeat className="w-3.5 h-3.5" /> },
-                                { id: 'assignments', label: 'Recurring Schedules', icon: <FiCheckCircle className="w-3.5 h-3.5" /> },
-                            ].map((tab) => (
-                                <button key={tab.id} onClick={() => setActiveTab(tab.id)}
-                                    className={`flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold rounded-t-lg border-b-2 transition-all -mb-px ${activeTab === tab.id
-                                        ? 'border-indigo-650 text-indigo-650 bg-indigo-50/50'
-                                        : 'border-transparent text-slate-500 hover:text-slate-700 hover:bg-gray-50'
-                                        }`}
-                                >
-                                    {tab.icon}{tab.label}
-                                </button>
-                            ))}
-                        </div>
-
-                        {/* Assignments Workspace */}
-                        {activeTab === 'assignments' && (
-                            <div>
-                                <div className="flex flex-wrap items-center gap-3 px-4 py-3 border-b border-slate-100 bg-slate-50/20">
-                                    <div className="relative flex-1 max-w-xs">
-                                        <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 pointer-events-none" />
-                                        <input
-                                            type="text"
-                                            placeholder="Search assignments or firms…"
-                                            value={assignmentSearch}
-                                            onChange={(e) => setAssignmentSearch(e.target.value)}
-                                            className="w-full pl-9 pr-3 py-2 text-xs text-slate-700 border border-slate-200 rounded-lg bg-white focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none"
-                                        />
-                                    </div>
-
-                                    {/* Financial Year Selector */}
-                                    <div className="flex items-center gap-1.5 text-xs text-slate-500 font-medium">
-                                        <span>FY:</span>
-                                        <select
-                                            value={selectedFY}
-                                            onChange={(e) => setSelectedFY(e.target.value)}
-                                            className="px-2 py-1.5 text-xs text-slate-700 border border-slate-200 rounded-lg bg-white focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none"
-                                        >
-                                            <option value="">All Years</option>
-                                            <option value="2020-2021">2020-2021</option>
-                                            <option value="2021-2022">2021-2022</option>
-                                            <option value="2022-2023">2022-2023</option>
-                                            <option value="2023-2024">2023-2024</option>
-                                            <option value="2024-2025">2024-2025</option>
-                                            <option value="2025-2026">2025-2026</option>
-                                            <option value="2026-2027">2026-2027</option>
-                                            <option value="2027-2028">2027-2028</option>
-                                            <option value="2028-2029">2028-2029</option>
-                                            <option value="2029-2030">2029-2030</option>
-                                            <option value="2030-2031">2030-2031</option>
-                                        </select>
-                                    </div>
-
-                                    {/* Service Selector Dropdown */}
-                                    <div className="flex items-center gap-1.5 text-xs text-slate-500 font-medium">
-                                        <span>Service:</span>
-                                        <select
-                                            value={selectedServiceFilter}
-                                            onChange={(e) => setSelectedServiceFilter(e.target.value)}
-                                            className="px-2 py-1.5 text-xs text-slate-700 border border-slate-200 rounded-lg bg-white focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none max-w-[200px]"
-                                        >
-                                            <option value="">All Services</option>
-                                            {services.map(s => (
-                                                <option key={s.id} value={s.service_id || s.name}>{s.name}</option>
-                                            ))}
-                                        </select>
-                                    </div>
-
-                                    {/* Filing Status Selector Dropdown */}
-                                    <div className="flex items-center gap-1.5 text-xs text-slate-500 font-medium">
-                                        <span>Filing Status:</span>
-                                        <select
-                                            value={selectedFilingStatus}
-                                            onChange={(e) => setSelectedFilingStatus(e.target.value)}
-                                            className="px-2 py-1.5 text-xs text-slate-700 border border-slate-200 rounded-lg bg-white focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none font-medium"
-                                        >
-                                            <option value="">All Status</option>
-                                            <option value="Pending">Pending (All)</option>
-                                            <option value="Pending From The Department">Pending (Dept)</option>
-                                            <option value="Pending From Client">Pending (Client)</option>
-                                            <option value="Complete">Complete</option>
-                                            <option value="Cancel">Cancel</option>
-                                            <option value="N/A">N/A</option>
-                                        </select>
-                                    </div>
-
-                                    <button
-                                        onClick={() => fetchAssignments(assignmentSearch)}
-                                        className="p-2 text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors border border-slate-200 bg-white"
-                                    >
-                                        <FiRefreshCw className={`w-3.5 h-3.5 ${assignmentsLoading ? 'animate-spin' : ''}`} />
-                                    </button>
-                                </div>
-
-                                <div className="overflow-x-auto overflow-hidden rounded-xl border border-slate-100 min-h-[260px]">
-                                    {isServiceFiltered ? (
-                                        <div className="min-w-[800px]">
-                                            <table className="w-full text-sm text-left border-collapse">
-                                                <thead>
-                                                    <tr className="bg-slate-50 border-b border-slate-100 text-slate-600 uppercase text-[10px] font-semibold tracking-wider">
-                                                        <th className="px-4 py-3 text-center w-12">SR</th>
-                                                        <th className="px-4 py-3">Firm Name</th>
-                                                        <th className="px-4 py-3 text-center">Staffs</th>
-                                                        {periodHeaders.map((header, hIdx) => (
-                                                            <th key={hIdx} className="px-2 py-3 text-center uppercase tracking-wider">
-                                                                <div>{header.label}</div>
-                                                                <div className="text-[8px] text-slate-400 font-normal lowercase">{header.financial_year}</div>
-                                                            </th>
-                                                        ))}
-                                                        <th className="px-4 py-3 text-center w-24">Action</th>
-                                                    </tr>
-                                                </thead>
-                                                <tbody className="divide-y divide-slate-100">
-                                                    {assignmentsLoading ? (
-                                                        <tr>
-                                                            <td colSpan={4 + periodHeaders.length} className="px-4 py-8 text-center">
-                                                                <div className="animate-pulse flex flex-col gap-2">
-                                                                    <div className="h-4 bg-slate-100 rounded w-1/3 mx-auto"></div>
-                                                                    <div className="h-4 bg-slate-100 rounded w-1/4 mx-auto"></div>
-                                                                </div>
-                                                            </td>
-                                                        </tr>
-                                                    ) : filteredAssignments.length === 0 ? (
-                                                        <tr>
-                                                            <td colSpan={4 + periodHeaders.length} className="px-4 py-12 text-center text-slate-400">
-                                                                <FiBriefcase className="w-8 h-8 mx-auto mb-2 opacity-50" />
-                                                                <p className="text-xs font-medium text-slate-500">No recurring task assignments found</p>
-                                                            </td>
-                                                        </tr>
-                                                    ) : (
-                                                        filteredAssignments.map((assign, idx) => {
-                                                            const assignSchedules = allSchedules.filter(s => s.assignment_id === assign.assignment_id);
-                                                            return (
-                                                                <tr key={`${assign.assignment_id}-${idx}`} className="hover:bg-slate-50/50 transition-colors">
-                                                                    <td className="px-4 py-3 text-center font-mono text-xs text-slate-400">
-                                                                        {idx + 1}
-                                                                    </td>
-                                                                    <td className="px-4 py-3 font-semibold text-slate-800 text-xs">
-                                                                        <div>{assign.firm_name}</div>
-                                                                        <div className="text-[10px] text-slate-450 font-normal mt-0.5">{assign.service_name}</div>
-                                                                    </td>
-                                                                    <td className="px-4 py-3 text-center align-middle">
-                                                                        {(() => {
-                                                                            const assignedStaffs = getAssignedStaffList(assign);
-                                                                            if (assignedStaffs.length === 0) return '—';
-
-                                                                            const onAvatarClick = (e) => {
-                                                                                e.stopPropagation();
-                                                                                setStaffListModal({
-                                                                                    open: true,
-                                                                                    staffs: assignedStaffs.map(emp => ({
-                                                                                        username: emp.username,
-                                                                                        name: emp.name || emp.username,
-                                                                                        email: emp.email || '—',
-                                                                                        mobile: emp.mobile || emp.phone || '—'
-                                                                                    })),
-                                                                                    serviceName: assign.service_name || assign.service_id
-                                                                                });
-                                                                            };
-
-                                                                            return (
-                                                                                <div className="flex justify-center -space-x-2.5">
-                                                                                    {assignedStaffs.slice(0, 2).map((emp, idx) => (
-                                                                                        <button
-                                                                                            key={emp.username || idx}
-                                                                                            type="button"
-                                                                                            onClick={onAvatarClick}
-                                                                                            className="w-7 h-7 rounded-full bg-gradient-to-br from-indigo-500 to-indigo-600 border-2 border-white flex items-center justify-center text-[10px] font-bold text-white hover:opacity-90 hover:scale-105 hover:z-10 transition-all shadow-xs cursor-pointer"
-                                                                                            title={`Click to view details of assigned staff`}
-                                                                                        >
-                                                                                            {(emp.name || emp.username || 'S').charAt(0).toUpperCase()}
-                                                                                        </button>
-                                                                                    ))}
-                                                                                    {assignedStaffs.length > 2 && (
-                                                                                        <button
-                                                                                            type="button"
-                                                                                            onClick={onAvatarClick}
-                                                                                            className="w-7 h-7 rounded-full bg-gradient-to-br from-indigo-500 to-indigo-600 border-2 border-white flex items-center justify-center text-[10px] font-bold text-white hover:opacity-90 hover:scale-105 hover:z-10 transition-all shadow-xs cursor-pointer"
-                                                                                            title="Click to view all assigned staff"
-                                                                                        >
-                                                                                            +{assignedStaffs.length - 2}
-                                                                                        </button>
-                                                                                    )}
-                                                                                </div>
-                                                                            );
-                                                                        })()}
-                                                                    </td>
-                                                                    {periodHeaders.map((header, hIdx) => {
-                                                                        const period = getPeriodSchedule(assignSchedules, header, activeFrequency);
-                                                                        return renderCell(period, assign);
-                                                                    })}
-                                                                    <td className={`px-4 py-3 text-center align-middle ${activeDropdownId === `${assign.assignment_id}-${idx}` ? 'relative z-50' : ''}`}>
-                                                                        <div className={`dropdown-container relative flex justify-center ${activeDropdownId === `${assign.assignment_id}-${idx}` ? 'z-50' : 'z-0'}`}>
-                                                                            <button
-                                                                                type="button"
-                                                                                onClick={(e) => {
-                                                                                    e.stopPropagation();
-                                                                                    setActiveDropdownId(activeDropdownId === `${assign.assignment_id}-${idx}` ? null : `${assign.assignment_id}-${idx}`);
-                                                                                }}
-                                                                                className="p-1.5 text-slate-500 hover:text-indigo-600 rounded-lg hover:bg-indigo-50 border border-slate-200 transition-colors"
-                                                                            >
-                                                                                <FiMenu className="w-3.5 h-3.5" />
-                                                                            </button>
-                                                                            <AnimatePresence>
-                                                                                {activeDropdownId === `${assign.assignment_id}-${idx}` && (
-                                                                                    <motion.div
-                                                                                        initial={{ opacity: 0, scale: 0.95, y: 5 }}
-                                                                                        animate={{ opacity: 1, scale: 1, y: 0 }}
-                                                                                        exit={{ opacity: 0, scale: 0.95, y: 5 }}
-                                                                                        className="absolute right-0 mt-1 w-40 bg-white rounded-xl shadow-xl border border-slate-200 z-55 overflow-hidden text-left"
-                                                                                    >
-                                                                                        <div className="py-1">
-                                                                                            <button
-                                                                                                type="button"
-                                                                                                onClick={(e) => {
-                                                                                                    e.stopPropagation();
-                                                                                                    openEditModal(assign);
-                                                                                                    setActiveDropdownId(null);
-                                                                                                }}
-                                                                                                className="flex items-center w-full px-3 py-2 text-xs text-slate-700 hover:bg-indigo-50 transition-colors"
-                                                                                            >
-                                                                                                <FiEdit2 className="w-3.5 h-3.5 text-slate-400 mr-2" />
-                                                                                                Edit
-                                                                                            </button>
-                                                                                            {getRequiredFieldsForService(assign).length > 0 && (
-                                                                                                <button
-                                                                                                    type="button"
-                                                                                                    onClick={(e) => {
-                                                                                                        e.stopPropagation();
-                                                                                                        openCredentialsModal(assign);
-                                                                                                        setActiveDropdownId(null);
-                                                                                                    }}
-                                                                                                    className="flex items-center w-full px-3 py-2 text-xs text-slate-700 hover:bg-indigo-50 transition-colors"
-                                                                                                >
-                                                                                                    <FiLock className="w-3.5 h-3.5 text-slate-400 mr-2" />
-                                                                                                    Credentials
-                                                                                                </button>
-                                                                                            )}
-                                                                                            {check('recurring_task_delete') ? (
-                                                                                                <button
-                                                                                                    type="button"
-                                                                                                    onClick={(e) => {
-                                                                                                        e.stopPropagation();
-                                                                                                        setConfirmDeleteId(assign.assignment_id);
-                                                                                                        setActiveDropdownId(null);
-                                                                                                    }}
-                                                                                                    className="flex items-center w-full px-3 py-2 text-xs text-slate-700 hover:bg-indigo-50 transition-colors"
-                                                                                                >
-                                                                                                    <FiTrash2 className="w-3.5 h-3.5 text-slate-400 mr-2" />
-                                                                                                    Delete
-                                                                                                </button>
-                                                                                            ) : (
-                                                                                                <button
-                                                                                                    type="button"
-                                                                                                    disabled
-                                                                                                    className="flex items-center w-full px-3 py-2 text-xs text-gray-400 cursor-not-allowed opacity-60 bg-slate-50 transition-colors"
-                                                                                                >
-                                                                                                    <FiLock className="w-3.5 h-3.5 text-gray-400 mr-2" />
-                                                                                                    Delete
-                                                                                                </button>
-                                                                                            )}
-                                                                                            <button
-                                                                                                type="button"
-                                                                                                onClick={(e) => {
-                                                                                                    e.stopPropagation();
-                                                                                                    handleOpenBroadcast(assign);
-                                                                                                    setActiveDropdownId(null);
-                                                                                                }}
-                                                                                                className="flex items-center w-full px-3 py-2 text-xs text-slate-700 hover:bg-indigo-50 transition-colors"
-                                                                                            >
-                                                                                                <FiShare2 className="w-3.5 h-3.5 text-slate-400 mr-2" />
-                                                                                                Broadcast
-                                                                                            </button>
-                                                                                            {assign.frequency === 'monthly' && (
-                                                                                                <button
-                                                                                                    type="button"
-                                                                                                    onClick={(e) => {
-                                                                                                        e.stopPropagation();
-                                                                                                        handleOpenFullCalendar(assign);
-                                                                                                        setActiveDropdownId(null);
-                                                                                                    }}
-                                                                                                    className="flex items-center w-full px-3 py-2 text-xs text-slate-700 hover:bg-indigo-50 transition-colors border-t border-slate-100"
-                                                                                                >
-                                                                                                    <FiEye className="w-3.5 h-3.5 text-slate-400 mr-2" />
-                                                                                                    Show Full
-                                                                                                </button>
-                                                                                            )}
-                                                                                        </div>
-                                                                                    </motion.div>
-                                                                                )}
-                                                                            </AnimatePresence>
-                                                                        </div>
-                                                                    </td>
-                                                                </tr>
-                                                            );
-                                                        })
-                                                    )}
-                                                </tbody>
-                                            </table>
-
-                                            {/* Footer Legend */}
-                                            <div className="flex flex-wrap items-center justify-between gap-4 px-4 py-3 bg-slate-50 border-t border-slate-100 text-xs text-slate-500">
-                                                <div className="flex items-center gap-1">
-                                                    <span className="font-semibold text-slate-700">Filing Status Legend:</span>
-                                                </div>
-                                                <div className="flex flex-wrap gap-4 font-medium">
-                                                    <span className="flex items-center gap-1.5">
-                                                        <span className="w-5 h-5 rounded border bg-amber-50 text-amber-700 border-amber-200 flex items-center justify-center text-[10px] font-bold">P</span>
-                                                        Pending (Dept)
-                                                    </span>
-                                                    <span className="flex items-center gap-1.5">
-                                                        <span className="w-5 h-5 rounded border bg-orange-50 text-orange-700 border-orange-200 flex items-center justify-center text-[10px] font-bold">PC</span>
-                                                        Pending (Client)
-                                                    </span>
-                                                    <span className="flex items-center gap-1.5">
-                                                        <span className="w-5 h-5 rounded border bg-emerald-50 text-emerald-700 border-emerald-200 flex items-center justify-center text-[10px] font-bold">C</span>
-                                                        Complete (Locked)
-                                                    </span>
-                                                    <span className="flex items-center gap-1.5">
-                                                        <span className="w-5 h-5 rounded border bg-rose-50 text-rose-700 border-rose-200 flex items-center justify-center text-[10px] font-bold">Cn</span>
-                                                        Cancel
-                                                    </span>
-                                                    <span className="flex items-center gap-1.5">
-                                                        <span className="w-5 h-5 rounded border bg-slate-50 text-slate-400 border-slate-200 flex items-center justify-center text-[10px] font-bold">N</span>
-                                                        N/A
-                                                    </span>
-                                                </div>
-                                                <div className="text-[10px] text-slate-400 font-medium">
-                                                    * Click badge to update status · Complete periods are locked
-                                                </div>
-                                            </div>
-                                        </div>
-                                    ) : (
-                                        <table className="w-full text-sm text-left">
-                                            <thead>
-                                                <tr className="bg-slate-50 border-b border-slate-100 text-slate-600 uppercase text-[10px] font-semibold tracking-wider">
-                                                    <th className="px-4 py-3 text-center w-12">SR</th>
-                                                    <th className="px-4 py-3">Firm Name</th>
-                                                    <th className="px-4 py-3">Recurring Task</th>
-                                                    <th className="px-4 py-3">Frequency</th>
-                                                    <th className="px-4 py-3">FY</th>
-                                                    <th className="px-4 py-3">Due Date</th>
-                                                    <th className="px-4 py-3">Staffs</th>
-                                                    <th className="px-4 py-3 w-28">Actions</th>
-                                                </tr>
-                                            </thead>
-                                            <tbody className="divide-y divide-slate-50">
-                                                {assignmentsLoading ? (
-                                                    <tr>
-                                                        <td colSpan={8} className="px-4 py-8 text-center">
-                                                            <div className="animate-pulse flex flex-col gap-2">
-                                                                <div className="h-4 bg-slate-100 rounded w-1/3 mx-auto"></div>
-                                                                <div className="h-4 bg-slate-100 rounded w-1/4 mx-auto"></div>
-                                                            </div>
-                                                        </td>
-                                                    </tr>
-                                                ) : filteredAssignments.length === 0 ? (
-                                                    <tr>
-                                                        <td colSpan={8} className="px-4 py-12 text-center text-slate-400">
-                                                            <FiBriefcase className="w-8 h-8 mx-auto mb-2 opacity-50" />
-                                                            <p className="text-xs font-medium text-slate-500">No recurring tasks found</p>
-                                                            <p className="text-[11px] mt-0.5">Click "Assign Recurring Task" above to link a firm</p>
-                                                        </td>
-                                                    </tr>
-                                                ) : (
-                                                    filteredAssignments.map((assign, idx) => (
-                                                        <React.Fragment key={`${assign.assignment_id}-${idx}`}>
-                                                            <tr
-                                                                className={`hover:bg-slate-50/50 transition-colors ${selectedAssignmentId === assign.assignment_id ? 'bg-indigo-50/20' : ''
-                                                                    }`}
-                                                            >
-                                                                <td className="px-4 py-3 text-center font-mono text-xs text-slate-400">
-                                                                    {idx + 1}
-                                                                </td>
-                                                                <td className="px-4 py-3 font-semibold text-slate-800 text-xs">
-                                                                    {assign.firm_name}
-                                                                </td>
-                                                                <td className="px-4 py-3 text-slate-600 text-xs">
-                                                                    {assign.service_name}
-                                                                </td>
-                                                                <td className="px-4 py-3">
-                                                                    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium border uppercase tracking-wider ${FREQ_BADGES[String(assign.frequency).toLowerCase()] || 'bg-slate-50'
-                                                                        }`}>
-                                                                        {assign.frequency}
-                                                                    </span>
-                                                                </td>
-                                                                <td className="px-4 py-3 text-slate-500 text-xs font-mono">
-                                                                    {assign.financial_year}
-                                                                </td>
-                                                                <td className="px-4 py-3 text-xs">
-                                                                    {(() => {
-                                                                        const info = getUpcomingDueDateInfo(assign, allSchedules);
-                                                                        return (
-                                                                            <span className={info.color} title={info.allDates || ''}>
-                                                                                {info.text}
-                                                                            </span>
-                                                                        );
-                                                                    })()}
-                                                                </td>
-                                                                <td className="px-4 py-3 text-slate-655 text-xs">
-                                                                    {(() => {
-                                                                        const assignedStaffs = getAssignedStaffList(assign);
-                                                                        if (assignedStaffs.length === 0) return '—';
-
-                                                                        const onAvatarClick = (e) => {
-                                                                            e.stopPropagation();
-                                                                            setStaffListModal({
-                                                                                open: true,
-                                                                                staffs: assignedStaffs.map(emp => ({
-                                                                                    username: emp.username,
-                                                                                    name: emp.name || emp.username,
-                                                                                    email: emp.email || '—',
-                                                                                    mobile: emp.mobile || emp.phone || '—'
-                                                                                })),
-                                                                                serviceName: assign.service_name || assign.service_id
-                                                                            });
-                                                                        };
-
-                                                                        return (
-                                                                            <div className="flex -space-x-2.5">
-                                                                                {assignedStaffs.slice(0, 2).map((emp, idx) => (
-                                                                                    <button
-                                                                                        key={emp.username || idx}
-                                                                                        type="button"
-                                                                                        onClick={onAvatarClick}
-                                                                                        className="w-8 h-8 rounded-full bg-gradient-to-br from-indigo-500 to-indigo-600 border-2 border-white flex items-center justify-center text-[10px] font-bold text-white hover:opacity-90 hover:scale-105 hover:z-10 transition-all shadow-xs cursor-pointer"
-                                                                                        title={`Click to view details of assigned staff`}
-                                                                                    >
-                                                                                        {(emp.name || emp.username || 'S').charAt(0).toUpperCase()}
-                                                                                    </button>
-                                                                                ))}
-                                                                                {assignedStaffs.length > 2 && (
-                                                                                    <button
-                                                                                        type="button"
-                                                                                        onClick={onAvatarClick}
-                                                                                        className="w-8 h-8 rounded-full bg-gradient-to-br from-indigo-500 to-indigo-600 border-2 border-white flex items-center justify-center text-[10px] font-bold text-white hover:opacity-90 hover:scale-105 hover:z-10 transition-all shadow-xs cursor-pointer"
-                                                                                        title="Click to view all assigned staff"
-                                                                                    >
-                                                                                        +{assignedStaffs.length - 2}
-                                                                                    </button>
-                                                                                )}
-                                                                            </div>
-                                                                        );
-                                                                    })()}
-                                                                </td>
-                                                                <td className={`px-3 py-3 text-right ${activeDropdownId === `${assign.assignment_id}-${idx}` ? 'relative z-50' : ''}`}>
-                                                                    <div className="flex items-center justify-end gap-2">
-                                                                        <div className={`dropdown-container relative flex justify-center ${activeDropdownId === `${assign.assignment_id}-${idx}` ? 'z-50' : 'z-0'}`}>
-                                                                            <button
-                                                                                type="button"
-                                                                                onClick={(e) => {
-                                                                                    e.stopPropagation();
-                                                                                    setActiveDropdownId(activeDropdownId === `${assign.assignment_id}-${idx}` ? null : `${assign.assignment_id}-${idx}`);
-                                                                                }}
-                                                                                className="p-1.5 text-slate-500 hover:text-indigo-655 rounded-lg hover:bg-indigo-50 border border-slate-200 transition-colors"
-                                                                            >
-                                                                                <FiMenu className="w-3.5 h-3.5" />
-                                                                            </button>
-                                                                            <AnimatePresence>
-                                                                                {activeDropdownId === `${assign.assignment_id}-${idx}` && (
-                                                                                    <motion.div
-                                                                                        initial={{ opacity: 0, scale: 0.95, y: 5 }}
-                                                                                        animate={{ opacity: 1, scale: 1, y: 0 }}
-                                                                                        exit={{ opacity: 0, scale: 0.95, y: 5 }}
-                                                                                        className="absolute right-0 mt-1 w-40 bg-white rounded-xl shadow-xl border border-slate-200 z-55 overflow-hidden text-left"
-                                                                                    >
-                                                                                        <div className="py-1">
-                                                                                            <button
-                                                                                                type="button"
-                                                                                                onClick={(e) => {
-                                                                                                    e.stopPropagation();
-                                                                                                    navigate(`/office-assistance/compliance/assignment/${assign.assignment_id}`);
-                                                                                                    setActiveDropdownId(null);
-                                                                                                }}
-                                                                                                className="flex items-center w-full px-3 py-2 text-xs text-slate-700 hover:bg-indigo-55 transition-colors font-medium border-b border-slate-100"
-                                                                                            >
-                                                                                                <FiEye className="w-3.5 h-3.5 text-slate-400 mr-2" />
-                                                                                                View Details
-                                                                                            </button>
-                                                                                            <button
-                                                                                                type="button"
-                                                                                                onClick={(e) => {
-                                                                                                    e.stopPropagation();
-                                                                                                    openEditModal(assign);
-                                                                                                    setActiveDropdownId(null);
-                                                                                                }}
-                                                                                                className="flex items-center w-full px-3 py-2 text-xs text-slate-700 hover:bg-indigo-50 transition-colors"
-                                                                                            >
-                                                                                                <FiEdit2 className="w-3.5 h-3.5 text-slate-400 mr-2" />
-                                                                                                Edit
-                                                                                            </button>
-                                                                                            {getRequiredFieldsForService(assign).length > 0 && (
-                                                                                                <button
-                                                                                                    type="button"
-                                                                                                    onClick={(e) => {
-                                                                                                        e.stopPropagation();
-                                                                                                        openCredentialsModal(assign);
-                                                                                                        setActiveDropdownId(null);
-                                                                                                    }}
-                                                                                                    className="flex items-center w-full px-3 py-2 text-xs text-slate-700 hover:bg-indigo-50 transition-colors"
-                                                                                                >
-                                                                                                    <FiLock className="w-3.5 h-3.5 text-slate-400 mr-2" />
-                                                                                                    Credentials
-                                                                                                </button>
-                                                                                            )}
-                                                                                            {check('recurring_task_delete') ? (
-                                                                                                <button
-                                                                                                    type="button"
-                                                                                                    onClick={(e) => {
-                                                                                                        e.stopPropagation();
-                                                                                                        setConfirmDeleteId(assign.assignment_id);
-                                                                                                        setActiveDropdownId(null);
-                                                                                                    }}
-                                                                                                    className="flex items-center w-full px-3 py-2 text-xs text-slate-700 hover:bg-indigo-50 transition-colors"
-                                                                                                >
-                                                                                                    <FiTrash2 className="w-3.5 h-3.5 text-slate-400 mr-2" />
-                                                                                                    Delete
-                                                                                                </button>
-                                                                                            ) : (
-                                                                                                <button
-                                                                                                    type="button"
-                                                                                                    disabled
-                                                                                                    className="flex items-center w-full px-3 py-2 text-xs text-gray-400 cursor-not-allowed opacity-60 bg-slate-50 transition-colors"
-                                                                                                >
-                                                                                                    <FiLock className="w-3.5 h-3.5 text-gray-400 mr-2" />
-                                                                                                    Delete
-                                                                                                </button>
-                                                                                            )}
-                                                                                            <button
-                                                                                                type="button"
-                                                                                                onClick={(e) => {
-                                                                                                    e.stopPropagation();
-                                                                                                    handleOpenBroadcast(assign);
-                                                                                                    setActiveDropdownId(null);
-                                                                                                }}
-                                                                                                className="flex items-center w-full px-3 py-2 text-xs text-slate-700 hover:bg-indigo-50 transition-colors"
-                                                                                            >
-                                                                                                <FiShare2 className="w-3.5 h-3.5 text-slate-400 mr-2" />
-                                                                                                Broadcast
-                                                                                            </button>
-                                                                                            {assign.frequency === 'monthly' && (
-                                                                                                <button
-                                                                                                    type="button"
-                                                                                                    onClick={(e) => {
-                                                                                                        e.stopPropagation();
-                                                                                                        handleOpenFullCalendar(assign);
-                                                                                                        setActiveDropdownId(null);
-                                                                                                    }}
-                                                                                                    className="flex items-center w-full px-3 py-2 text-xs text-slate-705 hover:bg-indigo-50 transition-colors border-t border-slate-100"
-                                                                                                >
-                                                                                                    <FiEye className="w-3.5 h-3.5 text-slate-400 mr-2" />
-                                                                                                    Show Full
-                                                                                                </button>
-                                                                                            )}
-                                                                                        </div>
-                                                                                    </motion.div>
-                                                                                )}
-                                                                            </AnimatePresence>
-                                                                        </div>
-                                                                    </div>
-                                                                </td>
-                                                            </tr>
-                                                        </React.Fragment>
-                                                    ))
-                                                )}
-                                            </tbody>
-                                        </table>
-                                    )}
-                                </div>
-                            </div>
-                        )}
-
-                        {/* Active Recurring Tasks Workspace */}
-                        {activeTab === 'services' && (
-                            <div>
-                                <div className="flex flex-wrap items-center gap-3 px-4 py-3 border-b border-slate-100 bg-slate-50/20">
-                                    <div className="relative flex-1 max-w-xs">
-                                        <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 pointer-events-none" />
-                                        <input
-                                            type="text"
-                                            placeholder="Search recurring tasks…"
-                                            value={serviceSearch}
-                                            onChange={(e) => setServiceSearch(e.target.value)}
-                                            className="w-full pl-9 pr-3 py-2 text-xs text-slate-700 border border-slate-200 rounded-lg bg-white focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none"
-                                        />
-                                    </div>
-                                    <button
-                                        onClick={() => fetchServices(serviceSearch)}
-                                        className="p-2 text-slate-500 hover:text-indigo-650 hover:bg-slate-100 rounded-lg transition-colors border border-slate-200 bg-white shadow-xs"
-                                        title="Refresh recurring tasks"
-                                    >
-                                        <FiRefreshCw className={`w-3.5 h-3.5 ${servicesLoading ? 'animate-spin' : ''}`} />
-                                    </button>
-                                </div>
-
-                                <div className="overflow-x-auto overflow-hidden rounded-xl">
-                                    <table className="w-full text-sm text-left border-collapse">
-                                        <thead>
-                                            <tr className="bg-slate-50 border-b border-slate-100 text-slate-600 uppercase text-[10px] font-semibold tracking-wider">
-                                                <th className="px-4 py-3 text-center w-12">SR</th>
-                                                <th className="px-4 py-3">Service Name</th>
-                                                <th className="px-4 py-3 text-center w-32">Frequency</th>
-                                                <th className="px-4 py-3 text-center w-28">Default Fee</th>
-                                                <th className="px-4 py-3 text-center w-24">Firms</th>
-                                                <th className="px-4 py-3 text-center w-24">Pending</th>
-                                                <th className="px-4 py-3 text-center w-24">Complete</th>
-                                                <th className="px-4 py-3 text-center w-24">Cancel</th>
-                                                <th className="px-4 py-3 text-center w-28">Action</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody className="divide-y divide-slate-100">
-                                            {servicesLoading ? (
-                                                <tr>
-                                                    <td colSpan={9} className="px-4 py-8 text-center">
-                                                        <div className="animate-pulse flex flex-col gap-2">
-                                                            <div className="h-4 bg-slate-100 rounded w-1/3 mx-auto"></div>
-                                                            <div className="h-4 bg-slate-100 rounded w-1/4 mx-auto"></div>
-                                                        </div>
-                                                    </td>
-                                                </tr>
-                                            ) : services.length === 0 ? (
-                                                <tr>
-                                                    <td colSpan={9} className="px-4 py-12 text-center text-slate-400">
-                                                        <FiLayers className="w-8 h-8 mx-auto mb-2 opacity-50" />
-                                                        <p className="text-xs font-medium text-slate-500">No active recurring tasks found</p>
-                                                    </td>
-                                                </tr>
-                                            ) : (
-                                                services.map((svc, idx) => {
-                                                    const svcAssignments = assignments.filter(assign => String(assign.service_id) === String(svc.service_id || svc.id));
-                                                    const firmCount = svcAssignments.length;
-                                                    const svcAssignIds = svcAssignments.map(assign => assign.assignment_id);
-
-                                                    const pendingCount = allSchedules.filter(s => svcAssignIds.includes(s.assignment_id) && s.status === 'Pending').length;
-                                                    const completeCount = allSchedules.filter(s => svcAssignIds.includes(s.assignment_id) && (s.status === 'Complete' || s.status === 'Sale')).length;
-                                                    const cancelCount = allSchedules.filter(s => svcAssignIds.includes(s.assignment_id) && s.status === 'Cancel').length;
-
-                                                    return (
-                                                        <tr key={svc.service_id || svc.id || idx} className="hover:bg-slate-50/50 transition-colors">
-                                                            <td className="px-4 py-3 text-center font-mono text-xs text-slate-400">
-                                                                {idx + 1}
-                                                            </td>
-                                                            <td className="px-4 py-3 font-semibold text-slate-800 text-xs">
-                                                                {svc.name}
-                                                            </td>
-                                                            <td className="px-4 py-3 text-center">
-                                                                <span className={`inline-flex items-center px-2.5 py-0.5 rounded-md text-[10px] font-semibold border uppercase tracking-wider ${svc.frequency?.toLowerCase() === 'monthly' ? 'bg-sky-50 text-sky-700 border-sky-200' :
-                                                                    svc.frequency?.toLowerCase() === 'quarterly' ? 'bg-indigo-50 text-indigo-700 border-indigo-200' :
-                                                                        svc.frequency?.toLowerCase() === 'halfyearly' ? 'bg-purple-50 text-purple-700 border-purple-200' :
-                                                                            'bg-violet-50 text-violet-700 border-violet-200'
-                                                                    }`}>
-                                                                    {svc.frequency}
-                                                                </span>
-                                                            </td>
-                                                            <td className="px-4 py-3 text-center font-semibold text-slate-700 text-xs">
-                                                                ₹{formatCurrency(svc.default_amount)}
-                                                            </td>
-                                                            <td className="px-4 py-3 text-center">
-                                                                <button
-                                                                    onClick={() => {
-                                                                        if (firmCount > 0) {
-                                                                            setSelectedServiceFilter(svc.service_id || svc.id || svc.name);
-                                                                            setActiveTab('assignments');
-                                                                        }
-                                                                    }}
-                                                                    className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold border transition-all ${firmCount > 0
-                                                                        ? 'bg-indigo-50 text-indigo-750 border-indigo-200 hover:bg-indigo-100 hover:scale-105 cursor-pointer'
-                                                                        : 'bg-slate-50 text-slate-400 border-slate-200 cursor-default'
-                                                                        }`}
-                                                                    title={firmCount > 0 ? "Click to view assigned firms" : "No firms assigned"}
-                                                                    disabled={firmCount === 0}
-                                                                >
-                                                                    {firmCount}
-                                                                </button>
-                                                            </td>
-                                                            <td className="px-4 py-3 text-center">
-                                                                <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-amber-50 text-amber-700 border border-amber-200">
-                                                                    {pendingCount}
-                                                                </span>
-                                                            </td>
-                                                            <td className="px-4 py-3 text-center">
-                                                                <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
-                                                                    {completeCount}
-                                                                </span>
-                                                            </td>
-                                                            <td className="px-4 py-3 text-center">
-                                                                <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-slate-50 text-slate-500 border border-slate-200">
-                                                                    {cancelCount}
-                                                                </span>
-                                                            </td>
-                                                            <td className={`px-4 py-3 text-center align-middle ${activeDropdownId === `rt-${idx}` ? 'relative z-50' : ''}`}>
-                                                                <div className={`dropdown-container relative flex justify-center ${activeDropdownId === `rt-${idx}` ? 'z-50' : 'z-0'}`}>
-                                                                    <button
-                                                                        type="button"
-                                                                        onClick={(e) => {
-                                                                            e.stopPropagation();
-                                                                            setActiveDropdownId(activeDropdownId === `rt-${idx}` ? null : `rt-${idx}`);
-                                                                        }}
-                                                                        className="p-1.5 text-slate-500 hover:text-indigo-650 rounded-lg hover:bg-indigo-50 border border-slate-200 transition-colors cursor-pointer"
-                                                                        title="Actions"
-                                                                    >
-                                                                        <FiMenu className="w-3.5 h-3.5" />
-                                                                    </button>
-                                                                    <AnimatePresence>
-                                                                        {activeDropdownId === `rt-${idx}` && (
-                                                                            <motion.div
-                                                                                initial={{ opacity: 0, scale: 0.95, y: 5 }}
-                                                                                animate={{ opacity: 1, scale: 1, y: 0 }}
-                                                                                exit={{ opacity: 0, scale: 0.95, y: 5 }}
-                                                                                className="absolute right-0 mt-1 w-40 bg-white rounded-xl shadow-xl border border-slate-200 z-55 overflow-hidden text-left"
-                                                                            >
-                                                                                <div className="py-1">
-                                                                                    <button
-                                                                                        type="button"
-                                                                                        onClick={(e) => {
-                                                                                            e.stopPropagation();
-                                                                                            setSelectedServiceFilter(svc.service_id || svc.id || svc.name);
-                                                                                            setActiveTab('assignments');
-                                                                                            setActiveDropdownId(null);
-                                                                                        }}
-                                                                                        className="flex items-center w-full px-3 py-2 text-xs text-slate-705 hover:bg-indigo-50 transition-colors"
-                                                                                    >
-                                                                                        <FiEye className="w-3.5 h-3.5 text-slate-400 mr-2" />
-                                                                                        View Schedules
-                                                                                    </button>
-                                                                                    <button
-                                                                                        type="button"
-                                                                                        onClick={(e) => {
-                                                                                            e.stopPropagation();
-                                                                                            setAssignForm(prev => ({
-                                                                                                ...prev,
-                                                                                                service_id: svc.service_id || svc.id || '',
-                                                                                                custom_amount: String(svc.default_amount ?? ''),
-                                                                                                custom_fields: {},
-                                                                                                pay_from_month: '',
-                                                                                                quarters: [],
-                                                                                                employee_usernames: [],
-                                                                                                ca_id: '',
-                                                                                                status: 'active'
-                                                                                            }));
-                                                                                            setShowAssignModal(true);
-                                                                                            setActiveDropdownId(null);
-                                                                                        }}
-                                                                                        className="flex items-center w-full px-3 py-2 text-xs text-slate-705 hover:bg-indigo-50 transition-colors border-t border-slate-100"
-                                                                                    >
-                                                                                        <FiPlus className="w-3.5 h-3.5 text-slate-400 mr-2" />
-                                                                                        Assign Task
-                                                                                    </button>
-                                                                                </div>
-                                                                            </motion.div>
-                                                                        )}
-                                                                    </AnimatePresence>
-                                                                </div>
-                                                            </td>
-                                                        </tr>
-                                                    );
-                                                })
-                                            )}
-                                        </tbody>
-                                    </table>
-                                </div>
-                            </div>
-                        )}
+                    <div>
+                      <label className="block text-xs font-medium text-gray-500 mb-1">Period</label>
+                      <select
+                        value={compliancePeriod}
+                        onChange={(e) => {
+                          setCompliancePeriod(e.target.value);
+                          setPagination((prev) => ({ ...prev, page: 1 }));
+                        }}
+                        disabled={!selectedService}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none disabled:opacity-60"
+                      >
+                        <option value="">
+                          {isCurrentFy ? 'All periods (recent window)' : 'All periods in year'}
+                        </option>
+                        {periodOptions.map((period) => (
+                          <option key={period} value={period}>
+                            {period}
+                          </option>
+                        ))}
+                      </select>
                     </div>
+                  </>
+                ) : null}
+
+                {activeView === 'firms' ? (
+                  <form onSubmit={handleSearch} className="md:col-span-2 xl:col-span-3 flex items-end gap-2">
+                    <div className="flex-1">
+                      <label className="block text-xs font-medium text-gray-500 mb-1">Search</label>
+                      <div className="relative">
+                        <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                        <input
+                          type="text"
+                          value={searchInput}
+                          onChange={(e) => setSearchInput(e.target.value)}
+                          placeholder="Firm, client, PAN, GST..."
+                          className="w-full pl-9 pr-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
+                        />
+                      </div>
+                    </div>
+                    <button
+                      type="submit"
+                      className="px-3 py-2 text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg"
+                    >
+                      Search
+                    </button>
+                  </form>
+                ) : null}
+
+                <div className={`flex items-end ${activeView === 'tasks' ? '' : 'hidden'}`}>
+                  <button
+                    type="button"
+                    onClick={reloadList}
+                    disabled={loading}
+                    className="p-2 rounded-lg border border-gray-300 text-gray-600 hover:bg-gray-50 disabled:opacity-50"
+                    title="Refresh"
+                  >
+                    <FiRefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+                  </button>
                 </div>
+              </div>
+
+              {activeView === 'tasks' && selectedService ? (
+                <p className="text-xs text-gray-500 m-0">
+                  {selectedService.service_name} · {selectedService.frequency || 'monthly'}
+                  {!compliancePeriod && isCurrentFy
+                    ? ' · Showing recent periods (server window)'
+                    : !compliancePeriod
+                      ? ' · Showing all periods in selected year'
+                      : ''}
+                </p>
+              ) : null}
+
+              {activeView === 'firms' ? (
+                <div className="flex justify-end">
+                  <button
+                    type="button"
+                    onClick={reloadList}
+                    disabled={loading}
+                    className="inline-flex items-center gap-2 p-2 rounded-lg border border-gray-300 text-gray-600 hover:bg-gray-50 disabled:opacity-50 text-sm"
+                    title="Refresh"
+                  >
+                    <FiRefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+                    Refresh
+                  </button>
+                </div>
+              ) : null}
             </div>
 
-            {/* Modal: Assign Compliance Service */}
-            <AnimatePresence>
-                {showAssignModal && (
-                    <div className="fixed inset-0 z-[200] flex items-start justify-center overflow-hidden overscroll-none p-3 sm:p-4 pointer-events-none">
-                        <div
-                            className="absolute inset-0 bg-black/60 backdrop-blur-xs pointer-events-auto"
-                            onClick={() => setShowAssignModal(false)}
-                        />
-                        <motion.div
-                            initial={{ opacity: 0, scale: 0.97, y: 20 }}
-                            animate={{ opacity: 1, scale: 1, y: 0 }}
-                            exit={{ opacity: 0, scale: 0.97, y: 20 }}
-                            className="relative z-[1] pointer-events-auto bg-white rounded-2xl shadow-xl w-full max-w-md my-2 sm:my-4 max-h-[calc(100vh-1.5rem)] sm:max-h-[calc(100vh-2rem)] overflow-hidden flex flex-col"
-                            onClick={(e) => e.stopPropagation()}
-                        >
-                            <div className="flex items-center justify-between px-5 py-3.5 bg-gradient-to-r from-indigo-600 to-violet-600 text-white shrink-0">
-                                <div className="flex items-center gap-2">
-                                    <FiLayers className="w-5 h-5" />
-                                    <h3 className="text-sm font-bold">Assign Recurring Task</h3>
-                                </div>
+            <div className="overflow-x-auto">
+              {activeView === 'tasks' ? (
+                <table className="min-w-full divide-y divide-gray-200">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                        Period
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                        Firm / Service
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                        Client
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                        Due date
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                        Fees
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                        Staff
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                        Status
+                      </th>
+                      <th className="px-6 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                        Actions
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-100">
+                    {loading ? (
+                      Array.from({ length: 5 }).map((_, index) => (
+                        <tr key={index} className="animate-pulse">
+                          {Array.from({ length: 8 }).map((__, cellIndex) => (
+                            <td key={cellIndex} className="px-6 py-4">
+                              <div className="h-4 bg-gray-200 rounded w-full max-w-[160px]" />
+                            </td>
+                          ))}
+                        </tr>
+                      ))
+                    ) : rows.length === 0 ? (
+                      <tr>
+                        <td colSpan={8} className="px-6 py-12 text-center text-sm text-gray-500">
+                          No compliance tasks found for the selected filters.
+                        </td>
+                      </tr>
+                    ) : (
+                      rows.map((row) => {
+                        const rowKey = taskRowKey(row);
+                        const currentStatus = row.status || '';
+                        const isComplete = currentStatus === 'complete';
+                        const isUpdating = statusUpdatingKey === rowKey;
+
+                        return (
+                          <tr key={rowKey} className="hover:bg-gray-50">
+                            <td className="px-6 py-4">
+                              <p className="text-sm font-medium text-gray-900 m-0">
+                                {row.compliance_period}
+                              </p>
+                              <p className="text-xs text-gray-500 m-0 mt-0.5">{row.compliance_year}</p>
+                            </td>
+                            <td className="px-6 py-4">
+                              <p className="text-sm font-medium text-gray-900 m-0">
+                                {row.firm_name || row.firm_id}
+                              </p>
+                              <p className="text-xs text-gray-500 m-0 mt-0.5">
+                                {row.service_name || row.service_id}
+                              </p>
+                            </td>
+                            <td className="px-6 py-4">
+                              <p className="text-sm text-gray-800 m-0">
+                                {row.client?.name || row.username || '—'}
+                              </p>
+                              <p className="text-xs text-gray-500 m-0 mt-0.5">
+                                {row.client?.mobile || row.client?.email || '—'}
+                              </p>
+                            </td>
+                            <td className="px-6 py-4 text-sm text-gray-700 whitespace-nowrap">
+                              {row.due_date || '—'}
+                              {row.due_day ? (
+                                <div className="text-xs text-gray-500">Day {row.due_day}</div>
+                              ) : null}
+                            </td>
+                            <td className="px-6 py-4 text-sm text-gray-700 whitespace-nowrap">
+                              <div>{formatMoney(row.fees)}</div>
+                              <div className="text-xs text-gray-500">
+                                Tax {row.tax_rate}% ({formatMoney(row.tax_value)})
+                              </div>
+                            </td>
+                            <td className="px-6 py-4 text-sm text-gray-700">
+                              <div className="max-w-[140px] truncate">
+                                {normalizeAssignees(row.staffs).join(', ') || '—'}
+                              </div>
+                            </td>
+                            <td className="px-6 py-4">
+                              <div className="space-y-2 min-w-[180px]">
+                                <StatusBadge status={currentStatus} />
+                                {!row.has_task && !currentStatus ? (
+                                  <p className="text-xs text-gray-500 m-0">No task yet</p>
+                                ) : null}
+                                <select
+                                  value={currentStatus}
+                                  onChange={(e) => handleStatusChange(row, e.target.value)}
+                                  disabled={isUpdating || isComplete}
+                                  className="w-full px-2 py-1.5 border border-gray-300 rounded-lg text-sm bg-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none disabled:opacity-60"
+                                >
+                                  <option value="">Set status</option>
+                                  {COMPLIANCE_TASK_STATUSES.map((status) => (
+                                    <option key={status} value={status}>
+                                      {status}
+                                    </option>
+                                  ))}
+                                </select>
+                                {isUpdating ? (
+                                  <span className="inline-flex items-center gap-1 text-xs text-gray-500">
+                                    <FiLoader className="w-3.5 h-3.5 animate-spin" />
+                                    Updating...
+                                  </span>
+                                ) : null}
+                              </div>
+                            </td>
+                            <td className="px-6 py-4">
+                              <div className="flex items-center justify-end gap-2">
                                 <button
-                                    onClick={() => setShowAssignModal(false)}
-                                    className="p-1 hover:bg-white/10 rounded-lg text-white/80 hover:text-white"
+                                  type="button"
+                                  onClick={() =>
+                                    setFirmModal({ mode: 'edit', firm: taskRowToFirm(row) })
+                                  }
+                                  className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg"
                                 >
-                                    <FiX className="w-5 h-5" />
+                                  <FiEdit2 className="w-3.5 h-3.5" />
+                                  Edit firm
                                 </button>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })
+                    )}
+                  </tbody>
+                </table>
+              ) : (
+                <table className="min-w-full divide-y divide-gray-200">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                        Firm / Service
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                        Client
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                        Fees
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                        Due day
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                        Effective from
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                        Staff
+                      </th>
+                      <th className="px-6 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                        Actions
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-100">
+                    {loading ? (
+                      Array.from({ length: 5 }).map((_, index) => (
+                        <tr key={index} className="animate-pulse">
+                          {Array.from({ length: 7 }).map((__, cellIndex) => (
+                            <td key={cellIndex} className="px-6 py-4">
+                              <div className="h-4 bg-gray-200 rounded w-full max-w-[160px]" />
+                            </td>
+                          ))}
+                        </tr>
+                      ))
+                    ) : rows.length === 0 ? (
+                      <tr>
+                        <td colSpan={7} className="px-6 py-12 text-center text-sm text-gray-500">
+                          No compliance firm assignments found.
+                        </td>
+                      </tr>
+                    ) : (
+                      rows.map((row) => (
+                        <tr key={row.id} className="hover:bg-gray-50">
+                          <td className="px-6 py-4">
+                            <p className="text-sm font-medium text-gray-900 m-0">
+                              {row.firm_name || row.firm_id}
+                            </p>
+                            <p className="text-xs text-gray-500 m-0 mt-0.5">
+                              {row.service_name || row.service_id}
+                            </p>
+                          </td>
+                          <td className="px-6 py-4">
+                            <p className="text-sm text-gray-800 m-0">
+                              {row.client?.name || row.username || '—'}
+                            </p>
+                            <p className="text-xs text-gray-500 m-0 mt-0.5">
+                              {row.client?.mobile || row.client?.email || '—'}
+                            </p>
+                          </td>
+                          <td className="px-6 py-4 text-sm text-gray-700 whitespace-nowrap">
+                            <div>{formatMoney(row.fees)}</div>
+                            <div className="text-xs text-gray-500">
+                              Tax {row.tax_rate}% ({formatMoney(row.tax_value)})
                             </div>
-
-                            <form onSubmit={handleAssignSubmit} className="flex-1 min-h-0 flex flex-col overflow-hidden">
-                                <div
-                                    className="px-5 py-4 flex-1 min-h-0 overflow-y-auto overscroll-y-contain [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden space-y-4"
-                                    style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
-                                >
-                                    {/* Target Type Selector */}
-                                    <div className="space-y-1">
-                                        <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Assign To *</label>
-                                        <div className="flex gap-2">
-                                            {['single', 'multiple', 'group'].map((t) => (
-                                                <button
-                                                    key={t}
-                                                    type="button"
-                                                    onClick={() => setAssignForm(prev => ({ ...prev, targetType: t }))}
-                                                    className={`flex-1 py-2 text-xs font-semibold rounded-xl border transition-colors ${assignForm.targetType === t
-                                                        ? 'bg-indigo-50 border-indigo-300 text-indigo-705'
-                                                        : 'border-slate-200 text-slate-500 hover:bg-slate-50'
-                                                        }`}
-                                                >
-                                                    {t === 'single' ? 'Single Firm' : t === 'multiple' ? 'Multiple Firms' : 'Firm Groups'}
-                                                </button>
-                                            ))}
-                                        </div>
-                                    </div>
-
-                                    {/* Target selection */}
-                                    {assignForm.targetType === 'single' && (
-                                        <div className="space-y-1 relative">
-                                            <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Client Firm *</label>
-                                            {selectedFirm ? (
-                                                <div className="flex items-center justify-between border border-slate-200 rounded-xl p-3 bg-slate-50">
-                                                    <div>
-                                                        <p className="text-xs font-bold text-slate-800">{selectedFirm.name}</p>
-                                                        <p className="text-[10px] text-slate-400">Client: {selectedFirm.client_name} · PAN: {selectedFirm.pan_no}</p>
-                                                    </div>
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => {
-                                                            setSelectedFirm(null);
-                                                            setAssignForm(prev => ({ ...prev, firm_id: '' }));
-                                                        }}
-                                                        className="text-slate-400 hover:text-slate-650 p-1 rounded-md"
-                                                    >
-                                                        <FiX className="w-4 h-4" />
-                                                    </button>
-                                                </div>
-                                            ) : (
-                                                <div className="relative">
-                                                    <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4 pointer-events-none" />
-                                                    <input
-                                                        type="text"
-                                                        value={firmSearchQuery}
-                                                        onChange={(e) => {
-                                                            setFirmSearchQuery(e.target.value);
-                                                            setShowFirmDropdown(true);
-                                                        }}
-                                                        onFocus={() => setShowFirmDropdown(true)}
-                                                        placeholder="Search client firm…"
-                                                        className="w-full pl-9 pr-3 py-2.5 text-xs text-slate-700 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none bg-white"
-                                                    />
-                                                    {showFirmDropdown && (
-                                                        <div className="absolute z-50 left-0 right-0 top-full mt-1 bg-white border border-slate-200 rounded-xl shadow-lg max-h-56 overflow-y-auto">
-                                                            {firmSearchLoading ? (
-                                                                <div className="px-4 py-3 text-xs text-slate-400">Loading firms…</div>
-                                                            ) : firmSearchResults.length === 0 ? (
-                                                                <div className="px-4 py-3 text-xs text-slate-400">No firms found</div>
-                                                            ) : (
-                                                                firmSearchResults.map((f) => (
-                                                                    <button
-                                                                        key={f.id}
-                                                                        type="button"
-                                                                        onClick={() => {
-                                                                            setSelectedFirm(f);
-                                                                            setAssignForm(prev => ({ ...prev, firm_id: f.id }));
-                                                                            setFirmSearchQuery('');
-                                                                            setFirmSearchResults([]);
-                                                                            setShowFirmDropdown(false);
-                                                                        }}
-                                                                        className="w-full text-left px-4 py-2.5 hover:bg-slate-50 border-b border-slate-100 last:border-0 text-xs flex flex-col"
-                                                                    >
-                                                                        <span className="font-semibold text-slate-800">{f.name}</span>
-                                                                        <span className="text-[10px] text-slate-400 mt-0.5">Client: {f.client_name} · PAN: {f.pan_no}</span>
-                                                                    </button>
-                                                                ))
-                                                            )}
-                                                        </div>
-                                                    )}
-                                                </div>
-                                            )}
-                                        </div>
-                                    )}
-
-                                    {assignForm.targetType === 'multiple' && (
-                                        <div className="space-y-1 relative">
-                                            <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Client Firms *</label>
-                                            {assignForm.firms?.length > 0 && (
-                                                <div className="flex flex-wrap gap-2 mb-2 p-2 border border-slate-200 rounded-xl bg-slate-50">
-                                                    {assignForm.firms.map(firmId => {
-                                                        const firmInfo = selectedFirmsData.find(f => f.id === firmId);
-                                                        return (
-                                                            <span key={firmId} className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-white border border-slate-200 rounded-lg text-xs font-medium text-slate-705 shadow-xs">
-                                                                <span>{firmInfo?.name || firmId}</span>
-                                                                <button
-                                                                    type="button"
-                                                                    onClick={() => {
-                                                                        setAssignForm(prev => ({
-                                                                            ...prev,
-                                                                            firms: prev.firms.filter(x => x !== firmId)
-                                                                        }));
-                                                                    }}
-                                                                    className="text-slate-400 hover:text-slate-655"
-                                                                >
-                                                                    <FiX className="w-3.5 h-3.5" />
-                                                                </button>
-                                                            </span>
-                                                        );
-                                                    })}
-                                                </div>
-                                            )}
-                                            <div className="relative">
-                                                <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4 pointer-events-none" />
-                                                <input
-                                                    type="text"
-                                                    value={firmSearchQuery}
-                                                    onChange={(e) => {
-                                                        setFirmSearchQuery(e.target.value);
-                                                        setShowFirmDropdown(true);
-                                                    }}
-                                                    onFocus={() => setShowFirmDropdown(true)}
-                                                    placeholder="Search and add client firms…"
-                                                    className="w-full pl-9 pr-3 py-2.5 text-xs text-slate-700 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none bg-white"
-                                                />
-                                                {showFirmDropdown && (
-                                                    <div className="absolute z-50 left-0 right-0 top-full mt-1 bg-white border border-slate-200 rounded-xl shadow-lg max-h-56 overflow-y-auto">
-                                                        {firmSearchLoading ? (
-                                                            <div className="px-4 py-3 text-xs text-slate-400">Loading firms…</div>
-                                                        ) : firmSearchResults.filter((f) => !assignForm.firms?.includes(f.id)).length === 0 ? (
-                                                            <div className="px-4 py-3 text-xs text-slate-400">No firms found</div>
-                                                        ) : (
-                                                            firmSearchResults
-                                                                .filter((f) => !assignForm.firms?.includes(f.id))
-                                                                .map((f) => (
-                                                                    <button
-                                                                        key={f.id}
-                                                                        type="button"
-                                                                        onClick={() => {
-                                                                            setSelectedFirmsData((prev) => {
-                                                                                if (!prev.find((x) => x.id === f.id)) {
-                                                                                    return [...prev, f];
-                                                                                }
-                                                                                return prev;
-                                                                            });
-                                                                            setAssignForm((prev) => ({
-                                                                                ...prev,
-                                                                                firms: [...(prev.firms || []), f.id],
-                                                                            }));
-                                                                            setFirmSearchQuery('');
-                                                                            setFirmSearchResults([]);
-                                                                            setShowFirmDropdown(false);
-                                                                        }}
-                                                                        className="w-full text-left px-4 py-2.5 hover:bg-slate-50 border-b border-slate-100 last:border-0 text-xs flex flex-col"
-                                                                    >
-                                                                        <span className="font-semibold text-slate-800">{f.name}</span>
-                                                                        <span className="text-[10px] text-slate-400 mt-0.5">Client: {f.client_name} · PAN: {f.pan_no}</span>
-                                                                    </button>
-                                                                ))
-                                                        )}
-                                                    </div>
-                                                )}
-                                            </div>
-                                        </div>
-                                    )}
-
-                                    {assignForm.targetType === 'group' && (
-                                        <div className="space-y-2">
-                                            <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Select Firm Groups *</label>
-                                            {groupsLoading ? (
-                                                <div className="text-xs text-slate-400 p-2">Loading groups…</div>
-                                            ) : groupsList.length === 0 ? (
-                                                <div className="text-xs text-slate-500 p-2 border border-slate-200 rounded-xl bg-slate-50">No groups defined.</div>
-                                            ) : (
-                                                <div className="max-h-40 overflow-y-auto border border-slate-200 rounded-xl p-3 space-y-2 bg-white">
-                                                    {groupsList.map(g => (
-                                                        <label key={g.group_id} className="flex items-center gap-2 text-xs text-slate-700 cursor-pointer">
-                                                            <input
-                                                                type="checkbox"
-                                                                checked={assignForm.groups?.includes(g.group_id)}
-                                                                onChange={(e) => {
-                                                                    setAssignForm(prev => {
-                                                                        const current = prev.groups || [];
-                                                                        const updated = e.target.checked
-                                                                            ? [...current, g.group_id]
-                                                                            : current.filter(x => x !== g.group_id);
-                                                                        return { ...prev, groups: updated };
-                                                                    });
-                                                                }}
-                                                                className="rounded border-slate-350 text-indigo-650 focus:ring-indigo-500 h-4 w-4"
-                                                            />
-                                                            {g.name} ({g.firm_count || g.count || 0} firms)
-                                                        </label>
-                                                    ))}
-                                                </div>
-                                            )}
-                                        </div>
-                                    )}
-
-                                    {/* Compliance Service Select */}
-                                    <div className="space-y-1">
-                                        <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Recurring Task *</label>
-                                        <select
-                                            value={assignForm.service_id}
-                                            onChange={(e) => {
-                                                const svcId = e.target.value;
-                                                const matched = services.find(s => s.service_id === svcId);
-                                                setAssignForm(prev => ({
-                                                    ...prev,
-                                                    service_id: svcId,
-                                                    custom_amount: matched ? String(matched.default_amount) : '',
-                                                    custom_fields: {}
-                                                }));
-                                            }}
-                                            className="w-full px-3 py-2.5 text-xs text-slate-700 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none bg-white"
-                                        >
-                                            <option value="">Select recurring task template…</option>
-                                            {services.map(s => (
-                                                <option key={s.id} value={s.service_id}>
-                                                    {s.name} ({s.frequency}) {check('recurring_task_fees_view') ? `(₹${formatCurrency(s.default_amount)})` : '(₹••••)'}
-                                                </option>
-                                            ))}
-                                        </select>
-                                        {assignForm.service_id && (() => {
-                                            const matched = services.find(s => s.service_id === assignForm.service_id);
-                                            if (!matched) return null;
-                                            return (
-                                                <div className="text-[11px] text-indigo-650 font-semibold mt-1">
-                                                    Frequency: <span className="uppercase">{matched.frequency}</span>
-                                                </div>
-                                            );
-                                        })()}
-                                    </div>
-
-                                    {/* pay_from_month (for monthly frequency only) */}
-                                    {(() => {
-                                        const selectedService = services.find(s => s.service_id === assignForm.service_id);
-                                        const isGstr1 = assignForm.service_id === 'GSTR-1' || (selectedService?.name && /gstr-1/i.test(selectedService.name));
-                                        const effectiveFreq = isGstr1 ? 'monthly' : selectedService?.frequency?.toLowerCase();
-                                        return effectiveFreq === 'monthly' && (
-                                            <div className="space-y-1">
-                                                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Start Generating From Month (Optional)</label>
-                                                <select
-                                                    value={assignForm.pay_from_month}
-                                                    onChange={(e) => setAssignForm(prev => ({ ...prev, pay_from_month: e.target.value }))}
-                                                    className="w-full px-3 py-2.5 text-xs text-slate-700 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none bg-white"
-                                                >
-                                                    <option value="">Default (April)</option>
-                                                    {['April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December', 'January', 'February', 'March'].map(m => (
-                                                        <option key={m} value={m}>{m}</option>
-                                                    ))}
-                                                </select>
-                                            </div>
-                                        );
-                                    })()}
-
-                                    {/* quarters (for quarterly frequency only) */}
-                                    {(() => {
-                                        const selectedService = services.find(s => s.service_id === assignForm.service_id);
-                                        const isGstr1 = assignForm.service_id === 'GSTR-1' || (selectedService?.name && /gstr-1/i.test(selectedService.name));
-                                        const effectiveFreq = isGstr1 ? 'monthly' : selectedService?.frequency?.toLowerCase();
-                                        return effectiveFreq === 'quarterly' && (
-                                            <div className="space-y-2">
-                                                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Select Quarters (Optional)</label>
-                                                <div className="flex gap-4">
-                                                    {[1, 2, 3, 4].map(q => {
-                                                        const checked = assignForm.quarters?.includes(q);
-                                                        return (
-                                                            <label key={q} className="flex items-center gap-1.5 text-xs text-slate-700 cursor-pointer">
-                                                                <input
-                                                                    type="checkbox"
-                                                                    checked={checked}
-                                                                    onChange={(e) => {
-                                                                        setAssignForm(prev => {
-                                                                            const current = prev.quarters || [];
-                                                                            const updated = e.target.checked
-                                                                                ? Array.from(new Set([...current, ...[1, 2, 3, 4].filter(x => x >= q)]))
-                                                                                : current.filter(x => x !== q);
-                                                                            return { ...prev, quarters: updated };
-                                                                        });
-                                                                    }}
-                                                                    className="rounded border-slate-350 text-indigo-600 focus:ring-indigo-500 h-4 w-4"
-                                                                />
-                                                                Q{q}
-                                                            </label>
-                                                        );
-                                                    })}
-                                                </div>
-                                                <p className="text-[10px] text-slate-400">Leave unselected to generate all quarters.</p>
-                                            </div>
-                                        );
-                                    })()}
-
-                                    {/* Financial Year */}
-                                    <div className="space-y-1">
-                                        <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Financial Year *</label>
-                                        <select
-                                            value={assignForm.financial_year}
-                                            onChange={(e) => setAssignForm(prev => ({ ...prev, financial_year: e.target.value }))}
-                                            className="w-full px-3 py-2.5 text-xs text-slate-700 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none bg-white"
-                                        >
-                                            <option value="2020-2021">2020-2021</option>
-                                            <option value="2021-2022">2021-2022</option>
-                                            <option value="2022-2023">2022-2023</option>
-                                            <option value="2023-2024">2023-2024</option>
-                                            <option value="2024-2025">2024-2025</option>
-                                            <option value="2025-2026">2025-2026</option>
-                                            <option value="2026-2027">2026-2027</option>
-                                            <option value="2027-2028">2027-2028</option>
-                                            <option value="2028-2029">2028-2029</option>
-                                            <option value="2029-2030">2029-2030</option>
-                                            <option value="2030-2031">2030-2031</option>
-                                        </select>
-                                    </div>
-
-                                    {/* Custom Amount */}
-                                    {check('recurring_task_fees_view') ? (
-                                        <div className="space-y-1">
-                                            <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Custom Fees Amount (₹) *</label>
-                                            <input
-                                                type="number"
-                                                step="0.01"
-                                                placeholder="0.00"
-                                                value={assignForm.custom_amount}
-                                                onChange={(e) => setAssignForm(prev => ({ ...prev, custom_amount: e.target.value }))}
-                                                className="w-full px-3 py-2.5 text-xs text-slate-700 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none bg-white"
-                                            />
-                                        </div>
-                                    ) : (
-                                        <input type="hidden" value="0" />
-                                    )}
-
-                                    {/* Dynamic Required Credentials Inputs */}
-                                    {(() => {
-                                        const selectedService = services.find(s => s.service_id === assignForm.service_id);
-                                        const requiredFields = getRequiredFieldsForService(selectedService);
-                                        if (requiredFields.length === 0) return null;
-                                        return (
-                                            <div className="space-y-4 border border-indigo-100 rounded-2xl p-4 bg-indigo-50/30">
-                                                <span className="block text-xs font-bold text-indigo-750 uppercase tracking-wider mb-2">Filing Credentials</span>
-                                                {requiredFields.map(field => {
-                                                    const onChange = (e) => setAssignForm(prev => ({
-                                                        ...prev,
-                                                        custom_fields: {
-                                                            ...prev.custom_fields,
-                                                            [field.key]: e.target.value
-                                                        }
-                                                    }));
-                                                    return field.type === 'password' ? (
-                                                        <PasswordField
-                                                            key={field.key}
-                                                            label={field.label}
-                                                            value={assignForm.custom_fields?.[field.key] || ''}
-                                                            onChange={onChange}
-                                                            required
-                                                        />
-                                                    ) : (
-                                                        <div key={field.key} className="space-y-1">
-                                                            <label className="block text-xs font-bold text-slate-500">{field.label} *</label>
-                                                            <input
-                                                                type="text"
-                                                                value={assignForm.custom_fields?.[field.key] || ''}
-                                                                onChange={onChange}
-                                                                className="w-full px-3 py-2.5 text-xs text-slate-705 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none bg-white font-medium"
-                                                                required
-                                                            />
-                                                        </div>
-                                                    );
-                                                })}
-                                            </div>
-                                        );
-                                    })()}
-
-                                    {/* Assigned Staff Selector */}
-                                    <div className="space-y-2">
-                                        <div className="flex justify-between items-center">
-                                            <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Assigned Staff *</label>
-                                            {assignForm.employee_usernames?.length > 0 && (
-                                                <span className="text-[10px] font-semibold text-indigo-650 bg-indigo-50 px-2 py-0.5 rounded-full">
-                                                    {assignForm.employee_usernames.length} selected
-                                                </span>
-                                            )}
-                                        </div>
-                                        <div className="border border-slate-200 rounded-xl bg-white overflow-hidden shadow-sm">
-                                            {/* Filter input */}
-                                            <div className="relative border-b border-slate-100 px-3 py-2 bg-slate-50">
-                                                <FiSearch className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 w-3.5 h-3.5 pointer-events-none" />
-                                                <input
-                                                    type="text"
-                                                    placeholder="Filter staff list..."
-                                                    value={staffSearchQuery}
-                                                    onChange={(e) => setStaffSearchQuery(e.target.value)}
-                                                    className="w-full pl-6 pr-2 py-1 text-xs text-slate-700 bg-transparent outline-none placeholder-slate-400 focus:ring-0"
-                                                />
-                                            </div>
-
-                                            {(() => {
-                                                const query = staffSearchQuery.trim().toLowerCase();
-                                                const filtered = query
-                                                    ? staffList.filter(s =>
-                                                        (s.name || '').toLowerCase().includes(query) ||
-                                                        (s.username || '').toLowerCase().includes(query)
-                                                    )
-                                                    : staffList;
-
-                                                if (filtered.length === 0) {
-                                                    return <div className="text-xs text-slate-400 p-3">No staff members found.</div>;
-                                                }
-
-                                                const filteredUsernames = filtered.map(s => s.username);
-                                                const currentSelected = assignForm.employee_usernames || [];
-                                                const allFilteredAreSelected = filteredUsernames.length > 0 && filteredUsernames.every(u => currentSelected.includes(u));
-
-                                                const handleSelectAllToggle = () => {
-                                                    if (allFilteredAreSelected) {
-                                                        setAssignForm(prev => ({
-                                                            ...prev,
-                                                            employee_usernames: (prev.employee_usernames || []).filter(u => !filteredUsernames.includes(u))
-                                                        }));
-                                                    } else {
-                                                        setAssignForm(prev => {
-                                                            const current = prev.employee_usernames || [];
-                                                            const newSelection = [...current];
-                                                            filteredUsernames.forEach(u => {
-                                                                if (!newSelection.includes(u)) {
-                                                                    newSelection.push(u);
-                                                                }
-                                                            });
-                                                            return { ...prev, employee_usernames: newSelection };
-                                                        });
-                                                    }
-                                                };
-
-                                                return (
-                                                    <>
-                                                        {/* Select All & Count indicators */}
-                                                        <div className="flex items-center justify-between border-b border-slate-100 px-3 py-1.5 bg-slate-50/40 text-[10px] select-none shrink-0">
-                                                            <button
-                                                                type="button"
-                                                                onClick={handleSelectAllToggle}
-                                                                className="text-indigo-650 hover:text-indigo-800 font-bold transition-colors flex items-center gap-1 cursor-pointer"
-                                                            >
-                                                                {allFilteredAreSelected ? 'Deselect All' : 'Select All'}
-                                                            </button>
-                                                            <span className="text-slate-400 font-semibold">
-                                                                Showing {filtered.length} of {staffList.length} staff
-                                                            </span>
-                                                        </div>
-                                                        <div className="max-h-36 overflow-y-auto p-3 space-y-2.5">
-                                                            {filtered.map(s => {
-                                                                const checked = assignForm.employee_usernames?.includes(s.username);
-                                                                return (
-                                                                    <label key={s.username} className="flex items-center gap-2.5 text-xs text-slate-700 cursor-pointer hover:text-slate-900 group transition-colors select-none">
-                                                                        <input
-                                                                            type="checkbox"
-                                                                            checked={checked}
-                                                                            onChange={(e) => {
-                                                                                setAssignForm(prev => {
-                                                                                    const current = prev.employee_usernames || [];
-                                                                                    const updated = e.target.checked
-                                                                                        ? [...current, s.username]
-                                                                                        : current.filter(x => x !== s.username);
-                                                                                    return { ...prev, employee_usernames: updated };
-                                                                                });
-                                                                            }}
-                                                                            className="rounded border-slate-300 text-indigo-650 focus:ring-indigo-500 h-4 w-4 transition-all cursor-pointer"
-                                                                        />
-                                                                        <span className="font-semibold text-slate-800 group-hover:translate-x-0.5 transition-transform">{s.name}</span>
-                                                                        <span className="text-[10px] text-slate-400 font-mono">({s.username})</span>
-                                                                    </label>
-                                                                );
-                                                            })}
-                                                        </div>
-                                                    </>
-                                                );
-                                            })()}
-                                        </div>
-                                    </div>
-
-                                    {/* Assigned CA */}
-                                    <div className="space-y-1 relative">
-                                        <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Assigned CA (Optional)</label>
-                                        {selectedCa ? (
-                                            <div className="flex items-center justify-between border border-slate-200 rounded-xl p-3 bg-slate-50">
-                                                <div>
-                                                    <p className="text-xs font-bold text-slate-800">{selectedCa.name}</p>
-                                                    <p className="text-[10px] text-slate-400">Username: {selectedCa.username} · PAN: {selectedCa.pan_no || '—'}</p>
-                                                </div>
-                                                <button
-                                                    type="button"
-                                                    onClick={() => {
-                                                        setSelectedCa(null);
-                                                        setAssignForm(prev => ({ ...prev, ca_id: '' }));
-                                                    }}
-                                                    className="text-slate-400 hover:text-slate-600 p-1 rounded-md"
-                                                >
-                                                    <FiX className="w-4 h-4" />
-                                                </button>
-                                            </div>
-                                        ) : (
-                                            <div className="relative">
-                                                <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4 pointer-events-none" />
-                                                <input
-                                                    type="text"
-                                                    value={caSearchQuery}
-                                                    onChange={(e) => {
-                                                        setCaSearchQuery(e.target.value);
-                                                        setShowCaDropdown(true);
-                                                    }}
-                                                    onFocus={() => setShowCaDropdown(true)}
-                                                    placeholder="Search CA (min 3 chars)…"
-                                                    className="w-full pl-9 pr-3 py-2.5 text-xs text-slate-700 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none bg-white"
-                                                />
-                                                {showCaDropdown && caSearchResults.length > 0 && (
-                                                    <div className="absolute z-50 left-0 right-0 top-full mt-1 bg-white border border-slate-200 rounded-xl shadow-lg max-h-56 overflow-y-auto">
-                                                        {caSearchResults.map(c => (
-                                                            <button
-                                                                key={c.username}
-                                                                type="button"
-                                                                onClick={() => {
-                                                                    setSelectedCa(c);
-                                                                    setAssignForm(prev => ({ ...prev, ca_id: c.username }));
-                                                                    setCaSearchQuery('');
-                                                                    setCaSearchResults([]);
-                                                                    setShowCaDropdown(false);
-                                                                }}
-                                                                className="w-full text-left px-4 py-2.5 hover:bg-slate-50 border-b border-slate-100 last:border-0 text-xs flex flex-col"
-                                                            >
-                                                                <span className="font-semibold text-slate-800">{c.name}</span>
-                                                                <span className="text-[10px] text-slate-400 mt-0.5">Username: {c.username}</span>
-                                                            </button>
-                                                        ))}
-                                                    </div>
-                                                )}
-                                            </div>
-                                        )}
-                                    </div>
-                                </div>
-                                <div className="px-5 py-3 bg-slate-50 border-t border-slate-100 flex gap-2 shrink-0">
-                                    <button
-                                        type="button"
-                                        onClick={() => setShowAssignModal(false)}
-                                        className="flex-1 py-2.5 text-xs font-semibold text-slate-605 border border-slate-200 rounded-xl hover:bg-slate-50 transition-colors"
-                                    >
-                                        Cancel
-                                    </button>
-                                    <button
-                                        type="submit"
-                                        disabled={
-                                            submittingAssign ||
-                                            !assignForm.service_id ||
-                                            !assignForm.custom_amount ||
-                                            (!assignForm.employee_usernames || assignForm.employee_usernames.length === 0) ||
-                                            (assignForm.targetType === 'single' && !assignForm.firm_id) ||
-                                            (assignForm.targetType === 'multiple' && (!assignForm.firms || assignForm.firms.length === 0)) ||
-                                            (assignForm.targetType === 'group' && (!assignForm.groups || assignForm.groups.length === 0))
-                                        }
-                                        className="flex-1 py-2.5 text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl disabled:opacity-50 transition-colors flex items-center justify-center gap-1.5"
-                                    >
-                                        {submittingAssign && <span className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin"></span>}
-                                        Confirm Assignment
-                                    </button>
-                                </div>
-                            </form>
-                        </motion.div>
-                    </div>
-                )}
-            </AnimatePresence>
-
-            {/* Modal: Update Schedule Period Status */}
-            <AnimatePresence>
-                {showStatusModal && selectedPeriod && (() => {
-                    const currentUsername = (localStorage.getItem('user_username') || '').toLowerCase().trim();
-                    const assignedStaffs = getAssignedStaffList(selectedPeriodAssign || selectedPeriod);
-                    const assignedStaffUsernames = assignedStaffs.map(emp => (emp.username || '').toLowerCase().trim());
-                    const isUpdatePermitted = isAdmin || isBranchOwner || !currentUsername || assignedStaffUsernames.length === 0 || assignedStaffUsernames.includes(currentUsername);
-
-                    return (
-                        <div className="fixed inset-0 z-[200] flex items-start justify-center overflow-hidden overscroll-none p-3 sm:p-4 pointer-events-none">
-                            <div
-                                className="absolute inset-0 bg-black/60 backdrop-blur-xs pointer-events-auto"
-                                onClick={() => setShowStatusModal(false)}
-                            />
-                            <motion.div
-                                initial={{ opacity: 0, scale: 0.97, y: 20 }}
-                                animate={{ opacity: 1, scale: 1, y: 0 }}
-                                exit={{ opacity: 0, scale: 0.97, y: 20 }}
-                                className="relative z-[1] pointer-events-auto bg-white rounded-2xl shadow-xl w-full max-w-sm my-2 sm:my-4 max-h-[calc(100vh-1.5rem)] sm:max-h-[calc(100vh-2rem)] overflow-hidden flex flex-col"
-                                onClick={(e) => e.stopPropagation()}
-                            >
-                                <div className="flex items-center justify-between px-5 py-3.5 bg-gradient-to-r from-indigo-600 to-violet-600 text-white shrink-0">
-                                    <div className="flex items-center gap-2">
-                                        <FiCalendar className="w-5 h-5" />
-                                        <h3 className="text-sm font-bold">Update Period Status</h3>
-                                    </div>
-                                    <button
-                                        onClick={() => setShowStatusModal(false)}
-                                        className="p-1 hover:bg-white/10 rounded-lg text-white/80 hover:text-white"
-                                    >
-                                        <FiX className="w-5 h-5" />
-                                    </button>
-                                </div>
-
-                                <div className="bg-indigo-50 border-b border-indigo-100 p-4 shrink-0">
-                                    <div className="flex justify-between items-start">
-                                        <div>
-                                            <p className="text-[10px] uppercase tracking-wider text-indigo-500 font-bold">Current Period</p>
-                                            <h4 className="text-xs font-bold text-slate-800 mt-0.5">{selectedPeriod.period_name}</h4>
-                                        </div>
-                                        <span className={`px-2 py-0.5 rounded text-[9px] font-bold border uppercase tracking-wider ${STATUS_BADGES[selectedPeriod.status] || 'bg-slate-50'}`}>
-                                            {selectedPeriod.status}
-                                        </span>
-                                    </div>
-                                    <div className="flex flex-col gap-1.5 mt-3 bg-white/70 border border-indigo-100/50 rounded-xl p-3 text-slate-700 text-[11px] font-medium leading-relaxed">
-                                        {assignedStaffs.length > 0 && (
-                                            <p className="flex flex-wrap items-center gap-1">
-                                                <strong>Assigned Staff:</strong>
-                                                {assignedStaffs.map((emp, idx) => (
-                                                    <span key={emp.username || idx} className="inline-flex items-center gap-0.5">
-                                                        <span
-                                                            onClick={() => setSelectedStaffDetails(emp)}
-                                                            className="text-indigo-600 hover:underline cursor-pointer font-bold"
-                                                        >
-                                                            {emp.name}
-                                                        </span>
-                                                        {emp.mobile ? <span className="text-slate-400">({emp.mobile})</span> : ''}
-                                                        {idx < assignedStaffs.length - 1 ? <span className="text-slate-300">,</span> : ''}
-                                                    </span>
-                                                ))}
-                                            </p>
-                                        )}
-                                        {selectedPeriod.ca && (
-                                            <p><strong>Assigned CA:</strong> {selectedPeriod.ca.name || selectedPeriod.ca.username}</p>
-                                        )}
-                                        {selectedPeriod.completed_by_user && (
-                                            <p><strong>Completed By:</strong> {selectedPeriod.completed_by_user.name} on {new Date(selectedPeriod.completed_at).toLocaleDateString('en-IN', { hour: '2-digit', minute: '2-digit' })}</p>
-                                        )}
-                                    </div>
-                                </div>
-
-                                <form onSubmit={handleStatusSubmit} className="flex-1 min-h-0 flex flex-col overflow-hidden">
-                                    <div
-                                        className="px-5 py-4 flex-1 min-h-0 overflow-y-auto overscroll-y-contain [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden space-y-4"
-                                        style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
-                                    >
-                                        {!isUpdatePermitted && (
-                                            <div className="flex gap-2.5 bg-rose-50 border border-rose-150 rounded-xl p-3 text-rose-800 animate-pulse">
-                                                <FiAlertCircle className="w-4 h-4 shrink-0 mt-0.5 text-rose-600" />
-                                                <p className="text-[10px] leading-relaxed font-semibold">
-                                                    Restricted: Only the assigned staff member ({assignedStaffs.map(emp => emp.name || emp.username).join(', ')}) can update the payment/status of this period.
-                                                </p>
-                                            </div>
-                                        )}
-
-                                        {/* Select Status */}
-                                        <div className="space-y-1.5">
-                                            <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Select Status *</label>
-                                            <select
-                                                value={statusForm.status}
-                                                disabled={!isUpdatePermitted}
-                                                onChange={(e) => setStatusForm(prev => ({ ...prev, status: e.target.value }))}
-                                                className="w-full px-3 py-2.5 text-xs text-slate-750 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none bg-white disabled:opacity-60 disabled:cursor-not-allowed font-semibold"
-                                            >
-                                                <option value="Pending From The Department">Pending (Dept)</option>
-                                                <option value="Pending From Client">Pending (Client)</option>
-                                                <option value="Complete">Complete</option>
-                                                <option value="Cancel">Cancel</option>
-                                                <option value="N/A">N/A</option>
-                                            </select>
-                                        </div>
-
-                                        {/* Amount Field */}
-                                        {check('recurring_task_fees_view') && (
-                                            <div className="space-y-1">
-                                                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Fees Amount (₹) *</label>
-                                                <input
-                                                    type="number"
-                                                    step="0.01"
-                                                    value={statusForm.amount}
-                                                    disabled={!isUpdatePermitted}
-                                                    onChange={(e) => setStatusForm(prev => ({ ...prev, amount: e.target.value }))}
-                                                    placeholder="0.00"
-                                                    className="w-full px-3 py-2.5 text-xs text-slate-705 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none bg-white disabled:opacity-60 disabled:cursor-not-allowed"
-                                                />
-                                            </div>
-                                        )}
-
-                                        {/* Ledger notice info */}
-                                        {statusForm.status === 'Complete' && (
-                                            <div className="flex gap-2.5 bg-emerald-50 border border-emerald-150 rounded-xl p-3 text-emerald-800">
-                                                <FiCheckCircle className="w-4.5 h-4.5 shrink-0 mt-0.5 text-emerald-600" />
-                                                <p className="text-[10.5px] leading-relaxed font-medium">
-                                                    Marking as <strong>Complete</strong> will automatically generate a sales invoice and post it to this client firm's ledger. This action <strong>locks</strong> the record.
-                                                </p>
-                                            </div>
-                                        )}
-                                        {(selectedPeriod.status === 'Complete' || selectedPeriod.status === 'Sale') && statusForm.status !== 'Complete' && statusForm.status !== 'Sale' && (
-                                            <div className="flex gap-2.5 bg-amber-50 border border-amber-150 rounded-xl p-3 text-amber-800">
-                                                <FiAlertCircle className="w-4.5 h-4.5 shrink-0 mt-0.5 text-amber-655" />
-                                                <p className="text-[10.5px] leading-relaxed font-medium">
-                                                    Changing status away from <strong>Complete</strong> will automatically delete and reverse the posted ledger entry for this period.
-                                                </p>
-                                            </div>
-                                        )}
-                                    </div>
-
-                                    <div className="px-5 py-3 bg-slate-50 border-t border-slate-100 flex gap-2 shrink-0">
-                                        <button
-                                            type="button"
-                                            onClick={() => setShowStatusModal(false)}
-                                            className="flex-1 py-2 text-xs font-semibold text-slate-605 border border-slate-250 rounded-xl hover:bg-slate-50 transition-colors"
-                                        >
-                                            Cancel
-                                        </button>
-                                        <button
-                                            type="submit"
-                                            disabled={submittingStatus || (!check('recurring_task_fees_view') ? false : !statusForm.amount) || !isUpdatePermitted}
-                                            className="flex-1 py-2 text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl disabled:opacity-50 transition-colors flex items-center justify-center gap-1.5"
-                                        >
-                                            {submittingStatus && <span className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin"></span>}
-                                            Update Period
-                                        </button>
-                                    </div>
-                                </form>
-                            </motion.div>
-                        </div>
-                    );
-                })()}
-            </AnimatePresence>
-
-            {/* Modal: Staff Details Popup */}
-            <AnimatePresence>
-                {selectedStaffDetails && (
-                    <div className="fixed inset-0 z-[210] flex items-center justify-center overflow-hidden overscroll-none p-3 sm:p-4 pointer-events-none">
-                        <div
-                            className="absolute inset-0 bg-black/60 backdrop-blur-xs pointer-events-auto"
-                            onClick={() => setSelectedStaffDetails(null)}
-                        />
-                        <motion.div
-                            initial={{ opacity: 0, scale: 0.95 }}
-                            animate={{ opacity: 1, scale: 1 }}
-                            exit={{ opacity: 0, scale: 0.95 }}
-                            className="relative z-[1] pointer-events-auto bg-white rounded-2xl shadow-xl w-full max-w-sm overflow-hidden flex flex-col border border-slate-100 max-h-[calc(100vh-1.5rem)] sm:max-h-[calc(100vh-2rem)]"
-                            onClick={(e) => e.stopPropagation()}
-                        >
-                            <div className="flex items-center justify-between px-5 py-3.5 bg-gradient-to-r from-blue-600 to-indigo-600 text-white shrink-0">
-                                <div className="flex items-center gap-2">
-                                    <FiUser className="w-5 h-5" />
-                                    <h3 className="text-sm font-bold">Staff Details</h3>
-                                </div>
-                                <button
-                                    onClick={() => setSelectedStaffDetails(null)}
-                                    className="p-1 hover:bg-white/10 rounded-lg text-white/80 hover:text-white"
-                                >
-                                    <FiX className="w-5 h-5" />
-                                </button>
+                          </td>
+                          <td className="px-6 py-4 text-sm text-gray-700">
+                            Day {row.due_date || '—'}
+                          </td>
+                          <td className="px-6 py-4 text-sm text-gray-700 whitespace-nowrap">
+                            {row.effective_from || '—'}
+                          </td>
+                          <td className="px-6 py-4 text-sm text-gray-700">
+                            <div className="max-w-[180px] truncate">
+                              {normalizeAssignees(row.staffs).join(', ') || '—'}
                             </div>
-                            <div className="p-6 flex flex-col items-center flex-1 min-h-0 overflow-y-auto overscroll-y-contain [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
-                                <div className="w-16 h-16 bg-indigo-100 text-indigo-700 rounded-full flex items-center justify-center text-xl font-bold mb-4 shadow-inner border border-indigo-200 shrink-0">
-                                    {selectedStaffDetails.name ? selectedStaffDetails.name.charAt(0).toUpperCase() : '?'}
-                                </div>
-                                <h4 className="text-sm font-bold text-slate-800 mb-1">{selectedStaffDetails.name || 'N/A'}</h4>
-                                <p className="text-xs text-slate-400 font-mono mb-4">@{selectedStaffDetails.username || 'N/A'}</p>
-
-                                <div className="w-full space-y-3 bg-slate-50 p-4 rounded-xl border border-slate-100 text-xs text-slate-700">
-                                    <div className="flex justify-between items-center py-1 border-b border-slate-200/50">
-                                        <span className="font-semibold text-slate-500 uppercase tracking-wider text-[10px]">Mobile</span>
-                                        <span className="font-bold text-slate-800">{selectedStaffDetails.mobile || selectedStaffDetails.phone || 'N/A'}</span>
-                                    </div>
-                                    <div className="flex justify-between items-center py-1 border-b border-slate-200/50">
-                                        <span className="font-semibold text-slate-500 uppercase tracking-wider text-[10px]">Email</span>
-                                        <span className="font-bold text-slate-850 break-all">{selectedStaffDetails.email || 'N/A'}</span>
-                                    </div>
-                                    <div className="flex justify-between items-center py-1">
-                                        <span className="font-semibold text-slate-500 uppercase tracking-wider text-[10px]">Role</span>
-                                        <span className="font-bold text-indigo-650 uppercase text-[10px] tracking-wide bg-indigo-50 border border-indigo-100 px-1.5 py-0.5 rounded">
-                                            {selectedStaffDetails.role || 'Staff'}
-                                        </span>
-                                    </div>
-                                </div>
+                          </td>
+                          <td className="px-6 py-4">
+                            <div className="flex items-center justify-end gap-2">
+                              <button
+                                type="button"
+                                onClick={() => setFirmModal({ mode: 'edit', firm: row })}
+                                className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg"
+                              >
+                                <FiEdit2 className="w-3.5 h-3.5" />
+                                Edit
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setDeleteTarget(row)}
+                                className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium text-red-700 bg-red-50 hover:bg-red-100 rounded-lg"
+                              >
+                                <FiTrash2 className="w-3.5 h-3.5" />
+                                Delete
+                              </button>
                             </div>
-                            <div className="px-5 py-3.5 bg-slate-50 border-t border-slate-100 flex justify-end shrink-0">
-                                <button
-                                    onClick={() => setSelectedStaffDetails(null)}
-                                    className="px-4 py-2 text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-705 rounded-xl shadow-xs transition-colors"
-                                >
-                                    Close
-                                </button>
-                            </div>
-                        </motion.div>
-                    </div>
-                )}
-            </AnimatePresence>
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              )}
+            </div>
 
-            <AssignedStaffList
-                isOpen={staffListModal.open}
-                onClose={() => setStaffListModal({ open: false, staffs: [], serviceName: '' })}
-                users={staffListModal.staffs}
-                taskName={staffListModal.serviceName}
-            />
-
-            {/* Modal: Edit Assignment */}
-            <AnimatePresence>
-                {showEditModal && editAssignment && (() => {
-                    const svc = services.find(s => String(s.service_id) === String(editAssignment.service_id));
-                    const isGstr1 = editAssignment.service_id === 'GSTR-1' || (svc?.name && /gstr-1/i.test(svc.name));
-                    const editFreq = isGstr1 ? 'monthly' : (svc?.frequency?.toLowerCase() || editAssignment.frequency?.toLowerCase() || '');
-
-                    return (
-                        <div className="fixed inset-0 z-[200] flex items-start justify-center overflow-hidden overscroll-none p-3 sm:p-4 pointer-events-none">
-                            <div
-                                className="absolute inset-0 bg-black/60 backdrop-blur-xs pointer-events-auto"
-                                onClick={() => setShowEditModal(false)}
-                            />
-                            <motion.div
-                                initial={{ opacity: 0, scale: 0.97, y: 20 }}
-                                animate={{ opacity: 1, scale: 1, y: 0 }}
-                                exit={{ opacity: 0, scale: 0.97, y: 20 }}
-                                className="relative z-[1] pointer-events-auto bg-white rounded-2xl shadow-xl w-full max-w-md my-2 sm:my-4 max-h-[calc(100vh-1.5rem)] sm:max-h-[calc(100vh-2rem)] overflow-hidden flex flex-col"
-                                onClick={(e) => e.stopPropagation()}
-                            >
-                                {/* Header */}
-                                <div className="flex items-center justify-between px-5 py-3.5 bg-gradient-to-r from-violet-600 to-indigo-600 text-white shrink-0">
-                                    <div className="flex items-center gap-2">
-                                        <FiEdit2 className="w-5 h-5" />
-                                        <h3 className="text-sm font-bold">Edit Assignment</h3>
-                                    </div>
-                                    <button
-                                        onClick={() => setShowEditModal(false)}
-                                        className="p-1 hover:bg-white/10 rounded-lg text-white/80 hover:text-white"
-                                    >
-                                        <FiX className="w-5 h-5" />
-                                    </button>
-                                </div>
-
-                                {/* Info Banner */}
-                                <div className="bg-violet-50 border-b border-violet-100 px-5 py-3 shrink-0">
-                                    <p className="text-[11px] font-bold text-violet-700">{editAssignment.firm_name}</p>
-                                    <p className="text-[10px] text-violet-500 mt-0.5">{editAssignment.service_name} · {editAssignment.financial_year}</p>
-                                </div>
-
-                                <form onSubmit={handleEditSubmit} className="flex-1 min-h-0 flex flex-col overflow-hidden">
-                                    <div
-                                        className="px-5 py-4 flex-1 min-h-0 overflow-y-auto overscroll-y-contain [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden space-y-4"
-                                        style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
-                                    >
-                                        {/* Custom Amount */}
-                                        {check('recurring_task_fees_view') && (
-                                            <div className="space-y-1">
-                                                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Custom Fees Amount (₹) *</label>
-                                                <input
-                                                    type="number"
-                                                    step="0.01"
-                                                    placeholder="0.00"
-                                                    value={editForm.custom_amount}
-                                                    onChange={(e) => setEditForm(prev => ({ ...prev, custom_amount: e.target.value }))}
-                                                    className="w-full px-3 py-2.5 text-xs text-slate-700 border border-slate-200 rounded-xl focus:ring-2 focus:ring-violet-500 focus:border-transparent outline-none bg-white"
-                                                />
-                                            </div>
-                                        )}
-
-                                        {/* Financial Year */}
-                                        <div className="space-y-1">
-                                            <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Financial Year *</label>
-                                            <select
-                                                value={editForm.financial_year}
-                                                onChange={(e) => setEditForm(prev => ({ ...prev, financial_year: e.target.value }))}
-                                                className="w-full px-3 py-2.5 text-xs text-slate-700 border border-slate-200 rounded-xl focus:ring-2 focus:ring-violet-500 focus:border-transparent outline-none bg-white font-medium"
-                                                required
-                                            >
-                                                <option value="2020-2021">2020-2021</option>
-                                                <option value="2021-2022">2021-2022</option>
-                                                <option value="2022-2023">2022-2023</option>
-                                                <option value="2023-2024">2023-2024</option>
-                                                <option value="2024-2025">2024-2025</option>
-                                                <option value="2025-2026">2025-2026</option>
-                                                <option value="2026-2027">2026-2027</option>
-                                                <option value="2027-2028">2027-2028</option>
-                                                <option value="2028-2029">2028-2029</option>
-                                                <option value="2029-2030">2029-2030</option>
-                                                <option value="2030-2031">2030-2031</option>
-                                            </select>
-                                        </div>
-
-                                        {/* Pay From Month (monthly only) */}
-                                        {editFreq === 'monthly' && (
-                                            <div className="space-y-1">
-                                                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Start Generating From Month (Optional)</label>
-                                                <select
-                                                    value={editForm.pay_from_month}
-                                                    onChange={(e) => setEditForm(prev => ({ ...prev, pay_from_month: e.target.value }))}
-                                                    className="w-full px-3 py-2.5 text-xs text-slate-700 border border-slate-200 rounded-xl focus:ring-2 focus:ring-violet-500 focus:border-transparent outline-none bg-white"
-                                                >
-                                                    <option value="">Default (April)</option>
-                                                    {['April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December', 'January', 'February', 'March'].map(m => (
-                                                        <option key={m} value={m}>{m}</option>
-                                                    ))}
-                                                </select>
-                                            </div>
-                                        )}
-
-                                        {/* Quarters (quarterly only) */}
-                                        {editFreq === 'quarterly' && (
-                                            <div className="space-y-2">
-                                                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Select Quarters (Optional)</label>
-                                                <div className="flex gap-4">
-                                                    {[1, 2, 3, 4].map(q => (
-                                                        <label key={q} className="flex items-center gap-1.5 text-xs text-slate-700 cursor-pointer">
-                                                            <input
-                                                                type="checkbox"
-                                                                checked={editForm.quarters?.includes(q)}
-                                                                onChange={(e) => {
-                                                                    setEditForm(prev => {
-                                                                        const current = prev.quarters || [];
-                                                                        const updated = e.target.checked
-                                                                            ? Array.from(new Set([...current, ...[1, 2, 3, 4].filter(x => x >= q)]))
-                                                                            : current.filter(x => x !== q);
-                                                                        return { ...prev, quarters: updated };
-                                                                    });
-                                                                }}
-                                                                className="rounded border-slate-350 text-violet-600 focus:ring-violet-500 h-4 w-4"
-                                                            />
-                                                            Q{q}
-                                                        </label>
-                                                    ))}
-                                                </div>
-                                                <p className="text-[10px] text-slate-400">Leave unselected to keep all quarters.</p>
-                                            </div>
-                                        )}
-
-                                        {/* Dynamic Required Credentials Inputs */}
-                                        {(() => {
-                                            const selectedService = services.find(s => String(s.service_id) === String(editAssignment.service_id));
-                                            const requiredFields = getRequiredFieldsForService(selectedService);
-                                            if (requiredFields.length === 0) return null;
-                                            return (
-                                                <div className="space-y-4 border border-violet-100 rounded-2xl p-4 bg-violet-50/30">
-                                                    <span className="block text-xs font-bold text-violet-750 uppercase tracking-wider mb-2">Filing Credentials</span>
-                                                    {requiredFields.map(field => {
-                                                        const onChange = (e) => setEditForm(prev => ({
-                                                            ...prev,
-                                                            custom_fields: {
-                                                                ...(prev.custom_fields || {}),
-                                                                [field.key]: e.target.value
-                                                            }
-                                                        }));
-                                                        return field.type === 'password' ? (
-                                                            <PasswordField
-                                                                key={field.key}
-                                                                label={field.label}
-                                                                value={editForm.custom_fields?.[field.key] || ''}
-                                                                onChange={onChange}
-                                                                required
-                                                            />
-                                                        ) : (
-                                                            <div key={field.key} className="space-y-1">
-                                                                <label className="block text-xs font-bold text-slate-500">{field.label} *</label>
-                                                                <input
-                                                                    type="text"
-                                                                    value={editForm.custom_fields?.[field.key] || ''}
-                                                                    onChange={onChange}
-                                                                    className="w-full px-3 py-2.5 text-xs text-slate-700 border border-slate-200 rounded-xl focus:ring-2 focus:ring-violet-500 focus:border-transparent outline-none bg-white font-medium"
-                                                                    required
-                                                                />
-                                                            </div>
-                                                        );
-                                                    })}
-                                                </div>
-                                            );
-                                        })()}
-
-                                        {/* Assigned Staff */}
-                                        <div className="space-y-2">
-                                            <div className="flex justify-between items-center">
-                                                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Assigned Staff *</label>
-                                                {editForm.employee_usernames?.length > 0 && (
-                                                    <span className="text-[10px] font-semibold text-violet-650 bg-violet-50 px-2 py-0.5 rounded-full">
-                                                        {editForm.employee_usernames.length} selected
-                                                    </span>
-                                                )}
-                                            </div>
-                                            <div className="border border-slate-200 rounded-xl bg-white overflow-hidden shadow-sm">
-                                                <div className="relative border-b border-slate-100 px-3 py-2 bg-slate-50">
-                                                    <FiSearch className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 w-3.5 h-3.5 pointer-events-none" />
-                                                    <input
-                                                        type="text"
-                                                        placeholder="Filter staff list..."
-                                                        value={editStaffSearchQuery}
-                                                        onChange={(e) => setEditStaffSearchQuery(e.target.value)}
-                                                        className="w-full pl-6 pr-2 py-1 text-xs text-slate-700 bg-transparent outline-none placeholder-slate-400 focus:ring-0"
-                                                    />
-                                                </div>
-
-                                                {(() => {
-                                                    const query = editStaffSearchQuery.trim().toLowerCase();
-                                                    const filtered = query
-                                                        ? staffList.filter(s =>
-                                                            (s.name || '').toLowerCase().includes(query) ||
-                                                            (s.username || '').toLowerCase().includes(query)
-                                                        )
-                                                        : staffList;
-
-                                                    if (filtered.length === 0) {
-                                                        return <div className="text-xs text-slate-400 p-3">No staff members found.</div>;
-                                                    }
-
-                                                    const filteredUsernames = filtered.map(s => s.username);
-                                                    const currentSelected = editForm.employee_usernames || [];
-                                                    const allFilteredAreSelected = filteredUsernames.length > 0 && filteredUsernames.every(u => currentSelected.includes(u));
-
-                                                    const handleSelectAllToggle = () => {
-                                                        if (allFilteredAreSelected) {
-                                                            setEditForm(prev => ({
-                                                                ...prev,
-                                                                employee_usernames: (prev.employee_usernames || []).filter(u => !filteredUsernames.includes(u))
-                                                            }));
-                                                        } else {
-                                                            setEditForm(prev => {
-                                                                const current = prev.employee_usernames || [];
-                                                                const newSelection = [...current];
-                                                                filteredUsernames.forEach(u => {
-                                                                    if (!newSelection.includes(u)) {
-                                                                        newSelection.push(u);
-                                                                    }
-                                                                });
-                                                                return { ...prev, employee_usernames: newSelection };
-                                                            });
-                                                        }
-                                                    };
-
-                                                    return (
-                                                        <>
-                                                            {/* Select All & Count indicators */}
-                                                            <div className="flex items-center justify-between border-b border-slate-100 px-3 py-1.5 bg-slate-50/40 text-[10px] select-none shrink-0">
-                                                                <button
-                                                                    type="button"
-                                                                    onClick={handleSelectAllToggle}
-                                                                    className="text-violet-600 hover:text-violet-855 font-bold transition-colors flex items-center gap-1 cursor-pointer"
-                                                                >
-                                                                    {allFilteredAreSelected ? 'Deselect All' : 'Select All'}
-                                                                </button>
-                                                                <span className="text-slate-400 font-semibold">
-                                                                    Showing {filtered.length} of {staffList.length} staff
-                                                                </span>
-                                                            </div>
-                                                            <div className="max-h-36 overflow-y-auto p-3 space-y-2.5">
-                                                                {filtered.map(s => {
-                                                                    const checked = editForm.employee_usernames?.includes(s.username);
-                                                                    return (
-                                                                        <label key={s.username} className="flex items-center gap-2.5 text-xs text-slate-700 cursor-pointer hover:text-slate-900 group transition-colors select-none">
-                                                                            <input
-                                                                                type="checkbox"
-                                                                                checked={checked}
-                                                                                onChange={(e) => {
-                                                                                    setEditForm(prev => {
-                                                                                        const current = prev.employee_usernames || [];
-                                                                                        const updated = e.target.checked
-                                                                                            ? [...current, s.username]
-                                                                                            : current.filter(x => x !== s.username);
-                                                                                        return { ...prev, employee_usernames: updated };
-                                                                                    });
-                                                                                }}
-                                                                                className="rounded border-slate-300 text-violet-650 focus:ring-violet-550 h-4 w-4 transition-all cursor-pointer"
-                                                                            />
-                                                                            <span className="font-semibold text-slate-800 group-hover:translate-x-0.5 transition-transform">{s.name}</span>
-                                                                            <span className="text-[10px] text-slate-400 font-mono">({s.username})</span>
-                                                                        </label>
-                                                                    );
-                                                                })}
-                                                            </div>
-                                                        </>
-                                                    );
-                                                })()}
-                                            </div>
-                                        </div>
-
-                                        {/* Assigned CA */}
-                                        <div className="space-y-1 relative">
-                                            <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Assigned CA (Optional)</label>
-                                            {editSelectedCa ? (
-                                                <div className="flex items-center justify-between border border-slate-200 rounded-xl p-3 bg-slate-50">
-                                                    <div>
-                                                        <p className="text-xs font-bold text-slate-800">{editSelectedCa.name}</p>
-                                                        <p className="text-[10px] text-slate-400">Username: {editSelectedCa.username}</p>
-                                                    </div>
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => {
-                                                            setEditSelectedCa(null);
-                                                            setEditForm(prev => ({ ...prev, ca_id: '' }));
-                                                        }}
-                                                        className="text-slate-400 hover:text-slate-600 p-1 rounded-md"
-                                                    >
-                                                        <FiX className="w-4 h-4" />
-                                                    </button>
-                                                </div>
-                                            ) : (
-                                                <div className="relative">
-                                                    <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4 pointer-events-none" />
-                                                    <input
-                                                        type="text"
-                                                        value={editCaSearchQuery}
-                                                        onChange={(e) => {
-                                                            setEditCaSearchQuery(e.target.value);
-                                                            setShowEditCaDropdown(true);
-                                                        }}
-                                                        onFocus={() => setShowEditCaDropdown(true)}
-                                                        placeholder="Search CA (min 3 chars)…"
-                                                        className="w-full pl-9 pr-3 py-2.5 text-xs text-slate-700 border border-slate-200 rounded-xl focus:ring-2 focus:ring-violet-500 focus:border-transparent outline-none bg-white"
-                                                    />
-                                                    {showEditCaDropdown && editCaSearchResults.length > 0 && (
-                                                        <div className="absolute z-50 left-0 right-0 top-full mt-1 bg-white border border-slate-200 rounded-xl shadow-lg max-h-56 overflow-y-auto">
-                                                            {editCaSearchResults.map(c => (
-                                                                <button
-                                                                    key={c.username}
-                                                                    type="button"
-                                                                    onClick={() => {
-                                                                        setEditSelectedCa(c);
-                                                                        setEditForm(prev => ({ ...prev, ca_id: c.username }));
-                                                                        setEditCaSearchQuery('');
-                                                                        setEditCaSearchResults([]);
-                                                                        setShowEditCaDropdown(false);
-                                                                    }}
-                                                                    className="w-full text-left px-4 py-2.5 hover:bg-slate-50 border-b border-slate-100 last:border-0 text-xs flex flex-col"
-                                                                >
-                                                                    <span className="font-semibold text-slate-800">{c.name}</span>
-                                                                    <span className="text-[10px] text-slate-400 mt-0.5">Username: {c.username}</span>
-                                                                </button>
-                                                            ))}
-                                                        </div>
-                                                    )}
-                                                    {editCaSearchLoading && (
-                                                        <div className="absolute right-3 top-1/2 -translate-y-1/2">
-                                                            <span className="w-3 h-3 border-2 border-violet-500 border-t-transparent rounded-full animate-spin block" />
-                                                        </div>
-                                                    )}
-                                                </div>
-                                            )}
-                                        </div>
-
-                                        {/* Status */}
-                                        <div className="space-y-1">
-                                            <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Assignment Status</label>
-                                            <select
-                                                value={editForm.status}
-                                                onChange={(e) => setEditForm(prev => ({ ...prev, status: e.target.value }))}
-                                                className="w-full px-3 py-2.5 text-xs text-slate-700 border border-slate-200 rounded-xl focus:ring-2 focus:ring-violet-500 focus:border-transparent outline-none bg-white"
-                                            >
-                                                <option value="active">Active</option>
-                                                <option value="inactive">Inactive</option>
-                                                <option value="paused">Paused</option>
-                                            </select>
-                                        </div>
-                                    </div>
-
-                                    <div className="px-5 py-3 bg-slate-50 border-t border-slate-100 flex gap-2 shrink-0">
-                                        <button
-                                            type="button"
-                                            onClick={() => setShowEditModal(false)}
-                                            className="flex-1 py-2.5 text-xs font-semibold text-slate-605 border border-slate-200 rounded-xl hover:bg-slate-50 transition-colors"
-                                        >
-                                            Cancel
-                                        </button>
-                                        <button
-                                            type="submit"
-                                            disabled={
-                                                submittingEdit ||
-                                                (!check('recurring_task_fees_view') ? false : !editForm.custom_amount) ||
-                                                (!editForm.employee_usernames || editForm.employee_usernames.length === 0)
-                                            }
-                                            className="flex-1 py-2.5 text-xs font-semibold text-white bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-700 hover:to-indigo-700 rounded-xl disabled:opacity-50 transition-colors flex items-center justify-center gap-1.5"
-                                        >
-                                            {submittingEdit && <span className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />}
-                                            Save Changes
-                                        </button>
-                                    </div>
-                                </form>
-                            </motion.div>
-                        </div>
-                    );
-                })()}
-            </AnimatePresence>
-
-            {/* Modal: Delete Assignment Confirmation */}
-            <AnimatePresence>
-                {confirmDeleteId && (
-                    <div className="fixed inset-0 z-[220] flex items-center justify-center p-4 pointer-events-none">
-                        <div className="absolute inset-0 bg-black/60 backdrop-blur-xs pointer-events-auto" onClick={() => setConfirmDeleteId(null)} />
-                        <motion.div
-                            initial={{ opacity: 0, scale: 0.95 }}
-                            animate={{ opacity: 1, scale: 1 }}
-                            exit={{ opacity: 0, scale: 0.95 }}
-                            className="relative z-[1] pointer-events-auto bg-white rounded-2xl shadow-xl w-full max-w-sm overflow-hidden"
-                            onClick={(e) => e.stopPropagation()}
-                        >
-                            <div className="px-5 py-4 flex flex-col items-center gap-3 text-center">
-                                <div className="w-12 h-12 rounded-full bg-rose-50 flex items-center justify-center">
-                                    <FiTrash2 className="w-5 h-5 text-rose-600" />
-                                </div>
-                                <h3 className="text-sm font-bold text-slate-800">Delete Assignment?</h3>
-                                <p className="text-xs text-slate-500 leading-relaxed">
-                                    This will permanently delete the recurring task assignment and all its schedule periods. This action cannot be undone.
-                                </p>
-                            </div>
-                            <div className="px-5 py-3 bg-slate-50 border-t border-slate-100 flex gap-2">
-                                <button
-                                    type="button"
-                                    onClick={() => setConfirmDeleteId(null)}
-                                    className="flex-1 py-2 text-xs font-semibold text-slate-600 border border-slate-200 rounded-xl hover:bg-white transition-colors"
-                                >
-                                    Cancel
-                                </button>
-                                <button
-                                    type="button"
-                                    disabled={deletingAssignmentId === confirmDeleteId}
-                                    onClick={async () => {
-                                        setDeletingAssignmentId(confirmDeleteId);
-                                        try {
-                                            await axios.delete(`${API_BASE_URL}/recurring-task/assignments/${confirmDeleteId}`, { headers: getHeaders() });
-                                            toast.success('Assignment deleted successfully');
-                                            setConfirmDeleteId(null);
-                                            setSelectedAssignmentId(null);
-                                            fetchAssignments();
-                                            fetchAllStats();
-                                        } catch (err) {
-                                            toast.error(err?.response?.data?.message || 'Failed to delete assignment');
-                                        } finally {
-                                            setDeletingAssignmentId(null);
-                                        }
-                                    }}
-                                    className="flex-1 py-2 text-xs font-semibold text-white bg-rose-600 hover:bg-rose-700 rounded-xl disabled:opacity-50 transition-colors flex items-center justify-center gap-1.5"
-                                >
-                                    {deletingAssignmentId === confirmDeleteId && (
-                                        <span className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                                    )}
-                                    Delete
-                                </button>
-                            </div>
-                        </motion.div>
-                    </div>
-                )}
-            </AnimatePresence>
-
-            {/* Modal: Share Invoice */}
-            <AnimatePresence>
-                {shareModal.open && shareModal.period && (
-                    <div className="fixed inset-0 z-[220] flex items-center justify-center p-4 pointer-events-none">
-                        <div className="absolute inset-0 bg-black/60 backdrop-blur-xs pointer-events-auto" onClick={() => setShareModal({ open: false, period: null, assign: null })} />
-                        <motion.div
-                            initial={{ opacity: 0, scale: 0.95 }}
-                            animate={{ opacity: 1, scale: 1 }}
-                            exit={{ opacity: 0, scale: 0.95 }}
-                            className="relative z-[1] pointer-events-auto bg-white rounded-2xl shadow-xl w-full max-w-sm overflow-hidden"
-                            onClick={(e) => e.stopPropagation()}
-                        >
-                            <div className="flex items-center justify-between px-5 py-3.5 bg-gradient-to-r from-emerald-600 to-teal-600 text-white">
-                                <div className="flex items-center gap-2">
-                                    <FiShare2 className="w-5 h-5" />
-                                    <h3 className="text-sm font-bold">Share Invoice</h3>
-                                </div>
-                                <button onClick={() => setShareModal({ open: false, period: null, assign: null })} className="p-1 hover:bg-white/10 rounded-lg">
-                                    <FiX className="w-5 h-5" />
-                                </button>
-                            </div>
-                            <div className="p-5 space-y-4">
-                                <div className="bg-emerald-50 border border-emerald-100 rounded-xl p-3 text-xs text-emerald-800">
-                                    <p className="font-bold">{shareModal.assign?.firm_name}</p>
-                                    <p className="text-[11px] text-emerald-600 mt-0.5">{shareModal.period?.period_name} — {shareModal.assign?.service_name}</p>
-                                    <p className="text-[11px] text-emerald-600">Amount: {check('recurring_task_fees_view') ? `₹${formatCurrency(shareModal.period?.amount)}` : '₹••••'}</p>
-                                </div>
-                                <div className="space-y-1">
-                                    <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">WhatsApp Number</label>
-                                    <div className="relative">
-                                        <FaWhatsapp className="absolute left-3 top-1/2 -translate-y-1/2 text-green-500 w-4 h-4" />
-                                        <input
-                                            type="tel"
-                                            value={sharePhone}
-                                            onChange={(e) => setSharePhone(e.target.value)}
-                                            placeholder="+91 9876543210"
-                                            className="w-full pl-9 pr-3 py-2.5 text-xs text-slate-700 border border-slate-200 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-transparent outline-none bg-white"
-                                        />
-                                    </div>
-                                </div>
-                                <div className="space-y-1">
-                                    <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Email Address</label>
-                                    <div className="relative">
-                                        <MdEmail className="absolute left-3 top-1/2 -translate-y-1/2 text-blue-400 w-4 h-4" />
-                                        <input
-                                            type="email"
-                                            value={shareEmail}
-                                            onChange={(e) => setShareEmail(e.target.value)}
-                                            placeholder="client@example.com"
-                                            className="w-full pl-9 pr-3 py-2.5 text-xs text-slate-700 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none bg-white"
-                                        />
-                                    </div>
-                                </div>
-                            </div>
-                            <div className="px-5 py-3 bg-slate-50 border-t border-slate-100 flex gap-2">
-                                <button
-                                    type="button"
-                                    onClick={() => setShareModal({ open: false, period: null, assign: null })}
-                                    className="flex-1 py-2 text-xs font-semibold text-slate-600 border border-slate-200 rounded-xl hover:bg-white transition-colors"
-                                >
-                                    Cancel
-                                </button>
-                                <button
-                                    type="button"
-                                    onClick={() => {
-                                        if (!sharePhone && !shareEmail) { toast.error('Enter at least one contact'); return; }
-                                        const amountDisplay = check('recurring_task_fees_view') ? `₹${formatCurrency(shareModal.period?.amount)}` : '••••';
-                                        const msg = `Hi, your invoice for ${shareModal.assign?.service_name} (${shareModal.period?.period_name}) is ${amountDisplay}. Status: Complete.`;
-                                        if (sharePhone) window.open(`https://wa.me/${sharePhone.replace(/[^0-9]/g, '')}?text=${encodeURIComponent(msg)}`, '_blank');
-                                        if (shareEmail) window.open(`mailto:${shareEmail}?subject=Invoice - ${shareModal.assign?.service_name}&body=${encodeURIComponent(msg)}`);
-                                        setShareModal({ open: false, period: null, assign: null });
-                                        toast.success('Shared successfully!');
-                                    }}
-                                    className="flex-1 py-2 text-xs font-semibold text-white bg-emerald-600 hover:bg-emerald-700 rounded-xl transition-colors flex items-center justify-center gap-1.5"
-                                >
-                                    <FiShare2 className="w-3.5 h-3.5" />
-                                    Send
-                                </button>
-                            </div>
-                        </motion.div>
-                    </div>
-                )}
-            </AnimatePresence>
-
-            {/* Modal: Broadcast Reminder */}
-            <AnimatePresence>
-                {broadcastModal.open && broadcastModal.assign && (
-                    <div className="fixed inset-0 z-[220] flex items-center justify-center p-4 pointer-events-none">
-                        <div className="absolute inset-0 bg-black/60 backdrop-blur-xs pointer-events-auto" onClick={() => setBroadcastModal({ open: false, assign: null })} />
-                        <motion.div
-                            initial={{ opacity: 0, scale: 0.95 }}
-                            animate={{ opacity: 1, scale: 1 }}
-                            exit={{ opacity: 0, scale: 0.95 }}
-                            className="relative z-[1] pointer-events-auto bg-white rounded-2xl shadow-xl w-full max-w-sm overflow-hidden"
-                            onClick={(e) => e.stopPropagation()}
-                        >
-                            <div className="flex items-center justify-between px-5 py-3.5 bg-gradient-to-r from-indigo-600 to-violet-600 text-white">
-                                <div className="flex items-center gap-2">
-                                    <FiShare2 className="w-5 h-5" />
-                                    <h3 className="text-sm font-bold">Broadcast Recurring Task Reminder</h3>
-                                </div>
-                                <button onClick={() => setBroadcastModal({ open: false, assign: null })} className="p-1 hover:bg-white/10 rounded-lg">
-                                    <FiX className="w-5 h-5" />
-                                </button>
-                            </div>
-                            <div className="p-5 space-y-4">
-                                <div className="bg-indigo-50 border border-indigo-100 rounded-xl p-3 text-xs text-indigo-800">
-                                    <p className="font-bold">{broadcastModal.assign?.firm_name}</p>
-                                    <p className="text-[11px] text-indigo-650 mt-0.5">{broadcastModal.assign?.service_name}</p>
-                                    <p className="text-[11px] text-indigo-605">Financial Year: {broadcastModal.assign?.financial_year}</p>
-                                </div>
-                                <div className="space-y-1">
-                                    <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">WhatsApp Number</label>
-                                    <div className="relative">
-                                        <FaWhatsapp className="absolute left-3 top-1/2 -translate-y-1/2 text-green-500 w-4 h-4" />
-                                        <input
-                                            type="tel"
-                                            value={broadcastPhone}
-                                            onChange={(e) => setBroadcastPhone(e.target.value)}
-                                            placeholder="+91 9876543210"
-                                            className="w-full pl-9 pr-3 py-2.5 text-xs text-slate-700 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none bg-white"
-                                        />
-                                    </div>
-                                </div>
-                                <div className="space-y-1">
-                                    <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Email Address</label>
-                                    <div className="relative">
-                                        <MdEmail className="absolute left-3 top-1/2 -translate-y-1/2 text-blue-400 w-4 h-4" />
-                                        <input
-                                            type="email"
-                                            value={broadcastEmail}
-                                            onChange={(e) => setBroadcastEmail(e.target.value)}
-                                            placeholder="client@example.com"
-                                            className="w-full pl-9 pr-3 py-2.5 text-xs text-slate-700 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none bg-white"
-                                        />
-                                    </div>
-                                </div>
-                            </div>
-                            <div className="px-5 py-3 bg-slate-50 border-t border-slate-100 flex gap-2">
-                                <button
-                                    type="button"
-                                    onClick={() => setBroadcastModal({ open: false, assign: null })}
-                                    className="flex-1 py-2 text-xs font-semibold text-slate-600 border border-slate-200 rounded-xl hover:bg-white transition-colors"
-                                >
-                                    Cancel
-                                </button>
-                                <button
-                                    type="button"
-                                    onClick={() => {
-                                        if (!broadcastPhone && !broadcastEmail) { toast.error('Enter at least one contact'); return; }
-                                        const msg = `Dear Client, this is a friendly reminder regarding your recurring task "${broadcastModal.assign?.service_name}" for the financial year ${broadcastModal.assign?.financial_year}. Please ensure any pending requirements are shared with us so we can proceed. Thank you!`;
-                                        if (broadcastPhone) window.open(`https://wa.me/${broadcastPhone.replace(/[^0-9]/g, '')}?text=${encodeURIComponent(msg)}`, '_blank');
-                                        if (broadcastEmail) window.open(`mailto:${broadcastEmail}?subject=Recurring Task Reminder - ${broadcastModal.assign?.service_name}&body=${encodeURIComponent(msg)}`);
-                                        setBroadcastModal({ open: false, assign: null });
-                                        toast.success('Reminder broadcasted successfully!');
-                                    }}
-                                    className="flex-1 py-2 text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl transition-colors flex items-center justify-center gap-1.5"
-                                >
-                                    <FiShare2 className="w-3.5 h-3.5" />
-                                    Send Broadcast
-                                </button>
-                            </div>
-                        </motion.div>
-                    </div>
-                )}
-            </AnimatePresence>
-
-            {/* Modal: Show Full 12-Month Calendar */}
-            <AnimatePresence>
-                {showFullCalendarModal && fullCalendarAssignment && (
-                    <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 pointer-events-none">
-                        <div className="absolute inset-0 bg-black/60 backdrop-blur-xs pointer-events-auto" onClick={() => { setShowFullCalendarModal(false); setFullCalendarAssignment(null); }} />
-                        <motion.div
-                            initial={{ opacity: 0, scale: 0.95 }}
-                            animate={{ opacity: 1, scale: 1 }}
-                            exit={{ opacity: 0, scale: 0.95 }}
-                            className="relative z-[1] pointer-events-auto bg-white rounded-2xl shadow-xl w-full max-w-4xl max-h-[85vh] overflow-hidden flex flex-col"
-                            onClick={(e) => e.stopPropagation()}
-                        >
-                            <div className="flex items-center justify-between px-6 py-4 bg-gradient-to-r from-indigo-600 to-violet-600 text-white shrink-0">
-                                <div className="flex items-center gap-3">
-                                    <FiCalendar className="w-5 h-5" />
-                                    <div>
-                                        <h3 className="text-sm font-bold">Full Calendar: {fullCalendarAssignment.firm_name}</h3>
-                                        <p className="text-[11px] text-white/85">{fullCalendarAssignment.service_name} · FY {fullCalendarAssignment.financial_year}</p>
-                                    </div>
-                                </div>
-                                <button onClick={() => { setShowFullCalendarModal(false); setFullCalendarAssignment(null); }} className="p-1.5 hover:bg-white/10 rounded-lg text-white">
-                                    <FiX className="w-5 h-5" />
-                                </button>
-                            </div>
-
-                            <div className="p-6 overflow-y-auto flex-1 min-h-0">
-                                {schedulesLoading ? (
-                                    <div className="text-center py-12 text-slate-400">
-                                        <div className="w-8 h-8 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin mx-auto mb-3"></div>
-                                        <p className="text-xs">Loading all schedules...</p>
-                                    </div>
-                                ) : (
-                                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                                        {schedules.map((period) => {
-                                            const assignedStaffs = getAssignedStaffList(fullCalendarAssignment);
-                                            const assignedStaffUsernames = assignedStaffs.map(emp => (emp.username || '').toLowerCase().trim());
-                                            const isUpdatePermitted = isAdmin || isBranchOwner || !currentUsername || assignedStaffUsernames.length === 0 || assignedStaffUsernames.includes(currentUsername);
-                                            const isComplete = period.status === 'Complete' || period.status === 'Sale';
-
-                                            return (
-                                                <div
-                                                    key={period.schedule_id}
-                                                    onClick={() => isUpdatePermitted && !isComplete && isPeriodDueDateActive(period) && openStatusModal(period, fullCalendarAssignment)}
-                                                    className={`border rounded-xl p-4 transition-all flex flex-col justify-between min-h-[105px] group ${isUpdatePermitted && !isComplete && isPeriodDueDateActive(period)
-                                                        ? "bg-white border-slate-200 hover:border-indigo-300 hover:shadow-md cursor-pointer"
-                                                        : isComplete
-                                                            ? "bg-emerald-50/40 border-emerald-200 cursor-default"
-                                                            : "bg-slate-50/50 border-slate-200/60 opacity-60 cursor-not-allowed"
-                                                        }`}
-                                                    title={
-                                                        isComplete
-                                                            ? `Completed — record locked`
-                                                            : !isPeriodDueDateActive(period)
-                                                                ? `Only the currently running due date (${getPeriodDueDate(period)}) can be updated`
-                                                                : isUpdatePermitted
-                                                                    ? undefined
-                                                                    : `Restricted (Only assigned staff: ${assignedStaffs.map(e => e.name || e.username).join(', ')})`
-                                                    }
-                                                >
-                                                    <div className="flex items-start justify-between gap-1">
-                                                        <span className="text-xs font-bold text-slate-705 group-hover:text-indigo-600">
-                                                            {period.period_name}
-                                                        </span>
-                                                        <FiInfo className="w-3.5 h-3.5 text-slate-300 group-hover:text-indigo-400 shrink-0" />
-                                                    </div>
-                                                    <div className="mt-3 space-y-2">
-                                                        <span className="text-xs font-extrabold text-slate-850 block">
-                                                            {check('recurring_task_fees_view') ? `₹${formatCurrency(period.amount)}` : <span className="blur-[3px] select-none">₹9,999.00</span>}
-                                                        </span>
-                                                        <div className="flex items-center justify-between gap-2">
-                                                            <span className={`inline-flex px-2 py-0.5 rounded text-[9px] font-bold border uppercase tracking-wider ${STATUS_BADGES[period.status] || 'bg-slate-50'}`}>
-                                                                {period.status}
-                                                            </span>
-                                                        </div>
-                                                        {(() => {
-                                                            const dueInfo = getPeriodDueDateStatus(period);
-                                                            return (
-                                                                <div className={`text-[11px] font-semibold ${dueInfo.color}`}>
-                                                                    {dueInfo.text}
-                                                                </div>
-                                                            );
-                                                        })()}
-                                                    </div>
-                                                </div>
-                                            );
-                                        })}
-                                    </div>
-                                )}
-                            </div>
-
-                            <div className="px-6 py-3.5 bg-slate-50 border-t border-slate-100 flex justify-end shrink-0">
-                                <button
-                                    type="button"
-                                    onClick={() => { setShowFullCalendarModal(false); setFullCalendarAssignment(null); }}
-                                    className="px-5 py-2 text-xs font-semibold text-slate-700 border border-slate-200 rounded-xl hover:bg-white transition-colors"
-                                >
-                                    Close
-                                </button>
-                            </div>
-                        </motion.div>
-                    </div>
-                )}
-            </AnimatePresence>
-
-            {/* Modal: Edit Filing Credentials */}
-            <AnimatePresence>
-                {showCredentialsModal && credentialsAssignment && (
-                    <div className="fixed inset-0 z-[200] flex items-start justify-center overflow-hidden overscroll-none p-3 sm:p-4 pointer-events-none">
-                        <div
-                            className="absolute inset-0 bg-black/60 backdrop-blur-xs pointer-events-auto"
-                            onClick={() => {
-                                setShowCredentialsModal(false);
-                                setCredentialsAssignment(null);
-                            }}
-                        />
-                        <motion.div
-                            initial={{ opacity: 0, scale: 0.97, y: 20 }}
-                            animate={{ opacity: 1, scale: 1, y: 0 }}
-                            exit={{ opacity: 0, scale: 0.97, y: 20 }}
-                            className="relative z-[1] pointer-events-auto bg-white rounded-2xl shadow-xl w-full max-w-sm my-2 sm:my-4 max-h-[calc(100vh-1.5rem)] sm:max-h-[calc(100vh-2rem)] overflow-hidden flex flex-col"
-                            onClick={(e) => e.stopPropagation()}
-                        >
-                            <div className="flex items-center justify-between px-5 py-3.5 bg-gradient-to-r from-violet-600 to-indigo-600 text-white shrink-0">
-                                <div className="flex items-center gap-2">
-                                    <FiLock className="w-5 h-5" />
-                                    <h3 className="text-sm font-bold">Update Filing Credentials</h3>
-                                </div>
-                                <button
-                                    onClick={() => {
-                                        setShowCredentialsModal(false);
-                                        setCredentialsAssignment(null);
-                                    }}
-                                    className="p-1 hover:bg-white/10 rounded-lg text-white/80 hover:text-white"
-                                >
-                                    <FiX className="w-5 h-5" />
-                                </button>
-                            </div>
-
-                            <div className="bg-indigo-50 border-b border-indigo-100 p-4 shrink-0">
-                                <h4 className="text-xs font-bold text-slate-800">{credentialsAssignment.firm_name}</h4>
-                                <p className="text-[10px] text-slate-500 mt-0.5">{credentialsAssignment.service_name}</p>
-                            </div>
-
-                            <form onSubmit={handleCredentialsSubmit} className="flex-1 min-h-0 flex flex-col overflow-hidden">
-                                <div
-                                    className="px-5 py-4 flex-1 min-h-0 overflow-y-auto overscroll-y-contain [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden space-y-4"
-                                    style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
-                                >
-                                    {(() => {
-                                        let schema = credentialsAssignment.required_fields || [];
-                                        if (schema.length === 0) {
-                                            schema = getRequiredFieldsForService(credentialsAssignment);
-                                        }
-                                        if (schema.length === 0) {
-                                            schema = Object.keys(credentialsForm).map(key => {
-                                                const label = key.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
-                                                const type = (key.toLowerCase().includes('pass') || key.toLowerCase().includes('secret')) ? 'password' : 'text';
-                                                return { key, label, type };
-                                            });
-                                        }
-                                        return schema.map(field => {
-                                            const onChange = (e) => setCredentialsForm(prev => ({
-                                                ...prev,
-                                                [field.key]: e.target.value
-                                            }));
-                                            return field.type === 'password' ? (
-                                                <PasswordField
-                                                    key={field.key}
-                                                    label={field.label}
-                                                    value={credentialsForm[field.key] || ''}
-                                                    onChange={onChange}
-                                                    required
-                                                />
-                                            ) : (
-                                                <div key={field.key} className="space-y-1">
-                                                    <label className="block text-xs font-bold text-slate-500">{field.label} *</label>
-                                                    <input
-                                                        type="text"
-                                                        value={credentialsForm[field.key] || ''}
-                                                        onChange={onChange}
-                                                        className="w-full px-3 py-2.5 text-xs text-slate-705 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none bg-white"
-                                                        required
-                                                    />
-                                                </div>
-                                            );
-                                        });
-                                    })()}
-                                </div>
-                                <div className="px-5 py-3 bg-slate-50 border-t border-slate-100 flex gap-2 shrink-0">
-                                    <button
-                                        type="button"
-                                        onClick={() => {
-                                            setShowCredentialsModal(false);
-                                            setCredentialsAssignment(null);
-                                        }}
-                                        className="flex-1 py-2.5 text-xs font-semibold text-slate-605 border border-slate-200 rounded-xl hover:bg-slate-50 transition-colors"
-                                    >
-                                        Cancel
-                                    </button>
-                                    <button
-                                        type="submit"
-                                        disabled={submittingCredentials}
-                                        className="flex-1 py-2.5 text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl disabled:opacity-50 transition-colors flex items-center justify-center gap-1.5"
-                                    >
-                                        {submittingCredentials && <span className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin"></span>}
-                                        Save Credentials
-                                    </button>
-                                </div>
-                            </form>
-                        </motion.div>
-                    </div>
-                )}
-            </AnimatePresence>
+            {!loading && pagination.total_pages > 1 ? (
+              <div className="px-6 py-4 border-t border-gray-200">
+                <TablePagination
+                  page={pagination.page}
+                  limit={pagination.limit}
+                  total={pagination.total}
+                  totalPages={pagination.total_pages}
+                  onPageChange={(page) => setPagination((prev) => ({ ...prev, page }))}
+                  onLimitChange={(limit) =>
+                    setPagination((prev) => ({ ...prev, limit, page: 1 }))
+                  }
+                />
+              </div>
+            ) : null}
+          </div>
         </div>
-    );
+      </div>
+
+      <FirmFormModal
+        isOpen={Boolean(firmModal)}
+        mode={firmModal?.mode || 'add'}
+        initialFirm={firmModal?.firm}
+        services={branchServices}
+        saving={firmSaving}
+        yearOptions={yearOptions}
+        onClose={() => !firmSaving && setFirmModal(null)}
+        onSubmit={handleSaveFirm}
+      />
+
+      {deleteTarget ? (
+        <div className="fixed inset-0 z-[1100] flex items-center justify-center p-4">
+          <div
+            className="absolute inset-0 bg-black/50"
+            onClick={deleteLoading ? undefined : () => setDeleteTarget(null)}
+          />
+          <div className="relative w-full max-w-md bg-white rounded-xl shadow-xl border border-gray-200 p-6">
+            <h3 className="text-base font-semibold text-gray-800 m-0">Delete compliance firm?</h3>
+            <p className="text-sm text-gray-600 mt-2 m-0">
+              Remove <strong>{deleteTarget.firm_name || deleteTarget.firm_id}</strong> from{' '}
+              <strong>{deleteTarget.service_name || deleteTarget.service_id}</strong>? This is a soft
+              delete.
+            </p>
+            <div className="flex justify-end gap-2 mt-6">
+              <button
+                type="button"
+                onClick={() => setDeleteTarget(null)}
+                disabled={deleteLoading}
+                className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleDeleteFirm}
+                disabled={deleteLoading}
+                className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-red-600 hover:bg-red-700 rounded-lg disabled:opacity-50"
+              >
+                {deleteLoading ? <FiLoader className="w-4 h-4 animate-spin" /> : null}
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+    </div>
+  );
 };
 
 export default ComplianceServices;
-
