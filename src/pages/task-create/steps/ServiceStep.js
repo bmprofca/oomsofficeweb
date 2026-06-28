@@ -6,6 +6,7 @@ import {
     getServiceAmounts,
     parseAmount,
     sanitizeFeesInput,
+    TASK_CREATE_SERVICE_LIST_PARAMS,
 } from '../taskCreateConstants';
 
 const DATE_BTN_CLASS =
@@ -76,6 +77,8 @@ export default function ServiceStep({
                 }}
                 listEndpoint="service/list"
                 endpoint="service/list"
+                initialParams={TASK_CREATE_SERVICE_LIST_PARAMS}
+                queryParams={{ type: TASK_CREATE_SERVICE_LIST_PARAMS.type }}
                 valueKey="service_id"
                 labelMapping={{
                     primary: (s) => s.name,

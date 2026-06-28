@@ -2,6 +2,7 @@ import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { FiBriefcase, FiEdit, FiPlus, FiTrash2 } from 'react-icons/fi';
 import SearchableSelect from '../../../components/SearchableSelect';
+import { TASK_CREATE_SERVICE_LIST_PARAMS } from '../taskCreateConstants';
 
 export default function SubtasksStep({
     subtasks,
@@ -64,6 +65,8 @@ export default function SubtasksStep({
                                 <SearchableSelect
                                     listEndpoint="service/list"
                                     endpoint="service/list"
+                                    initialParams={TASK_CREATE_SERVICE_LIST_PARAMS}
+                                    queryParams={{ type: TASK_CREATE_SERVICE_LIST_PARAMS.type }}
                                     valueKey="service_id"
                                     labelMapping={{ primary: 'name', secondary: (s) => `₹${s.fees ?? 0}` }}
                                     dataExtractor={(res) => (Array.isArray(res?.data) ? res.data : [])}

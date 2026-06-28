@@ -17,7 +17,8 @@ export default function SearchablePickField({
     labelMapping,
     dataExtractor,
     placeholder,
-    initialParams = { page: 1, limit: 200 },
+    initialParams = { page_no: 1, limit: 200 },
+    queryParams = {},
     minChars = 1,
     renderSelected,
     locked = false,
@@ -79,6 +80,7 @@ export default function SearchablePickField({
                             listEndpoint={listEndpoint}
                             endpoint={endpoint || listEndpoint}
                             initialParams={initialParams}
+                            queryParams={queryParams}
                             searchParam="search"
                             valueKey={valueKey}
                             labelMapping={labelMapping}

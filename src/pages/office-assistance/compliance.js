@@ -1182,11 +1182,10 @@ const ComplianceServices = () => {
 
     // Handle firm search autocomplete
     useEffect(() => {
+        if (!showFirmDropdown) return;
+
         const term = firmSearchQuery.trim();
-        if (term.length < 3) {
-            setFirmSearchResults([]);
-            return;
-        }
+        const debounceMs = term ? 350 : 0;
 
         const t = setTimeout(async () => {
             setFirmSearchLoading(true);
@@ -1195,18 +1194,28 @@ const ComplianceServices = () => {
             firmAbortRef.current = ctrl;
 
             try {
-                const res = await fetch(`${API_BASE_URL.replace(/\/$/, '')}/firm/search?search=${encodeURIComponent(term)}`, {
-                    headers: getHeaders(),
-                    signal: ctrl.signal
+                const params = new URLSearchParams({
+                    page_no: '1',
+                    limit: '20',
+                    search: term,
                 });
+                const res = await fetch(
+                    `${API_BASE_URL.replace(/\/$/, '')}/firm/list?${params.toString()}`,
+                    {
+                        headers: getHeaders(),
+                        signal: ctrl.signal,
+                    },
+                );
                 const data = await res.json();
                 if (data.success && Array.isArray(data.data)) {
-                    setFirmSearchResults(data.data.map(f => ({
-                        id: f.firm_id,
-                        name: f.firm_name,
-                        client_name: f.client?.name || '',
-                        pan_no: f.pan_no || f.client?.pan_number || ''
-                    })));
+                    setFirmSearchResults(
+                        data.data.map((f) => ({
+                            id: f.firm_id,
+                            name: f.firm_name,
+                            client_name: f.client?.name || '',
+                            pan_no: f.pan_no || f.client?.pan_number || '',
+                        })),
+                    );
                 } else {
                     setFirmSearchResults([]);
                 }
@@ -1215,13 +1224,13 @@ const ComplianceServices = () => {
             } finally {
                 setFirmSearchLoading(false);
             }
-        }, 350);
+        }, debounceMs);
 
         return () => {
             clearTimeout(t);
             firmAbortRef.current?.abort();
         };
-    }, [firmSearchQuery]);
+    }, [firmSearchQuery, showFirmDropdown]);
 
     // Handle selecting a firm in dropdown
     const handleSelectFirm = (firm) => {
@@ -1545,8 +1554,8 @@ const ComplianceServices = () => {
                                 disabled={!check('recurring_task_create')}
                                 onClick={() => check('recurring_task_create') && setShowAssignModal(true)}
                                 className={`flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl shadow-md transition-all text-xs font-semibold ${check('recurring_task_create')
-                                        ? 'bg-gradient-to-r from-indigo-600 to-violet-600 text-white hover:shadow-lg'
-                                        : 'bg-gray-100 border border-gray-200 text-gray-400 cursor-not-allowed opacity-60'
+                                    ? 'bg-gradient-to-r from-indigo-600 to-violet-600 text-white hover:shadow-lg'
+                                    : 'bg-gray-100 border border-gray-200 text-gray-400 cursor-not-allowed opacity-60'
                                     }`}
                                 whileHover={check('recurring_task_create') ? { scale: 1.02, y: -1 } : {}}
                                 whileTap={check('recurring_task_create') ? { scale: 0.98 } : {}}
@@ -2139,12 +2148,12 @@ const ComplianceServices = () => {
                                                                                         </div>
                                                                                     </motion.div>
                                                                                 )}
-                                                                        </AnimatePresence>
+                                                                            </AnimatePresence>
+                                                                        </div>
                                                                     </div>
-                                                                </div>
-                                                            </td>
-                                                        </tr>
-                                                    </React.Fragment>
+                                                                </td>
+                                                            </tr>
+                                                        </React.Fragment>
                                                     ))
                                                 )}
                                             </tbody>
@@ -2229,9 +2238,9 @@ const ComplianceServices = () => {
                                                             </td>
                                                             <td className="px-4 py-3 text-center">
                                                                 <span className={`inline-flex items-center px-2.5 py-0.5 rounded-md text-[10px] font-semibold border uppercase tracking-wider ${svc.frequency?.toLowerCase() === 'monthly' ? 'bg-sky-50 text-sky-700 border-sky-200' :
-                                                                        svc.frequency?.toLowerCase() === 'quarterly' ? 'bg-indigo-50 text-indigo-700 border-indigo-200' :
-                                                                            svc.frequency?.toLowerCase() === 'halfyearly' ? 'bg-purple-50 text-purple-700 border-purple-200' :
-                                                                                'bg-violet-50 text-violet-700 border-violet-200'
+                                                                    svc.frequency?.toLowerCase() === 'quarterly' ? 'bg-indigo-50 text-indigo-700 border-indigo-200' :
+                                                                        svc.frequency?.toLowerCase() === 'halfyearly' ? 'bg-purple-50 text-purple-700 border-purple-200' :
+                                                                            'bg-violet-50 text-violet-700 border-violet-200'
                                                                     }`}>
                                                                     {svc.frequency}
                                                                 </span>
@@ -2248,8 +2257,8 @@ const ComplianceServices = () => {
                                                                         }
                                                                     }}
                                                                     className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold border transition-all ${firmCount > 0
-                                                                            ? 'bg-indigo-50 text-indigo-750 border-indigo-200 hover:bg-indigo-100 hover:scale-105 cursor-pointer'
-                                                                            : 'bg-slate-50 text-slate-400 border-slate-200 cursor-default'
+                                                                        ? 'bg-indigo-50 text-indigo-750 border-indigo-200 hover:bg-indigo-100 hover:scale-105 cursor-pointer'
+                                                                        : 'bg-slate-50 text-slate-400 border-slate-200 cursor-default'
                                                                         }`}
                                                                     title={firmCount > 0 ? "Click to view assigned firms" : "No firms assigned"}
                                                                     disabled={firmCount === 0}
@@ -2434,28 +2443,34 @@ const ComplianceServices = () => {
                                                             setShowFirmDropdown(true);
                                                         }}
                                                         onFocus={() => setShowFirmDropdown(true)}
-                                                        placeholder="Search client firm (min 3 chars)…"
+                                                        placeholder="Search client firm…"
                                                         className="w-full pl-9 pr-3 py-2.5 text-xs text-slate-700 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none bg-white"
                                                     />
-                                                    {showFirmDropdown && firmSearchResults.length > 0 && (
+                                                    {showFirmDropdown && (
                                                         <div className="absolute z-50 left-0 right-0 top-full mt-1 bg-white border border-slate-200 rounded-xl shadow-lg max-h-56 overflow-y-auto">
-                                                            {firmSearchResults.map(f => (
-                                                                <button
-                                                                    key={f.id}
-                                                                    type="button"
-                                                                    onClick={() => {
-                                                                        setSelectedFirm(f);
-                                                                        setAssignForm(prev => ({ ...prev, firm_id: f.id }));
-                                                                        setFirmSearchQuery('');
-                                                                        setFirmSearchResults([]);
-                                                                        setShowFirmDropdown(false);
-                                                                    }}
-                                                                    className="w-full text-left px-4 py-2.5 hover:bg-slate-50 border-b border-slate-100 last:border-0 text-xs flex flex-col"
-                                                                >
-                                                                    <span className="font-semibold text-slate-800">{f.name}</span>
-                                                                    <span className="text-[10px] text-slate-400 mt-0.5">Client: {f.client_name} · PAN: {f.pan_no}</span>
-                                                                </button>
-                                                            ))}
+                                                            {firmSearchLoading ? (
+                                                                <div className="px-4 py-3 text-xs text-slate-400">Loading firms…</div>
+                                                            ) : firmSearchResults.length === 0 ? (
+                                                                <div className="px-4 py-3 text-xs text-slate-400">No firms found</div>
+                                                            ) : (
+                                                                firmSearchResults.map((f) => (
+                                                                    <button
+                                                                        key={f.id}
+                                                                        type="button"
+                                                                        onClick={() => {
+                                                                            setSelectedFirm(f);
+                                                                            setAssignForm(prev => ({ ...prev, firm_id: f.id }));
+                                                                            setFirmSearchQuery('');
+                                                                            setFirmSearchResults([]);
+                                                                            setShowFirmDropdown(false);
+                                                                        }}
+                                                                        className="w-full text-left px-4 py-2.5 hover:bg-slate-50 border-b border-slate-100 last:border-0 text-xs flex flex-col"
+                                                                    >
+                                                                        <span className="font-semibold text-slate-800">{f.name}</span>
+                                                                        <span className="text-[10px] text-slate-400 mt-0.5">Client: {f.client_name} · PAN: {f.pan_no}</span>
+                                                                    </button>
+                                                                ))
+                                                            )}
                                                         </div>
                                                     )}
                                                 </div>
@@ -2500,38 +2515,44 @@ const ComplianceServices = () => {
                                                         setShowFirmDropdown(true);
                                                     }}
                                                     onFocus={() => setShowFirmDropdown(true)}
-                                                    placeholder="Search and add client firms (min 3 chars)…"
+                                                    placeholder="Search and add client firms…"
                                                     className="w-full pl-9 pr-3 py-2.5 text-xs text-slate-700 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none bg-white"
                                                 />
-                                                {showFirmDropdown && firmSearchResults.length > 0 && (
+                                                {showFirmDropdown && (
                                                     <div className="absolute z-50 left-0 right-0 top-full mt-1 bg-white border border-slate-200 rounded-xl shadow-lg max-h-56 overflow-y-auto">
-                                                        {firmSearchResults
-                                                            .filter(f => !assignForm.firms?.includes(f.id))
-                                                            .map(f => (
-                                                                <button
-                                                                    key={f.id}
-                                                                    type="button"
-                                                                    onClick={() => {
-                                                                        setSelectedFirmsData(prev => {
-                                                                            if (!prev.find(x => x.id === f.id)) {
-                                                                                return [...prev, f];
-                                                                            }
-                                                                            return prev;
-                                                                        });
-                                                                        setAssignForm(prev => ({
-                                                                            ...prev,
-                                                                            firms: [...(prev.firms || []), f.id]
-                                                                        }));
-                                                                        setFirmSearchQuery('');
-                                                                        setFirmSearchResults([]);
-                                                                        setShowFirmDropdown(false);
-                                                                    }}
-                                                                    className="w-full text-left px-4 py-2.5 hover:bg-slate-50 border-b border-slate-100 last:border-0 text-xs flex flex-col"
-                                                                >
-                                                                    <span className="font-semibold text-slate-800">{f.name}</span>
-                                                                    <span className="text-[10px] text-slate-400 mt-0.5">Client: {f.client_name} · PAN: {f.pan_no}</span>
-                                                                </button>
-                                                            ))}
+                                                        {firmSearchLoading ? (
+                                                            <div className="px-4 py-3 text-xs text-slate-400">Loading firms…</div>
+                                                        ) : firmSearchResults.filter((f) => !assignForm.firms?.includes(f.id)).length === 0 ? (
+                                                            <div className="px-4 py-3 text-xs text-slate-400">No firms found</div>
+                                                        ) : (
+                                                            firmSearchResults
+                                                                .filter((f) => !assignForm.firms?.includes(f.id))
+                                                                .map((f) => (
+                                                                    <button
+                                                                        key={f.id}
+                                                                        type="button"
+                                                                        onClick={() => {
+                                                                            setSelectedFirmsData((prev) => {
+                                                                                if (!prev.find((x) => x.id === f.id)) {
+                                                                                    return [...prev, f];
+                                                                                }
+                                                                                return prev;
+                                                                            });
+                                                                            setAssignForm((prev) => ({
+                                                                                ...prev,
+                                                                                firms: [...(prev.firms || []), f.id],
+                                                                            }));
+                                                                            setFirmSearchQuery('');
+                                                                            setFirmSearchResults([]);
+                                                                            setShowFirmDropdown(false);
+                                                                        }}
+                                                                        className="w-full text-left px-4 py-2.5 hover:bg-slate-50 border-b border-slate-100 last:border-0 text-xs flex flex-col"
+                                                                    >
+                                                                        <span className="font-semibold text-slate-800">{f.name}</span>
+                                                                        <span className="text-[10px] text-slate-400 mt-0.5">Client: {f.client_name} · PAN: {f.pan_no}</span>
+                                                                    </button>
+                                                                ))
+                                                        )}
                                                     </div>
                                                 )}
                                             </div>

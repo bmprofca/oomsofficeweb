@@ -1,3 +1,10 @@
+/** Query params for branch general services in task create pickers */
+export const TASK_CREATE_SERVICE_LIST_PARAMS = {
+    type: 'general',
+    page_no: 1,
+    limit: 200,
+};
+
 export const STEPS = [
     { n: 1, title: 'Firms & Groups', subtitle: 'Select clients' },
     { n: 2, title: 'Services', subtitle: 'Fees & due date' },

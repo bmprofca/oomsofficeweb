@@ -4,6 +4,7 @@ import API_BASE_URL from '../../utils/api-controller';
 import getHeaders from '../../utils/get-headers';
 import { fetchCaList } from '../../services/caService';
 import { fetchAgentList } from '../../services/agentService';
+import { TASK_CREATE_SERVICE_LIST_PARAMS } from './taskCreateConstants';
 
 const mapMember = (row) => ({
     username: row.username,
@@ -69,7 +70,7 @@ export default function useTaskCreateResources({ enabled = true } = {}) {
 
         try {
             const [
-                servicesRes,
+                serviceRows,
                 groupRows,
                 staffRows,
                 caRows,
@@ -77,7 +78,18 @@ export default function useTaskCreateResources({ enabled = true } = {}) {
                 ayRes,
                 fyRes,
             ] = await Promise.all([
-                axios.get(`${base}/service/list`, { headers }),
+                fetchPaginatedList(async (p) => {
+                    const res = await axios.get(`${base}/service/list`, {
+                        headers,
+                        params: {
+                            type: TASK_CREATE_SERVICE_LIST_PARAMS.type,
+                            search: p.search || '',
+                            page_no: p.page,
+                            limit: p.limit,
+                        },
+                    });
+                    return res.data;
+                }),
                 fetchPaginatedList(
                     (p) =>
                         fetch(`${base}/group/list?search=&page=${p.page}&limit=${p.limit}`, { headers }).then(
@@ -97,9 +109,7 @@ export default function useTaskCreateResources({ enabled = true } = {}) {
                 fetch(`${base}/utils/financial-years`, { headers }).then((r) => r.json()),
             ]);
 
-            if (servicesRes.data?.success && Array.isArray(servicesRes.data.data)) {
-                setServices(servicesRes.data.data);
-            }
+            setServices(serviceRows);
 
             setGroups(groupRows);
             setStaff(
