@@ -13,6 +13,7 @@ import {
     FiLock,
     FiSearch,
     FiUserCheck,
+    FiUsers,
     FiUserX,
 } from 'react-icons/fi';
 import { Header, Sidebar } from '../components/header';
@@ -57,6 +58,16 @@ const OFFICE_MODULES = [
         iconColor: 'text-indigo-600',
         accent: 'from-indigo-500/10 to-transparent',
         hoverBorder: 'hover:border-indigo-200',
+    },
+    {
+        title: 'Group Firms',
+        description: 'Manage firms linked to client groups',
+        icon: FiUsers,
+        link: '/groups',
+        iconBg: 'bg-teal-100',
+        iconColor: 'text-teal-600',
+        accent: 'from-teal-500/10 to-transparent',
+        hoverBorder: 'hover:border-teal-200',
     },
     {
         title: 'Services',
@@ -197,9 +208,8 @@ const OfficeAssistance = () => {
             />
 
             <div
-                className={`pt-16 transition-all duration-300 ease-in-out min-h-screen ${
-                    isMinimized ? 'md:pl-20' : 'md:pl-[260px]'
-                }`}
+                className={`pt-16 transition-all duration-300 ease-in-out min-h-screen ${isMinimized ? 'md:pl-20' : 'md:pl-[260px]'
+                    }`}
             >
                 <div className="mx-2 sm:mx-4 md:mx-8 my-3 md:my-4">
                     <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
