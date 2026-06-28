@@ -48,157 +48,157 @@ export const Sidebar = ({ sidebarOpen, setSidebarOpen, sidebarCollapsed, setSide
 
     const menuItems = useMemo(() => {
         const items = [
-        {
-            id: 'dashboard',
-            label: 'Dashboard',
-            icon: <FiHome className="text-base" />,
-            badge: null,
-            path: '/dashboard'
-        },
-        {
-            id: 'task',
-            label: 'Tasks',
-            icon: <FiUsers className="text-base" />,
-            path: '/task/view',
-            permission: 'task_',
-            submenu: [
-                {
-                    id: 'task-create',
-                    label: 'New Task',
-                    icon: <FiUser className="w-4 h-4" />,
-                    action: 'openTaskCreate',
-                    permission: 'task_create'
-                },
-                {
-                    id: 'task-view',
-                    label: 'View Task',
-                    icon: <FiFolder className="w-4 h-4" />,
-                    path: '/task/view',
-                    permission: 'task_view'
-                }
-            ]
-        },
-        {
-            id: 'recurring-tasks',
-            label: 'Recurring Tasks',
-            icon: <FiRepeat className="text-base" />,
-            badge: null,
-            path: '/staff/recurring-tasks',
-            permission: 'recurring_task_'
-        },
-        {
-            id: 'client',
-            label: 'Clients',
-            icon: <FiUsers className="text-base" />,
-            path: '/client/view',
-            permission: 'client_',
-            submenu: [
-                {
-                    id: 'client-create',
-                    label: 'New Client',
-                    icon: <FiUser className="w-4 h-4" />,
-                    path: '/client/create',
-                    permission: 'client_create'
-                },
-                {
-                    id: 'client-view',
-                    label: 'View Client',
-                    icon: <FiFolder className="w-4 h-4" />,
-                    path: '/client/view',
-                    permission: 'client_view'
-                }
-            ]
-        },
-        {
-            id: 'billing',
-            label: 'Billing',
-            icon: <FiBarChart2 className="text-base" />,
-            badge: null,
-            path: '/billing',
-            permission: 'finance_'
-        },
-        {
-            id: 'finance',
-            label: 'Finance',
-            icon: <FiBarChart2 className="text-base" />,
-            badge: null,
-            path: '/finance/voucher/',
-            permission: 'finance_'
-        },
-        {
-            id: 'staff',
-            label: 'Staff Management',
-            icon: <FiUsers className="text-base" />,
-            badge: null,
-            path: '/staff',
-            permission: 'staff_',
-            submenu: [
-                {
-                    id: 'staff',
-                    label: 'Staff',
-                    icon: <FiUser className="w-4 h-4" />,
-                    path: '/staff/view',
-                    permission: 'staff_view'
-                },
-                {
-                    id: 'staff-team-report',
-                    label: 'Team Report',
-                    icon: <FiFileText className="w-4 h-4" />,
-                    path: '/staff/team-report',
-                    permission: 'staff_report'
-                },
-                {
-                    id: 'staff-attendance',
-                    label: 'Attendance',
-                    icon: <FiCalendar className="w-4 h-4" />,
-                    path: '/staff/attendance',
-                    permission: 'staff_attendance'
-                },
-                {
-                    id: 'staff-office-assistance',
-                    label: 'Assistance',
-                    icon: <FiHelpCircle className="w-4 h-4" />,
-                    path: '/staff/office-assistance',
-                    permission: 'office_assistance_'
-                }
-            ]
-        },
-        {
-            id: 'broadcast',
-            label: 'Broadcast',
-            icon: <FiMessageSquare className="text-base" />,
-            badge: null,
-            path: '/broadcast',
-            permission: 'broadcast_'
-        },
-        ...(whatsappChannel === 'onechatting'
-            ? [
-                {
-                    id: 'whatsapp-live-chat',
-                    label: 'Live Chat',
-                    icon: <FiMessageSquare className="text-base" />,
-                    badge: null,
-                    path: '/broadcast/whatsapp/onechatting/live-chat',
-                    permission: 'broadcast_'
-                },
-            ]
-            : []),
-        {
-            id: 'settings',
-            label: 'Settings',
-            icon: <FiSettings className="text-base" />,
-            badge: null,
-            path: '/settings',
-            permission: 'setting_'
-        },
-        {
-            id: 'subscription',
-            label: 'Subscription',
-            icon: <FiCreditCard className="text-base" />,
-            badge: null,
-            path: '/subscription',
-            permission: 'subscription_'
-        }
+            {
+                id: 'dashboard',
+                label: 'Dashboard',
+                icon: <FiHome className="text-base" />,
+                badge: null,
+                path: '/dashboard'
+            },
+            {
+                id: 'task',
+                label: 'Tasks',
+                icon: <FiUsers className="text-base" />,
+                path: '/task/view',
+                permission: 'task_',
+                submenu: [
+                    {
+                        id: 'task-create',
+                        label: 'New Task',
+                        icon: <FiUser className="w-4 h-4" />,
+                        action: 'openTaskCreate',
+                        permission: 'task_create'
+                    },
+                    {
+                        id: 'task-view',
+                        label: 'View Task',
+                        icon: <FiFolder className="w-4 h-4" />,
+                        path: '/task/view',
+                        permission: 'task_view'
+                    }
+                ]
+            },
+            {
+                id: 'recurring-tasks',
+                label: 'Recurring Tasks',
+                icon: <FiRepeat className="text-base" />,
+                badge: null,
+                path: '/staff/recurring-tasks',
+                permission: 'recurring_task_'
+            },
+            {
+                id: 'client',
+                label: 'Clients',
+                icon: <FiUsers className="text-base" />,
+                path: '/client/view',
+                permission: 'client_',
+                submenu: [
+                    {
+                        id: 'client-create',
+                        label: 'New Client',
+                        icon: <FiUser className="w-4 h-4" />,
+                        path: '/client/create',
+                        permission: 'client_create'
+                    },
+                    {
+                        id: 'client-view',
+                        label: 'View Client',
+                        icon: <FiFolder className="w-4 h-4" />,
+                        path: '/client/view',
+                        permission: 'client_view'
+                    }
+                ]
+            },
+            {
+                id: 'billing',
+                label: 'Billing',
+                icon: <FiBarChart2 className="text-base" />,
+                badge: null,
+                path: '/billing',
+                permission: 'finance_'
+            },
+            {
+                id: 'finance',
+                label: 'Finance',
+                icon: <FiBarChart2 className="text-base" />,
+                badge: null,
+                path: '/finance/voucher/',
+                permission: 'finance_'
+            },
+            {
+                id: 'staff',
+                label: 'Staff Management',
+                icon: <FiUsers className="text-base" />,
+                badge: null,
+                path: '/staff',
+                permission: 'staff_',
+                submenu: [
+                    {
+                        id: 'staff',
+                        label: 'Staff',
+                        icon: <FiUser className="w-4 h-4" />,
+                        path: '/staff/view',
+                        permission: 'staff_view'
+                    },
+                    {
+                        id: 'staff-team-report',
+                        label: 'Team Report',
+                        icon: <FiFileText className="w-4 h-4" />,
+                        path: '/staff/team-report',
+                        permission: 'staff_report'
+                    },
+                    {
+                        id: 'staff-attendance',
+                        label: 'Attendance',
+                        icon: <FiCalendar className="w-4 h-4" />,
+                        path: '/staff/attendance',
+                        permission: 'staff_attendance'
+                    },
+                    {
+                        id: 'staff-office-assistance',
+                        label: 'Assistance',
+                        icon: <FiHelpCircle className="w-4 h-4" />,
+                        path: '/staff/office-assistance',
+                        permission: 'office_assistance_'
+                    }
+                ]
+            },
+            {
+                id: 'broadcast',
+                label: 'Broadcast',
+                icon: <FiMessageSquare className="text-base" />,
+                badge: null,
+                path: '/broadcast',
+                permission: 'broadcast_'
+            },
+            ...(whatsappChannel === 'onechatting'
+                ? [
+                    {
+                        id: 'whatsapp-live-chat',
+                        label: 'Live Chat',
+                        icon: <FiMessageSquare className="text-base" />,
+                        badge: null,
+                        path: '/broadcast/whatsapp/onechatting/live-chat',
+                        permission: 'broadcast_'
+                    },
+                ]
+                : []),
+            {
+                id: 'settings',
+                label: 'Settings',
+                icon: <FiSettings className="text-base" />,
+                badge: null,
+                path: '/settings',
+                permission: 'setting_'
+            },
+            {
+                id: 'subscription',
+                label: 'Subscription',
+                icon: <FiCreditCard className="text-base" />,
+                badge: null,
+                path: '/subscription',
+                permission: 'subscription_'
+            }
         ];
 
         return items;
@@ -641,7 +641,7 @@ export const Header = ({ setSidebarOpen, sidebarCollapsed, setSidebarCollapsed, 
             '/staff/team-report': 'Team Report',
             '/staff/attendance': 'Staff Attendance',
             '/staff/office-assistance': 'Office Assistance',
-            '/staff/recurring-tasks': 'Recurring Tasks',
+            '/staff/recurring-tasks': 'Compliances',
             '/broadcast': 'Broadcast',
             '/broadcast/whatsapp/onechatting/live-chat': 'Live Chat',
             '/settings': 'Settings',

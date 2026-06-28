@@ -224,11 +224,19 @@ const getStatusText = (status) => {
     switch (status) {
         case 'unassign': return 'Unassign';
         case 'in process': return 'In Process';
-        case 'pending from client': return 'Client Pnd';
-        case 'pending from department': return 'Dept Pnd';
+        case 'pending from client': return 'PFC';
+        case 'pending from department': return 'PFD';
         case 'complete': return 'Complete';
         case 'cancel': return 'Cancel';
         default: return status || '-';
+    }
+};
+
+const getStatusHoverTitle = (status) => {
+    switch (status) {
+        case 'pending from client': return 'Pending from Client';
+        case 'pending from department': return 'Pending from Department';
+        default: return undefined;
     }
 };
 
@@ -248,8 +256,8 @@ const formatStatus = (status) => {
     switch (status) {
         case 'unassign': return 'Unassign';
         case 'in process': return 'In Process';
-        case 'pending from client': return 'Pending from Client';
-        case 'pending from department': return 'Pending from Department';
+        case 'pending from client': return 'PFC';
+        case 'pending from department': return 'PFD';
         case 'complete': return 'Complete';
         case 'cancel': return 'Cancel';
         default: return status;
@@ -1638,19 +1646,14 @@ const TaskDisplay = () => {
                                     task.status === 'cancel' ? 'bg-red-100 text-red-700' :
                                         'bg-gray-100 text-gray-700';
 
-                const statusText = task.status === 'unassign' ? 'Unassign' :
-                    task.status === 'in process' ? 'In Process' :
-                        task.status === 'pending from client' ? 'Pending from Client' :
-                            task.status === 'pending from department' ? 'Pending from Department' :
-                                task.status === 'complete' ? 'Complete' :
-                                    task.status === 'cancel' ? 'Cancel' :
-                                        task.status || '-';
+                const statusText = getStatusText(task.status);
 
                 return (
                     <div className="flex flex-col items-start gap-1">
                         <button
                             type="button"
                             onClick={() => openStatusModal(task.task_id, task.status, task.service?.name || task.service_name || '')}
+                            title={getStatusHoverTitle(task.status)}
                             className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-medium ${statusColorClass} hover:opacity-90 transition-opacity`}
                         >
                             {safeGetString(statusText)}

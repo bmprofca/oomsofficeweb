@@ -1,7 +1,9 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { motion } from 'framer-motion';
 import {
     FiBell,
+    FiBriefcase,
     FiChevronRight,
     FiClipboard,
     FiFileText,
@@ -11,145 +13,139 @@ import {
     FiLock,
     FiSearch,
     FiUserCheck,
-    FiUsers,
     FiUserX,
 } from 'react-icons/fi';
 import { Header, Sidebar } from '../components/header';
 
-const CARD_SECTIONS = [
+const OFFICE_MODULES = [
     {
-        id: 'documents',
-        title: 'Documents & Files',
-        description: 'Organize records, links, and digital assets',
-        cards: [
-            {
-                title: 'DSC Register',
-                description: 'Manage digital signature certificates',
-                icon: FiKey,
-                link: '/dsc-report',
-                color: 'bg-blue-50 text-blue-600',
-            },
-            {
-                title: 'File Index',
-                description: 'Structured index of office documents',
-                icon: FiFileText,
-                link: '/file-index',
-                color: 'bg-emerald-50 text-emerald-600',
-            },
-            {
-                title: 'Important Links',
-                description: 'Quick-access resources for your team',
-                icon: FiLink,
-                link: '/important-links',
-                color: 'bg-amber-50 text-amber-600',
-            },
-        ],
+        title: 'DSC Register',
+        description: 'Manage digital signature certificates',
+        icon: FiKey,
+        link: '/dsc-report',
+        iconBg: 'bg-blue-100',
+        iconColor: 'text-blue-600',
+        accent: 'from-blue-500/10 to-transparent',
+        hoverBorder: 'hover:border-blue-200',
     },
     {
-        id: 'security',
-        title: 'Security & Teams',
-        description: 'Credentials, permissions, and group management',
-        cards: [
-            {
-                title: 'Password Groups',
-                description: 'Store and share credentials by group',
-                icon: FiLock,
-                link: '/password-groups',
-                color: 'bg-indigo-50 text-indigo-600',
-            },
-            {
-                title: 'User Group',
-                description: 'Permission groups for staff',
-                icon: FiUsers,
-                link: '/groups',
-                color: 'bg-violet-50 text-violet-600',
-            },
-        ],
+        title: 'File Index',
+        description: 'Structured index of office documents',
+        icon: FiFileText,
+        link: '/file-index',
+        iconBg: 'bg-emerald-100',
+        iconColor: 'text-emerald-600',
+        accent: 'from-emerald-500/10 to-transparent',
+        hoverBorder: 'hover:border-emerald-200',
     },
     {
-        id: 'services',
-        title: 'Services & Workflow',
-        description: 'Catalog, requests, and service delivery',
-        cards: [
-            {
-                title: 'Services',
-                description: 'Offerings, pricing, and metadata',
-                icon: FiGrid,
-                link: '/services',
-                color: 'bg-rose-50 text-rose-600',
-            },
-            {
-                title: 'Service Requests',
-                description: 'Review and approve client requests',
-                icon: FiClipboard,
-                link: '/service-requests',
-                color: 'bg-cyan-50 text-cyan-600',
-            },
-        ],
+        title: 'Important Links',
+        description: 'Quick-access resources for your team',
+        icon: FiLink,
+        link: '/important-links',
+        iconBg: 'bg-amber-100',
+        iconColor: 'text-amber-600',
+        accent: 'from-amber-500/10 to-transparent',
+        hoverBorder: 'hover:border-amber-200',
     },
     {
-        id: 'clients',
-        title: 'Clients & Partners',
-        description: 'Relationships, retention, and professional network',
-        cards: [
-            {
-                title: 'Inactive Client',
-                description: 'Track and re-engage dormant accounts',
-                icon: FiUserX,
-                link: '/inactive-client',
-                color: 'bg-slate-100 text-slate-600',
-            },
-            {
-                title: 'CA List',
-                description: 'Chartered accountant directory',
-                icon: FiUserCheck,
-                link: '/ca-list',
-                color: 'bg-purple-50 text-purple-600',
-            },
-        ],
+        title: 'Password Groups',
+        description: 'Store and share credentials securely',
+        icon: FiLock,
+        link: '/password-groups',
+        iconBg: 'bg-indigo-100',
+        iconColor: 'text-indigo-600',
+        accent: 'from-indigo-500/10 to-transparent',
+        hoverBorder: 'hover:border-indigo-200',
     },
     {
-        id: 'automation',
-        title: 'Automation',
-        description: 'Scheduled reminders and recurring workflows',
-        cards: [
-            {
-                title: 'Auto Payment Reminder',
-                description: 'Automated billing and payment alerts',
-                icon: FiBell,
-                link: '/auto-reminder',
-                color: 'bg-orange-50 text-orange-600',
-            },
-        ],
+        title: 'Services',
+        description: 'Branch offerings, pricing, and metadata',
+        icon: FiGrid,
+        link: '/services',
+        iconBg: 'bg-rose-100',
+        iconColor: 'text-rose-600',
+        accent: 'from-rose-500/10 to-transparent',
+        hoverBorder: 'hover:border-rose-200',
+    },
+    {
+        title: 'Service Requests',
+        description: 'Review and approve client requests',
+        icon: FiClipboard,
+        link: '/service-requests',
+        iconBg: 'bg-cyan-100',
+        iconColor: 'text-cyan-600',
+        accent: 'from-cyan-500/10 to-transparent',
+        hoverBorder: 'hover:border-cyan-200',
+    },
+    {
+        title: 'Inactive Client',
+        description: 'Track and re-engage dormant accounts',
+        icon: FiUserX,
+        link: '/inactive-client',
+        iconBg: 'bg-gray-100',
+        iconColor: 'text-gray-600',
+        accent: 'from-gray-500/10 to-transparent',
+        hoverBorder: 'hover:border-gray-300',
+    },
+    {
+        title: 'CA List',
+        description: 'Chartered accountant directory',
+        icon: FiUserCheck,
+        link: '/ca-list',
+        iconBg: 'bg-violet-100',
+        iconColor: 'text-violet-600',
+        accent: 'from-violet-500/10 to-transparent',
+        hoverBorder: 'hover:border-violet-200',
+    },
+    {
+        title: 'Auto Payment Reminder',
+        description: 'Automated billing and payment alerts',
+        icon: FiBell,
+        link: '/auto-reminder',
+        iconBg: 'bg-orange-100',
+        iconColor: 'text-orange-600',
+        accent: 'from-orange-500/10 to-transparent',
+        hoverBorder: 'hover:border-orange-200',
     },
 ];
 
-function ModuleCard({ card, onNavigate }) {
-    const Icon = card.icon;
+function ModuleCard({ module, index, onNavigate }) {
+    const Icon = module.icon;
 
     return (
-        <button
+        <motion.button
             type="button"
-            onClick={() => onNavigate(card.link)}
-            className="group w-full text-left rounded-lg border border-gray-200 bg-white p-3 hover:border-indigo-200 hover:shadow-sm transition-all duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/40"
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: index * 0.04, duration: 0.25 }}
+            whileHover={{ y: -4 }}
+            whileTap={{ scale: 0.98 }}
+            onClick={() => onNavigate(module.link)}
+            className={`group relative w-full text-left overflow-hidden rounded-xl border border-gray-200 bg-white p-4 shadow-sm transition-all duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/40 ${module.hoverBorder} hover:shadow-md`}
         >
-            <div className="flex items-start gap-3">
-                <div
-                    className={`shrink-0 w-9 h-9 rounded-lg flex items-center justify-center ${card.color}`}
-                >
-                    <Icon className="w-4 h-4" />
+            <div className={`absolute inset-x-0 top-0 h-16 bg-gradient-to-b ${module.accent} opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none`} />
+
+            <div className="relative flex flex-col gap-3 min-h-[108px]">
+                <div className="flex items-start justify-between gap-2">
+                    <div className={`shrink-0 w-10 h-10 rounded-xl flex items-center justify-center ${module.iconBg} ${module.iconColor} shadow-sm`}>
+                        <Icon className="w-5 h-5" strokeWidth={1.75} />
+                    </div>
+                    <span className="flex items-center justify-center w-7 h-7 rounded-full bg-gray-50 text-gray-300 group-hover:bg-indigo-50 group-hover:text-indigo-500 transition-colors duration-200">
+                        <FiChevronRight className="w-4 h-4" />
+                    </span>
                 </div>
+
                 <div className="min-w-0 flex-1">
-                    <h3 className="text-sm font-medium text-gray-900 group-hover:text-indigo-700 leading-snug">
-                        {card.title}
+                    <h3 className="text-sm font-semibold text-gray-800 group-hover:text-indigo-700 transition-colors leading-tight">
+                        {module.title}
                     </h3>
-                    <p className="text-xs text-gray-500 mt-0.5 leading-snug line-clamp-2">
-                        {card.description}
+                    <p className="text-xs text-gray-500 mt-1 leading-snug line-clamp-2">
+                        {module.description}
                     </p>
                 </div>
-                <FiChevronRight className="w-4 h-4 text-gray-300 group-hover:text-indigo-500 shrink-0 mt-0.5 transition-colors" />
             </div>
-        </button>
+        </motion.button>
     );
 }
 
@@ -162,35 +158,22 @@ const OfficeAssistance = () => {
     });
     const [searchTerm, setSearchTerm] = useState('');
 
-    const allCards = useMemo(() => CARD_SECTIONS.flatMap((section) => section.cards), []);
-
-    const filteredSections = useMemo(() => {
+    const filteredModules = useMemo(() => {
         const q = searchTerm.trim().toLowerCase();
-        if (!q) return CARD_SECTIONS;
-
-        return CARD_SECTIONS.map((section) => ({
-            ...section,
-            cards: section.cards.filter(
-                (card) =>
-                    card.title.toLowerCase().includes(q) ||
-                    card.description.toLowerCase().includes(q) ||
-                    section.title.toLowerCase().includes(q)
-            ),
-        })).filter((section) => section.cards.length > 0);
+        if (!q) return OFFICE_MODULES;
+        return OFFICE_MODULES.filter(
+            (mod) =>
+                mod.title.toLowerCase().includes(q) ||
+                mod.description.toLowerCase().includes(q)
+        );
     }, [searchTerm]);
-
-    const visibleCount = filteredSections.reduce((sum, s) => sum + s.cards.length, 0);
 
     useEffect(() => {
         localStorage.setItem('sidebarMinimized', JSON.stringify(isMinimized));
     }, [isMinimized]);
 
     useEffect(() => {
-        if (mobileMenuOpen) {
-            document.body.style.overflow = 'hidden';
-        } else {
-            document.body.style.overflow = 'auto';
-        }
+        document.body.style.overflow = mobileMenuOpen ? 'hidden' : 'auto';
         return () => {
             document.body.style.overflow = 'auto';
         };
@@ -218,75 +201,73 @@ const OfficeAssistance = () => {
                     isMinimized ? 'md:pl-20' : 'md:pl-[260px]'
                 }`}
             >
-                <div className="max-w-7xl mx-auto px-4 sm:px-6 md:px-8 py-6">
-                    <div className="mb-5 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-                        <div>
-                            <h1 className="text-lg font-semibold text-gray-900">Office Assistance</h1>
-                            <p className="text-sm text-gray-500 mt-0.5">
-                                Documents, services, clients, and office automation tools
-                            </p>
-                            <p className="text-xs text-gray-400 mt-1">
-                                {visibleCount} module{visibleCount !== 1 ? 's' : ''} · {CARD_SECTIONS.length}{' '}
-                                categories
-                            </p>
-                        </div>
-                        <div className="relative w-full sm:max-w-xs shrink-0">
-                            <label htmlFor="office-module-search" className="sr-only">
-                                Search modules
-                            </label>
-                            <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
-                            <input
-                                id="office-module-search"
-                                type="search"
-                                value={searchTerm}
-                                onChange={(e) => setSearchTerm(e.target.value)}
-                                placeholder="Search modules..."
-                                className="w-full pl-9 pr-3 py-2 text-sm text-gray-800 bg-white border border-gray-200 rounded-lg outline-none transition focus:border-indigo-300 focus:ring-2 focus:ring-indigo-500/10 placeholder:text-gray-400"
-                            />
-                        </div>
-                    </div>
-
-                    <div className="space-y-4">
-                        {filteredSections.map((section) => (
-                            <section
-                                key={section.id}
-                                className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden"
-                            >
-                                <div className="px-4 py-3 border-b border-gray-100 bg-gray-50/60">
-                                    <h2 className="text-sm font-semibold text-gray-800">{section.title}</h2>
-                                    <p className="text-xs text-gray-500 mt-0.5">{section.description}</p>
-                                </div>
-                                <div className="p-4">
-                                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
-                                        {section.cards.map((card) => (
-                                            <ModuleCard
-                                                key={card.link}
-                                                card={card}
-                                                onNavigate={handleNavigate}
-                                            />
-                                        ))}
+                <div className="mx-2 sm:mx-4 md:mx-8 my-3 md:my-4">
+                    <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+                        <div className="border-b border-gray-200 px-3 md:px-4 py-3 bg-gradient-to-r from-gray-50 to-white">
+                            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                                <div className="flex items-center gap-2.5 min-w-0">
+                                    <div className="w-9 h-9 rounded-lg bg-indigo-100 flex items-center justify-center shrink-0">
+                                        <FiBriefcase className="w-4 h-4 text-indigo-600" />
+                                    </div>
+                                    <div className="min-w-0">
+                                        <h1 className="text-base md:text-lg font-bold text-gray-800 leading-tight">
+                                            Office Assistance
+                                        </h1>
+                                        <p className="text-xs text-gray-500 mt-0.5">
+                                            {filteredModules.length} module{filteredModules.length !== 1 ? 's' : ''} available
+                                        </p>
                                     </div>
                                 </div>
-                            </section>
-                        ))}
-                    </div>
 
-                    {visibleCount === 0 && (
-                        <div className="mt-4 rounded-lg border border-dashed border-gray-200 bg-white px-6 py-12 text-center">
-                            <FiSearch className="w-8 h-8 text-gray-300 mx-auto mb-3" />
-                            <h3 className="text-sm font-medium text-gray-800">No modules found</h3>
-                            <p className="mt-1 text-xs text-gray-500">
-                                Try another term or browse all {allCards.length} modules.
-                            </p>
-                            <button
-                                type="button"
-                                onClick={() => setSearchTerm('')}
-                                className="mt-4 inline-flex items-center px-3 py-1.5 rounded-lg bg-indigo-600 text-white text-xs font-medium hover:bg-indigo-700 transition-colors"
-                            >
-                                Clear search
-                            </button>
+                                <div className="relative w-full sm:max-w-xs shrink-0">
+                                    <label htmlFor="office-module-search" className="sr-only">
+                                        Search modules
+                                    </label>
+                                    <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400 pointer-events-none" />
+                                    <input
+                                        id="office-module-search"
+                                        type="search"
+                                        value={searchTerm}
+                                        onChange={(e) => setSearchTerm(e.target.value)}
+                                        placeholder="Search modules…"
+                                        className="w-full pl-9 pr-3 py-2 text-sm text-gray-700 border border-gray-300 rounded-lg bg-white outline-none transition focus:ring-2 focus:ring-indigo-500 focus:border-transparent placeholder:text-gray-400"
+                                    />
+                                </div>
+                            </div>
                         </div>
-                    )}
+
+                        <div className="p-3 md:p-4">
+                            {filteredModules.length > 0 ? (
+                                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 md:gap-4">
+                                    {filteredModules.map((mod, index) => (
+                                        <ModuleCard
+                                            key={mod.link}
+                                            module={mod}
+                                            index={index}
+                                            onNavigate={handleNavigate}
+                                        />
+                                    ))}
+                                </div>
+                            ) : (
+                                <div className="flex flex-col items-center justify-center py-16 px-4 text-center">
+                                    <div className="w-12 h-12 rounded-full bg-gray-100 flex items-center justify-center mb-3">
+                                        <FiSearch className="w-5 h-5 text-gray-400" />
+                                    </div>
+                                    <p className="text-sm font-medium text-gray-500">No modules found</p>
+                                    <p className="text-xs text-gray-400 mt-1">
+                                        Try another term or browse all {OFFICE_MODULES.length} modules.
+                                    </p>
+                                    <button
+                                        type="button"
+                                        onClick={() => setSearchTerm('')}
+                                        className="mt-4 inline-flex items-center px-4 py-2 rounded-lg bg-indigo-600 text-white text-sm font-medium hover:bg-indigo-700 transition-colors"
+                                    >
+                                        Clear search
+                                    </button>
+                                </div>
+                            )}
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>

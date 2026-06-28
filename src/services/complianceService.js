@@ -246,6 +246,7 @@ export const fetchComplianceTaskList = async ({
   return {
     ...response.data,
     data: Array.isArray(response.data?.data) ? response.data.data : [],
+    query_payload: response.data?.query_payload ?? null,
     pagination: normalizePagination(response.data?.pagination, { page: page_no, limit }),
   };
 };

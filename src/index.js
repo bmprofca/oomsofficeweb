@@ -43,6 +43,7 @@ import PasswordGroups from './pages/office-assistance/password-group';
 import ImportantLinks from './pages/office-assistance/important-link';
 import Services from './pages/office-assistance/services';
 import ComplianceServices from './pages/office-assistance/compliance';
+import ComplianceFirmAssignment from './pages/office-assistance/compliance-firm-assignment';
 import ComplianceAssignmentDetails from './pages/office-assistance/ComplianceAssignmentDetails';
 import RecurringGroups from './pages/office-assistance/recurring-group';
 import Groups from './pages/office-assistance/groups';
@@ -402,6 +403,12 @@ root.render(
         <Route path="/staff/office-assistance/compliance" element={
           <ProtectedRoute>
             <ComplianceServices />
+          </ProtectedRoute>
+        } />
+
+        <Route path="/staff/office-assistance/compliance/firm-assignment" element={
+          <ProtectedRoute>
+            <ComplianceFirmAssignment />
           </ProtectedRoute>
         } />
 

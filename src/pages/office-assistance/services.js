@@ -49,8 +49,8 @@ const GST_RATE_OPTIONS = [
 ];
 
 const SERVICE_CATEGORIES = [
-    { id: 'compliance', label: 'Compliance' },
     { id: 'general', label: 'General' },
+    { id: 'compliance', label: 'Compliance' },
 ];
 
 const FREQ_BADGE_COLORS = {
@@ -60,13 +60,13 @@ const FREQ_BADGE_COLORS = {
     halfyearly: 'bg-amber-50 text-amber-700 border-amber-200',
     yearly: 'bg-teal-50 text-teal-700 border-teal-200',
     annual: 'bg-teal-50 text-teal-700 border-teal-200',
-    'one-time': 'bg-gray-100 text-slate-600 border-gray-200',
+    'one-time': 'bg-gray-100 text-gray-600 border-gray-200',
 };
 
 const frequencyBadge = (frequency) => {
     if (!frequency) return null;
     const key = String(frequency).toLowerCase();
-    const cls = FREQ_BADGE_COLORS[key] || 'bg-gray-100 text-slate-600 border-gray-200';
+    const cls = FREQ_BADGE_COLORS[key] || 'bg-gray-100 text-gray-600 border-gray-200';
     return (
         <span className={`inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-semibold border uppercase tracking-wide ${cls}`}>
             {frequency}
@@ -84,18 +84,36 @@ const isServiceOnBranch = (svc) => {
     return false;
 };
 
-const CellDash = () => <span className="text-xs text-slate-400">—</span>;
+const CellDash = () => <span className="text-sm text-gray-400">—</span>;
 
-const BranchAddedBadge = ({ svc }) =>
-    isServiceOnBranch(svc) ? (
-        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-100 text-emerald-700 border border-emerald-200">
-            <FiCheck className="w-3 h-3" /> Added to branch
-        </span>
-    ) : (
-        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-gray-100 text-slate-500 border border-gray-200">
-            Not added
-        </span>
+/** Task-table typography baseline — see context/typography.md */
+const TABLE_HEAD_ROW = 'bg-gradient-to-r from-gray-50 to-white border-b border-gray-200';
+const TABLE_TH = 'px-3 py-3 text-left text-[11px] font-bold text-gray-700 uppercase tracking-wide whitespace-nowrap';
+const TABLE_ROW = 'border-b border-gray-100 bg-white hover:bg-gray-50 transition-colors group';
+const TABLE_TD = 'px-3 py-3 min-w-0 text-left align-middle';
+const TOOLBAR_ROW = 'flex items-center gap-3 px-3 md:px-4 py-3 border-b border-gray-200 bg-gray-50';
+const TOOLBAR_INPUT = 'w-full pl-9 pr-3 py-2 text-sm text-gray-700 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none placeholder:text-gray-400';
+const FEES_CHIP = 'inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-indigo-50 text-indigo-700 border border-indigo-200';
+const CELL_BODY = 'text-sm font-medium text-gray-700';
+const CELL_INDEX = 'text-[11px] font-bold text-gray-800';
+const CELL_TITLE = 'font-semibold text-gray-800 text-sm';
+
+const BranchAddedBadge = ({ svc }) => {
+    const added = isServiceOnBranch(svc);
+    return (
+        <ViewportTooltip label={added ? 'Added to branch' : 'Not added'}>
+            <span
+                className={`inline-flex items-center justify-center w-7 h-7 rounded-full border ${added
+                        ? 'bg-emerald-50 text-emerald-600 border-emerald-200'
+                        : 'bg-gray-50 text-gray-400 border-gray-200'
+                    }`}
+                aria-label={added ? 'Added to branch' : 'Not added'}
+            >
+                {added ? <FiCheck className="w-3.5 h-3.5" strokeWidth={2.5} /> : <FiX className="w-3.5 h-3.5" strokeWidth={2.5} />}
+            </span>
+        </ViewportTooltip>
     );
+};
 
 /* ─── badge helpers ─────────────────────────────────────────────── */
 const TYPE_COLORS = {
@@ -104,7 +122,7 @@ const TYPE_COLORS = {
     audit: 'bg-amber-100 text-amber-700 border-amber-200',
     compliance: 'bg-teal-100 text-teal-700 border-teal-200',
     registration: 'bg-orange-100 text-orange-700 border-orange-200',
-    other: 'bg-gray-100 text-slate-600 border-gray-200',
+    other: 'bg-gray-100 text-gray-600 border-gray-200',
 };
 const typeBadge = (type) => {
     const t = (type || 'other').toLowerCase();
@@ -121,7 +139,7 @@ const typeBadge = (type) => {
 const SkeletonRow = ({ cols }) => (
     <tr className="animate-pulse">
         {Array.from({ length: cols }).map((_, i) => (
-            <td key={i} className="px-4 py-3">
+            <td key={i} className="px-3 py-3">
                 <div className="h-3.5 bg-gray-200 rounded-full" style={{ width: `${60 + (i % 3) * 20}px` }} />
             </td>
         ))}
@@ -191,7 +209,7 @@ const ActionMenu = ({ items }) => {
                 <button
                     ref={btnRef}
                     onClick={(e) => { e.stopPropagation(); setOpen(v => !v); }}
-                    className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-gray-100 rounded-lg transition-colors"
+                    className="p-1.5 text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
                 >
                     <FiMenu className="w-3.5 h-3.5" />
                 </button>
@@ -215,7 +233,7 @@ const ActionMenu = ({ items }) => {
                                     onClick={(e) => { e.stopPropagation(); item.onClick(); setOpen(false); }}
                                     className={`w-full text-left px-3 py-2 text-xs flex items-center gap-2 transition-colors ${item.danger
                                         ? 'text-red-600 hover:bg-red-50'
-                                        : 'text-slate-700 hover:bg-gray-50'
+                                        : 'text-gray-700 hover:bg-gray-50'
                                         }`}
                                 >
                                     {item.icon}
@@ -239,9 +257,9 @@ const FeeForm = ({ form, onChange, loading, showDueDate = false }) => {
         <div className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
                 <div>
-                    <label className="block text-xs font-semibold text-slate-600 mb-1.5">Fees (₹) *</label>
+                    <label className="block text-xs font-semibold text-gray-600 mb-1.5">Fees (₹) *</label>
                     <div className="relative">
-                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm">₹</span>
+                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">₹</span>
                         <input
                             type="text"
                             inputMode="decimal"
@@ -253,13 +271,13 @@ const FeeForm = ({ form, onChange, loading, showDueDate = false }) => {
                                 }
                             }}
                             disabled={loading}
-                            className="w-full pl-7 pr-3 py-2.5 text-sm text-slate-700 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none disabled:opacity-60"
+                            className="w-full pl-7 pr-3 py-2.5 text-sm text-gray-700 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none disabled:opacity-60"
                             placeholder="0.00"
                         />
                     </div>
                 </div>
                 <div>
-                    <label className="block text-xs font-semibold text-slate-600 mb-1.5">GST Rate *</label>
+                    <label className="block text-xs font-semibold text-gray-600 mb-1.5">GST Rate *</label>
                     <SelectInput
                         options={GST_RATE_OPTIONS}
                         value={form.gst_rate !== null && form.gst_rate !== '' ? Number(form.gst_rate) : null}
@@ -274,8 +292,8 @@ const FeeForm = ({ form, onChange, loading, showDueDate = false }) => {
             {/* Live preview */}
             <div className="grid grid-cols-2 gap-4">
                 <div className="bg-gray-50 border border-gray-200 rounded-lg px-3 py-2.5">
-                    <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide mb-0.5">GST Value</p>
-                    <p className="text-sm font-semibold text-slate-800">₹ {fmt(gstValue)}</p>
+                    <p className="text-[10px] font-semibold text-gray-500 uppercase tracking-wide mb-0.5">GST Value</p>
+                    <p className="text-sm font-semibold text-gray-800">₹ {fmt(gstValue)}</p>
                 </div>
                 <div className="bg-indigo-50 border border-indigo-200 rounded-lg px-3 py-2.5">
                     <p className="text-[10px] font-semibold text-indigo-500 uppercase tracking-wide mb-0.5">Total</p>
@@ -285,7 +303,7 @@ const FeeForm = ({ form, onChange, loading, showDueDate = false }) => {
 
             {showDueDate ? (
                 <div>
-                    <label className="block text-xs font-semibold text-slate-600 mb-1.5">Due Date (day of month) *</label>
+                    <label className="block text-xs font-semibold text-gray-600 mb-1.5">Due Date (day of month) *</label>
                     <input
                         type="number"
                         min="1"
@@ -294,21 +312,21 @@ const FeeForm = ({ form, onChange, loading, showDueDate = false }) => {
                         onChange={(e) => onChange('due_date', e.target.value)}
                         disabled={loading}
                         placeholder="e.g. 10"
-                        className="w-full px-3 py-2.5 text-sm text-slate-700 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none disabled:opacity-60"
+                        className="w-full px-3 py-2.5 text-sm text-gray-700 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none disabled:opacity-60"
                     />
-                    <p className="text-[10px] text-slate-400 mt-1">Day of the month when this recurring task is due (1–31).</p>
+                    <p className="text-[10px] text-gray-400 mt-1">Day of the month when this recurring task is due (1–31).</p>
                 </div>
             ) : null}
 
             {!showDueDate ? (
                 <div>
-                    <label className="block text-xs font-semibold text-slate-600 mb-1.5">Remark</label>
+                    <label className="block text-xs font-semibold text-gray-600 mb-1.5">Remark</label>
                     <textarea
                         value={form.remark}
                         onChange={(e) => onChange('remark', e.target.value)}
                         disabled={loading}
                         rows={2}
-                        className="w-full px-3 py-2.5 text-sm text-slate-700 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none resize-none disabled:opacity-60"
+                        className="w-full px-3 py-2.5 text-sm text-gray-700 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none resize-none disabled:opacity-60"
                         placeholder="Optional note…"
                     />
                 </div>
@@ -380,12 +398,12 @@ const ConfirmModal = ({ title, message, onConfirm, onCancel, loading }) => (
                 <div className="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center mx-auto mb-3">
                     <FiAlertTriangle className="w-5 h-5 text-red-600" />
                 </div>
-                <h4 className="text-center text-sm font-semibold text-slate-800 mb-1">{title}</h4>
-                <p className="text-center text-xs text-slate-500">{message}</p>
+                <h4 className="text-center text-sm font-semibold text-gray-800 mb-1">{title}</h4>
+                <p className="text-center text-xs text-gray-500">{message}</p>
             </div>
             <div className="shrink-0 px-5 py-3 border-t border-gray-100 bg-gray-50 flex gap-2">
                 <button onClick={onCancel} disabled={loading}
-                    className="flex-1 px-4 py-2 text-sm font-medium text-slate-700 border border-gray-200 rounded-lg hover:bg-gray-100 transition-colors disabled:opacity-50">
+                    className="flex-1 px-4 py-2 text-sm font-medium text-gray-700 border border-gray-200 rounded-lg hover:bg-gray-100 transition-colors disabled:opacity-50">
                     Cancel
                 </button>
                 <button onClick={onConfirm} disabled={loading}
@@ -406,7 +424,7 @@ const ViewModal = ({ svc, onClose }) => {
         <Modal title="Service Details" icon={<FiEye className="w-4 h-4" />} onClose={onClose}
             footer={
                 <div className="flex justify-end">
-                    <button onClick={onClose} className="px-4 py-2 text-sm font-medium text-slate-600 border border-gray-200 rounded-lg hover:bg-gray-100 transition-colors">
+                    <button onClick={onClose} className="px-4 py-2 text-sm font-medium text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-100 transition-colors">
                         Close
                     </button>
                 </div>
@@ -428,14 +446,14 @@ const ViewModal = ({ svc, onClose }) => {
                 <div className="grid grid-cols-2 gap-3 mb-4">
                     {svc.frequency && (
                         <div className="bg-gray-50 border border-gray-200 rounded-lg px-3 py-2.5">
-                            <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide mb-0.5">Frequency</p>
-                            <p className="text-sm font-bold text-slate-800 capitalize">{svc.frequency}</p>
+                            <p className="text-[10px] font-semibold text-gray-500 uppercase tracking-wide mb-0.5">Frequency</p>
+                            <p className="text-sm font-bold text-gray-800 capitalize">{svc.frequency}</p>
                         </div>
                     )}
                     {svc.default_due_date != null && (
                         <div className="bg-gray-50 border border-gray-200 rounded-lg px-3 py-2.5">
-                            <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide mb-0.5">Default Due Day</p>
-                            <p className="text-sm font-bold text-slate-800">Day {svc.default_due_date}</p>
+                            <p className="text-[10px] font-semibold text-gray-500 uppercase tracking-wide mb-0.5">Default Due Day</p>
+                            <p className="text-sm font-bold text-gray-800">Day {svc.default_due_date}</p>
                         </div>
                     )}
                 </div>
@@ -450,8 +468,8 @@ const ViewModal = ({ svc, onClose }) => {
                         { label: 'Total', value: `₹ ${fmt((parseFloat(svc.fees) || 0) + (parseFloat(svc.gst_value) || 0))}`, cls: 'bg-indigo-50 border-indigo-100' },
                     ].map(({ label, value, cls }) => (
                         <div key={label} className={`${cls} border rounded-lg px-3 py-2.5`}>
-                            <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide mb-0.5">{label}</p>
-                            <p className="text-sm font-bold text-slate-800">{value}</p>
+                            <p className="text-[10px] font-semibold text-gray-500 uppercase tracking-wide mb-0.5">{label}</p>
+                            <p className="text-sm font-bold text-gray-800">{value}</p>
                         </div>
                     ))}
                 </div>
@@ -459,23 +477,23 @@ const ViewModal = ({ svc, onClose }) => {
 
             {onBranch && isComplianceService(svc) && svc.due_date != null && (
                 <div className="mb-4 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2.5">
-                    <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide mb-0.5">Branch Due Day</p>
-                    <p className="text-sm font-bold text-slate-800">Day {svc.due_date}</p>
+                    <p className="text-[10px] font-semibold text-gray-500 uppercase tracking-wide mb-0.5">Branch Due Day</p>
+                    <p className="text-sm font-bold text-gray-800">Day {svc.due_date}</p>
                 </div>
             )}
 
             {getServiceRemark(svc) && (
                 <div className="mb-4">
-                    <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide mb-1">Remark</p>
-                    <p className="text-xs text-slate-700 bg-gray-50 border border-gray-100 rounded-lg px-3 py-2.5 leading-relaxed">{getServiceRemark(svc)}</p>
+                    <p className="text-[10px] font-semibold text-gray-500 uppercase tracking-wide mb-1">Remark</p>
+                    <p className="text-xs text-gray-700 bg-gray-50 border border-gray-100 rounded-lg px-3 py-2.5 leading-relaxed">{getServiceRemark(svc)}</p>
                 </div>
             )}
 
             {(svc.modify_by?.name || svc.modify_date) && (
                 <div className="pt-3 border-t border-gray-100">
-                    <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-1">Last Modified</p>
-                    <div className="flex items-center gap-2 text-xs text-slate-500">
-                        {svc.modify_by?.name && <span className="font-medium text-slate-700">{svc.modify_by.name}</span>}
+                    <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide mb-1">Last Modified</p>
+                    <div className="flex items-center gap-2 text-xs text-gray-500">
+                        {svc.modify_by?.name && <span className="font-medium text-gray-700">{svc.modify_by.name}</span>}
                         {svc.modify_date && (
                             <span>{new Date(svc.modify_date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}</span>
                         )}
@@ -490,10 +508,10 @@ const ViewModal = ({ svc, onClose }) => {
 const EmptyState = ({ icon, title, desc }) => (
     <tr>
         <td colSpan={99}>
-            <div className="flex flex-col items-center justify-center py-14 text-slate-400">
+            <div className="flex flex-col items-center justify-center py-12 text-gray-400 px-4">
                 <div className="w-12 h-12 rounded-full bg-gray-100 flex items-center justify-center mb-3">{icon}</div>
-                <p className="text-sm font-medium text-slate-600">{title}</p>
-                <p className="text-xs mt-0.5">{desc}</p>
+                <p className="text-sm font-medium text-gray-500">{title}</p>
+                <p className="text-xs text-gray-400 mt-1">{desc}</p>
             </div>
         </td>
     </tr>
@@ -515,7 +533,7 @@ const Services = () => {
     }, [mobileMenuOpen]);
 
     /* ── tabs ── */
-    const [serviceCategory, setServiceCategory] = useState('compliance');
+    const [serviceCategory, setServiceCategory] = useState('general');
 
     /* ── staff mapping ── */
     const [staffMap, setStaffMap] = useState({});
@@ -615,6 +633,7 @@ const Services = () => {
     const [serviceList, setServiceList] = useState([]);
     const [serviceLoading, setServiceLoading] = useState(false);
     const [serviceSearch, setServiceSearch] = useState('');
+    const [showAddedOnly, setShowAddedOnly] = useState(true);
     const [servicePage, setServicePage] = useState(1);
     const [serviceLimit, setServiceLimit] = useState(20);
     const [serviceTotal, setServiceTotal] = useState(0);
@@ -640,13 +659,17 @@ const Services = () => {
         search = '',
         page = 1,
         limit = 20,
-        type = 'compliance',
+        type = 'general',
+        addedOnly = false,
     } = {}) => {
         setServiceLoading(true);
         try {
+            const params = { search, page_no: page, limit, type };
+            if (addedOnly) params.is_added = true;
+
             const res = await axios.get(`${API_BASE_URL}/service/list`, {
                 headers: getHeaders(),
-                params: { search, page_no: page, limit, type },
+                params,
             });
             if (res.data?.success) {
                 const pagination = res.data.pagination || {};
@@ -661,25 +684,34 @@ const Services = () => {
         } finally { setServiceLoading(false); }
     }, []);
 
-    const refreshServiceList = useCallback((search = serviceSearch, page = servicePage, limit = serviceLimit) => {
-        fetchServiceList({ search, page, limit, type: serviceCategory });
-    }, [fetchServiceList, serviceCategory, serviceSearch, servicePage, serviceLimit]);
+    const refreshServiceList = useCallback((
+        search = serviceSearch,
+        page = servicePage,
+        limit = serviceLimit,
+        addedOnly = showAddedOnly,
+    ) => {
+        fetchServiceList({ search, page, limit, type: serviceCategory, addedOnly });
+    }, [fetchServiceList, serviceCategory, serviceSearch, servicePage, serviceLimit, showAddedOnly]);
 
     useEffect(() => {
         if (viewMode !== 'list') return;
-        setServicePage(1);
-        fetchServiceList({ search: serviceSearch, page: 1, limit: serviceLimit, type: serviceCategory });
-    }, [serviceCategory, viewMode]); // eslint-disable-line
 
-    useEffect(() => {
-        if (viewMode !== 'list') return;
         clearTimeout(serviceTimer.current);
+        const delay = serviceSearch.trim() ? 400 : 0;
+
         serviceTimer.current = setTimeout(() => {
             setServicePage(1);
-            fetchServiceList({ search: serviceSearch, page: 1, limit: serviceLimit, type: serviceCategory });
-        }, 400);
+            fetchServiceList({
+                search: serviceSearch,
+                page: 1,
+                limit: serviceLimit,
+                type: serviceCategory,
+                addedOnly: showAddedOnly,
+            });
+        }, delay);
+
         return () => clearTimeout(serviceTimer.current);
-    }, [serviceSearch, serviceCategory, viewMode]); // eslint-disable-line
+    }, [serviceSearch, serviceCategory, showAddedOnly, viewMode, serviceLimit]); // eslint-disable-line
 
     /* ─── edit ───────────────────────────────────────────────────── */
     const openEdit = (svc) => {
@@ -831,112 +863,109 @@ const Services = () => {
             <Sidebar mobileMenuOpen={mobileMenuOpen} setMobileMenuOpen={setMobileMenuOpen} isMinimized={isMinimized} setIsMinimized={setIsMinimized} />
 
             <div className={`pt-16 transition-all duration-300 ease-in-out ${isMinimized ? 'md:pl-20' : 'md:pl-[260px]'}`}>
-                <div className="max-w-full mx-auto px-4 sm:px-6 lg:px-8 py-6">
+                <div className="mx-2 sm:mx-4 md:mx-8 my-3 md:my-4">
+                    <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
 
-                    {/* page header */}
-                    <div className="mb-5 flex items-center justify-between">
-                        <div className="flex items-center gap-3">
-                            <div className="w-9 h-9 rounded-xl bg-indigo-100 flex items-center justify-center">
-                                <FiLayers className="w-4 h-4 text-indigo-600" />
+                        <div className="border-b border-gray-200 px-3 md:px-4 py-3 bg-gradient-to-r from-gray-50 to-white flex items-center justify-between gap-3">
+                            <div className="flex items-center gap-2.5 min-w-0">
+                                <div className="w-8 h-8 rounded-lg bg-indigo-100 flex items-center justify-center shrink-0">
+                                    <FiLayers className="w-4 h-4 text-indigo-600" />
+                                </div>
+                                <div className="min-w-0">
+                                    {viewMode === 'firms' ? (
+                                        <>
+                                            <h1 className="text-base md:text-lg font-bold text-gray-800 leading-tight truncate">Assigned Firms</h1>
+                                            <p className="text-xs text-gray-500 mt-0.5 truncate">Firms assigned to {selectedServiceForFirms?.name}</p>
+                                        </>
+                                    ) : (
+                                        <>
+                                            <h1 className="text-base md:text-lg font-bold text-gray-800 leading-tight">Branch Services</h1>
+                                            <p className="text-xs text-gray-500 mt-0.5">Manage services enabled for this branch</p>
+                                        </>
+                                    )}
+                                </div>
                             </div>
-                            <div>
-                                {viewMode === 'firms' ? (
-                                    <>
-                                        <h1 className="text-lg font-bold text-slate-800 leading-tight">Assigned Firms</h1>
-                                        <p className="text-xs text-slate-500">Firms assigned to {selectedServiceForFirms?.name}</p>
-                                    </>
-                                ) : (
-                                    <>
-                                        <h1 className="text-lg font-bold text-slate-800 leading-tight">Branch Services</h1>
-                                        <p className="text-xs text-slate-500">Manage services enabled for this branch</p>
-                                    </>
-                                )}
-                            </div>
+                            {viewMode === 'firms' && (
+                                <button
+                                    onClick={() => setViewMode('list')}
+                                    className="flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 hover:bg-gray-50 rounded-lg transition-colors shrink-0"
+                                >
+                                    <FiX className="w-3.5 h-3.5" /> Back to Services
+                                </button>
+                            )}
                         </div>
-                        {viewMode === 'firms' && (
-                            <button
-                                onClick={() => setViewMode('list')}
-                                className="flex items-center gap-1.5 px-3 py-2 text-xs font-semibold text-slate-700 bg-white border border-gray-200 hover:bg-gray-50 rounded-lg transition-colors shadow-sm"
-                            >
-                                <FiX className="w-3.5 h-3.5" /> Back to Services
-                            </button>
-                        )}
-                    </div>
-
-                    {/* main card */}
-                    <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
 
                         {viewMode === 'firms' ? (
                             <div>
-                                <div className="flex items-center gap-3 px-4 py-3 border-b border-gray-100 bg-gray-50/50">
+                                <div className={TOOLBAR_ROW}>
                                     <div className="relative flex-1 max-w-xs">
-                                        <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 pointer-events-none" />
+                                        <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400 pointer-events-none" />
                                         <input type="text" placeholder="Search assigned firms…" value={firmsSearch}
                                             onChange={(e) => setFirmsSearch(e.target.value)}
-                                            className="w-full pl-9 pr-3 py-2 text-sm text-slate-705 border border-gray-200 rounded-lg bg-white focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none placeholder:text-slate-400"
+                                            className={TOOLBAR_INPUT}
                                         />
                                     </div>
                                     <ViewportTooltip label="Refresh">
                                         <button onClick={() => fetchFirmsForService(selectedServiceForFirms.service_id, firmsSearch, firmsPage, firmsLimit)}
-                                            className="p-2 text-slate-500 hover:text-indigo-600 hover:bg-white rounded-lg transition-colors border border-gray-200 bg-white">
+                                            className="p-2 text-gray-500 hover:text-indigo-600 hover:bg-white rounded-lg transition-colors border border-gray-300 bg-white">
                                             <FiRefreshCw className={`w-3.5 h-3.5 ${firmsLoading ? 'animate-spin' : ''}`} />
                                         </button>
                                     </ViewportTooltip>
                                 </div>
 
                                 <div className="overflow-x-auto">
-                                    <table className="w-full text-sm table-fixed min-w-[950px]">
+                                    <table className="w-full table-fixed min-w-[950px]">
                                         <thead>
-                                            <tr className="bg-gray-50 border-b border-gray-100">
-                                                <th className="px-4 py-2.5 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider whitespace-nowrap w-12">#</th>
-                                                <th className="px-4 py-2.5 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider whitespace-nowrap w-[24%]">Firm Name</th>
-                                                <th className="px-4 py-2.5 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider whitespace-nowrap w-28">Firm Type</th>
-                                                <th className="px-4 py-2.5 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider whitespace-nowrap w-40">GSTIN / PAN</th>
-                                                <th className="px-4 py-2.5 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider whitespace-nowrap w-48">Client Details</th>
-                                                <th className="px-4 py-2.5 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider whitespace-nowrap w-48">Assignment Details</th>
-                                                <th className="px-4 py-2.5 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider whitespace-nowrap w-24">Status</th>
+                                            <tr className={TABLE_HEAD_ROW}>
+                                                <th className={`${TABLE_TH} w-12`}>#</th>
+                                                <th className={`${TABLE_TH} w-[24%]`}>Firm Name</th>
+                                                <th className={`${TABLE_TH} w-28`}>Firm Type</th>
+                                                <th className={`${TABLE_TH} w-40`}>GSTIN / PAN</th>
+                                                <th className={`${TABLE_TH} w-48`}>Client Details</th>
+                                                <th className={`${TABLE_TH} w-48`}>Assignment Details</th>
+                                                <th className={`${TABLE_TH} w-24`}>Status</th>
                                             </tr>
                                         </thead>
-                                        <tbody className="divide-y divide-gray-50 bg-white">
+                                        <tbody className="bg-white">
                                             {firmsLoading
                                                 ? Array.from({ length: 5 }).map((_, i) => <SkeletonRow key={i} cols={7} />)
                                                 : firmsList.length === 0
-                                                    ? <EmptyState icon={<FiBriefcase className="w-5 h-5 text-slate-400" />} title="No assigned firms found" desc="No firms are currently assigned to this service." />
+                                                    ? <EmptyState icon={<FiBriefcase className="w-5 h-5 text-gray-400" />} title="No assigned firms found" desc="No firms are currently assigned to this service." />
                                                     : firmsList.map((firm, idx) => (
                                                         <motion.tr key={firm.firm_id} initial={{ opacity: 0 }} animate={{ opacity: 1 }}
-                                                            className="hover:bg-indigo-50/30 transition-colors group">
-                                                            <td className="px-4 py-3 text-xs text-slate-400 font-medium w-10">
+                                                            className={TABLE_ROW}>
+                                                            <td className={`${TABLE_TD} ${CELL_INDEX}`}>
                                                                 {(firmsPage - 1) * firmsLimit + idx + 1}
                                                             </td>
-                                                            <td className="px-4 py-3 max-w-[220px]">
+                                                            <td className={`${TABLE_TD} max-w-[220px]`}>
                                                                 <button
                                                                     onClick={() => navigate(`/client/profile/${firm.client?.username}/firms`)}
-                                                                    className="font-bold text-indigo-600 hover:text-indigo-800 hover:underline text-xs text-left leading-snug break-words"
+                                                                    className={`${CELL_TITLE} hover:text-indigo-600 transition-colors text-left leading-snug break-words`}
                                                                 >
                                                                     {firm.firm_name}
                                                                 </button>
                                                             </td>
-                                                            <td className="px-4 py-3 text-xs text-slate-605 font-medium">
-                                                                {firm.firm_type || '—'}
+                                                            <td className={TABLE_TD}>
+                                                                <span className={CELL_BODY}>{firm.firm_type || '—'}</span>
                                                             </td>
-                                                            <td className="px-4 py-3 text-xs text-slate-600">
-                                                                <p className="font-semibold text-slate-700">{firm.gst_no || '—'}</p>
-                                                                <p className="text-[11px] text-slate-400 font-mono mt-0.5">{firm.pan_no || '—'}</p>
+                                                            <td className={TABLE_TD}>
+                                                                <p className={`${CELL_BODY} font-semibold text-gray-800`}>{firm.gst_no || '—'}</p>
+                                                                <p className="text-xs text-gray-400 font-mono mt-0.5">{firm.pan_no || '—'}</p>
                                                             </td>
-                                                            <td className="px-4 py-3 text-xs text-slate-600">
-                                                                <p className="font-bold text-slate-700">{firm.client?.name || '—'}</p>
-                                                                <p className="text-[11px] text-slate-505 mt-0.5">{firm.client?.mobile || '—'}</p>
-                                                                <p className="text-[10px] text-slate-400 mt-0.5 truncate max-w-[180px]">{firm.client?.email || '—'}</p>
+                                                            <td className={TABLE_TD}>
+                                                                <p className={`${CELL_TITLE}`}>{firm.client?.name || '—'}</p>
+                                                                <p className="text-xs text-gray-500 mt-0.5">{firm.client?.mobile || '—'}</p>
+                                                                <p className="text-xs text-gray-400 mt-0.5 truncate max-w-[180px]">{firm.client?.email || '—'}</p>
                                                             </td>
-                                                            <td className="px-4 py-3 text-xs text-slate-600">
-                                                                <p className={`font-semibold text-slate-700 ${!check('recurring_task_fees_view') ? 'blur-[3.5px] select-none' : ''}`}>
+                                                            <td className={TABLE_TD}>
+                                                                <p className={`${CELL_BODY} ${!check('recurring_task_fees_view') ? 'blur-[3.5px] select-none' : ''}`}>
                                                                     Fees: {check('recurring_task_fees_view') ? `₹${fmt(firm.assignment?.custom_amount)}` : '₹••••'}
                                                                 </p>
-                                                                <p className="text-[11px] text-slate-555 mt-0.5">Pay Month: {firm.assignment?.pay_from_month || firm.assignment?.period_name || '—'}</p>
-                                                                <p className="text-[10px] text-slate-400 mt-0.5">Staff: {getStaffNames(firm.assignment?.employee_username)}</p>
+                                                                <p className="text-xs text-gray-500 mt-0.5">Pay Month: {firm.assignment?.pay_from_month || firm.assignment?.period_name || '—'}</p>
+                                                                <p className="text-xs text-gray-400 mt-0.5">Staff: {getStaffNames(firm.assignment?.employee_username)}</p>
                                                             </td>
-                                                            <td className="px-4 py-3">
-                                                                <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold border ${String(firm.assignment?.status).toLowerCase() === 'active'
+                                                            <td className={TABLE_TD}>
+                                                                <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium border ${String(firm.assignment?.status).toLowerCase() === 'active'
                                                                     ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
                                                                     : 'bg-rose-50 text-rose-700 border-rose-200'
                                                                     }`}>
@@ -950,7 +979,7 @@ const Services = () => {
                                     </table>
                                 </div>
 
-                                <div className="border-t border-gray-100 px-4 py-2">
+                                <div className="border-t border-gray-200 px-3 md:px-4 py-2">
                                     <TablePagination
                                         page={firmsPage} limit={firmsLimit} total={firmsTotal}
                                         totalPages={firmsTotalPages} isLastPage={firmsPage >= firmsTotalPages}
@@ -963,7 +992,7 @@ const Services = () => {
                             </div>
                         ) : (
                             <>
-                                <div className="flex border-b border-gray-100 px-4 pt-3 gap-1">
+                                <div className="flex border-b border-gray-200 px-3 md:px-4 pt-3 gap-1">
                                     {SERVICE_CATEGORIES.map((tab) => (
                                         <button
                                             key={tab.id}
@@ -972,9 +1001,9 @@ const Services = () => {
                                                 setServiceCategory(tab.id);
                                                 setServicePage(1);
                                             }}
-                                            className={`flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold rounded-t-lg border-b-2 transition-all -mb-px ${serviceCategory === tab.id
+                                            className={`flex items-center gap-1.5 px-3.5 py-2 text-sm font-medium rounded-t-lg border-b-2 transition-all -mb-px ${serviceCategory === tab.id
                                                 ? 'border-indigo-600 text-indigo-600 bg-indigo-50/50'
-                                                : 'border-transparent text-slate-500 hover:text-slate-700 hover:bg-gray-50'
+                                                : 'border-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-50'
                                                 }`}
                                         >
                                             {tab.label}
@@ -982,21 +1011,45 @@ const Services = () => {
                                     ))}
                                 </div>
 
-                                <div className="flex items-center gap-3 px-4 py-3 border-b border-gray-100">
+                                <div className={TOOLBAR_ROW}>
                                     <div className="relative flex-1 max-w-xs">
-                                        <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 pointer-events-none" />
+                                        <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400 pointer-events-none" />
                                         <input
                                             type="text"
                                             placeholder={`Search ${serviceCategory} services…`}
                                             value={serviceSearch}
                                             onChange={(e) => setServiceSearch(e.target.value)}
-                                            className="w-full pl-9 pr-3 py-2 text-sm text-slate-700 border border-gray-200 rounded-lg bg-gray-50 focus:bg-white focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none placeholder:text-slate-400"
+                                            className={TOOLBAR_INPUT}
                                         />
                                     </div>
+                                    <label className="flex items-center gap-2 shrink-0 cursor-pointer select-none px-3 py-2 rounded-lg border border-gray-300 bg-white hover:bg-gray-50 transition-colors">
+                                        <input
+                                            type="checkbox"
+                                            checked={showAddedOnly}
+                                            onChange={(e) => {
+                                                setShowAddedOnly(e.target.checked);
+                                                setServicePage(1);
+                                            }}
+                                            className="w-3.5 h-3.5 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                                        />
+                                        <span className="text-sm font-medium text-gray-700 whitespace-nowrap">
+                                            Added only
+                                        </span>
+                                    </label>
+                                    {serviceCategory === 'compliance' && (
+                                        <button
+                                            type="button"
+                                            onClick={() => navigate('/staff/office-assistance/compliance/firm-assignment')}
+                                            className="inline-flex items-center gap-1.5 shrink-0 px-3 py-2 text-sm font-medium text-teal-700 bg-teal-50 border border-teal-200 hover:bg-teal-100 rounded-lg transition-colors"
+                                        >
+                                            <FiBriefcase className="w-3.5 h-3.5" />
+                                            Firm Assignment
+                                        </button>
+                                    )}
                                     <ViewportTooltip label="Refresh">
                                         <button
                                             onClick={() => refreshServiceList()}
-                                            className="p-2 text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors border border-gray-200"
+                                            className="p-2 text-gray-500 hover:text-indigo-600 hover:bg-white rounded-lg transition-colors border border-gray-300 bg-white"
                                         >
                                             <FiRefreshCw className={`w-3.5 h-3.5 ${serviceLoading ? 'animate-spin' : ''}`} />
                                         </button>
@@ -1004,85 +1057,92 @@ const Services = () => {
                                 </div>
 
                                 <div className="overflow-x-auto">
-                                    <table className="w-full text-sm table-fixed min-w-[850px]">
+                                    <table className="w-full table-fixed min-w-[850px]">
                                         <thead>
-                                            <tr className="bg-gray-50 border-b border-gray-100">
-                                                <th className="px-4 py-2.5 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider whitespace-nowrap w-12">#</th>
-                                                <th className="px-4 py-2.5 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider whitespace-nowrap w-[24%]">Service</th>
-                                                <th className="px-4 py-2.5 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider whitespace-nowrap w-32">Branch</th>
-                                                <th className="px-4 py-2.5 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider whitespace-nowrap w-24">Fees</th>
-                                                <th className="px-4 py-2.5 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider whitespace-nowrap w-24">GST</th>
+                                            <tr className={TABLE_HEAD_ROW}>
+                                                <th className={`${TABLE_TH} w-12`}>#</th>
+                                                <th className={`${TABLE_TH} w-[24%]`}>Service</th>
+                                                <th className={`${TABLE_TH} w-16`}>Added</th>
+                                                <th className={`${TABLE_TH} w-24`}>Fees</th>
+                                                <th className={`${TABLE_TH} w-24`}>GST</th>
                                                 {serviceCategory === 'compliance' && (
-                                                    <th className="px-4 py-2.5 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider whitespace-nowrap w-24">Frequency</th>
+                                                    <th className={`${TABLE_TH} w-24`}>Frequency</th>
                                                 )}
                                                 {serviceCategory === 'compliance' && (
-                                                    <th className="px-4 py-2.5 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider whitespace-nowrap w-20">Due Day</th>
+                                                    <th className={`${TABLE_TH} w-20`}>Due Day</th>
                                                 )}
                                                 {serviceCategory === 'compliance' && (
-                                                    <th className="px-4 py-2.5 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider whitespace-nowrap w-20">Firms</th>
+                                                    <th className={`${TABLE_TH} w-20`}>Firms</th>
                                                 )}
-                                                <th className="px-4 py-2.5 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider whitespace-nowrap w-32">Action</th>
+                                                <th className={`${TABLE_TH} w-32`}>Action</th>
                                             </tr>
                                         </thead>
-                                        <tbody className="divide-y divide-gray-50">
+                                        <tbody className="bg-white">
                                             {serviceLoading
                                                 ? Array.from({ length: 6 }).map((_, i) => (
                                                     <SkeletonRow key={i} cols={serviceCategory === 'compliance' ? 9 : 6} />
                                                 ))
                                                 : serviceList.length === 0
-                                                    ? <EmptyState icon={<FiLayers className="w-5 h-5 text-slate-400" />} title="No services found" desc={serviceSearch ? 'No match found.' : 'No services are enabled for this branch yet.'} />
+                                                    ? <EmptyState icon={<FiLayers className="w-5 h-5 text-gray-400" />} title="No services found" desc={serviceSearch ? 'No match found.' : showAddedOnly ? 'No services are added to this branch yet.' : 'No services found for this type.'} />
                                                     : serviceList.map((svc, idx) => {
                                                         const onBranch = isServiceOnBranch(svc);
                                                         return (
                                                             <motion.tr key={svc.service_id} initial={{ opacity: 0 }} animate={{ opacity: 1 }}
-                                                                className={`transition-colors group ${onBranch ? 'hover:bg-indigo-50/30' : 'hover:bg-slate-50/80'}`}>
-                                                                <td className="px-4 py-3 text-xs text-slate-400 font-medium w-10">
+                                                                className={TABLE_ROW}>
+                                                                <td className={`${TABLE_TD} ${CELL_INDEX}`}>
                                                                     {(servicePage - 1) * serviceLimit + idx + 1}
                                                                 </td>
-                                                                <td className="px-4 py-3 max-w-[200px]">
-                                                                    <ViewportTooltip label={svc.name} fullWidth>
-                                                                        <p className="font-semibold text-slate-800 text-xs leading-snug truncate">{svc.name}</p>
-                                                                    </ViewportTooltip>
-                                                                    {svc.sac_code && (
-                                                                        <span className="text-[11px] font-mono text-slate-400 bg-gray-100 px-1 py-0.5 rounded mt-0.5 inline-block">{svc.sac_code}</span>
-                                                                    )}
+                                                                <td className={`${TABLE_TD} max-w-[200px]`}>
+                                                                    <div className="flex flex-col items-start gap-0.5 min-w-0">
+                                                                        <ViewportTooltip label={svc.name} fullWidth>
+                                                                            <p className={`${CELL_TITLE} leading-tight truncate`}>{svc.name}</p>
+                                                                        </ViewportTooltip>
+                                                                        {getServiceRemark(svc) && (
+                                                                            <p className="text-xs text-gray-400 leading-tight line-clamp-2" title={getServiceRemark(svc)}>
+                                                                                {getServiceRemark(svc)}
+                                                                            </p>
+                                                                        )}
+                                                                        {svc.sac_code && (
+                                                                            <span className="text-xs font-mono text-gray-400 bg-gray-100 px-1.5 py-0.5 rounded inline-block">{svc.sac_code}</span>
+                                                                        )}
+                                                                    </div>
                                                                 </td>
-                                                                <td className="px-4 py-3">
+                                                                <td className={TABLE_TD}>
                                                                     <BranchAddedBadge svc={svc} />
                                                                 </td>
-                                                                <td className="px-4 py-3">
+                                                                <td className={TABLE_TD}>
                                                                     {onBranch && svc.fees != null
-                                                                        ? <span className="text-xs font-semibold text-slate-800">₹{fmt(svc.fees)}</span>
+                                                                        ? <span className={FEES_CHIP}>₹{fmt(svc.fees)}</span>
                                                                         : <CellDash />}
                                                                 </td>
-                                                                <td className="px-4 py-3">
+                                                                <td className={TABLE_TD}>
                                                                     {onBranch && svc.gst_rate != null ? (
-                                                                        <>
-                                                                            <p className="text-xs text-slate-600">{svc.gst_rate}%</p>
-                                                                            <p className="text-[11px] text-slate-400">₹{fmt(svc.gst_value)}</p>
-                                                                        </>
+                                                                        <div className="flex flex-col gap-0.5">
+                                                                            <span className={CELL_BODY}>{svc.gst_rate}%</span>
+                                                                            <span className="text-xs text-gray-400">₹{fmt(svc.gst_value)}</span>
+                                                                        </div>
                                                                     ) : <CellDash />}
                                                                 </td>
                                                                 {serviceCategory === 'compliance' && (
-                                                                    <td className="px-4 py-3">
+                                                                    <td className={TABLE_TD}>
                                                                         {frequencyBadge(svc.frequency) || <CellDash />}
                                                                     </td>
                                                                 )}
                                                                 {serviceCategory === 'compliance' && (
-                                                                    <td className="px-4 py-3 text-xs">
+                                                                    <td className={TABLE_TD}>
                                                                         {onBranch && svc.due_date != null ? (
-                                                                            <span className="text-slate-600">Day {svc.due_date}</span>
+                                                                            <span className={CELL_BODY}>Day {svc.due_date}</span>
                                                                         ) : !onBranch && svc.default_due_date != null ? (
-                                                                            <span className="text-slate-400" title="Default due day">Day {svc.default_due_date} <span className="text-[10px]">(default)</span></span>
+                                                                            <span className="text-sm text-gray-400" title="Default due day">Day {svc.default_due_date} <span className="text-xs">(default)</span></span>
                                                                         ) : <CellDash />}
                                                                     </td>
                                                                 )}
                                                                 {serviceCategory === 'compliance' && (
-                                                                    <td className="px-4 py-3">
+                                                                    <td className={TABLE_TD}>
                                                                         {onBranch ? (
                                                                             <button
                                                                                 onClick={() => handleViewFirms(svc)}
-                                                                                className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-indigo-50 text-indigo-700 border border-indigo-200 hover:bg-indigo-100 hover:scale-105 transition-all"
+                                                                                className={`${FEES_CHIP} hover:bg-indigo-100 transition-colors`}
                                                                                 title="Click to view assigned firms"
                                                                             >
                                                                                 {svc.firm_count ?? 0}
@@ -1090,7 +1150,7 @@ const Services = () => {
                                                                         ) : <CellDash />}
                                                                     </td>
                                                                 )}
-                                                                <td className="px-4 py-3">
+                                                                <td className={TABLE_TD}>
                                                                     {onBranch ? (
                                                                         <ActionMenu items={[
                                                                             { label: 'View', icon: <FiEye className="w-3.5 h-3.5" />, onClick: () => setViewTarget({ svc }) },
@@ -1112,7 +1172,7 @@ const Services = () => {
                                     </table>
                                 </div>
 
-                                <div className="border-t border-gray-100 px-4 py-2">
+                                <div className="border-t border-gray-200 px-3 md:px-4 py-2">
                                     <TablePagination
                                         page={servicePage}
                                         limit={serviceLimit}
@@ -1121,12 +1181,24 @@ const Services = () => {
                                         isLastPage={servicePage >= serviceTotalPages}
                                         onPageChange={(p) => {
                                             setServicePage(p);
-                                            fetchServiceList({ search: serviceSearch, page: p, limit: serviceLimit, type: serviceCategory });
+                                            fetchServiceList({
+                                                search: serviceSearch,
+                                                page: p,
+                                                limit: serviceLimit,
+                                                type: serviceCategory,
+                                                addedOnly: showAddedOnly,
+                                            });
                                         }}
                                         onLimitChange={(l) => {
                                             setServiceLimit(l);
                                             setServicePage(1);
-                                            fetchServiceList({ search: serviceSearch, page: 1, limit: l, type: serviceCategory });
+                                            fetchServiceList({
+                                                search: serviceSearch,
+                                                page: 1,
+                                                limit: l,
+                                                type: serviceCategory,
+                                                addedOnly: showAddedOnly,
+                                            });
                                         }}
                                         rowOptions={[5, 10, 20, 50, 100]}
                                         showRange showRows showJump showFirstLast
@@ -1154,7 +1226,7 @@ const Services = () => {
                         footer={
                             <div className="flex justify-end gap-2">
                                 <button onClick={() => setEditTarget(null)} disabled={editLoading}
-                                    className="px-4 py-2 text-sm font-medium text-slate-600 border border-gray-200 rounded-lg hover:bg-gray-100 disabled:opacity-50 transition-colors">
+                                    className="px-4 py-2 text-sm font-medium text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-100 disabled:opacity-50 transition-colors">
                                     Cancel
                                 </button>
                                 <button onClick={handleEdit} disabled={editLoading}
@@ -1166,10 +1238,10 @@ const Services = () => {
                         }
                     >
                         <div className="p-3 bg-gray-50 border border-gray-200 rounded-lg mb-4">
-                            <p className="text-xs font-semibold text-slate-800 truncate">{editTarget.name}</p>
+                            <p className="text-xs font-semibold text-gray-800 truncate">{editTarget.name}</p>
                             <div className="flex items-center gap-2 mt-1.5 flex-wrap">
                                 {typeBadge(editTarget.type)}
-                                {editTarget.sac_code && <span className="text-[11px] font-mono text-slate-500 bg-gray-100 px-1.5 py-0.5 rounded">{editTarget.sac_code}</span>}
+                                {editTarget.sac_code && <span className="text-[11px] font-mono text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded">{editTarget.sac_code}</span>}
                             </div>
                         </div>
                         <FeeForm
@@ -1190,7 +1262,7 @@ const Services = () => {
                         footer={
                             <div className="flex justify-end gap-2">
                                 <button onClick={() => setAddTarget(null)} disabled={addLoading}
-                                    className="px-4 py-2 text-sm font-medium text-slate-600 border border-gray-200 rounded-lg hover:bg-gray-100 disabled:opacity-50 transition-colors">
+                                    className="px-4 py-2 text-sm font-medium text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-100 disabled:opacity-50 transition-colors">
                                     Cancel
                                 </button>
                                 <button onClick={handleAdd} disabled={addLoading || !isAddFormValid}
