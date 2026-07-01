@@ -138,7 +138,7 @@ const PurchaseForm = ({
         
         setIsLoadingParties(true);
         try {
-            const response = await fetch(`${API_BASE_URL}/client/search?search=${encodeURIComponent(userSearchTerm)}`, {
+            const response = await fetch(`${API_BASE_URL}/client/list?page=1&limit=20&search=${encodeURIComponent(userSearchTerm)}`, {
                 method: 'GET',
                 headers: getHeaders()
             });

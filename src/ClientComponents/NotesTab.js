@@ -11,6 +11,7 @@ import axios from 'axios';
 import { toast } from 'react-hot-toast';
 import getHeaders from "../utils/get-headers";
 import API_BASE_URL from "../utils/api-controller";
+import { uploadOneSaasFileUrl } from '../utils/onesaas-upload';
 import TablePagination from "../components/TablePagination";
 import SelectInput from "../components/SelectInput";
 
@@ -223,66 +224,26 @@ const NotesTab = ({ clientUsername }) => {
     const uploadFileToServer = async (file) => {
         if (!file) return null;
 
-        const headers = getHeaders();
-        if (!headers) {
-            toast.error('Missing authentication headers');
-            return null;
-        }
-
         try {
-            const formData = new FormData();
-
-            // Ensure WAV files are properly named
             let uploadFile = file;
 
-            // If it's a WAV file, ensure it has correct extension
             if (file.type === 'audio/wav' && !file.name.toLowerCase().endsWith('.wav')) {
-                const wavFile = new File([file], `${file.name.replace(/\.[^/.]+$/, "")}.wav`, {
+                uploadFile = new File([file], `${file.name.replace(/\.[^/.]+$/, "")}.wav`, {
                     type: 'audio/wav'
                 });
-                uploadFile = wavFile;
             }
 
-            formData.append('file', uploadFile);
+            const url = await uploadOneSaasFileUrl(uploadFile, (progress) => {
+                setUploadProgress(prev => ({ ...prev, [file.name]: progress }));
+            });
 
-            // Add metadata based on selected file type
-            const isAudio = String(uploadFile.type || '').startsWith('audio/');
-            formData.append('file_type', isAudio ? 'voice_note' : 'attachment');
-            formData.append('note_type', isAudio ? 'voice' : 'file');
-            if (uploadFile.type) {
-                formData.append('mime_type', uploadFile.type);
-            }
-
-            const response = await axios.post(
-                `${API_BASE_URL}/upload`,
-                formData,
-                {
-                    headers: {
-                        ...headers,
-                        'Content-Type': 'multipart/form-data'
-                    },
-                    onUploadProgress: (progressEvent) => {
-                        const progress = Math.round((progressEvent.loaded * 100) / progressEvent.total);
-                        setUploadProgress(prev => ({ ...prev, [file.name]: progress }));
-                    },
-                    timeout: 60000 // 60 second timeout for audio files
-                }
-            );
-
-            if (response.data && response.data.success) {
-                return response.data.url || response.data.data?.url;
-            } else {
-                throw new Error(response.data?.message || 'Upload failed');
-            }
-
+            return url;
         } catch (error) {
             console.error('Error uploading file:', error);
             const msg = error.response?.data?.message || error.message || 'Upload failed';
             toast.error(msg);
-
             return null;
         } finally {
-            // Clear progress after delay
             setTimeout(() => {
                 setUploadProgress(prev => {
                     const newProgress = { ...prev };

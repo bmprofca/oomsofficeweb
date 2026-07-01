@@ -25,6 +25,7 @@ import {
   FiX,
 } from "react-icons/fi";
 import getHeaders from "../utils/get-headers";
+import { uploadOneSaasFile } from "../utils/onesaas-upload";
 
 const MAX_FILE_BYTES = 10 * 1024 * 1024;
 
@@ -49,45 +50,16 @@ const guessTitleFromFileName = (fileName) => {
 };
 
 /**
- * Uploads a single file to the shared `/upload` endpoint (same contract as client DocumentsTab).
- * @param {string} baseUrl API root
- * @param {File} file
- * @param {(pct: number) => void} [onProgress]
+ * Uploads a single file to OneSaaS public storage (same contract as client DocumentsTab).
  */
-export const uploadTaskFileToServer = async (baseUrl, file, onProgress) => {
-  const headers = getHeaders();
-  if (!headers) {
-    throw new Error("Authentication headers not found. Please log in again.");
-  }
-
-  const formData = new FormData();
-  formData.append("file", file);
-
-  const root = String(baseUrl || "").replace(/\/+$/, "");
-  const response = await axios.post(`${root}/upload`, formData, {
-    headers: {
-      ...headers,
-      "Content-Type": "multipart/form-data",
-    },
-    onUploadProgress: (progressEvent) => {
-      if (!onProgress || !progressEvent.total) return;
-      const pct = Math.round(
-        (progressEvent.loaded * 100) / progressEvent.total,
-      );
-      onProgress(pct);
-    },
-    timeout: 60000,
-  });
-
-  if (response.data && response.data.success) {
-    return {
-      success: true,
-      url: response.data.data?.url || response.data.url,
-      filename: response.data.data?.filename || response.data.filename,
-      message: response.data.message,
-    };
-  }
-  throw new Error(response.data?.message || "File upload failed");
+export const uploadTaskFileToServer = async (_baseUrl, file, onProgress) => {
+  const { url, meta } = await uploadOneSaasFile(file, onProgress);
+  return {
+    success: true,
+    url,
+    filename: meta?.storedName || meta?.originalName || file.name,
+    message: "File uploaded successfully",
+  };
 };
 
 /**

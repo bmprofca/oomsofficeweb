@@ -10,6 +10,7 @@ import {
 import axios from 'axios';
 import getHeaders from "../utils/get-headers";
 import API_BASE_URL from "../utils/api-controller";
+import { uploadOneSaasFileUrl } from '../utils/onesaas-upload';
 
 const NotesTab = ({ task_id }) => {
     const [notes, setNotes] = useState([]);
@@ -163,44 +164,11 @@ const NotesTab = ({ task_id }) => {
     const uploadFileToServer = async (file) => {
         if (!file) return null;
 
-        const headers = getHeaders();
-        if (!headers) {
-            alert('Missing authentication headers');
-            return null;
-        }
-
         try {
-            const formData = new FormData();
-            formData.append('file', file);
-
-            if (file.type.includes('audio') || file.name.endsWith('.wav')) {
-                formData.append('file_type', 'voice_note');
-                formData.append('note_type', 'voice');
-                formData.append('mime_type', 'audio/wav');
-            }
-
-            const response = await axios.post(
-                `${API_BASE_URL}/upload`,
-                formData,
-                {
-                    headers: {
-                        ...headers,
-                        'Content-Type': 'multipart/form-data'
-                    },
-                    onUploadProgress: (progressEvent) => {
-                        const progress = Math.round((progressEvent.loaded * 100) / progressEvent.total);
-                        setUploadProgress(prev => ({ ...prev, [file.name]: progress }));
-                    },
-                    timeout: 60000
-                }
-            );
-
-            if (response.data && response.data.success) {
-                return response.data.url || response.data.data?.url;
-            } else {
-                throw new Error(response.data?.message || 'Upload failed');
-            }
-
+            const url = await uploadOneSaasFileUrl(file, (progress) => {
+                setUploadProgress(prev => ({ ...prev, [file.name]: progress }));
+            });
+            return url;
         } catch (error) {
             console.error('Error uploading file:', error);
             alert(`Upload failed: ${error.message}`);

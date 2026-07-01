@@ -33,6 +33,7 @@ import { useUserPermissions } from '../utils/permission-helper';
 import EmailSelectionModal from '../components/email-selection';
 import MobileSelectionModal from '../components/mobile-selection';
 import { SaleForm } from '../components/Modals/CreateTransactions';
+import { EditTransactionModalManager } from '../components/Modals/EditTransactions';
 import { DateRangePickerField } from '../components/PortalDatePicker';
 import TablePagination from '../components/TablePagination';
 import API_BASE_URL from '../utils/api-controller';
@@ -78,6 +79,8 @@ const ViewSales = () => {
     const [toDate, setToDate] = useState(() => new Date().toISOString().split('T')[0]);
     const [sales, setSales] = useState([]);
     const [saleFormModal, setSaleFormModal] = useState(false);
+    const [editModalOpen, setEditModalOpen] = useState(false);
+    const [editRecord, setEditRecord] = useState(null);
     const [summary, setSummary] = useState({
         count: 0,
         net: 0,
@@ -414,6 +417,18 @@ const ViewSales = () => {
         }).format(numAmount);
     };
 
+    const openEditModal = (record) => {
+        setEditRecord(record);
+        setEditModalOpen(true);
+        setActiveRowDropdown(null);
+        setViewModalOpen(false);
+    };
+
+    const closeEditModal = () => {
+        setEditModalOpen(false);
+        setEditRecord(null);
+    };
+
     // Get sale party name
     const getSalePartyName = (sale) => {
         if (sale.sale_type === 'client' && sale.sale_party) {
@@ -629,10 +644,7 @@ const ViewSales = () => {
                             toast.error('Need Access Permission');
                             return;
                         }
-                        const { editLink } = getActionLinks(selectedSale);
-                        if (editLink && editLink !== '#') {
-                            window.location.href = editLink;
-                        }
+                        openEditModal(selectedSale);
                     }} className={`px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors flex items-center gap-2 ${
                         !check('finance_entry_edit') ? 'opacity-60 cursor-not-allowed hover:bg-blue-600' : ''
                     }`}><FiEdit className="w-4 h-4" />Edit Sale</button>
@@ -780,18 +792,17 @@ const ViewSales = () => {
                                                                             <div className="p-1 bg-blue-50 rounded mr-2"><FiEye className="w-3 h-3 text-blue-500" /></div>
                                                                             <div className="text-left"><div className="font-medium">View Details</div></div>
                                                                         </button>
-                                                                        <a
-                                                                            href={check('finance_entry_edit') ? editLink : '#'}
+                                                                        <button
+                                                                            type="button"
                                                                             className={`flex items-center w-full px-3 py-2 text-xs text-slate-700 hover:bg-blue-50 transition-colors duration-150 ${
                                                                                 !check('finance_entry_edit') ? 'opacity-60 cursor-not-allowed hover:bg-transparent' : ''
                                                                             }`}
-                                                                            onClick={(e) => {
+                                                                            onClick={() => {
                                                                                 if (!check('finance_entry_edit')) {
-                                                                                    e.preventDefault();
                                                                                     toast.error('Need Access Permission');
-                                                                                } else {
-                                                                                    setActiveRowDropdown(null);
+                                                                                    return;
                                                                                 }
+                                                                                openEditModal(sale);
                                                                             }}
                                                                         >
                                                                             <div className="p-1 bg-blue-50 rounded mr-2">
@@ -802,7 +813,7 @@ const ViewSales = () => {
                                                                                 )}
                                                                             </div>
                                                                             <div className="text-left"><div className="font-medium">Edit Sale</div></div>
-                                                                        </a>
+                                                                        </button>
                                                                         {invoiceLink && (
                                                                             <a href={invoiceLink} className="flex items-center w-full px-3 py-2 text-xs text-slate-700 hover:bg-blue-50 transition-colors duration-150" onClick={() => setActiveRowDropdown(null)}>
                                                                                 <div className="p-1 bg-slate-50 rounded mr-2"><FiFileText className="w-3 h-3 text-slate-600" /></div>
@@ -864,6 +875,15 @@ const ViewSales = () => {
                 exportData={exportData}
                 columns={exportColumns}
                 jobType="sales_report"
+            />
+
+            <EditTransactionModalManager
+                modalType="SALE"
+                isOpen={editModalOpen}
+                onClose={closeEditModal}
+                editRecord={editRecord}
+                onSubmit={closeEditModal}
+                formatCurrency={formatCurrency}
             />
 
             {/* Export Confirmation Modal (for other exports) */}

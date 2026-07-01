@@ -32,7 +32,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Header, Sidebar } from '../components/header';
 import EmailSelectionModal from '../components/email-selection';
 import MobileSelectionModal from '../components/mobile-selection';
-import PaymentReceived from '../components/payment-received';
+import { TransactionModalManager } from '../components/Modals/CreateTransactions';
+import { EditTransactionModalManager } from '../components/Modals/EditTransactions';
 import DateFilter from '../components/DateFilter';
 import API_BASE_URL from "../utils/api-controller";
 import getHeaders from "../utils/get-headers";
@@ -268,6 +269,8 @@ const ViewReceived = () => {
     const [fromToDate, setFromToDate] = useState('');
     const [received, setReceived] = useState([]);
     const [receivedFormModal, setPaymentReceivedModal] = useState(false);
+    const [editModalOpen, setEditModalOpen] = useState(false);
+    const [editRecord, setEditRecord] = useState(null);
     const [totalAmount, setTotalAmount] = useState(0);
 
     // State for dropdown menus
@@ -545,14 +548,31 @@ const ViewReceived = () => {
         }
     };
 
-    const handleReceivedSuccess = (receivedData) => {
-        console.log('Received entry created successfully:', receivedData);
+    const emptySummary = { totalCredit: 0, totalDebit: 0, closingBalance: 0 };
+
+    const handleReceivedSuccess = () => {
         if (dateRange) {
             const [displayFrom, displayTo] = dateRange.split(' - ');
             const from = convertToAPIDate(displayFrom);
             const to = convertToAPIDate(displayTo);
             fetchReceivedData(from, to, currentPage, searchTerm);
         }
+    };
+
+    const openEditModal = (record) => {
+        setEditRecord(record);
+        setEditModalOpen(true);
+        setActiveRowDropdown(null);
+    };
+
+    const closeEditModal = () => {
+        setEditModalOpen(false);
+        setEditRecord(null);
+    };
+
+    const handleEditSuccess = () => {
+        closeEditModal();
+        handleReceivedSuccess();
     };
 
     const handleEmailSubmit = (email) => {
@@ -1133,18 +1153,17 @@ const ViewReceived = () => {
                                                                         className="absolute right-0 mt-1 w-48 bg-white rounded-lg shadow-xl border border-slate-200 z-50 overflow-hidden"
                                                                     >
                                                                         <div className="py-1">
-                                                                            <a
-                                                                                href={check('finance_entry_edit') ? editLink : '#'}
+                                                                            <button
+                                                                                type="button"
                                                                                 className={`flex items-center w-full px-3 py-2 text-xs text-slate-700 hover:bg-blue-50 transition-colors duration-150 ${
                                                                                     !check('finance_entry_edit') ? 'opacity-60 cursor-not-allowed hover:bg-transparent' : ''
                                                                                 }`}
-                                                                                onClick={(e) => {
+                                                                                onClick={() => {
                                                                                     if (!check('finance_entry_edit')) {
-                                                                                        e.preventDefault();
                                                                                         toast.error('Need Access Permission');
-                                                                                    } else {
-                                                                                        setActiveRowDropdown(null);
+                                                                                        return;
                                                                                     }
+                                                                                    openEditModal(item);
                                                                                 }}
                                                                             >
                                                                                 <div className="p-1 bg-blue-50 rounded mr-2">
@@ -1157,7 +1176,7 @@ const ViewReceived = () => {
                                                                                 <div className="text-left">
                                                                                     <div className="font-medium">Edit Received</div>
                                                                                 </div>
-                                                                            </a>
+                                                                            </button>
                                                                             {invoiceLink && (
                                                                                 <a
                                                                                     href={invoiceLink}
@@ -1304,11 +1323,23 @@ const ViewReceived = () => {
             </div>
 
             {/* Modals */}
-            <PaymentReceived
+            <TransactionModalManager
+                modalType="RECEIVE"
                 isOpen={receivedFormModal}
                 onClose={() => setPaymentReceivedModal(false)}
-                onSuccess={handleReceivedSuccess}
-                mode="modal"
+                onSubmit={handleReceivedSuccess}
+                formatCurrency={formatCurrency}
+                summary={emptySummary}
+            />
+
+            <EditTransactionModalManager
+                modalType="RECEIVE"
+                isOpen={editModalOpen}
+                onClose={closeEditModal}
+                editRecord={editRecord}
+                onSubmit={handleEditSuccess}
+                formatCurrency={formatCurrency}
+                summary={emptySummary}
             />
 
             <EmailSelectionModal

@@ -886,7 +886,7 @@ const EmailBroadcastCreate = () => {
     setLoadingClients(true);
     try {
       const headers = getHeaders();
-      const res = await axios.get(`${API_BASE}/client/search?search=${encodeURIComponent(clientSearch)}`, { headers });
+      const res = await axios.get(`${API_BASE}/client/list?page=1&limit=50&search=${encodeURIComponent(clientSearch)}`, { headers });
       setClients((res?.data?.data || []).filter(c => c.email && emailRegex.test(c.email)));
     } catch (e) { toast.error('Failed to search clients'); setClients([]); }
     finally { setLoadingClients(false); }

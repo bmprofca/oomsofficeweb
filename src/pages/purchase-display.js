@@ -29,6 +29,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import EmailSelectionModal from '../components/email-selection';
 import MobileSelectionModal from '../components/mobile-selection';
 import PurchaseForm from '../components/purchase-form';
+import { EditTransactionModalManager } from '../components/Modals/EditTransactions';
 import { DateRangePickerField } from '../components/PortalDatePicker';
 import { Header, Sidebar } from '../components/header';
 import TablePagination from '../components/TablePagination';
@@ -269,6 +270,8 @@ const ViewPurchase = () => {
     const [loading, setLoading] = useState(false);
     const [purchases, setPurchases] = useState([]);
     const [purchaseFormModal, setPurchaseFormModal] = useState(false);
+    const [editModalOpen, setEditModalOpen] = useState(false);
+    const [editRecord, setEditRecord] = useState(null);
     const [summary, setSummary] = useState({
         count: 0,
         total: 0,
@@ -415,6 +418,17 @@ const ViewPurchase = () => {
             minimumFractionDigits: 2,
             maximumFractionDigits: 2
         }).format(amount);
+    };
+
+    const openEditModal = (record) => {
+        setEditRecord(record);
+        setEditModalOpen(true);
+        setActiveRowDropdown(null);
+    };
+
+    const closeEditModal = () => {
+        setEditModalOpen(false);
+        setEditRecord(null);
     };
 
     // API call to fetch purchase data
@@ -819,18 +833,17 @@ const ViewPurchase = () => {
                                                                 {isDropdownOpen && (
                                                                     <motion.div initial={{ opacity: 0, y: 5 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 5 }} className="absolute right-0 mt-1 w-48 bg-white rounded-lg shadow-xl border border-slate-200 z-50 overflow-hidden">
                                                                         <div className="py-1">
-                                                                            <a
-                                                                                href={check('finance_entry_edit') ? editLink : '#'}
+                                                                            <button
+                                                                                type="button"
                                                                                 className={`flex items-center w-full px-3 py-2 text-xs text-slate-700 hover:bg-blue-50 transition-colors duration-150 ${
                                                                                     !check('finance_entry_edit') ? 'opacity-60 cursor-not-allowed hover:bg-transparent' : ''
                                                                                 }`}
-                                                                                onClick={(e) => {
+                                                                                onClick={() => {
                                                                                     if (!check('finance_entry_edit')) {
-                                                                                        e.preventDefault();
                                                                                         toast.error('Need Access Permission');
-                                                                                    } else {
-                                                                                        setActiveRowDropdown(null);
+                                                                                        return;
                                                                                     }
+                                                                                    openEditModal(purchase);
                                                                                 }}
                                                                             >
                                                                                 <div className="p-1 bg-blue-50 rounded mr-2">
@@ -841,7 +854,7 @@ const ViewPurchase = () => {
                                                                                     )}
                                                                                 </div>
                                                                                 <div className="text-left"><div className="font-medium">Edit Purchase</div></div>
-                                                                            </a>
+                                                                            </button>
                                                                             <div className="border-t border-slate-100 mt-1 pt-1">
                                                                                 <button className="flex items-center w-full px-3 py-2 text-xs text-slate-700 hover:bg-blue-50 transition-colors duration-150" onClick={() => handleOtherExport('print', purchase)}>
                                                                                     <div className="p-1 bg-slate-50 rounded mr-2"><FiPrinter className="w-3 h-3 text-slate-600" /></div>
@@ -879,6 +892,15 @@ const ViewPurchase = () => {
 
             {/* Modals */}
             <PurchaseForm isOpen={purchaseFormModal} onClose={() => setPurchaseFormModal(false)} onSuccess={handlePurchaseSuccess} mode="modal" />
+
+            <EditTransactionModalManager
+                modalType="PURCHASE"
+                isOpen={editModalOpen}
+                onClose={closeEditModal}
+                editRecord={editRecord}
+                onSubmit={closeEditModal}
+                formatCurrency={formatCurrency}
+            />
             <EmailSelectionModal isOpen={isEmailModalOpen} onClose={() => setIsEmailModalOpen(false)} onSubmit={handleEmailSubmit} />
             <MobileSelectionModal isOpen={isWhatsappModalOpen} onClose={() => setWhatsappModalOpen(false)} onSubmit={handleWhatsappSubmit} />
 

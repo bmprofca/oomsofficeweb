@@ -162,7 +162,7 @@ const SmsBroadcastCreate = () => {
     setLoadingClients(true);
     try {
       const headers = getHeaders();
-      const res = await axios.get(`${API_BASE_URL}/client/search?search=${encodeURIComponent(clientSearch)}`, { headers });
+      const res = await axios.get(`${API_BASE_URL}/client/list?page=1&limit=50&search=${encodeURIComponent(clientSearch)}`, { headers });
       // Only keep clients with mobile numbers
       setClients((res?.data?.data || []).filter(c => c.mobile));
     } catch (e) { 

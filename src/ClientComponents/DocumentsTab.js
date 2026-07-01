@@ -15,6 +15,7 @@ import axios from 'axios';
 import Pagination from '../components/paging-nation-component';
 import getHeaders from "../utils/get-headers";
 import API_BASE_URL from "../utils/api-controller";
+import { uploadOneSaasFile } from '../utils/onesaas-upload';
 import { toast, Toaster } from 'react-hot-toast';
 
 // Professional Toast Configuration - No Icons
@@ -1762,39 +1763,19 @@ const DocumentsTab = ({ clientUsername }) => {
 
   // File upload function
   const uploadFileToServer = async (file) => {
-    const headers = getHeaders();
-    if (!headers) {
-      throw new Error('Authentication headers not found');
-    }
-
-    const formData = new FormData();
-    formData.append('file', file);
-
     try {
       setUploadProgress(0);
 
-      const response = await axios.post(`${API_BASE_URL}/upload`, formData, {
-        headers: {
-          ...headers,
-          'Content-Type': 'multipart/form-data'
-        },
-        onUploadProgress: (progressEvent) => {
-          const progress = Math.round((progressEvent.loaded * 100) / progressEvent.total);
-          setUploadProgress(progress);
-        },
-        timeout: 60000
+      const { url, meta } = await uploadOneSaasFile(file, (progress) => {
+        setUploadProgress(progress);
       });
 
-      if (response.data && response.data.success) {
-        return {
-          success: true,
-          url: response.data.data?.url || response.data.url,
-          filename: response.data.data?.filename || response.data.filename,
-          message: response.data.message
-        };
-      } else {
-        throw new Error(response.data?.message || 'File upload failed');
-      }
+      return {
+        success: true,
+        url,
+        filename: meta?.storedName || meta?.originalName || file.name,
+        message: 'File uploaded successfully',
+      };
     } catch (error) {
       console.error('Error uploading file:', error);
       if (error.response) {

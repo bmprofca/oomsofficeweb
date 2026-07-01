@@ -15,11 +15,9 @@ import {
     FiLock
 } from 'react-icons/fi';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { SaleForm, TransactionModalManager } from '../components/Modals/CreateTransactions';
-import PurchaseForm from '../components/purchase-form';
+import { SaleForm, PurchaseForm, TransactionModalManager } from '../components/Modals/CreateTransactions';
 import CreateLedgerModal from '../components/create-ledger-modal';
 import DiscountForm from '../components/discount-form';
-import ExpenseForm from '../components/expense-form';
 import { motion } from 'framer-motion';
 import { Header, Sidebar } from '../components/header';
 import { useUserPermissions } from '../utils/permission-helper';
@@ -98,10 +96,9 @@ const FinanceEntry = () => {
         alert('Ledger created successfully! Refreshing data...');
     }
 
-    const handleExpenseSubmit = (ledgerData) => {
-        console.log('Ledger created successfully:', ledgerData);
-        alert('Ledger created successfully! Refreshing data...');
-    }
+    const handleExpenseSubmit = (type, payload) => {
+        console.log(`${type} transaction created:`, payload);
+    };
 
     const formatCurrency = (amount) => {
         const value = Number(amount);
@@ -196,11 +193,10 @@ const FinanceEntry = () => {
                                         return (
                                             <motion.button
                                                 key={idx}
-                                                className={`flex items-center p-3 bg-slate-50 rounded-lg border w-full transition-colors relative ${
-                                                    isLocked
+                                                className={`flex items-center p-3 bg-slate-50 rounded-lg border w-full transition-colors relative ${isLocked
                                                         ? 'opacity-60 cursor-not-allowed border-slate-200 hover:bg-transparent'
                                                         : `border-slate-200 ${btn.hoverBg}`
-                                                }`}
+                                                    }`}
                                                 onClick={() => {
                                                     if (isLocked) {
                                                         toast.error('Need Access Permission');
@@ -251,11 +247,10 @@ const FinanceEntry = () => {
                                         return (
                                             <motion.button
                                                 key={idx}
-                                                className={`flex items-center p-3 bg-slate-50 rounded-lg border w-full transition-colors relative ${
-                                                    isLocked
+                                                className={`flex items-center p-3 bg-slate-50 rounded-lg border w-full transition-colors relative ${isLocked
                                                         ? 'opacity-60 cursor-not-allowed border-slate-200 hover:bg-transparent'
                                                         : `border-slate-200 ${btn.hoverBg}`
-                                                }`}
+                                                    }`}
                                                 onClick={() => {
                                                     if (isLocked) {
                                                         toast.error('Need Access Permission');
@@ -305,11 +300,10 @@ const FinanceEntry = () => {
                                         return (
                                             <motion.div
                                                 key={idx}
-                                                className={`block transition-all hover:shadow-sm cursor-pointer relative rounded-lg border border-slate-200 p-3 transition-all duration-200 ${
-                                                    isLocked
+                                                className={`block transition-all hover:shadow-sm cursor-pointer relative rounded-lg border border-slate-200 p-3 transition-all duration-200 ${isLocked
                                                         ? 'opacity-60 cursor-not-allowed hover:bg-transparent'
                                                         : 'bg-white hover:border-slate-300'
-                                                }`}
+                                                    }`}
                                                 onClick={() => {
                                                     if (isLocked) {
                                                         toast.error('Need Access Permission');
@@ -357,17 +351,16 @@ const FinanceEntry = () => {
                                     {[
                                         { name: 'Ledger Groups', action: () => navigate('./ledger-group'), hoverBg: 'hover:bg-blue-50 hover:border-blue-200', iconBg: 'bg-blue-100', iconColor: 'text-blue-600', svgPaths: ['M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z'], permission: 'finance_report' },
                                         { name: 'Create Ledger', action: () => setCreateLedgerModal(true), hoverBg: 'hover:bg-green-50 hover:border-green-200', iconBg: 'bg-green-100', iconColor: 'text-green-600', svgPaths: ['M12 6v6m0 0v6m0-6h6m-6 0H6'], permission: 'finance_entry' },
-                                        { name: 'View Ledger', action: () => {}, hoverBg: 'hover:bg-purple-50 hover:border-purple-200', iconBg: 'bg-purple-100', iconColor: 'text-purple-600', svgPaths: ['M15 12a3 3 0 11-6 0 3 3 0 016 0z', 'M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z'], permission: 'finance_report' }
+                                        { name: 'View Ledger', action: () => { }, hoverBg: 'hover:bg-purple-50 hover:border-purple-200', iconBg: 'bg-purple-100', iconColor: 'text-purple-600', svgPaths: ['M15 12a3 3 0 11-6 0 3 3 0 016 0z', 'M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z'], permission: 'finance_report' }
                                     ].map((btn, idx) => {
                                         const isLocked = !check(btn.permission);
                                         return (
                                             <motion.button
                                                 key={idx}
-                                                className={`flex items-center p-3 bg-slate-50 rounded-lg border w-full transition-colors relative ${
-                                                    isLocked
+                                                className={`flex items-center p-3 bg-slate-50 rounded-lg border w-full transition-colors relative ${isLocked
                                                         ? 'opacity-60 cursor-not-allowed border-slate-200 hover:bg-transparent'
                                                         : `border-slate-200 ${btn.hoverBg}`
-                                                }`}
+                                                    }`}
                                                 onClick={() => {
                                                     if (isLocked) {
                                                         toast.error('Need Access Permission');
@@ -479,11 +472,16 @@ const FinanceEntry = () => {
                 mode="modal"
             />
 
-            <ExpenseForm
+            <TransactionModalManager
+                modalType="EXPENSE"
                 isOpen={expenseFormModal}
                 onClose={() => setExpenseFormModal(false)}
-                onSuccess={handleExpenseSubmit}
-                mode="modal"
+                onSubmit={handleExpenseSubmit}
+                clientId={initialClientUsername}
+                clientName={initialClientUsername || ''}
+                formatCurrency={formatCurrency}
+                summary={emptySummary}
+                showClient={Boolean(initialClientUsername)}
             />
         </div>
     );

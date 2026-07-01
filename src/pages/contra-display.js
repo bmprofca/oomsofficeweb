@@ -27,6 +27,7 @@ import { PiFilePdfDuotone, PiMicrosoftExcelLogoDuotone } from "react-icons/pi";
 import { AiOutlineMail } from "react-icons/ai";
 import { motion, AnimatePresence } from 'framer-motion';
 import { TransactionModalManager } from '../components/Modals/CreateTransactions';
+import { EditTransactionModalManager } from '../components/Modals/EditTransactions';
 import { DateRangePickerField } from '../components/PortalDatePicker';
 import TablePagination from '../components/TablePagination';
 import API_BASE_URL from '../utils/api-controller';
@@ -259,6 +260,8 @@ const ViewContra = () => {
     const [loading, setLoading] = useState(false);
     const [contras, setContras] = useState([]);
     const [contraFormModal, setContraTransferModal] = useState(false);
+    const [editModalOpen, setEditModalOpen] = useState(false);
+    const [editRecord, setEditRecord] = useState(null);
     const [detailContra, setDetailContra] = useState(null);
     const [searchTerm, setSearchTerm] = useState('');
     const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
@@ -363,6 +366,22 @@ const ViewContra = () => {
     const handleContraSuccess = (type, contraData) => {
         console.log(`${type} transaction created:`, contraData);
         toast.success('Contra entry confirmed! Refreshing data...');
+        fetchContraData();
+    };
+
+    const openEditModal = (record) => {
+        setEditRecord(record);
+        setEditModalOpen(true);
+        setActiveRowDropdown(null);
+    };
+
+    const closeEditModal = () => {
+        setEditModalOpen(false);
+        setEditRecord(null);
+    };
+
+    const handleEditSuccess = () => {
+        closeEditModal();
         fetchContraData();
     };
 
@@ -1027,10 +1046,10 @@ const ViewContra = () => {
                                                                                     <div className="font-medium">Details</div>
                                                                                 </div>
                                                                             </button>
-                                                                            <a
-                                                                                href={`/edit-contra-entry?redirect=${window.location.href}&contra_id=${contra.contra_id}`}
+                                                                            <button
+                                                                                type="button"
                                                                                 className="flex items-center w-full px-3 py-2 text-xs text-slate-700 hover:bg-blue-50 transition-colors duration-150"
-                                                                                onClick={() => setActiveRowDropdown(null)}
+                                                                                onClick={() => openEditModal(contra)}
                                                                             >
                                                                                 <div className="p-1 bg-blue-50 rounded mr-2">
                                                                                     <FiEdit className="w-3 h-3 text-blue-500" />
@@ -1038,7 +1057,7 @@ const ViewContra = () => {
                                                                                 <div className="text-left">
                                                                                     <div className="font-medium">Edit Contra</div>
                                                                                 </div>
-                                                                            </a>
+                                                                            </button>
                                                                             <div className="border-t border-slate-100 mt-1 pt-1">
                                                                                 <button
                                                                                     className="flex items-center w-full px-3 py-2 text-xs text-slate-700 hover:bg-blue-50 transition-colors duration-150"
@@ -1089,6 +1108,15 @@ const ViewContra = () => {
                 isOpen={contraFormModal}
                 onClose={() => setContraTransferModal(false)}
                 onSubmit={handleContraSuccess}
+                formatCurrency={formatCurrency}
+            />
+
+            <EditTransactionModalManager
+                modalType="CONTRA"
+                isOpen={editModalOpen}
+                onClose={closeEditModal}
+                editRecord={editRecord}
+                onSubmit={handleEditSuccess}
                 formatCurrency={formatCurrency}
             />
 

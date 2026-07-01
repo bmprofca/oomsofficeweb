@@ -1990,7 +1990,8 @@ const AutoReminder = () => {
                                                     </div>
                                                 </div>
                                                 <SearchableSelect
-                                                    endpoint="/client/search"
+                                                    endpoint="/client/list"
+                                                    queryParams={{ page: 1, limit: 20 }}
                                                     searchParam="search"
                                                     valueKey="username"
                                                     labelMapping={{

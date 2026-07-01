@@ -1461,7 +1461,8 @@ const ViewDSCRegister = () => {
                                             Select User <span className="text-rose-500">*</span>
                                         </label>
                                         <SearchableSelect
-                                            endpoint="/client/search"
+                                            endpoint="/client/list"
+                                            queryParams={{ page: 1, limit: 20 }}
                                             searchParam="search"
                                             valueKey="username"
                                             labelMapping={{

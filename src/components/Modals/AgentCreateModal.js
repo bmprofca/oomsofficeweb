@@ -1,13 +1,11 @@
 import React, { useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
-import axios from 'axios';
 import { FiImage, FiRefreshCw, FiUserPlus, FiX } from 'react-icons/fi';
 import toast from 'react-hot-toast';
-import API_BASE_URL from '../../utils/api-controller';
-import getHeaders from '../../utils/get-headers';
 import StateDistrictSelect from '../state-district-select';
 import { DatePickerField } from '../PortalDatePicker';
 import { createAgent } from '../../services/agentService';
+import { uploadOneSaasFileUrl } from '../../utils/onesaas-upload';
 
 const MODAL_BODY_CLASS =
     'px-5 py-4 flex-1 min-h-0 overflow-y-auto overscroll-y-contain [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden';
@@ -41,6 +39,7 @@ const INITIAL_FORM = {
     date_of_birth: '',
     gender: 'male',
     imageFile: null,
+    imageUrl: '',
     state: '',
     district: '',
     town_or_village: '',
@@ -52,19 +51,7 @@ const INITIAL_FORM = {
     opening_date: new Date().toISOString().split('T')[0],
 };
 
-const uploadProfileImage = async (file) => {
-    const body = new FormData();
-    body.append('file', file);
-    const headers = getHeaders();
-    if (!headers) throw new Error('Authentication headers are missing.');
-    const response = await axios.post(`${API_BASE_URL}/upload`, body, {
-        headers: { ...headers, 'Content-Type': 'multipart/form-data' },
-    });
-    if (response.data?.success && response.data?.data?.url) {
-        return response.data.data.url;
-    }
-    throw new Error(response.data?.message || 'Failed to upload image');
-};
+const uploadProfileImage = async (file) => uploadOneSaasFileUrl(file);
 
 const validateForm = (form) => {
     const errors = {};
@@ -118,11 +105,22 @@ export default function AgentCreateModal({ isOpen, onClose, onSuccess }) {
         setFormError('');
     };
 
-    const handleImageChange = (e) => {
+    const handleImageChange = async (e) => {
         const file = e.target.files?.[0];
         if (!file) return;
         setField('imageFile', file);
+        setField('imageUrl', '');
         setImagePreview(URL.createObjectURL(file));
+        setFormError('');
+        try {
+            const url = await uploadProfileImage(file);
+            setField('imageUrl', url);
+        } catch (uploadErr) {
+            setField('imageFile', null);
+            setImagePreview(null);
+            if (fileInputRef.current) fileInputRef.current.value = '';
+            setFormError(uploadErr.message || 'Failed to upload image');
+        }
     };
 
     const handleSubmit = async (e) => {
@@ -137,18 +135,7 @@ export default function AgentCreateModal({ isOpen, onClose, onSuccess }) {
         setSubmitting(true);
         setFormError('');
         try {
-            let imageUrl = null;
-            if (form.imageFile) {
-                try {
-                    imageUrl = await uploadProfileImage(form.imageFile);
-                } catch (uploadErr) {
-                    setFormError(
-                        uploadErr.message || 'Profile image upload failed. Remove the image or try again.'
-                    );
-                    setSubmitting(false);
-                    return;
-                }
-            }
+            const imageUrl = form.imageUrl || null;
 
             const payload = {
                 profile: {

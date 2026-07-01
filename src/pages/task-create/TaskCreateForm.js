@@ -7,6 +7,7 @@ import { FaCheckCircle } from 'react-icons/fa';
 import { FiLoader, FiX } from 'react-icons/fi';
 import API_BASE_URL from '../../utils/api-controller';
 import getHeaders from '../../utils/get-headers';
+import { uploadOneSaasFileUrl } from '../../utils/onesaas-upload';
 import useTaskCreateResources from './useTaskCreateResources';
 import ClientsStep from './steps/ClientsStep';
 import ServiceStep from './steps/ServiceStep';
@@ -42,25 +43,11 @@ function mapFirmToOption(f) {
 }
 
 async function uploadFile(fileOrBlob, filename = 'file') {
-    const headers = getHeaders();
-    if (!headers) throw new Error('Authentication required');
-    const uploadHeaders = { ...headers };
-    delete uploadHeaders['Content-Type'];
-    const fd = new FormData();
     const file =
         fileOrBlob instanceof File
             ? fileOrBlob
             : new File([fileOrBlob], filename, { type: fileOrBlob.type || 'audio/wav' });
-    fd.append('file', file);
-    const res = await axios.post(`${API_BASE_URL}/upload`, fd, {
-        headers: uploadHeaders,
-        maxBodyLength: Infinity,
-        maxContentLength: Infinity,
-    });
-    if (!res.data?.success || !res.data?.data?.url) {
-        throw new Error(res.data?.message || 'Upload failed');
-    }
-    return res.data.data.url;
+    return uploadOneSaasFileUrl(file);
 }
 
 function resetFormState(setters, staff) {

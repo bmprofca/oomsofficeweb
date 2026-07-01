@@ -32,9 +32,7 @@ const DiscountForm = ({
         setLoadingParties(true);
         try {
             const headers = getHeaders();
-            const url = search 
-                ? `${API_BASE_URL}/client/search?search=${encodeURIComponent(search)}`
-                : `${API_BASE_URL}/client/search?search=`;
+            const url = `${API_BASE_URL}/client/list?page=1&limit=20&search=${encodeURIComponent(search)}`;
             
             const response = await fetch(url, {
                 method: 'GET',

@@ -149,6 +149,17 @@ function startOfDay(d) {
     return c;
 }
 
+function resolveMaxSelectableDate(value) {
+    if (!value) return null;
+    if (value instanceof Date) return startOfDay(value);
+    return startOfDay(parseDateValue(value) || new Date(value));
+}
+
+function isAfterMaxDate(date, maxDate) {
+    if (!maxDate || !date) return false;
+    return startOfDay(date) > startOfDay(maxDate);
+}
+
 function getPresets() {
     const t = startOfDay(new Date());
     const yesterday = new Date(t); yesterday.setDate(t.getDate() - 1);
@@ -244,11 +255,12 @@ export function buildQuickPresetEntry(code) {
     }
     if (c === 'tm') {
         const thisMonthStart = startOfDay(new Date(t.getFullYear(), t.getMonth(), 1));
+        const thisMonthEnd = startOfDay(new Date(t.getFullYear(), t.getMonth() + 1, 0));
         return {
             key: 'tm',
             label: 'This month',
-            sub: `${fmt(thisMonthStart)} – ${fmt(t)}`,
-            range: [thisMonthStart, t],
+            sub: `${fmt(thisMonthStart)} – ${fmt(thisMonthEnd)}`,
+            range: [thisMonthStart, thisMonthEnd],
         };
     }
     if (c === 'lm') {
@@ -356,11 +368,15 @@ function Calendar({
     rangeStart, rangeEnd, onRangeClick, onSinglePick,
     minCalendarYear = 1900,
     maxCalendarYear = 2100,
+    maxSelectableDate = null,
 }) {
     const [hoverDate, setHoverDate] = useState(null);
     const today = startOfDay(new Date());
+    const maxDate = resolveMaxSelectableDate(maxSelectableDate);
     const y = viewDate.getFullYear();
     const m = viewDate.getMonth();
+    const isDayDisabled = (date) => isAfterMaxDate(date, maxDate);
+    const isAtMaxMonth = maxDate && (y > maxDate.getFullYear() || (y === maxDate.getFullYear() && m >= maxDate.getMonth()));
     const yearOptions = useMemo(() => {
         const lo = Math.min(minCalendarYear, y);
         const hi = Math.max(maxCalendarYear, y);
@@ -371,30 +387,34 @@ function Calendar({
     const prevMonthDays = new Date(y, m, 0).getDate();
 
     function getDayClass(date) {
-        const base = 'w-7 h-7 sm:w-8 sm:h-8 flex items-center justify-center text-[10px] sm:text-xs cursor-pointer select-none transition-colors duration-100 ';
+        const base = 'w-7 h-7 sm:w-8 sm:h-8 flex items-center justify-center text-[10px] sm:text-xs select-none transition-colors duration-100 ';
+        if (isDayDisabled(date)) {
+            return `${base}text-gray-300 cursor-not-allowed opacity-50 rounded-lg`;
+        }
+        const interactive = `${base}cursor-pointer `;
         if (mode === 'single') {
-            if (sameDay(date, selectedSingle)) return `${base}bg-blue-500 text-white rounded-lg font-medium`;
-            if (sameDay(date, today)) return `${base}bg-blue-100 text-blue-700 rounded-lg font-medium`;
-            return `${base}hover:bg-gray-100 rounded-lg text-gray-700`;
+            if (sameDay(date, selectedSingle)) return `${interactive}bg-blue-500 text-white rounded-lg font-medium`;
+            if (sameDay(date, today)) return `${interactive}bg-blue-100 text-blue-700 rounded-lg font-medium`;
+            return `${interactive}hover:bg-gray-100 rounded-lg text-gray-700`;
         }
         const lo = rangeStart && rangeEnd ? (rangeStart <= rangeEnd ? rangeStart : rangeEnd) : rangeStart;
         const hi = rangeStart && rangeEnd ? (rangeStart <= rangeEnd ? rangeEnd : rangeStart)
             : (rangeStart && hoverDate ? (hoverDate >= rangeStart ? hoverDate : null) : null);
 
         if (lo && sameDay(date, lo) && hi && sameDay(date, hi)) {
-            return `${base}bg-blue-500 text-white rounded-lg font-medium`;
+            return `${interactive}bg-blue-500 text-white rounded-lg font-medium`;
         }
         if (lo && sameDay(date, lo)) {
-            return `${base}bg-blue-500 text-white font-medium ${hi ? 'rounded-l-lg rounded-r-none' : 'rounded-lg'}`;
+            return `${interactive}bg-blue-500 text-white font-medium ${hi ? 'rounded-l-lg rounded-r-none' : 'rounded-lg'}`;
         }
         if (hi && sameDay(date, hi)) {
-            return `${base}bg-blue-500 text-white font-medium rounded-r-lg rounded-l-none`;
+            return `${interactive}bg-blue-500 text-white font-medium rounded-r-lg rounded-l-none`;
         }
         if (lo && hi && date > lo && date < hi) {
-            return `${base}bg-blue-100 text-blue-700 rounded-none`;
+            return `${interactive}bg-blue-100 text-blue-700 rounded-none`;
         }
-        if (sameDay(date, today)) return `${base}bg-blue-50 text-blue-600 rounded-lg font-medium`;
-        return `${base}hover:bg-gray-100 rounded-lg text-gray-700`;
+        if (sameDay(date, today)) return `${interactive}bg-blue-50 text-blue-600 rounded-lg font-medium`;
+        return `${interactive}hover:bg-gray-100 rounded-lg text-gray-700`;
     }
 
     const cells = [];
@@ -414,6 +434,7 @@ function Calendar({
                 tabIndex={0}
                 className={getDayClass(date)}
                 onClick={() => {
+                    if (isDayDisabled(date)) return;
                     if (mode === 'single') {
                         onSelectSingle(date);
                         onSinglePick?.(date);
@@ -422,6 +443,7 @@ function Calendar({
                 onKeyDown={(e) => {
                     if (e.key === 'Enter' || e.key === ' ') {
                         e.preventDefault();
+                        if (isDayDisabled(date)) return;
                         if (mode === 'single') {
                             onSelectSingle(date);
                             onSinglePick?.(date);
@@ -476,7 +498,8 @@ function Calendar({
                 <button
                     type="button"
                     onClick={() => onViewChange(new Date(y, m + 1, 1))}
-                    className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-gray-200 text-gray-600 transition-colors hover:bg-gray-50"
+                    disabled={isAtMaxMonth}
+                    className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-gray-200 text-gray-600 transition-colors ${isAtMaxMonth ? 'opacity-40 cursor-not-allowed' : 'hover:bg-gray-50'}`}
                     aria-label="Next month"
                 >
                     ›
@@ -517,6 +540,8 @@ export default function DatePicker({
     onRequestClose,
     minCalendarYear = 1900,
     maxCalendarYear = 2100,
+    /** When set, dates after this day cannot be selected (inclusive cap). */
+    maxSelectableDate = null,
     showRangeHint = true,
     showResetButton = true,
     /** When true, hides the tab bar so only the active tab's calendar is shown. */
@@ -549,6 +574,7 @@ export default function DatePicker({
     const [rangeStart, setRangeStart] = useState(() => parseDateValue(initialRangeStart));
     const [rangeEnd, setRangeEnd] = useState(() => parseDateValue(initialRangeEnd));
     const [feedback, setFeedback] = useState('');
+    const maxDate = resolveMaxSelectableDate(maxSelectableDate);
 
     const tabs = useMemo(() => {
         if (isLoanPresets) {
@@ -594,10 +620,20 @@ export default function DatePicker({
     function applyQuickPreset(preset) {
         if (!preset) return;
         if (preset.single) {
+            if (isAfterMaxDate(preset.single, maxDate)) {
+                setFeedback('Future dates are not allowed.');
+                setTimeout(() => setFeedback(''), 2000);
+                return;
+            }
             onApply?.({ type: 'single', date: preset.single, sourceTab: 'quick', quickKey: preset.key });
             return;
         }
         if (preset.range) {
+            if (maxDate && isAfterMaxDate(preset.range[1], maxDate)) {
+                setFeedback('Future dates are not allowed.');
+                setTimeout(() => setFeedback(''), 2000);
+                return;
+            }
             onApply?.({
                 type: 'range',
                 start: preset.range[0],
@@ -620,6 +656,11 @@ export default function DatePicker({
         } else if (tab === 'single') {
             if (!selectedSingle) {
                 setFeedback('Please select a date.');
+                setTimeout(() => setFeedback(''), 2000);
+                return;
+            }
+            if (isAfterMaxDate(selectedSingle, maxDate)) {
+                setFeedback('Future dates are not allowed.');
                 setTimeout(() => setFeedback(''), 2000);
                 return;
             }
@@ -719,16 +760,24 @@ export default function DatePicker({
                     <div
                         className={`max-h-[46vh] overflow-y-auto ${useWideQuickGrid ? 'grid grid-cols-2 gap-2' : 'space-y-1.5'}`}
                     >
-                        {presets.map((p) => (
+                        {presets.map((p) => {
+                            const presetDisabled = p.single
+                                ? isAfterMaxDate(p.single, maxDate)
+                                : (p.range ? isAfterMaxDate(p.range[1], maxDate) : false);
+                            return (
                             <button
                                 key={p.key}
                                 type="button"
+                                disabled={presetDisabled}
                                 onClick={() => {
+                                    if (presetDisabled) return;
                                     setQuickKey(p.key);
                                     applyQuickPreset(p);
                                 }}
                                 className={`flex flex-col items-start rounded-lg border px-2 py-2 text-left transition-all sm:px-2.5 sm:py-2.5 ${useWideQuickGrid ? 'min-h-[4.25rem] justify-center' : 'w-full'
-                                    } ${quickKey === p.key
+                                    } ${presetDisabled
+                                        ? 'border-gray-100 bg-gray-50 opacity-50 cursor-not-allowed'
+                                        : quickKey === p.key
                                         ? 'border-blue-300 bg-blue-50'
                                         : 'border-gray-100 hover:border-gray-200 hover:bg-gray-50'
                                     }`}
@@ -740,7 +789,8 @@ export default function DatePicker({
                                     {p.sub}
                                 </span>
                             </button>
-                        ))}
+                            );
+                        })}
                     </div>
                 )}
 
@@ -753,7 +803,9 @@ export default function DatePicker({
                         onSelectSingle={setSelectedSingle}
                         minCalendarYear={minCalendarYear}
                         maxCalendarYear={maxCalendarYear}
+                        maxSelectableDate={maxSelectableDate}
                         onSinglePick={(date) => {
+                            if (isAfterMaxDate(date, maxDate)) return;
                             onApply?.({ type: 'single', date });
                         }}
                     />
@@ -776,6 +828,7 @@ export default function DatePicker({
                             rangeEnd={rangeEnd}
                             minCalendarYear={minCalendarYear}
                             maxCalendarYear={maxCalendarYear}
+                            maxSelectableDate={maxSelectableDate}
                             onRangeClick={handleRangeClick}
                         />
                     </div>
@@ -824,6 +877,7 @@ export function DatePickerField({
     maxCalendarYear,
     hideTabs = false,
     showResetButton = true,
+    maxSelectableDate = null,
 }) {
     const [open, setOpen] = useState(false);
     const selectedDate = parseDateValue(value);
@@ -861,6 +915,7 @@ export function DatePickerField({
                     maxCalendarYear={maxCalendarYear}
                     hideTabs={hideTabs}
                     showResetButton={showResetButton}
+                    maxSelectableDate={maxSelectableDate}
                     onRequestClose={() => setOpen(false)}
                     onApply={(result) => {
                         if (result?.type === 'single') {

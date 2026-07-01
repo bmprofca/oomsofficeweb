@@ -1,21 +1,23 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import {
-    FiSearch,
     FiPlus,
     FiEdit,
     FiFileText,
     FiMenu,
-    FiChevronRight,
+    FiChevronDown,
     FiPrinter,
     FiX,
     FiCheckCircle,
     FiAlertCircle,
-    FiInfo
+    FiInfo,
+    FiEye,
 } from 'react-icons/fi';
 import { PiExportBold } from "react-icons/pi";
 import { PiFilePdfDuotone, PiMicrosoftExcelLogoDuotone } from "react-icons/pi";
 import { AiOutlineMail } from "react-icons/ai";
 import { TransactionModalManager } from '../components/Modals/CreateTransactions';
+import { EditTransactionModalManager } from '../components/Modals/EditTransactions';
 import { DateRangePickerField } from '../components/PortalDatePicker';
 import TablePagination from '../components/TablePagination';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -24,6 +26,259 @@ import API_BASE_URL from '../utils/api-controller';
 import getHeaders from '../utils/get-headers';
 import axios from 'axios';
 import toast from 'react-hot-toast';
+
+const ACTIONS_MENU_WIDTH = 192;
+const ACTIONS_MENU_HEIGHT = 132;
+
+const MODAL_BODY_CLASS =
+    'px-5 py-4 flex-1 min-h-0 overflow-y-auto overscroll-y-contain [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden';
+
+const MODAL_FOOTER_CLASS =
+    'shrink-0 flex items-center justify-end gap-2 border-t border-slate-200 bg-slate-50/90 px-5 py-3';
+
+const formatDateTime = (value) => {
+    if (!value) return '—';
+    const d = new Date(value);
+    if (Number.isNaN(d.getTime())) return String(value);
+    return d.toLocaleString('en-IN', {
+        day: '2-digit',
+        month: 'short',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+    });
+};
+
+const DetailRow = ({ label, children }) => (
+    <div className="flex items-start justify-between gap-4 border-b border-slate-100 py-2.5 last:border-0">
+        <span className="shrink-0 text-[11px] font-semibold uppercase tracking-wide text-slate-400">{label}</span>
+        <span className="min-w-0 text-right text-sm text-slate-800">{children}</span>
+    </div>
+);
+
+const JournalEntryModalShell = ({ isOpen, onClose, title, subtitle, icon: Icon, footer, children }) => {
+    return createPortal(
+        <AnimatePresence>
+            {isOpen ? (
+                <motion.div
+                    key="journal-entry-modal"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    transition={{ duration: 0.18 }}
+                    className="fixed inset-0 z-[10050] flex items-start justify-center overflow-hidden overscroll-none p-3 sm:p-4 pointer-events-none"
+                >
+                    <div
+                        className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm pointer-events-auto"
+                        onClick={onClose}
+                        aria-hidden
+                    />
+                    <motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        transition={{ duration: 0.18 }}
+                        role="dialog"
+                        aria-modal="true"
+                        aria-labelledby="journal-entry-modal-title"
+                        className="relative z-[1] pointer-events-auto flex w-full max-w-lg my-2 sm:my-4 max-h-[calc(100vh-1.5rem)] sm:max-h-[calc(100vh-2rem)] flex-col overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-2xl"
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        <div className="shrink-0 flex items-center justify-between gap-3 border-b border-blue-500/25 bg-gradient-to-r from-blue-600 via-blue-600 to-indigo-600 px-5 py-3.5 text-white">
+                            <div className="flex min-w-0 items-center gap-3">
+                                {Icon ? (
+                                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white/15 ring-1 ring-white/20">
+                                        <Icon className="h-4 w-4" aria-hidden />
+                                    </div>
+                                ) : null}
+                                <div className="min-w-0">
+                                    <h2 id="journal-entry-modal-title" className="truncate text-sm font-semibold tracking-tight">
+                                        {title}
+                                    </h2>
+                                    {subtitle ? (
+                                        <p className="mt-0.5 truncate text-[11px] text-blue-100/90">{subtitle}</p>
+                                    ) : null}
+                                </div>
+                            </div>
+                            <button
+                                type="button"
+                                onClick={onClose}
+                                className="shrink-0 rounded-lg p-1.5 text-white/80 transition-colors hover:bg-white/15 hover:text-white"
+                                aria-label="Close"
+                            >
+                                <FiX className="h-4 w-4" />
+                            </button>
+                        </div>
+                        {children}
+                        {footer}
+                    </motion.div>
+                </motion.div>
+            ) : null}
+        </AnimatePresence>,
+        document.body
+    );
+};
+
+const getJournalPartyLabel = (party, getTypeLabel) => {
+    if (!party) return '—';
+    const d = party.details || {};
+    if (party.type === 'bank') {
+        return d.bank || d.holder || d.account_no || d.name || 'Bank account';
+    }
+    if (party.type === 'capital') {
+        return d.name || d.capital_name || 'Capital account';
+    }
+    return d.name || d.username || getTypeLabel(party.type);
+};
+
+const getJournalPartyDetailLines = (party) => {
+    if (!party?.details) return [];
+    const d = party.details;
+    if (party.type === 'bank') {
+        const lines = [];
+        if (d.holder) lines.push(d.holder);
+        if (d.account_no) lines.push(`A/c ${d.account_no}`);
+        if (d.ifsc) lines.push(d.ifsc);
+        if (d.branch) lines.push(d.branch);
+        return lines;
+    }
+    if (party.type === 'capital') {
+        return [d.name || d.capital_name].filter(Boolean);
+    }
+    if (d.email) return [d.email];
+    if (d.mobile) return [d.mobile];
+    return [];
+};
+
+const JournalEntryDetailsModal = ({ isOpen, journal, onClose, formatCurrency, getTypeLabel, getAccountTypeColor }) => {
+    const fromLabel = getJournalPartyLabel(journal?.payment_from, getTypeLabel);
+    const toLabel = getJournalPartyLabel(journal?.payment_to, getTypeLabel);
+    const fromLines = getJournalPartyDetailLines(journal?.payment_from);
+    const toLines = getJournalPartyDetailLines(journal?.payment_to);
+
+    return (
+        <JournalEntryModalShell
+            isOpen={isOpen}
+            onClose={onClose}
+            icon={FiEye}
+            title={journal?.invoice_no || 'Journal entry'}
+            subtitle="Journal entry details"
+            footer={(
+                <div className={MODAL_FOOTER_CLASS}>
+                    <button
+                        type="button"
+                        onClick={onClose}
+                        className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-xs font-medium text-slate-700 transition-colors hover:bg-slate-50"
+                    >
+                        Close
+                    </button>
+                </div>
+            )}
+        >
+            <div className={MODAL_BODY_CLASS}>
+                {!journal ? (
+                    <p className="py-8 text-center text-sm text-slate-500">No journal data available.</p>
+                ) : (
+                    <div className="space-y-4">
+                        <div className="rounded-xl border border-blue-200/80 bg-gradient-to-br from-blue-50 to-white p-4 shadow-sm">
+                            <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+                                <span className="inline-flex rounded-full bg-blue-100 px-2.5 py-0.5 text-[11px] font-semibold text-blue-700">
+                                    Journal
+                                </span>
+                                <span className="text-lg font-bold tabular-nums text-blue-700">
+                                    ₹{formatCurrency(journal.amount)}
+                                </span>
+                            </div>
+                            <DetailRow label="Voucher no.">{journal.invoice_no || '—'}</DetailRow>
+                            <DetailRow label="Date">
+                                {journal.transaction_date
+                                    ? new Date(journal.transaction_date).toLocaleDateString('en-GB')
+                                    : '—'}
+                            </DetailRow>
+                            <DetailRow label="Remark">
+                                <span className="block max-w-[14rem] whitespace-pre-wrap break-words text-right">
+                                    {journal.remark || '—'}
+                                </span>
+                            </DetailRow>
+                        </div>
+
+                        <div className="rounded-xl border border-slate-200/80 bg-white p-4 shadow-sm">
+                            <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-slate-400">
+                                Payment from
+                            </p>
+                            <DetailRow label="Party type">
+                                {journal.payment_from?.type ? (
+                                    <span className={`inline-flex rounded-full px-2 py-0.5 text-[10px] font-medium capitalize ${getAccountTypeColor(journal.payment_from.type)}`}>
+                                        {journal.payment_from.type}
+                                    </span>
+                                ) : '—'}
+                            </DetailRow>
+                            <DetailRow label="Account">
+                                <span>
+                                    {fromLabel}
+                                    {fromLines.length > 0 ? (
+                                        <span className="mt-0.5 block text-xs font-normal text-slate-500">
+                                            {fromLines.join(' · ')}
+                                        </span>
+                                    ) : null}
+                                </span>
+                            </DetailRow>
+                        </div>
+
+                        <div className="rounded-xl border border-slate-200/80 bg-white p-4 shadow-sm">
+                            <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-slate-400">
+                                Payment to
+                            </p>
+                            <DetailRow label="Party type">
+                                {journal.payment_to?.type ? (
+                                    <span className={`inline-flex rounded-full px-2 py-0.5 text-[10px] font-medium capitalize ${getAccountTypeColor(journal.payment_to.type)}`}>
+                                        {journal.payment_to.type}
+                                    </span>
+                                ) : '—'}
+                            </DetailRow>
+                            <DetailRow label="Account">
+                                <span>
+                                    {toLabel}
+                                    {toLines.length > 0 ? (
+                                        <span className="mt-0.5 block text-xs font-normal text-slate-500">
+                                            {toLines.join(' · ')}
+                                        </span>
+                                    ) : null}
+                                </span>
+                            </DetailRow>
+                        </div>
+
+                        <div className="rounded-xl border border-slate-200/80 bg-white p-4 shadow-sm">
+                            <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-slate-400">
+                                Audit trail
+                            </p>
+                            <DetailRow label="Created">
+                                <span>
+                                    {formatDateTime(journal.create_date)}
+                                    {journal.create_by?.name ? (
+                                        <span className="mt-0.5 block text-xs font-normal text-slate-500">
+                                            by {journal.create_by.name}
+                                        </span>
+                                    ) : null}
+                                </span>
+                            </DetailRow>
+                            <DetailRow label="Last modified">
+                                <span>
+                                    {formatDateTime(journal.modify_date)}
+                                    {journal.modify_by?.name ? (
+                                        <span className="mt-0.5 block text-xs font-normal text-slate-500">
+                                            by {journal.modify_by.name}
+                                        </span>
+                                    ) : null}
+                                </span>
+                            </DetailRow>
+                        </div>
+                    </div>
+                )}
+            </div>
+        </JournalEntryModalShell>
+    );
+};
 
 // Inline Export Modal Component
 const InlineExportModal = ({ isOpen, onClose, exportData, columns, jobType }) => {
@@ -69,7 +324,7 @@ const InlineExportModal = ({ isOpen, onClose, exportData, columns, jobType }) =>
 
         try {
             const headers = await getHeaders();
-            
+
             const payload = {
                 job_type: jobType,
                 file_type: fileType,
@@ -188,11 +443,10 @@ const InlineExportModal = ({ isOpen, onClose, exportData, columns, jobType }) =>
                                 key={option.type}
                                 onClick={() => handleExport(option.type)}
                                 disabled={exporting || !userEmail}
-                                className={`w-full flex items-center justify-between p-4 rounded-lg border-2 transition-all ${
-                                    exporting && selectedFormat === option.type
-                                        ? 'border-indigo-500 bg-indigo-50'
-                                        : 'border-gray-200 hover:border-indigo-300 hover:bg-gray-50'
-                                } ${(exporting || !userEmail) && selectedFormat !== option.type ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                className={`w-full flex items-center justify-between p-4 rounded-lg border-2 transition-all ${exporting && selectedFormat === option.type
+                                    ? 'border-indigo-500 bg-indigo-50'
+                                    : 'border-gray-200 hover:border-indigo-300 hover:bg-gray-50'
+                                    } ${(exporting || !userEmail) && selectedFormat !== option.type ? 'opacity-50 cursor-not-allowed' : ''}`}
                             >
                                 <div className="flex items-center gap-3">
                                     <div className="p-2 rounded-lg bg-gray-50">
@@ -250,12 +504,18 @@ const ViewJournal = () => {
     const [loading, setLoading] = useState(false);
     const [journals, setJournals] = useState([]);
     const [journalFormModal, setJournalEntryModal] = useState(false);
+    const [editModalOpen, setEditModalOpen] = useState(false);
+    const [editRecord, setEditRecord] = useState(null);
     const [searchTerm, setSearchTerm] = useState('');
     const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
 
     // State for dropdown menus
     const [showAddDropdown, setShowAddDropdown] = useState(false);
     const [activeRowDropdown, setActiveRowDropdown] = useState(null);
+    const [dropdownPos, setDropdownPos] = useState({ top: 0, right: 0, openUpward: false });
+    const [detailsOpen, setDetailsOpen] = useState(false);
+    const [detailsJournal, setDetailsJournal] = useState(null);
+    const [downloadingInvoice, setDownloadingInvoice] = useState(false);
     const [exportModal, setExportModal] = useState({ open: false, type: '', data: null });
 
     // Export Modal State
@@ -304,7 +564,6 @@ const ViewJournal = () => {
             { header: 'Payment From', key: 'from', width: 25 },
             { header: 'Payment To', key: 'to', width: 25 },
             { header: 'Amount (₹)', key: 'amount', width: 18 },
-            { header: 'Remark', key: 'remark', width: 30 }
         ];
 
         exportColumnsConfig.push(...columns);
@@ -317,7 +576,6 @@ const ViewJournal = () => {
                 from: journal.from || 'N/A',
                 to: journal.to || 'N/A',
                 amount: journal.amount || 0,
-                remark: journal.remark || ''
             };
             exportDataList.push(row);
         });
@@ -328,7 +586,7 @@ const ViewJournal = () => {
     // Handle export click for modal
     const handleExportClick = () => {
         const { data, columns } = prepareExportData();
-        
+
         if (data.length === 0) {
             toast.error('No data to export');
             return;
@@ -353,6 +611,22 @@ const ViewJournal = () => {
         if (type === 'JOURNAL') {
             fetchJournalData();
         }
+    };
+
+    const openEditModal = (journal) => {
+        setEditRecord(journal?.raw_data || journal);
+        setEditModalOpen(true);
+        setActiveRowDropdown(null);
+    };
+
+    const closeEditModal = () => {
+        setEditModalOpen(false);
+        setEditRecord(null);
+    };
+
+    const handleEditSuccess = () => {
+        closeEditModal();
+        handleJournalSuccess('JOURNAL');
     };
 
     // Format currency
@@ -457,23 +731,14 @@ const ViewJournal = () => {
         setSearchTerm(e.target.value);
     };
 
-    // Clear search
-    const clearSearch = () => {
-        setSearchTerm('');
-        setDebouncedSearchTerm('');
-        setCurrentPage(1);
-    };
-
-    // Initialize with current month date range
+    // Initialize with current month date range (1st through last day of month)
     useEffect(() => {
         const today = new Date();
         const firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
+        const lastDay = new Date(today.getFullYear(), today.getMonth() + 1, 0);
 
-        const from = formatDateForAPI(firstDay);
-        const to = formatDateForAPI(today);
-
-        setFromDate(from);
-        setToDate(to);
+        setFromDate(formatDateForAPI(firstDay));
+        setToDate(formatDateForAPI(lastDay));
     }, []);
 
     // Persist sidebar minimized state
@@ -493,24 +758,61 @@ const ViewJournal = () => {
         };
     }, [mobileMenuOpen]);
 
-    // Get action links based on from_type and to_type
-    const getActionLinks = (item) => {
-        let editLink = '';
-        let invoiceLink = '';
+    const handleViewInvoice = async (journal) => {
+        const record = journal?.raw_data || journal;
+        const invoiceId = record?.invoice_id || journal?.invoice_id;
 
-        const { from_type, to_type } = item;
-
-        if ((['client', 'ca', 'staff', 'agent'].includes(from_type)) &&
-            (['client', 'ca', 'staff', 'agent'].includes(to_type))) {
-            editLink = `/edit-journal-entry?redirect=${window.location.href}&journal_id=${item.journal_id}`;
-            invoiceLink = `/preview-invoice-journal?invoice_id=${item.invoice_id}&journal_id=${item.journal_id}`;
-        } else if ((from_type === 'capital') && (['client', 'ca', 'staff', 'agent'].includes(to_type))) {
-            editLink = `/edit-journal-entry-capital?redirect=${window.location.href}&invoice_id=${item.invoice_id}`;
-        } else if ((['client', 'ca', 'staff', 'agent'].includes(from_type)) && (to_type === 'capital')) {
-            editLink = `/edit-journal-entry-capital?redirect=${window.location.href}&invoice_id=${item.invoice_id}`;
+        if (!invoiceId) {
+            toast.error('Invoice ID not available for this entry');
+            return;
         }
 
-        return { editLink, invoiceLink };
+        setActiveRowDropdown(null);
+        setDownloadingInvoice(true);
+
+        const toastId = toast.loading('Generating invoice…');
+        try {
+            const headers = getHeaders();
+            if (!headers) {
+                toast.error('Please log in again to download the invoice', { id: toastId });
+                return;
+            }
+
+            const response = await axios.post(
+                `${API_BASE_URL}/invoice/generate`,
+                { invoice_id: invoiceId, type: 'journal', response: 'pdf' },
+                { headers, responseType: 'blob' }
+            );
+
+            const filename = `invoice-${record?.invoice_no || journal?.invoice_no || invoiceId}.pdf`;
+            const url = window.URL.createObjectURL(new Blob([response.data], { type: 'application/pdf' }));
+            const link = document.createElement('a');
+            link.href = url;
+            link.setAttribute('download', filename);
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+            window.URL.revokeObjectURL(url);
+
+            toast.success('Invoice downloaded', { id: toastId });
+        } catch (error) {
+            console.error('Invoice download error:', error);
+            let message = error.message || 'Failed to download invoice';
+            if (error.response?.data instanceof Blob) {
+                try {
+                    const text = await error.response.data.text();
+                    const parsed = JSON.parse(text);
+                    message = parsed.message || message;
+                } catch {
+                    // keep default message
+                }
+            } else if (error.response?.data?.message) {
+                message = error.response.data.message;
+            }
+            toast.error(message, { id: toastId });
+        } finally {
+            setDownloadingInvoice(false);
+        }
     };
 
     // Format date
@@ -521,14 +823,48 @@ const ViewJournal = () => {
     };
 
     // Toggle row dropdown
-    const toggleRowDropdown = (journalId) => {
-        setActiveRowDropdown(activeRowDropdown === journalId ? null : journalId);
+    const activeJournal = useMemo(
+        () => journals.find((j) => j.journal_id === activeRowDropdown) || null,
+        [journals, activeRowDropdown]
+    );
+
+    const activeJournalHasInvoice = Boolean(activeJournal?.invoice_id);
+
+    const toggleRowDropdown = (journalId, e) => {
+        if (activeRowDropdown === journalId) {
+            setActiveRowDropdown(null);
+            return;
+        }
+        const rect = e.currentTarget.getBoundingClientRect();
+        const spaceBelow = window.innerHeight - rect.bottom;
+        const openUpward = spaceBelow < ACTIONS_MENU_HEIGHT + 8;
+        setDropdownPos({
+            top: openUpward ? undefined : rect.bottom + 4,
+            bottom: openUpward ? window.innerHeight - rect.top + 4 : undefined,
+            right: window.innerWidth - rect.right,
+            openUpward,
+        });
+        setActiveRowDropdown(journalId);
+    };
+
+    const openJournalDetails = (journal) => {
+        setActiveRowDropdown(null);
+        setDetailsJournal(journal?.raw_data || journal);
+        setDetailsOpen(true);
+    };
+
+    const closeJournalDetails = () => {
+        setDetailsOpen(false);
+        setDetailsJournal(null);
     };
 
     // Close all dropdowns when clicking outside
     useEffect(() => {
         const handleClickOutside = (event) => {
-            if (!event.target.closest('.dropdown-container')) {
+            if (
+                !event.target.closest('.dropdown-container') &&
+                !event.target.closest('[data-journal-actions-menu]')
+            ) {
                 setShowAddDropdown(false);
                 setActiveRowDropdown(null);
             }
@@ -539,6 +875,17 @@ const ViewJournal = () => {
             document.removeEventListener('mousedown', handleClickOutside);
         };
     }, []);
+
+    useEffect(() => {
+        if (!activeRowDropdown) return undefined;
+        const close = () => setActiveRowDropdown(null);
+        window.addEventListener('scroll', close, true);
+        window.addEventListener('resize', close);
+        return () => {
+            window.removeEventListener('scroll', close, true);
+            window.removeEventListener('resize', close);
+        };
+    }, [activeRowDropdown]);
 
     const totalPages = Math.max(1, Math.ceil(totalItems / itemsPerPage));
     const handlePageChange = (newPage) => {
@@ -575,7 +922,6 @@ const ViewJournal = () => {
             <td className="p-3 text-center"><div className="h-4 bg-slate-200 rounded w-24 mx-auto"></div></td>
             <td className="p-3 text-center"><div className="h-4 bg-slate-200 rounded w-24 mx-auto"></div></td>
             <td className="p-3 text-center"><div className="h-6 bg-slate-200 rounded w-16 mx-auto"></div></td>
-            <td className="p-3 text-center"><div className="h-6 bg-slate-200 rounded w-20 mx-auto"></div></td>
             <td className="p-3 text-center"><div className="h-6 bg-slate-200 rounded w-10 mx-auto"></div></td>
         </tr>
     );
@@ -598,7 +944,7 @@ const ViewJournal = () => {
                             <div className="border-b border-slate-200">
                                 <table className="w-full text-sm">
                                     <thead className="bg-gradient-to-r from-slate-50 to-slate-100">
-                                        <tr>{[...Array(8)].map((_, i) => (<th key={i} className="text-center p-3"><div className="h-4 bg-gray-200 rounded w-20 mx-auto"></div></th>))}</tr>
+                                        <tr>{[...Array(7)].map((_, i) => (<th key={i} className="text-center p-3"><div className="h-4 bg-gray-200 rounded w-20 mx-auto"></div></th>))}</tr>
                                     </thead>
                                 </table>
                             </div>
@@ -631,44 +977,22 @@ const ViewJournal = () => {
                         initial={{ opacity: 0, scale: 0.98 }}
                         animate={{ opacity: 1, scale: 1 }}
                         transition={{ duration: 0.3 }}
-                        className="bg-white rounded-xl shadow-lg border border-slate-200 overflow-hidden"
+                        className="bg-white rounded-2xl shadow-lg border border-slate-200 overflow-hidden"
                     >
-                        {/* Card Header */}
-                        <div className="border-b border-slate-200 px-6 py-4 bg-gradient-to-r from-slate-50 to-white sticky top-0 z-10">
-                            <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
-                                <div>
-                                    <div className="flex items-center gap-2 mb-1">
-                                        <div className="p-1.5 bg-blue-100 rounded-lg">
-                                            <FiFileText className="w-4 h-4 text-blue-600" />
-                                        </div>
-                                        <h5 className="text-lg font-bold text-slate-800">
-                                            Journal Register
-                                        </h5>
-                                    </div>
-                                </div>
-
-                                <div className="flex flex-col lg:flex-row gap-3 w-full lg:w-auto lg:items-center">
-                                    {/* Search Bar */}
-                                    <div className="relative w-full lg:w-64">
-                                        <FiSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 w-4 h-4" />
-                                        <input
-                                            type="text"
-                                            placeholder="Search by invoice no, remark, name..."
-                                            value={searchTerm}
-                                            onChange={handleSearchChange}
-                                            className="w-full pl-9 pr-8 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                                        />
-                                        {searchTerm && (
-                                            <button
-                                                onClick={clearSearch}
-                                                className="absolute right-3 top-1/2 transform -translate-y-1/2 text-slate-400 hover:text-slate-600"
-                                            >
-                                                <FiX className="w-4 h-4" />
-                                            </button>
-                                        )}
-                                    </div>
-
-                                    <div className="w-full min-w-0 max-w-full shrink-0 sm:max-w-[14rem] lg:w-auto lg:max-w-[16rem]">
+                        <div className="sticky top-0 z-10 border-b border-slate-200 bg-gradient-to-r from-slate-50 to-white py-2.5 pl-3 pr-0 sm:pl-4 sm:pr-0">
+                            <div className="flex w-full min-w-0 flex-col gap-3 lg:flex-row lg:items-center lg:justify-between lg:gap-6">
+                                <div className="flex min-w-0 w-full flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:gap-x-3 sm:gap-y-2 lg:min-w-0 lg:flex-1 lg:flex-nowrap lg:items-center lg:gap-x-4">
+                                    <h5 className="shrink-0 text-sm font-bold tracking-tight text-slate-800 sm:text-base mr-4 sm:mr-6 lg:mr-8">
+                                        Journal Register
+                                    </h5>
+                                    <input
+                                        type="text"
+                                        placeholder="Search by invoice no, remark, name…"
+                                        value={searchTerm}
+                                        onChange={handleSearchChange}
+                                        className="h-9 w-full min-w-0 flex-1 rounded-lg border border-slate-300 px-3 text-sm transition-all focus:border-transparent focus:outline-none focus:ring-2 focus:ring-blue-500 sm:min-w-[18rem] lg:min-w-[22rem] xl:min-w-[28rem]"
+                                    />
+                                    <div className="w-full min-w-0 max-w-full shrink-0 overflow-x-auto sm:min-w-[10rem] sm:max-w-[14rem] sm:overflow-x-auto lg:max-w-[14rem] xl:max-w-[16rem]">
                                         <DateRangePickerField
                                             value={{ start: fromDate, end: toDate }}
                                             onChange={(range) => {
@@ -687,96 +1011,95 @@ const ViewJournal = () => {
                                             wrapperClassName="w-full min-w-0"
                                         />
                                     </div>
-
-                                    <div className="flex gap-2 shrink-0">
-                                        {/* Export Dropdown */}
-                                        <div className="dropdown-container relative">
-                                            <motion.button
-                                                onClick={() => setShowAddDropdown(!showAddDropdown)}
-                                                className="px-4 py-2.5 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white rounded-lg text-xs font-semibold transition-all duration-200 flex items-center gap-2 shadow-sm hover:shadow"
-                                                whileHover={{ scale: 1.02 }}
-                                                whileTap={{ scale: 0.98 }}
-                                            >
-                                                <PiExportBold className="w-4 h-4" />
-                                                Export
-                                                <FiChevronRight className={`w-3 h-3 transition-transform ${showAddDropdown ? 'rotate-90' : ''}`} />
-                                            </motion.button>
-
-                                            <AnimatePresence>
-                                                {showAddDropdown && (
-                                                    <motion.div
-                                                        initial={{ opacity: 0, y: 5 }}
-                                                        animate={{ opacity: 1, y: 0 }}
-                                                        exit={{ opacity: 0, y: 5 }}
-                                                        className="absolute right-0 mt-1 w-56 bg-white rounded-lg shadow-xl border border-slate-200 z-50 overflow-hidden"
-                                                    >
-                                                        <div className="py-1">
-                                                            <button
-                                                                onClick={handleExportClick}
-                                                                className="flex items-center w-full px-3 py-2 text-sm text-slate-700 hover:bg-blue-50 transition-all duration-150 group"
-                                                            >
-                                                                <div className="p-1.5 bg-red-50 rounded mr-2 group-hover:bg-red-100 transition-colors">
-                                                                    <PiFilePdfDuotone className="w-3.5 h-3.5 text-red-500" />
-                                                                </div>
-                                                                <div className="text-left">
-                                                                    <div className="font-medium text-xs">Export as PDF</div>
-                                                                </div>
-                                                            </button>
-                                                            <button
-                                                                onClick={handleExportClick}
-                                                                className="flex items-center w-full px-3 py-2 text-sm text-slate-700 hover:bg-blue-50 transition-all duration-150 group"
-                                                            >
-                                                                <div className="p-1.5 bg-green-50 rounded mr-2 group-hover:bg-green-100 transition-colors">
-                                                                    <PiMicrosoftExcelLogoDuotone className="w-3.5 h-3.5 text-green-500" />
-                                                                </div>
-                                                                <div className="text-left">
-                                                                    <div className="font-medium text-xs">Export as Excel</div>
-                                                                </div>
-                                                            </button>
-                                                            <button
-                                                                onClick={() => handleOtherExport('print')}
-                                                                className="flex items-center w-full px-3 py-2 text-sm text-slate-700 hover:bg-blue-50 transition-all duration-150 group"
-                                                            >
-                                                                <div className="p-1.5 bg-slate-50 rounded mr-2 group-hover:bg-slate-100 transition-colors">
-                                                                    <FiPrinter className="w-3.5 h-3.5 text-slate-600" />
-                                                                </div>
-                                                                <div className="text-left">
-                                                                    <div className="font-medium text-xs">Print Report</div>
-                                                                </div>
-                                                            </button>
-                                                        </div>
-                                                    </motion.div>
-                                                )}
-                                            </AnimatePresence>
-                                        </div>
-
+                                </div>
+                                <div className="flex w-full shrink-0 items-center justify-end gap-2 sm:w-auto lg:pl-1">
+                                    <div className="dropdown-container relative shrink-0">
                                         <motion.button
-                                            onClick={() => setJournalEntryModal(true)}
-                                            className="px-4 py-2.5 bg-gradient-to-r from-emerald-600 to-emerald-700 hover:from-emerald-700 hover:to-emerald-800 text-white rounded-lg text-xs font-semibold transition-all duration-200 flex items-center gap-2 shadow-sm hover:shadow"
+                                            type="button"
+                                            onClick={() => setShowAddDropdown(!showAddDropdown)}
+                                            className="inline-flex h-9 items-center justify-center gap-1.5 rounded-lg bg-gradient-to-r from-blue-600 to-blue-700 px-2.5 text-xs font-semibold text-white shadow-sm transition-all duration-200 hover:from-blue-700 hover:to-blue-800 hover:shadow sm:h-10 sm:px-3"
                                             whileHover={{ scale: 1.02 }}
                                             whileTap={{ scale: 0.98 }}
                                         >
-                                            <FiPlus className="w-4 h-4" />
-                                            Add Journal
+                                            <PiExportBold className="h-4 w-4 shrink-0" />
+                                            <span className="whitespace-nowrap">Export</span>
+                                            <FiChevronDown className={`h-3.5 w-3.5 shrink-0 opacity-90 transition-transform ${showAddDropdown ? 'rotate-180' : ''}`} />
                                         </motion.button>
+                                        <AnimatePresence>
+                                            {showAddDropdown && (
+                                                <motion.div
+                                                    initial={{ opacity: 0, y: 5 }}
+                                                    animate={{ opacity: 1, y: 0 }}
+                                                    exit={{ opacity: 0, y: 5 }}
+                                                    className="absolute right-0 z-50 mt-1 w-56 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-xl"
+                                                >
+                                                    <div className="py-1">
+                                                        <button
+                                                            type="button"
+                                                            onClick={handleExportClick}
+                                                            className="flex w-full items-center px-3 py-2 text-sm text-slate-700 transition-all duration-150 hover:bg-blue-50 group"
+                                                        >
+                                                            <div className="mr-2 rounded bg-red-50 p-1.5 group-hover:bg-red-100 transition-colors">
+                                                                <PiFilePdfDuotone className="w-3.5 h-3.5 text-red-500" />
+                                                            </div>
+                                                            <div className="text-left">
+                                                                <div className="text-xs font-medium">Export as PDF</div>
+                                                            </div>
+                                                        </button>
+                                                        <button
+                                                            type="button"
+                                                            onClick={handleExportClick}
+                                                            className="flex w-full items-center px-3 py-2 text-sm text-slate-700 transition-all duration-150 hover:bg-blue-50 group"
+                                                        >
+                                                            <div className="mr-2 rounded bg-green-50 p-1.5 group-hover:bg-green-100 transition-colors">
+                                                                <PiMicrosoftExcelLogoDuotone className="w-3.5 h-3.5 text-green-500" />
+                                                            </div>
+                                                            <div className="text-left">
+                                                                <div className="text-xs font-medium">Export as Excel</div>
+                                                            </div>
+                                                        </button>
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => handleOtherExport('print')}
+                                                            className="flex w-full items-center px-3 py-2 text-sm text-slate-700 transition-all duration-150 hover:bg-blue-50 group"
+                                                        >
+                                                            <div className="mr-2 rounded bg-slate-50 p-1.5 group-hover:bg-slate-100 transition-colors">
+                                                                <FiPrinter className="w-3.5 h-3.5 text-slate-600" />
+                                                            </div>
+                                                            <div className="text-left">
+                                                                <div className="text-xs font-medium">Print Report</div>
+                                                            </div>
+                                                        </button>
+                                                    </div>
+                                                </motion.div>
+                                            )}
+                                        </AnimatePresence>
                                     </div>
+                                    <motion.button
+                                        type="button"
+                                        onClick={() => setJournalEntryModal(true)}
+                                        className="mr-2 inline-flex h-9 shrink-0 items-center justify-center gap-1.5 rounded-lg bg-gradient-to-r from-emerald-600 to-emerald-700 px-2.5 text-xs font-semibold text-white shadow-sm transition-all duration-200 hover:from-emerald-700 hover:to-emerald-800 hover:shadow sm:mr-3 sm:h-10 sm:px-3"
+                                        whileHover={{ scale: 1.02 }}
+                                        whileTap={{ scale: 0.98 }}
+                                    >
+                                        <FiPlus className="h-4 w-4 shrink-0" />
+                                        <span className="whitespace-nowrap">Add Journal</span>
+                                    </motion.button>
                                 </div>
                             </div>
                         </div>
 
-                        {/* Table Container */}
-                        <div className="w-full overflow-x-auto">
+                        <div className="overflow-x-auto">
                             <table className="w-full text-xs">
-                                <thead className="bg-gradient-to-r from-slate-50 to-slate-100 sticky top-0">
-                                    <tr>
-                                        <th className="text-center p-3 font-semibold text-slate-700 text-[10px] uppercase tracking-wider w-[5%]">#</th>
-                                        <th className="text-center p-3 font-semibold text-slate-700 text-[10px] uppercase tracking-wider w-[8%]">Date</th>
-                                        <th className="text-center p-3 font-semibold text-slate-700 text-[10px] uppercase tracking-wider w-[10%]">Voucher No</th>
-                                        <th className="text-center p-3 font-semibold text-slate-700 text-[10px] uppercase tracking-wider w-[20%]">Payment From</th>
-                                        <th className="text-center p-3 font-semibold text-slate-700 text-[10px] uppercase tracking-wider w-[20%]">Payment To</th>
-                                        <th className="text-center p-3 font-semibold text-slate-700 text-[10px] uppercase tracking-wider w-[10%]">Amount</th>
-                                        <th className="text-center p-3 font-semibold text-slate-700 text-[10px] uppercase tracking-wider w-[17%]">Remark</th>
-                                        <th className="text-center p-3 font-semibold text-slate-700 text-[10px] uppercase tracking-wider w-[10%]">Actions</th>
+                                <thead>
+                                    <tr className="bg-gradient-to-r from-slate-50 to-slate-100">
+                                        <th className="min-w-[50px] p-3 text-center text-[10px] font-semibold uppercase tracking-wider text-slate-700">#</th>
+                                        <th className="min-w-[80px] p-3 text-center text-[10px] font-semibold uppercase tracking-wider text-slate-700">Date</th>
+                                        <th className="min-w-[110px] p-3 text-center text-[10px] font-semibold uppercase tracking-wider text-slate-700">Voucher No</th>
+                                        <th className="min-w-[180px] p-3 text-center text-[10px] font-semibold uppercase tracking-wider text-slate-700">Payment From</th>
+                                        <th className="min-w-[180px] p-3 text-center text-[10px] font-semibold uppercase tracking-wider text-slate-700">Payment To</th>
+                                        <th className="min-w-[100px] p-3 text-center text-[10px] font-semibold uppercase tracking-wider text-slate-700">Amount</th>
+                                        <th className="min-w-[70px] p-3 text-center text-[10px] font-semibold uppercase tracking-wider text-slate-700">Actions</th>
                                     </tr>
                                 </thead>
                                 <tbody className="bg-white divide-y divide-slate-100">
@@ -784,7 +1107,7 @@ const ViewJournal = () => {
                                         [...Array(5)].map((_, idx) => <SkeletonRow key={idx} />)
                                     ) : journals.length === 0 ? (
                                         <tr>
-                                            <td colSpan="8" className="text-center py-8 text-slate-500">
+                                            <td colSpan="7" className="text-center py-8 text-slate-500">
                                                 <div className="flex flex-col items-center justify-center">
                                                     <div className="p-3 bg-slate-100 rounded-full mb-3">
                                                         <FiFileText className="w-8 h-8 text-slate-400" />
@@ -808,9 +1131,7 @@ const ViewJournal = () => {
                                         </tr>
                                     ) : (
                                         journals.map((journal, index) => {
-                                            const isDropdownOpen = activeRowDropdown === journal.journal_id;
                                             const serialNumber = (currentPage - 1) * itemsPerPage + index + 1;
-                                            const { editLink, invoiceLink } = getActionLinks(journal);
 
                                             return (
                                                 <motion.tr
@@ -839,47 +1160,26 @@ const ViewJournal = () => {
                                                             </div>
                                                         </div>
                                                     </td>
-                                                    <td className="text-center p-3 align-middle"><span className="inline-flex items-center justify-center bg-gradient-to-r from-green-50 to-green-100 text-green-800 font-bold px-3 py-1.5 rounded text-xs">₹{formatCurrency(journal.amount)}</span></td>
-                                                    <td className="text-center p-3 align-middle"><div className="px-2"><div className="text-slate-500 text-[10px] italic truncate" title={journal.remark}>{journal.remark || '-'}</div></div></td>
+                                                    <td className="text-center p-3 align-middle">
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => openJournalDetails(journal)}
+                                                            className="inline-flex min-w-[90px] items-center justify-center rounded bg-gradient-to-r from-green-50 to-green-100 px-3 py-1.5 text-xs font-bold text-green-800 shadow-xs transition-all hover:shadow"
+                                                        >
+                                                            ₹{formatCurrency(journal.amount)}
+                                                        </button>
+                                                    </td>
                                                     <td className="text-center p-3 align-middle">
                                                         <div className="dropdown-container relative flex justify-center">
                                                             <motion.button
+                                                                type="button"
                                                                 className="p-1.5 text-slate-500 hover:text-blue-600 rounded-lg hover:bg-blue-50 transition-colors duration-150 border border-slate-200 hover:border-blue-300"
-                                                                onClick={() => toggleRowDropdown(journal.journal_id)}
+                                                                onClick={(e) => toggleRowDropdown(journal.journal_id, e)}
                                                                 whileHover={{ scale: 1.05 }}
                                                                 whileTap={{ scale: 0.95 }}
                                                             >
                                                                 <FiMenu className="w-3.5 h-3.5" />
                                                             </motion.button>
-                                                            <AnimatePresence>
-                                                                {isDropdownOpen && (
-                                                                    <motion.div
-                                                                        initial={{ opacity: 0, y: 5 }}
-                                                                        animate={{ opacity: 1, y: 0 }}
-                                                                        exit={{ opacity: 0, y: 5 }}
-                                                                        className="absolute right-0 mt-1 w-48 bg-white rounded-lg shadow-xl border border-slate-200 z-50 overflow-hidden"
-                                                                    >
-                                                                        <div className="py-1">
-                                                                            <a href={editLink} className="flex items-center w-full px-3 py-2 text-xs text-slate-700 hover:bg-blue-50 transition-colors duration-150" onClick={() => setActiveRowDropdown(null)}>
-                                                                                <div className="p-1 bg-blue-50 rounded mr-2"><FiEdit className="w-3 h-3 text-blue-500" /></div>
-                                                                                <div className="text-left"><div className="font-medium">Edit Journal</div></div>
-                                                                            </a>
-                                                                            {invoiceLink && (
-                                                                                <a href={invoiceLink} className="flex items-center w-full px-3 py-2 text-xs text-slate-700 hover:bg-blue-50 transition-colors duration-150" onClick={() => setActiveRowDropdown(null)}>
-                                                                                    <div className="p-1 bg-green-50 rounded mr-2"><FiFileText className="w-3 h-3 text-green-500" /></div>
-                                                                                    <div className="text-left"><div className="font-medium">View Invoice</div></div>
-                                                                                </a>
-                                                                            )}
-                                                                            <div className="border-t border-slate-100 mt-1 pt-1">
-                                                                                <button className="flex items-center w-full px-3 py-2 text-xs text-slate-700 hover:bg-blue-50 transition-colors duration-150" onClick={() => handleOtherExport('print', journal)}>
-                                                                                    <div className="p-1 bg-slate-50 rounded mr-2"><FiPrinter className="w-3 h-3 text-slate-600" /></div>
-                                                                                    <div className="text-left"><div className="font-medium">Print</div></div>
-                                                                                </button>
-                                                                            </div>
-                                                                        </div>
-                                                                    </motion.div>
-                                                                )}
-                                                            </AnimatePresence>
                                                         </div>
                                                     </td>
                                                 </motion.tr>
@@ -907,7 +1207,69 @@ const ViewJournal = () => {
                 </div>
             </div>
 
+            {activeRowDropdown && activeJournal && createPortal(
+                <motion.div
+                    initial={{ opacity: 0, y: 4 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: 4 }}
+                    data-journal-actions-menu
+                    className="fixed z-[10040] w-48 overflow-hidden rounded-lg border border-slate-200 bg-white py-1 shadow-xl"
+                    style={{
+                        top: dropdownPos.top,
+                        bottom: dropdownPos.bottom,
+                        right: dropdownPos.right,
+                        minWidth: ACTIONS_MENU_WIDTH,
+                    }}
+                >
+                    <button
+                        type="button"
+                        onClick={() => openJournalDetails(activeJournal)}
+                        className="flex w-full items-center px-3 py-2 text-xs text-slate-700 transition-colors duration-150 hover:bg-blue-50"
+                    >
+                        <div className="mr-2 rounded bg-slate-50 p-1">
+                            <FiEye className="h-3 w-3 text-slate-600" />
+                        </div>
+                        <div className="text-left font-medium">View Details</div>
+                    </button>
+                    <button
+                        type="button"
+                        onClick={() => openEditModal(activeJournal)}
+                        className="flex w-full items-center px-3 py-2 text-xs text-slate-700 transition-colors duration-150 hover:bg-blue-50"
+                    >
+                        <div className="mr-2 rounded bg-blue-50 p-1">
+                            <FiEdit className="h-3 w-3 text-blue-500" />
+                        </div>
+                        <div className="text-left font-medium">Edit Journal</div>
+                    </button>
+                    {activeJournalHasInvoice ? (
+                        <button
+                            type="button"
+                            disabled={downloadingInvoice}
+                            onClick={() => handleViewInvoice(activeJournal)}
+                            className="flex w-full items-center px-3 py-2 text-xs text-slate-700 transition-colors duration-150 hover:bg-blue-50 disabled:cursor-not-allowed disabled:opacity-60"
+                        >
+                            <div className="mr-2 rounded bg-green-50 p-1">
+                                <FiFileText className="h-3 w-3 text-green-500" />
+                            </div>
+                            <div className="text-left font-medium">
+                                {downloadingInvoice ? 'Downloading…' : 'View Invoice'}
+                            </div>
+                        </button>
+                    ) : null}
+                </motion.div>,
+                document.body
+            )}
+
             {/* Modals */}
+            <JournalEntryDetailsModal
+                isOpen={detailsOpen}
+                journal={detailsJournal}
+                onClose={closeJournalDetails}
+                formatCurrency={formatCurrency}
+                getTypeLabel={getTypeLabel}
+                getAccountTypeColor={getAccountTypeColor}
+            />
+
             <TransactionModalManager
                 modalType="JOURNAL"
                 isOpen={journalFormModal}
@@ -918,6 +1280,17 @@ const ViewJournal = () => {
                 showSummary={true}
                 showFromClient={true}
                 showToClient={true}
+            />
+
+            <EditTransactionModalManager
+                modalType="JOURNAL"
+                isOpen={editModalOpen}
+                onClose={closeEditModal}
+                editRecord={editRecord}
+                onSubmit={handleEditSuccess}
+                formatCurrency={formatCurrency}
+                summary={{ totalCredit: 0, totalDebit: 0 }}
+                showSummary={true}
             />
 
             {/* Inline Export Modal */}

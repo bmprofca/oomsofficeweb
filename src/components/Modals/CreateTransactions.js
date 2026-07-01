@@ -1,9 +1,9 @@
 // Client ledger transaction create modals (Receive, Payment, Sale, …)
-import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useLayoutEffect, useCallback, useRef, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { IoTrash, IoAdd } from "react-icons/io5";
-import { FiX, FiUser, FiDollarSign, FiShoppingBag, FiTruck, FiFileText, FiRepeat, FiPlus, FiTrash2, FiMail, FiPhone, FiCreditCard, FiHome, FiArrowRight, FiArrowLeft, FiChevronLeft, FiChevronRight, FiMessageSquare, FiMessageCircle } from 'react-icons/fi';
+import { FiX, FiUser, FiDollarSign, FiShoppingBag, FiTruck, FiFileText, FiRepeat, FiPlus, FiTrash2, FiMail, FiPhone, FiCreditCard, FiHome, FiArrowRight, FiArrowLeft, FiChevronLeft, FiChevronRight, FiMessageSquare, FiMessageCircle, FiSearch, FiChevronDown } from 'react-icons/fi';
 import toast from 'react-hot-toast';
 import API_BASE_URL from '../../utils/api-controller';
 import getHeaders from '../../utils/get-headers';
@@ -28,6 +28,95 @@ const sanitizeDecimalInput = (value, maxDecimals = 2) => {
 };
 
 const parseDecimalValue = (value) => parseFloat(value || 0) || 0;
+
+const toIsoDateOnly = (value) => {
+    if (!value) return new Date().toISOString().split('T')[0];
+    const s = String(value);
+    return s.length >= 10 ? s.slice(0, 10) : s;
+};
+
+const mapBankPartyToSelection = (party) => {
+    const d = party?.details || {};
+    const bankId = d.bank_id || (party?.type === 'bank' ? party?.id : null);
+    if (!bankId) return null;
+    return {
+        bank_id: bankId,
+        bank: d.bank || d.holder || 'Bank',
+        holder: d.holder,
+        account_no: d.account_no,
+        balance: d.balance ?? 0,
+        type: d.type,
+    };
+};
+
+const mapUserPartyToFirm = (party) => {
+    const d = party?.details || {};
+    const type = party?.type || 'client';
+    if (type === 'capital') {
+        return {
+            username: d.capital_id || d.username || '',
+            name: d.name || 'Capital',
+            email: d.email || '',
+            mobile: d.mobile || '',
+            balance: d.balance ?? 0,
+            userType: 'capital',
+        };
+    }
+    return {
+        username: d.username || '',
+        name: d.name || d.username || '',
+        email: d.email || '',
+        mobile: d.mobile || '',
+        balance: d.balance ?? 0,
+        userType: type,
+    };
+};
+
+const mapUserPartyToJournal = (party) => {
+    const base = mapUserPartyToFirm(party);
+    const type = party?.type || base.userType || 'client';
+    if (type === 'bank') {
+        const d = party?.details || {};
+        return {
+            bank_id: d.bank_id,
+            name: d.bank || d.holder || 'Bank',
+            balance: d.balance ?? 0,
+            userType: 'bank',
+        };
+    }
+    return { ...base, userType: type };
+};
+
+const formatPlainInrAmount = (value) =>
+    new Intl.NumberFormat('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(parseDecimalValue(value));
+
+const SEARCH_DEBOUNCE_MS = 280;
+
+const ComboboxSearchSpinner = ({ className = '' }) => (
+    <span
+        className={`inline-block h-3.5 w-3.5 shrink-0 rounded-full border-2 border-slate-200 border-t-slate-500 animate-spin ${className}`}
+        aria-hidden
+    />
+);
+
+/** Close popover when pointer down occurs outside container (mousedown runs before input blur). */
+const useClickOutside = (ref, onOutside, enabled = true) => {
+    const onOutsideRef = useRef(onOutside);
+    useEffect(() => {
+        onOutsideRef.current = onOutside;
+    }, [onOutside]);
+
+    useEffect(() => {
+        if (!enabled) return undefined;
+        const handlePointerDown = (event) => {
+            const el = ref.current;
+            if (!el || el.contains(event.target)) return;
+            onOutsideRef.current();
+        };
+        document.addEventListener('mousedown', handlePointerDown);
+        return () => document.removeEventListener('mousedown', handlePointerDown);
+    }, [ref, enabled]);
+};
 const getBalanceColorClass = (balance) => (parseDecimalValue(balance) > 0 ? 'text-red-600' : 'text-green-600');
 
 /** Bank list API often omits `bank` for cash — show holder as the main label. */
@@ -50,6 +139,230 @@ const getBankSecondaryLabel = (bank) => {
     if (t === 'cash') return 'Cash';
     return bank.type ? String(bank.type) : '—';
 };
+
+const MODAL_ACCENT_STYLES = {
+    payment: {
+        header: 'bg-red-50 border-red-100',
+        iconWrap: 'bg-red-100 text-red-600',
+        primaryBtn: 'bg-red-600 hover:bg-red-700 focus:ring-red-500/40',
+    },
+    receive: {
+        header: 'bg-blue-50 border-blue-100',
+        iconWrap: 'bg-blue-100 text-blue-600',
+        primaryBtn: 'bg-blue-600 hover:bg-blue-700 focus:ring-blue-500/40',
+    },
+    sale: {
+        header: 'bg-indigo-50 border-indigo-100',
+        iconWrap: 'bg-indigo-100 text-indigo-600',
+        primaryBtn: 'bg-indigo-600 hover:bg-indigo-700 focus:ring-indigo-500/40',
+    },
+    purchase: {
+        header: 'bg-purple-50 border-purple-100',
+        iconWrap: 'bg-purple-100 text-purple-600',
+        primaryBtn: 'bg-purple-600 hover:bg-purple-700 focus:ring-purple-500/40',
+    },
+    journal: {
+        header: 'bg-indigo-50 border-indigo-100',
+        iconWrap: 'bg-indigo-100 text-indigo-600',
+        primaryBtn: 'bg-indigo-600 hover:bg-indigo-700 focus:ring-indigo-500/40',
+    },
+    contra: {
+        header: 'bg-teal-50 border-teal-100',
+        iconWrap: 'bg-teal-100 text-teal-600',
+        primaryBtn: 'bg-teal-600 hover:bg-teal-700 focus:ring-teal-500/40',
+    },
+    expense: {
+        header: 'bg-emerald-50 border-emerald-100',
+        iconWrap: 'bg-emerald-100 text-emerald-600',
+        primaryBtn: 'bg-emerald-600 hover:bg-emerald-700 focus:ring-emerald-500/40',
+    },
+};
+
+const getCompactFieldClass = (accent = 'blue') => {
+    const ring = accent === 'red'
+        ? 'focus:ring-red-500/25 focus:border-red-400'
+        : accent === 'indigo'
+            ? 'focus:ring-indigo-500/25 focus:border-indigo-400'
+            : accent === 'purple'
+                ? 'focus:ring-purple-500/25 focus:border-purple-400'
+                : accent === 'teal'
+                    ? 'focus:ring-teal-500/25 focus:border-teal-400'
+                    : accent === 'emerald'
+                        ? 'focus:ring-emerald-500/25 focus:border-emerald-400'
+                        : 'focus:ring-blue-500/25 focus:border-blue-400';
+    return `w-full px-3 py-2 text-sm border border-slate-200 rounded-md focus:outline-none focus:ring-2 ${ring}`;
+};
+
+const COMPACT_LABEL = 'block text-xs font-medium text-slate-600 mb-1';
+
+const PREVIEW_SHELL = 'rounded-md border border-slate-200 overflow-hidden bg-white';
+const PREVIEW_HEAD = 'flex items-center gap-1.5 px-2 py-1.5';
+const PREVIEW_META_GRID = 'grid grid-cols-3 divide-x divide-slate-100 border-t border-slate-100 bg-slate-50/80';
+const PREVIEW_META_CELL = 'px-1.5 py-1 min-w-0';
+const PREVIEW_META_LABEL = 'text-[10px] leading-none text-slate-500';
+const PREVIEW_META_VALUE = 'text-xs leading-tight text-slate-800 truncate mt-0.5';
+
+const getComboboxOpenClass = (open, focusAccent = 'blue') => {
+    if (!open) return 'border-slate-200 shadow-sm';
+    if (focusAccent === 'red') {
+        return 'border-red-300 ring-2 ring-red-500/15 shadow-md';
+    }
+    if (focusAccent === 'indigo') {
+        return 'border-indigo-300 ring-2 ring-indigo-500/15 shadow-md';
+    }
+    if (focusAccent === 'purple') {
+        return 'border-purple-300 ring-2 ring-purple-500/15 shadow-md';
+    }
+    if (focusAccent === 'teal') {
+        return 'border-teal-300 ring-2 ring-teal-500/15 shadow-md';
+    }
+    if (focusAccent === 'emerald') {
+        return 'border-emerald-300 ring-2 ring-emerald-500/15 shadow-md';
+    }
+    return 'border-blue-300 ring-2 ring-blue-500/15 shadow-md';
+};
+
+const ClientSearchSkeletonRows = ({ rows = 4 }) => (
+    <>
+        {Array.from({ length: rows }, (_, i) => (
+            <div
+                key={`client-sk-${i}`}
+                className="flex items-center gap-2 px-2.5 py-1.5 border-b border-slate-100 last:border-0 animate-pulse"
+            >
+                <div className="flex-1 min-w-0">
+                    <div className="h-3.5 bg-slate-200 rounded w-[52%] leading-none" />
+                    <div className="h-3 bg-slate-100 rounded w-[85%] leading-none -mt-px" />
+                </div>
+                <div className="h-3.5 bg-slate-200 rounded w-14 shrink-0" />
+            </div>
+        ))}
+    </>
+);
+
+const BankSearchSkeletonRows = ({ rows = 4 }) => (
+    <>
+        {Array.from({ length: rows }, (_, i) => (
+            <div
+                key={`bank-sk-${i}`}
+                className="flex items-center gap-2 px-2.5 py-1.5 border-b border-slate-100 last:border-0 animate-pulse"
+            >
+                <div className="flex-1 min-w-0">
+                    <div className="h-3.5 bg-slate-200 rounded w-[52%] leading-none" />
+                    <div className="h-3 bg-slate-100 rounded w-[85%] leading-none -mt-px" />
+                </div>
+                <div className="h-3.5 bg-slate-200 rounded w-14 shrink-0" />
+            </div>
+        ))}
+    </>
+);
+
+/** Compact client preview after selection (payment / receive). — defined after ClientSearchAvatar */
+const AnimatedCheckbox = ({ checked, indeterminate = false, onChange, ariaLabel }) => {
+    const inputRef = useRef(null);
+
+    useEffect(() => {
+        if (inputRef.current) {
+            inputRef.current.indeterminate = indeterminate;
+        }
+    }, [indeterminate, checked]);
+
+    const isActive = checked || indeterminate;
+
+    return (
+        <label className="relative inline-flex items-center cursor-pointer group">
+            <input
+                ref={inputRef}
+                type="checkbox"
+                className="sr-only"
+                checked={checked}
+                onChange={onChange}
+                aria-label={ariaLabel}
+            />
+            <motion.span
+                className={`flex items-center justify-center w-[18px] h-[18px] rounded-[4px] border-2 transition-colors duration-200 ${isActive
+                    ? 'bg-indigo-600 border-indigo-600 shadow-sm shadow-indigo-200'
+                    : 'bg-white border-gray-300 group-hover:border-indigo-400'
+                    }`}
+                animate={{ scale: isActive ? [1, 1.12, 1] : 1 }}
+                transition={{ duration: 0.18 }}
+            >
+                <AnimatePresence initial={false} mode="wait">
+                    {indeterminate ? (
+                        <motion.span
+                            key="dash"
+                            className="block w-2 h-0.5 bg-white rounded-full"
+                            initial={{ opacity: 0, scaleX: 0.4 }}
+                            animate={{ opacity: 1, scaleX: 1 }}
+                            exit={{ opacity: 0, scaleX: 0.4 }}
+                            transition={{ duration: 0.12 }}
+                        />
+                    ) : checked ? (
+                        <motion.svg
+                            key="check"
+                            viewBox="0 0 12 12"
+                            className="w-3 h-3 text-white"
+                            initial={{ opacity: 0, scale: 0.5 }}
+                            animate={{ opacity: 1, scale: 1 }}
+                            exit={{ opacity: 0, scale: 0.5 }}
+                            transition={{ duration: 0.15 }}
+                        >
+                            <path
+                                d="M2.5 6l2.2 2.2 4.8-4.8"
+                                fill="none"
+                                stroke="currentColor"
+                                strokeWidth="1.8"
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                            />
+                        </motion.svg>
+                    ) : null}
+                </AnimatePresence>
+            </motion.span>
+        </label>
+    );
+};
+
+/** Footer notification toggles — UI only until API wiring. */
+const TransactionNotifyCheckboxes = ({
+    sendSms,
+    setSendSms,
+    sendWhatsApp,
+    setSendWhatsApp,
+    sendEmail,
+    setSendEmail,
+}) => (
+    <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+        <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Notify</span>
+        <label className="inline-flex items-center gap-2 cursor-pointer select-none">
+            <AnimatedCheckbox
+                checked={sendSms}
+                onChange={(e) => setSendSms(e.target.checked)}
+                ariaLabel="Send SMS notification"
+            />
+            <FiMessageSquare className="w-3.5 h-3.5 text-sky-600" aria-hidden />
+            <span className="text-xs text-slate-600">SMS</span>
+        </label>
+        <label className="inline-flex items-center gap-2 cursor-pointer select-none">
+            <AnimatedCheckbox
+                checked={sendWhatsApp}
+                onChange={(e) => setSendWhatsApp(e.target.checked)}
+                ariaLabel="Send WhatsApp notification"
+            />
+            <FiMessageCircle className="w-3.5 h-3.5 text-emerald-600" aria-hidden />
+            <span className="text-xs text-slate-600">WhatsApp</span>
+        </label>
+        <label className="inline-flex items-center gap-2 cursor-pointer select-none">
+            <AnimatedCheckbox
+                checked={sendEmail}
+                onChange={(e) => setSendEmail(e.target.checked)}
+                ariaLabel="Send email notification"
+            />
+            <FiMail className="w-3.5 h-3.5 text-slate-600" aria-hidden />
+            <span className="text-xs text-slate-600">Email</span>
+        </label>
+    </div>
+);
+
 // Base Modal Component
 const BaseModal = ({
     isOpen,
@@ -61,7 +374,14 @@ const BaseModal = ({
     closeOnOverlayClick = true,
     closeOnEsc = true,
     headerTrailing = null,
+    titleIcon = null,
+    accent = null,
+    compact = false,
+    bodyScroll = true,
 }) => {
+    const [overlayBounce, setOverlayBounce] = useState(false);
+    const bounceTimerRef = useRef(null);
+
     useEffect(() => {
         if (!isOpen || !closeOnEsc) return;
         const handleEscape = (e) => {
@@ -73,57 +393,97 @@ const BaseModal = ({
         return () => document.removeEventListener('keydown', handleEscape);
     }, [isOpen, closeOnEsc, onClose]);
 
-    if (!isOpen) return null;
+    useEffect(() => () => {
+        if (bounceTimerRef.current) clearTimeout(bounceTimerRef.current);
+    }, []);
+
+    useEffect(() => {
+        if (!isOpen) setOverlayBounce(false);
+    }, [isOpen]);
+
+    const handleOverlayClick = () => {
+        if (closeOnOverlayClick) {
+            onClose?.();
+            return;
+        }
+        setOverlayBounce(true);
+        if (bounceTimerRef.current) clearTimeout(bounceTimerRef.current);
+        bounceTimerRef.current = setTimeout(() => setOverlayBounce(false), 450);
+    };
+
+    const accentStyle = MODAL_ACCENT_STYLES[accent] || null;
+    const headerPad = compact ? 'px-4 py-2.5' : 'px-5 py-3.5';
+    const bodyPad = compact ? 'px-4 py-3' : 'px-5 py-4';
+    const footerPad = compact ? 'px-4 py-2.5' : 'px-5 py-3';
+    const titleSize = compact ? 'text-base font-semibold' : 'text-lg sm:text-xl font-bold';
+    const shellRadius = compact ? 'rounded-xl' : 'rounded-2xl';
+    const shellMaxH = 'max-h-[calc(100vh-1.5rem)] sm:max-h-[calc(100vh-2rem)]';
+    const modalTransition = { duration: 0.2, ease: 'easeOut' };
 
     /* Portal to document.body so fixed positioning is viewport-based. Nested layouts
        (e.g. Framer Motion with transform) otherwise create a containing block and distort
        size, fonts, and hit targets — common on client-profile → LedgerTab. */
     return createPortal(
         <AnimatePresence>
-            <>
-                <motion.div
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    exit={{ opacity: 0 }}
-                    className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[10050]"
-                    onClick={closeOnOverlayClick ? onClose : undefined}
-                />
-                <motion.div
-                    initial={{ opacity: 0, scale: 0.9 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    exit={{ opacity: 0, scale: 0.9 }}
-                    className="fixed inset-0 z-[10051] pointer-events-none"
-                >
-                    <div
-                        className={`fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[calc(100vw-1.5rem)] sm:w-[calc(100vw-2rem)] ${maxWidth} max-h-[calc(100vh-1.5rem)] sm:max-h-[calc(100vh-2rem)] overflow-hidden bg-white rounded-2xl shadow-2xl pointer-events-auto flex flex-col text-base text-slate-900 antialiased`}
+            {isOpen ? (
+                <>
+                    <motion.div
+                        key="base-modal-backdrop"
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        transition={modalTransition}
+                        className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[10050]"
+                        onClick={handleOverlayClick}
+                    />
+                    <motion.div
+                        key="base-modal-shell"
+                        initial={{ opacity: 0, scale: 0.96 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        exit={{ opacity: 0, scale: 0.96 }}
+                        transition={modalTransition}
+                        className="fixed inset-0 z-[10051] pointer-events-none flex items-center justify-center p-3 sm:p-4"
                     >
-                        <div className="flex flex-wrap justify-between items-center gap-x-3 gap-y-2 px-5 py-3.5 border-b border-slate-200 bg-gradient-to-r from-slate-50 to-white shrink-0">
-                            <h2 className="text-lg sm:text-xl font-bold text-slate-800 truncate min-w-0 basis-full sm:basis-0 sm:flex-1">{title}</h2>
-                            <div className="flex flex-wrap items-center justify-end gap-2 shrink-0 w-full sm:w-auto">
-                                {headerTrailing}
-                                <button
-                                    type="button"
-                                    onClick={onClose}
-                                    className="p-2 hover:bg-slate-100 rounded-lg transition-colors"
-                                >
-                                    <FiX className="w-6 h-6 text-slate-500" />
-                                </button>
-                            </div>
-                        </div>
-                        <div
-                            className="px-5 py-4 overflow-y-auto flex-1 min-h-0 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden"
-                            style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+                        <motion.div
+                            animate={overlayBounce ? { x: [0, -10, 10, -8, 8, -4, 4, 0] } : { x: 0 }}
+                            transition={{ duration: 0.42, ease: 'easeInOut' }}
+                            className={`w-full ${maxWidth} ${shellMaxH} overflow-hidden bg-white ${shellRadius} shadow-2xl pointer-events-auto flex flex-col text-sm text-slate-900 antialiased`}
                         >
-                            {children}
-                        </div>
-                        {footer ? (
-                            <div className="px-5 py-3 border-t border-slate-200 bg-white shrink-0">
-                                {footer}
+                            <div className={`flex flex-wrap justify-between items-center gap-x-3 gap-y-2 ${headerPad} border-b shrink-0 ${accentStyle ? accentStyle.header : 'bg-slate-50 border-slate-200'}`}>
+                                <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                                    {titleIcon ? (
+                                        <div className={`flex-shrink-0 w-8 h-8 rounded-lg flex items-center justify-center ${accentStyle ? accentStyle.iconWrap : 'bg-slate-100 text-slate-600'}`}>
+                                            {titleIcon}
+                                        </div>
+                                    ) : null}
+                                    <h2 className={`${titleSize} text-slate-800 truncate`}>{title}</h2>
+                                </div>
+                                <div className="flex flex-wrap items-center justify-end gap-2 shrink-0 w-full sm:w-auto">
+                                    {headerTrailing}
+                                    <button
+                                        type="button"
+                                        onClick={onClose}
+                                        className={`${compact ? 'p-1.5' : 'p-2'} hover:bg-white/60 rounded-md transition-colors`}
+                                    >
+                                        <FiX className={`${compact ? 'w-5 h-5' : 'w-6 h-6'} text-slate-500`} />
+                                    </button>
+                                </div>
                             </div>
-                        ) : null}
-                    </div>
-                </motion.div>
-            </>
+                            <div
+                                className={`${bodyPad} ${bodyScroll ? 'overflow-y-auto flex-1 min-h-0' : 'overflow-visible shrink-0'} [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden`}
+                                style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+                            >
+                                {children}
+                            </div>
+                            {footer ? (
+                                <div className={`${footerPad} border-t border-slate-200 bg-white shrink-0`}>
+                                    {footer}
+                                </div>
+                            ) : null}
+                        </motion.div>
+                    </motion.div>
+                </>
+            ) : null}
         </AnimatePresence>,
         document.body
     );
@@ -143,66 +503,74 @@ const formatClientCareOfSubtitle = (p) => {
     return '';
 };
 
-/** Selected bank card — same compact layout as Receive/Payment modals. */
-const SaleBankPreviewCard = ({ bank, onChangeBank, formatMoney, readOnly = false }) => {
+/** Selected bank card — compact bar matching client preview. */
+const SaleBankPreviewCard = ({ bank, onChangeBank, formatMoney, readOnly = false, variant = 'receive' }) => {
     if (!bank) return null;
     const title = getBankPrimaryLabel(bank);
     const subtitle = getBankSecondaryLabel(bank);
     const balance = bank.balance ?? 0;
     const isCashLedger = String(bank.type ?? '').toLowerCase() === 'cash';
-    const account_no = bank.account_no ?? bank.account ?? '—';
-    const ifsc = bank.ifsc ?? '—';
-    const branch = bank.branch ?? '—';
+    const account_no = bank.account_no ?? bank.account ?? '';
+    const ifsc = bank.ifsc ?? '';
+    const branch = bank.branch ?? '';
+
+    const metaParts = [subtitle !== '—' ? subtitle : '', ifsc, account_no ? `••${String(account_no).slice(-4)}` : '', branch]
+        .map((v) => String(v || '').trim())
+        .filter(Boolean);
+    if (metaParts.length === 0 && isCashLedger) metaParts.push('Cash ledger');
+    const metaLine = metaParts.length > 0 ? metaParts.join(' · ') : '—';
+
+    const isPayment = variant === 'payment';
+    const isPurchase = variant === 'purchase';
+    const isContra = variant === 'contra';
+    const isExpense = variant === 'expense';
+    const shellClass = isPayment
+        ? 'border-red-200/80 bg-red-50/60'
+        : isPurchase
+            ? 'border-purple-200/80 bg-purple-50/60'
+            : isContra
+                ? 'border-teal-200/80 bg-teal-50/60'
+                : isExpense
+                    ? 'border-emerald-200/80 bg-emerald-50/60'
+                    : 'border-indigo-200/80 bg-indigo-50/60';
+    const repeatHover = isPayment
+        ? 'text-slate-400 hover:text-red-600 hover:bg-red-100/80'
+        : isPurchase
+            ? 'text-slate-400 hover:text-purple-600 hover:bg-purple-100/80'
+            : isContra
+                ? 'text-slate-400 hover:text-teal-600 hover:bg-teal-100/80'
+                : isExpense
+                    ? 'text-slate-400 hover:text-emerald-600 hover:bg-emerald-100/80'
+                    : 'text-slate-400 hover:text-indigo-600 hover:bg-indigo-100/80';
+
     return (
-        <div className="rounded-lg border-2 border-slate-200 overflow-hidden bg-white">
-            <div className="flex items-center gap-2 px-3 py-2">
-                <div className="flex-shrink-0 w-8 h-8 rounded-lg bg-indigo-100 flex items-center justify-center text-xs font-bold text-indigo-600">
-                    {(title || 'B').trim().charAt(0).toUpperCase()}
-                </div>
+        <div className={`rounded-md border ${shellClass} shadow-sm`}>
+            <div className="flex items-center gap-2 px-2.5 py-1.5">
                 <div className="flex-1 min-w-0">
-                    <p className="text-sm font-semibold text-slate-800 leading-snug truncate">{title}</p>
-                    <p className="text-xs text-slate-500 truncate mt-px">{subtitle}</p>
+                    <p className="text-sm font-semibold text-slate-800 truncate leading-none">{title}</p>
+                    <p className="text-xs text-slate-500 truncate leading-none -mt-px" title={metaLine}>
+                        {metaLine}
+                    </p>
                 </div>
-                <div className="flex items-center gap-1.5 flex-shrink-0">
-                    <div className="text-right">
-                        <p className={`text-sm font-semibold tabular-nums leading-tight ${getBalanceColorClass(balance)}`}>
-                            ₹{formatMoney(balance)}
-                        </p>
-                        <p className="text-xs text-slate-500">Balance</p>
-                    </div>
-                    {!readOnly && (
-                        <button
-                            type="button"
-                            onClick={onChangeBank}
-                            title="Change bank"
-                            className="p-1 rounded-md text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 transition-colors"
-                        >
-                            <FiRepeat className="w-3.5 h-3.5" />
-                        </button>
-                    )}
-                </div>
+                <p className={`text-sm font-semibold tabular-nums leading-none shrink-0 ${getBalanceColorClass(balance)}`}>
+                    ₹{formatMoney(balance)}
+                </p>
+                {!readOnly && (
+                    <button
+                        type="button"
+                        onClick={onChangeBank}
+                        title="Change bank"
+                        className={`p-0.5 rounded-md transition-colors shrink-0 ${repeatHover}`}
+                    >
+                        <FiRepeat className="w-3.5 h-3.5" />
+                    </button>
+                )}
             </div>
-            {!isCashLedger ? (
-                <div className="grid grid-cols-3 divide-x divide-slate-100 border-t border-slate-100 bg-slate-50/90">
-                    <div className="px-2 py-1.5 min-w-0">
-                        <p className="text-xs text-slate-500">Account No</p>
-                        <p className="text-sm text-slate-800 font-mono truncate mt-px">{account_no}</p>
-                    </div>
-                    <div className="px-2 py-1.5 min-w-0">
-                        <p className="text-xs text-slate-500">IFSC</p>
-                        <p className="text-sm text-slate-800 font-mono truncate mt-px">{ifsc}</p>
-                    </div>
-                    <div className="px-2 py-1.5 min-w-0">
-                        <p className="text-xs text-slate-500">Branch</p>
-                        <p className="text-sm text-slate-800 truncate mt-px">{branch}</p>
-                    </div>
-                </div>
-            ) : null}
         </div>
     );
 };
 
-/** Selected client card — same compact layout as FirmClientSearchFields / Receive client preview. */
+/** Selected client card — compact bar (payment / receive / sale modals). */
 const SaleClientPreviewCard = ({
     party,
     name: nameFallback,
@@ -211,166 +579,225 @@ const SaleClientPreviewCard = ({
     formatMoney,
     onChangeClient,
     readOnly = false,
+    variant = 'sale',
 }) => {
     const p = party && typeof party === 'object' ? party : {};
     const displayName = (p.name != null && String(p.name).trim() !== '') ? String(p.name).trim() : (nameFallback || '—');
     const careOfSubtitle = formatClientCareOfSubtitle(p);
-    const line2 = careOfSubtitle
-        || (detailLineFallback && String(detailLineFallback).trim())
-        || '—';
+    const mobileRaw = p.contact ?? p.mobile
+        ? (p.country_code ? `+${p.country_code} ${p.contact ?? p.mobile}` : String(p.contact ?? p.mobile))
+        : '';
+    const metaParts = [
+        careOfSubtitle || (detailLineFallback && String(detailLineFallback).trim()) || '',
+        mobileRaw,
+        p.email,
+        p.pan_no ?? p.pan_number,
+    ]
+        .map((v) => (v != null ? String(v).trim() : ''))
+        .filter(Boolean);
+    const metaLine = metaParts.length > 0 ? metaParts.join(' · ') : '—';
 
-    const avatarClient = {
-        name: displayName,
-        username: p.username,
-        mobile: p.contact ?? p.mobile,
-        email: p.email,
-        pan_number: p.pan_no ?? p.pan_number,
-        country_code: p.country_code,
-        profile: p.profile,
-        profile_photo: p.profile_photo,
-        profile_image: p.profile_image,
-        photo_url: p.photo_url,
-        image: p.image,
-        avatar: p.avatar,
-        photo: p.photo,
-    };
-
-    const rawMobile = p.contact ?? p.mobile;
-    const mobileDisplay = p.country_code && rawMobile
-        ? `+${p.country_code} ${rawMobile}`
-        : (rawMobile ? String(rawMobile) : '—');
-    const panDisplay = p.pan_no ?? p.pan_number ?? '—';
-    const emailDisplay = p.email ?? '—';
-
-    const hasLedgerSummary = summary != null && typeof summary === 'object';
     const partyBalanceRaw = p.balance;
     const partyBalanceKnown = partyBalanceRaw != null && partyBalanceRaw !== '';
     const partyBalance = partyBalanceKnown ? parseDecimalValue(partyBalanceRaw) : null;
 
+    const isSale = variant === 'sale';
+    const isPurchase = variant === 'purchase';
+    const shellClass = isPurchase
+        ? 'border-purple-200/80 bg-purple-50/60'
+        : isSale
+            ? 'border-indigo-200/80 bg-indigo-50/60'
+            : 'border-indigo-200/80 bg-indigo-50/60';
+    const repeatHover = isPurchase
+        ? 'text-slate-400 hover:text-purple-600 hover:bg-purple-100/80'
+        : isSale
+            ? 'text-slate-400 hover:text-indigo-600 hover:bg-indigo-100/80'
+            : 'text-slate-400 hover:text-indigo-600 hover:bg-indigo-50';
+
     return (
-        <div className="rounded-lg border-2 border-slate-200 overflow-hidden bg-white">
-            <div className="flex items-center gap-2 px-3 py-2">
-                <ClientSearchAvatar client={avatarClient} sizeClass="w-8 h-8" textClass="text-xs" roundedClass="rounded-lg" />
+        <div className={`rounded-md border ${shellClass} shadow-sm`}>
+            <div className="flex items-center gap-2 px-2.5 py-1.5">
+                <ClientSearchAvatar
+                    client={partyRowToSearchClientShape(p, displayName)}
+                    sizeClass="w-6 h-6"
+                    textClass="text-[9px]"
+                    roundedClass="rounded-md ring-1 ring-white/80"
+                />
                 <div className="flex-1 min-w-0">
-                    <p className="text-sm font-semibold text-slate-800 leading-snug truncate">{displayName}</p>
-                    <p className="text-xs text-slate-500 truncate mt-px" title={line2 !== '—' ? line2 : undefined}>
-                        {line2}
+                    <p className="text-sm font-semibold text-slate-800 truncate leading-none">{displayName}</p>
+                    <p className="text-xs text-slate-500 truncate leading-none -mt-px" title={metaLine}>
+                        {metaLine}
                     </p>
                 </div>
-                <div className="flex items-center gap-1.5 flex-shrink-0">
-                    {hasLedgerSummary ? (
-                        <div className="text-right">
-                            <p className="text-xs text-slate-500">Balance summary</p>
-                            <p className="text-sm text-green-600 font-semibold leading-tight">
-                                Credit: ₹{formatMoney(summary?.totalCredit || 0)}
-                            </p>
-                            <p className="text-sm text-red-600 font-semibold leading-tight">
-                                Debit: ₹{formatMoney(summary?.totalDebit || 0)}
-                            </p>
-                        </div>
-                    ) : partyBalanceKnown ? (
-                        <div className="text-right">
-                            <p className={`text-sm font-semibold tabular-nums leading-tight ${getBalanceColorClass(partyBalance)}`}>
-                                ₹{formatMoney(partyBalance)}
-                            </p>
-                            <p className="text-xs text-slate-500">Balance</p>
-                        </div>
-                    ) : null}
-                    {!readOnly && onChangeClient ? (
-                        <button
-                            type="button"
-                            onClick={onChangeClient}
-                            title="Change client"
-                            className="p-1 rounded-md text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 transition-colors"
-                        >
-                            <FiRepeat className="w-3.5 h-3.5" />
-                        </button>
-                    ) : null}
-                </div>
-            </div>
-            <div className="grid grid-cols-3 divide-x divide-slate-100 border-t border-slate-100 bg-slate-50/90">
-                <div className="px-2 py-1.5 min-w-0">
-                    <p className="text-xs text-slate-500">Mobile</p>
-                    <p className="text-sm text-slate-800 truncate mt-px" title={mobileDisplay !== '—' ? mobileDisplay : undefined}>{mobileDisplay}</p>
-                </div>
-                <div className="px-2 py-1.5 min-w-0">
-                    <p className="text-xs text-slate-500">PAN</p>
-                    <p className="text-sm text-slate-800 font-mono truncate mt-px">{panDisplay}</p>
-                </div>
-                <div className="px-2 py-1.5 min-w-0">
-                    <p className="text-xs text-slate-500">Email</p>
-                    <p className="text-sm text-slate-800 truncate mt-px" title={emailDisplay !== '—' ? emailDisplay : undefined}>{emailDisplay}</p>
-                </div>
+                {summary != null && typeof summary === 'object' ? (
+                    <div className="text-right shrink-0">
+                        <p className="text-[10px] text-green-600 font-semibold tabular-nums leading-none">
+                            Cr. ₹{formatMoney(summary?.totalCredit || 0)}
+                        </p>
+                        <p className="text-[10px] text-red-600 font-semibold tabular-nums leading-none -mt-px">
+                            Dr. ₹{formatMoney(summary?.totalDebit || 0)}
+                        </p>
+                    </div>
+                ) : partyBalanceKnown ? (
+                    <p className={`text-sm font-semibold tabular-nums leading-none shrink-0 ${getBalanceColorClass(partyBalance)}`}>
+                        ₹{formatPlainInrAmount(partyBalance)}
+                    </p>
+                ) : null}
+                {!readOnly && onChangeClient ? (
+                    <button
+                        type="button"
+                        onClick={onChangeClient}
+                        title="Change client"
+                        className={`p-0.5 rounded-md transition-colors shrink-0 ${repeatHover}`}
+                    >
+                        <FiRepeat className="w-3.5 h-3.5" />
+                    </button>
+                ) : null}
             </div>
         </div>
     );
 };
 
-// Bank Search Component — portal dropdown with infinite scroll
-const BankSearchDropdown = ({ onSelect, selectedBankId, excludeBankId }) => {
+const partyRowToSearchClientShape = (party, displayName) => ({
+    name: displayName || party?.name,
+    username: party?.username,
+    mobile: party?.contact ?? party?.mobile,
+    email: party?.email,
+    pan_number: party?.pan_no ?? party?.pan_number,
+    country_code: party?.country_code,
+    profile: party?.profile,
+    profile_photo: party?.profile_photo,
+    profile_image: party?.profile_image,
+    photo_url: party?.photo_url,
+    image: party?.image,
+    avatar: party?.avatar,
+    photo: party?.photo,
+});
+
+// Bank Search Component — combobox dropdown with infinite scroll
+const BankSearchOptionRow = ({ bank, formatBalance, itemHover, onSelect, isSelected }) => {
+    const primaryLabel = getBankPrimaryLabel(bank);
+    const secondaryLabel = getBankSecondaryLabel(bank);
+    const isCashLedger = String(bank.type ?? '').toLowerCase() === 'cash';
+    const metaParts = [
+        secondaryLabel !== '—' ? secondaryLabel : '',
+        bank.ifsc,
+        bank.account_no ? `••${String(bank.account_no).slice(-4)}` : '',
+        bank.branch,
+    ]
+        .map((v) => (v != null ? String(v).trim() : ''))
+        .filter(Boolean);
+    if (metaParts.length === 0 && isCashLedger) metaParts.push('Cash ledger');
+    const metaLine = metaParts.length > 0 ? metaParts.join(' · ') : '—';
+
+    return (
+        <button
+            type="button"
+            onClick={onSelect}
+            className={`w-full flex items-center gap-2 px-2.5 py-1.5 text-left border-b border-slate-100 last:border-0 transition-colors ${itemHover} ${isSelected ? 'bg-indigo-50' : ''}`}
+        >
+            <div className="min-w-0 flex-1">
+                <p className="text-sm font-semibold text-slate-800 truncate leading-none">{primaryLabel}</p>
+                <p className="text-xs text-slate-500 truncate leading-none -mt-px" title={metaLine}>
+                    {metaLine}
+                </p>
+            </div>
+            <div className="shrink-0 text-right pl-1 max-w-[6rem]">
+                <p className={`text-sm font-semibold tabular-nums leading-none truncate ${getBalanceColorClass(bank.balance)}`}>
+                    ₹{formatBalance(bank.balance)}
+                </p>
+            </div>
+        </button>
+    );
+};
+
+const BankSearchDropdown = ({ onSelect, selectedBankId, excludeBankId, compact = true, focusAccent = 'blue' }) => {
     const [searchTerm, setSearchTerm] = useState('');
     const [banks, setBanks] = useState([]);
-    const [loading, setLoading] = useState(false);
-    const [page, setPage] = useState(1);
+    const [searchLoading, setSearchLoading] = useState(false);
+    const [loadingMore, setLoadingMore] = useState(false);
     const [hasMore, setHasMore] = useState(false);
     const [showDropdown, setShowDropdown] = useState(false);
-    const [dropdownStyle, setDropdownStyle] = useState({});
     const wrapperRef = useRef(null);
     const inputRef = useRef(null);
-    const portalRef = useRef(null);
     const isLoadingMore = useRef(false);
-    // Mirror of hasMore as a ref so the scroll handler always reads the live value
     const hasMoreRef = useRef(false);
+    const pageRef = useRef(1);
+    const searchTermRef = useRef('');
+    const searchRequestIdRef = useRef(0);
     const formatBalance = (value) => {
         const amount = parseDecimalValue(value);
         return new Intl.NumberFormat('en-IN', { maximumFractionDigits: 2 }).format(amount);
     };
 
     const fetchBanks = useCallback(async (search = '', pageNum = 1) => {
-        setLoading(true);
+        const requestId = ++searchRequestIdRef.current;
+        const isFirstPage = pageNum === 1;
+
+        if (isFirstPage) {
+            setSearchLoading(true);
+        } else {
+            setLoadingMore(true);
+            isLoadingMore.current = true;
+        }
+
         try {
+            const q = encodeURIComponent(String(search ?? '').trim());
             const response = await axios.get(
-                `${API_BASE_URL}/transaction/bank/list?page_no=${pageNum}&limit=10&search=${search}`,
+                `${API_BASE_URL}/transaction/bank/list?page_no=${pageNum}&limit=10&search=${q}`,
                 { headers: getHeaders() }
             );
+            if (requestId !== searchRequestIdRef.current) return;
+
             if (response.data.success) {
                 const bankData = response.data.data || [];
                 const filteredBanks = excludeBankId
-                    ? bankData.filter(b => b.bank_id !== excludeBankId)
+                    ? bankData.filter((b) => b.bank_id !== excludeBankId)
                     : bankData;
-                if (pageNum === 1) {
+                if (isFirstPage) {
                     setBanks(filteredBanks);
                 } else {
-                    setBanks(prev => [...prev, ...filteredBanks]);
+                    setBanks((prev) => [...prev, ...filteredBanks]);
                 }
-                // is_last_page lives inside meta, not at the top level
                 const isLast = response.data.meta?.is_last_page ?? true;
                 hasMoreRef.current = !isLast;
                 setHasMore(!isLast);
             }
         } catch (error) {
+            if (requestId !== searchRequestIdRef.current) return;
             console.error('Error fetching banks:', error);
             toast.error('Failed to fetch banks');
+            if (isFirstPage) setBanks([]);
+            hasMoreRef.current = false;
+            setHasMore(false);
         } finally {
-            setLoading(false);
-            isLoadingMore.current = false;
+            if (requestId !== searchRequestIdRef.current) return;
+            if (isFirstPage) setSearchLoading(false);
+            else {
+                setLoadingMore(false);
+                isLoadingMore.current = false;
+            }
         }
     }, [excludeBankId]);
 
-    // Debounced search — resets page to 1 on every new query
     useEffect(() => {
+        searchTermRef.current = searchTerm;
+    }, [searchTerm]);
+
+    useEffect(() => {
+        if (!showDropdown) return;
+        setSearchLoading(true);
+        setBanks([]);
         const t = setTimeout(() => {
             pageRef.current = 1;
-            setPage(1);
             fetchBanks(searchTerm, 1);
-        }, 500);
+        }, SEARCH_DEBOUNCE_MS);
         return () => clearTimeout(t);
-    }, [searchTerm, fetchBanks]);
+    }, [searchTerm, showDropdown, fetchBanks]);
 
-    // Click-outside: close unless the click is inside the portal list
+    // Click-outside: close dropdown
     useEffect(() => {
         const handleClickOutside = (e) => {
-            if (portalRef.current && portalRef.current.contains(e.target)) return;
             if (wrapperRef.current && !wrapperRef.current.contains(e.target)) {
                 setShowDropdown(false);
             }
@@ -379,63 +806,16 @@ const BankSearchDropdown = ({ onSelect, selectedBankId, excludeBankId }) => {
         return () => document.removeEventListener('mousedown', handleClickOutside);
     }, []);
 
-    // Recalculate dropdown position whenever it opens or window resizes
-    const updatePosition = useCallback(() => {
-        if (!inputRef.current) return;
-        const rect = inputRef.current.getBoundingClientRect();
-        const spaceBelow = window.innerHeight - rect.bottom;
-        const maxH = 280;
-        if (spaceBelow >= 80) {
-            setDropdownStyle({
-                position: 'fixed',
-                top: rect.bottom + 4,
-                left: rect.left,
-                width: rect.width,
-                zIndex: 99999,
-                maxHeight: Math.min(maxH, spaceBelow - 8),
-            });
-        } else {
-            setDropdownStyle({
-                position: 'fixed',
-                bottom: window.innerHeight - rect.top + 4,
-                left: rect.left,
-                width: rect.width,
-                zIndex: 99999,
-                maxHeight: Math.min(maxH, rect.top - 8),
-            });
-        }
-    }, []);
-
-    useEffect(() => {
-        if (showDropdown) updatePosition();
-    }, [showDropdown, updatePosition]);
-
-    useEffect(() => {
-        if (!showDropdown) return;
-        window.addEventListener('resize', updatePosition);
-        window.addEventListener('scroll', updatePosition, true);
-        return () => {
-            window.removeEventListener('resize', updatePosition);
-            window.removeEventListener('scroll', updatePosition, true);
-        };
-    }, [showDropdown, updatePosition]);
-
-    // Infinite scroll handler — uses refs so it never captures stale values
-    const pageRef = useRef(1);
-    const searchTermRef = useRef(searchTerm);
-    useEffect(() => { searchTermRef.current = searchTerm; }, [searchTerm]);
-
     const handleListScroll = useCallback((e) => {
         const el = e.currentTarget;
-        if (isLoadingMore.current || !hasMoreRef.current) return;
+        if (isLoadingMore.current || !hasMoreRef.current || searchLoading) return;
         if (el.scrollTop + el.clientHeight >= el.scrollHeight - 40) {
             isLoadingMore.current = true;
             const nextPage = pageRef.current + 1;
             pageRef.current = nextPage;
-            setPage(nextPage);
             fetchBanks(searchTermRef.current, nextPage);
         }
-    }, [fetchBanks]);
+    }, [fetchBanks, searchLoading]);
 
     const handleSelect = (bank) => {
         onSelect(bank);
@@ -443,124 +823,273 @@ const BankSearchDropdown = ({ onSelect, selectedBankId, excludeBankId }) => {
         setShowDropdown(false);
     };
 
+    const handleSearchChange = (value) => {
+        setSearchTerm(value);
+        setShowDropdown(true);
+        setSearchLoading(true);
+        setBanks([]);
+    };
+
+    const itemHover = focusAccent === 'red' ? 'hover:bg-red-50' : 'hover:bg-slate-50';
+    const listOpen = showDropdown;
+    const listMaxH = compact ? 'max-h-56' : 'max-h-60';
+    const showListSpinner = searchLoading;
+    const showEmptyState = !searchLoading && !loadingMore && banks.length === 0;
+
     return (
         <div className="relative" ref={wrapperRef}>
-            <div className="relative">
-                <div className="relative">
+            <div className={`rounded-md border bg-white overflow-hidden transition-all ${getComboboxOpenClass(listOpen, focusAccent)}`}>
+                <div className="flex items-center gap-2 px-2.5 py-1.5">
+                    <FiSearch className="w-3.5 h-3.5 text-slate-400 shrink-0" aria-hidden />
                     <input
                         ref={inputRef}
                         type="text"
                         value={searchTerm}
-                        onChange={(e) => { setSearchTerm(e.target.value); setShowDropdown(true); }}
+                        onChange={(e) => handleSearchChange(e.target.value)}
                         onFocus={() => setShowDropdown(true)}
                         placeholder="Bank name, account, or IFSC…"
-                        className="w-full px-4 py-3 border-2 border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 caret-slate-600"
-                        style={{ caretColor: '#64748b' }} // Tailwind slate-400 for caret
+                        className="flex-1 min-w-0 border-0 bg-transparent text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-0 py-0.5"
+                        autoComplete="off"
                     />
+                    {showListSpinner ? (
+                        <ComboboxSearchSpinner />
+                    ) : (
+                        <FiChevronDown
+                            className={`w-3.5 h-3.5 text-slate-400 shrink-0 transition-transform duration-200 ${listOpen ? 'rotate-180' : ''}`}
+                            aria-hidden
+                        />
+                    )}
                 </div>
-
-
-
-                {loading && banks.length === 0 && (
-                    <div className="absolute right-3 top-1/2 -translate-y-1/2">
-                        <div className="animate-spin rounded-full h-4 w-4 border-2 border-blue-500 border-t-transparent" />
+                {listOpen && (
+                    <div
+                        className={`border-t border-slate-100 ${listMaxH} overflow-y-auto`}
+                        onScroll={handleListScroll}
+                    >
+                        {searchLoading ? (
+                            <BankSearchSkeletonRows rows={5} />
+                        ) : (
+                            <>
+                                {banks.map((bank) => (
+                                    <BankSearchOptionRow
+                                        key={bank.bank_id}
+                                        bank={bank}
+                                        formatBalance={formatBalance}
+                                        itemHover={itemHover}
+                                        isSelected={selectedBankId === bank.bank_id}
+                                        onSelect={() => handleSelect(bank)}
+                                    />
+                                ))}
+                                {loadingMore && <BankSearchSkeletonRows rows={2} />}
+                            </>
+                        )}
+                        {showEmptyState && (
+                            <p className="px-2.5 py-3 text-xs text-center text-slate-500">No banks found</p>
+                        )}
                     </div>
                 )}
             </div>
-
-            {showDropdown && createPortal(
-                <div
-                    ref={portalRef}
-                    style={dropdownStyle}
-                    className="bg-white border border-slate-200 rounded-xl shadow-2xl overflow-y-auto"
-                    onScroll={handleListScroll}
-                >
-                    {banks.length > 0 ? (
-                        <>
-                            {banks.map((bank) => {
-                                const isSelected = selectedBankId === bank.bank_id;
-                                const primaryLabel = getBankPrimaryLabel(bank);
-                                const secondaryLabel = getBankSecondaryLabel(bank);
-                                const initial = (primaryLabel || 'B').trim().charAt(0).toUpperCase();
-                                const hasMeta =
-                                    Boolean(String(bank.ifsc ?? '').trim()) ||
-                                    Boolean(String(bank.account_no ?? '').trim()) ||
-                                    Boolean(String(bank.branch ?? '').trim());
-                                return (
-                                    <button
-                                        key={bank.bank_id}
-                                        type="button"
-                                        onClick={() => handleSelect(bank)}
-                                        className={`w-full text-left border-b border-slate-100 last:border-0 transition-all duration-150 group
-                                            ${isSelected
-                                                ? 'bg-indigo-50 border-l-[3px] border-l-indigo-500'
-                                                : 'hover:bg-slate-50 border-l-[3px] border-l-transparent'}`}
-                                    >
-                                        {/* Main row */}
-                                        <div className="flex items-center gap-2.5 px-3.5 pt-2 pb-1">
-                                            {/* Avatar */}
-                                            <div className={`flex-shrink-0 w-7 h-7 rounded-md flex items-center justify-center text-xs font-bold
-                                                ${isSelected ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-500 group-hover:bg-indigo-100 group-hover:text-indigo-600'}`}>
-                                                {initial}
-                                            </div>
-                                            {/* Name + holder / type */}
-                                            <div className="flex-1 min-w-0">
-                                                <p className="text-[13px] font-semibold text-slate-800 leading-none truncate">{primaryLabel}</p>
-                                                <p className="text-[11px] text-slate-400 leading-none truncate mt-[3px]">{secondaryLabel}</p>
-                                            </div>
-                                            {/* Balance */}
-                                            <div className="flex-shrink-0 text-right">
-                                                <p className={`text-[13px] font-bold tabular-nums leading-none ${getBalanceColorClass(bank.balance)}`}>
-                                                    ₹{formatBalance(bank.balance)}
-                                                </p>
-                                                {bank.type && (
-                                                    <p className="text-[10px] text-slate-400 uppercase tracking-wide leading-none mt-[3px]">{bank.type}</p>
-                                                )}
-                                            </div>
-                                        </div>
-                                        {/* Meta chips — cash rows often have no IFSC/account/branch */}
-                                        <div className="flex items-center gap-2 px-3.5 pb-2 pl-[2.75rem] min-h-[1.5rem]">
-                                            {hasMeta ? (
-                                                <>
-                                                    <span className="inline-flex items-center px-1.5 py-px rounded bg-slate-100 text-[10px] font-mono text-slate-500 tracking-tight">
-                                                        {bank.ifsc || '—'}
-                                                    </span>
-                                                    <span className="text-[10px] text-slate-400">
-                                                        ••{bank.account_no?.slice(-4) || '——'}
-                                                    </span>
-                                                    <span className="text-[10px] text-slate-400 truncate">{bank.branch || ''}</span>
-                                                </>
-                                            ) : (
-                                                <span className="text-[10px] text-slate-400 italic">
-                                                    {String(bank.type ?? '').toLowerCase() === 'cash' ? 'Cash ledger' : '—'}
-                                                </span>
-                                            )}
-                                        </div>
-                                    </button>
-                                );
-                            })}
-                            {loading && (
-                                <div className="flex justify-center py-3">
-                                    <div className="animate-spin rounded-full h-4 w-4 border-2 border-indigo-500 border-t-transparent" />
-                                </div>
-                            )}
-                        </>
-                    ) : (
-                        <div className="px-4 py-6 text-center">
-                            {loading
-                                ? <><div className="animate-spin rounded-full h-5 w-5 border-2 border-indigo-400 border-t-transparent mx-auto mb-2" /><p className="text-sm text-slate-400">Loading banks…</p></>
-                                : <p className="text-sm text-slate-400">No banks found</p>
-                            }
-                        </div>
-                    )}
-                </div>,
-                document.body
-            )}
         </div>
     );
 };
 
-const CLIENT_SEARCH_MIN = 3;
+const USER_SEARCH_LIMIT = 20;
+
+const fetchClientSearchPage = async ({ search = '', pageNo = 1, excludeUsername = '' } = {}) => {
+    const headers = getHeaders();
+    if (!headers) {
+        throw new Error('Authentication headers missing');
+    }
+    const q = String(search ?? '').trim();
+    const response = await axios.get(
+        `${API_BASE_URL}/client/list?page=${pageNo}&limit=${USER_SEARCH_LIMIT}&search=${encodeURIComponent(q)}`,
+        { headers }
+    );
+    if (!response.data?.success) {
+        throw new Error(response.data?.message || 'Failed to fetch clients');
+    }
+    let list = response.data.data || [];
+    const exclude = String(excludeUsername || '').trim();
+    if (exclude) {
+        list = list.filter((row) => String(row.username) !== exclude);
+    }
+    const isLast = response.data.pagination?.is_last_page ?? true;
+    return { list, isLast };
+};
+
+const mapClientToSalePartyOption = (client) => ({
+    id: client.client_id || client.username,
+    type: 'user',
+    name: client.name || client.firm_name,
+    email: client.email,
+    contact: client.mobile,
+    gst_no: client.gst_no,
+    pan_no: client.pan_number,
+    username: client.username,
+    address: client.address,
+    city: client.city,
+    state: client.state,
+    pincode: client.pincode,
+    balance: client.balance,
+    profile: client.profile ?? client.profile_photo ?? client.profile_image,
+    profile_photo: client.profile_photo,
+    profile_image: client.profile_image,
+    photo_url: client.photo_url,
+    image: client.image,
+    avatar: client.avatar,
+    photo: client.photo,
+    country_code: client.country_code,
+    care_of: client.care_of,
+    guardian_name: client.guardian_name,
+    guardian_type: client.guardian_type,
+    firms: Array.isArray(client.firms)
+        ? client.firms.map((firm) => ({
+            firm_id: firm.firm_id,
+            firm_name: firm.firm_name,
+            pan_no: firm.pan_no,
+            file_no: firm.file_no,
+            firm_type: firm.firm_type,
+            gst_no: firm.gst_no,
+            username: firm.username,
+            status: firm.status,
+            address: firm.address,
+        }))
+        : [],
+});
+
+const CA_SEARCH_LIMIT = 20;
+
+const fetchCaSearchPage = async ({ search = '', page = 1 } = {}) => {
+    const headers = getHeaders();
+    if (!headers) {
+        throw new Error('Authentication headers missing');
+    }
+    const q = String(search ?? '').trim();
+    const response = await axios.get(`${API_BASE_URL}/ca/list`, {
+        headers,
+        params: {
+            page,
+            limit: CA_SEARCH_LIMIT,
+            ...(q ? { search: q } : {}),
+        },
+    });
+    if (!response.data?.success) {
+        throw new Error(response.data?.message || 'Failed to fetch CA list');
+    }
+    const list = response.data.data || [];
+    const isLast = response.data.pagination?.is_last_page ?? true;
+    return { list, isLast };
+};
+
+const mapCaToPurchasePartyOption = (ca) => ({
+    id: ca.username || ca.id,
+    type: 'ca',
+    name: ca.name || ca.username,
+    email: ca.email,
+    contact: ca.mobile,
+    pan_no: ca.pan_number,
+    username: ca.username,
+    balance: ca.balance,
+    profile: ca.image,
+    profile_photo: ca.image,
+    image: ca.image,
+    country_code: ca.country_code,
+    care_of: ca.care_of,
+    guardian_name: ca.guardian_name,
+});
+
+const JOURNAL_PARTY_TYPE_LABELS = {
+    client: 'Client',
+    agent: 'Agent',
+    ca: 'CA',
+    staff: 'Staff',
+    bank: 'Bank',
+    capital: 'Capital',
+};
+
+const JOURNAL_PARTY_EMPTY_LABELS = {
+    client: 'No clients found',
+    agent: 'No agents found',
+    ca: 'No CAs found',
+    staff: 'No staff found',
+    bank: 'No banks found',
+    capital: 'No capital accounts found',
+};
+
+const resolveJournalPartyId = (party, type) => {
+    if (!party) return '';
+    const partyType = type || party.userType || 'client';
+    if (partyType === 'bank') return String(party.bank_id || '');
+    if (partyType === 'capital') return String(party.capital_id || '');
+    return String(party.username || '');
+};
+
+const mapRowToJournalParty = (row, userType) => {
+    if (!row) return null;
+    return {
+        username: row.username,
+        name: row.name || row.username,
+        email: row.email || '',
+        mobile: row.mobile || '',
+        pan_number: row.pan_number || '',
+        balance: row.balance ?? 0,
+        country_code: row.country_code,
+        care_of: row.care_of,
+        guardian_name: row.guardian_name,
+        profile_photo: row.profile_photo ?? row.image,
+        image: row.image,
+        profile: row.profile ?? row.image,
+        userType,
+    };
+};
+
+const fetchAgentSearchPage = async ({ search = '', page = 1 } = {}) => {
+    const headers = getHeaders();
+    if (!headers) {
+        throw new Error('Authentication headers missing');
+    }
+    const q = String(search ?? '').trim();
+    const response = await axios.get(`${API_BASE_URL}/agent/list`, {
+        headers,
+        params: {
+            page,
+            limit: USER_SEARCH_LIMIT,
+            ...(q ? { search: q } : {}),
+        },
+    });
+    if (!response.data?.success) {
+        throw new Error(response.data?.message || 'Failed to fetch agent list');
+    }
+    const list = response.data.data || [];
+    const isLast = response.data.pagination?.is_last_page ?? true;
+    return { list, isLast };
+};
+
+const fetchJournalPartySearchPage = async (partyType, { search = '', page = 1 } = {}) => {
+    if (partyType === 'agent') {
+        return fetchAgentSearchPage({ search, page });
+    }
+    if (partyType === 'ca') {
+        return fetchCaSearchPage({ search, page });
+    }
+    return fetchClientSearchPage({ search, pageNo: page });
+};
+
+const fetchPresetJournalParty = async (username, userType) => {
+    const u = String(username || '').trim();
+    if (!u) return null;
+    const type = userType === 'agent' || userType === 'ca' ? userType : 'client';
+    const { list } = await fetchJournalPartySearchPage(type, { search: u, page: 1 });
+    const match = (list || []).find((row) => String(row.username) === u) || list[0];
+    return mapRowToJournalParty(match, type);
+};
+
+const journalPartyKey = (party, fallbackType = 'client') => {
+    if (!party) return '';
+    const type = party.userType || fallbackType;
+    const id = resolveJournalPartyId(party, type);
+    if (!id) return '';
+    return `${type}:${id}`;
+};
 
 const getClientProfileImageUrl = (client) => {
     if (!client) return null;
@@ -627,48 +1156,166 @@ const ClientSearchAvatar = ({ client, sizeClass = 'w-10 h-10', textClass = 'text
     );
 };
 
-/** Client search for Receive/Payment/Journal (GET /client/search). */
-const useFirmClientSearch = (enabled, excludeUsername = '') => {
+const TransactionClientPreviewCard = ({
+    client,
+    formatCurrency,
+    variant = 'receive',
+    readOnly = false,
+    onChange,
+    careSubtitle = '',
+}) => {
+    if (!client) return null;
+    const fmtBal = (v) => (typeof formatCurrency === 'function' ? formatCurrency(v ?? 0) : String(v ?? 0));
+    const careLine = careSubtitle
+        || [client.care_of, client.guardian_name]
+            .filter((s) => s != null && String(s).trim() !== '')
+            .map((s) => String(s).trim())
+            .join(' · ')
+        || '';
+    const mobileRaw = client.mobile
+        ? (client.country_code ? `+${client.country_code} ${client.mobile}` : String(client.mobile))
+        : '';
+    const metaParts = [careLine, mobileRaw, client.email, client.pan_number]
+        .map((v) => (v != null ? String(v).trim() : ''))
+        .filter(Boolean);
+    const metaLine = metaParts.length > 0 ? metaParts.join(' · ') : '—';
+
+    const isPayment = variant === 'payment';
+    const shellClass = isPayment
+        ? 'border-red-200/80 bg-red-50/60'
+        : 'border-indigo-200/80 bg-indigo-50/60';
+    const repeatHover = isPayment
+        ? 'text-slate-400 hover:text-red-600 hover:bg-red-100/80'
+        : 'text-slate-400 hover:text-indigo-600 hover:bg-indigo-100/80';
+
+    return (
+        <div className={`rounded-md border ${shellClass} shadow-sm`}>
+            <div className="flex items-center gap-2 px-2.5 py-1.5">
+                <ClientSearchAvatar
+                    client={client}
+                    sizeClass="w-6 h-6"
+                    textClass="text-[9px]"
+                    roundedClass="rounded-md ring-1 ring-white/80"
+                />
+                <div className="flex-1 min-w-0">
+                    <p className="text-sm font-semibold text-slate-800 truncate leading-none">{client.name || '—'}</p>
+                    <p className="text-xs text-slate-500 truncate leading-none -mt-px" title={metaLine}>
+                        {metaLine}
+                    </p>
+                </div>
+                <p className={`text-sm font-semibold tabular-nums leading-none shrink-0 ${getBalanceColorClass(client.balance)}`}>
+                    ₹{fmtBal(client.balance)}
+                </p>
+                {!readOnly && onChange ? (
+                    <button
+                        type="button"
+                        onClick={onChange}
+                        title="Change client"
+                        className={`p-0.5 rounded-md transition-colors shrink-0 ${repeatHover}`}
+                    >
+                        <FiRepeat className="w-3.5 h-3.5" />
+                    </button>
+                ) : null}
+            </div>
+        </div>
+    );
+};
+
+/** Compact row for client search dropdown — name + one meta line + balance. */
+const ClientSearchOptionRow = ({ client, formatBalance, itemHover, onSelect }) => {
+    const mobileRaw = client.mobile
+        ? (client.country_code ? `+${client.country_code} ${client.mobile}` : String(client.mobile))
+        : '';
+    const metaParts = [mobileRaw, client.email, client.pan_number]
+        .map((v) => (v != null ? String(v).trim() : ''))
+        .filter(Boolean);
+    const metaLine = metaParts.length > 0 ? metaParts.join(' · ') : '—';
+
+    return (
+        <button
+            type="button"
+            onClick={onSelect}
+            className={`w-full flex items-center gap-2 px-2.5 py-1.5 text-left border-b border-slate-100 last:border-0 transition-colors ${itemHover}`}
+        >
+            <div className="min-w-0 flex-1">
+                <p className="text-sm font-semibold text-slate-800 truncate leading-none">{client.name || '—'}</p>
+                <p className="text-xs text-slate-500 truncate leading-none -mt-px" title={metaLine}>
+                    {metaLine}
+                </p>
+            </div>
+            <div className="shrink-0 text-right pl-1 max-w-[6rem]">
+                <p className={`text-sm font-semibold tabular-nums leading-none truncate ${getBalanceColorClass(client.balance)}`}>
+                    ₹{formatBalance(client.balance)}
+                </p>
+            </div>
+        </button>
+    );
+};
+
+/** Client list for Receive/Payment/Journal (GET /client/list). */
+const useFirmClientSearch = (enabled, excludeUsername = '', options = {}) => {
+    const { fetchOnFocusOnly = false } = options;
     const [searchTerm, setSearchTerm] = useState('');
     const [firms, setFirms] = useState([]);
     const [searchLoading, setSearchLoading] = useState(false);
+    const [loadingMore, setLoadingMore] = useState(false);
+    const [hasMore, setHasMore] = useState(false);
     const [selectedFirm, setSelectedFirm] = useState(null);
     const [showDropdown, setShowDropdown] = useState(false);
+    const dropdownActiveRef = useRef(false);
     const exclude = String(excludeUsername || '').trim();
+    const pageRef = useRef(1);
+    const hasMoreRef = useRef(false);
+    const isLoadingMoreRef = useRef(false);
+    const searchTermRef = useRef('');
+    const searchRequestIdRef = useRef(0);
 
-    const searchClients = useCallback(async (term) => {
-        const q = String(term || '').trim();
-        if (q.length < CLIENT_SEARCH_MIN) {
-            setFirms([]);
-            return;
+    const searchClients = useCallback(async (term, pageNum = 1, append = false) => {
+        const requestId = ++searchRequestIdRef.current;
+        const isFirstPage = pageNum === 1 && !append;
+
+        if (isFirstPage) {
+            setSearchLoading(true);
+        } else {
+            setLoadingMore(true);
+            isLoadingMoreRef.current = true;
         }
-        setSearchLoading(true);
+
         try {
-            const response = await axios.get(
-                `${API_BASE_URL}/client/search?search=${encodeURIComponent(q)}`,
-                { headers: getHeaders() }
-            );
-            if (response.data.success) {
-                let list = response.data.data || [];
-                if (exclude) {
-                    list = list.filter((f) => String(f.username) !== exclude);
-                }
-                setFirms(list);
-                setShowDropdown(true);
+            const { list, isLast } = await fetchClientSearchPage({
+                search: term,
+                pageNo: pageNum,
+                excludeUsername: exclude,
+            });
+            if (requestId !== searchRequestIdRef.current) return;
+
+            if (append) {
+                setFirms((prev) => [...prev, ...list]);
             } else {
-                setFirms([]);
-                setShowDropdown(false);
+                setFirms(list);
+            }
+            hasMoreRef.current = !isLast;
+            setHasMore(!isLast);
+            if (dropdownActiveRef.current) {
+                setShowDropdown(true);
             }
         } catch (error) {
+            if (requestId !== searchRequestIdRef.current) return;
             console.error('Error searching clients:', error);
-            const msg = error.response?.status === 400
-                ? (error.response?.data?.message || `Enter at least ${CLIENT_SEARCH_MIN} characters to search`)
-                : (error.response?.data?.message || 'Failed to search clients');
-            toast.error(msg);
-            setFirms([]);
-            setShowDropdown(false);
+            toast.error(error.response?.data?.message || error.message || 'Failed to search clients');
+            if (!append) {
+                setFirms([]);
+                if (dropdownActiveRef.current) {
+                    setShowDropdown(false);
+                }
+            }
+            hasMoreRef.current = false;
+            setHasMore(false);
         } finally {
+            if (requestId !== searchRequestIdRef.current) return;
             setSearchLoading(false);
+            setLoadingMore(false);
+            isLoadingMoreRef.current = false;
         }
     }, [exclude]);
 
@@ -677,31 +1324,92 @@ const useFirmClientSearch = (enabled, excludeUsername = '') => {
             setSelectedFirm(null);
             setSearchTerm('');
             setFirms([]);
+            dropdownActiveRef.current = false;
             setShowDropdown(false);
         }
     }, [exclude, selectedFirm]);
 
     useEffect(() => {
-        if (!enabled) return;
-        if (selectedFirm) return;
+        searchTermRef.current = searchTerm;
+    }, [searchTerm]);
+
+    useEffect(() => {
+        if (!enabled || selectedFirm) return;
+        const q = String(searchTerm || '').trim();
+        // fetchOnFocusOnly: skip idle empty query until user opens the list; still search when clearing text while open
+        if (fetchOnFocusOnly && q === '' && !dropdownActiveRef.current) return;
+
+        setSearchLoading(true);
+        setFirms([]);
+
         const debounceTimer = setTimeout(() => {
-            const q = String(searchTerm || '').trim();
-            if (q.length >= CLIENT_SEARCH_MIN) {
-                searchClients(q);
-            } else {
-                setFirms([]);
-                setShowDropdown(false);
-            }
-        }, 500);
+            pageRef.current = 1;
+            searchClients(searchTerm, 1, false);
+        }, SEARCH_DEBOUNCE_MS);
+
         return () => clearTimeout(debounceTimer);
-    }, [searchTerm, selectedFirm, enabled, searchClients]);
+    }, [searchTerm, selectedFirm, enabled, searchClients, fetchOnFocusOnly]);
+
+    const openDropdown = useCallback(() => {
+        dropdownActiveRef.current = true;
+        setShowDropdown(true);
+    }, []);
+
+    const dismissDropdown = useCallback(() => {
+        dropdownActiveRef.current = false;
+        setShowDropdown(false);
+    }, []);
+
+    const loadClientsOnFocus = useCallback(() => {
+        openDropdown();
+        const q = String(searchTermRef.current || '').trim();
+        if (q === '') {
+            pageRef.current = 1;
+            setSearchLoading(true);
+            setFirms([]);
+            searchClients('', 1, false);
+        }
+    }, [searchClients, openDropdown]);
+
+    const handleListScroll = useCallback((e) => {
+        const el = e.currentTarget;
+        if (isLoadingMoreRef.current || !hasMoreRef.current || searchLoading) return;
+        if (el.scrollTop + el.clientHeight >= el.scrollHeight - 40) {
+            isLoadingMoreRef.current = true;
+            const nextPage = pageRef.current + 1;
+            pageRef.current = nextPage;
+            searchClients(searchTermRef.current, nextPage, true);
+        }
+    }, [searchClients, searchLoading]);
+
+    const clearSelection = useCallback(() => {
+        setSelectedFirm(null);
+        setSearchTerm('');
+        pageRef.current = 1;
+        searchTermRef.current = '';
+        dropdownActiveRef.current = true;
+        setSearchLoading(true);
+        setFirms([]);
+        searchClients('', 1, false);
+    }, [searchClients]);
 
     const reset = useCallback(() => {
+        searchRequestIdRef.current += 1;
         setSearchTerm('');
         setFirms([]);
         setSelectedFirm(null);
+        dropdownActiveRef.current = false;
         setShowDropdown(false);
-    }, []);
+        setSearchLoading(false);
+        setLoadingMore(false);
+        pageRef.current = 1;
+        hasMoreRef.current = false;
+        setHasMore(false);
+        searchTermRef.current = '';
+        if (enabled && !fetchOnFocusOnly) {
+            searchClients('', 1, false);
+        }
+    }, [enabled, searchClients, fetchOnFocusOnly]);
 
     return {
         searchTerm,
@@ -712,9 +1420,383 @@ const useFirmClientSearch = (enabled, excludeUsername = '') => {
         setSelectedFirm,
         showDropdown,
         setShowDropdown,
+        openDropdown,
+        dismissDropdown,
         searchLoading,
+        loadingMore,
+        hasMore,
+        handleListScroll,
+        clearSelection,
+        loadClientsOnFocus,
         reset,
     };
+};
+
+/** Client / Agent / CA search for journal transfers. */
+const useJournalPartySearch = (partyType, enabled, excludeParty = null, options = {}) => {
+    const { fetchOnFocusOnly = false } = options;
+    const [searchTerm, setSearchTerm] = useState('');
+    const [parties, setParties] = useState([]);
+    const [searchLoading, setSearchLoading] = useState(false);
+    const [loadingMore, setLoadingMore] = useState(false);
+    const [hasMore, setHasMore] = useState(false);
+    const [selectedParty, setSelectedParty] = useState(null);
+    const [showDropdown, setShowDropdown] = useState(false);
+    const dropdownActiveRef = useRef(false);
+    const excludeType = String(excludeParty?.userType || '').trim();
+    const excludeUsername = String(excludeParty?.username || '').trim();
+    const pageRef = useRef(1);
+    const hasMoreRef = useRef(false);
+    const isLoadingMoreRef = useRef(false);
+    const searchTermRef = useRef('');
+    const searchRequestIdRef = useRef(0);
+
+    const searchParties = useCallback(async (term, pageNum = 1, append = false) => {
+        const requestId = ++searchRequestIdRef.current;
+        const isFirstPage = pageNum === 1 && !append;
+
+        if (isFirstPage) {
+            setSearchLoading(true);
+        } else {
+            setLoadingMore(true);
+            isLoadingMoreRef.current = true;
+        }
+
+        try {
+            const { list, isLast } = await fetchJournalPartySearchPage(partyType, {
+                search: term,
+                page: pageNum,
+            });
+            if (requestId !== searchRequestIdRef.current) return;
+
+            let mapped = (list || []).map((row) => mapRowToJournalParty(row, partyType));
+            if (excludeUsername) {
+                mapped = mapped.filter(
+                    (p) => !(String(p.userType) === excludeType && String(p.username) === excludeUsername)
+                );
+            }
+
+            if (append) {
+                setParties((prev) => [...prev, ...mapped]);
+            } else {
+                setParties(mapped);
+            }
+            hasMoreRef.current = !isLast;
+            setHasMore(!isLast);
+            if (dropdownActiveRef.current) {
+                setShowDropdown(true);
+            }
+        } catch (error) {
+            if (requestId !== searchRequestIdRef.current) return;
+            console.error(`Error searching ${partyType} parties:`, error);
+            toast.error(error.response?.data?.message || error.message || `Failed to search ${JOURNAL_PARTY_TYPE_LABELS[partyType] || 'users'}`);
+            if (!append) {
+                setParties([]);
+                if (dropdownActiveRef.current) {
+                    setShowDropdown(false);
+                }
+            }
+            hasMoreRef.current = false;
+            setHasMore(false);
+        } finally {
+            if (requestId !== searchRequestIdRef.current) return;
+            setSearchLoading(false);
+            setLoadingMore(false);
+            isLoadingMoreRef.current = false;
+        }
+    }, [partyType, excludeType, excludeUsername]);
+
+    useEffect(() => {
+        if (excludeUsername && selectedParty
+            && String(selectedParty.username) === excludeUsername
+            && String(selectedParty.userType || partyType) === excludeType) {
+            setSelectedParty(null);
+            setSearchTerm('');
+            setParties([]);
+            dropdownActiveRef.current = false;
+            setShowDropdown(false);
+        }
+    }, [excludeType, excludeUsername, selectedParty, partyType]);
+
+    useEffect(() => {
+        searchTermRef.current = searchTerm;
+    }, [searchTerm]);
+
+    useEffect(() => {
+        if (!enabled || selectedParty) return;
+        const q = String(searchTerm || '').trim();
+        if (fetchOnFocusOnly && q === '' && !dropdownActiveRef.current) return;
+
+        setSearchLoading(true);
+        setParties([]);
+
+        const debounceTimer = setTimeout(() => {
+            pageRef.current = 1;
+            searchParties(searchTerm, 1, false);
+        }, SEARCH_DEBOUNCE_MS);
+
+        return () => clearTimeout(debounceTimer);
+    }, [searchTerm, selectedParty, enabled, searchParties, fetchOnFocusOnly, partyType]);
+
+    const openDropdown = useCallback(() => {
+        dropdownActiveRef.current = true;
+        setShowDropdown(true);
+    }, []);
+
+    const dismissDropdown = useCallback(() => {
+        dropdownActiveRef.current = false;
+        setShowDropdown(false);
+    }, []);
+
+    const loadPartiesOnFocus = useCallback(() => {
+        openDropdown();
+        const q = String(searchTermRef.current || '').trim();
+        if (q === '') {
+            pageRef.current = 1;
+            setSearchLoading(true);
+            setParties([]);
+            searchParties('', 1, false);
+        }
+    }, [searchParties, openDropdown]);
+
+    const handleListScroll = useCallback((e) => {
+        const el = e.currentTarget;
+        if (isLoadingMoreRef.current || !hasMoreRef.current || searchLoading) return;
+        if (el.scrollTop + el.clientHeight >= el.scrollHeight - 40) {
+            isLoadingMoreRef.current = true;
+            const nextPage = pageRef.current + 1;
+            pageRef.current = nextPage;
+            searchParties(searchTermRef.current, nextPage, true);
+        }
+    }, [searchParties, searchLoading]);
+
+    const clearSelection = useCallback(() => {
+        setSelectedParty(null);
+        setSearchTerm('');
+        pageRef.current = 1;
+        searchTermRef.current = '';
+        dropdownActiveRef.current = true;
+        setSearchLoading(true);
+        setParties([]);
+        searchParties('', 1, false);
+    }, [searchParties]);
+
+    const reset = useCallback(() => {
+        searchRequestIdRef.current += 1;
+        setSearchTerm('');
+        setParties([]);
+        setSelectedParty(null);
+        dropdownActiveRef.current = false;
+        setShowDropdown(false);
+        setSearchLoading(false);
+        setLoadingMore(false);
+        pageRef.current = 1;
+        hasMoreRef.current = false;
+        setHasMore(false);
+        searchTermRef.current = '';
+    }, []);
+
+    return {
+        searchTerm,
+        setSearchTerm,
+        parties,
+        setParties,
+        selectedParty,
+        setSelectedParty,
+        showDropdown,
+        setShowDropdown,
+        openDropdown,
+        dismissDropdown,
+        searchLoading,
+        loadingMore,
+        hasMore,
+        handleListScroll,
+        clearSelection,
+        loadPartiesOnFocus,
+        reset,
+    };
+};
+
+const JournalPartyTypeToggle = ({ value, onChange, disabled = false }) => (
+    <div className="flex rounded-md border border-slate-200 bg-white p-0.5 w-fit" role="group" aria-label="User type">
+        {['client', 'agent', 'ca'].map((type) => (
+            <button
+                key={type}
+                type="button"
+                disabled={disabled}
+                onClick={() => onChange(type)}
+                className={`px-2.5 py-1 text-xs font-medium rounded transition-colors disabled:opacity-50 ${
+                    value === type ? 'bg-indigo-600 text-white shadow-sm' : 'text-slate-600 hover:bg-slate-50'
+                }`}
+            >
+                {JOURNAL_PARTY_TYPE_LABELS[type]}
+            </button>
+        ))}
+    </div>
+);
+
+const JournalPartySearchFields = ({
+    variant = 'receive',
+    label = 'From user',
+    partyType = 'client',
+    onPartyTypeChange,
+    showTypeToggle = true,
+    lockedParty = null,
+    readOnly = false,
+    searchTerm,
+    setSearchTerm,
+    parties,
+    setParties,
+    showDropdown,
+    setShowDropdown,
+    openDropdown,
+    dismissDropdown,
+    searchLoading,
+    loadingMore = false,
+    handleListScroll,
+    clearSelection,
+    onSearchFocus,
+    selectedParty,
+    setSelectedParty,
+    formatCurrency,
+    hideSearchHint = false,
+    compact = false,
+    focusAccent = 'indigo',
+}) => {
+    const wrapperRef = useRef(null);
+    const closeDropdown = dismissDropdown || (() => setShowDropdown(false));
+    const revealDropdown = openDropdown || (() => setShowDropdown(true));
+    const showSearchUi = !lockedParty && !selectedParty;
+    const labelClass = compact ? COMPACT_LABEL : 'block text-sm font-medium text-slate-700 mb-1';
+    const rootSpace = compact ? 'space-y-1.5' : 'space-y-2';
+    const listMaxH = compact ? 'max-h-56' : 'max-h-60';
+
+    useClickOutside(wrapperRef, closeDropdown, showSearchUi && showDropdown);
+
+    const itemHover = variant === 'payment' ? 'hover:bg-red-50' : 'hover:bg-indigo-50';
+    const fmtBal = (v) => (typeof formatCurrency === 'function' ? formatCurrency(v ?? 0) : String(v ?? 0));
+    const previewParty = lockedParty || selectedParty;
+    const listOpen = showSearchUi && showDropdown;
+    const emptyLabel = JOURNAL_PARTY_EMPTY_LABELS[partyType] || 'No users found';
+
+    if (lockedParty) {
+        return (
+            <div className={rootSpace}>
+                <label className={labelClass}>
+                    {label} {!readOnly && <span className="text-red-500">*</span>}
+                </label>
+                <TransactionClientPreviewCard
+                    client={lockedParty}
+                    formatCurrency={formatCurrency}
+                    variant={variant}
+                    readOnly={readOnly}
+                />
+            </div>
+        );
+    }
+
+    const handleChangeParty = () => {
+        if (typeof clearSelection === 'function') {
+            clearSelection();
+            return;
+        }
+        setSelectedParty(null);
+        setSearchTerm('');
+        setParties([]);
+        closeDropdown();
+    };
+
+    return (
+        <div className={rootSpace}>
+            <label className={labelClass}>
+                {label} {!readOnly && <span className="text-red-500">*</span>}
+            </label>
+            {showTypeToggle && typeof onPartyTypeChange === 'function' ? (
+                <JournalPartyTypeToggle value={partyType} onChange={onPartyTypeChange} />
+            ) : null}
+            {showSearchUi ? (
+                <>
+                    {!hideSearchHint && (
+                        <p className="text-[10px] text-slate-500 mb-1">Search by name, mobile, email, or PAN.</p>
+                    )}
+                    <div ref={wrapperRef}>
+                        <div className={`rounded-md border bg-white overflow-hidden transition-all ${getComboboxOpenClass(listOpen, focusAccent)}`}>
+                            <div className="flex items-center gap-2 px-2.5 py-1.5">
+                                <FiSearch className="w-3.5 h-3.5 text-slate-400 shrink-0" aria-hidden />
+                                <input
+                                    type="text"
+                                    value={searchTerm}
+                                    onChange={(e) => {
+                                        revealDropdown();
+                                        setSearchTerm(e.target.value);
+                                    }}
+                                    onFocus={() => {
+                                        if (selectedParty) return;
+                                        if (typeof onSearchFocus === 'function') {
+                                            onSearchFocus();
+                                            return;
+                                        }
+                                        if (parties.length > 0) revealDropdown();
+                                    }}
+                                    placeholder={`Search ${JOURNAL_PARTY_TYPE_LABELS[partyType] || 'user'}…`}
+                                    className="flex-1 min-w-0 border-0 bg-transparent text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-0 py-0.5"
+                                    autoComplete="off"
+                                />
+                                {searchLoading && listOpen ? (
+                                    <ComboboxSearchSpinner />
+                                ) : (
+                                    <FiChevronDown
+                                        className={`w-3.5 h-3.5 text-slate-400 shrink-0 transition-transform duration-200 ${listOpen ? 'rotate-180' : ''}`}
+                                        aria-hidden
+                                    />
+                                )}
+                            </div>
+                            {listOpen && (
+                                <div
+                                    className={`border-t border-slate-100 ${listMaxH} overflow-y-auto`}
+                                    onScroll={handleListScroll}
+                                >
+                                    {searchLoading ? (
+                                        <ClientSearchSkeletonRows rows={5} />
+                                    ) : (
+                                        <>
+                                            {parties.map((client) => (
+                                                <ClientSearchOptionRow
+                                                    key={`${partyType}-${client.username}`}
+                                                    client={client}
+                                                    formatBalance={fmtBal}
+                                                    itemHover={itemHover}
+                                                    onSelect={() => {
+                                                        setSelectedParty({ ...client, userType: partyType });
+                                                        setSearchTerm(client.name || '');
+                                                        closeDropdown();
+                                                        setParties([]);
+                                                    }}
+                                                />
+                                            ))}
+                                            {loadingMore && <ClientSearchSkeletonRows rows={2} />}
+                                        </>
+                                    )}
+                                    {!searchLoading && !loadingMore && parties.length === 0 && (
+                                        <p className="px-2.5 py-3 text-xs text-center text-slate-500">{emptyLabel}</p>
+                                    )}
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                </>
+            ) : null}
+            {previewParty ? (
+                <TransactionClientPreviewCard
+                    client={previewParty}
+                    formatCurrency={formatCurrency}
+                    variant={variant}
+                    readOnly={readOnly}
+                    onChange={!readOnly && !lockedParty ? handleChangeParty : undefined}
+                />
+            ) : null}
+        </div>
+    );
 };
 
 const FirmClientSearchFields = ({
@@ -728,253 +1810,209 @@ const FirmClientSearchFields = ({
     setFirms,
     showDropdown,
     setShowDropdown,
+    openDropdown,
+    dismissDropdown,
     searchLoading,
+    loadingMore = false,
+    handleListScroll,
+    clearSelection,
+    onSearchFocus,
     selectedFirm,
     setSelectedFirm,
     formatCurrency,
+    hideSearchHint = false,
+    compact = false,
+    focusAccent = 'blue',
 }) => {
+    const wrapperRef = useRef(null);
+    const closeDropdown = dismissDropdown || (() => setShowDropdown(false));
+    const revealDropdown = openDropdown || (() => setShowDropdown(true));
+    const showSearchUi = !lockedFirm && !selectedFirm;
+    const labelClass = compact ? COMPACT_LABEL : 'block text-sm font-medium text-slate-700 mb-1';
+    const rootSpace = compact ? 'space-y-1.5' : 'space-y-2';
+    const listMaxH = compact ? 'max-h-56' : 'max-h-60';
+
+    useClickOutside(wrapperRef, closeDropdown, showSearchUi && showDropdown);
+
     const itemHover = variant === 'payment' ? 'hover:bg-red-50' : 'hover:bg-blue-50';
     const fmtBal = (v) => (typeof formatCurrency === 'function' ? formatCurrency(v ?? 0) : String(v ?? 0));
     const previewFirm = lockedFirm || selectedFirm;
-    const selectedCareSubtitle = previewFirm
-        ? [previewFirm.care_of, previewFirm.guardian_name]
-            .filter((s) => s != null && String(s).trim() !== '')
-            .map((s) => String(s).trim())
-            .join(' · ')
-        : '';
-
-    const repeatHover =
-        variant === 'payment'
-            ? 'text-slate-400 hover:text-red-600 hover:bg-red-50'
-            : 'text-slate-400 hover:text-indigo-600 hover:bg-indigo-50';
-
-    const showSearchUi = !lockedFirm && !selectedFirm;
+    const listOpen = showSearchUi && showDropdown;
 
     if (lockedFirm) {
-        const lf = lockedFirm;
-        const lockedCareSubtitle = [lf.care_of, lf.guardian_name]
-            .filter((s) => s != null && String(s).trim() !== '')
-            .map((s) => String(s).trim())
-            .join(' · ');
         return (
-            <div className="space-y-3">
-                <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-1">
-                        {label} {!readOnly && <span className="text-red-500">*</span>}
-                    </label>
-                    <div className="rounded-lg border-2 border-slate-200 overflow-hidden bg-white">
-                        <div className="flex items-center gap-2 px-3 py-2">
-                            <ClientSearchAvatar client={lf} sizeClass="w-8 h-8" textClass="text-xs" roundedClass="rounded-lg" />
-                            <div className="flex-1 min-w-0">
-                                <p className="text-sm font-semibold text-slate-800 leading-snug truncate">{lf.name || '—'}</p>
-                                <p className="text-xs text-slate-500 truncate mt-px" title={lockedCareSubtitle || undefined}>
-                                    {lockedCareSubtitle || '—'}
-                                </p>
-                            </div>
-                            <div className="flex items-center gap-1.5 flex-shrink-0">
-                                <div className="text-right">
-                                    <p className={`text-sm font-semibold tabular-nums leading-tight ${getBalanceColorClass(lf.balance)}`}>
-                                        ₹{fmtBal(lf.balance)}
-                                    </p>
-                                    <p className="text-xs text-slate-500">Balance</p>
-                                </div>
-                            </div>
-                        </div>
-                        <div className="grid grid-cols-3 divide-x divide-slate-100 border-t border-slate-100 bg-slate-50/90">
-                            <div className="px-2 py-1.5 min-w-0">
-                                <p className="text-xs text-slate-500">Mobile</p>
-                                <p className="text-sm text-slate-800 truncate mt-px">
-                                    {lf.country_code ? `+${lf.country_code} ` : ''}{lf.mobile || '—'}
-                                </p>
-                            </div>
-                            <div className="px-2 py-1.5 min-w-0">
-                                <p className="text-xs text-slate-500">PAN</p>
-                                <p className="text-sm text-slate-800 font-mono truncate mt-px">{lf.pan_number || '—'}</p>
-                            </div>
-                            <div className="px-2 py-1.5 min-w-0">
-                                <p className="text-xs text-slate-500">Email</p>
-                                <p className="text-sm text-slate-800 truncate mt-px" title={lf.email || ''}>
-                                    {lf.email || '—'}
-                                </p>
-                            </div>
-                        </div>
-                    </div>
-                </div>
+            <div className={rootSpace}>
+                <label className={labelClass}>
+                    {label} {!readOnly && <span className="text-red-500">*</span>}
+                </label>
+                <TransactionClientPreviewCard
+                    client={lockedFirm}
+                    formatCurrency={formatCurrency}
+                    variant={variant}
+                    readOnly={readOnly}
+                />
             </div>
         );
     }
 
+    const handleChangeClient = () => {
+        if (typeof clearSelection === 'function') {
+            clearSelection();
+            return;
+        }
+        setSelectedFirm(null);
+        setSearchTerm('');
+        setFirms([]);
+        closeDropdown();
+    };
+
     return (
-        <div className="space-y-3">
-            <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">
-                    {label} {!readOnly && <span className="text-red-500">*</span>}
-                </label>
-                {showSearchUi ? (
-                    <>
-                        <p className="text-xs text-slate-500 mb-1.5">Type at least {CLIENT_SEARCH_MIN} characters (name, mobile, email, or PAN).</p>
-                        <div className="relative">
-                            <input
-                                type="text"
-                                value={searchTerm}
-                                onChange={(e) => {
-                                    const value = e.target.value;
-                                    setSearchTerm(value);
-                                    if (!value.trim()) {
-                                        setFirms([]);
-                                        setShowDropdown(false);
-                                    }
-                                }}
-                                onFocus={() => {
-                                    if (firms.length > 0 && !selectedFirm) setShowDropdown(true);
-                                }}
-                                placeholder="Name, mobile, email, or PAN (min 3 characters)"
-                                className="w-full px-4 py-3 border-2 border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                            />
-                            {searchLoading && (
-                                <div className="absolute right-3 top-1/2 -translate-y-1/2">
-                                    <div className="animate-spin rounded-full h-4 w-4 border-2 border-blue-500 border-t-transparent" />
+        <div className={rootSpace}>
+            <label className={labelClass}>
+                {label} {!readOnly && <span className="text-red-500">*</span>}
+            </label>
+            {showSearchUi ? (
+                <>
+                    {!hideSearchHint && (
+                        <p className="text-[10px] text-slate-500 mb-1">Search by name, mobile, email, or PAN.</p>
+                    )}
+                    <div ref={wrapperRef}>
+                        <div className={`rounded-md border bg-white overflow-hidden transition-all ${getComboboxOpenClass(listOpen, focusAccent)}`}>
+                            <div className="flex items-center gap-2 px-2.5 py-1.5">
+                                <FiSearch className="w-3.5 h-3.5 text-slate-400 shrink-0" aria-hidden />
+                                <input
+                                    type="text"
+                                    value={searchTerm}
+                                    onChange={(e) => {
+                                        revealDropdown();
+                                        setSearchTerm(e.target.value);
+                                    }}
+                                    onFocus={() => {
+                                        if (selectedFirm) return;
+                                        if (typeof onSearchFocus === 'function') {
+                                            onSearchFocus();
+                                            return;
+                                        }
+                                        if (firms.length > 0) revealDropdown();
+                                    }}
+                                    placeholder="Name, mobile, email, or PAN"
+                                    className="flex-1 min-w-0 border-0 bg-transparent text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-0 py-0.5"
+                                    autoComplete="off"
+                                />
+                                {searchLoading && listOpen ? (
+                                    <ComboboxSearchSpinner />
+                                ) : (
+                                    <FiChevronDown
+                                        className={`w-3.5 h-3.5 text-slate-400 shrink-0 transition-transform duration-200 ${listOpen ? 'rotate-180' : ''}`}
+                                        aria-hidden
+                                    />
+                                )}
+                            </div>
+                            {listOpen && (
+                                <div
+                                    className={`border-t border-slate-100 ${listMaxH} overflow-y-auto`}
+                                    onScroll={handleListScroll}
+                                >
+                                    {searchLoading ? (
+                                        <ClientSearchSkeletonRows rows={5} />
+                                    ) : (
+                                        <>
+                                            {firms.map((client) => (
+                                                <ClientSearchOptionRow
+                                                    key={client.username}
+                                                    client={client}
+                                                    formatBalance={fmtBal}
+                                                    itemHover={itemHover}
+                                                    onSelect={() => {
+                                                        setSelectedFirm(client);
+                                                        setSearchTerm(client.name || '');
+                                                        closeDropdown();
+                                                        setFirms([]);
+                                                    }}
+                                                />
+                                            ))}
+                                            {loadingMore && <ClientSearchSkeletonRows rows={2} />}
+                                        </>
+                                    )}
+                                    {!searchLoading && !loadingMore && firms.length === 0 && (
+                                        <p className="px-2.5 py-3 text-xs text-center text-slate-500">No clients found</p>
+                                    )}
                                 </div>
                             )}
-                            {showDropdown && firms.length > 0 && (
-                                <div className="absolute z-10 mt-1 w-full max-w-[calc(100%-0.5rem)] bg-white border-2 border-slate-200 rounded-lg shadow-xl max-h-60 overflow-y-auto">
-                                    {firms.map((client) => (
-                                        <button
-                                            key={client.username}
-                                            type="button"
-                                            onClick={() => {
-                                                setSelectedFirm(client);
-                                                setSearchTerm(client.name || '');
-                                                setShowDropdown(false);
-                                                setFirms([]);
-                                            }}
-                                            className={`w-full flex items-start gap-3 px-4 py-3 text-left border-b border-slate-100 last:border-0 transition-colors ${itemHover}`}
-                                        >
-                                            <ClientSearchAvatar client={client} sizeClass="w-9 h-9" textClass="text-sm" />
-                                            <div className="min-w-0 flex-1">
-                                                <div className="font-medium text-slate-800 truncate">{client.name || '—'}</div>
-                                                <div className="text-xs text-slate-600 mt-1 space-y-0.5">
-                                                    <p className="flex items-center gap-1.5">
-                                                        <FiPhone className="w-3 h-3 shrink-0 text-slate-400" />
-                                                        <span>{client.country_code ? `+${client.country_code} ` : ''}{client.mobile || '—'}</span>
-                                                    </p>
-                                                    <p className="flex items-center gap-1.5 break-all">
-                                                        <FiMail className="w-3 h-3 shrink-0 text-slate-400" />
-                                                        <span>{client.email || '—'}</span>
-                                                    </p>
-                                                    <p className="flex items-center gap-1.5">
-                                                        <FiCreditCard className="w-3 h-3 shrink-0 text-slate-400" />
-                                                        <span className="font-mono">{client.pan_number || '—'}</span>
-                                                        <span className="text-slate-400">·</span>
-                                                        <span className="font-semibold text-slate-700">Bal. ₹{fmtBal(client.balance)}</span>
-                                                    </p>
-                                                </div>
-                                            </div>
-                                        </button>
-                                    ))}
-                                </div>
-                            )}
-                        </div>
-                    </>
-                ) : null}
-                {previewFirm ? (
-                    <div className="rounded-lg border-2 border-slate-200 overflow-hidden bg-white">
-                        <div className="flex items-center gap-2 px-3 py-2">
-                            <ClientSearchAvatar client={previewFirm} sizeClass="w-8 h-8" textClass="text-xs" roundedClass="rounded-lg" />
-                            <div className="flex-1 min-w-0">
-                                <p className="text-sm font-semibold text-slate-800 leading-snug truncate">{previewFirm.name || '—'}</p>
-                                <p className="text-xs text-slate-500 truncate mt-px" title={selectedCareSubtitle || undefined}>
-                                    {selectedCareSubtitle || '—'}
-                                </p>
-                            </div>
-                            <div className="flex items-center gap-1.5 flex-shrink-0">
-                                <div className="text-right">
-                                    <p className={`text-sm font-semibold tabular-nums leading-tight ${getBalanceColorClass(previewFirm.balance)}`}>
-                                        ₹{fmtBal(previewFirm.balance)}
-                                    </p>
-                                    <p className="text-xs text-slate-500">Balance</p>
-                                </div>
-                                {!readOnly && !lockedFirm ? (
-                                    <button
-                                        type="button"
-                                        onClick={() => {
-                                            setSelectedFirm(null);
-                                            setSearchTerm('');
-                                            setFirms([]);
-                                            setShowDropdown(false);
-                                        }}
-                                        title="Change client"
-                                        className={`p-1 rounded-md transition-colors ${repeatHover}`}
-                                    >
-                                        <FiRepeat className="w-3.5 h-3.5" />
-                                    </button>
-                                ) : null}
-                            </div>
-                        </div>
-                        <div className="grid grid-cols-3 divide-x divide-slate-100 border-t border-slate-100 bg-slate-50/90">
-                            <div className="px-2 py-1.5 min-w-0">
-                                <p className="text-xs text-slate-500">Mobile</p>
-                                <p className="text-sm text-slate-800 truncate mt-px">
-                                    {previewFirm.country_code ? `+${previewFirm.country_code} ` : ''}{previewFirm.mobile || '—'}
-                                </p>
-                            </div>
-                            <div className="px-2 py-1.5 min-w-0">
-                                <p className="text-xs text-slate-500">PAN</p>
-                                <p className="text-sm text-slate-800 font-mono truncate mt-px">{previewFirm.pan_number || '—'}</p>
-                            </div>
-                            <div className="px-2 py-1.5 min-w-0">
-                                <p className="text-xs text-slate-500">Email</p>
-                                <p className="text-sm text-slate-800 truncate mt-px" title={previewFirm.email || ''}>
-                                    {previewFirm.email || '—'}
-                                </p>
-                            </div>
                         </div>
                     </div>
-                ) : null}
-            </div>
+                </>
+            ) : null}
+            {previewFirm ? (
+                <TransactionClientPreviewCard
+                    client={previewFirm}
+                    formatCurrency={formatCurrency}
+                    variant={variant}
+                    readOnly={readOnly}
+                    onChange={!readOnly && !lockedFirm ? handleChangeClient : undefined}
+                />
+            ) : null}
         </div>
     );
 };
 
-// Receive Modal - API Integrated with Bank Search (No Client Search)
-export const ReceiveModal = ({ isOpen, onClose, bankDetails, bankId, onSubmit, formatCurrency, summary, clientUsername, clientName, showClient = true, showBank = true, showSummary = true, bankPageClientLookup = false, partyType = 'client', partyLabel = 'client' }) => {
+// Receive Modal - API Integrated with Bank Search
+export const ReceiveModal = ({ isOpen, onClose, bankDetails, bankId, onSubmit, formatCurrency, summary, clientUsername, clientName, showClient = true, showBank = true, showSummary = true, bankPageClientLookup = false, partyType = 'client', partyLabel = 'client', editRecord = null }) => {
     const [loading, setLoading] = useState(false);
     const [selectedBank, setSelectedBank] = useState(bankDetails || (bankId ? { bank_id: bankId, bank: 'Selected Bank' } : null));
     const [showBankSearch, setShowBankSearch] = useState(false);
     const [transactionDate, setTransactionDate] = useState(new Date().toISOString().split('T')[0]);
     const [amount, setAmount] = useState('');
-    const [formKey, setFormKey] = useState(0);
+    const [description, setDescription] = useState('');
+    const [sendEmail, setSendEmail] = useState(true);
+    const [sendSms, setSendSms] = useState(true);
+    const [sendWhatsApp, setSendWhatsApp] = useState(true);
     const hasPresetClient = Boolean(String(clientUsername || '').trim());
     const hasPresetBank = Boolean(String(bankId || '').trim());
     const shouldShowClientSelector = bankPageClientLookup || !hasPresetClient;
     const shouldShowBankSelector = !hasPresetBank;
-    const firmLookup = useFirmClientSearch(Boolean(shouldShowClientSelector));
+    const firmLookup = useFirmClientSearch(Boolean(shouldShowClientSelector), '', { fetchOnFocusOnly: true });
+    const receiveFieldClass = getCompactFieldClass('blue');
+    const todayIso = useMemo(() => new Date().toISOString().split('T')[0], []);
+    const isEditMode = Boolean(editRecord?.transaction_id);
 
-    // Reset all fields every time the modal opens
     useEffect(() => {
         if (!isOpen) return;
-        setFormKey(k => k + 1);
+        if (isEditMode) {
+            setTransactionDate(toIsoDateOnly(editRecord.transaction_date));
+            setAmount(String(editRecord.amount ?? ''));
+            setDescription(editRecord.remark || '');
+            setLoading(false);
+            const toBank = mapBankPartyToSelection(editRecord.payment_to);
+            const fromFirm = mapUserPartyToFirm(editRecord.payment_from);
+            if (toBank && !hasPresetBank) setSelectedBank(toBank);
+            if (fromFirm?.username && shouldShowClientSelector) firmLookup.setSelectedFirm(fromFirm);
+            return;
+        }
         setSelectedBank(bankDetails || (bankId ? { bank_id: bankId, bank: 'Selected Bank' } : null));
         setShowBankSearch(false);
         setTransactionDate(new Date().toISOString().split('T')[0]);
         setAmount('');
+        setDescription('');
         setLoading(false);
+        setSendEmail(true);
+        setSendSms(true);
+        setSendWhatsApp(true);
         if (shouldShowClientSelector) firmLookup.reset();
-    }, [isOpen, shouldShowClientSelector]); // eslint-disable-line react-hooks/exhaustive-deps
+    }, [isOpen, shouldShowClientSelector, isEditMode, editRecord]); // eslint-disable-line react-hooks/exhaustive-deps
 
-    const isAmountValid = parseDecimalValue(amount) > 0;
-    const isDateValid = Boolean(transactionDate);
-    const hasSelectedBank = hasPresetBank || Boolean(selectedBank);
-    const hasClientParty = hasPresetClient || Boolean(firmLookup.selectedFirm?.username);
-    const isReceiveFormValid = hasSelectedBank && isDateValid && isAmountValid && hasClientParty;
-    const selectedClientDisplayName = hasPresetClient ? clientName : (firmLookup.selectedFirm?.name || 'Selected client');
-    const shouldShowReceiveSummary = showSummary && hasSelectedBank && hasClientParty;
+    const resolveReceiveBank = useCallback(() => {
+        if (hasPresetBank) {
+            return bankDetails || (bankId ? { bank_id: bankId, bank: 'Selected Bank' } : null);
+        }
+        return selectedBank;
+    }, [hasPresetBank, bankDetails, bankId, selectedBank]);
 
-    const handleSubmit = async (e) => {
-        e.preventDefault();
+    const submitReceive = useCallback(async () => {
+        if (loading) return;
 
-        const effectiveBank = hasPresetBank ? { bank_id: bankId, bank: bankDetails?.bank || 'Selected Bank' } : selectedBank;
-        if (!effectiveBank) {
+        const effectiveBank = resolveReceiveBank();
+        if (!effectiveBank?.bank_id) {
             toast.error('Please select a bank');
             return;
         }
@@ -984,13 +2022,17 @@ export const ReceiveModal = ({ isOpen, onClose, bankDetails, bankId, onSubmit, f
             return;
         }
 
-        const formData = new FormData(e.target);
         const parsedAmount = parseDecimalValue(amount);
         const date = transactionDate;
-        const description = formData.get('description');
+        const remarkText = String(description || '').trim();
 
         if (!parsedAmount || parsedAmount <= 0) {
             toast.error('Please enter a valid amount');
+            return;
+        }
+
+        if (!date) {
+            toast.error('Please select a date');
             return;
         }
 
@@ -998,94 +2040,167 @@ export const ReceiveModal = ({ isOpen, onClose, bankDetails, bankId, onSubmit, f
 
         const resolvedParty1 = hasPresetClient ? clientUsername : firmLookup.selectedFirm?.username;
         const resolvedName = hasPresetClient ? clientName : firmLookup.selectedFirm?.name;
+        const resolvedParty1Type = hasPresetClient ? partyType : (firmLookup.selectedFirm?.userType || partyType);
+        const party2BankId = effectiveBank.bank_id;
 
         const payload = {
             amount: parsedAmount,
             party1_id: resolvedParty1,
-            party1_type: partyType,
-            party2_id: hasPresetBank ? bankId : effectiveBank.bank_id,
-            party2_type: "bank",
-            remark: description || `Payment received from ${resolvedName}`,
-            transaction_date: date
+            party1_type: resolvedParty1Type,
+            party2_id: party2BankId,
+            party2_type: 'bank',
+            remark: remarkText || `Payment received from ${resolvedName}`,
+            transaction_date: date,
         };
 
         try {
-            const response = await axios.post(
-                `${API_BASE_URL}/transaction/payment/receive`,
-                payload,
-                { headers: getHeaders() }
-            );
+            const response = isEditMode
+                ? await axios.put(
+                    `${API_BASE_URL}/transaction/payment/receive/edit`,
+                    { ...payload, transaction_id: editRecord.transaction_id },
+                    { headers: getHeaders() }
+                )
+                : await axios.post(
+                    `${API_BASE_URL}/transaction/payment/receive`,
+                    payload,
+                    { headers: getHeaders() }
+                );
 
             if (response.data.success) {
-                toast.success(response.data.message || 'Payment received successfully');
-                onSubmit('RECEIVE', response.data.data);
+                toast.success(response.data.message || (isEditMode ? 'Payment receive updated successfully' : 'Payment received successfully'));
+                if (onSubmit) {
+                    onSubmit('RECEIVE', response.data.data);
+                }
                 onClose();
-                // Reset form
                 if (!hasPresetBank) {
                     setSelectedBank(bankDetails || null);
                     setShowBankSearch(false);
                 }
+            } else {
+                toast.error(response.data.message || 'Failed to receive payment');
             }
         } catch (error) {
             console.error('Error creating receive transaction:', error);
-            toast.error(error.response?.data?.message || 'Failed to create receive transaction');
+            const errorMessage = error.response?.data?.message || error.response?.data?.error || error.message || 'Failed to create receive transaction';
+            toast.error(errorMessage);
         } finally {
             setLoading(false);
         }
+    }, [
+        loading,
+        resolveReceiveBank,
+        hasPresetClient,
+        firmLookup.selectedFirm,
+        partyLabel,
+        amount,
+        transactionDate,
+        description,
+        clientUsername,
+        clientName,
+        partyType,
+        hasPresetBank,
+        bankDetails,
+        onSubmit,
+        onClose,
+        isEditMode,
+        editRecord,
+    ]);
+
+    const handleSubmit = (e) => {
+        e.preventDefault();
+        submitReceive();
     };
+
+    const hasSelectedBank = Boolean(resolveReceiveBank()?.bank_id);
+    const isReceiveFormValid =
+        hasSelectedBank &&
+        Boolean(transactionDate) &&
+        parseDecimalValue(amount) > 0 &&
+        (hasPresetClient || Boolean(firmLookup.selectedFirm?.username));
+    const selectedClientDisplayName = hasPresetClient ? clientName : (firmLookup.selectedFirm?.name || 'Selected client');
+    const effectiveReceiveBank = resolveReceiveBank();
+    const selectedBankDisplayName = effectiveReceiveBank
+        ? getBankPrimaryLabel(effectiveReceiveBank)
+        : (bankId ? `Bank #${bankId}` : '—');
+    const shouldShowReceiveSummary = showSummary && hasSelectedBank && (hasPresetClient || Boolean(firmLookup.selectedFirm?.username));
 
     return (
         <BaseModal
             isOpen={isOpen}
             onClose={onClose}
-            title="Receive Payment from Client"
+            title={isEditMode ? 'Edit Receive Payment' : 'Receive Payment'}
+            maxWidth="max-w-3xl"
+            compact
             closeOnOverlayClick={false}
+            accent="receive"
+            titleIcon={<span className="text-base font-bold leading-none" aria-hidden>₹</span>}
             footer={(
-                <div className="flex justify-end gap-2">
-                    <button
-                        type="button"
-                        onClick={onClose}
-                        disabled={loading}
-                        className="px-4 py-2 bg-white border border-slate-300 text-slate-700 rounded-lg text-sm font-medium hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-slate-500/40 disabled:opacity-50 transition-all duration-200"
-                    >
-                        Cancel
-                    </button>
-                    <button
-                        type="submit"
-                        form="receive-form"
-                        disabled={loading || !isReceiveFormValid}
-                        className="px-4 py-2 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-lg text-sm font-medium hover:from-blue-700 hover:to-blue-800 focus:outline-none focus:ring-2 focus:ring-blue-500/40 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 inline-flex items-center justify-center min-w-[140px]"
-                    >
-                        {loading ? 'Processing...' : 'Receive Payment'}
-                    </button>
+                <div className="flex flex-col gap-2.5 sm:flex-row sm:items-center sm:justify-between">
+                    {!isEditMode && (
+                    <TransactionNotifyCheckboxes
+                        sendSms={sendSms}
+                        setSendSms={setSendSms}
+                        sendWhatsApp={sendWhatsApp}
+                        setSendWhatsApp={setSendWhatsApp}
+                        sendEmail={sendEmail}
+                        setSendEmail={setSendEmail}
+                    />
+                    )}
+                    <div className={`flex items-center justify-end gap-2 shrink-0 ${isEditMode ? 'w-full' : ''}`}>
+                        <button
+                            type="button"
+                            onClick={onClose}
+                            disabled={loading}
+                            className="px-3 py-1.5 bg-white border border-slate-300 text-slate-700 rounded-md text-xs font-medium hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-slate-500/30 disabled:opacity-50 transition-colors"
+                        >
+                            Cancel
+                        </button>
+                        <button
+                            type="button"
+                            disabled={loading || !isReceiveFormValid}
+                            onClick={submitReceive}
+                            className="px-3 py-1.5 bg-blue-600 text-white rounded-md text-xs font-medium hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500/40 disabled:opacity-50 disabled:cursor-not-allowed transition-colors inline-flex items-center justify-center min-w-[110px]"
+                        >
+                            {loading ? 'Processing…' : (isEditMode ? 'Update Payment' : 'Receive Payment')}
+                        </button>
+                    </div>
                 </div>
             )}
         >
-            <form key={formKey} id="receive-form" onSubmit={handleSubmit} className="space-y-5">
+            <form id="receive-form" onSubmit={handleSubmit} noValidate className="space-y-3">
                 {shouldShowClientSelector && (
                     <FirmClientSearchFields
                         variant="receive"
                         formatCurrency={formatCurrency}
+                        compact
+                        hideSearchHint
+                        focusAccent="blue"
                         searchTerm={firmLookup.searchTerm}
                         setSearchTerm={firmLookup.setSearchTerm}
                         firms={firmLookup.firms}
                         setFirms={firmLookup.setFirms}
                         showDropdown={firmLookup.showDropdown}
                         setShowDropdown={firmLookup.setShowDropdown}
+                        openDropdown={firmLookup.openDropdown}
+                        dismissDropdown={firmLookup.dismissDropdown}
                         searchLoading={firmLookup.searchLoading}
+                        loadingMore={firmLookup.loadingMore}
+                        handleListScroll={firmLookup.handleListScroll}
+                        clearSelection={firmLookup.clearSelection}
+                        onSearchFocus={firmLookup.loadClientsOnFocus}
                         selectedFirm={firmLookup.selectedFirm}
                         setSelectedFirm={firmLookup.setSelectedFirm}
                     />
                 )}
-                {/* Bank Selection */}
                 {showBank && shouldShowBankSelector && (
                     <div>
-                        <label className="block text-sm font-medium text-slate-700 mb-1.5">
+                        <label className={COMPACT_LABEL}>
                             Bank Account <span className="text-red-500">*</span>
                         </label>
-
                         {(!selectedBank || showBankSearch) ? (
                             <BankSearchDropdown
+                                compact
+                                focusAccent="blue"
                                 onSelect={(bank) => {
                                     setSelectedBank(bank);
                                     setShowBankSearch(false);
@@ -1097,109 +2212,139 @@ export const ReceiveModal = ({ isOpen, onClose, bankDetails, bankId, onSubmit, f
                                 bank={selectedBank}
                                 onChangeBank={() => setShowBankSearch(true)}
                                 formatMoney={formatCurrency}
+                                variant="receive"
                             />
                         )}
                     </div>
                 )}
 
-                {/* Form Fields */}
-                <div className="space-y-4">
-                    <div className="grid grid-cols-2 gap-4">
-                        <div>
-                            <label className="block text-sm font-medium text-slate-700 mb-1">
-                                Date <span className="text-red-500">*</span>
-                            </label>
-                            <DatePickerField
-                                value={transactionDate}
-                                onChange={setTransactionDate}
-                                mode="single"
-                                hideTabs={true}
-                                showResetButton={false}
-                                placeholder="Select date"
-                                buttonClassName="w-full px-4 py-3 border-2 border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                            />
-                        </div>
-
-                        <div>
-                            <label className="block text-sm font-medium text-slate-700 mb-1">
-                                Amount <span className="text-red-500">*</span>
-                            </label>
-                            <input
-                                type="text"
-                                name="amount"
-                                placeholder="Enter amount"
-                                required
-                                inputMode="decimal"
-                                value={amount}
-                                onChange={(e) => setAmount(sanitizeDecimalInput(e.target.value, 2))}
-                                className="w-full px-4 py-3 border-2 border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                            />
-                        </div>
-                    </div>
-
+                <div className="grid grid-cols-2 gap-3">
                     <div>
-                        <label className="block text-sm font-medium text-slate-700 mb-1">
-                            Description / Remark
+                        <label className={COMPACT_LABEL}>
+                            Date <span className="text-red-500">*</span>
                         </label>
-                        <textarea
-                            name="description"
-                            placeholder="Enter description or remark"
-                            rows="2"
-                            className="w-full px-4 py-3 border-2 border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        <DatePickerField
+                            value={transactionDate}
+                            onChange={(d) => {
+                                const picked = String(d || '').trim();
+                                if (!picked) {
+                                    setTransactionDate('');
+                                    return;
+                                }
+                                setTransactionDate(picked > todayIso ? todayIso : picked);
+                            }}
+                            mode="single"
+                            hideTabs={true}
+                            showResetButton={false}
+                            placeholder="Select date"
+                            buttonClassName={receiveFieldClass}
+                            maxSelectableDate={todayIso}
                         />
                     </div>
-
-                    {shouldShowReceiveSummary && (
-                        <div className="bg-slate-50 p-3 rounded-lg border border-slate-200">
-                            <p className="text-xs text-slate-600 mb-1">Transaction Summary</p>
-                            <div className="flex items-center justify-between text-sm">
-                                <span className="font-medium">Receiving from:</span>
-                                <span className="text-blue-600">{selectedClientDisplayName}</span>
-                            </div>
-                            <div className="flex items-center justify-between text-sm mt-1">
-                                <span className="font-medium">To Bank:</span>
-                                <span className="text-blue-600">{selectedBank?.bank || (bankId ? `Bank #${bankId}` : 'Not selected')}</span>
-                            </div>
-                        </div>
-                    )}
+                    <div>
+                        <label className={COMPACT_LABEL}>
+                            Amount <span className="text-red-500">*</span>
+                        </label>
+                        <input
+                            type="text"
+                            name="amount"
+                            placeholder="0.00"
+                            inputMode="decimal"
+                            value={amount}
+                            onChange={(e) => setAmount(sanitizeDecimalInput(e.target.value, 2))}
+                            className={receiveFieldClass}
+                        />
+                    </div>
                 </div>
 
+                <div>
+                    <label className={COMPACT_LABEL}>Description / Remark</label>
+                    <textarea
+                        name="description"
+                        placeholder="Optional note"
+                        rows="2"
+                        value={description}
+                        onChange={(e) => setDescription(e.target.value)}
+                        className={`${receiveFieldClass} resize-none`}
+                    />
+                </div>
+
+                {shouldShowReceiveSummary && (
+                    <div className="rounded-md bg-blue-50 border border-blue-100 px-3 py-2 space-y-1">
+                        <p className="text-[11px] font-semibold uppercase tracking-wide text-blue-700/80">Summary</p>
+                        <div className="flex items-center justify-between gap-2 text-xs">
+                            <span className="text-slate-600">Receive from</span>
+                            <span className="font-medium text-blue-700 truncate">{selectedClientDisplayName}</span>
+                        </div>
+                        <div className="flex items-center justify-between gap-2 text-xs">
+                            <span className="text-slate-600">To bank</span>
+                            <span className="font-medium text-slate-800 truncate">{selectedBankDisplayName}</span>
+                        </div>
+                    </div>
+                )}
             </form>
         </BaseModal>
     );
 };
 
 // Payment Modal - API Integrated with Bank Search
-export const PaymentModal = ({ isOpen, onClose, bankDetails, bankId, onSubmit, formatCurrency, summary, clientUsername, clientName, showClient = true, showBank = true, showSummary = true, bankPageClientLookup = false, partyType = 'client', partyLabel = 'client' }) => {
+export const PaymentModal = ({ isOpen, onClose, bankDetails, bankId, onSubmit, formatCurrency, summary, clientUsername, clientName, showClient = true, showBank = true, showSummary = true, bankPageClientLookup = false, partyType = 'client', partyLabel = 'client', editRecord = null }) => {
     const [loading, setLoading] = useState(false);
     const [selectedBank, setSelectedBank] = useState(bankDetails || (bankId ? { bank_id: bankId, bank: 'Selected Bank' } : null));
     const [showBankSearch, setShowBankSearch] = useState(false);
     const [transactionDate, setTransactionDate] = useState(new Date().toISOString().split('T')[0]);
     const [amount, setAmount] = useState('');
-    const [formKey, setFormKey] = useState(0);
+    const [description, setDescription] = useState('');
+    const [sendEmail, setSendEmail] = useState(true);
+    const [sendSms, setSendSms] = useState(true);
+    const [sendWhatsApp, setSendWhatsApp] = useState(true);
     const hasPresetClient = Boolean(String(clientUsername || '').trim());
     const hasPresetBank = Boolean(String(bankId || '').trim());
     const shouldShowClientSelector = bankPageClientLookup || !hasPresetClient;
     const shouldShowBankSelector = !hasPresetBank;
-    const firmLookup = useFirmClientSearch(Boolean(shouldShowClientSelector));
+    const firmLookup = useFirmClientSearch(Boolean(shouldShowClientSelector), '', { fetchOnFocusOnly: true });
+    const paymentFieldClass = getCompactFieldClass('red');
+    const todayIso = useMemo(() => new Date().toISOString().split('T')[0], []);
+    const isEditMode = Boolean(editRecord?.transaction_id);
 
     // Reset all fields every time the modal opens
     useEffect(() => {
         if (!isOpen) return;
-        setFormKey(k => k + 1);
+        if (isEditMode) {
+            setTransactionDate(toIsoDateOnly(editRecord.transaction_date));
+            setAmount(String(editRecord.amount ?? ''));
+            setDescription(editRecord.remark || '');
+            setLoading(false);
+            const fromBank = mapBankPartyToSelection(editRecord.payment_from);
+            const toFirm = mapUserPartyToFirm(editRecord.payment_to);
+            if (fromBank && !hasPresetBank) setSelectedBank(fromBank);
+            if (toFirm?.username && shouldShowClientSelector) firmLookup.setSelectedFirm(toFirm);
+            return;
+        }
         setSelectedBank(bankDetails || (bankId ? { bank_id: bankId, bank: 'Selected Bank' } : null));
         setShowBankSearch(false);
         setTransactionDate(new Date().toISOString().split('T')[0]);
         setAmount('');
+        setDescription('');
         setLoading(false);
+        setSendEmail(true);
+        setSendSms(true);
+        setSendWhatsApp(true);
         if (shouldShowClientSelector) firmLookup.reset();
-    }, [isOpen, shouldShowClientSelector]); // eslint-disable-line react-hooks/exhaustive-deps
+    }, [isOpen, shouldShowClientSelector, isEditMode, editRecord]); // eslint-disable-line react-hooks/exhaustive-deps
 
-    const handleSubmit = async (e) => {
-        e.preventDefault();
+    const resolvePaymentBank = useCallback(() => {
+        if (hasPresetBank) {
+            return bankDetails || (bankId ? { bank_id: bankId, bank: 'Selected Bank' } : null);
+        }
+        return selectedBank;
+    }, [hasPresetBank, bankDetails, bankId, selectedBank]);
 
-        const effectiveBank = hasPresetBank ? { bank_id: bankId, bank: bankDetails?.bank || 'Selected Bank' } : selectedBank;
-        if (!effectiveBank) {
+    const submitPayment = useCallback(async () => {
+        if (loading) return;
+
+        const effectiveBank = resolvePaymentBank();
+        if (!effectiveBank?.bank_id) {
             toast.error('Please select a bank');
             return;
         }
@@ -1209,19 +2354,17 @@ export const PaymentModal = ({ isOpen, onClose, bankDetails, bankId, onSubmit, f
             return;
         }
 
-        const formData = new FormData(e.target);
         const parsedAmount = parseDecimalValue(amount);
         const date = transactionDate;
-        const description = formData.get('description');
+        const remarkText = String(description || '').trim();
 
         if (!parsedAmount || parsedAmount <= 0) {
             toast.error('Please enter a valid amount');
             return;
         }
 
-        // Check if sufficient balance
-        if (parsedAmount > (effectiveBank?.balance || 0)) {
-            toast.error('Insufficient balance in bank account');
+        if (!date) {
+            toast.error('Please select a date');
             return;
         }
 
@@ -1229,37 +2372,42 @@ export const PaymentModal = ({ isOpen, onClose, bankDetails, bankId, onSubmit, f
 
         const resolvedParty2 = hasPresetClient ? clientUsername : firmLookup.selectedFirm?.username;
         const resolvedName = hasPresetClient ? clientName : firmLookup.selectedFirm?.name;
-        const party1BankId = hasPresetBank ? bankId : effectiveBank.bank_id;
+        const resolvedParty2Type = hasPresetClient ? partyType : (firmLookup.selectedFirm?.userType || partyType);
+        const party1BankId = effectiveBank.bank_id;
 
         const payload = {
             amount: parsedAmount,
             party1_id: party1BankId,
-            party1_type: "bank",
+            party1_type: 'bank',
             party2_id: resolvedParty2,
-            party2_type: partyType,
-            remark: description || `Payment made to ${resolvedName}`,
-            transaction_date: date
+            party2_type: resolvedParty2Type,
+            remark: remarkText || `Payment made to ${resolvedName}`,
+            transaction_date: date,
         };
 
         try {
-            const response = await axios.post(
-                `${API_BASE_URL}/transaction/payment/payment`,
-                payload,
-                { headers: getHeaders() }
-            );
+            const response = isEditMode
+                ? await axios.put(
+                    `${API_BASE_URL}/transaction/payment/payment/edit`,
+                    { ...payload, transaction_id: editRecord.transaction_id },
+                    { headers: getHeaders() }
+                )
+                : await axios.post(
+                    `${API_BASE_URL}/transaction/payment/payment`,
+                    payload,
+                    { headers: getHeaders() }
+                );
 
             if (response.data.success) {
-                toast.success(response.data.message || 'Payment made successfully');
+                toast.success(response.data.message || (isEditMode ? 'Payment updated successfully' : 'Payment made successfully'));
                 if (onSubmit) {
                     onSubmit('PAYMENT', response.data.data);
                 }
                 onClose();
-                // Reset form
                 if (!hasPresetBank) {
                     setSelectedBank(bankDetails || null);
                     setShowBankSearch(false);
                 }
-                e.target.reset();
             } else {
                 toast.error(response.data.message || 'Payment failed');
             }
@@ -1270,66 +2418,121 @@ export const PaymentModal = ({ isOpen, onClose, bankDetails, bankId, onSubmit, f
         } finally {
             setLoading(false);
         }
+    }, [
+        loading,
+        resolvePaymentBank,
+        hasPresetClient,
+        firmLookup.selectedFirm,
+        partyLabel,
+        amount,
+        transactionDate,
+        description,
+        clientUsername,
+        clientName,
+        partyType,
+        hasPresetBank,
+        bankDetails,
+        onSubmit,
+        onClose,
+        isEditMode,
+        editRecord,
+    ]);
+
+    const handleSubmit = (e) => {
+        e.preventDefault();
+        submitPayment();
     };
 
+    const hasSelectedBank = Boolean(resolvePaymentBank()?.bank_id);
     const isPaymentFormValid =
-        (hasPresetBank || Boolean(selectedBank)) &&
+        hasSelectedBank &&
+        Boolean(transactionDate) &&
         parseDecimalValue(amount) > 0 &&
         (hasPresetClient || Boolean(firmLookup.selectedFirm?.username));
     const selectedClientDisplayName = hasPresetClient ? clientName : (firmLookup.selectedFirm?.name || 'Selected client');
+    const effectivePaymentBank = resolvePaymentBank();
+    const selectedBankDisplayName = effectivePaymentBank
+        ? getBankPrimaryLabel(effectivePaymentBank)
+        : (bankId ? `Bank #${bankId}` : '—');
     const shouldShowPaymentSummary = showSummary && (hasPresetBank || Boolean(selectedBank)) && (hasPresetClient || Boolean(firmLookup.selectedFirm?.username));
 
     return (
         <BaseModal
             isOpen={isOpen}
             onClose={onClose}
-            title="Make Payment to Client"
+            title={isEditMode ? 'Edit Payment' : 'Make Payment'}
+            maxWidth="max-w-3xl"
+            compact
+            closeOnOverlayClick={false}
+            accent="payment"
+            titleIcon={<span className="text-base font-bold leading-none" aria-hidden>₹</span>}
             footer={(
-                <div className="flex justify-end gap-2">
-                    <button
-                        type="button"
-                        onClick={onClose}
-                        disabled={loading}
-                        className="px-4 py-2 bg-white border border-slate-300 text-slate-700 rounded-lg text-sm font-medium hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-slate-500/40 disabled:opacity-50 transition-all duration-200"
-                    >
-                        Cancel
-                    </button>
-                    <button
-                        type="submit"
-                        form="payment-form"
-                        disabled={loading || !isPaymentFormValid}
-                        className="px-4 py-2 bg-gradient-to-r from-red-600 to-red-700 text-white rounded-lg text-sm font-medium hover:from-red-700 hover:to-red-800 focus:outline-none focus:ring-2 focus:ring-red-500/40 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 inline-flex items-center justify-center min-w-[140px]"
-                    >
-                        {loading ? 'Processing...' : 'Make Payment'}
-                    </button>
+                <div className="flex flex-col gap-2.5 sm:flex-row sm:items-center sm:justify-between">
+                    {!isEditMode && (
+                    <TransactionNotifyCheckboxes
+                        sendSms={sendSms}
+                        setSendSms={setSendSms}
+                        sendWhatsApp={sendWhatsApp}
+                        setSendWhatsApp={setSendWhatsApp}
+                        sendEmail={sendEmail}
+                        setSendEmail={setSendEmail}
+                    />
+                    )}
+                    <div className={`flex items-center justify-end gap-2 shrink-0 ${isEditMode ? 'w-full' : ''}`}>
+                        <button
+                            type="button"
+                            onClick={onClose}
+                            disabled={loading}
+                            className="px-3 py-1.5 bg-white border border-slate-300 text-slate-700 rounded-md text-xs font-medium hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-slate-500/30 disabled:opacity-50 transition-colors"
+                        >
+                            Cancel
+                        </button>
+                        <button
+                            type="button"
+                            disabled={loading || !isPaymentFormValid}
+                            onClick={submitPayment}
+                            className="px-3 py-1.5 bg-red-600 text-white rounded-md text-xs font-medium hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500/40 disabled:opacity-50 disabled:cursor-not-allowed transition-colors inline-flex items-center justify-center min-w-[110px]"
+                        >
+                            {loading ? 'Processing…' : (isEditMode ? 'Update Payment' : 'Make Payment')}
+                        </button>
+                    </div>
                 </div>
             )}
         >
-            <form key={formKey} id="payment-form" onSubmit={handleSubmit} className="space-y-5">
+            <form id="payment-form" onSubmit={handleSubmit} noValidate className="space-y-3">
                 {shouldShowClientSelector && (
                     <FirmClientSearchFields
                         variant="payment"
                         formatCurrency={formatCurrency}
+                        compact
+                        hideSearchHint
+                        focusAccent="red"
                         searchTerm={firmLookup.searchTerm}
                         setSearchTerm={firmLookup.setSearchTerm}
                         firms={firmLookup.firms}
                         setFirms={firmLookup.setFirms}
                         showDropdown={firmLookup.showDropdown}
                         setShowDropdown={firmLookup.setShowDropdown}
+                        openDropdown={firmLookup.openDropdown}
+                        dismissDropdown={firmLookup.dismissDropdown}
                         searchLoading={firmLookup.searchLoading}
+                        loadingMore={firmLookup.loadingMore}
+                        handleListScroll={firmLookup.handleListScroll}
+                        clearSelection={firmLookup.clearSelection}
+                        onSearchFocus={firmLookup.loadClientsOnFocus}
                         selectedFirm={firmLookup.selectedFirm}
                         setSelectedFirm={firmLookup.setSelectedFirm}
                     />
                 )}
-                {/* Bank Selection */}
                 {showBank && shouldShowBankSelector && (
                     <div>
-                        <label className="block text-sm font-medium text-slate-700 mb-1.5">
+                        <label className={COMPACT_LABEL}>
                             Bank Account <span className="text-red-500">*</span>
                         </label>
-
                         {(!selectedBank || showBankSearch) ? (
                             <BankSearchDropdown
+                                compact
+                                focusAccent="red"
                                 onSelect={(bank) => {
                                     setSelectedBank(bank);
                                     setShowBankSearch(false);
@@ -1341,77 +2544,76 @@ export const PaymentModal = ({ isOpen, onClose, bankDetails, bankId, onSubmit, f
                                 bank={selectedBank}
                                 onChangeBank={() => setShowBankSearch(true)}
                                 formatMoney={formatCurrency}
+                                variant="payment"
                             />
                         )}
                     </div>
                 )}
 
-                <div className="space-y-4">
-                    {/* Form Fields */}
-                    <div className="grid grid-cols-2 gap-4">
-                        <div>
-                            <label className="block text-sm font-medium text-slate-700 mb-1">
-                                Date <span className="text-red-500">*</span>
-                            </label>
-                            <DatePickerField
-                                value={transactionDate}
-                                onChange={setTransactionDate}
-                                mode="single"
-                                hideTabs={true}
-                                showResetButton={false}
-                                placeholder="Select date"
-                                buttonClassName="w-full px-4 py-3 border-2 border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                            />
-                        </div>
-
-                        <div>
-                            <label className="block text-sm font-medium text-slate-700 mb-1">
-                                Amount <span className="text-red-500">*</span>
-                            </label>
-                            <input
-                                type="text"
-                                name="amount"
-                                placeholder="Enter amount"
-                                required
-                                inputMode="decimal"
-                                value={amount}
-                                onChange={(e) => setAmount(sanitizeDecimalInput(e.target.value, 2))}
-                                className="w-full px-4 py-3 border-2 border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                            />
-                        </div>
-                    </div>
-
+                <div className="grid grid-cols-2 gap-3">
                     <div>
-                        <label className="block text-sm font-medium text-slate-700 mb-1">
-                            Description / Remark
+                        <label className={COMPACT_LABEL}>
+                            Date <span className="text-red-500">*</span>
                         </label>
-                        <textarea
-                            name="description"
-                            placeholder="Enter description or remark"
-                            rows="2"
-                            className="w-full px-4 py-3 border-2 border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        <DatePickerField
+                            value={transactionDate}
+                            onChange={(d) => {
+                                const picked = String(d || '').trim();
+                                if (!picked) {
+                                    setTransactionDate('');
+                                    return;
+                                }
+                                setTransactionDate(picked > todayIso ? todayIso : picked);
+                            }}
+                            mode="single"
+                            hideTabs={true}
+                            showResetButton={false}
+                            placeholder="Select date"
+                            buttonClassName={paymentFieldClass}
+                            maxSelectableDate={todayIso}
                         />
                     </div>
-
-                    {shouldShowPaymentSummary && (
-                        <div className="bg-slate-50 p-3 rounded-lg border border-slate-200">
-                            <p className="text-xs text-slate-600 mb-1">Transaction Summary</p>
-                            <div className="flex items-center justify-between text-sm">
-                                <span className="font-medium">Paying to:</span>
-                                <span className="text-red-600">{selectedClientDisplayName}</span>
-                            </div>
-                            <div className="flex items-center justify-between text-sm mt-1">
-                                <span className="font-medium">From Bank:</span>
-                                <span className="text-red-600">{selectedBank?.bank || (bankId ? `Bank #${bankId}` : 'Not selected')}</span>
-                            </div>
-                            <div className="flex items-center justify-between text-sm mt-1">
-                                <span className="font-medium">Available Balance:</span>
-                                <span className="text-green-600">₹{formatCurrency(selectedBank?.balance || 0)}</span>
-                            </div>
-                        </div>
-                    )}
+                    <div>
+                        <label className={COMPACT_LABEL}>
+                            Amount <span className="text-red-500">*</span>
+                        </label>
+                        <input
+                            type="text"
+                            name="amount"
+                            placeholder="0.00"
+                            inputMode="decimal"
+                            value={amount}
+                            onChange={(e) => setAmount(sanitizeDecimalInput(e.target.value, 2))}
+                            className={paymentFieldClass}
+                        />
+                    </div>
                 </div>
 
+                <div>
+                    <label className={COMPACT_LABEL}>Description / Remark</label>
+                    <textarea
+                        name="description"
+                        placeholder="Optional note"
+                        rows="2"
+                        value={description}
+                        onChange={(e) => setDescription(e.target.value)}
+                        className={`${paymentFieldClass} resize-none`}
+                    />
+                </div>
+
+                {shouldShowPaymentSummary && (
+                    <div className="rounded-md bg-red-50 border border-red-100 px-3 py-2 space-y-1">
+                        <p className="text-[11px] font-semibold uppercase tracking-wide text-red-700/80">Summary</p>
+                        <div className="flex items-center justify-between gap-2 text-xs">
+                            <span className="text-slate-600">Payment from</span>
+                            <span className="font-medium text-slate-800 truncate">{selectedBankDisplayName}</span>
+                        </div>
+                        <div className="flex items-center justify-between gap-2 text-xs">
+                            <span className="text-slate-600">Payment to</span>
+                            <span className="font-medium text-red-700 truncate">{selectedClientDisplayName}</span>
+                        </div>
+                    </div>
+                )}
             </form>
         </BaseModal>
     );
@@ -1520,7 +2722,24 @@ export const SaleForm = ({
     const [isLoadingParties, setIsLoadingParties] = useState(false);
     const [isLoadingBanks, setIsLoadingBanks] = useState(false);
     const [userSearchTerm, setUserSearchTerm] = useState('');
+    const [userLoadingMore, setUserLoadingMore] = useState(false);
+    const userPageRef = useRef(1);
+    const userHasMoreRef = useRef(false);
+    const userLoadingMoreRef = useRef(false);
+    const userSearchTermRef = useRef('');
+    const userSearchRequestIdRef = useRef(0);
     const [selectedSaleFirmId, setSelectedSaleFirmId] = useState('');
+    const salePartySearchRef = useRef(null);
+    const partyDropdownActiveRef = useRef(false);
+
+    const closePartyDropdown = useCallback(() => {
+        partyDropdownActiveRef.current = false;
+        setShowPartyDropdown(false);
+    }, []);
+
+    useClickOutside(salePartySearchRef, closePartyDropdown, showPartyDropdown);
+
+    const todayIso = useMemo(() => new Date().toISOString().split('T')[0], []);
 
     const effectiveSaleType = lockedSaleType ?? saleType;
     const typeToggleVisible = showSaleTypeToggle !== undefined ? showSaleTypeToggle : lockedSaleType == null;
@@ -1545,29 +2764,29 @@ export const SaleForm = ({
         fetchAllBanks();
     }, [effectiveSaleType, hidePartySelector, lockedSaleType]);
 
-    // Fetch users — same min length + debounce as Receive/Payment `FirmClientSearchFields`
+    // Fetch users — paginated client search (default list + debounced filter)
+    useEffect(() => {
+        userSearchTermRef.current = userSearchTerm;
+    }, [userSearchTerm]);
+
     useEffect(() => {
         if (hidePartySelector && effectiveSaleType === 'user') return;
         if (effectiveSaleType !== 'user') return;
-        const q = String(userSearchTerm || '').trim();
-        if (q.length < CLIENT_SEARCH_MIN) {
-            setShowPartyDropdown(false);
-            /* Keep last search results while a client is selected so `getSelectedParty` can resolve; cleared when party cleared */
-            if (!formData.party_id || effectiveSaleType !== 'user') {
-                setUserOptions([]);
-            }
-            return;
-        }
+        if (formData.party_id) return;
+        partyDropdownActiveRef.current = true;
+        setIsLoadingParties(true);
+        setUserOptions([]);
         const delayDebounce = setTimeout(() => {
-            fetchUsers();
-        }, 500);
+            userPageRef.current = 1;
+            fetchUsers(false);
+        }, SEARCH_DEBOUNCE_MS);
         return () => clearTimeout(delayDebounce);
     }, [effectiveSaleType, userSearchTerm, hidePartySelector, formData.party_id]);
 
     const fetchServices = async () => {
         setIsLoadingServices(true);
         try {
-            const response = await fetch(`${API_BASE_URL}/service/list?search=&category_id`, {
+            const response = await fetch(`${API_BASE_URL}/service/list?type=general&search=&page_no=1&limit=100`, {
                 method: 'GET',
                 headers: getHeaders()
             });
@@ -1626,79 +2845,75 @@ export const SaleForm = ({
         }
     };
 
-    const fetchUsers = async () => {
-        const q = String(userSearchTerm || '').trim();
-        if (q.length < CLIENT_SEARCH_MIN) {
-            setShowPartyDropdown(false);
-            return;
-        }
+    const fetchUsers = async (append = false) => {
+        const q = String(userSearchTermRef.current || '').trim();
+        const pageNum = append ? userPageRef.current + 1 : 1;
+        const requestId = ++userSearchRequestIdRef.current;
+        const isFirstPage = !append;
 
-        setIsLoadingParties(true);
+        if (isFirstPage) {
+            userPageRef.current = 1;
+            setIsLoadingParties(true);
+        } else {
+            setUserLoadingMore(true);
+            userLoadingMoreRef.current = true;
+        }
         try {
-            const response = await fetch(`${API_BASE_URL}/client/search?search=${encodeURIComponent(q)}`, {
-                method: 'GET',
-                headers: getHeaders()
-            });
-            const data = await response.json();
-            if (data.success) {
-                const opts = (data.data || []).map(client => ({
-                    id: client.client_id || client.username,
-                    type: 'user',
-                    name: client.name || client.firm_name,
-                    email: client.email,
-                    contact: client.mobile,
-                    gst_no: client.gst_no,
-                    pan_no: client.pan_number,
-                    username: client.username,
-                    address: client.address,
-                    city: client.city,
-                    state: client.state,
-                    pincode: client.pincode,
-                    balance: client.balance,
-                    profile: client.profile ?? client.profile_photo ?? client.profile_image,
-                    profile_photo: client.profile_photo,
-                    profile_image: client.profile_image,
-                    photo_url: client.photo_url,
-                    image: client.image,
-                    avatar: client.avatar,
-                    photo: client.photo,
-                    country_code: client.country_code,
-                    care_of: client.care_of,
-                    guardian_name: client.guardian_name,
-                    guardian_type: client.guardian_type,
-                    firms: Array.isArray(client.firms)
-                        ? client.firms.map((firm) => ({
-                            firm_id: firm.firm_id,
-                            firm_name: firm.firm_name,
-                            pan_no: firm.pan_no,
-                            file_no: firm.file_no,
-                            firm_type: firm.firm_type,
-                            gst_no: firm.gst_no,
-                            username: firm.username,
-                            status: firm.status,
-                            address: firm.address,
-                        }))
-                        : [],
-                }));
-                setUserOptions(opts);
-                setShowPartyDropdown(opts.length > 0);
-                setSelectedSaleUser((prev) => {
-                    if (!prev) return prev;
-                    const fresh = opts.find((o) => String(o.id) === String(prev.id));
-                    return fresh ?? prev;
-                });
+            const { list, isLast } = await fetchClientSearchPage({ search: q, pageNo: pageNum });
+            if (requestId !== userSearchRequestIdRef.current) return;
+            const opts = list.map(mapClientToSalePartyOption);
+            if (append) {
+                userPageRef.current = pageNum;
+                setUserOptions((prev) => [...prev, ...opts]);
             } else {
-                setUserOptions([]);
-                setShowPartyDropdown(false);
+                setUserOptions(opts);
+                if (partyDropdownActiveRef.current) {
+                    setShowPartyDropdown(true);
+                }
             }
+            userHasMoreRef.current = !isLast;
+            setSelectedSaleUser((prev) => {
+                if (!prev) return prev;
+                const fresh = opts.find((o) => String(o.id) === String(prev.id));
+                return fresh ?? prev;
+            });
         } catch (error) {
+            if (requestId !== userSearchRequestIdRef.current) return;
             console.error('Error fetching users:', error);
-            setUserOptions([]);
-            setShowPartyDropdown(false);
+            if (!append) {
+                setUserOptions([]);
+                if (partyDropdownActiveRef.current) {
+                    setShowPartyDropdown(false);
+                }
+            }
+            userHasMoreRef.current = false;
         } finally {
+            if (requestId !== userSearchRequestIdRef.current) return;
             setIsLoadingParties(false);
+            setUserLoadingMore(false);
+            userLoadingMoreRef.current = false;
         }
     };
+
+    const loadUsersOnFocus = useCallback(() => {
+        partyDropdownActiveRef.current = true;
+        setShowPartyDropdown(true);
+        const q = String(userSearchTermRef.current || '').trim();
+        if (q === '' && userOptions.length === 0) {
+            userPageRef.current = 1;
+            setIsLoadingParties(true);
+            setUserOptions([]);
+            fetchUsers(false);
+        }
+    }, [userOptions.length]);
+
+    const handleUserListScroll = useCallback((e) => {
+        const el = e.currentTarget;
+        if (userLoadingMoreRef.current || !userHasMoreRef.current || isLoadingParties) return;
+        if (el.scrollTop + el.clientHeight >= el.scrollHeight - 40) {
+            fetchUsers(true);
+        }
+    }, [isLoadingParties]);
 
     // Combined party options based on sale type
     const partyOptions = useMemo(() => {
@@ -1738,6 +2953,7 @@ export const SaleForm = ({
                 apply_round_off: false
             });
             setUserSearchTerm('');
+            partyDropdownActiveRef.current = false;
             setShowPartyDropdown(false);
             setUserOptions([]);
             setSelectedSaleUser(null);
@@ -2121,7 +3337,11 @@ export const SaleForm = ({
 
     const saleFormId = 'sale-create-form';
 
-    const formClassMerged = [mode === 'modal' ? 'space-y-5' : '', formClassName].filter(Boolean).join(' ').trim();
+    const formClassMerged = [mode === 'modal' ? 'space-y-3' : 'space-y-5', formClassName].filter(Boolean).join(' ').trim();
+    const isCompactModal = mode === 'modal';
+    const saleFieldClass = getCompactFieldClass(isCompactModal ? 'indigo' : 'blue');
+    const saleLabelClass = isCompactModal ? COMPACT_LABEL : 'block text-sm font-medium text-slate-700 mb-1';
+    const salePartyListOpen = showPartyDropdown && !formData.party_id;
 
     const partyReady = hidePartySelector && fixedParty?.id != null && fixedParty.id !== ''
         ? true
@@ -2146,89 +3366,145 @@ export const SaleForm = ({
     const saleFormElement = (
         <>
             {aboveForm}
-            <form id={saleFormId} onSubmit={handleSubmit} className={formClassMerged || undefined}>
-                {/* Party + date — Receive/Payment-style labels, bank search + preview cards */}
-                <div className="space-y-5 mb-6">
+            <form id={saleFormId} onSubmit={handleSubmit} noValidate={isCompactModal} className={formClassMerged || undefined}>
+                <div className={isCompactModal ? 'space-y-3' : 'space-y-5 mb-6'}>
+                    {isCompactModal && typeToggleVisible && (
+                        <div className="flex rounded-md border border-slate-200 bg-white p-0.5 w-fit" role="group" aria-label="Invoice party type">
+                            <button
+                                type="button"
+                                onClick={() => handleSaleTypeChange('user')}
+                                className={`px-2.5 py-1 text-xs font-medium rounded transition-colors ${effectiveSaleType === 'user' ? 'bg-indigo-600 text-white shadow-sm' : 'text-slate-600 hover:bg-slate-50'}`}
+                            >
+                                Client
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => handleSaleTypeChange('bank')}
+                                className={`px-2.5 py-1 text-xs font-medium rounded transition-colors ${effectiveSaleType === 'bank' ? 'bg-indigo-600 text-white shadow-sm' : 'text-slate-600 hover:bg-slate-50'}`}
+                            >
+                                Bank
+                            </button>
+                        </div>
+                    )}
+
+                    {isCompactModal && (
+                        <div>
+                            <label className={COMPACT_LABEL}>
+                                Sale date <span className="text-red-500">*</span>
+                            </label>
+                            <DatePickerField
+                                value={formData.payment_date}
+                                onChange={(value) => {
+                                    const picked = String(value || '').trim();
+                                    if (!picked) {
+                                        setFormData((prev) => ({ ...prev, payment_date: '' }));
+                                        return;
+                                    }
+                                    setFormData((prev) => ({
+                                        ...prev,
+                                        payment_date: picked > todayIso ? todayIso : picked,
+                                    }));
+                                }}
+                                mode="single"
+                                hideTabs={true}
+                                showResetButton={false}
+                                placeholder="Select date"
+                                buttonClassName={saleFieldClass}
+                                maxSelectableDate={todayIso}
+                            />
+                        </div>
+                    )}
+
                     {!hidePartySelector && effectiveSaleType === 'user' && (
-                        <div className="space-y-3">
-                            <label className="block text-sm font-medium text-slate-700 mb-1">
+                        <div className={isCompactModal ? 'space-y-1.5' : 'space-y-3'}>
+                            <label className={saleLabelClass}>
                                 Client <span className="text-red-500">*</span>
                             </label>
                             {!formData.party_id ? (
                                 <>
-                                    <p className="text-xs text-slate-500 mb-1.5">
-                                        Type at least {CLIENT_SEARCH_MIN} characters (name, mobile, email, or PAN).
-                                    </p>
-                                    <div className="relative">
-                                        <input
-                                            type="text"
-                                            value={userSearchTerm}
-                                            onChange={(e) => {
-                                                const value = e.target.value;
-                                                setUserSearchTerm(value);
-                                                if (!value.trim()) {
-                                                    setUserOptions([]);
-                                                    setShowPartyDropdown(false);
-                                                }
-                                            }}
-                                            onFocus={() => {
-                                                if (partyOptions.length > 0) setShowPartyDropdown(true);
-                                            }}
-                                            placeholder="Name, mobile, email, or PAN (min 3 characters)"
-                                            className="w-full px-4 py-3 border-2 border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                                            autoComplete="off"
-                                        />
-                                        {isLoadingParties && (
-                                            <div className="absolute right-3 top-1/2 -translate-y-1/2">
-                                                <div className="animate-spin rounded-full h-4 w-4 border-2 border-blue-500 border-t-transparent" />
+                                    {!isCompactModal && (
+                                        <p className="text-xs text-slate-500 mb-1.5">
+                                            Search by name, mobile, email, or PAN.
+                                        </p>
+                                    )}
+                                    <div ref={salePartySearchRef}>
+                                        <div className={`rounded-md border bg-white overflow-hidden transition-all ${getComboboxOpenClass(salePartyListOpen, isCompactModal ? 'indigo' : 'blue')}`}>
+                                            <div className="flex items-center gap-2 px-2.5 py-1.5">
+                                                <FiSearch className="w-3.5 h-3.5 text-slate-400 shrink-0" aria-hidden />
+                                                <input
+                                                    type="text"
+                                                    value={userSearchTerm}
+                                                    onChange={(e) => {
+                                                        partyDropdownActiveRef.current = true;
+                                                        setUserSearchTerm(e.target.value);
+                                                        setShowPartyDropdown(true);
+                                                        setIsLoadingParties(true);
+                                                        setUserOptions([]);
+                                                    }}
+                                                    onFocus={() => {
+                                                        partyDropdownActiveRef.current = true;
+                                                        loadUsersOnFocus();
+                                                    }}
+                                                    placeholder="Name, mobile, email, or PAN"
+                                                    className="flex-1 min-w-0 border-0 bg-transparent text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-0 py-0.5"
+                                                    autoComplete="off"
+                                                />
+                                                {isLoadingParties && salePartyListOpen ? (
+                                                    <ComboboxSearchSpinner />
+                                                ) : (
+                                                    <FiChevronDown
+                                                        className={`w-3.5 h-3.5 text-slate-400 shrink-0 transition-transform duration-200 ${salePartyListOpen ? 'rotate-180' : ''}`}
+                                                        aria-hidden
+                                                    />
+                                                )}
                                             </div>
-                                        )}
-                                        {showPartyDropdown && partyOptions.length > 0 && (
-                                            <div className="absolute z-[60] mt-1 w-full max-w-[calc(100%-0.5rem)] bg-white border-2 border-slate-200 rounded-lg shadow-xl max-h-60 overflow-y-auto">
-                                                {partyOptions.map((party) => (
-                                                    <button
-                                                        key={party.id}
-                                                        type="button"
-                                                        onClick={() => handlePartySelect(party.id)}
-                                                        className="w-full flex items-start gap-3 px-4 py-3 text-left border-b border-slate-100 last:border-0 transition-colors hover:bg-blue-50"
-                                                    >
-                                                        <ClientSearchAvatar client={partyRowToSearchClient(party)} sizeClass="w-9 h-9" textClass="text-sm" />
-                                                        <div className="min-w-0 flex-1">
-                                                            <div className="font-medium text-slate-800 truncate">{party.name || '—'}</div>
-                                                            <div className="text-xs text-slate-600 mt-1 space-y-0.5">
-                                                                <p className="flex items-center gap-1.5">
-                                                                    <FiPhone className="w-3 h-3 shrink-0 text-slate-400" />
-                                                                    <span>{party.country_code ? `+${party.country_code} ` : ''}{party.contact || '—'}</span>
-                                                                </p>
-                                                                <p className="flex items-center gap-1.5 break-all">
-                                                                    <FiMail className="w-3 h-3 shrink-0 text-slate-400" />
-                                                                    <span>{party.email || '—'}</span>
-                                                                </p>
-                                                                <p className="flex items-center gap-1.5">
-                                                                    <FiCreditCard className="w-3 h-3 shrink-0 text-slate-400" />
-                                                                    <span className="font-mono">{party.pan_no || '—'}</span>
-                                                                    <span className="text-slate-400">·</span>
-                                                                    <span className="font-semibold text-slate-700">Bal. ₹{formatMoney(party.balance ?? 0)}</span>
-                                                                </p>
-                                                            </div>
-                                                        </div>
-                                                    </button>
-                                                ))}
-                                            </div>
-                                        )}
+                                            {salePartyListOpen && (
+                                                <div
+                                                    className={`border-t border-slate-100 ${isCompactModal ? 'max-h-56' : 'max-h-60'} overflow-y-auto`}
+                                                    onScroll={handleUserListScroll}
+                                                >
+                                                    {isLoadingParties ? (
+                                                        <ClientSearchSkeletonRows rows={5} />
+                                                    ) : (
+                                                        <>
+                                                            {userOptions.map((party) => (
+                                                                <ClientSearchOptionRow
+                                                                    key={party.id}
+                                                                    client={{
+                                                                        name: party.name,
+                                                                        mobile: party.contact,
+                                                                        email: party.email,
+                                                                        pan_number: party.pan_no,
+                                                                        country_code: party.country_code,
+                                                                        balance: party.balance,
+                                                                        username: party.username,
+                                                                        profile: party.profile,
+                                                                        profile_photo: party.profile_photo,
+                                                                        image: party.image,
+                                                                    }}
+                                                                    formatBalance={formatPlainInrAmount}
+                                                                    itemHover={isCompactModal ? 'hover:bg-indigo-50' : 'hover:bg-blue-50'}
+                                                                    onSelect={() => handlePartySelect(party.id)}
+                                                                />
+                                                            ))}
+                                                            {userLoadingMore && <ClientSearchSkeletonRows rows={2} />}
+                                                        </>
+                                                    )}
+                                                    {!isLoadingParties && !userLoadingMore && userOptions.length === 0 && (
+                                                        <p className="px-2.5 py-3 text-xs text-center text-slate-500">No clients found</p>
+                                                    )}
+                                                </div>
+                                            )}
+                                        </div>
                                     </div>
-                                    {!isLoadingParties
-                                        && userSearchTerm.trim().length >= CLIENT_SEARCH_MIN
-                                        && partyOptions.length === 0 && (
-                                            <p className="text-xs text-slate-500 mt-1.5">No clients found</p>
-                                        )}
                                 </>
                             ) : (
-                                <div className="space-y-3">
+                                <div className={isCompactModal ? 'space-y-2' : 'space-y-3'}>
                                     <SaleClientPreviewCard
                                         party={getSelectedParty()}
                                         summary={summary}
                                         formatMoney={formatMoney}
+                                        variant="sale"
                                         onChangeClient={() => {
                                             setFormData((prev) => ({ ...prev, party_id: '' }));
                                             setSelectedSaleUser(null);
@@ -2239,7 +3515,7 @@ export const SaleForm = ({
                                         }}
                                     />
                                     {selectedSaleFirms.length > 0 && (
-                                        <div className="rounded-lg border border-slate-200 bg-white p-3">
+                                        <div className={`rounded-md border border-slate-200 bg-white ${isCompactModal ? 'p-2.5' : 'p-3'}`}>
                                             <SelectInput
                                                 label="Firm (optional)"
                                                 options={saleFirmSelectOptions}
@@ -2250,7 +3526,7 @@ export const SaleForm = ({
                                                 noOptionsText="No firms available"
                                                 clearable
                                             />
-                                            {selectedSaleFirm && (
+                                            {selectedSaleFirm && !isCompactModal && (
                                                 <div className="mt-3 rounded-lg border border-slate-100 bg-slate-50 p-3 text-xs text-slate-700">
                                                     <div className="font-semibold text-slate-800">{selectedSaleFirm.firm_name || '—'}</div>
                                                     <div className="mt-1 grid grid-cols-1 gap-1 sm:grid-cols-2">
@@ -2269,12 +3545,14 @@ export const SaleForm = ({
                     )}
 
                     {!hidePartySelector && effectiveSaleType === 'bank' && (
-                        <div className="space-y-2">
-                            <label className="block text-sm font-medium text-slate-700 mb-1.5">
+                        <div className={isCompactModal ? 'space-y-1.5' : 'space-y-2'}>
+                            <label className={isCompactModal ? COMPACT_LABEL : 'block text-sm font-medium text-slate-700 mb-1.5'}>
                                 Bank Account <span className="text-red-500">*</span>
                             </label>
                             {(!formData.party_id || saleBankPickerOpen) ? (
                                 <BankSearchDropdown
+                                    compact={isCompactModal}
+                                    focusAccent={isCompactModal ? 'indigo' : 'blue'}
                                     onSelect={(bank) => {
                                         setFormData((prev) => ({ ...prev, party_id: String(bank.bank_id) }));
                                         setSaleBankRow(bank);
@@ -2287,6 +3565,7 @@ export const SaleForm = ({
                                     bank={bankCardFromSearchOrParty()}
                                     onChangeBank={() => setSaleBankPickerOpen(true)}
                                     formatMoney={formatMoney}
+                                    variant="receive"
                                 />
                             )}
                         </div>
@@ -2299,6 +3578,7 @@ export const SaleForm = ({
                                     party={getSelectedParty()}
                                     summary={summary}
                                     formatMoney={formatMoney}
+                                    variant="sale"
                                     readOnly
                                 />
                             ) : (
@@ -2318,7 +3598,7 @@ export const SaleForm = ({
                         </div>
                     )}
 
-                    {mode !== 'modal' && (
+                    {!isCompactModal && (
                         <div className="max-w-md">
                             <label className="block text-sm font-medium text-slate-700 mb-1">
                                 Date <span className="text-red-500">*</span>
@@ -2339,39 +3619,39 @@ export const SaleForm = ({
                 {belowPartySection}
 
                 {/* Services Section */}
-                <div className="mb-6">
-                    <div className="flex justify-between items-center mb-4">
+                <div className={isCompactModal ? 'mb-3' : 'mb-6'}>
+                    <div className={`flex justify-between items-center ${isCompactModal ? 'mb-2' : 'mb-4'}`}>
                         <div>
-                            <h3 className="text-base font-bold text-gray-900">Services & Items</h3>
-                            <p className="text-xs text-gray-600 mt-0.5">Add services and items for this invoice</p>
+                            <h3 className={`${isCompactModal ? 'text-sm font-semibold' : 'text-base font-bold'} text-gray-900`}>Services & Items</h3>
+                            {!isCompactModal && (
+                                <p className="text-xs text-gray-600 mt-0.5">Add services and items for this invoice</p>
+                            )}
                         </div>
                         <button
                             type="button"
                             onClick={addItem}
                             disabled={isLoadingServices}
-                            className="inline-flex items-center px-3 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:ring-offset-1 transition-all duration-200 shadow-sm text-sm disabled:opacity-50"
+                            className={`inline-flex items-center bg-indigo-600 text-white rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:ring-offset-1 transition-colors disabled:opacity-50 ${isCompactModal ? 'px-2 py-1 text-xs' : 'px-3 py-2 text-sm shadow-sm'}`}
                         >
-                            <svg className="w-3.5 h-3.5 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                            </svg>
+                            <FiPlus className={`${isCompactModal ? 'w-3 h-3 mr-1' : 'w-3.5 h-3.5 mr-1.5'}`} aria-hidden />
                             Add Service
                         </button>
                     </div>
 
-                    <div className="overflow-hidden border border-gray-300 rounded-lg shadow-sm text-sm">
+                    <div className={`overflow-hidden border border-gray-300 rounded-md ${isCompactModal ? '' : 'shadow-sm'} text-sm`}>
                         <table className="min-w-full divide-y divide-gray-200">
-                            <thead className="bg-gradient-to-r from-gray-50 to-gray-100">
+                            <thead className={isCompactModal ? 'bg-slate-50' : 'bg-gradient-to-r from-gray-50 to-gray-100'}>
                                 <tr>
-                                    <th className="px-3 py-2.5 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Service</th>
-                                    <th className="px-3 py-2.5 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Description</th>
-                                    <th className="px-3 py-2.5 text-right text-xs font-semibold text-gray-700 uppercase tracking-wider">Price</th>
-                                    <th className="px-3 py-2.5 text-center text-xs font-semibold text-gray-700 uppercase tracking-wider">Action</th>
+                                    <th className={`${isCompactModal ? 'px-2 py-1.5' : 'px-3 py-2.5'} text-left text-[11px] font-semibold text-gray-700 uppercase tracking-wider`}>Service</th>
+                                    <th className={`${isCompactModal ? 'px-2 py-1.5' : 'px-3 py-2.5'} text-left text-[11px] font-semibold text-gray-700 uppercase tracking-wider`}>Description</th>
+                                    <th className={`${isCompactModal ? 'px-2 py-1.5' : 'px-3 py-2.5'} text-right text-[11px] font-semibold text-gray-700 uppercase tracking-wider`}>Price</th>
+                                    <th className={`${isCompactModal ? 'px-2 py-1.5' : 'px-3 py-2.5'} text-center text-[11px] font-semibold text-gray-700 uppercase tracking-wider`}>Action</th>
                                 </tr>
                             </thead>
                             <tbody className="bg-white divide-y divide-gray-200">
                                 {formData.items.map((item, index) => (
                                     <tr key={index} className="hover:bg-gray-50 transition-colors duration-150">
-                                        <td className="px-3 py-2.5 min-w-[220px]">
+                                        <td className={`${isCompactModal ? 'px-2 py-1.5' : 'px-3 py-2.5'} min-w-[180px]`}>
                                             <SelectInput
                                                 options={serviceSelectOptions}
                                                 value={item.service_id !== '' && item.service_id != null ? String(item.service_id) : null}
@@ -2383,29 +3663,29 @@ export const SaleForm = ({
                                                 className="text-sm"
                                             />
                                         </td>
-                                        <td className="px-3 py-2.5">
+                                        <td className={isCompactModal ? 'px-2 py-1.5' : 'px-3 py-2.5'}>
                                             <input
                                                 type="text"
-                                                className="w-full px-2.5 py-1.5 border border-gray-300 rounded text-sm focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-150"
+                                                className={`w-full border border-gray-300 rounded text-sm focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 transition-colors ${isCompactModal ? 'px-2 py-1' : 'px-2.5 py-1.5'}`}
                                                 placeholder="Description"
                                                 value={item.description}
                                                 onChange={(e) => handleItemChange(index, 'description', e.target.value)}
                                             />
                                         </td>
-                                        <td className="px-3 py-2.5">
+                                        <td className={isCompactModal ? 'px-2 py-1.5' : 'px-3 py-2.5'}>
                                             <input
                                                 type="text"
                                                 name={`sale-price-${index}`}
                                                 inputMode="decimal"
                                                 autoComplete="off"
-                                                className="w-full px-2.5 py-1.5 border border-gray-300 rounded text-sm focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-150 text-right"
+                                                className={`w-full border border-gray-300 rounded text-sm focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 transition-colors text-right ${isCompactModal ? 'px-2 py-1' : 'px-2.5 py-1.5'}`}
                                                 placeholder="0.00"
                                                 value={item.price ?? ''}
                                                 onChange={(e) => handleItemChange(index, 'price', e.target.value)}
                                                 required
                                             />
                                         </td>
-                                        <td className="px-3 py-2.5 text-center">
+                                        <td className={`${isCompactModal ? 'px-2 py-1.5' : 'px-3 py-2.5'} text-center`}>
                                             <button
                                                 type="button"
                                                 onClick={() => removeItem(index)}
@@ -2423,38 +3703,40 @@ export const SaleForm = ({
                 </div>
 
                 {/* Additional Fields Section */}
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
-                    <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm">
-                        <div className="flex items-center mb-3">
-                            <div className="p-1.5 bg-indigo-100 text-indigo-600 rounded mr-2">
-                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                </svg>
+                <div className={`grid grid-cols-1 ${isCompactModal ? 'lg:grid-cols-2 gap-3 mb-3' : 'lg:grid-cols-2 gap-4 mb-6'}`}>
+                    <div className={`bg-white rounded-md border border-gray-200 ${isCompactModal ? 'p-2.5' : 'p-4 shadow-sm'}`}>
+                        {!isCompactModal && (
+                            <div className="flex items-center mb-3">
+                                <div className="p-1.5 bg-indigo-100 text-indigo-600 rounded mr-2">
+                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                    </svg>
+                                </div>
+                                <h4 className="text-sm font-bold text-gray-900">Additional Settings</h4>
                             </div>
-                            <h4 className="text-sm font-bold text-gray-900">Additional Settings</h4>
-                        </div>
-                        <div className="space-y-3">
+                        )}
+                        {isCompactModal && (
+                            <p className={`${COMPACT_LABEL} mb-1.5`}>Additional settings</p>
+                        )}
+                        <div className={isCompactModal ? 'space-y-2' : 'space-y-3'}>
                             <div>
-                                <label className="block text-xs font-medium text-gray-700 mb-1.5">Additional Charge (₹)</label>
+                                <label className={isCompactModal ? COMPACT_LABEL : 'block text-xs font-medium text-gray-700 mb-1.5'}>Additional Charge (₹)</label>
                                 <input
                                     type="text"
                                     inputMode="decimal"
                                     autoComplete="off"
-                                    className="w-full px-3 py-1.5 border border-gray-300 rounded text-sm focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500"
+                                    className={`w-full border border-gray-300 rounded text-sm focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 ${isCompactModal ? `${saleFieldClass} py-1.5` : 'px-3 py-1.5'}`}
                                     name="additional_charge"
                                     value={formData.additional_charge ?? ''}
                                     onChange={handleInputChange}
                                     placeholder="0.00"
                                 />
-                                <p className="text-xs text-gray-500 mt-1">Additional charge will be added after GST calculation</p>
+                                {!isCompactModal && (
+                                    <p className="text-xs text-gray-500 mt-1">Additional charge will be added after GST calculation</p>
+                                )}
                             </div>
                             <div className="flex items-center justify-between">
-                                <div className="flex items-center">
-                                    <svg className="w-4 h-4 text-gray-500 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
-                                    </svg>
-                                    <span className="text-xs font-medium text-gray-700">Apply Round Off</span>
-                                </div>
+                                <span className={`${isCompactModal ? 'text-xs' : 'text-xs font-medium'} text-gray-700`}>Apply Round Off</span>
                                 <label className="relative inline-flex items-center cursor-pointer">
                                     <input
                                         type="checkbox"
@@ -2469,17 +3751,20 @@ export const SaleForm = ({
                     </div>
 
                     {/* Notes Section */}
-                    <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm">
-                        <div className="flex items-center mb-3">
-                            <div className="p-1.5 bg-indigo-100 text-indigo-600 rounded mr-2">
-                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                                </svg>
+                    <div className={`bg-white rounded-md border border-gray-200 ${isCompactModal ? 'p-2.5' : 'p-4 shadow-sm'}`}>
+                        {!isCompactModal && (
+                            <div className="flex items-center mb-3">
+                                <div className="p-1.5 bg-indigo-100 text-indigo-600 rounded mr-2">
+                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                    </svg>
+                                </div>
+                                <h4 className="text-sm font-bold text-gray-900">Notes</h4>
                             </div>
-                            <h4 className="text-sm font-bold text-gray-900">Notes</h4>
-                        </div>
+                        )}
+                        <label className={isCompactModal ? COMPACT_LABEL : 'sr-only'}>Notes</label>
                         <textarea
-                            className="w-full h-28 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-150 resize-none bg-gray-50 text-sm"
+                            className={`w-full border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 resize-none text-sm ${isCompactModal ? `${saleFieldClass} h-20 py-1.5` : 'h-28 px-3 py-2 bg-gray-50'}`}
                             placeholder="Notes"
                             name="notes"
                             value={formData.notes}
@@ -2489,22 +3774,25 @@ export const SaleForm = ({
                 </div>
 
                 {/* Discount and Totals Section */}
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+                <div className={`grid grid-cols-1 ${isCompactModal ? 'lg:grid-cols-3 gap-3' : 'lg:grid-cols-3 gap-4'}`}>
                     {/* Discount Section */}
-                    <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm">
-                        <div className="flex items-center mb-3">
-                            <div className="p-1.5 bg-indigo-100 text-indigo-600 rounded mr-2">
-                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                </svg>
+                    <div className={`bg-white rounded-md border border-gray-200 ${isCompactModal ? 'p-2.5' : 'p-4 shadow-sm'}`}>
+                        {!isCompactModal && (
+                            <div className="flex items-center mb-3">
+                                <div className="p-1.5 bg-indigo-100 text-indigo-600 rounded mr-2">
+                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                    </svg>
+                                </div>
+                                <h4 className="text-sm font-bold text-gray-900">Discount</h4>
                             </div>
-                            <h4 className="text-sm font-bold text-gray-900">Discount</h4>
-                        </div>
-                        <div className="space-y-3">
+                        )}
+                        {isCompactModal && <p className={`${COMPACT_LABEL} mb-1.5`}>Discount</p>}
+                        <div className={isCompactModal ? 'space-y-2' : 'space-y-3'}>
                             <div>
-                                <label className="block text-xs font-medium text-gray-700 mb-1.5">Discount Type</label>
+                                <label className={isCompactModal ? COMPACT_LABEL : 'block text-xs font-medium text-gray-700 mb-1.5'}>Discount Type</label>
                                 <select
-                                    className="w-full px-3 py-1.5 border border-gray-300 rounded text-sm focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-150"
+                                    className={`w-full border border-gray-300 rounded text-sm focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 ${isCompactModal ? saleFieldClass : 'px-3 py-1.5'}`}
                                     name="discount_type"
                                     value={formData.discount_type}
                                     onChange={handleInputChange}
@@ -2514,14 +3802,14 @@ export const SaleForm = ({
                                 </select>
                             </div>
                             <div>
-                                <label className="block text-xs font-medium text-gray-700 mb-1.5">
+                                <label className={isCompactModal ? COMPACT_LABEL : 'block text-xs font-medium text-gray-700 mb-1.5'}>
                                     {formData.discount_type === 'percentage' ? 'Percentage (%)' : 'Amount (₹)'}
                                 </label>
                                 <input
                                     type="text"
                                     inputMode="decimal"
                                     autoComplete="off"
-                                    className="w-full px-3 py-1.5 border border-gray-300 rounded text-sm focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-150"
+                                    className={`w-full border border-gray-300 rounded text-sm focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 ${isCompactModal ? saleFieldClass : 'px-3 py-1.5'}`}
                                     name="discount"
                                     value={formData.discount ?? ''}
                                     onChange={handleInputChange}
@@ -2532,16 +3820,19 @@ export const SaleForm = ({
                     </div>
 
                     {/* Totals Section */}
-                    <div className="lg:col-span-2 bg-gradient-to-br from-indigo-50 to-white p-4 rounded-lg border border-indigo-100 shadow-sm">
-                        <div className="flex items-center mb-4">
-                            <div className="p-1.5 bg-indigo-600 text-white rounded mr-2">
-                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
-                                </svg>
+                    <div className={`lg:col-span-2 rounded-md border ${isCompactModal ? 'p-2.5 border-indigo-100 bg-indigo-50/40' : 'p-4 border-indigo-100 bg-gradient-to-br from-indigo-50 to-white shadow-sm'}`}>
+                        {!isCompactModal && (
+                            <div className="flex items-center mb-4">
+                                <div className="p-1.5 bg-indigo-600 text-white rounded mr-2">
+                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                                    </svg>
+                                </div>
+                                <h4 className="text-sm font-bold text-gray-900">Summary</h4>
                             </div>
-                            <h4 className="text-sm font-bold text-gray-900">Summary</h4>
-                        </div>
-                        <div className="space-y-2 text-sm">
+                        )}
+                        {isCompactModal && <p className={`${COMPACT_LABEL} mb-1.5 text-indigo-700/80`}>Summary</p>}
+                        <div className={`space-y-1 ${isCompactModal ? 'text-xs' : 'text-sm space-y-2'}`}>
                             <div className="flex justify-between items-center py-1">
                                 <span className="text-gray-600">Subtotal:</span>
                                 <span className="font-semibold text-gray-900">{formatMoney(formData.subtotal)}</span>
@@ -2595,9 +3886,37 @@ export const SaleForm = ({
                                     </div>
                                 </div>
                             )}
+
+                            {isCompactModal && (
+                                <div className="pt-1.5 mt-1 border-t border-indigo-100/80">
+                                    <div className="flex justify-between items-center font-semibold text-slate-900">
+                                        <span>Grand Total</span>
+                                        <span className="text-indigo-700 tabular-nums">{formatMoney(formData.grand_total)}</span>
+                                    </div>
+                                </div>
+                            )}
                         </div>
                     </div>
                 </div>
+
+                {isCompactModal && partyReady && (() => {
+                    const summaryParty = getSelectedParty();
+                    const summaryName = summaryParty?.name || fixedParty?.name || '—';
+                    if (!summaryName || summaryName === '—') return null;
+                    return (
+                        <div className="rounded-md bg-indigo-50 border border-indigo-100 px-3 py-2 space-y-1">
+                            <p className="text-[11px] font-semibold uppercase tracking-wide text-indigo-700/80">Invoice</p>
+                            <div className="flex items-center justify-between gap-2 text-xs">
+                                <span className="text-slate-600">{effectiveSaleType === 'user' ? 'Sale to' : 'Sale from'}</span>
+                                <span className="font-medium text-slate-800 truncate">{summaryName}</span>
+                            </div>
+                            <div className="flex items-center justify-between gap-2 text-xs sm:hidden">
+                                <span className="text-slate-600">Grand total</span>
+                                <span className="font-semibold text-indigo-700 tabular-nums">{formatMoney(formData.grand_total)}</span>
+                            </div>
+                        </div>
+                    );
+                })()}
             </form>
         </>
     );
@@ -2760,73 +4079,16 @@ export const SaleForm = ({
     );
 
     if (mode === 'modal') {
-        const salePartyTypeHeader = typeToggleVisible ? (
-            <div className="flex rounded-lg border border-slate-200 bg-white p-0.5 shadow-sm shrink-0" role="group" aria-label="Invoice party type">
-                <button
-                    type="button"
-                    onClick={() => handleSaleTypeChange('user')}
-                    className={`px-2.5 py-1.5 text-xs sm:text-sm font-medium rounded-md transition-all ${effectiveSaleType === 'user' ? 'bg-slate-800 text-white shadow-sm' : 'text-slate-600 hover:bg-slate-50'}`}
-                >
-                    Client
-                </button>
-                <button
-                    type="button"
-                    onClick={() => handleSaleTypeChange('bank')}
-                    className={`px-2.5 py-1.5 text-xs sm:text-sm font-medium rounded-md transition-all ${effectiveSaleType === 'bank' ? 'bg-slate-800 text-white shadow-sm' : 'text-slate-600 hover:bg-slate-50'}`}
-                >
-                    Bank
-                </button>
-            </div>
-        ) : null;
-
-        const saleModalHeaderTrailing = (
-            <div className="flex flex-wrap items-center justify-end gap-2">
-                <div className="flex items-center gap-1.5 shrink-0">
-                    <span className="text-xs font-medium text-slate-600 whitespace-nowrap">
-                        Date <span className="text-red-500">*</span>
-                    </span>
-                    <DatePickerField
-                        value={formData.payment_date}
-                        onChange={(value) => setFormData((prev) => ({ ...prev, payment_date: value || '' }))}
-                        mode="single"
-                        hideTabs={true}
-                        showResetButton={false}
-                        placeholder="Invoice date"
-                        buttonClassName="min-w-[8.5rem] w-[8.5rem] sm:min-w-[9.25rem] sm:w-[9.25rem] px-2.5 py-1.5 border-2 border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
-                    />
-                </div>
-                {salePartyTypeHeader}
-            </div>
-        );
-
         const hasSaleLineReady = formData.items.some(
             (item) => item.service_id && parseDecimalValue(item.price) > 0
         );
         const isSaleSubmitDisabled = isSubmitting || !partyReady || !hasSaleLineReady;
         const defaultSubmitLabel = 'Create Sale';
+        const saleAccentBtn = MODAL_ACCENT_STYLES.sale.primaryBtn;
 
-        const invoiceFooterToggle = (checked, onCheckedChange, icon, ariaLabel, onTrackClass) => (
-            <button
-                type="button"
-                role="switch"
-                aria-checked={checked}
-                aria-label={ariaLabel}
-                title={ariaLabel}
-                onClick={() => onCheckedChange(!checked)}
-                className="inline-flex items-center gap-2 rounded-lg py-1 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/40"
-            >
-                <span
-                    className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border border-slate-200/80 transition-colors ${checked ? onTrackClass : 'bg-slate-200'}`}
-                >
-                    <span
-                        className={`pointer-events-none absolute top-0.5 left-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform duration-200 ease-out ${checked ? 'translate-x-5' : 'translate-x-0'}`}
-                    />
-                </span>
-                <span className="text-slate-600 [&>svg]:h-4 [&>svg]:w-4 [&>svg]:shrink-0" aria-hidden>
-                    {icon}
-                </span>
-            </button>
-        );
+        const triggerSaleSubmit = () => {
+            handleSubmit({ preventDefault: () => { } });
+        };
 
         return (
             <BaseModal
@@ -2834,38 +4096,44 @@ export const SaleForm = ({
                 onClose={onClose}
                 title={modalTitle}
                 maxWidth={modalMaxWidth}
-                closeOnOverlayClick={closeOnOverlayClick}
-                headerTrailing={saleModalHeaderTrailing}
+                compact
+                closeOnOverlayClick={false}
+                accent="sale"
+                titleIcon={<FiShoppingBag className="w-4 h-4" aria-hidden />}
                 footer={(
-                    <div className="flex w-full flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
-                        {showNotificationToggles && (
-                            <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
-                                <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Send invoice</span>
-                                {invoiceFooterToggle(sendEmail, setSendEmail, <FiMail />, 'Email invoice', 'bg-slate-700')}
-                                {invoiceFooterToggle(sendSms, setSendSms, <FiMessageSquare />, 'SMS invoice', 'bg-sky-600')}
-                                {invoiceFooterToggle(sendWhatsApp, setSendWhatsApp, <FiMessageCircle className="text-emerald-600" />, 'WhatsApp invoice', 'bg-emerald-600')}
-                            </div>
+                    <div className="flex flex-col gap-2.5 sm:flex-row sm:items-center sm:justify-between w-full">
+                        {showNotificationToggles ? (
+                            <TransactionNotifyCheckboxes
+                                sendSms={sendSms}
+                                setSendSms={setSendSms}
+                                sendWhatsApp={sendWhatsApp}
+                                setSendWhatsApp={setSendWhatsApp}
+                                sendEmail={sendEmail}
+                                setSendEmail={setSendEmail}
+                            />
+                        ) : (
+                            <div />
                         )}
-                        <div className="flex w-full flex-wrap items-center justify-end gap-3 sm:w-auto">
-                            <div className="text-sm text-right">
-                                <span className="text-xs font-medium text-slate-500">Grand total</span>
-                                <span className="ml-2 text-base font-semibold tabular-nums text-slate-900">{formatMoney(formData.grand_total)}</span>
+                        <div className="flex flex-wrap items-center justify-end gap-2 shrink-0">
+                            <div className="text-xs text-right mr-1 hidden sm:block">
+                                <span className="text-slate-500">Total </span>
+                                <span className="font-semibold tabular-nums text-slate-900">{formatMoney(formData.grand_total)}</span>
                             </div>
                             <button
                                 type="button"
                                 onClick={onClose}
                                 disabled={isSubmitting}
-                                className="px-4 py-2 bg-white border border-slate-300 text-slate-700 rounded-lg text-sm font-medium hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-slate-500/40 disabled:opacity-50 transition-all duration-200"
+                                className="px-3 py-1.5 bg-white border border-slate-300 text-slate-700 rounded-md text-xs font-medium hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-slate-500/30 disabled:opacity-50 transition-colors"
                             >
                                 Cancel
                             </button>
                             <button
-                                type="submit"
-                                form={saleFormId}
+                                type="button"
                                 disabled={isSaleSubmitDisabled}
-                                className="px-4 py-2 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-lg text-sm font-medium hover:from-blue-700 hover:to-blue-800 focus:outline-none focus:ring-2 focus:ring-blue-500/40 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 inline-flex items-center justify-center min-w-[160px]"
+                                onClick={triggerSaleSubmit}
+                                className={`px-3 py-1.5 text-white rounded-md text-xs font-medium focus:outline-none focus:ring-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors inline-flex items-center justify-center min-w-[110px] ${saleAccentBtn}`}
                             >
-                                {isSubmitting ? 'Creating...' : (submitButtonLabel || defaultSubmitLabel)}
+                                {isSubmitting ? 'Creating…' : (submitButtonLabel || defaultSubmitLabel)}
                             </button>
                         </div>
                     </div>
@@ -2962,15 +4230,20 @@ export const PurchaseForm = ({
     onSuccess = () => { },
     mode = 'modal',
     initialPartyId = '',
+    defaultPurchaseType = 'ca',
+    lockedPurchaseType = null,
     hidePartySelector = false,
     fixedParty = null,
     showFixedPartyBanner = true,
+    showPurchaseTypeToggle,
     modalTitle = 'Create Purchase Bill',
     modalMaxWidth = 'max-w-4xl',
     closeOnOverlayClick = false,
+    showNotificationToggles = true,
     formClassName = '',
     submitButtonLabel = '',
 }) => {
+    const [purchaseType, setPurchaseType] = useState(lockedPurchaseType || defaultPurchaseType);
     const [formData, setFormData] = useState({
         party_id: initialPartyId || '',
         transaction_date: new Date().toISOString().split('T')[0],
@@ -2985,9 +4258,36 @@ export const PurchaseForm = ({
     const [isLoadingParties, setIsLoadingParties] = useState(false);
     const [showPartyDropdown, setShowPartyDropdown] = useState(false);
     const [userSearchTerm, setUserSearchTerm] = useState('');
+    const [userLoadingMore, setUserLoadingMore] = useState(false);
+    const userPageRef = useRef(1);
+    const userHasMoreRef = useRef(false);
+    const userLoadingMoreRef = useRef(false);
+    const userSearchTermRef = useRef('');
+    const userSearchRequestIdRef = useRef(0);
     const [selectedPurchaseUser, setSelectedPurchaseUser] = useState(null);
     const [sendEmail, setSendEmail] = useState(true);
+    const [sendSms, setSendSms] = useState(true);
     const [sendWhatsApp, setSendWhatsApp] = useState(true);
+    const [purchaseBankPickerOpen, setPurchaseBankPickerOpen] = useState(true);
+    const [purchaseBankRow, setPurchaseBankRow] = useState(null);
+    const purchasePartySearchRef = useRef(null);
+    const partyDropdownActiveRef = useRef(false);
+
+    const closePartyDropdown = useCallback(() => {
+        partyDropdownActiveRef.current = false;
+        setShowPartyDropdown(false);
+    }, []);
+
+    useClickOutside(purchasePartySearchRef, closePartyDropdown, showPartyDropdown);
+
+    const todayIso = useMemo(() => new Date().toISOString().split('T')[0], []);
+
+    const effectivePurchaseType = lockedPurchaseType ?? purchaseType;
+    const typeToggleVisible = showPurchaseTypeToggle !== undefined ? showPurchaseTypeToggle : lockedPurchaseType == null;
+
+    useEffect(() => {
+        if (lockedPurchaseType) setPurchaseType(lockedPurchaseType);
+    }, [lockedPurchaseType]);
 
     useEffect(() => {
         if (!isOpen) return;
@@ -3004,29 +4304,53 @@ export const PurchaseForm = ({
         setIsSubmitting(false);
         setUserSearchTerm('');
         setUserOptions([]);
+        partyDropdownActiveRef.current = false;
         setShowPartyDropdown(false);
         setSelectedPurchaseUser(null);
+        setPurchaseBankPickerOpen(!presetPartyId);
+        setPurchaseBankRow(null);
+        if (lockedPurchaseType) setPurchaseType(lockedPurchaseType);
+        else setPurchaseType(defaultPurchaseType);
+        setSendEmail(true);
+        setSendSms(true);
+        setSendWhatsApp(true);
         fetchServices();
-    }, [isOpen, hidePartySelector, fixedParty?.id, initialPartyId]);
+    }, [isOpen, hidePartySelector, fixedParty?.id, initialPartyId, lockedPurchaseType, defaultPurchaseType]);
 
     useEffect(() => {
-        if (hidePartySelector) return;
-        const q = String(userSearchTerm || '').trim();
-        if (q.length < CLIENT_SEARCH_MIN) {
-            setShowPartyDropdown(false);
-            if (!formData.party_id) setUserOptions([]);
-            return;
-        }
+        userSearchTermRef.current = userSearchTerm;
+    }, [userSearchTerm]);
+
+    useEffect(() => {
+        if (hidePartySelector && effectivePurchaseType === 'ca') return;
+        if (effectivePurchaseType !== 'ca') return;
+        if (formData.party_id) return;
+        partyDropdownActiveRef.current = true;
+        setIsLoadingParties(true);
+        setUserOptions([]);
         const delayDebounce = setTimeout(() => {
-            fetchUsers();
-        }, 500);
+            userPageRef.current = 1;
+            fetchCas(false);
+        }, SEARCH_DEBOUNCE_MS);
         return () => clearTimeout(delayDebounce);
-    }, [userSearchTerm, hidePartySelector, formData.party_id]);
+    }, [userSearchTerm, hidePartySelector, formData.party_id, effectivePurchaseType]);
+
+    const handlePurchaseTypeChange = (type) => {
+        if (lockedPurchaseType) return;
+        setPurchaseType(type);
+        setFormData((prev) => ({ ...prev, party_id: '' }));
+        setUserSearchTerm('');
+        setShowPartyDropdown(false);
+        setUserOptions([]);
+        setSelectedPurchaseUser(null);
+        setPurchaseBankPickerOpen(true);
+        setPurchaseBankRow(null);
+    };
 
     const fetchServices = async () => {
         setIsLoadingServices(true);
         try {
-            const response = await fetch(`${API_BASE_URL}/service/list?search=&category_id`, {
+            const response = await fetch(`${API_BASE_URL}/service/list?type=general&search=&page_no=1&limit=100`, {
                 method: 'GET',
                 headers: getHeaders()
             });
@@ -3050,54 +4374,75 @@ export const PurchaseForm = ({
         }
     };
 
-    const fetchUsers = async () => {
-        const q = String(userSearchTerm || '').trim();
-        if (q.length < CLIENT_SEARCH_MIN) {
-            setShowPartyDropdown(false);
-            return;
+    const fetchCas = async (append = false) => {
+        const q = String(userSearchTermRef.current || '').trim();
+        const pageNum = append ? userPageRef.current + 1 : 1;
+        const requestId = ++userSearchRequestIdRef.current;
+        const isFirstPage = !append;
+
+        if (isFirstPage) {
+            userPageRef.current = 1;
+            setIsLoadingParties(true);
+        } else {
+            setUserLoadingMore(true);
+            userLoadingMoreRef.current = true;
         }
-        setIsLoadingParties(true);
         try {
-            const response = await fetch(`${API_BASE_URL}/client/search?search=${encodeURIComponent(q)}`, {
-                method: 'GET',
-                headers: getHeaders()
-            });
-            const data = await response.json();
-            if (data.success) {
-                const opts = (data.data || []).map((client) => ({
-                    id: client.client_id || client.username,
-                    type: 'user',
-                    name: client.name || client.firm_name,
-                    email: client.email,
-                    contact: client.mobile,
-                    pan_no: client.pan_number,
-                    username: client.username,
-                    balance: client.balance,
-                    profile: client.profile ?? client.profile_photo ?? client.profile_image,
-                    profile_photo: client.profile_photo,
-                    profile_image: client.profile_image,
-                    photo_url: client.photo_url,
-                    image: client.image,
-                    avatar: client.avatar,
-                    photo: client.photo,
-                    country_code: client.country_code,
-                    care_of: client.care_of,
-                    guardian_name: client.guardian_name,
-                }));
-                setUserOptions(opts);
-                setShowPartyDropdown(opts.length > 0);
+            const { list, isLast } = await fetchCaSearchPage({ search: q, page: pageNum });
+            if (requestId !== userSearchRequestIdRef.current) return;
+            const opts = list.map(mapCaToPurchasePartyOption);
+            if (append) {
+                userPageRef.current = pageNum;
+                setUserOptions((prev) => [...prev, ...opts]);
             } else {
-                setUserOptions([]);
-                setShowPartyDropdown(false);
+                setUserOptions(opts);
+                if (partyDropdownActiveRef.current) {
+                    setShowPartyDropdown(true);
+                }
             }
+            userHasMoreRef.current = !isLast;
+            setSelectedPurchaseUser((prev) => {
+                if (!prev) return prev;
+                const fresh = opts.find((o) => String(o.id) === String(prev.id));
+                return fresh ?? prev;
+            });
         } catch (error) {
-            console.error('Error fetching users:', error);
-            setUserOptions([]);
-            setShowPartyDropdown(false);
+            if (requestId !== userSearchRequestIdRef.current) return;
+            console.error('Error fetching CAs:', error);
+            if (!append) {
+                setUserOptions([]);
+                if (partyDropdownActiveRef.current) {
+                    setShowPartyDropdown(false);
+                }
+            }
+            userHasMoreRef.current = false;
         } finally {
+            if (requestId !== userSearchRequestIdRef.current) return;
             setIsLoadingParties(false);
+            setUserLoadingMore(false);
+            userLoadingMoreRef.current = false;
         }
     };
+
+    const loadCasOnFocus = useCallback(() => {
+        partyDropdownActiveRef.current = true;
+        setShowPartyDropdown(true);
+        const q = String(userSearchTermRef.current || '').trim();
+        if (q === '' && userOptions.length === 0) {
+            userPageRef.current = 1;
+            setIsLoadingParties(true);
+            setUserOptions([]);
+            fetchCas(false);
+        }
+    }, [userOptions.length]);
+
+    const handleUserListScroll = useCallback((e) => {
+        const el = e.currentTarget;
+        if (userLoadingMoreRef.current || !userHasMoreRef.current || isLoadingParties) return;
+        if (el.scrollTop + el.clientHeight >= el.scrollHeight - 40) {
+            fetchCas(true);
+        }
+    }, [isLoadingParties]);
 
     const getSelectedParty = () => {
         if (hidePartySelector && fixedParty && fixedParty.id != null && fixedParty.id !== '') {
@@ -3105,36 +4450,50 @@ export const PurchaseForm = ({
             return {
                 ...fixedParty,
                 id,
-                type: 'user',
+                type: effectivePurchaseType === 'bank' ? 'bank' : 'ca',
                 name: fixedParty.name || String(fixedParty.id),
                 username: fixedParty.username || id,
                 email: fixedParty.email,
                 contact: fixedParty.contact,
                 pan_no: fixedParty.pan_no ?? fixedParty.pan_number,
+                account: fixedParty.account ?? fixedParty.account_no,
+                holder: fixedParty.holder,
             };
         }
-        if (selectedPurchaseUser && String(selectedPurchaseUser.id) === String(formData.party_id)) {
+        if (effectivePurchaseType === 'ca' && selectedPurchaseUser && String(selectedPurchaseUser.id) === String(formData.party_id)) {
             return selectedPurchaseUser;
         }
         return userOptions.find((u) => String(u.id) === String(formData.party_id));
     };
 
-    const partyRowToSearchClient = (party) => ({
-        username: party.username,
-        name: party.name,
-        mobile: party.contact,
-        email: party.email,
-        pan_number: party.pan_no,
-        country_code: party.country_code,
-        balance: party.balance,
-        profile: party.profile,
-        profile_photo: party.profile_photo,
-        profile_image: party.profile_image,
-        photo_url: party.photo_url,
-        image: party.image,
-        avatar: party.avatar,
-        photo: party.photo,
-    });
+    const bankCardFromSearchOrParty = () => {
+        if (purchaseBankRow && String(purchaseBankRow.bank_id ?? purchaseBankRow.id) === String(formData.party_id)) {
+            return purchaseBankRow;
+        }
+        const p = getSelectedParty();
+        if (!p || effectivePurchaseType !== 'bank' || !formData.party_id) return null;
+        return {
+            bank: p.name,
+            holder: p.holder,
+            account_no: p.account ?? p.account_no,
+            ifsc: p.ifsc,
+            branch: p.branch,
+            balance: p.balance,
+        };
+    };
+
+    const handlePartySelect = (partyId) => {
+        const id = String(partyId);
+        if (effectivePurchaseType === 'ca') {
+            const row = userOptions.find((p) => String(p.id) === id);
+            setSelectedPurchaseUser(row ?? null);
+        } else {
+            setSelectedPurchaseUser(null);
+        }
+        setFormData((prev) => ({ ...prev, party_id: id }));
+        setShowPartyDropdown(false);
+        setUserSearchTerm('');
+    };
 
     const addItem = () => {
         setFormData((prev) => ({
@@ -3201,7 +4560,7 @@ export const PurchaseForm = ({
             ? true
             : Boolean(formData.party_id);
         if (!partyIdOk) {
-            toast.error('Please select a client');
+            toast.error(effectivePurchaseType === 'bank' ? 'Please select a bank' : 'Please select a CA');
             return;
         }
 
@@ -3214,16 +4573,19 @@ export const PurchaseForm = ({
         }
 
         const selectedParty = getSelectedParty();
-        if (!selectedParty?.username && !selectedParty?.id) {
-            toast.error('Client information is missing');
+        if (effectivePurchaseType === 'ca') {
+            if (!selectedParty?.username && !selectedParty?.id) {
+                toast.error('CA information is missing');
+                return;
+            }
+        } else if (!selectedParty?.id) {
+            toast.error('Bank information is missing');
             return;
         }
 
         setIsSubmitting(true);
         try {
-            const payload = {
-                username: selectedParty.username || selectedParty.id,
-                user_type: 'client',
+            const basePayload = {
                 transaction_date: formData.transaction_date,
                 remark: formData.remark || undefined,
                 tax_rate: parseDecimalValue(formData.tax_rate),
@@ -3236,7 +4598,25 @@ export const PurchaseForm = ({
                     })),
             };
 
-            const response = await fetch(`${API_BASE_URL}/purchase/create/user`, {
+            let endpoint = '';
+            let payload = {};
+
+            if (effectivePurchaseType === 'ca') {
+                endpoint = `${API_BASE_URL}/purchase/create/user`;
+                payload = {
+                    ...basePayload,
+                    username: selectedParty.username || selectedParty.id,
+                    user_type: 'ca',
+                };
+            } else {
+                endpoint = `${API_BASE_URL}/purchase/create/bank`;
+                payload = {
+                    ...basePayload,
+                    bank_id: selectedParty.id,
+                };
+            }
+
+            const response = await fetch(endpoint, {
                 method: 'POST',
                 headers: getHeaders(),
                 body: JSON.stringify(payload),
@@ -3252,11 +4632,13 @@ export const PurchaseForm = ({
 
             const submissionData = {
                 ...formData,
+                purchase_type: effectivePurchaseType,
                 selected_party: selectedParty,
                 timestamp: new Date().toISOString(),
                 api_response: data,
                 notifications: {
                     email: sendEmail,
+                    sms: sendSms,
                     whatsapp: sendWhatsApp,
                 },
             };
@@ -3270,89 +4652,139 @@ export const PurchaseForm = ({
         }
     };
 
-    const formClassMerged = [mode === 'modal' ? 'space-y-5' : '', formClassName].filter(Boolean).join(' ').trim();
+    const purchaseFormId = 'purchase-create-form';
+    const formClassMerged = [mode === 'modal' ? 'space-y-3' : 'space-y-5', formClassName].filter(Boolean).join(' ').trim();
+    const isCompactModal = mode === 'modal';
+    const purchaseFieldClass = getCompactFieldClass(isCompactModal ? 'purple' : 'purple');
+    const purchaseLabelClass = isCompactModal ? COMPACT_LABEL : 'block text-sm font-medium text-slate-700 mb-1';
+    const purchasePartyListOpen = showPartyDropdown && !formData.party_id;
     const partyReady = hidePartySelector && fixedParty?.id != null && fixedParty.id !== ''
         ? true
         : Boolean(formData.party_id);
     const selectedParty = getSelectedParty();
+    const purchaseTotal = formData.items.reduce(
+        (sum, item) => sum + parseDecimalValue(item.fees),
+        0
+    );
+    const formatPurchaseMoney = (amount) =>
+        new Intl.NumberFormat('en-IN', {
+            style: 'currency',
+            currency: 'INR',
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2,
+        }).format(parseDecimalValue(amount));
+    const hasPurchaseLineReady = formData.items.some(
+        (item) => item.service_id && parseDecimalValue(item.fees) > 0
+    );
 
     const purchaseFormElement = (
-        <form id="purchase-create-form" onSubmit={handleSubmit} className={formClassMerged || undefined}>
-            <div className="space-y-5 mb-6">
-                {!hidePartySelector ? (
-                    <div className="space-y-3">
-                        <label className="block text-sm font-medium text-slate-700 mb-1">
-                            Client <span className="text-red-500">*</span>
+        <form id={purchaseFormId} onSubmit={handleSubmit} noValidate={isCompactModal} className={formClassMerged || undefined}>
+            <div className={isCompactModal ? 'space-y-3' : 'space-y-5 mb-6'}>
+                    {typeToggleVisible && (
+                        <div className="flex rounded-md border border-slate-200 bg-white p-0.5 w-fit" role="group" aria-label="Purchase party type">
+                            <button
+                                type="button"
+                                onClick={() => handlePurchaseTypeChange('ca')}
+                                className={`px-2.5 py-1 text-xs font-medium rounded transition-colors ${effectivePurchaseType === 'ca' ? 'bg-purple-600 text-white shadow-sm' : 'text-slate-600 hover:bg-slate-50'}`}
+                            >
+                                CA
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => handlePurchaseTypeChange('bank')}
+                                className={`px-2.5 py-1 text-xs font-medium rounded transition-colors ${effectivePurchaseType === 'bank' ? 'bg-purple-600 text-white shadow-sm' : 'text-slate-600 hover:bg-slate-50'}`}
+                            >
+                                Bank
+                            </button>
+                        </div>
+                    )}
+
+                    {!hidePartySelector && effectivePurchaseType === 'ca' && (
+                    <div className={isCompactModal ? 'space-y-1.5' : 'space-y-3'}>
+                        <label className={purchaseLabelClass}>
+                            CA <span className="text-red-500">*</span>
                         </label>
                         {!formData.party_id ? (
                             <>
-                                <p className="text-xs text-slate-500 mb-1.5">
-                                    Type at least {CLIENT_SEARCH_MIN} characters (name, mobile, email, or PAN).
-                                </p>
-                                <div className="relative">
-                                    <input
-                                        type="text"
-                                        value={userSearchTerm}
-                                        onChange={(e) => {
-                                            const value = e.target.value;
-                                            setUserSearchTerm(value);
-                                            if (!value.trim()) {
-                                                setUserOptions([]);
-                                                setShowPartyDropdown(false);
-                                            }
-                                        }}
-                                        onFocus={() => {
-                                            if (userOptions.length > 0) setShowPartyDropdown(true);
-                                        }}
-                                        placeholder="Name, mobile, email, or PAN (min 3 characters)"
-                                        className="w-full px-4 py-3 border-2 border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
-                                        autoComplete="off"
-                                    />
-                                    {isLoadingParties && (
-                                        <div className="absolute right-3 top-1/2 -translate-y-1/2">
-                                            <div className="animate-spin rounded-full h-4 w-4 border-2 border-purple-500 border-t-transparent" />
+                                {!isCompactModal && (
+                                    <p className="text-xs text-slate-500 mb-1.5">
+                                        Search by name, mobile, email, or PAN.
+                                    </p>
+                                )}
+                                <div ref={purchasePartySearchRef}>
+                                    <div className={`rounded-md border bg-white overflow-hidden transition-all ${getComboboxOpenClass(purchasePartyListOpen, isCompactModal ? 'purple' : 'purple')}`}>
+                                        <div className="flex items-center gap-2 px-2.5 py-1.5">
+                                            <FiSearch className="w-3.5 h-3.5 text-slate-400 shrink-0" aria-hidden />
+                                            <input
+                                                type="text"
+                                                value={userSearchTerm}
+                                                onChange={(e) => {
+                                                    partyDropdownActiveRef.current = true;
+                                                    setUserSearchTerm(e.target.value);
+                                                    setShowPartyDropdown(true);
+                                                    setIsLoadingParties(true);
+                                                    setUserOptions([]);
+                                                }}
+                                                onFocus={loadCasOnFocus}
+                                                placeholder="Search by name, mobile, email..."
+                                                className="flex-1 min-w-0 border-0 bg-transparent text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-0 py-0.5"
+                                                autoComplete="off"
+                                            />
+                                            {isLoadingParties && purchasePartyListOpen ? (
+                                                <ComboboxSearchSpinner />
+                                            ) : (
+                                                <FiChevronDown
+                                                    className={`w-3.5 h-3.5 text-slate-400 shrink-0 transition-transform duration-200 ${purchasePartyListOpen ? 'rotate-180' : ''}`}
+                                                    aria-hidden
+                                                />
+                                            )}
                                         </div>
-                                    )}
-                                    {showPartyDropdown && userOptions.length > 0 && (
-                                        <div className="absolute z-[60] mt-1 w-full max-w-[calc(100%-0.5rem)] bg-white border-2 border-slate-200 rounded-lg shadow-xl max-h-60 overflow-y-auto">
-                                            {userOptions.map((party) => (
-                                                <button
-                                                    key={party.id}
-                                                    type="button"
-                                                    onClick={() => {
-                                                        const id = String(party.id);
-                                                        setSelectedPurchaseUser(party);
-                                                        setFormData((prev) => ({ ...prev, party_id: id }));
-                                                        setShowPartyDropdown(false);
-                                                        setUserSearchTerm('');
-                                                    }}
-                                                    className="w-full flex items-start gap-3 px-4 py-3 text-left border-b border-slate-100 last:border-0 transition-colors hover:bg-purple-50"
-                                                >
-                                                    <ClientSearchAvatar client={partyRowToSearchClient(party)} sizeClass="w-9 h-9" textClass="text-sm" />
-                                                    <div className="min-w-0 flex-1">
-                                                        <div className="font-medium text-slate-800 truncate">{party.name || '—'}</div>
-                                                        <div className="text-xs text-slate-600 mt-1 space-y-0.5">
-                                                            <p className="flex items-center gap-1.5">
-                                                                <FiPhone className="w-3 h-3 shrink-0 text-slate-400" />
-                                                                <span>{party.country_code ? `+${party.country_code} ` : ''}{party.contact || '—'}</span>
-                                                            </p>
-                                                            <p className="flex items-center gap-1.5 break-all">
-                                                                <FiMail className="w-3 h-3 shrink-0 text-slate-400" />
-                                                                <span>{party.email || '—'}</span>
-                                                            </p>
-                                                        </div>
-                                                    </div>
-                                                </button>
-                                            ))}
-                                        </div>
-                                    )}
+                                        {purchasePartyListOpen && (
+                                            <div
+                                                className={`border-t border-slate-100 ${isCompactModal ? 'max-h-56' : 'max-h-60'} overflow-y-auto`}
+                                                onScroll={handleUserListScroll}
+                                            >
+                                                {isLoadingParties ? (
+                                                    <ClientSearchSkeletonRows rows={5} />
+                                                ) : (
+                                                    <>
+                                                        {userOptions.map((party) => (
+                                                            <ClientSearchOptionRow
+                                                                key={party.id}
+                                                                client={{
+                                                                    name: party.name,
+                                                                    mobile: party.contact,
+                                                                    email: party.email,
+                                                                    pan_number: party.pan_no,
+                                                                    country_code: party.country_code,
+                                                                    balance: party.balance,
+                                                                    username: party.username,
+                                                                    profile: party.profile,
+                                                                    profile_photo: party.profile_photo,
+                                                                    image: party.image,
+                                                                }}
+                                                                formatBalance={formatPlainInrAmount}
+                                                                itemHover={isCompactModal ? 'hover:bg-purple-50' : 'hover:bg-purple-50'}
+                                                                onSelect={() => handlePartySelect(party.id)}
+                                                            />
+                                                        ))}
+                                                        {userLoadingMore && <ClientSearchSkeletonRows rows={2} />}
+                                                    </>
+                                                )}
+                                                {!isLoadingParties && !userLoadingMore && userOptions.length === 0 && (
+                                                    <p className="px-2.5 py-3 text-xs text-center text-slate-500">No CAs found</p>
+                                                )}
+                                            </div>
+                                        )}
+                                    </div>
                                 </div>
                             </>
                         ) : (
                             <SaleClientPreviewCard
                                 party={selectedParty}
                                 summary={null}
-                                formatMoney={(v) => new Intl.NumberFormat('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(parseDecimalValue(v))}
+                                formatMoney={formatPlainInrAmount}
+                                variant="purchase"
                                 onChangeClient={() => {
                                     setFormData((prev) => ({ ...prev, party_id: '' }));
                                     setSelectedPurchaseUser(null);
@@ -3363,34 +4795,91 @@ export const PurchaseForm = ({
                             />
                         )}
                     </div>
-                ) : (
-                    showFixedPartyBanner && fixedParty && (
-                        <SaleClientPreviewCard
-                            party={selectedParty}
-                            summary={null}
-                            formatMoney={(v) => new Intl.NumberFormat('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(parseDecimalValue(v))}
-                            readOnly
-                        />
-                    )
-                )}
+                    )}
 
-                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                    {!hidePartySelector && effectivePurchaseType === 'bank' && (
+                        <div className={isCompactModal ? 'space-y-1.5' : 'space-y-2'}>
+                            <label className={purchaseLabelClass}>
+                                Bank Account <span className="text-red-500">*</span>
+                            </label>
+                            {(!formData.party_id || purchaseBankPickerOpen) ? (
+                                <BankSearchDropdown
+                                    compact={isCompactModal}
+                                    focusAccent="purple"
+                                    onSelect={(bank) => {
+                                        setFormData((prev) => ({ ...prev, party_id: String(bank.bank_id) }));
+                                        setPurchaseBankRow(bank);
+                                        setPurchaseBankPickerOpen(false);
+                                    }}
+                                    selectedBankId={formData.party_id || undefined}
+                                />
+                            ) : (
+                                <SaleBankPreviewCard
+                                    bank={bankCardFromSearchOrParty()}
+                                    onChangeBank={() => setPurchaseBankPickerOpen(true)}
+                                    formatMoney={formatPlainInrAmount}
+                                    variant="purchase"
+                                />
+                            )}
+                        </div>
+                    )}
+
+                    {hidePartySelector && showFixedPartyBanner && fixedParty && (
+                        <div>
+                            {effectivePurchaseType === 'ca' ? (
+                                <SaleClientPreviewCard
+                                    party={selectedParty}
+                                    summary={null}
+                                    formatMoney={formatPlainInrAmount}
+                                    variant="purchase"
+                                    readOnly
+                                />
+                            ) : (
+                                <SaleBankPreviewCard
+                                    bank={{
+                                        bank: fixedParty.name,
+                                        holder: fixedParty.holder || '—',
+                                        account_no: fixedParty.account || fixedParty.account_no || '—',
+                                        ifsc: fixedParty.ifsc || '—',
+                                        branch: fixedParty.branch || '—',
+                                        balance: fixedParty.balance ?? 0,
+                                    }}
+                                    formatMoney={formatPlainInrAmount}
+                                    variant="purchase"
+                                    readOnly
+                                />
+                            )}
+                        </div>
+                    )}
+
+                <div className={`grid grid-cols-1 gap-3 ${isCompactModal ? 'sm:grid-cols-2' : 'sm:grid-cols-2 gap-4'}`}>
                     <div>
-                        <label className="block text-sm font-medium text-slate-700 mb-1.5">
-                            Purchase Date <span className="text-red-500">*</span>
+                        <label className={purchaseLabelClass}>
+                            Purchase date <span className="text-red-500">*</span>
                         </label>
                         <DatePickerField
                             value={formData.transaction_date}
-                            onChange={(v) => setFormData((prev) => ({ ...prev, transaction_date: v || '' }))}
+                            onChange={(value) => {
+                                const picked = String(value || '').trim();
+                                if (!picked) {
+                                    setFormData((prev) => ({ ...prev, transaction_date: '' }));
+                                    return;
+                                }
+                                setFormData((prev) => ({
+                                    ...prev,
+                                    transaction_date: picked > todayIso ? todayIso : picked,
+                                }));
+                            }}
                             mode="single"
                             hideTabs={true}
                             showResetButton={false}
                             placeholder="Select date"
-                            buttonClassName="w-full px-4 py-3 border-2 border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+                            buttonClassName={isCompactModal ? purchaseFieldClass : 'w-full px-4 py-3 border-2 border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500'}
+                            maxSelectableDate={todayIso}
                         />
                     </div>
                     <div>
-                        <label className="block text-sm font-medium text-slate-700 mb-1.5">
+                        <label className={purchaseLabelClass}>
                             Tax Rate (%) <span className="text-red-500">*</span>
                         </label>
                         <input
@@ -3398,93 +4887,199 @@ export const PurchaseForm = ({
                             inputMode="decimal"
                             value={String(formData.tax_rate ?? '')}
                             onChange={(e) => setFormData((prev) => ({ ...prev, tax_rate: sanitizeDecimalInput(e.target.value, 2) }))}
-                            className="w-full px-4 py-3 border-2 border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+                            className={isCompactModal ? purchaseFieldClass : 'w-full px-4 py-3 border-2 border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500'}
                         />
                     </div>
                 </div>
             </div>
 
-            <div className="mb-6 rounded-xl border border-slate-200 bg-white">
-                <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3">
-                    <h3 className="text-sm font-semibold text-slate-800">Purchase Items</h3>
+            <div className={isCompactModal ? 'mb-3' : 'mb-6'}>
+                <div className={`flex justify-between items-center ${isCompactModal ? 'mb-2' : 'mb-4'}`}>
+                    <h3 className={`${isCompactModal ? 'text-sm font-semibold' : 'text-base font-bold'} text-gray-900`}>
+                        Purchase Items
+                    </h3>
                     <button
                         type="button"
                         onClick={addItem}
-                        className="inline-flex items-center gap-1.5 rounded-lg bg-purple-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-purple-700"
+                        disabled={isLoadingServices}
+                        className={`inline-flex items-center bg-purple-600 text-white rounded-md hover:bg-purple-700 focus:outline-none focus:ring-1 focus:ring-purple-500 focus:ring-offset-1 transition-colors disabled:opacity-50 ${isCompactModal ? 'px-2 py-1 text-xs' : 'px-3 py-2 text-sm shadow-sm'}`}
                     >
-                        <IoAdd className="h-4 w-4" />
+                        <FiPlus className={`${isCompactModal ? 'w-3 h-3 mr-1' : 'w-3.5 h-3.5 mr-1.5'}`} aria-hidden />
                         Add Item
                     </button>
                 </div>
-                <div className="space-y-3 p-4">
-                    {formData.items.map((item, index) => (
-                        <div key={index} className="grid grid-cols-1 gap-3 rounded-lg border border-slate-100 p-3 sm:grid-cols-12">
-                            <div className="sm:col-span-5">
-                                <label className="mb-1 block text-xs font-medium text-slate-500">Service</label>
-                                <SelectInput
-                                    options={serviceSelectOptions}
-                                    value={item.service_id ? String(item.service_id) : null}
-                                    onChange={(value) => handleServiceChange(index, value ? String(value) : '')}
-                                    placeholder={isLoadingServices ? 'Loading services...' : 'Select service'}
-                                    searchPlaceholder="Search service..."
-                                    noOptionsText={isLoadingServices ? 'Loading...' : 'No services found'}
-                                />
-                            </div>
-                            <div className="sm:col-span-3">
-                                <label className="mb-1 block text-xs font-medium text-slate-500">Fees</label>
-                                <input
-                                    type="text"
-                                    inputMode="decimal"
-                                    value={item.fees}
-                                    onChange={(e) => handleItemChange(index, 'fees', e.target.value)}
-                                    placeholder="0.00"
-                                    className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
-                                />
-                            </div>
-                            <div className="sm:col-span-3">
-                                <label className="mb-1 block text-xs font-medium text-slate-500">Item Remark</label>
-                                <input
-                                    type="text"
-                                    value={item.remark}
-                                    onChange={(e) => handleItemChange(index, 'remark', e.target.value)}
-                                    placeholder="Optional remark"
-                                    className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
-                                />
-                            </div>
-                            <div className="flex items-end sm:col-span-1">
-                                {formData.items.length > 1 && (
-                                    <button
-                                        type="button"
-                                        onClick={() => removeItem(index)}
-                                        className="w-full rounded-lg border border-red-200 p-2 text-red-600 hover:bg-red-50"
-                                        title="Remove item"
-                                    >
-                                        <IoTrash className="mx-auto h-4 w-4" />
-                                    </button>
-                                )}
-                            </div>
+
+                {isCompactModal ? (
+                    <div className="overflow-hidden border border-gray-300 rounded-md text-sm">
+                        <table className="min-w-full divide-y divide-gray-200">
+                            <thead className="bg-slate-50">
+                                <tr>
+                                    <th className="px-2 py-1.5 text-left text-[11px] font-semibold text-gray-700 uppercase tracking-wider">Service</th>
+                                    <th className="px-2 py-1.5 text-left text-[11px] font-semibold text-gray-700 uppercase tracking-wider">Remark</th>
+                                    <th className="px-2 py-1.5 text-right text-[11px] font-semibold text-gray-700 uppercase tracking-wider">Fees</th>
+                                    <th className="px-2 py-1.5 text-center text-[11px] font-semibold text-gray-700 uppercase tracking-wider">Action</th>
+                                </tr>
+                            </thead>
+                            <tbody className="bg-white divide-y divide-gray-200">
+                                {formData.items.map((item, index) => (
+                                    <tr key={index} className="hover:bg-gray-50 transition-colors">
+                                        <td className="px-2 py-1.5 min-w-[180px]">
+                                            <SelectInput
+                                                options={serviceSelectOptions}
+                                                value={item.service_id ? String(item.service_id) : null}
+                                                onChange={(value) => handleServiceChange(index, value ? String(value) : '')}
+                                                placeholder={isLoadingServices ? 'Loading…' : 'Select service'}
+                                                searchPlaceholder="Search services…"
+                                                noOptionsText={isLoadingServices ? 'Loading…' : 'No services found'}
+                                                className="text-sm"
+                                            />
+                                        </td>
+                                        <td className="px-2 py-1.5">
+                                            <input
+                                                type="text"
+                                                value={item.remark}
+                                                onChange={(e) => handleItemChange(index, 'remark', e.target.value)}
+                                                placeholder="Remark"
+                                                className="w-full px-2 py-1 border border-gray-300 rounded text-sm focus:outline-none focus:ring-1 focus:ring-purple-500 focus:border-purple-500"
+                                            />
+                                        </td>
+                                        <td className="px-2 py-1.5">
+                                            <input
+                                                type="text"
+                                                inputMode="decimal"
+                                                value={item.fees}
+                                                onChange={(e) => handleItemChange(index, 'fees', e.target.value)}
+                                                placeholder="0.00"
+                                                className="w-full px-2 py-1 border border-gray-300 rounded text-sm focus:outline-none focus:ring-1 focus:ring-purple-500 focus:border-purple-500 text-right"
+                                            />
+                                        </td>
+                                        <td className="px-2 py-1.5 text-center">
+                                            <button
+                                                type="button"
+                                                onClick={() => removeItem(index)}
+                                                disabled={formData.items.length <= 1}
+                                                className="inline-flex items-center px-2 py-1 bg-red-50 text-red-600 rounded border border-red-200 text-xs font-medium hover:bg-red-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                            >
+                                                <IoTrash className="w-3 h-3" />
+                                            </button>
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+                ) : (
+                    <div className="rounded-xl border border-slate-200 bg-white">
+                        <div className="space-y-3 p-4">
+                            {formData.items.map((item, index) => (
+                                <div key={index} className="grid grid-cols-1 gap-3 rounded-lg border border-slate-100 p-3 sm:grid-cols-12">
+                                    <div className="sm:col-span-5">
+                                        <label className="mb-1 block text-xs font-medium text-slate-500">Service</label>
+                                        <SelectInput
+                                            options={serviceSelectOptions}
+                                            value={item.service_id ? String(item.service_id) : null}
+                                            onChange={(value) => handleServiceChange(index, value ? String(value) : '')}
+                                            placeholder={isLoadingServices ? 'Loading services...' : 'Select service'}
+                                            searchPlaceholder="Search service..."
+                                            noOptionsText={isLoadingServices ? 'Loading...' : 'No services found'}
+                                        />
+                                    </div>
+                                    <div className="sm:col-span-3">
+                                        <label className="mb-1 block text-xs font-medium text-slate-500">Fees</label>
+                                        <input
+                                            type="text"
+                                            inputMode="decimal"
+                                            value={item.fees}
+                                            onChange={(e) => handleItemChange(index, 'fees', e.target.value)}
+                                            placeholder="0.00"
+                                            className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
+                                        />
+                                    </div>
+                                    <div className="sm:col-span-3">
+                                        <label className="mb-1 block text-xs font-medium text-slate-500">Item Remark</label>
+                                        <input
+                                            type="text"
+                                            value={item.remark}
+                                            onChange={(e) => handleItemChange(index, 'remark', e.target.value)}
+                                            placeholder="Optional remark"
+                                            className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
+                                        />
+                                    </div>
+                                    <div className="flex items-end sm:col-span-1">
+                                        {formData.items.length > 1 && (
+                                            <button
+                                                type="button"
+                                                onClick={() => removeItem(index)}
+                                                className="w-full rounded-lg border border-red-200 p-2 text-red-600 hover:bg-red-50"
+                                                title="Remove item"
+                                            >
+                                                <IoTrash className="mx-auto h-4 w-4" />
+                                            </button>
+                                        )}
+                                    </div>
+                                </div>
+                            ))}
                         </div>
-                    ))}
-                </div>
+                    </div>
+                )}
             </div>
 
-            <div className="space-y-4">
+            <div className={isCompactModal ? 'space-y-3' : 'space-y-4'}>
                 <div>
-                    <label className="mb-1 block text-sm font-medium text-slate-700">Remark</label>
+                    <label className={purchaseLabelClass}>Remark</label>
                     <textarea
                         value={formData.remark}
                         onChange={(e) => setFormData((prev) => ({ ...prev, remark: e.target.value }))}
-                        rows="2"
+                        rows={isCompactModal ? 2 : 2}
                         placeholder="Any remark"
-                        className="w-full rounded-lg border-2 border-slate-200 px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+                        className={isCompactModal ? `${purchaseFieldClass} resize-none` : 'w-full rounded-lg border-2 border-slate-200 px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500'}
                     />
                 </div>
+
+                {isCompactModal && purchaseTotal > 0 && (
+                    <div className="rounded-md border border-purple-100 bg-purple-50/40 p-2.5">
+                        <p className={`${COMPACT_LABEL} mb-1.5 text-purple-700/80`}>Summary</p>
+                        <div className="flex justify-between items-center text-xs">
+                            <span className="text-slate-600">Subtotal</span>
+                            <span className="font-semibold text-slate-900 tabular-nums">{formatPurchaseMoney(purchaseTotal)}</span>
+                        </div>
+                    </div>
+                )}
+
+                {isCompactModal && partyReady && (() => {
+                    const summaryName = effectivePurchaseType === 'bank'
+                        ? (getBankPrimaryLabel(bankCardFromSearchOrParty() || {}) || selectedParty?.name || fixedParty?.name || '—')
+                        : (selectedParty?.name || fixedParty?.name || '—');
+                    if (!summaryName || summaryName === '—') return null;
+                    return (
+                        <div className="rounded-md bg-purple-50 border border-purple-100 px-3 py-2 space-y-1">
+                            <p className="text-[11px] font-semibold uppercase tracking-wide text-purple-700/80">Purchase</p>
+                            <div className="flex items-center justify-between gap-2 text-xs">
+                                <span className="text-slate-600">{effectivePurchaseType === 'bank' ? 'Purchase from bank' : 'Purchase from CA'}</span>
+                                <span className="font-medium text-slate-800 truncate">{summaryName}</span>
+                            </div>
+                            {purchaseTotal > 0 && (
+                                <div className="flex items-center justify-between gap-2 text-xs sm:hidden">
+                                    <span className="text-slate-600">Subtotal</span>
+                                    <span className="font-semibold text-purple-700 tabular-nums">{formatPurchaseMoney(purchaseTotal)}</span>
+                                </div>
+                            )}
+                        </div>
+                    );
+                })()}
             </div>
         </form>
     );
 
     if (mode !== 'modal') return purchaseFormElement;
-    if (!isOpen) return null;
+
+    const isPurchaseSubmitDisabled = isSubmitting || !partyReady || !hasPurchaseLineReady;
+    const defaultSubmitLabel = 'Create Purchase Bill';
+    const purchaseAccentBtn = MODAL_ACCENT_STYLES.purchase.primaryBtn;
+
+    const triggerPurchaseSubmit = () => {
+        handleSubmit({ preventDefault: () => {} });
+    };
 
     return (
         <BaseModal
@@ -3492,34 +5087,46 @@ export const PurchaseForm = ({
             onClose={onClose}
             title={modalTitle}
             maxWidth={modalMaxWidth}
-            closeOnOverlayClick={closeOnOverlayClick}
+            compact
+            closeOnOverlayClick={false}
+            accent="purchase"
+            titleIcon={<FiTruck className="w-4 h-4" aria-hidden />}
             footer={(
-                <div className="w-full">
-                    <div className="mb-3 flex items-center gap-4">
-                        <label className="flex items-center cursor-pointer">
-                            <input type="checkbox" checked={sendEmail} onChange={(e) => setSendEmail(e.target.checked)} className="mr-2" />
-                            <span className="text-xs">Email Bill</span>
-                        </label>
-                        <label className="flex items-center cursor-pointer">
-                            <input type="checkbox" checked={sendWhatsApp} onChange={(e) => setSendWhatsApp(e.target.checked)} className="mr-2" />
-                            <span className="text-xs">WhatsApp Bill</span>
-                        </label>
-                    </div>
-                    <div className="flex justify-end gap-2">
+                <div className="flex flex-col gap-2.5 sm:flex-row sm:items-center sm:justify-between w-full">
+                    {showNotificationToggles ? (
+                        <TransactionNotifyCheckboxes
+                            sendSms={sendSms}
+                            setSendSms={setSendSms}
+                            sendWhatsApp={sendWhatsApp}
+                            setSendWhatsApp={setSendWhatsApp}
+                            sendEmail={sendEmail}
+                            setSendEmail={setSendEmail}
+                        />
+                    ) : (
+                        <div />
+                    )}
+                    <div className="flex flex-wrap items-center justify-end gap-2 shrink-0">
+                        {purchaseTotal > 0 && (
+                            <div className="text-xs text-right mr-1 hidden sm:block">
+                                <span className="text-slate-500">Total </span>
+                                <span className="font-semibold tabular-nums text-slate-900">{formatPurchaseMoney(purchaseTotal)}</span>
+                            </div>
+                        )}
                         <button
                             type="button"
                             onClick={onClose}
-                            className="px-4 py-2 bg-white border border-slate-300 text-slate-700 rounded-lg text-sm font-medium hover:bg-slate-50 transition-all"
+                            disabled={isSubmitting}
+                            className="px-3 py-1.5 bg-white border border-slate-300 text-slate-700 rounded-md text-xs font-medium hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-slate-500/30 disabled:opacity-50 transition-colors"
                         >
                             Cancel
                         </button>
                         <button
-                            type="submit"
-                            form="purchase-create-form"
-                            disabled={isSubmitting || !partyReady}
-                            className="px-4 py-2 bg-gradient-to-r from-purple-600 to-purple-700 text-white rounded-lg text-sm font-medium hover:from-purple-700 hover:to-purple-800 disabled:opacity-50 transition-all min-w-[170px]"
+                            type="button"
+                            disabled={isPurchaseSubmitDisabled}
+                            onClick={triggerPurchaseSubmit}
+                            className={`px-3 py-1.5 text-white rounded-md text-xs font-medium focus:outline-none focus:ring-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors inline-flex items-center justify-center min-w-[110px] ${purchaseAccentBtn}`}
                         >
-                            {isSubmitting ? 'Creating...' : (submitButtonLabel || 'Create Purchase Bill')}
+                            {isSubmitting ? 'Creating…' : (submitButtonLabel || defaultSubmitLabel)}
                         </button>
                     </div>
                 </div>
@@ -3530,9 +5137,11 @@ export const PurchaseForm = ({
     );
 };
 
-/** Spread into `<PurchaseForm />` on a client ledger page (party known; no search UI). */
+/** Spread into `<PurchaseForm />` on a CA ledger page (party known; no search UI). */
 export const purchaseFormLedgerClientProps = ({ clientId, clientUsername, clientName }) => ({
+    lockedPurchaseType: 'ca',
     hidePartySelector: true,
+    showPurchaseTypeToggle: false,
     fixedParty: {
         id: clientId || clientUsername,
         username: clientUsername || clientId,
@@ -3540,9 +5149,36 @@ export const purchaseFormLedgerClientProps = ({ clientId, clientUsername, client
     },
 });
 
+/** Alias for CA ledger context. */
+export const purchaseFormLedgerCaProps = purchaseFormLedgerClientProps;
+
+/** Spread into `<PurchaseForm />` on a bank ledger page (bank known; no search UI). */
+export const purchaseFormLedgerBankProps = ({ bankId, bankName }) => ({
+    lockedPurchaseType: 'bank',
+    hidePartySelector: true,
+    showPurchaseTypeToggle: false,
+    fixedParty: {
+        id: bankId,
+        name: bankName || 'Bank',
+    },
+});
+
 /** Backward-compatible wrapper used by `TransactionModalManager`. */
-export const PurchaseModal = ({ isOpen, onClose, onSubmit, clientUsername, clientName, clientId }) => {
+export const PurchaseModal = ({ isOpen, onClose, onSubmit, clientUsername, clientName, clientId, bankId, bankName }) => {
     const hasClient = Boolean(String(clientUsername || clientId || '').trim());
+    const hasBank = Boolean(String(bankId || '').trim());
+    const lockedPurchaseType = hasClient ? 'ca' : hasBank ? 'bank' : null;
+    const hidePartySelector = Boolean(lockedPurchaseType);
+    const fixedParty = hasClient
+        ? {
+            id: clientId || clientUsername,
+            username: clientUsername || clientId,
+            name: clientName || clientUsername || String(clientId || clientUsername || ''),
+        }
+        : hasBank
+            ? { id: bankId, name: bankName || 'Bank' }
+            : null;
+
     return (
         <PurchaseForm
             isOpen={isOpen}
@@ -3551,238 +5187,673 @@ export const PurchaseModal = ({ isOpen, onClose, onSubmit, clientUsername, clien
                 if (onSubmit) onSubmit('PURCHASE', data);
             }}
             mode="modal"
-            initialPartyId={hasClient ? String(clientId || clientUsername) : ''}
-            hidePartySelector={hasClient}
-            showFixedPartyBanner={!hasClient}
-            fixedParty={hasClient ? {
-                id: clientId || clientUsername,
-                username: clientUsername || clientId,
-                name: clientName || clientUsername || String(clientId || clientUsername || ''),
-            } : null}
-            modalTitle={hasClient ? 'Purchase from Client' : 'Create Purchase Bill'}
+            initialPartyId={fixedParty ? String(fixedParty.id) : ''}
+            defaultPurchaseType={lockedPurchaseType || 'ca'}
+            lockedPurchaseType={lockedPurchaseType}
+            hidePartySelector={hidePartySelector}
+            showFixedPartyBanner={!lockedPurchaseType}
+            fixedParty={fixedParty}
+            modalTitle={
+                hasClient
+                    ? 'Purchase from CA'
+                    : hasBank
+                        ? 'Purchase from Bank'
+                        : 'Create Purchase Bill'
+            }
         />
     );
 };
 
-// Expense Modal - UI Only with Bank Search
-export const ExpenseModal = ({ isOpen, onClose, bankDetails, bankId, onSubmit, formatCurrency, clientUsername, clientName, showClient = true, showBank = true }) => {
+// Expense Modal — bank-funded expense entries (API: /expense/entry/create)
+const EMPTY_EXPENSE_LINE = { item_id: '', amount: '' };
+
+const formatExpenseItemTypeShort = (type) => {
+    const map = {
+        direct: 'Direct',
+        indirect: 'Indirect',
+        reimbursement: 'Reimbursement',
+    };
+    return map[String(type || '').toLowerCase()] || type || '';
+};
+
+const getExpenseItemOptionLabel = (item) => {
+    const name = String(item?.name || '—').trim();
+    const typeLabel = formatExpenseItemTypeShort(item?.type);
+    return typeLabel ? `${name} (${typeLabel})` : name;
+};
+
+const EXPENSE_ITEM_MENU_MAX_HEIGHT = 160;
+const EXPENSE_ITEM_MENU_Z_INDEX = 10060;
+
+const ExpenseItemSearchField = ({
+    items = [],
+    selectedItemId = '',
+    onSelect,
+    isOpen = false,
+    onOpen,
+    onClose,
+    fieldClass = '',
+    placeholder = 'Select expense item',
+}) => {
+    const wrapperRef = useRef(null);
+    const inputRef = useRef(null);
+    const menuRef = useRef(null);
+    const [searchTerm, setSearchTerm] = useState('');
+    const [menuPosition, setMenuPosition] = useState({
+        top: 0,
+        left: 0,
+        width: 0,
+        maxHeight: EXPENSE_ITEM_MENU_MAX_HEIGHT,
+        placement: 'bottom',
+    });
+
+    const selectedItem = useMemo(
+        () => items.find((item) => item.item_id === selectedItemId) || null,
+        [items, selectedItemId]
+    );
+
+    const selectedLabel = selectedItem ? getExpenseItemOptionLabel(selectedItem) : '';
+
+    const filteredItems = useMemo(() => {
+        const q = String(searchTerm || '').trim().toLowerCase();
+        if (!q) return items;
+        return items.filter((item) => getExpenseItemOptionLabel(item).toLowerCase().includes(q));
+    }, [items, searchTerm]);
+
+    const updateMenuPosition = useCallback(() => {
+        const el = inputRef.current;
+        if (!el) return;
+
+        const rect = el.getBoundingClientRect();
+        const spaceBelow = window.innerHeight - rect.bottom;
+        const spaceAbove = rect.top;
+        const placement =
+            spaceBelow < EXPENSE_ITEM_MENU_MAX_HEIGHT + 8 && spaceAbove > spaceBelow
+                ? 'top'
+                : 'bottom';
+        const maxHeight = Math.min(
+            EXPENSE_ITEM_MENU_MAX_HEIGHT,
+            placement === 'top' ? spaceAbove - 8 : spaceBelow - 8
+        );
+
+        setMenuPosition({
+            top: placement === 'bottom' ? rect.bottom + 4 : rect.top - 4,
+            left: rect.left,
+            width: rect.width,
+            maxHeight: Math.max(maxHeight, 96),
+            placement,
+        });
+    }, []);
+
+    useEffect(() => {
+        if (!isOpen) {
+            setSearchTerm(selectedLabel);
+        }
+    }, [selectedLabel, isOpen]);
+
+    useLayoutEffect(() => {
+        if (!isOpen) return undefined;
+
+        updateMenuPosition();
+
+        const handleReposition = () => updateMenuPosition();
+        window.addEventListener('resize', handleReposition);
+        window.addEventListener('scroll', handleReposition, true);
+
+        return () => {
+            window.removeEventListener('resize', handleReposition);
+            window.removeEventListener('scroll', handleReposition, true);
+        };
+    }, [isOpen, updateMenuPosition, filteredItems.length, searchTerm]);
+
+    useEffect(() => {
+        if (!isOpen) return undefined;
+
+        const handlePointerDown = (event) => {
+            const target = event.target;
+            if (wrapperRef.current?.contains(target) || menuRef.current?.contains(target)) return;
+            onClose?.();
+        };
+
+        document.addEventListener('mousedown', handlePointerDown);
+        return () => document.removeEventListener('mousedown', handlePointerDown);
+    }, [isOpen, onClose]);
+
+    const handleSelect = (item) => {
+        onSelect(item.item_id);
+        setSearchTerm(getExpenseItemOptionLabel(item));
+        onClose?.();
+    };
+
+    const handleChange = (value) => {
+        setSearchTerm(value);
+        onOpen?.();
+        if (!String(value || '').trim()) {
+            onSelect('');
+        }
+    };
+
+    const menuStyle =
+        menuPosition.placement === 'bottom'
+            ? {
+                top: menuPosition.top,
+                left: menuPosition.left,
+                width: menuPosition.width,
+                maxHeight: menuPosition.maxHeight,
+            }
+            : {
+                bottom: window.innerHeight - menuPosition.top,
+                left: menuPosition.left,
+                width: menuPosition.width,
+                maxHeight: menuPosition.maxHeight,
+            };
+
+    return (
+        <div className="relative min-w-0" ref={wrapperRef}>
+            <input
+                ref={inputRef}
+                type="text"
+                value={searchTerm}
+                onChange={(e) => handleChange(e.target.value)}
+                onFocus={() => {
+                    onOpen?.();
+                    setSearchTerm('');
+                }}
+                placeholder={placeholder}
+                className={fieldClass}
+                autoComplete="off"
+            />
+            {isOpen
+                ? createPortal(
+                    <div
+                        ref={menuRef}
+                        style={{
+                            position: 'fixed',
+                            zIndex: EXPENSE_ITEM_MENU_Z_INDEX,
+                            ...menuStyle,
+                        }}
+                        className="overflow-y-auto overscroll-y-contain rounded-md border border-slate-200 bg-white py-1 shadow-lg"
+                    >
+                        {filteredItems.length === 0 ? (
+                            <p className="px-3 py-2 text-xs text-center text-slate-500">No items found</p>
+                        ) : (
+                            filteredItems.map((item) => (
+                                <button
+                                    key={item.item_id}
+                                    type="button"
+                                    onMouseDown={(e) => e.preventDefault()}
+                                    onClick={() => handleSelect(item)}
+                                    className={`w-full truncate px-3 py-2 text-left text-sm text-slate-800 hover:bg-emerald-50 ${
+                                        selectedItemId === item.item_id ? 'bg-emerald-50/80 font-medium' : ''
+                                    }`}
+                                >
+                                    {getExpenseItemOptionLabel(item)}
+                                </button>
+                            ))
+                        )}
+                    </div>,
+                    document.body
+                )
+                : null}
+        </div>
+    );
+};
+
+export const ExpenseModal = ({
+    isOpen,
+    onClose,
+    bankDetails,
+    bankId,
+    onSubmit,
+    formatCurrency,
+    showBank = true,
+    editRecord = null,
+}) => {
+    const [loading, setLoading] = useState(false);
     const [selectedBank, setSelectedBank] = useState(bankDetails || (bankId ? { bank_id: bankId, bank: 'Selected Bank' } : null));
     const [showBankSearch, setShowBankSearch] = useState(false);
     const [transactionDate, setTransactionDate] = useState(new Date().toISOString().split('T')[0]);
-    const [amount, setAmount] = useState('');
-    const [formKey, setFormKey] = useState(0);
+    const [remark, setRemark] = useState('');
+    const [lines, setLines] = useState([{ ...EMPTY_EXPENSE_LINE }]);
+    const [expenseItems, setExpenseItems] = useState([]);
+    const [itemsLoading, setItemsLoading] = useState(false);
+    const [openItemDropdownIndex, setOpenItemDropdownIndex] = useState(null);
 
-    // Reset all fields every time the modal opens
+    const hasPresetBank = Boolean(String(bankId || '').trim());
+    const shouldShowBankSelector = showBank && !hasPresetBank;
+    const expenseFieldClass = getCompactFieldClass('emerald');
+    const expenseAccentBtn = MODAL_ACCENT_STYLES.expense.primaryBtn;
+    const todayIso = useMemo(() => new Date().toISOString().split('T')[0], []);
+    const isEditMode = Boolean(editRecord?.expense_id);
+
+    const fetchExpenseItems = useCallback(async () => {
+        setItemsLoading(true);
+        try {
+            const response = await axios.get(
+                `${API_BASE_URL}/expense/item/list?page_no=1&limit=100`,
+                { headers: getHeaders() }
+            );
+            if (response.data?.success) {
+                setExpenseItems(response.data.data || []);
+            } else {
+                setExpenseItems([]);
+            }
+        } catch (error) {
+            console.error('Error fetching expense items:', error);
+            toast.error('Failed to load expense items');
+            setExpenseItems([]);
+        } finally {
+            setItemsLoading(false);
+        }
+    }, []);
+
     useEffect(() => {
         if (!isOpen) return;
-        setFormKey(k => k + 1);
+        if (isEditMode) {
+            const bankSel = mapBankPartyToSelection(editRecord.expense_party);
+            setSelectedBank(bankSel || bankDetails || (bankId ? { bank_id: bankId, bank: 'Selected Bank' } : null));
+            setShowBankSearch(false);
+            setTransactionDate(toIsoDateOnly(editRecord.transaction_date || editRecord.expense_date));
+            setRemark(editRecord.remark || '');
+            setLines([{
+                item_id: editRecord.item?.item_id || '',
+                amount: String(editRecord.amount ?? ''),
+            }]);
+            setLoading(false);
+            setOpenItemDropdownIndex(null);
+            fetchExpenseItems();
+            return;
+        }
         setSelectedBank(bankDetails || (bankId ? { bank_id: bankId, bank: 'Selected Bank' } : null));
         setShowBankSearch(false);
         setTransactionDate(new Date().toISOString().split('T')[0]);
-        setAmount('');
-    }, [isOpen]); // eslint-disable-line react-hooks/exhaustive-deps
+        setRemark('');
+        setLines([{ ...EMPTY_EXPENSE_LINE }]);
+        setLoading(false);
+        setOpenItemDropdownIndex(null);
+        fetchExpenseItems();
+    }, [isOpen, bankDetails, bankId, fetchExpenseItems, isEditMode, editRecord]);
+
+    const resolveExpenseBank = useCallback(() => {
+        if (hasPresetBank) {
+            return bankDetails || (bankId ? { bank_id: bankId, bank: 'Selected Bank' } : null);
+        }
+        return selectedBank;
+    }, [hasPresetBank, bankDetails, bankId, selectedBank]);
+
+    const totalAmount = useMemo(
+        () => lines.reduce((sum, line) => sum + parseDecimalValue(line.amount), 0),
+        [lines]
+    );
+
+    const validLines = useMemo(
+        () => lines.filter((line) => line.item_id && parseDecimalValue(line.amount) > 0),
+        [lines]
+    );
+
+    const updateLine = (index, field, value) => {
+        setLines((prev) =>
+            prev.map((line, i) => (i === index ? { ...line, [field]: value } : line))
+        );
+    };
+
+    const addLine = () => {
+        setLines((prev) => [...prev, { ...EMPTY_EXPENSE_LINE }]);
+    };
+
+    const removeLine = (index) => {
+        setLines((prev) => (prev.length <= 1 ? prev : prev.filter((_, i) => i !== index)));
+    };
+
+    const submitExpense = useCallback(async () => {
+        if (loading) return;
+
+        const effectiveBank = resolveExpenseBank();
+        if (!effectiveBank?.bank_id) {
+            toast.error('Please select a bank account');
+            return;
+        }
+
+        if (!transactionDate) {
+            toast.error('Please select a date');
+            return;
+        }
+
+        if (validLines.length === 0) {
+            toast.error('Add at least one expense item with a valid amount');
+            return;
+        }
+
+        const incompleteLine = lines.find(
+            (line) => (line.item_id && parseDecimalValue(line.amount) <= 0) || (!line.item_id && parseDecimalValue(line.amount) > 0)
+        );
+        if (incompleteLine) {
+            toast.error('Please complete all expense lines (item and amount)');
+            return;
+        }
+
+        setLoading(true);
+        const remarkText = String(remark || '').trim();
+
+        try {
+            if (isEditMode) {
+                const line = validLines[0];
+                const response = await axios.put(
+                    `${API_BASE_URL}/expense/entry/edit`,
+                    {
+                        expense_id: editRecord.expense_id,
+                        item_id: line.item_id,
+                        remark: remarkText,
+                        amount: parseDecimalValue(line.amount),
+                        transaction_date: transactionDate,
+                        party_id: effectiveBank.bank_id,
+                        party_type: 'bank',
+                    },
+                    { headers: getHeaders() }
+                );
+                if (!response.data?.success) {
+                    toast.error(response.data?.message || 'Failed to update expense entry');
+                    return;
+                }
+                toast.success(response.data.message || 'Expense entry updated successfully');
+                if (onSubmit) onSubmit('EXPENSE', response.data.data);
+                onClose();
+                return;
+            }
+
+            const responses = await Promise.all(
+                validLines.map((line) =>
+                    axios.post(
+                        `${API_BASE_URL}/expense/entry/create`,
+                        {
+                            item_id: line.item_id,
+                            remark: remarkText,
+                            amount: parseDecimalValue(line.amount),
+                            transaction_date: transactionDate,
+                            party_id: effectiveBank.bank_id,
+                            party_type: 'bank',
+                        },
+                        { headers: getHeaders() }
+                    )
+                )
+            );
+
+            const failed = responses.find((res) => !res.data?.success);
+            if (failed) {
+                toast.error(failed.data?.message || 'Failed to create expense entry');
+                return;
+            }
+
+            toast.success(
+                validLines.length === 1
+                    ? 'Expense entry created successfully'
+                    : `${validLines.length} expense entries created successfully`
+            );
+            if (onSubmit) {
+                onSubmit('EXPENSE', responses.map((res) => res.data?.data).filter(Boolean));
+            }
+            onClose();
+            if (!hasPresetBank) {
+                setSelectedBank(bankDetails || null);
+                setShowBankSearch(false);
+            }
+        } catch (error) {
+            console.error('Error creating expense entries:', error);
+            const errorMessage =
+                error.response?.data?.message ||
+                error.response?.data?.error ||
+                error.message ||
+                'Failed to create expense entry';
+            toast.error(errorMessage);
+        } finally {
+            setLoading(false);
+        }
+    }, [
+        loading,
+        resolveExpenseBank,
+        transactionDate,
+        validLines,
+        lines,
+        remark,
+        onSubmit,
+        onClose,
+        hasPresetBank,
+        bankDetails,
+        isEditMode,
+        editRecord,
+    ]);
 
     const handleSubmit = (e) => {
         e.preventDefault();
-
-        const effectiveBank = selectedBank || (bankId ? { bank_id: bankId, bank: 'Selected Bank' } : null);
-        if (!effectiveBank) {
-            toast.error('Please select a bank');
-            return;
-        }
-
-        const formData = new FormData(e.target);
-        const parsedAmount = parseDecimalValue(amount);
-        if (!parsedAmount || parsedAmount <= 0) {
-            toast.error('Please enter a valid amount');
-            return;
-        }
-        const data = {
-            ...Object.fromEntries(formData),
-            date: transactionDate,
-            amount: parsedAmount,
-            bank: effectiveBank,
-            clientName: clientName,
-            clientUsername: clientUsername
-        };
-        onSubmit('EXPENSE', data);
-        toast.success('Expense created successfully (Demo)');
-        onClose();
+        submitExpense();
     };
+
+    const hasSelectedBank = Boolean(resolveExpenseBank()?.bank_id);
+    const isExpenseFormValid =
+        hasSelectedBank &&
+        Boolean(transactionDate) &&
+        validLines.length > 0 &&
+        !lines.some(
+            (line) =>
+                (line.item_id && parseDecimalValue(line.amount) <= 0) ||
+                (!line.item_id && parseDecimalValue(line.amount) > 0)
+        );
+    const effectiveExpenseBank = resolveExpenseBank();
+    const selectedBankDisplayName = effectiveExpenseBank
+        ? getBankPrimaryLabel(effectiveExpenseBank)
+        : (bankId ? `Bank #${bankId}` : '—');
 
     return (
         <BaseModal
             isOpen={isOpen}
             onClose={onClose}
-            title="Create Expense"
+            title={isEditMode ? 'Edit Expense Entry' : 'Create Expense Entry'}
+            maxWidth="max-w-3xl"
+            compact
+            closeOnOverlayClick={false}
+            accent="expense"
+            titleIcon={<FiFileText className="w-4 h-4" aria-hidden />}
             footer={(
-                <div className="flex justify-end gap-2">
-                    <button
-                        type="button"
-                        onClick={onClose}
-                        className="px-4 py-2 bg-white border border-slate-300 text-slate-700 rounded-lg text-sm font-medium hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-slate-500/40 transition-all duration-200"
-                    >
-                        Cancel
-                    </button>
-                    <button
-                        type="submit"
-                        form="expense-form"
-                        disabled={!(selectedBank || bankId)}
-                        className="px-4 py-2 bg-gradient-to-r from-orange-600 to-orange-700 text-white rounded-lg text-sm font-medium hover:from-orange-700 hover:to-orange-800 focus:outline-none focus:ring-2 focus:ring-orange-500/40 disabled:opacity-50 transition-all duration-200 min-w-[140px]"
-                    >
-                        Create Expense
-                    </button>
+                <div className="flex flex-col gap-2.5 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="text-xs text-slate-500">
+                        {validLines.length > 0 ? (
+                            <span>
+                                <span className="font-medium text-slate-700 tabular-nums">{validLines.length}</span>
+                                {' '}
+                                line{validLines.length === 1 ? '' : 's'}
+                                {' · '}
+                                Total{' '}
+                                <span className="font-semibold text-emerald-700 tabular-nums">
+                                    ₹{formatCurrency ? formatCurrency(totalAmount) : formatPlainInrAmount(totalAmount)}
+                                </span>
+                            </span>
+                        ) : (
+                            <span>Add expense items below</span>
+                        )}
+                    </div>
+                    <div className="flex items-center justify-end gap-2 shrink-0">
+                        <button
+                            type="button"
+                            onClick={onClose}
+                            disabled={loading}
+                            className="px-3 py-1.5 bg-white border border-slate-300 text-slate-700 rounded-md text-xs font-medium hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-slate-500/30 disabled:opacity-50 transition-colors"
+                        >
+                            Cancel
+                        </button>
+                        <button
+                            type="button"
+                            disabled={loading || !isExpenseFormValid}
+                            onClick={submitExpense}
+                            className={`px-3 py-1.5 text-white rounded-md text-xs font-medium focus:outline-none focus:ring-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors inline-flex items-center justify-center min-w-[120px] ${expenseAccentBtn}`}
+                        >
+                            {loading ? 'Saving…' : (isEditMode ? 'Update Expense' : 'Create Expense')}
+                        </button>
+                    </div>
                 </div>
             )}
         >
-            <form key={formKey} id="expense-form" onSubmit={handleSubmit} className="space-y-5">
-                {/* Client Info - Read Only */}
-                {showClient && <div className="bg-orange-50 p-4 rounded-lg border border-orange-200">
-                    <div className="flex items-center justify-between">
-                        <div>
-                            <p className="text-xs text-orange-600 font-medium">Client</p>
-                            <p className="text-lg font-semibold text-slate-800">{clientName}</p>
-                            <p className="text-xs text-slate-500">Username: {clientUsername}</p>
-                        </div>
-                    </div>
-                </div>}
-
-                {/* Bank Selection */}
-                {showBank && <div className="bg-orange-50 p-4 rounded-lg border border-orange-200">
-                    <label className="block text-sm font-medium text-orange-700 mb-2">
-                        Select Bank Account <span className="text-red-500">*</span>
-                    </label>
-
-                    {(!selectedBank || showBankSearch) ? (
-                        <BankSearchDropdown
-                            onSelect={(bank) => {
-                                setSelectedBank(bank);
-                                setShowBankSearch(false);
-                            }}
-                            selectedBankId={selectedBank?.bank_id}
-                        />
-                    ) : (
-                        <div className="flex items-center justify-between">
-                            <div>
-                                <p className="font-medium text-slate-800">{selectedBank?.bank || 'No bank selected'}</p>
-                                {selectedBank && (
-                                    <p className="text-sm text-slate-600">
-                                        A/c: {selectedBank?.account_no} | Balance: ₹{formatCurrency(selectedBank?.balance || 0)}
-                                    </p>
-                                )}
-                            </div>
-                            <button
-                                type="button"
-                                onClick={() => setShowBankSearch(true)}
-                                className="px-3 py-1 text-sm bg-white border border-orange-300 text-orange-600 rounded-lg hover:bg-orange-50"
-                            >
-                                Change Bank
-                            </button>
-                        </div>
-                    )}
-                </div>}
-
-                <div className="space-y-4">
+            <form id="expense-form" onSubmit={handleSubmit} noValidate className="space-y-3 min-w-0">
+                {shouldShowBankSelector && (
                     <div>
-                        <label className="block text-sm font-medium text-slate-700 mb-1">
-                            Payee Name <span className="text-red-500">*</span>
+                        <label className={COMPACT_LABEL}>
+                            Pay from bank <span className="text-red-500">*</span>
                         </label>
+                        {(!selectedBank || showBankSearch) ? (
+                            <BankSearchDropdown
+                                compact
+                                focusAccent="emerald"
+                                onSelect={(bank) => {
+                                    setSelectedBank(bank);
+                                    setShowBankSearch(false);
+                                }}
+                                selectedBankId={selectedBank?.bank_id}
+                            />
+                        ) : (
+                            <SaleBankPreviewCard
+                                bank={selectedBank}
+                                onChangeBank={() => setShowBankSearch(true)}
+                                formatMoney={formatCurrency || formatPlainInrAmount}
+                                variant="expense"
+                            />
+                        )}
+                    </div>
+                )}
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                        <label className={COMPACT_LABEL}>
+                            Date <span className="text-red-500">*</span>
+                        </label>
+                        <DatePickerField
+                            value={transactionDate}
+                            onChange={(d) => {
+                                const picked = String(d || '').trim();
+                                if (!picked) {
+                                    setTransactionDate('');
+                                    return;
+                                }
+                                setTransactionDate(picked > todayIso ? todayIso : picked);
+                            }}
+                            mode="single"
+                            hideTabs={true}
+                            showResetButton={false}
+                            placeholder="Select date"
+                            buttonClassName={expenseFieldClass}
+                            maxSelectableDate={todayIso}
+                        />
+                    </div>
+                    <div>
+                        <label className={COMPACT_LABEL}>Remark</label>
                         <input
                             type="text"
-                            name="payee"
-                            placeholder="Enter payee name"
-                            required
-                            className="w-full px-4 py-3 border-2 border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
-                        />
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-4">
-                        <div>
-                            <label className="block text-sm font-medium text-slate-700 mb-1">
-                                Date <span className="text-red-500">*</span>
-                            </label>
-                            <DatePickerField
-                                value={transactionDate}
-                                onChange={setTransactionDate}
-                                mode="single"
-                                hideTabs={true}
-                                showResetButton={false}
-                                placeholder="Select date"
-                                buttonClassName="w-full px-4 py-3 border-2 border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
-                            />
-                        </div>
-
-                        <div>
-                            <label className="block text-sm font-medium text-slate-700 mb-1">
-                                Amount <span className="text-red-500">*</span>
-                            </label>
-                            <input
-                                type="text"
-                                name="amount"
-                                placeholder="Enter amount"
-                                required
-                                inputMode="decimal"
-                                value={amount}
-                                onChange={(e) => setAmount(sanitizeDecimalInput(e.target.value, 2))}
-                                className="w-full px-4 py-3 border-2 border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
-                            />
-                        </div>
-                    </div>
-
-                    <div>
-                        <label className="block text-sm font-medium text-slate-700 mb-1">
-                            Category <span className="text-red-500">*</span>
-                        </label>
-                        <select
-                            name="category"
-                            required
-                            className="w-full px-4 py-3 border-2 border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
-                        >
-                            <option value="">Select Category</option>
-                            <option value="rent">Rent</option>
-                            <option value="salary">Salary</option>
-                            <option value="electricity">Electricity</option>
-                            <option value="travel">Travel</option>
-                            <option value="office">Office Expenses</option>
-                            <option value="other">Other</option>
-                        </select>
-                    </div>
-
-                    <div>
-                        <label className="block text-sm font-medium text-slate-700 mb-1">
-                            Payment Mode <span className="text-red-500">*</span>
-                        </label>
-                        <select
-                            name="payment_mode"
-                            required
-                            className="w-full px-4 py-3 border-2 border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
-                        >
-                            <option value="cash">Cash</option>
-                            <option value="cheque">Cheque</option>
-                            <option value="online">Online Transfer</option>
-                            <option value="card">Card</option>
-                        </select>
-                    </div>
-
-                    <div>
-                        <label className="block text-sm font-medium text-slate-700 mb-1">
-                            Description
-                        </label>
-                        <textarea
-                            name="description"
-                            placeholder="Enter description"
-                            rows="2"
-                            className="w-full px-4 py-3 border-2 border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
+                            name="remark"
+                            placeholder="Optional note for all lines"
+                            value={remark}
+                            onChange={(e) => setRemark(e.target.value)}
+                            className={expenseFieldClass}
                         />
                     </div>
                 </div>
 
+                <div className="rounded-md border border-slate-200 bg-slate-50/50 p-3 space-y-2 min-w-0">
+                    <div className="flex items-center justify-between gap-2">
+                        <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                            Expense items
+                        </p>
+                        {!isEditMode && (
+                        <button
+                            type="button"
+                            onClick={addLine}
+                            className="inline-flex items-center gap-1 rounded-md border border-emerald-200 bg-white px-2 py-1 text-[11px] font-medium text-emerald-700 hover:bg-emerald-50 transition-colors shrink-0"
+                        >
+                            <FiPlus className="w-3 h-3" />
+                            Add line
+                        </button>
+                        )}
+                    </div>
+
+                    {itemsLoading ? (
+                        <div className="space-y-2">
+                            {[...Array(2)].map((_, i) => (
+                                <div key={i} className="h-9 animate-pulse rounded-md bg-slate-200/70" />
+                            ))}
+                        </div>
+                    ) : expenseItems.length === 0 ? (
+                        <p className="text-xs text-slate-500 py-2">
+                            No expense items found. Create items from the Expense Items page first.
+                        </p>
+                    ) : (
+                        <div className="space-y-2 min-w-0">
+                            <div className="grid grid-cols-[minmax(0,1fr)_76px_28px] gap-1.5 items-center px-0.5">
+                                <span className="text-[10px] font-medium uppercase tracking-wide text-slate-400">Item</span>
+                                <span className="text-[10px] font-medium uppercase tracking-wide text-slate-400 text-right">Amount</span>
+                                <span className="sr-only">Remove</span>
+                            </div>
+                            {lines.map((line, index) => (
+                                <div
+                                    key={`expense-line-${index}`}
+                                    className="grid grid-cols-[minmax(0,1fr)_76px_28px] gap-1.5 items-center min-w-0"
+                                >
+                                    <ExpenseItemSearchField
+                                        items={expenseItems}
+                                        selectedItemId={line.item_id}
+                                        onSelect={(itemId) => updateLine(index, 'item_id', itemId)}
+                                        isOpen={openItemDropdownIndex === index}
+                                        onOpen={() => setOpenItemDropdownIndex(index)}
+                                        onClose={() => setOpenItemDropdownIndex((prev) => (prev === index ? null : prev))}
+                                        fieldClass={expenseFieldClass}
+                                    />
+                                    <input
+                                        type="text"
+                                        inputMode="decimal"
+                                        placeholder="0.00"
+                                        value={line.amount}
+                                        onChange={(e) => updateLine(index, 'amount', sanitizeDecimalInput(e.target.value, 2))}
+                                        className={`${expenseFieldClass} w-full min-w-0 px-2 text-right tabular-nums`}
+                                    />
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            removeLine(index);
+                                            setOpenItemDropdownIndex((prev) => {
+                                                if (prev === index) return null;
+                                                if (prev != null && prev > index) return prev - 1;
+                                                return prev;
+                                            });
+                                        }}
+                                        disabled={lines.length <= 1 || isEditMode}
+                                        className={`flex h-8 w-7 mx-auto items-center justify-center rounded-md text-slate-400 hover:bg-rose-50 hover:text-rose-600 disabled:opacity-30 disabled:hover:bg-transparent transition-colors ${isEditMode ? 'invisible' : ''}`}
+                                        aria-label="Remove line"
+                                    >
+                                        <FiTrash2 className="w-3.5 h-3.5" />
+                                    </button>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                </div>
+
+                {hasSelectedBank && validLines.length > 0 && (
+                    <div className="rounded-md bg-emerald-50 border border-emerald-100 px-3 py-2 space-y-1">
+                        <p className="text-[11px] font-semibold uppercase tracking-wide text-emerald-700/80">Summary</p>
+                        <div className="flex items-center justify-between gap-2 text-xs">
+                            <span className="text-slate-600">Pay from</span>
+                            <span className="font-medium text-slate-800 truncate">{selectedBankDisplayName}</span>
+                        </div>
+                        <div className="flex items-center justify-between gap-2 text-xs">
+                            <span className="text-slate-600">Total amount</span>
+                            <span className="font-semibold text-emerald-700 tabular-nums">
+                                ₹{formatCurrency ? formatCurrency(totalAmount) : formatPlainInrAmount(totalAmount)}
+                            </span>
+                        </div>
+                    </div>
+                )}
             </form>
         </BaseModal>
     );
 };
 
-// Journal Modal — client-to-client transfer (same client UI as Receive/Payment)
+// Journal Modal — transfer between Client, Agent, or CA ledgers
 export const JournalModal = ({
     isOpen,
     onClose,
@@ -3791,41 +5862,47 @@ export const JournalModal = ({
     showSummary = true,
     showFromClient = true,
     showToClient = true,
-    /** Optional preset “from” client (username) when opening from a client context */
+    /** Optional preset “from” user (username) when opening from a ledger context */
     clientUsername = '',
     clientName = '',
+    partyType = 'client',
+    partyLabel = 'Client',
     /** Legacy: hide entire from block — maps to !showFromClient */
     showClient = true,
+    editRecord = null,
 }) => {
+    const presetFromType = partyType === 'agent' || partyType === 'ca' ? partyType : 'client';
     const showFromSection = showClient && showFromClient;
     const [loading, setLoading] = useState(false);
-    const [presetFromClient, setPresetFromClient] = useState(null);
+    const [presetFromParty, setPresetFromParty] = useState(null);
     const [loadingPresetFrom, setLoadingPresetFrom] = useState(false);
+    const [fromPartyType, setFromPartyType] = useState('client');
+    const [toPartyType, setToPartyType] = useState('client');
     const [transactionDate, setTransactionDate] = useState(new Date().toISOString().split('T')[0]);
     const [amount, setAmount] = useState('');
-    const [formKey, setFormKey] = useState(0);
-    const [excludeForFromLookup, setExcludeForFromLookup] = useState('');
+    const [description, setDescription] = useState('');
+    const [sendEmail, setSendEmail] = useState(true);
+    const [sendSms, setSendSms] = useState(true);
+    const [sendWhatsApp, setSendWhatsApp] = useState(true);
+    const [excludeForFromLookup, setExcludeForFromLookup] = useState(null);
+    const [excludeForToLookup, setExcludeForToLookup] = useState(null);
+
+    const todayIso = useMemo(() => new Date().toISOString().split('T')[0], []);
+    const journalFieldClass = getCompactFieldClass('indigo');
+    const journalAccentBtn = MODAL_ACCENT_STYLES.journal.primaryBtn;
+    const isEditMode = Boolean(editRecord?.transaction_id);
 
     const hasPresetFromParam = Boolean(String(clientUsername || '').trim());
 
     const shouldShowFromSelector = showFromSection && !hasPresetFromParam;
     const shouldShowToSelector = showToClient;
 
-    const fromFirmLookup = useFirmClientSearch(Boolean(shouldShowFromSelector), excludeForFromLookup);
-
-    const excludeUsernameForTo = hasPresetFromParam
-        ? String(clientUsername || '').trim()
-        : (fromFirmLookup.selectedFirm?.username || '');
-
-    const toFirmLookup = useFirmClientSearch(Boolean(shouldShowToSelector), excludeUsernameForTo);
-
-    useEffect(() => {
-        setExcludeForFromLookup(toFirmLookup.selectedFirm?.username || '');
-    }, [toFirmLookup.selectedFirm]);
+    const fromPartyLookup = useJournalPartySearch(fromPartyType, Boolean(shouldShowFromSelector), excludeForFromLookup);
+    const toPartyLookup = useJournalPartySearch(toPartyType, Boolean(shouldShowToSelector), excludeForToLookup);
 
     useEffect(() => {
         if (!isOpen || !hasPresetFromParam) {
-            setPresetFromClient(null);
+            setPresetFromParty(null);
             setLoadingPresetFrom(false);
             return undefined;
         }
@@ -3833,20 +5910,12 @@ export const JournalModal = ({
         setLoadingPresetFrom(true);
         (async () => {
             try {
-                const response = await axios.get(
-                    `${API_BASE_URL}/client/search?page_no=1&limit=10&search=${encodeURIComponent(String(clientUsername).trim())}`,
-                    { headers: getHeaders() }
-                );
-                if (!response.data.success || cancelled) return;
-                const rows = response.data.data || [];
-                const match =
-                    rows.find((c) => String(c.username) === String(clientUsername).trim()) ||
-                    rows[0];
+                const match = await fetchPresetJournalParty(clientUsername, presetFromType);
                 if (match && !cancelled) {
-                    setPresetFromClient(match);
+                    setPresetFromParty(match);
                 }
             } catch (err) {
-                console.error('Journal preset client fetch:', err);
+                console.error('Journal preset party fetch:', err);
             } finally {
                 if (!cancelled) setLoadingPresetFrom(false);
             }
@@ -3854,52 +5923,105 @@ export const JournalModal = ({
         return () => {
             cancelled = true;
         };
-    }, [isOpen, clientUsername, hasPresetFromParam]);
+    }, [isOpen, clientUsername, hasPresetFromParam, presetFromType]);
 
     useEffect(() => {
         if (!isOpen) return;
-        setFormKey((k) => k + 1);
-        setExcludeForFromLookup('');
+        if (isEditMode) {
+            const fromType = editRecord.payment_from?.type || 'client';
+            const toType = editRecord.payment_to?.type || 'client';
+            setFromPartyType(fromType === 'agent' || fromType === 'ca' ? fromType : (fromType === 'staff' ? 'staff' : 'client'));
+            setToPartyType(toType === 'agent' || toType === 'ca' ? toType : (toType === 'staff' ? 'staff' : 'client'));
+            setTransactionDate(toIsoDateOnly(editRecord.transaction_date));
+            setAmount(String(editRecord.amount ?? ''));
+            setDescription(editRecord.remark || '');
+            setLoading(false);
+            const fromParty = mapUserPartyToJournal(editRecord.payment_from);
+            const toParty = mapUserPartyToJournal(editRecord.payment_to);
+            if (fromParty?.username && shouldShowFromSelector) fromPartyLookup.setSelectedParty(fromParty);
+            if (toParty?.username && shouldShowToSelector) toPartyLookup.setSelectedParty(toParty);
+            return;
+        }
+        setFromPartyType(hasPresetFromParam ? presetFromType : 'client');
+        setToPartyType('client');
+        setExcludeForFromLookup(null);
+        setExcludeForToLookup(null);
         setTransactionDate(new Date().toISOString().split('T')[0]);
         setAmount('');
+        setDescription('');
         setLoading(false);
-        fromFirmLookup.reset();
-        toFirmLookup.reset();
-    }, [isOpen]); // eslint-disable-line react-hooks/exhaustive-deps
+        setSendEmail(true);
+        setSendSms(true);
+        setSendWhatsApp(true);
+        fromPartyLookup.reset();
+        toPartyLookup.reset();
+    }, [isOpen, isEditMode, editRecord]); // eslint-disable-line react-hooks/exhaustive-deps
 
-    const effectiveFromClient = hasPresetFromParam
-        ? (presetFromClient || {
+    const effectiveFromParty = hasPresetFromParam
+        ? (presetFromParty || mapRowToJournalParty({
             username: clientUsername,
             name: clientName || clientUsername,
             email: '',
             balance: 0,
             mobile: '',
             pan_number: '',
-        })
-        : fromFirmLookup.selectedFirm;
+        }, presetFromType))
+        : fromPartyLookup.selectedParty;
 
-    const effectiveToClient = toFirmLookup.selectedFirm;
+    const effectiveToParty = toPartyLookup.selectedParty;
 
-    const fromId = String(effectiveFromClient?.username || '');
-    const toId = String(effectiveToClient?.username || '');
+    useEffect(() => {
+        if (!effectiveFromParty?.username) {
+            setExcludeForToLookup(null);
+            return;
+        }
+        setExcludeForToLookup({
+            userType: effectiveFromParty.userType || fromPartyType,
+            username: effectiveFromParty.username,
+        });
+    }, [effectiveFromParty, fromPartyType]);
+
+    useEffect(() => {
+        if (!effectiveToParty?.username) {
+            setExcludeForFromLookup(null);
+            return;
+        }
+        setExcludeForFromLookup({
+            userType: effectiveToParty.userType || toPartyType,
+            username: effectiveToParty.username,
+        });
+    }, [effectiveToParty, toPartyType]);
+
+    const fromPartyKey = journalPartyKey(effectiveFromParty, hasPresetFromParam ? presetFromType : fromPartyType);
+    const toPartyKey = journalPartyKey(effectiveToParty, toPartyType);
 
     const isJournalFormValid =
-        Boolean(effectiveFromClient) &&
-        Boolean(effectiveToClient) &&
-        fromId !== '' &&
-        toId !== '' &&
-        fromId !== toId &&
+        Boolean(effectiveFromParty) &&
+        Boolean(effectiveToParty) &&
+        fromPartyKey !== '' &&
+        toPartyKey !== '' &&
+        fromPartyKey !== toPartyKey &&
         parseDecimalValue(amount) > 0 &&
         !(hasPresetFromParam && loadingPresetFrom);
 
-    const handleSubmit = async (e) => {
-        e.preventDefault();
-        if (!effectiveFromClient || !effectiveToClient) {
-            toast.error('Please select both clients');
+    const handleFromPartyTypeChange = (type) => {
+        setFromPartyType(type);
+        fromPartyLookup.reset();
+    };
+
+    const handleToPartyTypeChange = (type) => {
+        setToPartyType(type);
+        toPartyLookup.reset();
+    };
+
+    const submitJournal = useCallback(async () => {
+        if (loading) return;
+        if (!effectiveFromParty || !effectiveToParty) {
+            toast.error('Please select both users');
             return;
         }
-        if (fromId === toId) {
-            toast.error('Cannot transfer between the same client');
+        if (fromPartyKey === toPartyKey) {
+            toast.error('Cannot transfer to the same account');
             return;
         }
 
@@ -3909,39 +6031,51 @@ export const JournalModal = ({
             return;
         }
 
+        if (!transactionDate) {
+            toast.error('Please select a date');
+            return;
+        }
+
         if (hasPresetFromParam && loadingPresetFrom) {
-            toast.error('Loading source client…');
+            toast.error('Loading source user…');
             return;
         }
 
-        const fromBal = parseDecimalValue(effectiveFromClient.balance);
-        if (parsedAmount > fromBal) {
-            toast.error('Insufficient balance in source client ledger');
-            return;
-        }
-
-        const formData = new FormData(e.target);
-        const description = formData.get('description');
+        const remarkText = String(description || '').trim();
+        const fromType = effectiveFromParty.userType || (hasPresetFromParam ? presetFromType : fromPartyType);
+        const toType = effectiveToParty.userType || toPartyType;
+        const fromLabel = JOURNAL_PARTY_TYPE_LABELS[fromType] || 'User';
+        const toLabel = JOURNAL_PARTY_TYPE_LABELS[toType] || 'User';
 
         const payload = {
             amount: parsedAmount,
-            party1_id: effectiveFromClient.username,
-            party2_id: effectiveToClient.username,
-            party1_type: 'client',
-            party2_type: 'client',
+            party1_id: resolveJournalPartyId(effectiveFromParty, fromType),
+            party2_id: resolveJournalPartyId(effectiveToParty, toType),
+            party1_type: fromType,
+            party2_type: toType,
             remark:
-                description ||
-                `Journal transfer from ${effectiveFromClient.name || effectiveFromClient.username} to ${effectiveToClient.name || effectiveToClient.username}`,
+                remarkText ||
+                `Journal transfer from ${fromLabel} ${effectiveFromParty.name || resolveJournalPartyId(effectiveFromParty, fromType)} to ${toLabel} ${effectiveToParty.name || resolveJournalPartyId(effectiveToParty, toType)}`,
             transaction_date: transactionDate,
         };
 
         setLoading(true);
         try {
-            const response = await axios.post(`${API_BASE_URL}/transaction/payment/journal`, payload, {
-                headers: getHeaders(),
-            });
+            const response = isEditMode
+                ? await axios.put(
+                    `${API_BASE_URL}/journal/edit`,
+                    {
+                        ...payload,
+                        journal_id: editRecord.journal_id,
+                        transaction_id: editRecord.transaction_id,
+                    },
+                    { headers: getHeaders() }
+                )
+                : await axios.post(`${API_BASE_URL}/journal/create`, payload, {
+                    headers: getHeaders(),
+                });
             if (response.data.success) {
-                toast.success(response.data.message || 'Journal entry created successfully');
+                toast.success(response.data.message || (isEditMode ? 'Journal updated successfully' : 'Journal entry created successfully'));
                 if (onSubmit) onSubmit('JOURNAL', response.data.data);
                 onClose();
             } else {
@@ -3955,145 +6089,221 @@ export const JournalModal = ({
         } finally {
             setLoading(false);
         }
+    }, [
+        loading,
+        effectiveFromParty,
+        effectiveToParty,
+        fromPartyKey,
+        toPartyKey,
+        amount,
+        transactionDate,
+        description,
+        hasPresetFromParam,
+        presetFromType,
+        fromPartyType,
+        toPartyType,
+        loadingPresetFrom,
+        onSubmit,
+        onClose,
+        isEditMode,
+        editRecord,
+    ]);
+
+    const handleSubmit = (e) => {
+        e.preventDefault();
+        submitJournal();
     };
 
     const shouldShowJournalSummary =
-        showSummary && Boolean(effectiveFromClient) && Boolean(effectiveToClient);
+        showSummary && Boolean(effectiveFromParty) && Boolean(effectiveToParty);
+
+    const fromPartyDisplayName = effectiveFromParty?.name || effectiveFromParty?.username || '—';
+    const toPartyDisplayName = effectiveToParty?.name || effectiveToParty?.username || '—';
+    const fromTypeLabel = JOURNAL_PARTY_TYPE_LABELS[effectiveFromParty?.userType || (hasPresetFromParam ? presetFromType : fromPartyType)] || partyLabel;
+    const toTypeLabel = JOURNAL_PARTY_TYPE_LABELS[effectiveToParty?.userType || toPartyType] || 'User';
+    const presetFromLabel = `From ${partyLabel || fromTypeLabel}`;
 
     return (
         <BaseModal
             isOpen={isOpen}
             onClose={onClose}
-            title="Journal Transfer (Client to Client)"
+            title={isEditMode ? 'Edit Journal Entry' : 'Journal Transfer'}
+            maxWidth="max-w-3xl"
+            compact
+            closeOnOverlayClick={false}
+            accent="journal"
+            titleIcon={<FiFileText className="w-4 h-4" aria-hidden />}
             footer={(
-                <div className="flex justify-end gap-2">
-                    <button
-                        type="button"
-                        onClick={onClose}
-                        disabled={loading}
-                        className="px-4 py-2 bg-white border border-slate-300 text-slate-700 rounded-lg text-sm font-medium hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-slate-500/40 disabled:opacity-50 transition-all duration-200"
-                    >
-                        Cancel
-                    </button>
-                    <button
-                        type="submit"
-                        form="journal-form"
-                        disabled={loading || !isJournalFormValid || (hasPresetFromParam && loadingPresetFrom)}
-                        className="px-4 py-2 bg-gradient-to-r from-indigo-600 to-indigo-700 text-white rounded-lg text-sm font-medium hover:from-indigo-700 hover:to-indigo-800 focus:outline-none focus:ring-2 focus:ring-indigo-500/40 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 inline-flex items-center justify-center min-w-[150px]"
-                    >
-                        {loading ? 'Processing…' : hasPresetFromParam && loadingPresetFrom ? 'Loading…' : 'Transfer'}
-                    </button>
+                <div className="flex flex-col gap-2.5 sm:flex-row sm:items-center sm:justify-between">
+                    {!isEditMode && (
+                    <TransactionNotifyCheckboxes
+                        sendSms={sendSms}
+                        setSendSms={setSendSms}
+                        sendWhatsApp={sendWhatsApp}
+                        setSendWhatsApp={setSendWhatsApp}
+                        sendEmail={sendEmail}
+                        setSendEmail={setSendEmail}
+                    />
+                    )}
+                    <div className={`flex items-center justify-end gap-2 shrink-0 ${isEditMode ? 'w-full' : ''}`}>
+                        <button
+                            type="button"
+                            onClick={onClose}
+                            disabled={loading}
+                            className="px-3 py-1.5 bg-white border border-slate-300 text-slate-700 rounded-md text-xs font-medium hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-slate-500/30 disabled:opacity-50 transition-colors"
+                        >
+                            Cancel
+                        </button>
+                        <button
+                            type="button"
+                            disabled={loading || !isJournalFormValid || (hasPresetFromParam && loadingPresetFrom)}
+                            onClick={submitJournal}
+                            className={`px-3 py-1.5 text-white rounded-md text-xs font-medium focus:outline-none focus:ring-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors inline-flex items-center justify-center min-w-[110px] ${journalAccentBtn}`}
+                        >
+                            {loading ? 'Processing…' : (hasPresetFromParam && loadingPresetFrom ? 'Loading…' : (isEditMode ? 'Update Journal' : 'Transfer'))}
+                        </button>
+                    </div>
                 </div>
             )}
         >
-            <form key={formKey} id="journal-form" onSubmit={handleSubmit} className="space-y-5">
+            <form id="journal-form" onSubmit={handleSubmit} noValidate className="space-y-3">
                 {shouldShowFromSelector && (
-                    <FirmClientSearchFields
+                    <JournalPartySearchFields
                         variant="receive"
-                        label="From Client"
+                        label="From user"
+                        partyType={fromPartyType}
+                        onPartyTypeChange={handleFromPartyTypeChange}
                         formatCurrency={formatCurrency}
-                        searchTerm={fromFirmLookup.searchTerm}
-                        setSearchTerm={fromFirmLookup.setSearchTerm}
-                        firms={fromFirmLookup.firms}
-                        setFirms={fromFirmLookup.setFirms}
-                        showDropdown={fromFirmLookup.showDropdown}
-                        setShowDropdown={fromFirmLookup.setShowDropdown}
-                        searchLoading={fromFirmLookup.searchLoading}
-                        selectedFirm={fromFirmLookup.selectedFirm}
-                        setSelectedFirm={fromFirmLookup.setSelectedFirm}
+                        compact
+                        hideSearchHint
+                        focusAccent="indigo"
+                        searchTerm={fromPartyLookup.searchTerm}
+                        setSearchTerm={fromPartyLookup.setSearchTerm}
+                        parties={fromPartyLookup.parties}
+                        setParties={fromPartyLookup.setParties}
+                        showDropdown={fromPartyLookup.showDropdown}
+                        setShowDropdown={fromPartyLookup.setShowDropdown}
+                        openDropdown={fromPartyLookup.openDropdown}
+                        dismissDropdown={fromPartyLookup.dismissDropdown}
+                        searchLoading={fromPartyLookup.searchLoading}
+                        loadingMore={fromPartyLookup.loadingMore}
+                        handleListScroll={fromPartyLookup.handleListScroll}
+                        clearSelection={fromPartyLookup.clearSelection}
+                        onSearchFocus={fromPartyLookup.loadPartiesOnFocus}
+                        selectedParty={fromPartyLookup.selectedParty}
+                        setSelectedParty={fromPartyLookup.setSelectedParty}
                     />
                 )}
 
-                {showFromSection && hasPresetFromParam && effectiveFromClient && (
-                    <FirmClientSearchFields
+                {showFromSection && hasPresetFromParam && effectiveFromParty && (
+                    <JournalPartySearchFields
                         variant="receive"
-                        label="From Client"
-                        lockedFirm={effectiveFromClient}
+                        label={presetFromLabel}
+                        lockedParty={effectiveFromParty}
                         readOnly
+                        showTypeToggle={false}
                         formatCurrency={formatCurrency}
+                        compact
+                        focusAccent="indigo"
                     />
                 )}
 
                 {shouldShowToSelector && (
-                    <FirmClientSearchFields
+                    <JournalPartySearchFields
                         variant="payment"
-                        label="To Client"
+                        label="To user"
+                        partyType={toPartyType}
+                        onPartyTypeChange={handleToPartyTypeChange}
                         formatCurrency={formatCurrency}
-                        searchTerm={toFirmLookup.searchTerm}
-                        setSearchTerm={toFirmLookup.setSearchTerm}
-                        firms={toFirmLookup.firms}
-                        setFirms={toFirmLookup.setFirms}
-                        showDropdown={toFirmLookup.showDropdown}
-                        setShowDropdown={toFirmLookup.setShowDropdown}
-                        searchLoading={toFirmLookup.searchLoading}
-                        selectedFirm={toFirmLookup.selectedFirm}
-                        setSelectedFirm={toFirmLookup.setSelectedFirm}
+                        compact
+                        hideSearchHint
+                        focusAccent="indigo"
+                        searchTerm={toPartyLookup.searchTerm}
+                        setSearchTerm={toPartyLookup.setSearchTerm}
+                        parties={toPartyLookup.parties}
+                        setParties={toPartyLookup.setParties}
+                        showDropdown={toPartyLookup.showDropdown}
+                        setShowDropdown={toPartyLookup.setShowDropdown}
+                        openDropdown={toPartyLookup.openDropdown}
+                        dismissDropdown={toPartyLookup.dismissDropdown}
+                        searchLoading={toPartyLookup.searchLoading}
+                        loadingMore={toPartyLookup.loadingMore}
+                        handleListScroll={toPartyLookup.handleListScroll}
+                        clearSelection={toPartyLookup.clearSelection}
+                        onSearchFocus={toPartyLookup.loadPartiesOnFocus}
+                        selectedParty={toPartyLookup.selectedParty}
+                        setSelectedParty={toPartyLookup.setSelectedParty}
                     />
                 )}
 
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-2 gap-3">
                     <div>
-                        <label className="block text-sm font-medium text-slate-700 mb-1">
+                        <label className={COMPACT_LABEL}>
                             Date <span className="text-red-500">*</span>
                         </label>
                         <DatePickerField
                             value={transactionDate}
-                            onChange={setTransactionDate}
+                            onChange={(d) => {
+                                const picked = String(d || '').trim();
+                                if (!picked) {
+                                    setTransactionDate('');
+                                    return;
+                                }
+                                setTransactionDate(picked > todayIso ? todayIso : picked);
+                            }}
                             mode="single"
                             hideTabs={true}
                             showResetButton={false}
                             placeholder="Select date"
-                            buttonClassName="w-full px-4 py-3 border-2 border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                            buttonClassName={journalFieldClass}
+                            maxSelectableDate={todayIso}
                         />
                     </div>
                     <div>
-                        <label className="block text-sm font-medium text-slate-700 mb-1">
+                        <label className={COMPACT_LABEL}>
                             Amount <span className="text-red-500">*</span>
                         </label>
                         <input
                             type="text"
                             name="amount"
-                            placeholder="Enter amount"
-                            required
+                            placeholder="0.00"
                             inputMode="decimal"
                             value={amount}
                             onChange={(e) => setAmount(sanitizeDecimalInput(e.target.value, 2))}
-                            className="w-full px-4 py-3 border-2 border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                            className={journalFieldClass}
                         />
                     </div>
                 </div>
 
                 <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-1">
-                        Description / Remark
-                    </label>
+                    <label className={COMPACT_LABEL}>Description / Remark</label>
                     <textarea
                         name="description"
-                        placeholder="Enter description or remark"
+                        placeholder="Optional note"
                         rows="2"
-                        className="w-full px-4 py-3 border-2 border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                        value={description}
+                        onChange={(e) => setDescription(e.target.value)}
+                        className={`${journalFieldClass} resize-none`}
                     />
                 </div>
 
                 {shouldShowJournalSummary && (
-                    <div className="bg-slate-50 p-3 rounded-lg border border-slate-200">
-                        <p className="text-xs text-slate-600 mb-1">Transaction Summary</p>
-                        <div className="flex items-center justify-between text-sm">
-                            <span className="font-medium">From Client:</span>
-                            <span className="text-red-600 truncate max-w-[55%] text-right">
-                                {effectiveFromClient?.name || effectiveFromClient?.username || '—'}
-                            </span>
+                    <div className="rounded-md bg-indigo-50 border border-indigo-100 px-3 py-2 space-y-1">
+                        <p className="text-[11px] font-semibold uppercase tracking-wide text-indigo-700/80">Summary</p>
+                        <div className="flex items-center justify-between gap-2 text-xs">
+                            <span className="text-slate-600">From {fromTypeLabel}</span>
+                            <span className="font-medium text-slate-800 truncate">{fromPartyDisplayName}</span>
                         </div>
-                        <div className="flex items-center justify-between text-sm mt-1">
-                            <span className="font-medium">To Client:</span>
-                            <span className="text-green-600 truncate max-w-[55%] text-right">
-                                {effectiveToClient?.name || effectiveToClient?.username || '—'}
-                            </span>
+                        <div className="flex items-center justify-between gap-2 text-xs">
+                            <span className="text-slate-600">To {toTypeLabel}</span>
+                            <span className="font-medium text-indigo-700 truncate">{toPartyDisplayName}</span>
                         </div>
-                        <div className="flex items-center justify-between text-sm mt-1">
-                            <span className="font-medium">Amount:</span>
-                            <span className="text-indigo-600">₹{formatCurrency(parseDecimalValue(amount) || 0)}</span>
-                        </div>
+                        {parseDecimalValue(amount) > 0 && (
+                            <div className="flex items-center justify-between gap-2 text-xs pt-0.5 border-t border-indigo-100/80">
+                                <span className="text-slate-600">Amount</span>
+                                <span className="font-semibold text-indigo-700 tabular-nums">₹{formatPlainInrAmount(amount)}</span>
+                            </div>
+                        )}
                     </div>
                 )}
             </form>
@@ -4114,6 +6324,7 @@ export const ContraModal = ({
     fromBankId = '',
     toBankDetails = null,
     toBankId = '',
+    editRecord = null,
 }) => {
     const [loading, setLoading] = useState(false);
     const [selectedFromBank, setSelectedFromBank] = useState(fromBankDetails || (fromBankId ? { bank_id: fromBankId, bank: 'Selected Bank' } : null));
@@ -4122,7 +6333,15 @@ export const ContraModal = ({
     const [showToBankSearch, setShowToBankSearch] = useState(false);
     const [transactionDate, setTransactionDate] = useState(new Date().toISOString().split('T')[0]);
     const [amount, setAmount] = useState('');
-    const [formKey, setFormKey] = useState(0);
+    const [description, setDescription] = useState('');
+    const [sendEmail, setSendEmail] = useState(true);
+    const [sendSms, setSendSms] = useState(true);
+    const [sendWhatsApp, setSendWhatsApp] = useState(true);
+
+    const todayIso = useMemo(() => new Date().toISOString().split('T')[0], []);
+    const contraFieldClass = getCompactFieldClass('teal');
+    const contraAccentBtn = MODAL_ACCENT_STYLES.contra.primaryBtn;
+    const isEditMode = Boolean(editRecord?.transaction_id || editRecord?.contra_id);
 
     const hasPresetFromBank = Boolean(String(fromBankId || '').trim());
     const hasPresetToBank = Boolean(String(toBankId || '').trim());
@@ -4131,15 +6350,31 @@ export const ContraModal = ({
 
     useEffect(() => {
         if (!isOpen) return;
-        setFormKey((k) => k + 1);
+        if (isEditMode) {
+            const fromBank = mapBankPartyToSelection(editRecord.payment_from);
+            const toBank = mapBankPartyToSelection(editRecord.payment_to);
+            if (fromBank && !hasPresetFromBank) setSelectedFromBank(fromBank);
+            if (toBank && !hasPresetToBank) setSelectedToBank(toBank);
+            setShowFromBankSearch(false);
+            setShowToBankSearch(false);
+            setTransactionDate(toIsoDateOnly(editRecord.transaction_date));
+            setAmount(String(editRecord.amount ?? ''));
+            setDescription(editRecord.remark || '');
+            setLoading(false);
+            return;
+        }
         setSelectedFromBank(fromBankDetails || (fromBankId ? { bank_id: fromBankId, bank: 'Selected Bank' } : null));
         setSelectedToBank(toBankDetails || (toBankId ? { bank_id: toBankId, bank: 'Selected Bank' } : null));
         setShowFromBankSearch(false);
         setShowToBankSearch(false);
         setTransactionDate(new Date().toISOString().split('T')[0]);
         setAmount('');
+        setDescription('');
         setLoading(false);
-    }, [isOpen, fromBankDetails, fromBankId, toBankDetails, toBankId]);
+        setSendEmail(true);
+        setSendSms(true);
+        setSendWhatsApp(true);
+    }, [isOpen, fromBankDetails, fromBankId, toBankDetails, toBankId, isEditMode, editRecord, hasPresetFromBank, hasPresetToBank]);
 
     const effectiveFromBank = hasPresetFromBank
         ? {
@@ -4167,8 +6402,8 @@ export const ContraModal = ({
         selectedFromBankId !== selectedToBankId &&
         parseDecimalValue(amount) > 0;
 
-    const handleSubmit = async (e) => {
-        e.preventDefault();
+    const submitContra = useCallback(async () => {
+        if (loading) return;
         if (!effectiveFromBank || !effectiveToBank) {
             toast.error('Please select both banks');
             return;
@@ -4184,31 +6419,47 @@ export const ContraModal = ({
             return;
         }
 
-        if (parsedAmount > parseDecimalValue(effectiveFromBank.balance || 0)) {
+        if (!transactionDate) {
+            toast.error('Please select a date');
+            return;
+        }
+
+        if (!isEditMode && parsedAmount > parseDecimalValue(effectiveFromBank.balance || 0)) {
             toast.error('Insufficient balance in source bank account');
             return;
         }
 
-        const formData = new FormData(e.target);
-        const description = formData.get('description');
+        const remarkText = String(description || '').trim();
+        const fromBankLabel = getBankPrimaryLabel(effectiveFromBank);
+        const toBankLabel = getBankPrimaryLabel(effectiveToBank);
 
         const payload = {
             party_1: effectiveFromBank.bank_id,
             party_2: effectiveToBank.bank_id,
             transaction_date: transactionDate,
             amount: parsedAmount,
-            remark: description || `Contra transfer from ${effectiveFromBank.bank || 'source bank'} to ${effectiveToBank.bank || 'destination bank'}`,
+            remark: remarkText || `Contra transfer from ${fromBankLabel} to ${toBankLabel}`,
         };
 
         setLoading(true);
         try {
-            const response = await axios.post(
-                `${API_BASE_URL}/contra/create`,
-                payload,
-                { headers: getHeaders() }
-            );
+            const response = isEditMode
+                ? await axios.put(
+                    `${API_BASE_URL}/contra/edit`,
+                    {
+                        ...payload,
+                        contra_id: editRecord.contra_id,
+                        transaction_id: editRecord.transaction_id,
+                    },
+                    { headers: getHeaders() }
+                )
+                : await axios.post(
+                    `${API_BASE_URL}/contra/create`,
+                    payload,
+                    { headers: getHeaders() }
+                );
             if (response.data.success) {
-                toast.success(response.data.message || 'Contra transfer completed successfully');
+                toast.success(response.data.message || (isEditMode ? 'Contra updated successfully' : 'Contra transfer completed successfully'));
                 if (onSubmit) onSubmit('CONTRA', response.data.data);
                 onClose();
             } else {
@@ -4221,44 +6472,81 @@ export const ContraModal = ({
         } finally {
             setLoading(false);
         }
+    }, [
+        loading,
+        effectiveFromBank,
+        effectiveToBank,
+        amount,
+        transactionDate,
+        description,
+        onSubmit,
+        onClose,
+        isEditMode,
+        editRecord,
+    ]);
+
+    const handleSubmit = (e) => {
+        e.preventDefault();
+        submitContra();
     };
 
     const shouldShowContraSummary = showSummary && effectiveFromBank && effectiveToBank;
+    const fromBankDisplayName = effectiveFromBank ? getBankPrimaryLabel(effectiveFromBank) : '—';
+    const toBankDisplayName = effectiveToBank ? getBankPrimaryLabel(effectiveToBank) : '—';
 
     return (
         <BaseModal
             isOpen={isOpen}
             onClose={onClose}
-            title="Bank Transfer (Contra)"
+            title={isEditMode ? 'Edit Contra Entry' : 'Bank Transfer (Contra)'}
+            maxWidth="max-w-3xl"
+            compact
+            closeOnOverlayClick={false}
+            accent="contra"
+            titleIcon={<FiRepeat className="w-4 h-4" aria-hidden />}
             footer={(
-                <div className="flex justify-end gap-2">
-                    <button
-                        type="button"
-                        onClick={onClose}
-                        disabled={loading}
-                        className="px-4 py-2 bg-white border border-slate-300 text-slate-700 rounded-lg text-sm font-medium hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-slate-500/40 disabled:opacity-50 transition-all duration-200"
-                    >
-                        Cancel
-                    </button>
-                    <button
-                        type="submit"
-                        form="contra-form"
-                        disabled={loading || !isContraFormValid}
-                        className="px-4 py-2 bg-gradient-to-r from-indigo-600 to-indigo-700 text-white rounded-lg text-sm font-medium hover:from-indigo-700 hover:to-indigo-800 focus:outline-none focus:ring-2 focus:ring-indigo-500/40 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 inline-flex items-center justify-center min-w-[150px]"
-                    >
-                        {loading ? 'Processing...' : 'Transfer Funds'}
-                    </button>
+                <div className="flex flex-col gap-2.5 sm:flex-row sm:items-center sm:justify-between">
+                    {!isEditMode && (
+                    <TransactionNotifyCheckboxes
+                        sendSms={sendSms}
+                        setSendSms={setSendSms}
+                        sendWhatsApp={sendWhatsApp}
+                        setSendWhatsApp={setSendWhatsApp}
+                        sendEmail={sendEmail}
+                        setSendEmail={setSendEmail}
+                    />
+                    )}
+                    <div className={`flex items-center justify-end gap-2 shrink-0 ${isEditMode ? 'w-full' : ''}`}>
+                        <button
+                            type="button"
+                            onClick={onClose}
+                            disabled={loading}
+                            className="px-3 py-1.5 bg-white border border-slate-300 text-slate-700 rounded-md text-xs font-medium hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-slate-500/30 disabled:opacity-50 transition-colors"
+                        >
+                            Cancel
+                        </button>
+                        <button
+                            type="button"
+                            disabled={loading || !isContraFormValid}
+                            onClick={submitContra}
+                            className={`px-3 py-1.5 text-white rounded-md text-xs font-medium focus:outline-none focus:ring-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors inline-flex items-center justify-center min-w-[110px] ${contraAccentBtn}`}
+                        >
+                            {loading ? 'Processing…' : (isEditMode ? 'Update Contra' : 'Transfer Funds')}
+                        </button>
+                    </div>
                 </div>
             )}
         >
-            <form key={formKey} id="contra-form" onSubmit={handleSubmit} className="space-y-5">
+            <form id="contra-form" onSubmit={handleSubmit} noValidate className="space-y-3">
                 {shouldShowFromBankSelector && (
                     <div>
-                        <label className="block text-sm font-medium text-slate-700 mb-1.5">
-                            From Bank <span className="text-red-500">*</span>
+                        <label className={COMPACT_LABEL}>
+                            From bank <span className="text-red-500">*</span>
                         </label>
                         {(!selectedFromBank || showFromBankSearch) ? (
                             <BankSearchDropdown
+                                compact
+                                focusAccent="teal"
                                 onSelect={(bank) => {
                                     setSelectedFromBank(bank);
                                     setShowFromBankSearch(false);
@@ -4270,7 +6558,8 @@ export const ContraModal = ({
                             <SaleBankPreviewCard
                                 bank={selectedFromBank}
                                 onChangeBank={() => setShowFromBankSearch(true)}
-                                formatMoney={formatCurrency}
+                                formatMoney={formatPlainInrAmount}
+                                variant="contra"
                             />
                         )}
                     </div>
@@ -4278,10 +6567,11 @@ export const ContraModal = ({
 
                 {showFromBank && hasPresetFromBank && effectiveFromBank && (
                     <div>
-                        <label className="block text-sm font-medium text-slate-700 mb-1.5">From Bank</label>
+                        <label className={COMPACT_LABEL}>From bank</label>
                         <SaleBankPreviewCard
                             bank={effectiveFromBank}
-                            formatMoney={formatCurrency}
+                            formatMoney={formatPlainInrAmount}
+                            variant="contra"
                             readOnly
                         />
                     </div>
@@ -4289,11 +6579,13 @@ export const ContraModal = ({
 
                 {shouldShowToBankSelector && (
                     <div>
-                        <label className="block text-sm font-medium text-slate-700 mb-1.5">
-                            To Bank <span className="text-red-500">*</span>
+                        <label className={COMPACT_LABEL}>
+                            To bank <span className="text-red-500">*</span>
                         </label>
                         {(!selectedToBank || showToBankSearch) ? (
                             <BankSearchDropdown
+                                compact
+                                focusAccent="teal"
                                 onSelect={(bank) => {
                                     setSelectedToBank(bank);
                                     setShowToBankSearch(false);
@@ -4305,7 +6597,8 @@ export const ContraModal = ({
                             <SaleBankPreviewCard
                                 bank={selectedToBank}
                                 onChangeBank={() => setShowToBankSearch(true)}
-                                formatMoney={formatCurrency}
+                                formatMoney={formatPlainInrAmount}
+                                variant="contra"
                             />
                         )}
                     </div>
@@ -4313,76 +6606,88 @@ export const ContraModal = ({
 
                 {showToBank && hasPresetToBank && effectiveToBank && (
                     <div>
-                        <label className="block text-sm font-medium text-slate-700 mb-1.5">To Bank</label>
+                        <label className={COMPACT_LABEL}>To bank</label>
                         <SaleBankPreviewCard
                             bank={effectiveToBank}
-                            formatMoney={formatCurrency}
+                            formatMoney={formatPlainInrAmount}
+                            variant="contra"
                             readOnly
                         />
                     </div>
                 )}
 
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-2 gap-3">
                     <div>
-                        <label className="block text-sm font-medium text-slate-700 mb-1">
+                        <label className={COMPACT_LABEL}>
                             Date <span className="text-red-500">*</span>
                         </label>
                         <DatePickerField
                             value={transactionDate}
-                            onChange={setTransactionDate}
+                            onChange={(d) => {
+                                const picked = String(d || '').trim();
+                                if (!picked) {
+                                    setTransactionDate('');
+                                    return;
+                                }
+                                setTransactionDate(picked > todayIso ? todayIso : picked);
+                            }}
                             mode="single"
                             hideTabs={true}
                             showResetButton={false}
                             placeholder="Select date"
-                            buttonClassName="w-full px-4 py-3 border-2 border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                            buttonClassName={contraFieldClass}
+                            maxSelectableDate={todayIso}
                         />
                     </div>
                     <div>
-                        <label className="block text-sm font-medium text-slate-700 mb-1">
+                        <label className={COMPACT_LABEL}>
                             Amount <span className="text-red-500">*</span>
                         </label>
                         <input
                             type="text"
                             name="amount"
-                            placeholder="Enter amount"
-                            required
+                            placeholder="0.00"
                             inputMode="decimal"
                             value={amount}
                             onChange={(e) => setAmount(sanitizeDecimalInput(e.target.value, 2))}
-                            className="w-full px-4 py-3 border-2 border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                            className={contraFieldClass}
                         />
                     </div>
                 </div>
 
                 <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-1">
-                        Description / Remark
-                    </label>
+                    <label className={COMPACT_LABEL}>Description / Remark</label>
                     <textarea
                         name="description"
-                        placeholder="Enter description or remark"
+                        placeholder="Optional note"
                         rows="2"
-                        className="w-full px-4 py-3 border-2 border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                        value={description}
+                        onChange={(e) => setDescription(e.target.value)}
+                        className={`${contraFieldClass} resize-none`}
                     />
                 </div>
 
                 {shouldShowContraSummary && (
-                    <div className="bg-slate-50 p-3 rounded-lg border border-slate-200">
-                        <p className="text-xs text-slate-600 mb-1">Transaction Summary</p>
+                    <div className="rounded-md bg-teal-50 border border-teal-100 px-3 py-2 space-y-1">
+                        <p className="text-[11px] font-semibold uppercase tracking-wide text-teal-700/80">Summary</p>
                         {showFromBank && (
-                            <div className="flex items-center justify-between text-sm">
-                                <span className="font-medium">From Bank:</span>
-                                <span className="text-red-600">{effectiveFromBank?.bank || `Bank #${effectiveFromBank?.bank_id || ''}`}</span>
+                            <div className="flex items-center justify-between gap-2 text-xs">
+                                <span className="text-slate-600">From bank</span>
+                                <span className="font-medium text-slate-800 truncate">{fromBankDisplayName}</span>
                             </div>
                         )}
-                        <div className={`flex items-center justify-between text-sm ${showFromBank ? 'mt-1' : ''}`}>
-                            <span className="font-medium">To Bank:</span>
-                            <span className="text-green-600">{effectiveToBank?.bank || `Bank #${effectiveToBank?.bank_id || ''}`}</span>
-                        </div>
-                        <div className="flex items-center justify-between text-sm mt-1">
-                            <span className="font-medium">Amount:</span>
-                            <span className="text-indigo-600">₹{formatCurrency(parseDecimalValue(amount) || 0)}</span>
-                        </div>
+                        {showToBank && (
+                            <div className="flex items-center justify-between gap-2 text-xs">
+                                <span className="text-slate-600">To bank</span>
+                                <span className="font-medium text-teal-700 truncate">{toBankDisplayName}</span>
+                            </div>
+                        )}
+                        {parseDecimalValue(amount) > 0 && (
+                            <div className="flex items-center justify-between gap-2 text-xs pt-0.5 border-t border-teal-100/80">
+                                <span className="text-slate-600">Amount</span>
+                                <span className="font-semibold text-teal-700 tabular-nums">₹{formatPlainInrAmount(amount)}</span>
+                            </div>
+                        )}
                     </div>
                 )}
             </form>

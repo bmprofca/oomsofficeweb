@@ -18,6 +18,7 @@ import {
 import { toast } from 'react-hot-toast';
 import API_BASE_URL from '../../utils/api-controller';
 import getHeaders from '../../utils/get-headers';
+import { uploadOneSaasFile } from '../../utils/onesaas-upload';
 import SelectInput from '../SelectInput';
 import { DatePickerField } from '../PortalDatePicker';
 
@@ -352,24 +353,11 @@ const QuotationApproveModal = ({ isOpen, quotation, onClose, onSuccess }) => {
     };
 
     const uploadFile = async (fileOrBlob, filename = 'file') => {
-        const headers = getHeaders();
-        if (!headers) throw new Error('Authentication required');
-        const uploadHeaders = { ...headers };
-        delete uploadHeaders['Content-Type'];
-        const fd = new FormData();
         const file = fileOrBlob instanceof File
             ? fileOrBlob
             : new File([fileOrBlob], filename, { type: fileOrBlob.type || 'audio/wav' });
-        fd.append('file', file);
-        const res = await axios.post(`${API_BASE_URL}/upload`, fd, {
-            headers: uploadHeaders,
-            maxBodyLength: Infinity,
-            maxContentLength: Infinity,
-        });
-        if (!res.data?.success || !res.data?.data?.url) {
-            throw new Error(res.data?.message || 'Upload failed');
-        }
-        return { url: res.data.data.url };
+        const { url } = await uploadOneSaasFile(file);
+        return { url };
     };
 
     const handleFileAttach = async (e) => {

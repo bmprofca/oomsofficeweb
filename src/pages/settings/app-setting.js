@@ -7,6 +7,7 @@ import { Header, Sidebar } from '../../components/header';
 import StateDistrictSelect from '../../components/state-district-select';
 import API_BASE_URL from '../../utils/api-controller';
 import getHeaders from '../../utils/get-headers';
+import { uploadOneSaasFileUrl } from '../../utils/onesaas-upload';
 
 const AppSettings = () => {
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -446,27 +447,7 @@ const AppSettings = () => {
     };
 
     const uploadFileToServer = async (file) => {
-        const headers = getHeaders();
-        if (!headers) {
-            throw new Error('Authentication headers not found');
-        }
-
-        const formData = new FormData();
-        formData.append('file', file);
-
-        const response = await axios.post(`${API_BASE_URL}/upload`, formData, {
-            headers: {
-                ...headers,
-                'Content-Type': 'multipart/form-data',
-            },
-            timeout: 60000,
-        });
-
-        if (!response?.data?.success) {
-            throw new Error(response?.data?.message || 'File upload failed');
-        }
-
-        return response.data?.data?.url || response.data?.url;
+        return uploadOneSaasFileUrl(file);
     };
 
     const processImageSelection = async (file, type) => {

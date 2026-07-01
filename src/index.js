@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { Suspense } from 'react';
 import ReactDOM from 'react-dom/client';
 import { GoogleOAuthProvider } from '@react-oauth/google';
 import './index.css';
@@ -7,109 +7,108 @@ import reportWebVitals from './reportWebVitals';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 import BodyScrollLockObserver from './components/BodyScrollLockObserver';
-
-// Import components
-import Login from './pages/login';
-import PageNotFound from './pages/error/page-not-found';
-import Dashboard from './pages/dashboard';
 import { TaskCreateProvider } from './context/TaskCreateProvider';
-// import TaskEdit from './pages/task-edit';
-import Register from './pages/register';
-import InvitationRequest from './pages/public/InvitationRequest';
-import TaskDisplay from './pages/task-display';
-import CreateClient from './pages/client-create';
-import ViewClients from './pages/client-view';
-import ClientProfile from './pages/client-profile';
-import TaskProfile from './pages/task-profile';
-import BillDisplay from './pages/billing-view';
-import FinanceEntry from './pages/finance-voucher-entry';
-import BankList from './pages/bank-account';
-import CapitalAccounts from './pages/capital-accuont';
-import ViewSales from './pages/sale-display';
-import ViewPurchase from './pages/purchase-display';
-import ViewReceived from './pages/received-display';
-import ViewPayments from './pages/payment-display';
-import ViewContra from './pages/contra-display';
-import ViewJournal from './pages/journal-display';
-import ViewExpenses from './pages/expense-display';
-import ViewStaff from './pages/staff-display';
-import ViewStaffProfile from './pages/staff-profile';
-import StaffReport from './pages/staff-report';
-import ManageAttendance from './pages/staff-attendance';
-import OfficeAssistance from './pages/office-assistance';
-import ViewDSCRegister from './pages/office-assistance/dsc-report';
-import ViewFileIndex from './pages/office-assistance/file-index';
-import PasswordGroups from './pages/office-assistance/password-group';
-import ImportantLinks from './pages/office-assistance/important-link';
-import Services from './pages/office-assistance/services';
-import ComplianceServices from './pages/office-assistance/compliance';
-import ComplianceFirmAssignment from './pages/office-assistance/compliance-firm-assignment';
-import ComplianceAssignmentDetails from './pages/office-assistance/ComplianceAssignmentDetails';
-import RecurringGroups from './pages/office-assistance/recurring-group';
-import Groups from './pages/office-assistance/groups';
-import GroupFirms from './pages/office-assistance/group-firms';
-import ViewInactiveClients from './pages/office-assistance/inactive-client';
-import CAList from './pages/office-assistance/ca-list';
-import CAProfile from './pages/office-assistance/ca-profile';
-import AutoReminder from './pages/office-assistance/auto-reminder';
-import ServiceRequestList from './pages/office-assistance/service-request-list';
-import Broadcast from './pages/broadcast';
-import EmailBroadcastReport from './pages/broadcast/email/EmailBordcastReport';
-import TextMessageOoms from './pages/broadcast/message/ooms';
-import BroadcastReport from './pages/broadcast/report';
-import WhatsAppOoms from './pages/broadcast/whatsapp/ooms';
-import OneChattingConfigure from './pages/broadcast/whatsapp/OneChattingConfigure';
-import OneChattingLiveChat from './pages/broadcast/whatsapp/OneChattingLiveChat';
-import OneChattingTemplates from './pages/broadcast/whatsapp/OneChattingTemplates';
-import WhatsAppWebSession from './pages/broadcast/whatsapp/WhatsAppWebSession';
-import WhatsAppWebTemplates from './pages/broadcast/whatsapp/WhatsAppWebTemplates';
-import OomsSystemTemplates from './pages/broadcast/whatsapp/OomsSystemTemplates';
-import PushNotification from './pages/broadcast/push-notification/notification';
-import EmailConfigList from './pages/broadcast/email/EmailConfigList';
-import EmailTemplateList from './pages/broadcast/email/EmailTemplateList';
-import EmailBroadcastList from './pages/broadcast/email/EmailBroadcastList';
-import EmailBroadcastCreate from './pages/broadcast/email/EmailBroadcastCreate';
-import EmailBroadcastDetails from './pages/broadcast/email/EmailBroadcastDetails';
-import SmsConfigList from './pages/broadcast/sms/SmsConfigList';
-import SmsTemplateList from './pages/broadcast/sms/SmsTemplateList';
-import SmsBroadcastList from './pages/broadcast/sms/SmsBroadcastList';
-import SmsBroadcastCreate from './pages/broadcast/sms/SmsBroadcastCreate';
-import SmsBroadcastDetails from './pages/broadcast/sms/SmsBroadcastDetails';
-import Settings from './pages/settings';
-import StaffList from './pages/settings/staff-list';
-import PermissionList from './pages/settings/permission';
-import InvoiceSettings from './pages/settings/invoice-setting';
-import AppSettings from './pages/settings/app-setting';
-import DefaultDaterange from './pages/settings/daterange-setting';
-import GoogleAuthentication from './pages/settings/google-auth';
-import GatewayConfig from './pages/settings/gateway-setting';
-import ViewBranch from './pages/settings/branch';
-import ViewAdmins from './pages/settings/admin';
-import AgentList from './pages/settings/agent-list';
-import AgentProfile from './pages/settings/agent-profile';
-import Subscription from './pages/settings/subscription';
-import WebsiteSettings from './pages/settings/website';
-import WidgetSettings from './pages/settings/widget';
-import Backup from './pages/settings/backup';
-import LedgerGroup from './finance/ledger-group';
-import ExpenseDetails from './pages/expense-details';
-import DiscountVoucherDetails from './pages/discount';
-import MyProfile from './components/myProfile';
-import PasswordGroupFirms from './pages/office-assistance/PasswordGroupFirms';
-import TransactionHistory from './finance/bank/transaction-history';
-import WalletRecharge from './pages/WalletRecharge';
-//Dashboard Components
-import TaskDetailedPage from './DashboardComponents/TaskDetailedPage';
-import RecurringTaskDetailedPage from './DashboardComponents/RecurringTaskDetailedPage';
-import ClientDetailPage from './DashboardComponents/ClientDetailPage';
-import TaskDashboardDetailPage from './DashboardComponents/TaskDashboardDetailPage';
-import QuickStatsDetailsPage from './DashboardComponents/quick-stats-details';
-import ServiceWiseSales from './DashboardComponents/ServiceSalesDetails';
-import StaffSalesDetails from './DashboardComponents/StaffSalesDetails';
-import TopClientsViewAll from './DashboardComponents/TopClientsViewAll';
-import TaskDetailsPage from './staff/TaskDetailsPage';
-import BulkImportPage from './pages/broadcast/email/BulkEmailImport';
 import WhatsappChannelBootstrap from './pages/broadcast/whatsapp/WhatsappChannelBootstrap';
+import RouteLoadingFallback from './app/RouteLoadingFallback';
+import {
+  Login,
+  PageNotFound,
+  Dashboard,
+  Register,
+  InvitationRequest,
+  TaskDisplay,
+  CreateClient,
+  ViewClients,
+  ClientProfile,
+  TaskProfile,
+  BillDisplay,
+  FinanceEntry,
+  BankList,
+  CapitalAccounts,
+  ViewSales,
+  ViewPurchase,
+  ViewReceived,
+  ViewPayments,
+  ViewContra,
+  ViewJournal,
+  ViewExpenses,
+  ExpenseItemsPage,
+  ViewStaff,
+  ViewStaffProfile,
+  StaffReport,
+  ManageAttendance,
+  OfficeAssistance,
+  ViewDSCRegister,
+  ViewFileIndex,
+  PasswordGroups,
+  ImportantLinks,
+  Services,
+  ComplianceServices,
+  ComplianceFirmAssignment,
+  ComplianceAssignmentDetails,
+  RecurringGroups,
+  Groups,
+  GroupFirms,
+  ViewInactiveClients,
+  CAList,
+  CAProfile,
+  AutoReminder,
+  ServiceRequestList,
+  Broadcast,
+  EmailBroadcastReport,
+  TextMessageOoms,
+  BroadcastReport,
+  WhatsAppOoms,
+  OneChattingConfigure,
+  OneChattingLiveChat,
+  OneChattingTemplates,
+  WhatsAppWebSession,
+  WhatsAppWebTemplates,
+  OomsSystemTemplates,
+  PushNotification,
+  EmailConfigList,
+  EmailTemplateList,
+  EmailBroadcastList,
+  EmailBroadcastCreate,
+  EmailBroadcastDetails,
+  SmsConfigList,
+  SmsTemplateList,
+  SmsBroadcastList,
+  SmsBroadcastCreate,
+  SmsBroadcastDetails,
+  Settings,
+  StaffList,
+  PermissionList,
+  InvoiceSettings,
+  AppSettings,
+  DefaultDaterange,
+  GoogleAuthentication,
+  GatewayConfig,
+  ViewBranch,
+  ViewAdmins,
+  AgentList,
+  AgentProfile,
+  Subscription,
+  WebsiteSettings,
+  WidgetSettings,
+  Backup,
+  LedgerGroup,
+  DiscountVoucherDetails,
+  MyProfile,
+  PasswordGroupFirms,
+  TransactionHistory,
+  WalletRecharge,
+  TaskDetailedPage,
+  RecurringTaskDetailedPage,
+  ClientDetailPage,
+  TaskDashboardDetailPage,
+  QuickStatsDetailsPage,
+  ServiceWiseSales,
+  StaffSalesDetails,
+  TopClientsViewAll,
+  TaskDetailsPage,
+  BulkImportPage,
+} from './app/lazyRoutes';
 
 // Google Client ID
 const GOOGLE_CLIENT_ID = "process.env.REACT_APP_GOOGLE_CLIENT_ID" in process.env ? process.env.REACT_APP_GOOGLE_CLIENT_ID : "706030491156-5rq848qm4eih47h29675u6pdv11m8kvq.apps.googleusercontent.com";
@@ -143,10 +142,15 @@ root.render(
   <GoogleOAuthProvider clientId={GOOGLE_CLIENT_ID}>
     <BrowserRouter>
       <TaskCreateProvider>
-      <Toaster position="top-center" toastOptions={{ duration: 4000 }} />
+      <Toaster
+        position="top-center"
+        containerStyle={{ zIndex: 11000 }}
+        toastOptions={{ duration: 4000 }}
+      />
       <WhatsappChannelBootstrap />
       {/* Locks body scroll whenever any full-viewport modal/overlay is open — app-wide fix */}
       <BodyScrollLockObserver />
+      <Suspense fallback={<RouteLoadingFallback />}>
       <Routes>
         {/* Public Routes */}
         <Route path="/login" element={
@@ -186,11 +190,6 @@ root.render(
           </ProtectedRoute>
         } />
 
-        {/* <Route path="/task/edit/:task_id" element={
-          <ProtectedRoute>
-            <TaskEdit />
-          </ProtectedRoute>
-        } /> */}
         <Route path="/task/profile/:task_id/:tab" element={
           <ProtectedRoute>
             <TaskProfile />
@@ -314,9 +313,9 @@ root.render(
           </ProtectedRoute>
         } />
 
-        <Route path="/finance/voucher/expense-details" element={
+        <Route path="/finance/voucher/expense-items" element={
           <ProtectedRoute>
-            <ExpenseDetails />
+            <ExpenseItemsPage />
           </ProtectedRoute>
         } />
 
@@ -774,6 +773,7 @@ root.render(
           </ProtectedRoute>
         } />
       </Routes>
+      </Suspense>
       </TaskCreateProvider>
     </BrowserRouter>
   </GoogleOAuthProvider>

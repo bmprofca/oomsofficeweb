@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import axios from 'axios';
+import { uploadOneSaasFileUrl } from '../utils/onesaas-upload';
 import {
     FiCalendar,
     FiCheck,
@@ -147,20 +148,9 @@ export default function ProfileTab({ caData, onEdit, loading, caUsername, onRefr
     };
 
     const uploadImage = async (file) => {
-        const data = new FormData();
-        data.append('file', file);
-        const headers = getHeaders();
-        if (!headers) throw new Error('Authentication headers missing');
-
         setUploadingImage(true);
         try {
-            const response = await axios.post(`${API_BASE_URL}/upload`, data, {
-                headers: { ...headers, 'Content-Type': 'multipart/form-data' },
-            });
-            if (response.data?.success && response.data?.data?.url) {
-                return response.data.data.url;
-            }
-            throw new Error('Invalid response format from upload API');
+            return await uploadOneSaasFileUrl(file);
         } finally {
             setUploadingImage(false);
         }

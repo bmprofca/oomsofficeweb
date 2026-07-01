@@ -31,6 +31,7 @@ import { FaCheckCircle, FaTimesCircle } from "react-icons/fa";
 import { motion } from 'framer-motion';
 import axios from 'axios';
 import { useUserPermissions } from '../utils/permission-helper';
+import { uploadOneSaasFileUrl } from '../utils/onesaas-upload';
 
 
 const CreateClient = () => {
@@ -712,13 +713,11 @@ const CreateClient = () => {
         if (type === 'file') {
             const file = files[0];
             if (file) {
-                // Validate file type
                 if (!file.type.startsWith('image/')) {
                     setErrors(prev => ({ ...prev, image: 'Please upload an image file' }));
                     return;
                 }
-                
-                // Validate file size (max 5MB)
+
                 if (file.size > 5 * 1024 * 1024) {
                     setErrors(prev => ({ ...prev, image: 'Image size should be less than 5MB' }));
                     return;
@@ -730,11 +729,24 @@ const CreateClient = () => {
                 };
                 reader.readAsDataURL(file);
 
-                setFormData(prev => ({
-                    ...prev,
-                    image: file
-                }));
                 setErrors(prev => ({ ...prev, image: '' }));
+                setUploading(true);
+                uploadOneSaasFileUrl(file)
+                    .then((url) => {
+                        setFormData(prev => ({ ...prev, image: url }));
+                    })
+                    .catch((error) => {
+                        console.error('Error uploading image:', error);
+                        setErrors(prev => ({
+                            ...prev,
+                            image: error.message || 'Failed to upload image',
+                        }));
+                        setImagePreview(null);
+                        setFormData(prev => ({ ...prev, image: null }));
+                    })
+                    .finally(() => {
+                        setUploading(false);
+                    });
             }
         } else {
             // PAN validation
@@ -902,41 +914,6 @@ const CreateClient = () => {
         }));
     };
 
-    // Upload image
-    // Upload image
-const uploadImage = async (file) => {
-    const formData = new FormData();
-    formData.append('file', file);
-
-    try {
-        setUploading(true);
-        const headers = getHeaders();
-        if (!headers) {
-            throw new Error('Authentication headers missing');
-        }
-
-        const response = await axios.post(`${API_BASE_URL}/upload`, formData, {
-            headers: {
-                ...headers,
-                'Content-Type': 'multipart/form-data' // Override for file upload
-            }
-        });
-        
-        // console.log('Upload response:', response.data);
-        
-        // Extract URL from response structure
-        if (response.data.success && response.data.data && response.data.data.url) {
-            return response.data.data.url;
-        } else {
-            throw new Error('Invalid response format from upload API');
-        }
-    } catch (error) {
-        console.error('Error uploading image:', error);
-        throw new Error(error.response?.data?.message || 'Failed to upload image');
-    } finally {
-        setUploading(false);
-    }
-};
     // Validate form
     const validateForm = () => {
         const newErrors = {};
@@ -993,20 +970,6 @@ const uploadImage = async (file) => {
         // In the handleSubmit function, replace the API call section with this:
 
 try {
-    // Upload image if exists
-    let imageUrl = null;
-    if (formData.image) {
-        try {
-            imageUrl = await uploadImage(formData.image);
-            // console.log('Image uploaded successfully:', imageUrl);
-        } catch (uploadError) {
-            console.error('Image upload failed:', uploadError);
-            // Continue without image if upload fails
-            alert('Image upload failed. Creating client without profile image.');
-        }
-    }
-
-    // Prepare data for API - Match the exact API structure
     const payload = {
         profile: {
             pan: formData.pan.toUpperCase(),
@@ -1018,7 +981,7 @@ try {
             email: formData.email.trim(),
             date_of_birth: formData.date_of_birth,
             gender: formData.gender,
-            image: imageUrl
+            image: formData.image || null
         },
         address: {
             state: formData.state,
