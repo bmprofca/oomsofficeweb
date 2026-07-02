@@ -31,7 +31,7 @@ import { FaWhatsapp } from "react-icons/fa6";
 import { motion, AnimatePresence } from 'framer-motion';
 import { Header, Sidebar } from '../../components/header';
 import DateFilter from '../../components/DateFilter';
-import DatePickerComponent from '../../components/DatePickerComponent';
+import { DatePickerField } from '../../components/PortalDatePicker';
 import moment from 'moment';
 import SearchableSelect from '../../components/SearchableSelect'
 import SearchableSelectOptions from "../../components/SelectSearchableOptionsComponent";
@@ -1592,19 +1592,31 @@ const ViewDSCRegister = () => {
                                             <label className="block text-xs font-semibold text-slate-700 mb-2">
                                                 Issue Date <span className="text-rose-500">*</span>
                                             </label>
-                                            <DatePickerComponent
-                                                selectedDate={
+                                            <DatePickerField
+                                                value={
                                                     createForm.validity_start
-                                                        ? moment(createForm.validity_start, 'DD/MM/YYYY').toDate()
-                                                        : null
+                                                        ? moment(createForm.validity_start, 'DD/MM/YYYY', true).isValid()
+                                                            ? moment(createForm.validity_start, 'DD/MM/YYYY').format('YYYY-MM-DD')
+                                                            : ''
+                                                        : ''
                                                 }
-                                                onDateChange={(date) => {
-                                                    const formattedDate = date ? moment(date).format('DD/MM/YYYY') : '';
+                                                onChange={(val) => {
+                                                    const formattedDate = val
+                                                        ? moment(val, 'YYYY-MM-DD').format('DD/MM/YYYY')
+                                                        : '';
                                                     handleCreateChange('validity_start', formattedDate);
                                                 }}
                                                 placeholder="DD/MM/YYYY"
-                                                error={createForm.errors?.validity_start || ''}
+                                                mode="single"
+                                                hideTabs={true}
+                                                showResetButton={false}
+                                                maxSelectableDate={new Date().toISOString().split('T')[0]}
+                                                wrapperClassName="w-full block"
+                                                buttonClassName="w-full px-4 py-3 text-sm border border-slate-300 rounded-lg bg-white outline-none transition-colors duration-200"
                                             />
+                                            {createForm.errors?.validity_start && (
+                                                <p className="text-red-500 text-xs mt-1">{createForm.errors.validity_start}</p>
+                                            )}
                                         </div>
 
 
@@ -1801,19 +1813,31 @@ const ViewDSCRegister = () => {
                                             <label className="block text-xs font-semibold text-slate-700 mb-2">
                                                 Issue Date <span className="text-rose-500">*</span>
                                             </label>
-                                            <DatePickerComponent
-                                                selectedDate={
+                                            <DatePickerField
+                                                value={
                                                     editForm.validity_start
-                                                        ? moment(editForm.validity_start, 'DD/MM/YYYY').toDate()
-                                                        : null
+                                                        ? moment(editForm.validity_start, 'DD/MM/YYYY', true).isValid()
+                                                            ? moment(editForm.validity_start, 'DD/MM/YYYY').format('YYYY-MM-DD')
+                                                            : ''
+                                                        : ''
                                                 }
-                                                onDateChange={(date) => {
-                                                    const formattedDate = date ? moment(date).format('DD/MM/YYYY') : '';
+                                                onChange={(val) => {
+                                                    const formattedDate = val
+                                                        ? moment(val, 'YYYY-MM-DD').format('DD/MM/YYYY')
+                                                        : '';
                                                     handleEditChange('validity_start', formattedDate);
                                                 }}
                                                 placeholder="DD/MM/YYYY"
-                                                error={editForm.errors?.validity_start || ''}
+                                                mode="single"
+                                                hideTabs={true}
+                                                showResetButton={false}
+                                                maxSelectableDate={new Date().toISOString().split('T')[0]}
+                                                wrapperClassName="w-full block"
+                                                buttonClassName="w-full px-4 py-3 text-sm border border-slate-300 rounded-lg bg-white outline-none transition-colors duration-200"
                                             />
+                                            {editForm.errors?.validity_start && (
+                                                <p className="text-red-500 text-xs mt-1">{editForm.errors.validity_start}</p>
+                                            )}
                                         </div>
 
 

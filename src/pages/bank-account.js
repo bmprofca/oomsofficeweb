@@ -1,10 +1,10 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import { Header, Sidebar } from '../components/header';
 import {
     FiPlus,
     FiEdit,
     FiSettings,
-    FiDollarSign,
     FiMenu,
     FiFileText,
     FiFilter,
@@ -22,6 +22,8 @@ import {
 } from 'react-icons/fi';
 import { PiExportBold } from "react-icons/pi";
 import { PiFilePdfDuotone, PiMicrosoftExcelLogoDuotone } from "react-icons/pi";
+import { TbPigMoney, TbCash, TbBuildingBank } from 'react-icons/tb';
+import { HiOutlineReceiptRefund } from 'react-icons/hi';
 import { AiOutlineMail } from "react-icons/ai";
 import { motion, AnimatePresence } from 'framer-motion';
 import toast from 'react-hot-toast';
@@ -33,6 +35,65 @@ import SelectInput from '../components/SelectInput';
 import { DatePickerField } from '../components/PortalDatePicker';
 import TablePagination from '../components/TablePagination';
 import { lookupIfscBankAndBranch, normalizeIfsc } from '../utils/ifscLookup';
+
+const ACTIONS_MENU_WIDTH = 192;
+const ACTIONS_MENU_HEIGHT = 220;
+
+const EMPTY_TYPE_STATS = { count: 0, balance: 0 };
+
+const EMPTY_STATS = {
+    by_type: {
+        savings: { ...EMPTY_TYPE_STATS },
+        current: { ...EMPTY_TYPE_STATS },
+        loan: { ...EMPTY_TYPE_STATS },
+        cash: { ...EMPTY_TYPE_STATS },
+    },
+};
+
+const BANK_TYPE_CARDS = [
+    {
+        key: 'savings',
+        label: 'Savings',
+        gradient: 'from-emerald-500 to-emerald-600',
+        labelClass: 'text-emerald-100',
+        Icon: TbPigMoney,
+    },
+    {
+        key: 'current',
+        label: 'Current',
+        gradient: 'from-blue-500 to-blue-600',
+        labelClass: 'text-blue-100',
+        Icon: TbBuildingBank,
+    },
+    {
+        key: 'loan',
+        label: 'Loan',
+        gradient: 'from-orange-500 to-orange-600',
+        labelClass: 'text-orange-100',
+        Icon: HiOutlineReceiptRefund,
+    },
+    {
+        key: 'cash',
+        label: 'Cash',
+        gradient: 'from-amber-500 to-amber-600',
+        labelClass: 'text-amber-100',
+        Icon: TbCash,
+    },
+];
+
+const normalizeBankStats = (raw) => {
+    const byType = raw?.by_type || {};
+    return {
+        by_type: BANK_TYPE_CARDS.reduce((acc, { key }) => {
+            const entry = byType[key] || {};
+            acc[key] = {
+                count: Number(entry.count) || 0,
+                balance: Number(entry.balance) || 0,
+            };
+            return acc;
+        }, {}),
+    };
+};
 
 // Inline Export Modal Component
 const InlineExportModal = ({ isOpen, onClose, exportData, columns, jobType }) => {
@@ -78,7 +139,7 @@ const InlineExportModal = ({ isOpen, onClose, exportData, columns, jobType }) =>
 
         try {
             const headers = await getHeaders();
-            
+
             const payload = {
                 job_type: jobType,
                 file_type: fileType,
@@ -197,11 +258,10 @@ const InlineExportModal = ({ isOpen, onClose, exportData, columns, jobType }) =>
                                 key={option.type}
                                 onClick={() => handleExport(option.type)}
                                 disabled={exporting || !userEmail}
-                                className={`w-full flex items-center justify-between p-4 rounded-lg border-2 transition-all ${
-                                    exporting && selectedFormat === option.type
+                                className={`w-full flex items-center justify-between p-4 rounded-lg border-2 transition-all ${exporting && selectedFormat === option.type
                                         ? 'border-indigo-500 bg-indigo-50'
                                         : 'border-gray-200 hover:border-indigo-300 hover:bg-gray-50'
-                                } ${(exporting || !userEmail) && selectedFormat !== option.type ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                    } ${(exporting || !userEmail) && selectedFormat !== option.type ? 'opacity-50 cursor-not-allowed' : ''}`}
                             >
                                 <div className="flex items-center gap-3">
                                     <div className="p-2 rounded-lg bg-gray-50">
@@ -385,246 +445,246 @@ const ModalContent = React.memo(({
                 aria-modal="true"
                 className="relative z-[1] pointer-events-auto w-full max-w-4xl my-2 sm:my-4 flex flex-col overflow-hidden rounded-2xl bg-white shadow-2xl max-h-[min(calc(100vh-1.5rem),100dvh)] sm:max-h-[min(calc(100vh-2rem),100dvh)] overscroll-none"
             >
-                    {/* Header */}
-                    <div className="shrink-0 flex items-center justify-between px-5 py-2.5 border-b border-gray-200 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-t-2xl">
-                        <div>
-                            <h2 className="text-xl font-bold">{title}</h2>
+                {/* Header */}
+                <div className="shrink-0 flex items-center justify-between px-5 py-2.5 border-b border-gray-200 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-t-2xl">
+                    <div>
+                        <h2 className="text-xl font-bold">{title}</h2>
+                    </div>
+                    <button
+                        onClick={onClose}
+                        className="p-2 hover:bg-blue-500 rounded-lg transition-colors"
+                    >
+                        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                    </button>
+                </div>
+
+                {/* Body */}
+                <div
+                    className="px-5 py-4 flex-1 min-h-0 overflow-y-auto overscroll-y-contain [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden touch-pan-y"
+                    style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+                >
+                    <form onSubmit={onSubmit} id="bank-form">
+                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+                            {/* Account Type */}
+                            <div className="space-y-1.5">
+                                <label className="block text-xs font-semibold text-gray-700">
+                                    Account Type <span className="text-red-500">*</span>
+                                </label>
+                                <SelectInput
+                                    options={bankTypes.map((type) => ({ value: type.value, label: type.name }))}
+                                    value={formData.type || null}
+                                    onChange={(value) => onChange({ target: { name: 'type', value: value || '' } })}
+                                    placeholder="Select Account Type"
+                                    searchPlaceholder="Search account type..."
+                                    clearable={false}
+                                />
+                            </div>
+
+                            {/* Account Holder */}
+                            <div className="space-y-1.5">
+                                <label className="block text-xs font-semibold text-gray-700">
+                                    Account Holder <span className="text-red-500">*</span>
+                                </label>
+                                <input
+                                    type="text"
+                                    name="holder"
+                                    value={formData.holder || ''}
+                                    onChange={onChange}
+                                    placeholder="Enter account holder name"
+                                    className="w-full h-10 px-3 text-sm border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 hover:border-blue-400 transition-all duration-200"
+                                    required
+                                />
+                            </div>
+
+                            {!isCashType && (
+                                <>
+                                    {/* Account Number */}
+                                    <div className="space-y-1.5">
+                                        <label className="block text-xs font-semibold text-gray-700">
+                                            Account Number <span className="text-red-500">*</span>
+                                        </label>
+                                        <input
+                                            type="text"
+                                            name="account_no"
+                                            value={formData.account_no || ''}
+                                            onChange={onChange}
+                                            placeholder="Enter account number"
+                                            className="w-full h-10 px-3 text-sm border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 hover:border-blue-400 transition-all duration-200"
+                                            required={!isCashType}
+                                            autoCapitalize="characters"
+                                            autoCorrect="off"
+                                        />
+                                    </div>
+
+                                    {/* IFSC Code */}
+                                    <div className="space-y-1.5">
+                                        <div className="flex items-center gap-2">
+                                            <label className="block text-xs font-semibold text-gray-700">
+                                                IFSC Code <span className="text-red-500">*</span>
+                                            </label>
+                                            {ifscLookupLoading ? (
+                                                <span className="inline-flex items-center text-blue-600" aria-live="polite">
+                                                    <FiRefreshCw className="w-3.5 h-3.5 animate-spin shrink-0" aria-hidden />
+                                                    <span className="sr-only">Looking up bank details</span>
+                                                </span>
+                                            ) : null}
+                                        </div>
+                                        <input
+                                            type="text"
+                                            name="ifsc"
+                                            value={formData.ifsc || ''}
+                                            onChange={onChange}
+                                            onKeyUp={handleIfscKeyUp}
+                                            onPaste={handleIfscPaste}
+                                            placeholder="Enter IFSC code"
+                                            className="w-full h-10 px-3 text-sm border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 hover:border-blue-400 transition-all duration-200"
+                                            required={!isCashType}
+                                            maxLength={11}
+                                            autoCapitalize="characters"
+                                            autoCorrect="off"
+                                            spellCheck={false}
+                                        />
+                                    </div>
+
+                                    {/* Bank Name */}
+                                    <div className="space-y-1.5">
+                                        <label className="block text-xs font-semibold text-gray-700">
+                                            Bank Name <span className="text-red-500">*</span>
+                                        </label>
+                                        <input
+                                            type="text"
+                                            name="bank"
+                                            value={formData.bank || ''}
+                                            onChange={onChange}
+                                            placeholder="Auto-filled from IFSC or type manually"
+                                            className="w-full h-10 px-3 text-sm border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 hover:border-blue-400 transition-all duration-200"
+                                            required={!isCashType}
+                                        />
+                                    </div>
+
+                                    {/* Branch */}
+                                    <div className="space-y-1.5">
+                                        <label className="block text-xs font-semibold text-gray-700">
+                                            Branch <span className="text-red-500">*</span>
+                                        </label>
+                                        <input
+                                            type="text"
+                                            name="branch"
+                                            value={formData.branch || ''}
+                                            onChange={onChange}
+                                            placeholder="Auto-filled from IFSC or type manually"
+                                            className="w-full h-10 px-3 text-sm border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 hover:border-blue-400 transition-all duration-200"
+                                            required={!isCashType}
+                                        />
+                                    </div>
+                                </>
+                            )}
+
+                            {/* Remark */}
+                            <div className="lg:col-span-2 space-y-1.5">
+                                <label className="block text-xs font-semibold text-gray-700">
+                                    Remark
+                                </label>
+                                <input
+                                    type="text"
+                                    name="remark"
+                                    value={formData.remark || ''}
+                                    onChange={onChange}
+                                    placeholder="Enter any remarks"
+                                    className="w-full h-10 px-3 text-sm border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 hover:border-blue-400 transition-all duration-200"
+                                />
+                            </div>
+
+                            {/* Opening Balance Section */}
+                            <div className="lg:col-span-2 border-t border-gray-200 pt-2 mt-0.5">
+                                <h3 className="text-sm font-semibold text-gray-800 mb-2">Opening Balance Details</h3>
+                            </div>
+
+                            {/* Opening Balance Amount */}
+                            <div className="space-y-1.5">
+                                <label className="block text-xs font-semibold text-gray-700">
+                                    Opening Balance Amount <span className="text-red-500">*</span>
+                                </label>
+                                <input
+                                    type="text"
+                                    name="opening_balance.amount"
+                                    value={formData.opening_balance?.amount || ''}
+                                    onChange={onChange}
+                                    placeholder="Enter amount"
+                                    className="w-full h-10 px-3 text-sm border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 hover:border-blue-400 transition-all duration-200"
+                                    required
+                                    inputMode="decimal"
+                                />
+                            </div>
+
+                            {/* Opening Balance Type */}
+                            <div className="space-y-1.5">
+                                <label className="block text-xs font-semibold text-gray-700">
+                                    Balance Type <span className="text-red-500">*</span>
+                                </label>
+                                <SelectInput
+                                    options={openingTypes.map((type) => ({ value: type.value, label: type.name }))}
+                                    value={formData.opening_balance?.type || 'credit'}
+                                    onChange={(value) => onChange({ target: { name: 'opening_balance.type', value: value || 'credit' } })}
+                                    placeholder="Select balance type"
+                                    searchPlaceholder="Search balance type..."
+                                    clearable={false}
+                                />
+                            </div>
+
+                            {/* Opening Balance Date */}
+                            <div className="space-y-1.5">
+                                <label className="block text-xs font-semibold text-gray-700">
+                                    Opening Date <span className="text-red-500">*</span>
+                                </label>
+                                <DatePickerField
+                                    value={formData.opening_balance?.date || new Date().toISOString().split('T')[0]}
+                                    onChange={(value) => onChange({ target: { name: 'opening_balance.date', value: value || '' } })}
+                                    mode="single"
+                                    hideTabs={true}
+                                    showResetButton={false}
+                                    placeholder="Select opening date"
+                                    buttonClassName="w-full h-10 px-3 text-sm border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 hover:border-blue-400 transition-all duration-200"
+                                />
+                            </div>
                         </div>
+                    </form>
+                </div>
+
+                {/* Footer */}
+                <div className="shrink-0 border-t border-gray-200 bg-gray-50 px-5 py-2 rounded-b-2xl">
+                    <div className="flex justify-end gap-3">
                         <button
+                            type="button"
                             onClick={onClose}
-                            className="p-2 hover:bg-blue-500 rounded-lg transition-colors"
+                            disabled={loading}
+                            className="px-6 py-2.5 text-sm font-medium text-gray-700 bg-white border-2 border-gray-200 rounded-xl hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-gray-500 transition-all duration-200 disabled:opacity-50"
                         >
-                            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                            </svg>
+                            Cancel
+                        </button>
+                        <button
+                            type="submit"
+                            form="bank-form"
+                            disabled={loading || !isFormValid}
+                            className="px-6 py-2.5 text-sm font-medium text-white bg-gradient-to-r from-blue-600 to-blue-700 rounded-xl hover:from-blue-700 hover:to-blue-800 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 flex items-center min-w-[140px] justify-center shadow-lg"
+                        >
+                            {loading ? (
+                                <>
+                                    <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
+                                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                    </svg>
+                                    {mode === 'add' ? 'Creating...' : 'Updating...'}
+                                </>
+                            ) : (
+                                mode === 'add' ? 'Create Bank' : 'Update Bank'
+                            )}
                         </button>
                     </div>
-
-                    {/* Body */}
-                    <div
-                        className="px-5 py-4 flex-1 min-h-0 overflow-y-auto overscroll-y-contain [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden touch-pan-y"
-                        style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
-                    >
-                        <form onSubmit={onSubmit} id="bank-form">
-                            <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
-                                {/* Account Type */}
-                                <div className="space-y-1.5">
-                                    <label className="block text-xs font-semibold text-gray-700">
-                                        Account Type <span className="text-red-500">*</span>
-                                    </label>
-                                    <SelectInput
-                                        options={bankTypes.map((type) => ({ value: type.value, label: type.name }))}
-                                        value={formData.type || null}
-                                        onChange={(value) => onChange({ target: { name: 'type', value: value || '' } })}
-                                        placeholder="Select Account Type"
-                                        searchPlaceholder="Search account type..."
-                                        clearable={false}
-                                    />
-                                </div>
-
-                                {/* Account Holder */}
-                                <div className="space-y-1.5">
-                                    <label className="block text-xs font-semibold text-gray-700">
-                                        Account Holder <span className="text-red-500">*</span>
-                                    </label>
-                                    <input
-                                        type="text"
-                                        name="holder"
-                                        value={formData.holder || ''}
-                                        onChange={onChange}
-                                        placeholder="Enter account holder name"
-                                        className="w-full h-10 px-3 text-sm border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 hover:border-blue-400 transition-all duration-200"
-                                        required
-                                    />
-                                </div>
-
-                                {!isCashType && (
-                                    <>
-                                        {/* Account Number */}
-                                        <div className="space-y-1.5">
-                                            <label className="block text-xs font-semibold text-gray-700">
-                                                Account Number <span className="text-red-500">*</span>
-                                            </label>
-                                            <input
-                                                type="text"
-                                                name="account_no"
-                                                value={formData.account_no || ''}
-                                                onChange={onChange}
-                                                placeholder="Enter account number"
-                                                className="w-full h-10 px-3 text-sm border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 hover:border-blue-400 transition-all duration-200"
-                                                required={!isCashType}
-                                                autoCapitalize="characters"
-                                                autoCorrect="off"
-                                            />
-                                        </div>
-
-                                        {/* IFSC Code */}
-                                        <div className="space-y-1.5">
-                                            <div className="flex items-center gap-2">
-                                                <label className="block text-xs font-semibold text-gray-700">
-                                                    IFSC Code <span className="text-red-500">*</span>
-                                                </label>
-                                                {ifscLookupLoading ? (
-                                                    <span className="inline-flex items-center text-blue-600" aria-live="polite">
-                                                        <FiRefreshCw className="w-3.5 h-3.5 animate-spin shrink-0" aria-hidden />
-                                                        <span className="sr-only">Looking up bank details</span>
-                                                    </span>
-                                                ) : null}
-                                            </div>
-                                            <input
-                                                type="text"
-                                                name="ifsc"
-                                                value={formData.ifsc || ''}
-                                                onChange={onChange}
-                                                onKeyUp={handleIfscKeyUp}
-                                                onPaste={handleIfscPaste}
-                                                placeholder="Enter IFSC code"
-                                                className="w-full h-10 px-3 text-sm border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 hover:border-blue-400 transition-all duration-200"
-                                                required={!isCashType}
-                                                maxLength={11}
-                                                autoCapitalize="characters"
-                                                autoCorrect="off"
-                                                spellCheck={false}
-                                            />
-                                        </div>
-
-                                        {/* Bank Name */}
-                                        <div className="space-y-1.5">
-                                            <label className="block text-xs font-semibold text-gray-700">
-                                                Bank Name <span className="text-red-500">*</span>
-                                            </label>
-                                            <input
-                                                type="text"
-                                                name="bank"
-                                                value={formData.bank || ''}
-                                                onChange={onChange}
-                                                placeholder="Auto-filled from IFSC or type manually"
-                                                className="w-full h-10 px-3 text-sm border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 hover:border-blue-400 transition-all duration-200"
-                                                required={!isCashType}
-                                            />
-                                        </div>
-
-                                        {/* Branch */}
-                                        <div className="space-y-1.5">
-                                            <label className="block text-xs font-semibold text-gray-700">
-                                                Branch <span className="text-red-500">*</span>
-                                            </label>
-                                            <input
-                                                type="text"
-                                                name="branch"
-                                                value={formData.branch || ''}
-                                                onChange={onChange}
-                                                placeholder="Auto-filled from IFSC or type manually"
-                                                className="w-full h-10 px-3 text-sm border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 hover:border-blue-400 transition-all duration-200"
-                                                required={!isCashType}
-                                            />
-                                        </div>
-                                    </>
-                                )}
-
-                                {/* Remark */}
-                                <div className="lg:col-span-2 space-y-1.5">
-                                    <label className="block text-xs font-semibold text-gray-700">
-                                        Remark
-                                    </label>
-                                    <input
-                                        type="text"
-                                        name="remark"
-                                        value={formData.remark || ''}
-                                        onChange={onChange}
-                                        placeholder="Enter any remarks"
-                                        className="w-full h-10 px-3 text-sm border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 hover:border-blue-400 transition-all duration-200"
-                                    />
-                                </div>
-
-                                {/* Opening Balance Section */}
-                                <div className="lg:col-span-2 border-t border-gray-200 pt-2 mt-0.5">
-                                    <h3 className="text-sm font-semibold text-gray-800 mb-2">Opening Balance Details</h3>
-                                </div>
-
-                                {/* Opening Balance Amount */}
-                                <div className="space-y-1.5">
-                                    <label className="block text-xs font-semibold text-gray-700">
-                                        Opening Balance Amount <span className="text-red-500">*</span>
-                                    </label>
-                                    <input
-                                        type="text"
-                                        name="opening_balance.amount"
-                                        value={formData.opening_balance?.amount || ''}
-                                        onChange={onChange}
-                                        placeholder="Enter amount"
-                                        className="w-full h-10 px-3 text-sm border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 hover:border-blue-400 transition-all duration-200"
-                                        required
-                                        inputMode="decimal"
-                                    />
-                                </div>
-
-                                {/* Opening Balance Type */}
-                                <div className="space-y-1.5">
-                                    <label className="block text-xs font-semibold text-gray-700">
-                                        Balance Type <span className="text-red-500">*</span>
-                                    </label>
-                                    <SelectInput
-                                        options={openingTypes.map((type) => ({ value: type.value, label: type.name }))}
-                                        value={formData.opening_balance?.type || 'credit'}
-                                        onChange={(value) => onChange({ target: { name: 'opening_balance.type', value: value || 'credit' } })}
-                                        placeholder="Select balance type"
-                                        searchPlaceholder="Search balance type..."
-                                        clearable={false}
-                                    />
-                                </div>
-
-                                {/* Opening Balance Date */}
-                                <div className="space-y-1.5">
-                                    <label className="block text-xs font-semibold text-gray-700">
-                                        Opening Date <span className="text-red-500">*</span>
-                                    </label>
-                                    <DatePickerField
-                                        value={formData.opening_balance?.date || new Date().toISOString().split('T')[0]}
-                                        onChange={(value) => onChange({ target: { name: 'opening_balance.date', value: value || '' } })}
-                                        mode="single"
-                                        hideTabs={true}
-                                        showResetButton={false}
-                                        placeholder="Select opening date"
-                                        buttonClassName="w-full h-10 px-3 text-sm border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 hover:border-blue-400 transition-all duration-200"
-                                    />
-                                </div>
-                            </div>
-                        </form>
-                    </div>
-
-                    {/* Footer */}
-                    <div className="shrink-0 border-t border-gray-200 bg-gray-50 px-5 py-2 rounded-b-2xl">
-                        <div className="flex justify-end gap-3">
-                            <button
-                                type="button"
-                                onClick={onClose}
-                                disabled={loading}
-                                className="px-6 py-2.5 text-sm font-medium text-gray-700 bg-white border-2 border-gray-200 rounded-xl hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-gray-500 transition-all duration-200 disabled:opacity-50"
-                            >
-                                Cancel
-                            </button>
-                            <button
-                                type="submit"
-                                form="bank-form"
-                                disabled={loading || !isFormValid}
-                                className="px-6 py-2.5 text-sm font-medium text-white bg-gradient-to-r from-blue-600 to-blue-700 rounded-xl hover:from-blue-700 hover:to-blue-800 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 flex items-center min-w-[140px] justify-center shadow-lg"
-                            >
-                                {loading ? (
-                                    <>
-                                        <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
-                                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                                        </svg>
-                                        {mode === 'add' ? 'Creating...' : 'Updating...'}
-                                    </>
-                                ) : (
-                                    mode === 'add' ? 'Create Bank' : 'Update Bank'
-                                )}
-                            </button>
-                        </div>
-                    </div>
-                </motion.div>
+                </div>
+            </motion.div>
         </div>
     );
 });
@@ -652,46 +712,46 @@ const DeleteModal = React.memo(({ isOpen, onClose, onConfirm, bank, loading }) =
                 role="dialog"
                 aria-modal="true"
             >
-                    <div className="text-center">
-                        <div className="w-20 h-20 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                            <FiTrash2 className="w-10 h-10 text-red-500" />
-                        </div>
-
-                        <h3 className="text-xl font-bold text-gray-800 mb-2">
-                            Delete Bank Account
-                        </h3>
-
-                        <p className="text-gray-600 mb-6">
-                            Are you sure you want to delete <span className="font-semibold">{bank?.bank}</span>? This action cannot be undone.
-                        </p>
-
-                        <div className="flex gap-3">
-                            <button
-                                onClick={onClose}
-                                disabled={loading}
-                                className="flex-1 px-4 py-3 text-sm font-medium text-gray-700 bg-gray-100 rounded-xl hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-gray-500 transition-all duration-200 disabled:opacity-50"
-                            >
-                                Cancel
-                            </button>
-                            <button
-                                onClick={onConfirm}
-                                disabled={loading}
-                                className="flex-1 px-4 py-3 text-sm font-medium text-white bg-gradient-to-r from-red-500 to-red-600 rounded-xl hover:from-red-600 hover:to-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 flex items-center justify-center"
-                            >
-                                {loading ? (
-                                    <>
-                                        <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
-                                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                                        </svg>
-                                        Deleting...
-                                    </>
-                                ) : (
-                                    'Delete'
-                                )}
-                            </button>
-                        </div>
+                <div className="text-center">
+                    <div className="w-20 h-20 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                        <FiTrash2 className="w-10 h-10 text-red-500" />
                     </div>
+
+                    <h3 className="text-xl font-bold text-gray-800 mb-2">
+                        Delete Bank Account
+                    </h3>
+
+                    <p className="text-gray-600 mb-6">
+                        Are you sure you want to delete <span className="font-semibold">{bank?.bank}</span>? This action cannot be undone.
+                    </p>
+
+                    <div className="flex gap-3">
+                        <button
+                            onClick={onClose}
+                            disabled={loading}
+                            className="flex-1 px-4 py-3 text-sm font-medium text-gray-700 bg-gray-100 rounded-xl hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-gray-500 transition-all duration-200 disabled:opacity-50"
+                        >
+                            Cancel
+                        </button>
+                        <button
+                            onClick={onConfirm}
+                            disabled={loading}
+                            className="flex-1 px-4 py-3 text-sm font-medium text-white bg-gradient-to-r from-red-500 to-red-600 rounded-xl hover:from-red-600 hover:to-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 flex items-center justify-center"
+                        >
+                            {loading ? (
+                                <>
+                                    <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
+                                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                    </svg>
+                                    Deleting...
+                                </>
+                            ) : (
+                                'Delete'
+                            )}
+                        </button>
+                    </div>
+                </div>
             </motion.div>
         </div>
     );
@@ -712,6 +772,9 @@ const BankList = () => {
     const [fetchLoading, setFetchLoading] = useState(true);
     const [showAddDropdown, setShowAddDropdown] = useState(false);
     const [activeRowDropdown, setActiveRowDropdown] = useState(null);
+    const [dropdownPos, setDropdownPos] = useState({ top: 0, left: undefined, right: 0, bottom: undefined, openUpward: false });
+    const actionAnchorRef = useRef(null);
+    const dropdownModeRef = useRef('button');
     const [exportModal, setExportModal] = useState({ open: false, type: '', data: null });
 
     // Export Modal State
@@ -721,12 +784,13 @@ const BankList = () => {
 
     // Pagination and list states
     const [currentPage, setCurrentPage] = useState(1);
-    const [limit] = useState(10);
+    const [itemsPerPage, setItemsPerPage] = useState(10);
     const [total, setTotal] = useState(0);
     const [isLastPage, setIsLastPage] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
     const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
     const [fetchError, setFetchError] = useState(null);
+    const [stats, setStats] = useState(EMPTY_STATS);
 
     // Form states
     const [formData, setFormData] = useState({
@@ -798,7 +862,7 @@ const BankList = () => {
 
         banks.forEach((bank, index) => {
             const row = {
-                sl_no: ((currentPage - 1) * limit) + index + 1,
+                sl_no: ((currentPage - 1) * itemsPerPage) + index + 1,
                 holder: bank.holder || 'N/A',
                 bank: bank.bank || 'N/A',
                 account_no: bank.account_no || 'N/A',
@@ -817,7 +881,7 @@ const BankList = () => {
     // Handle export click for modal
     const handleExportClick = () => {
         const { data, columns } = prepareExportData();
-        
+
         if (data.length === 0) {
             toast.error('No data to export');
             return;
@@ -854,7 +918,7 @@ const BankList = () => {
                 headers,
                 params: {
                     page_no: currentPage,
-                    limit,
+                    limit: itemsPerPage,
                     search: searchTrimmed
                 }
             });
@@ -865,10 +929,12 @@ const BankList = () => {
                 setBanks(list);
                 setTotal(meta.total ?? 0);
                 setIsLastPage(meta.is_last_page ?? true);
+                setStats(normalizeBankStats(response.data?.stats));
                 setFetchError(null);
             } else {
                 setFetchError(response.data?.message || 'Failed to fetch bank list');
                 setBanks([]);
+                setStats(EMPTY_STATS);
             }
         } catch (error) {
             console.error('Error fetching banks:', error);
@@ -876,10 +942,11 @@ const BankList = () => {
             setFetchError(errMsg);
             toast.error(errMsg);
             setBanks([]);
+            setStats(EMPTY_STATS);
         } finally {
             setFetchLoading(false);
         }
-    }, [currentPage, limit, debouncedSearchTerm]);
+    }, [currentPage, itemsPerPage, debouncedSearchTerm]);
 
     // Debounce search term – trim and reset to page 1 on change
     useEffect(() => {
@@ -912,12 +979,11 @@ const BankList = () => {
         };
     }, [mobileMenuOpen]);
 
-    // Close all dropdowns when clicking outside
+    // Close export dropdown when clicking outside; row actions menu uses its own handler
     useEffect(() => {
         const handleClickOutside = (event) => {
             if (!event.target.closest('.dropdown-container')) {
                 setShowAddDropdown(false);
-                setActiveRowDropdown(null);
             }
         };
 
@@ -1132,6 +1198,8 @@ const BankList = () => {
             }
         });
         setShowEditModal(true);
+        setActiveRowDropdown(null);
+        actionAnchorRef.current = null;
     }, []);
 
     // Handle delete click - memoized
@@ -1139,7 +1207,112 @@ const BankList = () => {
         setSelectedBank(bank);
         setShowDeleteModal(true);
         setActiveRowDropdown(null);
+        actionAnchorRef.current = null;
     }, []);
+
+    const updateDropdownPosition = useCallback((anchorEl) => {
+        if (!anchorEl) return;
+        const rect = anchorEl.getBoundingClientRect();
+        const margin = 8;
+        const spaceBelow = window.innerHeight - rect.bottom;
+        const spaceAbove = rect.top;
+        const openUpward = spaceBelow < ACTIONS_MENU_HEIGHT + margin && spaceAbove > spaceBelow;
+
+        let top;
+        let bottom;
+        if (openUpward) {
+            top = undefined;
+            bottom = Math.max(margin, window.innerHeight - rect.top + 4);
+        } else {
+            top = Math.min(rect.bottom + 4, window.innerHeight - ACTIONS_MENU_HEIGHT - margin);
+            bottom = undefined;
+        }
+
+        const right = Math.max(
+            margin,
+            Math.min(window.innerWidth - rect.right, window.innerWidth - ACTIONS_MENU_WIDTH - margin)
+        );
+
+        setDropdownPos({
+            top,
+            bottom,
+            right,
+            left: undefined,
+            openUpward,
+        });
+    }, []);
+
+    const openActionsFromButton = useCallback((e, bankId) => {
+        e.stopPropagation();
+        if (activeRowDropdown === bankId) {
+            setActiveRowDropdown(null);
+            actionAnchorRef.current = null;
+            return;
+        }
+        dropdownModeRef.current = 'button';
+        actionAnchorRef.current = e.currentTarget;
+        updateDropdownPosition(e.currentTarget);
+        setActiveRowDropdown(bankId);
+    }, [activeRowDropdown, updateDropdownPosition]);
+
+    const openActionsFromContextMenu = useCallback((e, bankId) => {
+        e.preventDefault();
+        e.stopPropagation();
+        dropdownModeRef.current = 'pointer';
+        actionAnchorRef.current = null;
+        const margin = 8;
+        const left = Math.min(e.clientX, window.innerWidth - ACTIONS_MENU_WIDTH - margin);
+        const top = Math.min(e.clientY, window.innerHeight - ACTIONS_MENU_HEIGHT - margin);
+        setDropdownPos({
+            top: Math.max(margin, top),
+            left: Math.max(margin, left),
+            right: undefined,
+            bottom: undefined,
+            openUpward: false,
+        });
+        setActiveRowDropdown(bankId);
+    }, []);
+
+    const activeBank = useMemo(
+        () => banks.find((b) => b.bank_id === activeRowDropdown) || null,
+        [banks, activeRowDropdown]
+    );
+
+    useEffect(() => {
+        const handleClickOutside = (event) => {
+            if (
+                !event.target.closest('[data-bank-actions-menu]') &&
+                !event.target.closest('[data-bank-actions-trigger]')
+            ) {
+                setActiveRowDropdown(null);
+                actionAnchorRef.current = null;
+            }
+        };
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, []);
+
+    useEffect(() => {
+        if (!activeRowDropdown) return undefined;
+
+        const handleScrollOrResize = () => {
+            if (dropdownModeRef.current === 'button' && actionAnchorRef.current) {
+                updateDropdownPosition(actionAnchorRef.current);
+                return;
+            }
+            if (dropdownModeRef.current === 'pointer') {
+                setActiveRowDropdown(null);
+                actionAnchorRef.current = null;
+            }
+        };
+
+        window.addEventListener('scroll', handleScrollOrResize, true);
+        window.addEventListener('resize', handleScrollOrResize);
+        return () => {
+            window.removeEventListener('scroll', handleScrollOrResize, true);
+            window.removeEventListener('resize', handleScrollOrResize);
+        };
+    }, [activeRowDropdown, updateDropdownPosition]);
 
     // Get bank type name
     const getBankTypeName = useCallback((typeValue) => {
@@ -1150,56 +1323,61 @@ const BankList = () => {
     // Get bank type color
     const getBankTypeColor = useCallback((type) => {
         switch (type?.toLowerCase()) {
-            case 'savings': return 'bg-blue-100 text-blue-700';
-            case 'current': return 'bg-green-100 text-green-700';
-            case 'salary': return 'bg-purple-100 text-purple-700';
-            case 'fixed_deposit': return 'bg-orange-100 text-orange-700';
+            case 'savings': return 'bg-emerald-100 text-emerald-700';
+            case 'current': return 'bg-blue-100 text-blue-700';
+            case 'loan': return 'bg-orange-100 text-orange-700';
+            case 'cash': return 'bg-amber-100 text-amber-700';
             default: return 'bg-slate-100 text-slate-700';
         }
     }, []);
 
-    // Toggle row dropdown
-    const toggleRowDropdown = useCallback((bankId) => {
-        setActiveRowDropdown(prev => prev === bankId ? null : bankId);
-    }, []);
-
     // Handle page change
     const handlePageChange = useCallback((newPage) => {
-        if (newPage < 1) return;
-        if (newPage > currentPage && isLastPage) return;
         setCurrentPage(newPage);
-    }, [currentPage, isLastPage]);
+    }, []);
+
+    const handleLimitChange = useCallback((newLimit) => {
+        setItemsPerPage(newLimit);
+        setCurrentPage(1);
+    }, []);
 
     // Handle refresh
     const handleRefresh = useCallback(() => {
         fetchBanks();
-        toast.success('Data refreshed');
-    }, []);
+    }, [fetchBanks]);
 
     // Skeleton loader component
+    const StatCardSkeleton = () => (
+        <div className="animate-pulse rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+            <div className="mb-2 h-3 w-20 rounded bg-slate-200" />
+            <div className="mb-2 h-5 w-16 rounded bg-slate-200" />
+            <div className="h-4 w-24 rounded bg-slate-200" />
+        </div>
+    );
+
     const SkeletonRow = useCallback(() => (
-        <tr className="border-b border-slate-100 animate-pulse">
-            <td className="p-4">
-                <div className="h-4 bg-slate-200 rounded w-6"></div>
+        <tr className="animate-pulse border-b border-slate-100">
+            <td className="p-2.5">
+                <div className="mx-auto h-4 w-6 rounded bg-slate-200" />
             </td>
-            <td className="p-4">
-                <div className="h-4 bg-slate-200 rounded w-32 mb-2"></div>
-                <div className="h-3 bg-slate-200 rounded w-24"></div>
+            <td className="p-2.5">
+                <div className="mb-2 h-4 w-32 rounded bg-slate-200" />
+                <div className="h-3 w-24 rounded bg-slate-200" />
             </td>
-            <td className="p-4">
-                <div className="h-4 bg-slate-200 rounded w-28"></div>
+            <td className="p-2.5">
+                <div className="h-4 w-28 rounded bg-slate-200" />
             </td>
-            <td className="p-4">
-                <div className="h-4 bg-slate-200 rounded w-20"></div>
+            <td className="p-2.5">
+                <div className="h-4 w-20 rounded bg-slate-200" />
             </td>
-            <td className="p-4">
-                <div className="h-6 bg-slate-200 rounded w-16"></div>
+            <td className="p-2.5">
+                <div className="h-6 w-16 rounded bg-slate-200" />
             </td>
-            <td className="p-4">
-                <div className="h-6 bg-slate-200 rounded w-24"></div>
+            <td className="p-2.5">
+                <div className="ml-auto h-4 w-20 rounded bg-slate-200" />
             </td>
-            <td className="p-4">
-                <div className="h-8 bg-slate-200 rounded w-8"></div>
+            <td className="p-2.5">
+                <div className="mx-auto h-8 w-8 rounded bg-slate-200" />
             </td>
         </tr>
     ), []);
@@ -1221,105 +1399,137 @@ const BankList = () => {
 
             {/* Main Content Area */}
             <div className={`pt-16 transition-all duration-300 ease-in-out ${isMinimized ? 'md:pl-20' : 'md:pl-[260px]'}`}>
-                <div className="max-w-full mx-auto px-4 sm:px-6 lg:px-8 py-6">
-                    {/* Main Card */}
+                <div className="mx-auto max-w-full px-4 py-6 sm:px-6 lg:px-8">
+                    <div className="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                        {fetchLoading && banks.length === 0 ? (
+                            <>
+                                <StatCardSkeleton />
+                                <StatCardSkeleton />
+                                <StatCardSkeleton />
+                                <StatCardSkeleton />
+                            </>
+                        ) : (
+                            BANK_TYPE_CARDS.map(({ key, label, gradient, labelClass, Icon }, index) => {
+                                const typeStats = stats.by_type[key] || EMPTY_TYPE_STATS;
+                                const accountLabel = typeStats.count === 1 ? 'account' : 'accounts';
+
+                                return (
+                                    <motion.div
+                                        key={key}
+                                        initial={{ opacity: 0, y: 10 }}
+                                        animate={{ opacity: 1, y: 0 }}
+                                        transition={{ duration: 0.2, delay: index * 0.05 }}
+                                        className={`rounded-lg bg-gradient-to-r ${gradient} p-4 text-white shadow-md`}
+                                    >
+                                        <div className="flex items-start justify-between gap-3">
+                                            <div className="min-w-0">
+                                                <p className={`text-xs font-medium ${labelClass}`}>{label}</p>
+                                                <h3 className="mt-1 text-lg font-bold tabular-nums">
+                                                    {typeStats.count} {accountLabel}
+                                                </h3>
+                                                <p className="mt-1 text-sm font-semibold tabular-nums opacity-95">
+                                                    ₹{formatCurrency(typeStats.balance)}
+                                                </p>
+                                            </div>
+                                            <Icon className="h-5 w-5 shrink-0 opacity-80" />
+                                        </div>
+                                    </motion.div>
+                                );
+                            })
+                        )}
+                    </div>
+
                     <motion.div
-                        initial={{ opacity: 0, y: 20 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ delay: 0.4 }}
-                        className="bg-white rounded-2xl shadow-xl border border-slate-200 overflow-hidden"
+                        initial={{ opacity: 0, scale: 0.98 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        transition={{ duration: 0.3 }}
+                        className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-lg"
                     >
-                        {/* Card Header */}
-                        <div className="border-b border-slate-200 px-6 py-4 bg-white">
-                            <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
-                                <div>
-                                    <div className="flex items-center gap-3">
-                                        <div className="p-2 bg-blue-100 rounded-xl">
-                                            <FiCreditCard className="w-5 h-5 text-blue-600" />
-                                        </div>
-                                        <div>
-                                            <h3 className="text-lg font-bold text-slate-800">
-                                                Bank Register
-                                            </h3>
-                                            <p className="text-slate-500 text-sm">
-                                                Manage all your bank accounts
-                                            </p>
-                                        </div>
+                        <div className="sticky top-0 z-10 border-b border-slate-200 bg-gradient-to-r from-slate-50 to-white px-3 py-2.5 sm:px-4">
+                            <div className="flex min-w-0 flex-col gap-2 xl:flex-row xl:items-center xl:justify-between xl:gap-3">
+                                <div className="flex shrink-0 items-center gap-2">
+                                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-blue-100">
+                                        <FiCreditCard className="h-4 w-4 text-blue-600" />
                                     </div>
+                                    <h5 className="shrink-0 text-sm font-bold tracking-tight text-slate-800 sm:text-base">
+                                        Bank Register
+                                    </h5>
                                 </div>
 
-                                <div className="flex flex-wrap gap-3">
-                                    {/* Search Bar */}
-                                    <div className="relative">
-                                        <FiSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 w-4 h-4" />
+                                <div className="flex min-w-0 flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:justify-end sm:gap-2">
+                                    <div className="relative ml-auto w-full min-w-0 sm:ml-0 sm:w-60">
+                                        <FiSearch className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
                                         <input
                                             type="text"
                                             placeholder="Search banks..."
                                             value={searchTerm}
                                             onChange={(e) => setSearchTerm(e.target.value)}
-                                            className="pl-9 pr-4 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 w-64"
+                                            className="h-9 w-full rounded-lg border border-slate-300 bg-white pl-9 pr-3 text-sm transition-all focus:border-transparent focus:outline-none focus:ring-2 focus:ring-blue-500"
                                         />
                                     </div>
 
-                                    {/* Refresh Button */}
                                     <motion.button
+                                        type="button"
                                         onClick={handleRefresh}
-                                        className="px-4 py-2.5 bg-white border border-slate-200 text-slate-700 rounded-xl text-sm font-medium hover:bg-slate-50 transition-all duration-200 flex items-center gap-2"
+                                        title="Refresh"
+                                        className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-700 transition-all hover:bg-slate-50"
                                         whileHover={{ scale: 1.02 }}
                                         whileTap={{ scale: 0.98 }}
                                     >
-                                        <FiRefreshCw className="w-4 h-4" />
-                                        Refresh
+                                        <FiRefreshCw className="h-4 w-4" />
                                     </motion.button>
 
-                                    {/* Export Dropdown */}
-                                    <div className="dropdown-container relative">
+                                    <div className="dropdown-container relative shrink-0">
                                         <motion.button
+                                            type="button"
                                             onClick={() => setShowAddDropdown(!showAddDropdown)}
-                                            className="px-4 py-2.5 bg-white border border-slate-200 text-slate-700 rounded-xl text-sm font-medium hover:bg-slate-50 transition-all duration-200 flex items-center gap-2"
+                                            className="inline-flex h-9 w-full items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-3 text-sm font-medium text-slate-700 transition-all hover:bg-slate-50 sm:h-10 sm:w-auto sm:px-4"
                                             whileHover={{ scale: 1.02 }}
                                             whileTap={{ scale: 0.98 }}
                                         >
-                                            <PiExportBold className="w-4 h-4" />
-                                            Export
-                                            <FiChevronRight className={`w-3 h-3 transition-transform ${showAddDropdown ? 'rotate-90' : ''}`} />
+                                            <PiExportBold className="h-4 w-4 shrink-0" />
+                                            <span>Export</span>
+                                            <FiChevronRight className={`h-3.5 w-3.5 shrink-0 transition-transform ${showAddDropdown ? 'rotate-90' : ''}`} />
                                         </motion.button>
 
                                         <AnimatePresence>
                                             {showAddDropdown && (
                                                 <motion.div
-                                                    initial={{ opacity: 0, y: 10 }}
+                                                    initial={{ opacity: 0, y: 5 }}
                                                     animate={{ opacity: 1, y: 0 }}
-                                                    exit={{ opacity: 0, y: 10 }}
-                                                    className="absolute right-0 mt-2 w-56 bg-white rounded-xl shadow-xl border border-slate-200 z-50 overflow-hidden"
+                                                    exit={{ opacity: 0, y: 5 }}
+                                                    className="absolute right-0 z-50 mt-1 w-56 overflow-hidden rounded-lg border border-slate-200 bg-white shadow-xl"
                                                 >
-                                                    <div className="py-2">
+                                                    <div className="py-1">
                                                         <button
+                                                            type="button"
                                                             onClick={handleExportClick}
-                                                            className="flex items-center w-full px-4 py-2.5 text-sm text-slate-700 hover:bg-blue-50 transition-all duration-150"
+                                                            className="flex w-full items-center px-3 py-2 text-sm text-slate-700 transition-all duration-150 hover:bg-blue-50"
                                                         >
-                                                            <div className="p-1.5 bg-red-50 rounded-lg mr-3">
-                                                                <PiFilePdfDuotone className="w-4 h-4 text-red-500" />
+                                                            <div className="mr-2 rounded bg-red-50 p-1.5">
+                                                                <PiFilePdfDuotone className="h-3.5 w-3.5 text-red-500" />
                                                             </div>
-                                                            <span>Export as PDF</span>
+                                                            <span className="text-xs font-medium">Export as PDF</span>
                                                         </button>
                                                         <button
+                                                            type="button"
                                                             onClick={handleExportClick}
-                                                            className="flex items-center w-full px-4 py-2.5 text-sm text-slate-700 hover:bg-blue-50 transition-all duration-150"
+                                                            className="flex w-full items-center px-3 py-2 text-sm text-slate-700 transition-all duration-150 hover:bg-blue-50"
                                                         >
-                                                            <div className="p-1.5 bg-green-50 rounded-lg mr-3">
-                                                                <PiMicrosoftExcelLogoDuotone className="w-4 h-4 text-green-500" />
+                                                            <div className="mr-2 rounded bg-green-50 p-1.5">
+                                                                <PiMicrosoftExcelLogoDuotone className="h-3.5 w-3.5 text-green-500" />
                                                             </div>
-                                                            <span>Export as Excel</span>
+                                                            <span className="text-xs font-medium">Export as Excel</span>
                                                         </button>
                                                         <button
+                                                            type="button"
                                                             onClick={() => handleOtherExport('print')}
-                                                            className="flex items-center w-full px-4 py-2.5 text-sm text-slate-700 hover:bg-blue-50 transition-all duration-150"
+                                                            className="flex w-full items-center px-3 py-2 text-sm text-slate-700 transition-all duration-150 hover:bg-blue-50"
                                                         >
-                                                            <div className="p-1.5 bg-slate-50 rounded-lg mr-3">
-                                                                <FiPrinter className="w-4 h-4 text-slate-600" />
+                                                            <div className="mr-2 rounded bg-slate-50 p-1.5">
+                                                                <FiPrinter className="h-3.5 w-3.5 text-slate-600" />
                                                             </div>
-                                                            <span>Print Report</span>
+                                                            <span className="text-xs font-medium">Print Report</span>
                                                         </button>
                                                     </div>
                                                 </motion.div>
@@ -1327,43 +1537,43 @@ const BankList = () => {
                                         </AnimatePresence>
                                     </div>
 
-                                    {/* Add Bank Button */}
                                     <motion.button
+                                        type="button"
                                         onClick={() => setShowAddModal(true)}
-                                        className="px-4 py-2.5 bg-gradient-to-r from-emerald-500 to-emerald-600 text-white rounded-xl text-sm font-medium hover:from-emerald-600 hover:to-emerald-700 transition-all duration-200 flex items-center gap-2 shadow-lg shadow-emerald-500/25"
+                                        className="inline-flex h-9 shrink-0 items-center justify-center gap-1.5 rounded-lg bg-gradient-to-r from-blue-600 to-blue-700 px-3 text-sm font-semibold text-white shadow-sm transition-all hover:from-blue-700 hover:to-blue-800 sm:h-10 sm:px-4"
                                         whileHover={{ scale: 1.02 }}
                                         whileTap={{ scale: 0.98 }}
                                     >
-                                        <FiPlus className="w-4 h-4" />
-                                        Add Bank
+                                        <FiPlus className="h-4 w-4 shrink-0" />
+                                        <span className="whitespace-nowrap">Add Bank</span>
                                     </motion.button>
                                 </div>
                             </div>
                         </div>
 
-                        {/* Table */}
                         <div className="overflow-x-auto">
-                            <table className="w-full text-sm">
+                            <table className="w-full min-w-[820px] text-sm">
                                 <thead>
-                                    <tr className="bg-gradient-to-r from-slate-50 to-slate-100 border-y border-slate-200">
-                                        <th className="text-left p-4 font-semibold text-slate-600">S.No</th>
-                                        <th className="text-left p-4 font-semibold text-slate-600">Account Holder</th>
-                                        <th className="text-left p-4 font-semibold text-slate-600">Bank Details</th>
-                                        <th className="text-left p-4 font-semibold text-slate-600">IFSC</th>
-                                        <th className="text-left p-4 font-semibold text-slate-600">Type</th>
-                                        <th className="text-right p-4 font-semibold text-slate-600">Balance</th>
-                                        <th className="text-center p-4 font-semibold text-slate-600">Actions</th>
+                                    <tr className="bg-gradient-to-r from-slate-50 to-slate-100">
+                                        <th className="w-12 p-2.5 text-center text-xs font-semibold uppercase tracking-wider text-slate-700">#</th>
+                                        <th className="min-w-[140px] p-2.5 text-left text-xs font-semibold uppercase tracking-wider text-slate-700">Account Holder</th>
+                                        <th className="min-w-[180px] p-2.5 text-left text-xs font-semibold uppercase tracking-wider text-slate-700">Bank Details</th>
+                                        <th className="min-w-[120px] p-2.5 text-left text-xs font-semibold uppercase tracking-wider text-slate-700">IFSC</th>
+                                        <th className="w-24 p-2.5 text-center text-xs font-semibold uppercase tracking-wider text-slate-700">Type</th>
+                                        <th className="w-28 p-2.5 text-right text-xs font-semibold uppercase tracking-wider text-slate-700">Balance</th>
+                                        <th className="w-16 p-2.5 text-center text-xs font-semibold uppercase tracking-wider text-slate-700">Actions</th>
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-slate-100">
                                     {fetchError && !fetchLoading ? (
                                         <tr>
-                                            <td colSpan="7" className="text-center py-12">
+                                            <td colSpan="7" className="py-10 text-center">
                                                 <div className="flex flex-col items-center justify-center">
-                                                    <p className="text-red-600 font-medium mb-2">{fetchError}</p>
+                                                    <p className="mb-2 font-medium text-red-600">{fetchError}</p>
                                                     <motion.button
+                                                        type="button"
                                                         onClick={handleRefresh}
-                                                        className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm hover:bg-blue-700"
+                                                        className="rounded-lg bg-blue-600 px-4 py-2 text-sm text-white hover:bg-blue-700"
                                                         whileHover={{ scale: 1.02 }}
                                                         whileTap={{ scale: 0.98 }}
                                                     >
@@ -1378,16 +1588,17 @@ const BankList = () => {
                                         ))
                                     ) : banks.length === 0 ? (
                                         <tr>
-                                            <td colSpan="7" className="text-center py-12">
+                                            <td colSpan="7" className="py-10 text-center">
                                                 <div className="flex flex-col items-center justify-center">
-                                                    <div className="p-4 bg-slate-100 rounded-full mb-4">
-                                                        <FiCreditCard className="w-8 h-8 text-slate-400" />
+                                                    <div className="mb-3 rounded-full bg-slate-100 p-3">
+                                                        <FiCreditCard className="h-8 w-8 text-slate-400" />
                                                     </div>
-                                                    <p className="text-slate-600 text-lg font-medium mb-2">No bank accounts found</p>
-                                                    <p className="text-slate-500 text-sm mb-4">Get started by adding your first bank account</p>
+                                                    <p className="mb-1 text-base font-medium text-slate-600">No bank accounts found</p>
+                                                    <p className="mb-4 text-sm text-slate-500">Get started by adding your first bank account</p>
                                                     <motion.button
+                                                        type="button"
                                                         onClick={() => setShowAddModal(true)}
-                                                        className="px-6 py-3 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-xl text-sm font-medium hover:from-blue-700 hover:to-blue-800 transition-all duration-200 shadow-lg"
+                                                        className="rounded-lg bg-gradient-to-r from-blue-600 to-blue-700 px-5 py-2.5 text-sm font-medium text-white shadow-sm transition-all hover:from-blue-700 hover:to-blue-800"
                                                         whileHover={{ scale: 1.02 }}
                                                         whileTap={{ scale: 0.98 }}
                                                     >
@@ -1398,7 +1609,6 @@ const BankList = () => {
                                         </tr>
                                     ) : (
                                         banks.map((bank, index) => {
-                                            const isDropdownOpen = activeRowDropdown === bank.bank_id;
                                             const isPositive = bank.balance > 0;
 
                                             return (
@@ -1407,123 +1617,68 @@ const BankList = () => {
                                                     initial={{ opacity: 0 }}
                                                     animate={{ opacity: 1 }}
                                                     transition={{ duration: 0.2 }}
-                                                    className="hover:bg-blue-50/30 transition-colors duration-150"
+                                                    className="transition-colors duration-150 hover:bg-blue-50/30"
+                                                    onContextMenu={(e) => openActionsFromContextMenu(e, bank.bank_id)}
                                                 >
-                                                    <td className="p-4">
-                                                        <span className="text-slate-600 font-medium">
-                                                            {(currentPage - 1) * limit + index + 1}
+                                                    <td className="p-2.5 text-center">
+                                                        <span className="font-medium text-slate-600">
+                                                            {(currentPage - 1) * itemsPerPage + index + 1}
                                                         </span>
                                                     </td>
-                                                    <td className="p-4">
+                                                    <td className="p-2.5">
                                                         <span className="font-medium text-slate-700">
                                                             {bank.holder}
                                                         </span>
                                                     </td>
-                                                    <td className="p-4">
+                                                    <td className="p-2.5">
                                                         <div>
                                                             <div className="font-semibold text-slate-800">
                                                                 {bank.bank}
                                                             </div>
-                                                            <div className="text-slate-500 text-xs mt-1">
+                                                            <div className="mt-0.5 text-xs text-slate-500">
                                                                 {bank.account_no}
                                                             </div>
                                                         </div>
                                                     </td>
-                                                    <td className="p-4">
+                                                    <td className="p-2.5">
                                                         <div className="space-y-1">
                                                             {bank.ifsc ? (
-                                                                <span className="inline-flex px-3 py-1.5 bg-slate-100 text-slate-700 font-mono text-xs rounded-lg border border-slate-200">
+                                                                <span className="inline-flex rounded-lg border border-slate-200 bg-slate-100 px-2 py-1 font-mono text-xs text-slate-700">
                                                                     {bank.ifsc}
                                                                 </span>
                                                             ) : null}
                                                             {bank.branch ? (
-                                                                <div className="text-slate-500 text-xs">{bank.branch}</div>
+                                                                <div className="text-xs text-slate-500">{bank.branch}</div>
                                                             ) : null}
                                                         </div>
                                                     </td>
-                                                    <td className="p-4">
-                                                        <span className={`px-3 py-1.5 rounded-lg text-xs font-medium capitalize ${getBankTypeColor(bank.type)}`}>
+                                                    <td className="p-2.5 text-center">
+                                                        <span className={`rounded-lg px-2.5 py-1 text-xs font-medium capitalize ${getBankTypeColor(bank.type)}`}>
                                                             {getBankTypeName(bank.type)}
                                                         </span>
                                                     </td>
-                                                    <td className="p-4 text-right">
+                                                    <td className="p-2.5 text-right">
                                                         <button
+                                                            type="button"
                                                             onClick={() => handleBalanceClick(bank)}
-                                                            className={`inline-flex items-center justify-end font-bold text-sm ${isPositive ? 'text-green-600 hover:text-green-700' : 'text-red-600 hover:text-red-700'
-                                                                } cursor-pointer transition-all duration-200`}
+                                                            className={`inline-flex items-center justify-end text-sm font-bold transition-all duration-200 ${isPositive ? 'text-green-600 hover:text-green-700' : 'text-red-600 hover:text-red-700'
+                                                                }`}
                                                         >
                                                             {isPositive ? '+' : '-'} ₹{formatCurrency(Math.abs(bank.balance))}
                                                         </button>
                                                     </td>
-                                                    <td className="p-4">
-                                                        <div className="dropdown-container relative flex justify-center">
+                                                    <td className="p-2.5">
+                                                        <div className="flex justify-center">
                                                             <motion.button
-                                                                className="p-2 text-slate-500 hover:text-blue-600 rounded-lg hover:bg-blue-50 transition-colors duration-150 border border-slate-200"
-                                                                onClick={() => toggleRowDropdown(bank.bank_id)}
+                                                                type="button"
+                                                                data-bank-actions-trigger
+                                                                className="rounded-lg border border-slate-200 p-2 text-slate-500 transition-colors duration-150 hover:bg-blue-50 hover:text-blue-600"
+                                                                onClick={(e) => openActionsFromButton(e, bank.bank_id)}
                                                                 whileHover={{ scale: 1.05 }}
                                                                 whileTap={{ scale: 0.95 }}
                                                             >
-                                                                <FiMenu className="w-4 h-4" />
+                                                                <FiMenu className="h-4 w-4" />
                                                             </motion.button>
-                                                            <AnimatePresence>
-                                                                {isDropdownOpen && (
-                                                                    <motion.div
-                                                                        initial={{ opacity: 0, y: 10 }}
-                                                                        animate={{ opacity: 1, y: 0 }}
-                                                                        exit={{ opacity: 0, y: 10 }}
-                                                                        className="absolute right-0 mt-2 w-48 bg-white rounded-xl shadow-xl border border-slate-200 z-50 overflow-hidden"
-                                                                    >
-                                                                        <div className="py-2">
-                                                                            <button
-                                                                                onClick={() => {
-                                                                                    handleEditClick(bank);
-                                                                                    setActiveRowDropdown(null);
-                                                                                }}
-                                                                                className="flex items-center w-full px-4 py-2.5 text-sm text-slate-700 hover:bg-blue-50 transition-colors duration-150"
-                                                                            >
-                                                                                <div className="p-1.5 bg-blue-50 rounded-lg mr-3">
-                                                                                    <FiEdit className="w-4 h-4 text-blue-500" />
-                                                                                </div>
-                                                                                <span>Edit Bank</span>
-                                                                            </button>
-                                                                            <button
-                                                                                onClick={() => {
-                                                                                    handleDeleteClick(bank);
-                                                                                    setActiveRowDropdown(null);
-                                                                                }}
-                                                                                className="flex items-center w-full px-4 py-2.5 text-sm text-slate-700 hover:bg-red-50 transition-colors duration-150"
-                                                                            >
-                                                                                <div className="p-1.5 bg-red-50 rounded-lg mr-3">
-                                                                                    <FiTrash2 className="w-4 h-4 text-red-500" />
-                                                                                </div>
-                                                                                <span>Delete Bank</span>
-                                                                            </button>
-                                                                            <div className="border-t border-slate-100 my-2"></div>
-                                                                            <a
-                                                                                href={`/view-bank-ledger?bank_id=${bank.bank_id}`}
-                                                                                className="flex items-center w-full px-4 py-2.5 text-sm text-slate-700 hover:bg-blue-50 transition-colors duration-150"
-                                                                            >
-                                                                                <div className="p-1.5 bg-green-50 rounded-lg mr-3">
-                                                                                    <FiFileText className="w-4 h-4 text-green-500" />
-                                                                                </div>
-                                                                                <span>View Ledger</span>
-                                                                            </a>
-                                                                            <button
-                                                                                onClick={() => {
-                                                                                    handleOtherExport('print', bank);
-                                                                                    setActiveRowDropdown(null);
-                                                                                }}
-                                                                                className="flex items-center w-full px-4 py-2.5 text-sm text-slate-700 hover:bg-blue-50 transition-colors duration-150"
-                                                                            >
-                                                                                <div className="p-1.5 bg-slate-50 rounded-lg mr-3">
-                                                                                    <FiPrinter className="w-4 h-4 text-slate-600" />
-                                                                                </div>
-                                                                                <span>Print</span>
-                                                                            </button>
-                                                                        </div>
-                                                                    </motion.div>
-                                                                )}
-                                                            </AnimatePresence>
                                                         </div>
                                                     </td>
                                                 </motion.tr>
@@ -1534,22 +1689,92 @@ const BankList = () => {
                             </table>
                         </div>
 
-                        {!fetchLoading && (banks.length > 0 || total > 0) && !fetchError && (
+                        {!fetchError && (banks.length > 0 || total > 0) && (
                             <TablePagination
                                 page={currentPage}
-                                limit={limit}
+                                limit={itemsPerPage}
                                 total={total}
-                                totalPages={Math.max(1, Math.ceil(total / (limit || 1)))}
+                                totalPages={Math.max(1, Math.ceil(total / (itemsPerPage || 1)))}
                                 isLastPage={isLastPage}
-                                rowOptions={[10]}
+                                rowOptions={[10, 20, 50, 100]}
                                 defaultRows={10}
                                 onPageChange={handlePageChange}
-                                onLimitChange={() => { }}
+                                onLimitChange={handleLimitChange}
                             />
                         )}
                     </motion.div>
                 </div>
             </div>
+
+            {activeRowDropdown && activeBank && createPortal(
+                <motion.div
+                    initial={{ opacity: 0, y: 4 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: 4 }}
+                    data-bank-actions-menu
+                    className="fixed z-[10040] w-48 overflow-hidden rounded-lg border border-slate-200 bg-white py-1 shadow-xl"
+                    style={{
+                        top: dropdownPos.top,
+                        bottom: dropdownPos.bottom,
+                        right: dropdownPos.right,
+                        left: dropdownPos.left,
+                        minWidth: ACTIONS_MENU_WIDTH,
+                    }}
+                    onMouseDown={(e) => e.stopPropagation()}
+                >
+                    <button
+                        type="button"
+                        onClick={() => {
+                            handleEditClick(activeBank);
+                        }}
+                        className="flex w-full items-center px-3 py-2 text-sm text-slate-700 transition-colors duration-150 hover:bg-blue-50"
+                    >
+                        <div className="mr-2 rounded-lg bg-blue-50 p-1.5">
+                            <FiEdit className="h-4 w-4 text-blue-500" />
+                        </div>
+                        <span>Edit Bank</span>
+                    </button>
+                    <button
+                        type="button"
+                        onClick={() => handleDeleteClick(activeBank)}
+                        className="flex w-full items-center px-3 py-2 text-sm text-slate-700 transition-colors duration-150 hover:bg-red-50"
+                    >
+                        <div className="mr-2 rounded-lg bg-red-50 p-1.5">
+                            <FiTrash2 className="h-4 w-4 text-red-500" />
+                        </div>
+                        <span>Delete Bank</span>
+                    </button>
+                    <div className="my-1 border-t border-slate-100" />
+                    <a
+                        href={`/view-bank-ledger?bank_id=${activeBank.bank_id}`}
+                        className="flex w-full items-center px-3 py-2 text-sm text-slate-700 no-underline transition-colors duration-150 hover:bg-blue-50"
+                        onClick={() => {
+                            setActiveRowDropdown(null);
+                            actionAnchorRef.current = null;
+                        }}
+                    >
+                        <div className="mr-2 rounded-lg bg-green-50 p-1.5">
+                            <FiFileText className="h-4 w-4 text-green-500" />
+                        </div>
+                        <span>View Ledger</span>
+                    </a>
+                    <button
+                        type="button"
+                        onClick={() => {
+                            handleOtherExport('print', activeBank);
+                            setActiveRowDropdown(null);
+                            actionAnchorRef.current = null;
+                        }}
+                        className="flex w-full items-center px-3 py-2 text-sm text-slate-700 transition-colors duration-150 hover:bg-blue-50"
+                    >
+                        <div className="mr-2 rounded-lg bg-slate-50 p-1.5">
+                            <FiPrinter className="h-4 w-4 text-slate-600" />
+                        </div>
+                        <span>Print</span>
+                    </button>
+                </motion.div>,
+                document.body
+            )}
 
             {/* Modals */}
             <AnimatePresence>

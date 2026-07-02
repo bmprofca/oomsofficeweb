@@ -1,508 +1,42 @@
-import React, { useState, useEffect, useCallback } from 'react';
+﻿import React, { useState, useEffect, useMemo, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { Header, Sidebar } from '../components/header';
 import {
     FiPlus,
     FiEdit,
-    FiSettings,
-    FiDollarSign,
     FiMenu,
-    FiFileText,
-    FiFilter,
     FiChevronRight,
     FiPrinter,
-    FiTrendingUp,
     FiSearch,
     FiEye,
-    FiX,
-    FiCheckCircle,
-    FiAlertCircle,
-    FiInfo
+    FiTrash2,
+    FiTrendingUp,
 } from 'react-icons/fi';
-import { PiExportBold } from "react-icons/pi";
-import { PiFilePdfDuotone, PiMicrosoftExcelLogoDuotone } from "react-icons/pi";
-import { AiOutlineMail } from "react-icons/ai";
+import { PiExportBold, PiFilePdfDuotone, PiMicrosoftExcelLogoDuotone } from "react-icons/pi";
+import { TbCurrencyRupee } from 'react-icons/tb';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useNavigate } from 'react-router-dom';
 import getHeaders from '../utils/get-headers';
 import API_BASE_URL from '../utils/api-controller';
-import Pagination from '../components/paging-nation-component';
-import DatePickerComponent from '../components/DatePickerComponent';
+import TablePagination from '../components/TablePagination';
+import CapitalAccountFormModal from '../components/Modals/CapitalAccountFormModal';
+import CapitalAccountDetailsModal from '../components/Modals/CapitalAccountDetailsModal';
+import CapitalExportModal from '../components/Modals/CapitalExportModal';
 import toast from 'react-hot-toast';
 
-// Inline Export Modal Component
-const InlineExportModal = ({ isOpen, onClose, exportData, columns, jobType }) => {
-    const [exporting, setExporting] = useState(false);
-    const [exportStatus, setExportStatus] = useState(null);
-    const [selectedFormat, setSelectedFormat] = useState(null);
+const CAPITAL_API_BASE = `${API_BASE_URL}/capital`;
+const ACTIONS_MENU_WIDTH = 192;
+const ACTIONS_MENU_HEIGHT = 160;
 
-    const getUserEmail = () => {
-        try {
-            const userEmail = localStorage.getItem('user_email');
-            if (userEmail && userEmail !== 'undefined' && userEmail !== 'null') {
-                return userEmail;
-            }
-            const userData = localStorage.getItem('user');
-            if (userData) {
-                const user = JSON.parse(userData);
-                if (user.email) return user.email;
-                if (user.user_email) return user.user_email;
-            }
-            return null;
-        } catch (error) {
-            console.error('Error getting user email:', error);
-            return null;
-        }
-    };
-
-    const userEmail = getUserEmail();
-
-    const handleExport = async (fileType) => {
-        if (!exportData || exportData.length === 0) {
-            toast.error('No data to export');
-            return;
-        }
-
-        if (!userEmail) {
-            toast.error('User email not found. Please login again.');
-            return;
-        }
-
-        setSelectedFormat(fileType);
-        setExporting(true);
-        setExportStatus('processing');
-
-        try {
-            const headers = await getHeaders();
-            
-            const payload = {
-                job_type: jobType,
-                file_type: fileType,
-                recipient_email: userEmail,
-                email_subject: `${jobType.replace('_', ' ').toUpperCase()} Export - ${new Date().toLocaleString()}`,
-                email_message: `<p>Your ${jobType.replace('_', ' ')} export is ready.</p>
-                                <p><strong>File Format:</strong> ${fileType.toUpperCase()}</p>
-                                <p><strong>Total Records:</strong> ${exportData.length}</p>
-                                <p><strong>Generated on:</strong> ${new Date().toLocaleString()}</p>`,
-                data: exportData,
-                columns: columns,
-                filters: {
-                    export_date: new Date().toISOString(),
-                    total_records: exportData.length
-                }
-            };
-
-            const response = await fetch(`${API_BASE_URL}/export/request`, {
-                method: 'POST',
-                headers: { ...headers, 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload)
-            });
-
-            const result = await response.json();
-
-            if (result.success) {
-                setExportStatus('success');
-                toast.success(`Export started! You will receive the ${fileType.toUpperCase()} file via email at ${userEmail}`);
-                setTimeout(() => {
-                    onClose();
-                    setExportStatus(null);
-                    setSelectedFormat(null);
-                    setExporting(false);
-                }, 2000);
-            } else {
-                throw new Error(result.message || 'Export failed');
-            }
-        } catch (error) {
-            console.error('Export error:', error);
-            setExportStatus('error');
-            toast.error(error.message || 'Failed to start export');
-            setTimeout(() => {
-                setExportStatus(null);
-                setSelectedFormat(null);
-                setExporting(false);
-            }, 2000);
-        }
-    };
-
-    const exportOptions = [
-        { type: 'excel', icon: <PiMicrosoftExcelLogoDuotone className="w-6 h-6 text-green-600" />, label: 'Excel (.xlsx)', description: 'Export as Microsoft Excel spreadsheet' },
-        { type: 'csv', icon: <FiTrendingUp className="w-6 h-6 text-blue-600" />, label: 'CSV (.csv)', description: 'Export as Comma Separated Values' },
-        { type: 'pdf', icon: <PiFilePdfDuotone className="w-6 h-6 text-red-600" />, label: 'PDF (.pdf)', description: 'Export as Portable Document Format' }
-    ];
-
-    if (!isOpen) return null;
-
-    return (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[200] p-4">
-            <div className="bg-white rounded-xl shadow-2xl w-full max-w-md mx-auto overflow-hidden">
-                {/* Header */}
-                <div className="bg-gradient-to-r from-indigo-600 to-indigo-700 text-white px-6 py-4">
-                    <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 bg-white/20 rounded-lg flex items-center justify-center">
-                                <PiExportBold className="w-5 h-5" />
-                            </div>
-                            <div>
-                                <h3 className="text-lg font-bold">Export Data</h3>
-                                <p className="text-indigo-100 text-sm">Choose your preferred format</p>
-                            </div>
-                        </div>
-                        <button
-                            onClick={onClose}
-                            className="text-white p-2 rounded-lg hover:bg-white/10 transition-colors"
-                            disabled={exporting}
-                        >
-                            <FiX className="w-5 h-5" />
-                        </button>
-                    </div>
-                </div>
-
-                {/* Body */}
-                <div className="p-6">
-                    {/* Email Info */}
-                    <div className="mb-4 p-3 bg-blue-50 rounded-lg border border-blue-200">
-                        <div className="flex items-center gap-2">
-                            <AiOutlineMail className="w-4 h-4 text-blue-600" />
-                            <span className="text-sm text-blue-800">
-                                Export will be sent to: <strong>{userEmail || 'Not found'}</strong>
-                            </span>
-                        </div>
-                        {!userEmail && (
-                            <div className="mt-2 text-xs text-red-600">
-                                Please make sure you are logged in with a valid email address.
-                            </div>
-                        )}
-                    </div>
-
-                    {/* Data Summary */}
-                    <div className="mb-4 p-3 bg-gray-50 rounded-lg border border-gray-200">
-                        <div className="flex justify-between text-sm">
-                            <span className="text-gray-600">Total Records:</span>
-                            <span className="font-semibold text-gray-800">{exportData?.length || 0}</span>
-                        </div>
-                        <div className="flex justify-between text-sm mt-1">
-                            <span className="text-gray-600">Columns:</span>
-                            <span className="font-semibold text-gray-800">{columns?.length || 0}</span>
-                        </div>
-                    </div>
-
-                    {/* Export Options */}
-                    <div className="space-y-3">
-                        {exportOptions.map((option) => (
-                            <button
-                                key={option.type}
-                                onClick={() => handleExport(option.type)}
-                                disabled={exporting || !userEmail}
-                                className={`w-full flex items-center justify-between p-4 rounded-lg border-2 transition-all ${
-                                    exporting && selectedFormat === option.type
-                                        ? 'border-indigo-500 bg-indigo-50'
-                                        : 'border-gray-200 hover:border-indigo-300 hover:bg-gray-50'
-                                } ${(exporting || !userEmail) && selectedFormat !== option.type ? 'opacity-50 cursor-not-allowed' : ''}`}
-                            >
-                                <div className="flex items-center gap-3">
-                                    <div className="p-2 rounded-lg bg-gray-50">
-                                        {option.icon}
-                                    </div>
-                                    <div className="text-left">
-                                        <div className="font-medium text-gray-800">{option.label}</div>
-                                        <div className="text-xs text-gray-500">{option.description}</div>
-                                    </div>
-                                </div>
-                                {exporting && selectedFormat === option.type && (
-                                    <div className="flex items-center gap-2">
-                                        {exportStatus === 'processing' && <div className="w-5 h-5 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin"></div>}
-                                        {exportStatus === 'success' && <FiCheckCircle className="w-5 h-5 text-green-600" />}
-                                        {exportStatus === 'error' && <FiAlertCircle className="w-5 h-5 text-red-600" />}
-                                    </div>
-                                )}
-                            </button>
-                        ))}
-                    </div>
-
-                    {/* Info Message */}
-                    <div className="mt-4 p-3 bg-yellow-50 rounded-lg border border-yellow-200">
-                        <div className="flex items-start gap-2">
-                            <FiInfo className="w-4 h-4 text-yellow-600 mt-0.5 flex-shrink-0" />
-                            <p className="text-xs text-yellow-700">
-                                Export will be processed in the background. You will receive the file via email once completed.
-                                Duplicate export requests are not allowed while an export is already in progress.
-                            </p>
-                        </div>
-                    </div>
-                </div>
-
-                {/* Footer */}
-                <div className="px-6 py-4 bg-gray-50 border-t border-gray-200 flex justify-end">
-                    <button
-                        onClick={onClose}
-                        className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-100 font-medium text-sm transition-colors"
-                        disabled={exporting}
-                    >
-                        Cancel
-                    </button>
-                </div>
-            </div>
-        </div>
-    );
+const EMPTY_STATS = {
+    total_accounts: 0,
+    total_balance: 0,
+    total_credit: 0,
+    total_debit: 0,
 };
 
-// --- Modal Components (moved outside to avoid re‑creation on every render) ---
-const ModalContent = ({
-    isOpen,
-    onClose,
-    onSubmit,
-    formData,
-    onChange,
-    onDateChange,
-    loading,
-    mode = 'add',
-    title
-}) => {
-    if (!isOpen) return null;
-
-    const handleFormSubmit = (e) => {
-        e.preventDefault();
-        onSubmit(e);
-    };
-
-    const modalContent = (
-        <div className="bg-white rounded-xl shadow-2xl flex flex-col h-full border border-gray-300">
-            <div className="flex-shrink-0 flex items-center justify-between p-4 border-b border-gray-300 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-t-xl">
-                <div>
-                    <h2 className="text-xl font-bold">{title}</h2>
-                </div>
-                <button
-                    onClick={onClose}
-                    className="text-white hover:text-gray-200 p-1 rounded-lg transition-colors"
-                >
-                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                    </svg>
-                </button>
-            </div>
-
-            <div className="flex-1 overflow-y-auto p-6">
-                <form onSubmit={handleFormSubmit} id={`${mode}-account-form`}>
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                        {/* Account Name */}
-                        <div className="lg:col-span-2">
-                            <label className="block text-sm font-semibold text-gray-700 mb-2">
-                                Account Name <span className="text-red-500">*</span>
-                            </label>
-                            <input
-                                type="text"
-                                name="name"
-                                value={formData.name || ''}
-                                onChange={onChange}
-                                placeholder="Enter account name (e.g., Food, Travel, Business Capital)"
-                                className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 hover:border-blue-400 transition-colors"
-                                required
-                                autoComplete="off"
-                            />
-                        </div>
-
-                        {/* Remark */}
-                        <div className="lg:col-span-2">
-                            <label className="block text-sm font-semibold text-gray-700 mb-2">
-                                Remark
-                            </label>
-                            <textarea
-                                name="remark"
-                                value={formData.remark || ''}
-                                onChange={onChange}
-                                placeholder="Enter account description or remarks"
-                                rows="3"
-                                className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 hover:border-blue-400 transition-colors resize-none"
-                            />
-                        </div>
-
-                        {/* Opening Balance Amount */}
-                        <div>
-                            <label className="block text-sm font-semibold text-gray-700 mb-2">
-                                Opening Balance <span className="text-red-500">*</span>
-                            </label>
-                            <input
-                                type="number"
-                                name="opening_balance_amount"
-                                value={formData.opening_balance?.amount || ''}
-                                onChange={onChange}
-                                placeholder="Enter opening balance"
-                                className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 hover:border-blue-400 transition-colors"
-                                required
-                                step="0.01"
-                                autoComplete="off"
-                            />
-                        </div>
-
-                        {/* Opening Balance Type */}
-                        <div>
-                            <label className="block text-sm font-semibold text-gray-700 mb-2">
-                                Balance Type <span className="text-red-500">*</span>
-                            </label>
-                            <select
-                                name="opening_balance_type"
-                                value={formData.opening_balance?.type || 'credit'}
-                                onChange={onChange}
-                                className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 hover:border-blue-400 transition-colors bg-white"
-                                required
-                            >
-                                <option value="credit">Credit (Positive Balance)</option>
-                                <option value="debit">Debit (Negative Balance)</option>
-                            </select>
-                        </div>
-
-                        {/* Opening Date with DatePicker */}
-                        <div className="lg:col-span-2">
-                            <label className="block text-sm font-semibold text-gray-700 mb-2">
-                                Opening Date <span className="text-red-500">*</span>
-                            </label>
-                            <DatePickerComponent
-                                selectedDate={formData.opening_balance?.date || new Date()}
-                                onDateChange={onDateChange}
-                                placeholderText="Select opening date"
-                                className="w-full"
-                                dateFormat="dd/MM/yyyy"
-                            />
-                        </div>
-                    </div>
-                </form>
-            </div>
-
-            <div className="flex-shrink-0 border-t border-gray-200 bg-white p-4 rounded-b-xl">
-                <div className="flex justify-end gap-3">
-                    <button
-                        type="button"
-                        onClick={onClose}
-                        disabled={loading}
-                        className="px-6 py-2.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-gray-500 transition-colors disabled:opacity-50"
-                    >
-                        Cancel
-                    </button>
-                    <button
-                        type="submit"
-                        form={`${mode}-account-form`}
-                        disabled={loading}
-                        className="px-6 py-2.5 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center min-w-[120px] justify-center"
-                    >
-                        {loading ? (
-                            <>
-                                <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
-                                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                                </svg>
-                                {mode === 'add' ? 'Creating...' : 'Updating...'}
-                            </>
-                        ) : (
-                            mode === 'add' ? 'Create Account' : 'Update Account'
-                        )}
-                    </button>
-                </div>
-            </div>
-        </div>
-    );
-
-    return (
-        <div className="fixed inset-0 z-50 overflow-y-auto">
-            <div className="flex items-center justify-center min-h-screen p-4">
-                <div
-                    className="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity"
-                    onClick={onClose}
-                />
-                <div 
-                    className="relative w-full max-w-4xl bg-white rounded-xl shadow-2xl h-[85vh] flex flex-col"
-                    onClick={(e) => e.stopPropagation()}
-                >
-                    {modalContent}
-                </div>
-            </div>
-        </div>
-    );
-};
-
-const ViewDetailsModal = ({ isOpen, onClose, account, formatCurrency }) => {
-    if (!isOpen || !account) return null;
-
-    const isNegativeBalance = Number(account.balance) < 0;
-    const displayBalance = isNegativeBalance ? -account.balance : account.balance;
-
-    return (
-        <div className="fixed inset-0 z-50 overflow-y-auto">
-            <div className="flex items-center justify-center min-h-screen p-4">
-                <div
-                    className="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity"
-                    onClick={onClose}
-                />
-                <div className="relative w-full max-w-2xl bg-white rounded-xl shadow-2xl">
-                    {/* Header */}
-                    <div className="flex items-center justify-between p-6 border-b border-gray-200 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-t-xl">
-                        <div>
-                            <h2 className="text-xl font-bold">Account Details</h2>
-                            <p className="text-blue-100 text-sm mt-1">View complete account information</p>
-                        </div>
-                        <button
-                            onClick={onClose}
-                            className="text-blue-200 hover:text-white p-1 rounded-lg transition-colors"
-                        >
-                            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                            </svg>
-                        </button>
-                    </div>
-
-                    {/* Content */}
-                    <div className="p-6">
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            {/* Account Name */}
-                            <div className="col-span-2">
-                                <label className="block text-sm font-semibold text-gray-600 mb-1">Account Name</label>
-                                <div className="text-lg font-bold text-gray-900 bg-gray-50 p-3 rounded-lg border border-gray-200">
-                                    {account.name}
-                                </div>
-                            </div>
-
-                            {/* Remark */}
-                            <div className="col-span-2">
-                                <label className="block text-sm font-semibold text-gray-600 mb-1">Remark</label>
-                                <div className="text-gray-700 bg-gray-50 p-3 rounded-lg border border-gray-200">
-                                    {account.remark || 'No remarks provided'}
-                                </div>
-                            </div>
-
-                            {/* Balance */}
-                            <div>
-                                <label className="block text-sm font-semibold text-gray-600 mb-1">Current Balance</label>
-                                <div className={`text-2xl font-bold p-3 rounded-lg border ${isNegativeBalance ? 'text-red-600 bg-red-50 border-red-200' : 'text-green-600 bg-green-50 border-green-200'}`}>
-                                    {isNegativeBalance ? '-' : ''}₹{formatCurrency(displayBalance)}
-                                </div>
-                            </div>
-
-                            {/* Status */}
-                            <div>
-                                <label className="block text-sm font-semibold text-gray-600 mb-1">Status</label>
-                                <div className="p-3 rounded-lg border border-gray-200">
-                                    <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${account.status ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
-                                        {account.status ? 'Active' : 'Inactive'}
-                                    </span>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    {/* Footer */}
-                    <div className="flex justify-end p-6 border-t border-gray-200 bg-gray-50 rounded-b-xl">
-                        <button
-                            onClick={onClose}
-                            className="px-6 py-2.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
-                        >
-                            Close
-                        </button>
-                    </div>
-                </div>
-            </div>
-        </div>
-    );
-};
-
-// --- Main Component ---
 const CapitalAccounts = () => {
+    const navigate = useNavigate();
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
     const [isMinimized, setIsMinimized] = useState(() => {
         const saved = localStorage.getItem('sidebarMinimized');
@@ -511,14 +45,19 @@ const CapitalAccounts = () => {
     const [showAddModal, setShowAddModal] = useState(false);
     const [showEditModal, setShowEditModal] = useState(false);
     const [showViewModal, setShowViewModal] = useState(false);
-    const [loading, setLoading] = useState(false);
+    const [listLoading, setListLoading] = useState(false);
+    const [submitting, setSubmitting] = useState(false);
     const [accounts, setAccounts] = useState([]);
+    const [stats, setStats] = useState(EMPTY_STATS);
     const [showAddDropdown, setShowAddDropdown] = useState(false);
     const [activeRowDropdown, setActiveRowDropdown] = useState(null);
+    const [dropdownPos, setDropdownPos] = useState({ top: 0, right: 0, openUpward: false });
     const [exportModal, setExportModal] = useState({ open: false, type: '', data: null });
     const [searchTerm, setSearchTerm] = useState('');
     const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
     const [selectedAccount, setSelectedAccount] = useState(null);
+    const [detailsLoading, setDetailsLoading] = useState(false);
+    const viewDetailsRequestRef = useRef(0);
 
     // Export Modal State
     const [exportModalOpen, setExportModalOpen] = useState(false);
@@ -540,7 +79,7 @@ const CapitalAccounts = () => {
         remark: '',
         opening_balance: {
             amount: '',
-            date: new Date(),
+            date: new Date().toISOString().split('T')[0],
             type: 'credit'
         }
     });
@@ -551,7 +90,7 @@ const CapitalAccounts = () => {
         remark: '',
         opening_balance: {
             amount: '',
-            date: new Date(),
+            date: new Date().toISOString().split('T')[0],
             type: 'credit'
         }
     });
@@ -574,7 +113,7 @@ const CapitalAccounts = () => {
         accounts.forEach((account, index) => {
             const isNegativeBalance = Number(account.balance) < 0;
             const displayBalance = isNegativeBalance ? -account.balance : account.balance;
-            
+
             const row = {
                 sl_no: ((pagination.page - 1) * pagination.limit) + index + 1,
                 account_name: account.name || 'N/A',
@@ -591,7 +130,7 @@ const CapitalAccounts = () => {
     // Handle export click for modal
     const handleExportClick = () => {
         const { data, columns } = prepareExportData();
-        
+
         if (data.length === 0) {
             toast.error('No data to export');
             return;
@@ -644,11 +183,11 @@ const CapitalAccounts = () => {
 
     // Fetch accounts from API
     const fetchAccountList = async () => {
-        setLoading(true);
+        setListLoading(true);
         try {
             const headers = getHeaders();
-            const url = `${API_BASE_URL}/transaction/capital/list?page_no=${pagination.page}&limit=${pagination.limit}&search=${debouncedSearchTerm}`;
-            
+            const url = `${CAPITAL_API_BASE}/list?page_no=${pagination.page}&limit=${pagination.limit}&search=${encodeURIComponent(debouncedSearchTerm)}`;
+
             const response = await fetch(url, {
                 method: 'GET',
                 headers: headers
@@ -658,6 +197,14 @@ const CapitalAccounts = () => {
 
             if (result.success) {
                 setAccounts(result.data);
+                if (result.stats) {
+                    setStats({
+                        total_accounts: Number(result.stats.total_accounts) || 0,
+                        total_balance: Number(result.stats.total_balance) || 0,
+                        total_credit: Number(result.stats.total_credit) || 0,
+                        total_debit: Number(result.stats.total_debit) || 0,
+                    });
+                }
                 setPagination({
                     page: result.meta.page_no,
                     limit: result.meta.limit,
@@ -667,19 +214,20 @@ const CapitalAccounts = () => {
                 });
             } else {
                 console.error('Failed to fetch accounts:', result);
-                alert('Failed to fetch capital accounts');
+                toast.error(result.message || 'Failed to fetch capital accounts');
             }
         } catch (error) {
             console.error('Error fetching accounts:', error);
-            alert('An error occurred while fetching capital accounts');
+            toast.error('An error occurred while fetching capital accounts');
         } finally {
-            setLoading(false);
+            setListLoading(false);
         }
     };
 
     // Handle page change
     const handlePageChange = (newPage) => {
-        if (newPage >= 1 && !pagination.is_last_page) {
+        const maxPage = pagination.total_pages || 1;
+        if (newPage >= 1 && newPage <= maxPage) {
             setPagination(prev => ({ ...prev, page: newPage }));
         }
     };
@@ -687,11 +235,6 @@ const CapitalAccounts = () => {
     // Handle limit change
     const handleLimitChange = (newLimit) => {
         setPagination(prev => ({ ...prev, limit: newLimit, page: 1 }));
-    };
-
-    // Handle custom page change
-    const handleCustomPageChange = (pageNum) => {
-        setPagination(prev => ({ ...prev, page: pageNum }));
     };
 
     // Format currency
@@ -713,13 +256,12 @@ const CapitalAccounts = () => {
         });
     };
 
-    // Calculate total capital
-    const totalCapital = accounts.reduce((acc, account) => acc + account.balance, 0);
+    // Calculate total capital — use API stats (all filtered accounts, not just current page)
 
     // Handle form input changes for create
     const handleInputChange = (e) => {
         const { name, value } = e.target;
-        
+
         if (name === 'name') {
             setFormData(prev => ({ ...prev, name: value }));
         } else if (name === 'remark') {
@@ -749,7 +291,7 @@ const CapitalAccounts = () => {
             ...prev,
             opening_balance: {
                 ...prev.opening_balance,
-                date: date
+                date: date || ''
             }
         }));
     };
@@ -757,7 +299,7 @@ const CapitalAccounts = () => {
     // Handle form input changes for edit
     const handleEditInputChange = (e) => {
         const { name, value } = e.target;
-        
+
         if (name === 'name') {
             setEditFormData(prev => ({ ...prev, name: value }));
         } else if (name === 'remark') {
@@ -787,7 +329,7 @@ const CapitalAccounts = () => {
             ...prev,
             opening_balance: {
                 ...prev.opening_balance,
-                date: date
+                date: date || ''
             }
         }));
     };
@@ -796,7 +338,7 @@ const CapitalAccounts = () => {
     const handleCreateAccount = async (e) => {
         e.preventDefault();
         e.stopPropagation();
-        
+
         // Validation
         if (!formData.name || !formData.name.trim()) {
             alert('Please enter account name');
@@ -818,7 +360,7 @@ const CapitalAccounts = () => {
             return;
         }
 
-        setLoading(true);
+        setSubmitting(true);
 
         try {
             const headers = getHeaders();
@@ -827,14 +369,12 @@ const CapitalAccounts = () => {
                 remark: formData.remark ? formData.remark.trim() : '',
                 opening_balance: {
                     amount: amount,
-                    date: formData.opening_balance.date instanceof Date 
-                        ? formData.opening_balance.date.toISOString().split('T')[0]
-                        : formData.opening_balance.date,
+                    date: formData.opening_balance.date,
                     type: formData.opening_balance.type
                 }
             };
 
-            const response = await fetch(`${API_BASE_URL}/transaction/capital/create`, {
+            const response = await fetch(`${CAPITAL_API_BASE}/create`, {
                 method: 'POST',
                 headers: headers,
                 body: JSON.stringify(payload)
@@ -848,21 +388,21 @@ const CapitalAccounts = () => {
                     remark: '',
                     opening_balance: {
                         amount: '',
-                        date: new Date(),
+                        date: new Date().toISOString().split('T')[0],
                         type: 'credit'
                     }
                 });
                 setShowAddModal(false);
                 await fetchAccountList();
-                alert('Account created successfully!');
+                toast.success('Account created successfully!');
             } else {
-                alert(result.message || 'Failed to create account');
+                toast.error(result.message || 'Failed to create account');
             }
         } catch (error) {
             console.error('Error creating account:', error);
-            alert('An error occurred while creating the account');
+            toast.error('An error occurred while creating the account');
         } finally {
-            setLoading(false);
+            setSubmitting(false);
         }
     };
 
@@ -870,7 +410,7 @@ const CapitalAccounts = () => {
     const handleEditAccount = async (e) => {
         e.preventDefault();
         e.stopPropagation();
-        
+
         // Validation
         if (!editFormData.name || !editFormData.name.trim()) {
             alert('Please enter account name');
@@ -892,7 +432,7 @@ const CapitalAccounts = () => {
             return;
         }
 
-        setLoading(true);
+        setSubmitting(true);
 
         try {
             const headers = getHeaders();
@@ -902,14 +442,12 @@ const CapitalAccounts = () => {
                 remark: editFormData.remark ? editFormData.remark.trim() : '',
                 opening_balance: {
                     amount: amount,
-                    date: editFormData.opening_balance.date instanceof Date 
-                        ? editFormData.opening_balance.date.toISOString().split('T')[0]
-                        : editFormData.opening_balance.date,
+                    date: editFormData.opening_balance.date,
                     type: editFormData.opening_balance.type
                 }
             };
 
-            const response = await fetch(`${API_BASE_URL}/transaction/capital/edit`, {
+            const response = await fetch(`${CAPITAL_API_BASE}/edit`, {
                 method: 'PUT',
                 headers: headers,
                 body: JSON.stringify(payload)
@@ -920,50 +458,74 @@ const CapitalAccounts = () => {
             if (result.success) {
                 setShowEditModal(false);
                 await fetchAccountList();
-                alert('Account updated successfully!');
+                toast.success('Account updated successfully!');
             } else {
-                alert(result.message || 'Failed to update account');
+                toast.error(result.message || 'Failed to update account');
             }
         } catch (error) {
             console.error('Error updating account:', error);
-            alert('An error occurred while updating the account');
+            toast.error('An error occurred while updating the account');
         } finally {
-            setLoading(false);
+            setSubmitting(false);
         }
+    };
+
+    const handleOpenLedger = (account) => {
+        if (!account?.capital_id) return;
+        navigate(`/finance/capital/ledger/${encodeURIComponent(account.capital_id)}`, {
+            state: { accountName: account.name || '' },
+        });
     };
 
     // Handle view details
     const handleViewDetails = async (capitalId) => {
-        setLoading(true);
+        const requestId = ++viewDetailsRequestRef.current;
+        setActiveRowDropdown(null);
+        setSelectedAccount(null);
+        setShowViewModal(true);
+        setDetailsLoading(true);
         try {
             const headers = getHeaders();
-            const response = await fetch(`${API_BASE_URL}/transaction/capital/details?capital_id=${capitalId}`, {
+            const response = await fetch(`${CAPITAL_API_BASE}/details?capital_id=${encodeURIComponent(capitalId)}`, {
                 method: 'GET',
                 headers: headers
             });
 
             const result = await response.json();
 
+            if (requestId !== viewDetailsRequestRef.current) return;
+
             if (result.success) {
                 setSelectedAccount(result.data);
-                setShowViewModal(true);
             } else {
-                alert('Failed to fetch account details');
+                setShowViewModal(false);
+                toast.error(result.message || 'Failed to fetch account details');
             }
         } catch (error) {
+            if (requestId !== viewDetailsRequestRef.current) return;
             console.error('Error fetching account details:', error);
-            alert('An error occurred while fetching account details');
+            setShowViewModal(false);
+            toast.error('An error occurred while fetching account details');
         } finally {
-            setLoading(false);
+            if (requestId === viewDetailsRequestRef.current) {
+                setDetailsLoading(false);
+            }
         }
+    };
+
+    const closeViewModal = () => {
+        viewDetailsRequestRef.current += 1;
+        setShowViewModal(false);
+        setSelectedAccount(null);
+        setDetailsLoading(false);
     };
 
     // Handle edit button click - fetch details first
     const handleEditClick = async (capitalId) => {
-        setLoading(true);
+        setSubmitting(true);
         try {
             const headers = getHeaders();
-            const response = await fetch(`${API_BASE_URL}/transaction/capital/details?capital_id=${capitalId}`, {
+            const response = await fetch(`${CAPITAL_API_BASE}/details?capital_id=${encodeURIComponent(capitalId)}`, {
                 method: 'GET',
                 headers: headers
             });
@@ -978,31 +540,84 @@ const CapitalAccounts = () => {
                     remark: account.remark || '',
                     opening_balance: {
                         amount: Math.abs(account.balance).toString(),
-                        date: new Date(),
+                        date: new Date().toISOString().split('T')[0],
                         type: account.balance < 0 ? 'debit' : 'credit'
                     }
                 });
                 setShowEditModal(true);
             } else {
-                alert('Failed to fetch account details');
+                toast.error(result.message || 'Failed to fetch account details');
             }
         } catch (error) {
             console.error('Error fetching account details:', error);
-            alert('An error occurred while fetching account details');
+            toast.error('An error occurred while fetching account details');
         } finally {
-            setLoading(false);
+            setSubmitting(false);
+        }
+    };
+
+    const handleDeleteAccount = async (capitalId) => {
+        if (!capitalId) return;
+        const confirmed = window.confirm(
+            'Delete this capital account? This is only allowed when no transactions exist for it.'
+        );
+        if (!confirmed) return;
+
+        setSubmitting(true);
+        setActiveRowDropdown(null);
+        try {
+            const headers = getHeaders();
+            const response = await fetch(`${CAPITAL_API_BASE}/delete`, {
+                method: 'DELETE',
+                headers,
+                body: JSON.stringify({ capital_id: capitalId }),
+            });
+            const result = await response.json();
+
+            if (result.success) {
+                toast.success(result.message || 'Capital account deleted successfully');
+                await fetchAccountList();
+            } else {
+                toast.error(result.message || 'Failed to delete capital account');
+            }
+        } catch (error) {
+            console.error('Error deleting account:', error);
+            toast.error('An error occurred while deleting the account');
+        } finally {
+            setSubmitting(false);
         }
     };
 
     // Toggle row dropdown
-    const toggleRowDropdown = (accountId) => {
-        setActiveRowDropdown(activeRowDropdown === accountId ? null : accountId);
+    const activeAccount = useMemo(
+        () => accounts.find((a) => a.capital_id === activeRowDropdown) || null,
+        [accounts, activeRowDropdown]
+    );
+
+    const toggleRowDropdown = (accountId, e) => {
+        if (activeRowDropdown === accountId) {
+            setActiveRowDropdown(null);
+            return;
+        }
+        const rect = e.currentTarget.getBoundingClientRect();
+        const spaceBelow = window.innerHeight - rect.bottom;
+        const openUpward = spaceBelow < ACTIONS_MENU_HEIGHT + 8;
+        setDropdownPos({
+            top: openUpward ? undefined : rect.bottom + 4,
+            bottom: openUpward ? window.innerHeight - rect.top + 4 : undefined,
+            right: window.innerWidth - rect.right,
+            openUpward,
+        });
+        setActiveRowDropdown(accountId);
     };
 
     // Close all dropdowns when clicking outside
     useEffect(() => {
         const handleClickOutside = (event) => {
-            if (!event.target.closest('.dropdown-container')) {
+            if (
+                !event.target.closest('.dropdown-container') &&
+                !event.target.closest('[data-capital-actions-menu]')
+            ) {
                 setShowAddDropdown(false);
                 setActiveRowDropdown(null);
             }
@@ -1013,6 +628,20 @@ const CapitalAccounts = () => {
             document.removeEventListener('mousedown', handleClickOutside);
         };
     }, []);
+
+    useEffect(() => {
+        if (!activeRowDropdown) return undefined;
+        const closeOnScroll = () => setActiveRowDropdown(null);
+        window.addEventListener('scroll', closeOnScroll, true);
+        return () => window.removeEventListener('scroll', closeOnScroll, true);
+    }, [activeRowDropdown]);
+
+    const StatCardSkeleton = () => (
+        <div className="bg-white rounded-lg p-4 border border-slate-200 shadow-sm animate-pulse">
+            <div className="h-3 bg-slate-200 rounded w-24 mb-2" />
+            <div className="h-6 bg-slate-200 rounded w-20" />
+        </div>
+    );
 
     // Skeleton loader component
     const SkeletonRow = () => (
@@ -1052,73 +681,124 @@ const CapitalAccounts = () => {
 
             <div className={`pt-16 transition-all duration-300 ease-in-out ${isMinimized ? 'md:pl-20' : 'md:pl-[260px]'}`}>
                 <div className="max-w-full mx-auto px-4 sm:px-6 lg:px-8 py-6">
-                    {/* Header Stats Card */}
-                    <motion.div 
-                        initial={{ opacity: 0, y: 10 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ duration: 0.2 }}
-                        className="bg-gradient-to-r from-blue-500 to-blue-600 rounded-lg p-4 text-white shadow-md mb-4"
-                    >
-                        <div className="flex items-center justify-between">
-                            <div>
-                                <p className="text-blue-100 text-xs font-medium">Total Capital</p>
-                                <h3 className="text-lg font-bold mt-1">₹{formatCurrency(totalCapital)}</h3>
-                                <p className="text-blue-100 text-xs mt-1">
-                                    {pagination.total} Capital Accounts
-                                </p>
-                            </div>
-                            <FiTrendingUp className="w-5 h-5 opacity-80" />
-                        </div>
-                    </motion.div>
+                    {/* Header Stats Cards */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3 mb-4">
+                        {listLoading && accounts.length === 0 ? (
+                            <>
+                                <StatCardSkeleton />
+                                <StatCardSkeleton />
+                                <StatCardSkeleton />
+                                <StatCardSkeleton />
+                            </>
+                        ) : (
+                            <>
+                                <motion.div
+                                    initial={{ opacity: 0, y: 10 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    transition={{ duration: 0.2 }}
+                                    className="bg-gradient-to-r from-blue-500 to-blue-600 rounded-lg p-4 text-white shadow-md"
+                                >
+                                    <div className="flex items-center justify-between">
+                                        <div>
+                                            <p className="text-blue-100 text-xs font-medium">Total Accounts</p>
+                                            <h3 className="text-lg font-bold mt-1">{stats.total_accounts}</h3>
+                                        </div>
+                                        <FiTrendingUp className="w-5 h-5 opacity-80" />
+                                    </div>
+                                </motion.div>
+
+                                <motion.div
+                                    initial={{ opacity: 0, y: 10 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    transition={{ duration: 0.2, delay: 0.05 }}
+                                    className="bg-gradient-to-r from-indigo-500 to-indigo-600 rounded-lg p-4 text-white shadow-md"
+                                >
+                                    <div className="flex items-center justify-between">
+                                        <div>
+                                            <p className="text-indigo-100 text-xs font-medium">Total Balance</p>
+                                            <h3 className="text-lg font-bold mt-1">₹{formatCurrency(stats.total_balance)}</h3>
+                                        </div>
+                                        <TbCurrencyRupee className="w-5 h-5 opacity-80" />
+                                    </div>
+                                </motion.div>
+
+                                <motion.div
+                                    initial={{ opacity: 0, y: 10 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    transition={{ duration: 0.2, delay: 0.1 }}
+                                    className="bg-gradient-to-r from-emerald-500 to-emerald-600 rounded-lg p-4 text-white shadow-md"
+                                >
+                                    <div className="flex items-center justify-between">
+                                        <div>
+                                            <p className="text-emerald-100 text-xs font-medium">Total Credit</p>
+                                            <h3 className="text-lg font-bold mt-1">₹{formatCurrency(stats.total_credit)}</h3>
+                                        </div>
+                                        <FiTrendingUp className="w-5 h-5 opacity-80" />
+                                    </div>
+                                </motion.div>
+
+                                <motion.div
+                                    initial={{ opacity: 0, y: 10 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    transition={{ duration: 0.2, delay: 0.15 }}
+                                    className="bg-gradient-to-r from-rose-500 to-rose-600 rounded-lg p-4 text-white shadow-md"
+                                >
+                                    <div className="flex items-center justify-between">
+                                        <div>
+                                            <p className="text-rose-100 text-xs font-medium">Total Debit</p>
+                                            <h3 className="text-lg font-bold mt-1">₹{formatCurrency(stats.total_debit)}</h3>
+                                        </div>
+                                        <TbCurrencyRupee className="w-5 h-5 opacity-80" />
+                                    </div>
+                                </motion.div>
+                            </>
+                        )}
+                    </div>
 
                     {/* Main Card */}
-                    <motion.div 
+                    <motion.div
                         initial={{ opacity: 0, scale: 0.98 }}
                         animate={{ opacity: 1, scale: 1 }}
                         transition={{ duration: 0.3 }}
-                        className="bg-white rounded-xl shadow-lg border border-slate-200"
+                        className="bg-white rounded-2xl shadow-lg border border-slate-200 overflow-hidden"
                     >
                         {/* Card Header */}
-                        <div className="border-b border-slate-200 px-6 py-4 bg-gradient-to-r from-slate-50 to-white sticky top-0 z-10">
-                            <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
-                                <div>
-                                    <div className="flex items-center gap-2 mb-1">
-                                        <div className="p-1.5 bg-blue-100 rounded-lg">
-                                            <FiTrendingUp className="w-4 h-4 text-blue-600" />
-                                        </div>
-                                        <h5 className="text-lg font-bold text-slate-800">
-                                            Capital Accounts
-                                        </h5>
+                        <div className="border-b border-slate-200 px-4 sm:px-6 py-4 bg-gradient-to-r from-slate-50 to-white sticky top-0 z-10">
+                            <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+                                <div className="flex items-center gap-2 shrink-0">
+                                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-blue-100">
+                                        <FiTrendingUp className="w-4 h-4 text-blue-600" />
                                     </div>
-                                    <p className="text-slate-600 text-xs font-medium">
-                                        Manage all capital accounts and investments
-                                    </p>
+                                    <h5 className="text-lg font-bold leading-none text-slate-800">
+                                        Capital Accounts
+                                    </h5>
                                 </div>
 
-                                <div className="flex gap-2">
+                                <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
                                     {/* Search Input */}
-                                    <div className="relative">
-                                        <FiSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                                    <div className="relative w-full sm:w-64">
+                                        <FiSearch className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
                                         <input
                                             type="text"
                                             placeholder="Search accounts..."
                                             value={searchTerm}
                                             onChange={(e) => setSearchTerm(e.target.value)}
-                                            className="pl-9 pr-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 w-64"
+                                            className="h-10 w-full rounded-lg border border-gray-300 bg-white pl-9 pr-4 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
                                         />
                                     </div>
 
                                     {/* Export Dropdown */}
-                                    <div className="dropdown-container relative">
+                                    <div className="dropdown-container relative shrink-0">
                                         <motion.button
+                                            type="button"
                                             onClick={() => setShowAddDropdown(!showAddDropdown)}
-                                            className="px-4 py-2.5 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white rounded-lg text-xs font-semibold transition-all duration-200 flex items-center gap-2 shadow-sm hover:shadow"
+                                            className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-blue-600 to-blue-700 px-4 text-sm font-semibold text-white shadow-sm transition-all duration-200 hover:from-blue-700 hover:to-blue-800 hover:shadow sm:w-auto"
                                             whileHover={{ scale: 1.02 }}
                                             whileTap={{ scale: 0.98 }}
                                         >
-                                            <PiExportBold className="w-4 h-4" />
-                                            Export
-                                            <FiChevronRight className={`w-3 h-3 transition-transform ${showAddDropdown ? 'rotate-90' : ''}`} />
+                                            <PiExportBold className="h-4 w-4 shrink-0" />
+                                            <span>Export</span>
+                                            <FiChevronRight className={`h-3.5 w-3.5 shrink-0 transition-transform ${showAddDropdown ? 'rotate-90' : ''}`} />
                                         </motion.button>
 
                                         <AnimatePresence>
@@ -1171,13 +851,14 @@ const CapitalAccounts = () => {
 
                                     {/* Add Account Button */}
                                     <motion.button
+                                        type="button"
                                         onClick={() => setShowAddModal(true)}
-                                        className="px-4 py-2.5 bg-gradient-to-r from-emerald-600 to-emerald-700 hover:from-emerald-700 hover:to-emerald-800 text-white rounded-lg text-xs font-semibold transition-all duration-200 flex items-center gap-2 shadow-sm hover:shadow"
+                                        className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-emerald-600 to-emerald-700 px-4 text-sm font-semibold text-white shadow-sm transition-all duration-200 hover:from-emerald-700 hover:to-emerald-800 hover:shadow sm:w-auto"
                                         whileHover={{ scale: 1.02 }}
                                         whileTap={{ scale: 0.98 }}
                                     >
-                                        <FiPlus className="w-4 h-4" />
-                                        Add Account
+                                        <FiPlus className="h-4 w-4 shrink-0" />
+                                        <span>Add Account</span>
                                     </motion.button>
                                 </div>
                             </div>
@@ -1189,7 +870,7 @@ const CapitalAccounts = () => {
                                 <thead>
                                     <tr className="bg-gradient-to-r from-slate-50 to-slate-100">
                                         <th className="text-center p-3 font-semibold text-slate-700 text-[10px] uppercase tracking-wider w-[5%]">
-                                            Sl No
+                                            #
                                         </th>
                                         <th className="text-center p-3 font-semibold text-slate-700 text-[10px] uppercase tracking-wider w-[30%]">
                                             Account Name
@@ -1206,8 +887,10 @@ const CapitalAccounts = () => {
                                     </tr>
                                 </thead>
                                 <tbody className="bg-white divide-y divide-slate-100">
-                                    {loading && accounts.length === 0 ? (
-                                        [...Array(5)].map((_, index) => <SkeletonRow key={index} />)
+                                    {listLoading ? (
+                                        [...Array(pagination.limit > 5 ? 5 : pagination.limit)].map((_, index) => (
+                                            <SkeletonRow key={`sk-${index}`} />
+                                        ))
                                     ) : accounts.length === 0 ? (
                                         <tr>
                                             <td colSpan="5" className="text-center py-8 text-slate-500">
@@ -1230,7 +913,6 @@ const CapitalAccounts = () => {
                                         </tr>
                                     ) : (
                                         accounts.map((account, index) => {
-                                            const isDropdownOpen = activeRowDropdown === account.capital_id;
                                             const isNegativeBalance = Number(account.balance) < 0;
                                             const displayBalance = isNegativeBalance ? -account.balance : account.balance;
 
@@ -1262,86 +944,29 @@ const CapitalAccounts = () => {
                                                         </div>
                                                     </td>
                                                     <td className="text-center p-3 align-middle">
-                                                        <div className={`inline-flex items-center justify-center font-bold px-3 py-1.5 rounded text-xs ${isNegativeBalance ? 'bg-gradient-to-r from-red-50 to-red-100 text-red-800' : 'bg-gradient-to-r from-green-50 to-green-100 text-green-800'}`}>
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => handleOpenLedger(account)}
+                                                            className={`inline-flex items-center justify-center font-bold px-3 py-1.5 rounded text-xs transition-colors hover:ring-2 hover:ring-blue-200 ${isNegativeBalance ? 'bg-gradient-to-r from-red-50 to-red-100 text-red-800' : 'bg-gradient-to-r from-green-50 to-green-100 text-green-800'}`}
+                                                            title="View ledger"
+                                                        >
                                                             {isNegativeBalance ? '-' : ''}₹{formatCurrency(displayBalance)}
-                                                        </div>
+                                                        </button>
                                                     </td>
                                                     <td className="text-center p-3 align-middle">
-                                                        <div className="flex items-center justify-center gap-2">
-                                                            {/* View Button */}
-                                                            <motion.button
-                                                                onClick={() => handleViewDetails(account.capital_id)}
-                                                                className="p-1.5 text-blue-600 hover:text-blue-700 rounded-lg hover:bg-blue-50 transition-colors duration-150 border border-blue-200 hover:border-blue-300"
-                                                                whileHover={{ scale: 1.05 }}
-                                                                whileTap={{ scale: 0.95 }}
-                                                                title="View Details"
-                                                            >
-                                                                <FiEye className="w-3.5 h-3.5" />
-                                                            </motion.button>
-
-                                                            {/* Dropdown Button */}
+                                                        <div className="flex items-center justify-center">
                                                             <div className="dropdown-container relative">
                                                                 <motion.button
+                                                                    type="button"
                                                                     className="p-1.5 text-slate-500 hover:text-blue-600 rounded-lg hover:bg-blue-50 transition-colors duration-150 border border-slate-200 hover:border-blue-300"
-                                                                    onClick={() => toggleRowDropdown(account.capital_id)}
+                                                                    onClick={(e) => toggleRowDropdown(account.capital_id, e)}
                                                                     whileHover={{ scale: 1.05 }}
                                                                     whileTap={{ scale: 0.95 }}
-                                                                    title="More Actions"
+                                                                    title="Actions"
+                                                                    aria-label="Row actions"
                                                                 >
                                                                     <FiMenu className="w-3.5 h-3.5" />
                                                                 </motion.button>
-                                                                <AnimatePresence>
-                                                                    {isDropdownOpen && (
-                                                                        <motion.div
-                                                                            initial={{ opacity: 0, y: 5 }}
-                                                                            animate={{ opacity: 1, y: 0 }}
-                                                                            exit={{ opacity: 0, y: 5 }}
-                                                                            className="absolute right-0 mt-1 w-48 bg-white rounded-lg shadow-xl border border-slate-200 z-50 overflow-hidden"
-                                                                        >
-                                                                            <div className="py-1">
-                                                                                <button
-                                                                                    onClick={() => {
-                                                                                        handleEditClick(account.capital_id);
-                                                                                        setActiveRowDropdown(null);
-                                                                                    }}
-                                                                                    className="flex items-center w-full px-3 py-2 text-xs text-slate-700 hover:bg-blue-50 transition-colors duration-150"
-                                                                                >
-                                                                                    <div className="p-1 bg-blue-50 rounded mr-2">
-                                                                                        <FiEdit className="w-3 h-3 text-blue-500" />
-                                                                                    </div>
-                                                                                    <div className="text-left">
-                                                                                        <div className="font-medium">Edit Account</div>
-                                                                                    </div>
-                                                                                </button>
-                                                                                <div className="border-t border-slate-100 mt-1 pt-1">
-                                                                                    <a
-                                                                                        href={`/view-capital-account-ledger?capital_id=${account.capital_id}`}
-                                                                                        className="flex items-center w-full px-3 py-2 text-xs text-slate-700 hover:bg-blue-50 transition-colors duration-150"
-                                                                                        onClick={() => setActiveRowDropdown(null)}
-                                                                                    >
-                                                                                        <div className="p-1 bg-green-50 rounded mr-2">
-                                                                                            <FiFileText className="w-3 h-3 text-green-500" />
-                                                                                        </div>
-                                                                                        <div className="text-left">
-                                                                                            <div className="font-medium">View Ledger</div>
-                                                                                        </div>
-                                                                                    </a>
-                                                                                    <button
-                                                                                        className="flex items-center w-full px-3 py-2 text-xs text-slate-700 hover:bg-blue-50 transition-colors duration-150"
-                                                                                        onClick={() => handleOtherExport('print', account)}
-                                                                                    >
-                                                                                        <div className="p-1 bg-slate-50 rounded mr-2">
-                                                                                            <FiPrinter className="w-3 h-3 text-slate-600" />
-                                                                                        </div>
-                                                                                        <div className="text-left">
-                                                                                            <div className="font-medium">Print</div>
-                                                                                        </div>
-                                                                                    </button>
-                                                                                </div>
-                                                                            </div>
-                                                                        </motion.div>
-                                                                    )}
-                                                                </AnimatePresence>
                                                             </div>
                                                         </div>
                                                     </td>
@@ -1353,59 +978,114 @@ const CapitalAccounts = () => {
                             </table>
                         </div>
 
-                        {/* Pagination Component */}
-                        {!loading && accounts.length > 0 && (
-                            <Pagination
-                                pagination={pagination}
+                        {!listLoading && accounts.length > 0 && (
+                            <TablePagination
+                                page={pagination.page}
+                                limit={pagination.limit}
+                                total={pagination.total}
+                                totalPages={pagination.total_pages}
+                                isLastPage={pagination.is_last_page}
+                                rowOptions={[5, 10, 20, 50, 100]}
+                                defaultRows={10}
                                 onPageChange={handlePageChange}
                                 onLimitChange={handleLimitChange}
-                                onCustomPageChange={handleCustomPageChange}
-                                loading={loading}
-                                showPageInfo={true}
-                                showLimitSelector={true}
-                                showCustomInput={true}
                             />
                         )}
                     </motion.div>
                 </div>
             </div>
 
+            {activeRowDropdown && activeAccount && createPortal(
+                <motion.div
+                    initial={{ opacity: 0, y: 4 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: 4 }}
+                    data-capital-actions-menu
+                    className="fixed z-[10040] w-48 overflow-hidden rounded-lg border border-slate-200 bg-white py-1 shadow-xl"
+                    style={{
+                        top: dropdownPos.top,
+                        bottom: dropdownPos.bottom,
+                        right: dropdownPos.right,
+                        minWidth: ACTIONS_MENU_WIDTH,
+                    }}
+                >
+                    <button
+                        type="button"
+                        onClick={() => {
+                            handleViewDetails(activeAccount.capital_id);
+                            setActiveRowDropdown(null);
+                        }}
+                        className="flex w-full items-center px-3 py-2 text-xs text-slate-700 transition-colors duration-150 hover:bg-blue-50"
+                    >
+                        <div className="mr-2 rounded bg-slate-50 p-1">
+                            <FiEye className="h-3 w-3 text-slate-600" />
+                        </div>
+                        <div className="text-left font-medium">View Details</div>
+                    </button>
+                    <button
+                        type="button"
+                        onClick={() => {
+                            handleEditClick(activeAccount.capital_id);
+                            setActiveRowDropdown(null);
+                        }}
+                        className="flex w-full items-center px-3 py-2 text-xs text-slate-700 transition-colors duration-150 hover:bg-blue-50"
+                    >
+                        <div className="mr-2 rounded bg-blue-50 p-1">
+                            <FiEdit className="h-3 w-3 text-blue-500" />
+                        </div>
+                        <div className="text-left font-medium">Edit Account</div>
+                    </button>
+                    <button
+                        type="button"
+                        onClick={() => handleDeleteAccount(activeAccount.capital_id)}
+                        className="flex w-full items-center px-3 py-2 text-xs text-red-600 transition-colors duration-150 hover:bg-red-50"
+                    >
+                        <div className="mr-2 rounded bg-red-50 p-1">
+                            <FiTrash2 className="h-3 w-3 text-red-500" />
+                        </div>
+                        <div className="text-left font-medium">Delete Account</div>
+                    </button>
+                </motion.div>,
+                document.body
+            )}
+
             {/* Add Account Modal */}
-            <ModalContent
+            <CapitalAccountFormModal
                 isOpen={showAddModal}
                 onClose={() => setShowAddModal(false)}
                 onSubmit={handleCreateAccount}
                 formData={formData}
                 onChange={handleInputChange}
                 onDateChange={handleDateChange}
-                loading={loading}
+                loading={submitting}
                 mode="add"
                 title="Add Capital Account"
             />
 
             {/* Edit Account Modal */}
-            <ModalContent
+            <CapitalAccountFormModal
                 isOpen={showEditModal}
                 onClose={() => setShowEditModal(false)}
                 onSubmit={handleEditAccount}
                 formData={editFormData}
                 onChange={handleEditInputChange}
                 onDateChange={handleEditDateChange}
-                loading={loading}
+                loading={submitting}
                 mode="edit"
                 title="Edit Capital Account"
             />
 
             {/* View Details Modal */}
-            <ViewDetailsModal
+            <CapitalAccountDetailsModal
                 isOpen={showViewModal}
-                onClose={() => setShowViewModal(false)}
+                onClose={closeViewModal}
                 account={selectedAccount}
+                loading={detailsLoading}
                 formatCurrency={formatCurrency}
             />
 
-            {/* Inline Export Modal */}
-            <InlineExportModal
+            {/* Export Modal */}
+            <CapitalExportModal
                 isOpen={exportModalOpen}
                 onClose={() => { setExportModalOpen(false); setExportData([]); setExportColumns([]); }}
                 exportData={exportData}

@@ -176,6 +176,11 @@ const MODAL_ACCENT_STYLES = {
         iconWrap: 'bg-emerald-100 text-emerald-600',
         primaryBtn: 'bg-emerald-600 hover:bg-emerald-700 focus:ring-emerald-500/40',
     },
+    discount: {
+        header: 'bg-amber-50 border-amber-100',
+        iconWrap: 'bg-amber-100 text-amber-600',
+        primaryBtn: 'bg-amber-600 hover:bg-amber-700 focus:ring-amber-500/40',
+    },
 };
 
 const getCompactFieldClass = (accent = 'blue') => {
@@ -189,6 +194,8 @@ const getCompactFieldClass = (accent = 'blue') => {
                     ? 'focus:ring-teal-500/25 focus:border-teal-400'
                     : accent === 'emerald'
                         ? 'focus:ring-emerald-500/25 focus:border-emerald-400'
+                        : accent === 'amber'
+                            ? 'focus:ring-amber-500/25 focus:border-amber-400'
                         : 'focus:ring-blue-500/25 focus:border-blue-400';
     return `w-full px-3 py-2 text-sm border border-slate-200 rounded-md focus:outline-none focus:ring-2 ${ring}`;
 };
@@ -218,6 +225,9 @@ const getComboboxOpenClass = (open, focusAccent = 'blue') => {
     }
     if (focusAccent === 'emerald') {
         return 'border-emerald-300 ring-2 ring-emerald-500/15 shadow-md';
+    }
+    if (focusAccent === 'amber') {
+        return 'border-amber-300 ring-2 ring-amber-500/15 shadow-md';
     }
     return 'border-blue-300 ring-2 ring-blue-500/15 shadow-md';
 };
@@ -6695,6 +6705,351 @@ export const ContraModal = ({
     );
 };
 
+export const DiscountModal = ({
+    isOpen,
+    onClose,
+    onSubmit,
+    formatCurrency,
+    showClient = true,
+    clientUsername = '',
+    clientName = '',
+    partyType = 'client',
+    partyLabel = 'Client',
+    editRecord = null,
+}) => {
+    const presetPartyType = partyType === 'agent' || partyType === 'ca' || partyType === 'staff' ? partyType : 'client';
+    const hasPresetClient = Boolean(String(clientUsername || '').trim());
+    const shouldShowClientSelector = showClient && !hasPresetClient;
+    const [loading, setLoading] = useState(false);
+    const [presetParty, setPresetParty] = useState(null);
+    const [loadingPresetParty, setLoadingPresetParty] = useState(false);
+    const [selectedPartyType, setSelectedPartyType] = useState('client');
+    const [transactionDate, setTransactionDate] = useState(new Date().toISOString().split('T')[0]);
+    const [amount, setAmount] = useState('');
+    const [remark, setRemark] = useState('');
+
+    const partyLookup = useJournalPartySearch(selectedPartyType, Boolean(shouldShowClientSelector));
+    const discountFieldClass = getCompactFieldClass('amber');
+    const discountAccentBtn = MODAL_ACCENT_STYLES.discount.primaryBtn;
+    const todayIso = useMemo(() => new Date().toISOString().split('T')[0], []);
+    const isEditMode = Boolean(editRecord?.discount_id);
+
+    useEffect(() => {
+        if (!isOpen || !hasPresetClient) {
+            setPresetParty(null);
+            setLoadingPresetParty(false);
+            return undefined;
+        }
+        let cancelled = false;
+        setLoadingPresetParty(true);
+        (async () => {
+            try {
+                const match = await fetchPresetJournalParty(clientUsername, presetPartyType);
+                if (match && !cancelled) {
+                    setPresetParty(match);
+                }
+            } catch (err) {
+                console.error('Discount preset party fetch:', err);
+            } finally {
+                if (!cancelled) setLoadingPresetParty(false);
+            }
+        })();
+        return () => {
+            cancelled = true;
+        };
+    }, [isOpen, clientUsername, hasPresetClient, presetPartyType]);
+
+    useEffect(() => {
+        if (!isOpen) return;
+        if (isEditMode) {
+            const party = editRecord.discount_party || editRecord.payment_from;
+            const partyTypeVal = party?.type || editRecord.party_type || 'client';
+            setSelectedPartyType(
+                partyTypeVal === 'agent' || partyTypeVal === 'ca' || partyTypeVal === 'staff' ? partyTypeVal : 'client'
+            );
+            setTransactionDate(toIsoDateOnly(editRecord.transaction_date || editRecord.discount_date));
+            setAmount(String(editRecord.amount ?? ''));
+            setRemark(editRecord.remark || '');
+            setLoading(false);
+            const mappedParty = mapUserPartyToJournal(party);
+            if (mappedParty?.username && shouldShowClientSelector) {
+                partyLookup.setSelectedParty(mappedParty);
+            }
+            return;
+        }
+        setSelectedPartyType(hasPresetClient ? presetPartyType : 'client');
+        setTransactionDate(new Date().toISOString().split('T')[0]);
+        setAmount('');
+        setRemark('');
+        setLoading(false);
+        partyLookup.reset();
+    }, [isOpen, isEditMode, editRecord]); // eslint-disable-line react-hooks/exhaustive-deps
+
+    const effectiveParty = hasPresetClient
+        ? (presetParty || mapRowToJournalParty({
+            username: clientUsername,
+            name: clientName || clientUsername,
+            email: '',
+            balance: 0,
+            mobile: '',
+            pan_number: '',
+        }, presetPartyType))
+        : partyLookup.selectedParty;
+
+    const partyKey = journalPartyKey(effectiveParty, hasPresetClient ? presetPartyType : selectedPartyType);
+    const parsedAmount = parseDecimalValue(amount);
+
+    const isDiscountFormValid =
+        Boolean(effectiveParty) &&
+        partyKey !== '' &&
+        parsedAmount > 0 &&
+        Boolean(transactionDate) &&
+        !(hasPresetClient && loadingPresetParty);
+
+    const submitDiscount = useCallback(async () => {
+        if (loading) return;
+        if (!effectiveParty || partyKey === '') {
+            toast.error(`Please select a ${partyLabel}`);
+            return;
+        }
+        if (!parsedAmount || parsedAmount <= 0) {
+            toast.error('Please enter a valid amount');
+            return;
+        }
+        if (!transactionDate) {
+            toast.error('Please select a date');
+            return;
+        }
+
+        const resolvedPartyType = hasPresetClient ? presetPartyType : (effectiveParty.userType || selectedPartyType);
+        const resolvedPartyId = resolveJournalPartyId(effectiveParty, resolvedPartyType);
+        const remarkText = String(remark || '').trim();
+
+        setLoading(true);
+        try {
+            const payload = {
+                party_id: resolvedPartyId,
+                party_type: resolvedPartyType,
+                amount: parsedAmount,
+                remark: remarkText,
+                transaction_date: transactionDate,
+            };
+
+            const response = isEditMode
+                ? await axios.put(
+                    `${API_BASE_URL}/expense/discount/edit`,
+                    { ...payload, discount_id: editRecord.discount_id },
+                    { headers: getHeaders() }
+                )
+                : await axios.post(
+                    `${API_BASE_URL}/expense/discount/create`,
+                    payload,
+                    { headers: getHeaders() }
+                );
+
+            if (!response.data?.success) {
+                toast.error(response.data?.message || 'Failed to save discount entry');
+                return;
+            }
+
+            toast.success(response.data.message || (isEditMode ? 'Discount entry updated successfully' : 'Discount entry created successfully'));
+            if (onSubmit) onSubmit('DISCOUNT', response.data.data);
+            onClose();
+        } catch (error) {
+            console.error('Error saving discount entry:', error);
+            const errorMessage =
+                error.response?.data?.message ||
+                error.response?.data?.error ||
+                error.message ||
+                'Failed to save discount entry';
+            toast.error(errorMessage);
+        } finally {
+            setLoading(false);
+        }
+    }, [
+        loading,
+        effectiveParty,
+        partyKey,
+        parsedAmount,
+        transactionDate,
+        remark,
+        hasPresetClient,
+        presetPartyType,
+        selectedPartyType,
+        partyLabel,
+        isEditMode,
+        editRecord,
+        onSubmit,
+        onClose,
+    ]);
+
+    const handleSubmit = (e) => {
+        e.preventDefault();
+        submitDiscount();
+    };
+
+    const partyDisplayName = effectiveParty?.name || effectiveParty?.username || '—';
+
+    return (
+        <BaseModal
+            isOpen={isOpen}
+            onClose={onClose}
+            title={isEditMode ? 'Edit Discount Entry' : 'Create Discount Entry'}
+            maxWidth="max-w-lg"
+            compact
+            closeOnOverlayClick={false}
+            accent="discount"
+            titleIcon={<FiDollarSign className="w-4 h-4" aria-hidden />}
+            footer={(
+                <div className="flex flex-col gap-2.5 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="text-xs text-slate-500">
+                        {parsedAmount > 0 ? (
+                            <span>
+                                Discount amount{' '}
+                                <span className="font-semibold text-amber-700 tabular-nums">
+                                    ₹{formatCurrency ? formatCurrency(parsedAmount) : formatPlainInrAmount(parsedAmount)}
+                                </span>
+                            </span>
+                        ) : (
+                            <span>Enter discount details below</span>
+                        )}
+                    </div>
+                    <div className="flex items-center justify-end gap-2 shrink-0">
+                        <button
+                            type="button"
+                            onClick={onClose}
+                            disabled={loading}
+                            className="px-3 py-1.5 bg-white border border-slate-300 text-slate-700 rounded-md text-xs font-medium hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-slate-500/30 disabled:opacity-50 transition-colors"
+                        >
+                            Cancel
+                        </button>
+                        <button
+                            type="button"
+                            disabled={loading || !isDiscountFormValid}
+                            onClick={submitDiscount}
+                            className={`px-3 py-1.5 text-white rounded-md text-xs font-medium focus:outline-none focus:ring-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors inline-flex items-center justify-center min-w-[120px] ${discountAccentBtn}`}
+                        >
+                            {loading ? 'Saving…' : (isEditMode ? 'Update Discount' : 'Create Discount')}
+                        </button>
+                    </div>
+                </div>
+            )}
+        >
+            <form id="discount-form" onSubmit={handleSubmit} noValidate className="space-y-3 min-w-0">
+                {shouldShowClientSelector ? (
+                    <JournalPartySearchFields
+                        variant="receive"
+                        label={`Discount to ${partyLabel}`}
+                        partyType={selectedPartyType}
+                        onPartyTypeChange={setSelectedPartyType}
+                        showTypeToggle={!isEditMode}
+                        searchTerm={partyLookup.searchTerm}
+                        setSearchTerm={partyLookup.setSearchTerm}
+                        parties={partyLookup.parties}
+                        setParties={partyLookup.setParties}
+                        showDropdown={partyLookup.showDropdown}
+                        setShowDropdown={partyLookup.setShowDropdown}
+                        openDropdown={partyLookup.openDropdown}
+                        dismissDropdown={partyLookup.dismissDropdown}
+                        searchLoading={partyLookup.searchLoading}
+                        loadingMore={partyLookup.loadingMore}
+                        handleListScroll={partyLookup.handleListScroll}
+                        clearSelection={partyLookup.clearSelection}
+                        onSearchFocus={partyLookup.loadPartiesOnFocus}
+                        selectedParty={partyLookup.selectedParty}
+                        setSelectedParty={partyLookup.setSelectedParty}
+                        formatCurrency={formatCurrency}
+                        compact
+                        focusAccent="amber"
+                    />
+                ) : (
+                    <div>
+                        <label className={COMPACT_LABEL}>
+                            Discount to {partyLabel} <span className="text-red-500">*</span>
+                        </label>
+                        {loadingPresetParty ? (
+                            <div className="h-14 animate-pulse rounded-md bg-slate-200/70" />
+                        ) : (
+                            <TransactionClientPreviewCard
+                                client={effectiveParty}
+                                formatCurrency={formatCurrency}
+                                variant="receive"
+                                readOnly
+                            />
+                        )}
+                    </div>
+                )}
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                        <label className={COMPACT_LABEL}>
+                            Date <span className="text-red-500">*</span>
+                        </label>
+                        <DatePickerField
+                            value={transactionDate}
+                            onChange={(d) => {
+                                const picked = String(d || '').trim();
+                                if (!picked) {
+                                    setTransactionDate('');
+                                    return;
+                                }
+                                setTransactionDate(picked > todayIso ? todayIso : picked);
+                            }}
+                            mode="single"
+                            hideTabs={true}
+                            showResetButton={false}
+                            placeholder="Select date"
+                            buttonClassName={discountFieldClass}
+                            maxSelectableDate={todayIso}
+                        />
+                    </div>
+                    <div>
+                        <label className={COMPACT_LABEL}>
+                            Amount <span className="text-red-500">*</span>
+                        </label>
+                        <input
+                            type="text"
+                            inputMode="decimal"
+                            placeholder="0.00"
+                            value={amount}
+                            onChange={(e) => setAmount(sanitizeDecimalInput(e.target.value, 2))}
+                            className={`${discountFieldClass} text-right tabular-nums`}
+                        />
+                    </div>
+                </div>
+
+                <div>
+                    <label className={COMPACT_LABEL}>Remark</label>
+                    <input
+                        type="text"
+                        name="remark"
+                        placeholder="Optional note"
+                        value={remark}
+                        onChange={(e) => setRemark(e.target.value)}
+                        className={discountFieldClass}
+                    />
+                </div>
+
+                {effectiveParty && parsedAmount > 0 && (
+                    <div className="rounded-md bg-amber-50 border border-amber-100 px-3 py-2 space-y-1">
+                        <p className="text-[11px] font-semibold uppercase tracking-wide text-amber-700/80">Summary</p>
+                        <div className="flex items-center justify-between gap-2 text-xs">
+                            <span className="text-slate-600">Party</span>
+                            <span className="font-medium text-slate-800 truncate">{partyDisplayName}</span>
+                        </div>
+                        <div className="flex items-center justify-between gap-2 text-xs">
+                            <span className="text-slate-600">Amount</span>
+                            <span className="font-semibold text-amber-700 tabular-nums">
+                                ₹{formatCurrency ? formatCurrency(parsedAmount) : formatPlainInrAmount(parsedAmount)}
+                            </span>
+                        </div>
+                    </div>
+                )}
+            </form>
+        </BaseModal>
+    );
+};
+
 // Modal Manager Component
 export const TransactionModalManager = ({
     modalType,
@@ -6765,6 +7120,8 @@ export const TransactionModalManager = ({
             return <JournalModal {...modalProps} />;
         case 'CONTRA':
             return <ContraModal {...modalProps} />;
+        case 'DISCOUNT':
+            return <DiscountModal {...modalProps} />;
         default:
             return null;
     }

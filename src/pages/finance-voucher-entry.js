@@ -17,7 +17,6 @@ import {
 import { useNavigate, useLocation } from 'react-router-dom';
 import { SaleForm, PurchaseForm, TransactionModalManager } from '../components/Modals/CreateTransactions';
 import CreateLedgerModal from '../components/create-ledger-modal';
-import DiscountForm from '../components/discount-form';
 import { motion } from 'framer-motion';
 import { Header, Sidebar } from '../components/header';
 import { useUserPermissions } from '../utils/permission-helper';
@@ -91,10 +90,9 @@ const FinanceEntry = () => {
         alert('Ledger created successfully! Refreshing data...');
     }
 
-    const handleDiscountSubmit = (ledgerData) => {
-        console.log('Ledger created successfully:', ledgerData);
-        alert('Ledger created successfully! Refreshing data...');
-    }
+    const handleDiscountSubmit = (type, payload) => {
+        console.log(`${type} transaction created:`, payload);
+    };
 
     const handleExpenseSubmit = (type, payload) => {
         console.log(`${type} transaction created:`, payload);
@@ -465,11 +463,16 @@ const FinanceEntry = () => {
                 mode="modal"
             />
 
-            <DiscountForm
+            <TransactionModalManager
+                modalType="DISCOUNT"
                 isOpen={discountFormModal}
                 onClose={() => setDiscountFormModal(false)}
-                onSuccess={handleDiscountSubmit}
-                mode="modal"
+                onSubmit={handleDiscountSubmit}
+                clientId={initialClientUsername}
+                clientName={initialClientUsername || ''}
+                formatCurrency={formatCurrency}
+                summary={emptySummary}
+                showClient={true}
             />
 
             <TransactionModalManager

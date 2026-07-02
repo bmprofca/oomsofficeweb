@@ -24,7 +24,7 @@ import {
     FiHelpCircle,
     FiLock
 } from 'react-icons/fi';
-import DatePickerComponent from "../components/DatePickerComponent";
+import { DatePickerField } from "../components/PortalDatePicker";
 import getHeaders from "../utils/get-headers";
 import API_BASE_URL from '../utils/api-controller';
 import { FaCheckCircle, FaTimesCircle } from "react-icons/fa";
@@ -1523,17 +1523,25 @@ try {
         <label className="block text-xs font-semibold text-gray-700 uppercase tracking-wide">
             Date of Birth <span className="text-red-500">*</span>
         </label>
-        <DatePickerComponent
-            selectedDate={formData.date_of_birth ? new Date(formData.date_of_birth) : null}
-            onDateChange={(date) => {
+        <DatePickerField
+            value={formData.date_of_birth || ''}
+            onChange={(val) => {
                 setFormData(prev => ({
                     ...prev,
-                    date_of_birth: date ? date.toISOString().split('T')[0] : ''
+                    date_of_birth: typeof val === 'string' ? val : ''
                 }));
             }}
             placeholder="DD/MM/YYYY"
-            error={errors.date_of_birth}
+            mode="single"
+            hideTabs={true}
+            showResetButton={false}
+            maxSelectableDate={new Date().toISOString().split('T')[0]}
+            wrapperClassName="w-full block"
+            buttonClassName="w-full p-3 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-white outline-none transition-colors duration-200"
         />
+        {errors.date_of_birth && (
+            <p className="text-red-500 text-xs mt-1">{errors.date_of_birth}</p>
+        )}
     </div>
 
     <div className="space-y-1">
@@ -2359,14 +2367,22 @@ try {
     <label className="block text-xs font-medium text-gray-700">
         Date <span className="text-red-500">*</span>
     </label>
-    <DatePickerComponent
-        selectedDate={formData.opening_balance.date ? new Date(formData.opening_balance.date) : null}
-        onDateChange={(date) => {
-            handleOpeningBalanceChange('date', date ? date.toISOString().split('T')[0] : '');
+    <DatePickerField
+        value={formData.opening_balance.date || ''}
+        onChange={(val) => {
+            handleOpeningBalanceChange('date', typeof val === 'string' ? val : '');
         }}
         placeholder="DD/MM/YYYY"
-        error={errors.opening_date}
+        mode="single"
+        hideTabs={true}
+        showResetButton={false}
+        maxSelectableDate={new Date().toISOString().split('T')[0]}
+        wrapperClassName="w-full block"
+        buttonClassName="w-full p-3 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-white outline-none transition-colors duration-200"
     />
+    {errors.opening_date && (
+        <p className="text-red-500 text-xs mt-1">{errors.opening_date}</p>
+    )}
 </div>
                                             </div>
                                         </div>

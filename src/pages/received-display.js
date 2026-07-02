@@ -1,23 +1,14 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import {
     FiSearch,
     FiPlus,
     FiEdit,
     FiFileText,
     FiMenu,
-    FiPrinter,
-    FiMail,
-    FiMessageSquare,
+    FiEye,
     FiChevronRight,
-    FiTrendingUp,
-    FiFilter,
-    FiChevronDown,
-    FiChevronUp,
-    FiChevronLeft,
-    FiChevronRight as FiChevronRightIcon,
-    FiDollarSign,
     FiCreditCard,
-    FiUsers,
     FiX,
     FiCheckCircle,
     FiAlertCircle,
@@ -28,17 +19,329 @@ import { PiExportBold } from "react-icons/pi";
 import { PiFilePdfDuotone, PiMicrosoftExcelLogoDuotone } from "react-icons/pi";
 import { AiOutlineMail } from "react-icons/ai";
 import { FaWhatsapp } from "react-icons/fa6";
+import { TbCurrencyRupee } from 'react-icons/tb';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Header, Sidebar } from '../components/header';
 import EmailSelectionModal from '../components/email-selection';
 import MobileSelectionModal from '../components/mobile-selection';
 import { TransactionModalManager } from '../components/Modals/CreateTransactions';
 import { EditTransactionModalManager } from '../components/Modals/EditTransactions';
-import DateFilter from '../components/DateFilter';
+import { DateRangePickerField } from '../components/PortalDatePicker';
+import TablePagination from '../components/TablePagination';
 import API_BASE_URL from "../utils/api-controller";
 import getHeaders from "../utils/get-headers";
 import toast from 'react-hot-toast';
 import { useUserPermissions } from '../utils/permission-helper';
+
+const ACTIONS_MENU_WIDTH = 192;
+const ACTIONS_MENU_HEIGHT = 140;
+
+const EMPTY_STATS = { count: 0, amount: 0 };
+
+const formatDisplayDate = (dateString) => {
+    if (!dateString) return '—';
+    const raw = String(dateString).trim().slice(0, 10);
+    if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) {
+        const [year, month, day] = raw.split('-');
+        return `${day}/${month}/${year}`;
+    }
+    const date = new Date(dateString);
+    if (Number.isNaN(date.getTime())) return '—';
+    const day = String(date.getDate()).padStart(2, '0');
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const year = date.getFullYear();
+    return `${day}/${month}/${year}`;
+};
+
+const formatDateTime = (value) => {
+    if (!value) return '—';
+    const d = new Date(value);
+    if (Number.isNaN(d.getTime())) return String(value);
+    return d.toLocaleString('en-IN', {
+        day: '2-digit',
+        month: 'short',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+    });
+};
+
+const DetailRow = ({ label, children }) => (
+    <div className="flex items-start justify-between gap-4 border-b border-slate-100 py-2.5 last:border-0">
+        <span className="shrink-0 text-[11px] font-semibold uppercase tracking-wide text-slate-400">{label}</span>
+        <span className="min-w-0 text-right text-sm text-slate-800">{children}</span>
+    </div>
+);
+
+const getPartyTypeInfo = (item) => {
+    const type = item.payment_from?.type || '';
+    const details = item.payment_from?.details || {};
+
+    let displayName = '';
+    let bgColor = '';
+    let textColor = '';
+
+    switch (type) {
+        case 'client':
+            displayName = details.name || 'Client';
+            bgColor = 'bg-blue-100';
+            textColor = 'text-blue-700';
+            break;
+        case 'ca':
+            displayName = details.name || 'CA';
+            bgColor = 'bg-purple-100';
+            textColor = 'text-purple-700';
+            break;
+        case 'capital':
+            displayName = 'Capital';
+            bgColor = 'bg-emerald-100';
+            textColor = 'text-emerald-700';
+            break;
+        case 'agent':
+            displayName = details.name || 'Agent';
+            bgColor = 'bg-amber-100';
+            textColor = 'text-amber-700';
+            break;
+        case 'bank':
+            displayName = details.bank || 'Bank';
+            bgColor = 'bg-violet-100';
+            textColor = 'text-violet-700';
+            break;
+        case 'staff':
+            displayName = details.name || 'Staff';
+            bgColor = 'bg-rose-100';
+            textColor = 'text-rose-700';
+            break;
+        default:
+            displayName = type || 'Other';
+            bgColor = 'bg-slate-100';
+            textColor = 'text-slate-700';
+    }
+
+    return { displayName, bgColor, textColor, type };
+};
+
+const getReceivedAtBadgeStyle = (accountType) => {
+    switch (String(accountType || '').toLowerCase()) {
+        case 'savings':
+            return { bgColor: 'bg-emerald-100', textColor: 'text-emerald-700' };
+        case 'current':
+            return { bgColor: 'bg-blue-100', textColor: 'text-blue-700' };
+        case 'loan':
+            return { bgColor: 'bg-orange-100', textColor: 'text-orange-700' };
+        case 'cash':
+            return { bgColor: 'bg-amber-100', textColor: 'text-amber-700' };
+        case 'capital':
+            return { bgColor: 'bg-indigo-100', textColor: 'text-indigo-700' };
+        default:
+            return { bgColor: 'bg-slate-100', textColor: 'text-slate-700' };
+    }
+};
+
+const getReceivedAtInfo = (item) => {
+    const partyType = item.payment_to?.type || '';
+    const details = item.payment_to?.details || {};
+    const accountType = String(details.type || '').toLowerCase();
+
+    if (partyType === 'capital') {
+        return {
+            displayName: details.name || 'Capital account',
+            subtitle: '',
+            badgeLabel: 'capital',
+            ...getReceivedAtBadgeStyle('capital'),
+        };
+    }
+
+    if (partyType === 'bank') {
+        const isCash = accountType === 'cash';
+        return {
+            displayName: isCash ? (details.holder || 'Cash account') : (details.bank || details.holder || 'Bank account'),
+            subtitle: isCash ? '' : (details.account_no || ''),
+            badgeLabel: isCash ? 'cash' : (accountType || 'bank'),
+            ...getReceivedAtBadgeStyle(isCash ? 'cash' : accountType),
+        };
+    }
+
+    return {
+        displayName: partyType || '—',
+        subtitle: '',
+        badgeLabel: partyType || '—',
+        bgColor: 'bg-slate-100',
+        textColor: 'text-slate-700',
+    };
+};
+
+const getBankTypeInfo = (item) => {
+    const info = getReceivedAtInfo(item);
+    return {
+        bankType: info.badgeLabel,
+        bgColor: info.bgColor,
+        textColor: info.textColor,
+        bankName: info.displayName,
+        accountNo: info.subtitle,
+        holder: item.payment_to?.details?.holder || '',
+        isCash: String(item.payment_to?.details?.type || '').toLowerCase() === 'cash',
+    };
+};
+
+const getCreatorTypeInfo = (item) => {
+    const creator = item.create_by || {};
+    const username = creator.username || '';
+
+    let type = 'employee';
+    let bgColor = 'bg-emerald-100';
+    let textColor = 'text-emerald-700';
+
+    if (username === 'admin' || username.includes('admin')) {
+        type = 'admin';
+        bgColor = 'bg-red-100';
+        textColor = 'text-red-700';
+    } else if (username.includes('manager')) {
+        type = 'manager';
+        bgColor = 'bg-blue-100';
+        textColor = 'text-blue-700';
+    }
+
+    return { type, bgColor, textColor, name: creator.name || '', mobile: creator.mobile || '', email: creator.email || '' };
+};
+
+const getReceivedAtLabel = (item) => getReceivedAtInfo(item).displayName;
+
+const ReceivedDetailsModal = ({ isOpen, record, onClose, formatCurrency }) => (
+    createPortal(
+        <AnimatePresence>
+            {isOpen && record ? (
+                <motion.div
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    className="fixed inset-0 z-[10050] flex items-start justify-center overflow-hidden overscroll-none p-3 sm:p-4 pointer-events-none"
+                >
+                    <div
+                        className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm pointer-events-auto"
+                        onClick={onClose}
+                        aria-hidden
+                    />
+                    <motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        role="dialog"
+                        aria-modal="true"
+                        className="relative z-[1] pointer-events-auto my-2 flex w-full max-w-lg max-h-[min(calc(100vh-1.5rem),100dvh)] flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl sm:my-4 sm:max-h-[min(calc(100vh-2rem),100dvh)]"
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        <div className="flex shrink-0 items-center justify-between gap-2 border-b border-blue-500/25 bg-gradient-to-r from-blue-500 to-blue-600 px-4 py-2.5 text-white">
+                            <div className="flex min-w-0 items-center gap-2">
+                                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-white/15">
+                                    <FiEye className="h-3.5 w-3.5" aria-hidden />
+                                </div>
+                                <h2 className="truncate text-sm font-semibold">{record.invoice_no || 'Received entry'}</h2>
+                            </div>
+                            <button
+                                type="button"
+                                onClick={onClose}
+                                className="rounded-lg p-1.5 text-white/80 hover:bg-white/15 hover:text-white"
+                                aria-label="Close"
+                            >
+                                <FiX className="h-4 w-4" />
+                            </button>
+                        </div>
+                        <div className="flex-1 min-h-0 overflow-y-auto overscroll-y-contain px-5 py-4 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
+                            {(() => {
+                                const partyInfo = getPartyTypeInfo(record);
+                                const bankInfo = getBankTypeInfo(record);
+                                const creatorInfo = getCreatorTypeInfo(record);
+
+                                return (
+                                    <>
+                                        <div className="rounded-xl border border-blue-200/80 bg-gradient-to-br from-blue-50 to-white p-4 shadow-sm">
+                                            <div className="mb-3 flex items-center justify-between gap-2">
+                                                <span className={`inline-flex rounded-full px-2.5 py-0.5 text-[11px] font-semibold capitalize ${partyInfo.bgColor} ${partyInfo.textColor}`}>
+                                                    {partyInfo.type}
+                                                </span>
+                                                <span className="text-lg font-bold tabular-nums text-emerald-700">
+                                                    ₹{formatCurrency(record.amount)}
+                                                </span>
+                                            </div>
+                                            <DetailRow label="Party">{partyInfo.displayName}</DetailRow>
+                                            <DetailRow label="Date">{formatDisplayDate(record.transaction_date)}</DetailRow>
+                                            <DetailRow label="Voucher no.">{record.invoice_no || '—'}</DetailRow>
+                                            <DetailRow label="Remark">
+                                                <span className="block max-w-[14rem] truncate" title={record.remark || ''}>
+                                                    {record.remark || '—'}
+                                                </span>
+                                            </DetailRow>
+                                        </div>
+
+                                        <div className="mt-4 rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+                                            <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-slate-400">Received at</p>
+                                            <DetailRow label="Account">{getReceivedAtLabel(record)}</DetailRow>
+                                            {bankInfo.accountNo ? (
+                                                <DetailRow label="Account no.">{bankInfo.accountNo}</DetailRow>
+                                            ) : null}
+                                            <DetailRow label="Type">
+                                                <span className={`inline-flex rounded-full px-2 py-0.5 text-[10px] font-medium capitalize ${bankInfo.bgColor} ${bankInfo.textColor}`}>
+                                                    {bankInfo.bankType || '—'}
+                                                </span>
+                                            </DetailRow>
+                                        </div>
+
+                                        <div className="mt-4 rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+                                            <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-slate-400">Received by</p>
+                                            <DetailRow label="Name">{creatorInfo.name || '—'}</DetailRow>
+                                            {creatorInfo.mobile ? <DetailRow label="Mobile">{creatorInfo.mobile}</DetailRow> : null}
+                                            {creatorInfo.email ? <DetailRow label="Email">{creatorInfo.email}</DetailRow> : null}
+                                            <DetailRow label="Role">
+                                                <span className={`inline-flex rounded-full px-2 py-0.5 text-[10px] font-medium capitalize ${creatorInfo.bgColor} ${creatorInfo.textColor}`}>
+                                                    {creatorInfo.type}
+                                                </span>
+                                            </DetailRow>
+                                        </div>
+
+                                        <div className="mt-4 rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+                                            <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-slate-400">Audit trail</p>
+                                            <DetailRow label="Created">
+                                                <span>
+                                                    {formatDateTime(record.create_date)}
+                                                    {record.create_by?.name ? (
+                                                        <span className="mt-0.5 block text-xs font-normal text-slate-500">
+                                                            by {record.create_by.name}
+                                                        </span>
+                                                    ) : null}
+                                                </span>
+                                            </DetailRow>
+                                            <DetailRow label="Last modified">
+                                                <span>
+                                                    {formatDateTime(record.modify_date)}
+                                                    {record.modify_by?.name ? (
+                                                        <span className="mt-0.5 block text-xs font-normal text-slate-500">
+                                                            by {record.modify_by.name}
+                                                        </span>
+                                                    ) : null}
+                                                </span>
+                                            </DetailRow>
+                                        </div>
+                                    </>
+                                );
+                            })()}
+                        </div>
+                        <div className="flex shrink-0 justify-end border-t border-slate-200 bg-slate-50/90 px-5 py-3">
+                            <button
+                                type="button"
+                                onClick={onClose}
+                                className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50"
+                            >
+                                Close
+                            </button>
+                        </div>
+                    </motion.div>
+                </motion.div>
+            ) : null}
+        </AnimatePresence>,
+        document.body
+    )
+);
 
 // Inline Export Modal Component
 const InlineExportModal = ({ isOpen, onClose, exportData, columns, jobType }) => {
@@ -136,7 +439,7 @@ const InlineExportModal = ({ isOpen, onClose, exportData, columns, jobType }) =>
 
     const exportOptions = [
         { type: 'excel', icon: <PiMicrosoftExcelLogoDuotone className="w-6 h-6 text-green-600" />, label: 'Excel (.xlsx)', description: 'Export as Microsoft Excel spreadsheet' },
-        { type: 'csv', icon: <FiDollarSign className="w-6 h-6 text-blue-600" />, label: 'CSV (.csv)', description: 'Export as Comma Separated Values' },
+        { type: 'csv', icon: <FiFileText className="w-6 h-6 text-blue-600" />, label: 'CSV (.csv)', description: 'Export as Comma Separated Values' },
         { type: 'pdf', icon: <PiFilePdfDuotone className="w-6 h-6 text-red-600" />, label: 'PDF (.pdf)', description: 'Export as Portable Document Format' }
     ];
 
@@ -263,19 +566,27 @@ const ViewReceived = () => {
         const saved = localStorage.getItem('sidebarMinimized');
         return saved ? JSON.parse(saved) : false;
     });
-    const [loading, setLoading] = useState(true);
+    const [listLoading, setListLoading] = useState(true);
     const [error, setError] = useState(null);
-    const [dateRange, setDateRange] = useState('');
-    const [fromToDate, setFromToDate] = useState('');
+    const [fromDate, setFromDate] = useState(() => {
+        const today = new Date();
+        return new Date(today.getFullYear(), today.getMonth(), 1).toISOString().split('T')[0];
+    });
+    const [toDate, setToDate] = useState(() => new Date().toISOString().split('T')[0]);
     const [received, setReceived] = useState([]);
     const [receivedFormModal, setPaymentReceivedModal] = useState(false);
     const [editModalOpen, setEditModalOpen] = useState(false);
     const [editRecord, setEditRecord] = useState(null);
-    const [totalAmount, setTotalAmount] = useState(0);
+    const [detailsOpen, setDetailsOpen] = useState(false);
+    const [detailsRecord, setDetailsRecord] = useState(null);
+    const [stats, setStats] = useState(EMPTY_STATS);
 
     // State for dropdown menus
     const [showAddDropdown, setShowAddDropdown] = useState(false);
     const [activeRowDropdown, setActiveRowDropdown] = useState(null);
+    const [dropdownPos, setDropdownPos] = useState({ top: 0, left: undefined, right: 0, bottom: undefined, openUpward: false });
+    const actionAnchorRef = useRef(null);
+    const dropdownModeRef = useRef('button');
     const [exportModal, setExportModal] = useState({ open: false, type: '', data: null });
 
     // Export Modal State
@@ -291,12 +602,11 @@ const ViewReceived = () => {
 
     // Pagination state
     const [currentPage, setCurrentPage] = useState(1);
-    const [itemsPerPage] = useState(10);
-    const [showAll, setShowAll] = useState(false);
+    const [itemsPerPage, setItemsPerPage] = useState(20);
     const [totalRecords, setTotalRecords] = useState(0);
     const [isLastPage, setIsLastPage] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
-    const [selectedDateFilter, setSelectedDateFilter] = useState(null);
+    const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
 
     // Persist sidebar minimized state
     useEffect(() => {
@@ -315,26 +625,14 @@ const ViewReceived = () => {
         };
     }, [mobileMenuOpen]);
 
-    // Initialize with current month date range
     useEffect(() => {
-        const today = new Date();
-        const firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
-        const lastDay = today;
+        const timer = setTimeout(() => setDebouncedSearchTerm(searchTerm.trim()), 500);
+        return () => clearTimeout(timer);
+    }, [searchTerm]);
 
-        const formatDate = (date) => {
-            return date.toISOString().split('T')[0];
-        };
-
-        const from = formatDate(firstDay);
-        const to = formatDate(lastDay);
-
-        const displayFrom = firstDay.toLocaleDateString('en-GB');
-        const displayTo = lastDay.toLocaleDateString('en-GB');
-        
-        setDateRange(`${displayFrom} - ${displayTo}`);
-        setFromToDate(`From ${displayFrom} to ${displayTo}`);
-        fetchReceivedData(from, to);
-    }, []);
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [debouncedSearchTerm, fromDate, toDate, itemsPerPage]);
 
     // Format currency
     const formatCurrency = (amount) => {
@@ -347,14 +645,6 @@ const ViewReceived = () => {
         }).format(amount);
     };
 
-    // Format date for display
-    const formatDisplayDate = (dateString) => {
-        if (!dateString) return '';
-        const date = new Date(dateString);
-        return date.toLocaleDateString('en-GB');
-    };
-
-    // Prepare data for export
     const prepareExportData = () => {
         const exportDataList = [];
         const exportColumnsConfig = [];
@@ -374,11 +664,11 @@ const ViewReceived = () => {
 
         received.forEach((item, index) => {
             const partyInfo = item.payment_from?.details?.name || item.payment_from?.details?.bank || 'N/A';
-            const bankInfo = item.payment_to?.details?.bank || 'N/A';
+            const bankInfo = getReceivedAtLabel(item);
             const creatorInfo = item.create_by?.name || 'N/A';
             
             const row = {
-                sl_no: showAll ? index + 1 : ((currentPage - 1) * itemsPerPage) + index + 1,
+                sl_no: ((currentPage - 1) * itemsPerPage) + index + 1,
                 date: formatDisplayDate(item.transaction_date),
                 particulars: partyInfo,
                 voucher_no: item.invoice_no || 'N/A',
@@ -418,151 +708,90 @@ const ViewReceived = () => {
     };
 
     // Fetch received data from API
-    const fetchReceivedData = async (fromDate, toDate, page = 1, search = '') => {
-        setLoading(true);
+    const fetchReceivedData = useCallback(async () => {
+        if (!fromDate || !toDate) return;
+
+        setListLoading(true);
         setError(null);
-        
+
         try {
-            const limit = showAll ? 10000 : itemsPerPage;
-            
-            const url = `${API_BASE_URL}/transaction/report/receive?page_no=${page}&limit=${limit}&from_date=${fromDate}&to_date=${toDate}${search ? `&search=${search}` : ''}`;
-            
-            const headers = await getHeaders();
-            const response = await fetch(url, {
-                method: 'GET',
-                headers: headers
+            const params = new URLSearchParams({
+                page_no: String(currentPage),
+                limit: String(itemsPerPage),
+                from_date: fromDate,
+                to_date: toDate,
             });
-            
+            if (debouncedSearchTerm) {
+                params.set('search', debouncedSearchTerm);
+            }
+
+            const headers = await getHeaders();
+            const response = await fetch(
+                `${API_BASE_URL}/transaction/report/receive?${params.toString()}`,
+                { method: 'GET', headers }
+            );
+
             const result = await response.json();
-            
+
             if (result.success) {
                 setReceived(result.data || []);
                 setTotalRecords(result.meta?.total || 0);
                 setIsLastPage(result.meta?.is_last_page || false);
-                
-                const total = (result.data || []).reduce((acc, item) => {
-                    const amount = parseFloat(item.amount) || 0;
-                    return acc + amount;
-                }, 0);
-                setTotalAmount(total);
+                setStats({
+                    count: Number(result.stats?.count) || 0,
+                    amount: Number(result.stats?.amount) || 0,
+                });
             } else {
                 setError(result.message || 'Failed to fetch received data');
                 setReceived([]);
-                setTotalAmount(0);
+                setStats(EMPTY_STATS);
             }
         } catch (err) {
             console.error('Error fetching received data:', err);
             setError('Network error: Failed to fetch received data');
             setReceived([]);
-            setTotalAmount(0);
+            setStats(EMPTY_STATS);
         } finally {
-            setLoading(false);
+            setListLoading(false);
         }
-    };
+    }, [fromDate, toDate, currentPage, itemsPerPage, debouncedSearchTerm]);
 
-    // Handle search
-    const handleSearch = () => {
-        if (!dateRange) return;
-        
-        const [displayFrom, displayTo] = dateRange.split(' - ');
-        
-        const from = convertToAPIDate(displayFrom);
-        const to = convertToAPIDate(displayTo);
-        
-        setFromToDate(`From ${displayFrom} to ${displayTo}`);
-        setCurrentPage(1);
-        fetchReceivedData(from, to, 1, searchTerm);
-    };
+    useEffect(() => {
+        fetchReceivedData();
+    }, [fetchReceivedData]);
 
-    // Convert display date (DD/MM/YYYY) to API date (YYYY-MM-DD)
-    const convertToAPIDate = (displayDate) => {
-        if (!displayDate) return '';
-        const parts = displayDate.split('/');
-        if (parts.length === 3) {
-            return `${parts[2]}-${parts[1]}-${parts[0]}`;
-        }
-        return displayDate;
-    };
-
-    // Handle date filter change
-    const handleDateFilterChange = (filter) => {
-        console.log('Selected filter:', filter);
-        if (filter.range) {
-            setDateRange(filter.range);
-            setSelectedDateFilter(filter);
-            
-            const [displayFrom, displayTo] = filter.range.split(' - ');
-            setFromToDate(`From ${displayFrom} to ${displayTo}`);
-            
-            const from = convertToAPIDate(displayFrom);
-            const to = convertToAPIDate(displayTo);
-            
-            setCurrentPage(1);
-            fetchReceivedData(from, to, 1, searchTerm);
-        }
-    };
-
-    // Handle search term change
-    const handleSearchTermChange = (e) => {
-        setSearchTerm(e.target.value);
-    };
-
-    // Handle search on Enter key
-    const handleSearchKeyPress = (e) => {
-        if (e.key === 'Enter') {
-            handleSearch();
-        }
-    };
-
-    // Handle page change
     const handlePageChange = (newPage) => {
         setCurrentPage(newPage);
-        if (dateRange) {
-            const [displayFrom, displayTo] = dateRange.split(' - ');
-            const from = convertToAPIDate(displayFrom);
-            const to = convertToAPIDate(displayTo);
-            fetchReceivedData(from, to, newPage, searchTerm);
-        }
     };
 
-    // Handle show all toggle
-    const handleShowAll = () => {
-        setShowAll(true);
-        if (dateRange) {
-            const [displayFrom, displayTo] = dateRange.split(' - ');
-            const from = convertToAPIDate(displayFrom);
-            const to = convertToAPIDate(displayTo);
-            fetchReceivedData(from, to, 1, searchTerm);
-        }
-    };
-
-    // Handle show less (back to pagination)
-    const handleShowLess = () => {
-        setShowAll(false);
+    const handleLimitChange = (newLimit) => {
+        setItemsPerPage(newLimit);
         setCurrentPage(1);
-        if (dateRange) {
-            const [displayFrom, displayTo] = dateRange.split(' - ');
-            const from = convertToAPIDate(displayFrom);
-            const to = convertToAPIDate(displayTo);
-            fetchReceivedData(from, to, 1, searchTerm);
-        }
     };
 
     const emptySummary = { totalCredit: 0, totalDebit: 0, closingBalance: 0 };
 
     const handleReceivedSuccess = () => {
-        if (dateRange) {
-            const [displayFrom, displayTo] = dateRange.split(' - ');
-            const from = convertToAPIDate(displayFrom);
-            const to = convertToAPIDate(displayTo);
-            fetchReceivedData(from, to, currentPage, searchTerm);
-        }
+        fetchReceivedData();
+    };
+
+    const openDetails = (record) => {
+        setDetailsRecord(record);
+        setDetailsOpen(true);
+        setActiveRowDropdown(null);
+        actionAnchorRef.current = null;
+    };
+
+    const closeDetails = () => {
+        setDetailsOpen(false);
+        setDetailsRecord(null);
     };
 
     const openEditModal = (record) => {
         setEditRecord(record);
         setEditModalOpen(true);
         setActiveRowDropdown(null);
+        actionAnchorRef.current = null;
     };
 
     const closeEditModal = () => {
@@ -621,113 +850,73 @@ const ViewReceived = () => {
         return { editLink, invoiceLink };
     };
 
-    // Get party type display info
-    const getPartyTypeInfo = (item) => {
-        const type = item.payment_from?.type || '';
-        const details = item.payment_from?.details || {};
-        
-        let displayName = '';
-        let bgColor = '';
-        let textColor = '';
-        
-        switch (type) {
-            case 'client':
-                displayName = details.name || 'Client';
-                bgColor = 'bg-blue-100';
-                textColor = 'text-blue-700';
-                break;
-            case 'ca':
-                displayName = details.name || 'CA';
-                bgColor = 'bg-purple-100';
-                textColor = 'text-purple-700';
-                break;
-            case 'capital':
-                displayName = 'Capital';
-                bgColor = 'bg-emerald-100';
-                textColor = 'text-emerald-700';
-                break;
-            case 'agent':
-                displayName = details.name || 'Agent';
-                bgColor = 'bg-amber-100';
-                textColor = 'text-amber-700';
-                break;
-            case 'bank':
-                displayName = details.bank || 'Bank';
-                bgColor = 'bg-violet-100';
-                textColor = 'text-violet-700';
-                break;
-            case 'staff':
-                displayName = details.name || 'Staff';
-                bgColor = 'bg-rose-100';
-                textColor = 'text-rose-700';
-                break;
-            default:
-                displayName = type || 'Other';
-                bgColor = 'bg-slate-100';
-                textColor = 'text-slate-700';
+    const updateDropdownPosition = useCallback((anchorEl) => {
+        if (!anchorEl) return;
+        const rect = anchorEl.getBoundingClientRect();
+        const margin = 8;
+        const spaceBelow = window.innerHeight - rect.bottom;
+        const spaceAbove = rect.top;
+        const openUpward = spaceBelow < ACTIONS_MENU_HEIGHT + margin && spaceAbove > spaceBelow;
+
+        let top;
+        let bottom;
+        if (openUpward) {
+            top = undefined;
+            bottom = Math.max(margin, window.innerHeight - rect.top + 4);
+        } else {
+            top = Math.min(rect.bottom + 4, window.innerHeight - ACTIONS_MENU_HEIGHT - margin);
+            bottom = undefined;
         }
-        
-        return { displayName, bgColor, textColor, type };
-    };
 
-    // Get bank type info
-    const getBankTypeInfo = (item) => {
-        const bankDetails = item.payment_to?.details || {};
-        const bankType = bankDetails.type || '';
-        
-        let bgColor = '';
-        let textColor = '';
-        
-        switch (bankType) {
-            case 'savings':
-                bgColor = 'bg-blue-100';
-                textColor = 'text-blue-700';
-                break;
-            case 'current':
-                bgColor = 'bg-emerald-100';
-                textColor = 'text-emerald-700';
-                break;
-            default:
-                bgColor = 'bg-slate-100';
-                textColor = 'text-slate-700';
+        const right = Math.max(
+            margin,
+            Math.min(window.innerWidth - rect.right, window.innerWidth - ACTIONS_MENU_WIDTH - margin)
+        );
+
+        setDropdownPos({ top, bottom, right, left: undefined, openUpward });
+    }, []);
+
+    const openActionsFromButton = (e, transactionId) => {
+        e.stopPropagation();
+        if (activeRowDropdown === transactionId) {
+            setActiveRowDropdown(null);
+            actionAnchorRef.current = null;
+            return;
         }
-        
-        return { bankType, bgColor, textColor, bankName: bankDetails.bank || '', accountNo: bankDetails.account_no || '' };
+        dropdownModeRef.current = 'button';
+        actionAnchorRef.current = e.currentTarget;
+        updateDropdownPosition(e.currentTarget);
+        setActiveRowDropdown(transactionId);
     };
 
-    // Get creator type info
-    const getCreatorTypeInfo = (item) => {
-        const creator = item.create_by || {};
-        const username = creator.username || '';
-        
-        let type = 'employee';
-        let bgColor = 'bg-emerald-100';
-        let textColor = 'text-emerald-700';
-        
-        if (username === 'admin' || username.includes('admin')) {
-            type = 'admin';
-            bgColor = 'bg-red-100';
-            textColor = 'text-red-700';
-        } else if (username.includes('manager')) {
-            type = 'manager';
-            bgColor = 'bg-blue-100';
-            textColor = 'text-blue-700';
-        }
-        
-        return { type, bgColor, textColor, name: creator.name || '', mobile: creator.mobile || '' };
+    const openActionsFromContextMenu = (e, transactionId) => {
+        e.preventDefault();
+        e.stopPropagation();
+        dropdownModeRef.current = 'pointer';
+        actionAnchorRef.current = null;
+        const margin = 8;
+        const left = Math.min(e.clientX, window.innerWidth - ACTIONS_MENU_WIDTH - margin);
+        const top = Math.min(e.clientY, window.innerHeight - ACTIONS_MENU_HEIGHT - margin);
+        setDropdownPos({
+            top: Math.max(margin, top),
+            left: Math.max(margin, left),
+            right: undefined,
+            bottom: undefined,
+            openUpward: false,
+        });
+        setActiveRowDropdown(transactionId);
     };
 
-    // Toggle row dropdown
-    const toggleRowDropdown = (transactionId) => {
-        setActiveRowDropdown(activeRowDropdown === transactionId ? null : transactionId);
-    };
+    const activeReceivedItem = useMemo(
+        () => received.find((item) => item.transaction_id === activeRowDropdown) || null,
+        [received, activeRowDropdown]
+    );
 
-    // Close all dropdowns when clicking outside
+    // Close export dropdown when clicking outside
     useEffect(() => {
         const handleClickOutside = (event) => {
             if (!event.target.closest('.dropdown-container')) {
                 setShowAddDropdown(false);
-                setActiveRowDropdown(null);
             }
         };
 
@@ -737,62 +926,61 @@ const ViewReceived = () => {
         };
     }, []);
 
-    // Calculate total pages
-    const totalPages = Math.ceil(totalRecords / itemsPerPage);
-    const currentItems = received;
-    const paginatedTotal = currentItems.reduce((acc, item) => {
-        const amount = parseFloat(item.amount) || 0;
-        return acc + amount;
-    }, 0);
+    useEffect(() => {
+        const handleClickOutside = (event) => {
+            if (
+                !event.target.closest('[data-received-actions-menu]') &&
+                !event.target.closest('[data-received-actions-trigger]')
+            ) {
+                setActiveRowDropdown(null);
+                actionAnchorRef.current = null;
+            }
+        };
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, []);
 
-    // Skeleton loader component
-    const SkeletonRow = () => (
-        <tr className="border-b border-slate-100 animate-pulse">
-            <td className="p-3 text-center"><div className="h-4 bg-slate-200 rounded w-6 mx-auto"></div></td>
-            <td className="p-3 text-center"><div className="h-4 bg-slate-200 rounded w-16 mx-auto"></div></td>
-            <td className="p-3 text-center"><div className="h-4 bg-slate-200 rounded w-24 mx-auto"></div></td>
-            <td className="p-3 text-center"><div className="h-4 bg-slate-200 rounded w-16 mx-auto"></div></td>
-            <td className="p-3 text-center"><div className="h-6 bg-slate-200 rounded w-16 mx-auto"></div></td>
-            <td className="p-3 text-center"><div className="h-6 bg-slate-200 rounded w-16 mx-auto"></div></td>
-            <td className="p-3 text-center"><div className="h-6 bg-slate-200 rounded w-16 mx-auto"></div></td>
-            <td className="p-3 text-center"><div className="h-6 bg-slate-200 rounded w-10 mx-auto"></div></td>
-        </tr>
-    );
+    useEffect(() => {
+        if (!activeRowDropdown) return undefined;
 
-    // Skeleton Loading Component for full page
-    const SkeletonLoader = () => (
-        <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
-            <Header mobileMenuOpen={mobileMenuOpen} setMobileMenuOpen={setMobileMenuOpen} isMinimized={isMinimized} setIsMinimized={setIsMinimized} />
-            <Sidebar mobileMenuOpen={mobileMenuOpen} setMobileMenuOpen={setMobileMenuOpen} isMinimized={isMinimized} setIsMinimized={setIsMinimized} />
-            <div className={`pt-16 transition-all duration-300 ease-in-out ${isMinimized ? 'md:pl-20' : 'md:pl-[260px]'}`}>
-                <div className="max-w-full mx-auto px-4 sm:px-6 lg:px-8 py-6">
-                    <div className="bg-white rounded-xl shadow-sm border border-slate-200">
-                        <div className="border-b border-slate-200 px-6 py-4">
-                            <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
-                                <div><div className="h-6 bg-gray-200 rounded w-48 mb-2"></div><div className="h-4 bg-gray-200 rounded w-32"></div></div>
-                                <div className="flex gap-3"><div className="h-10 bg-gray-200 rounded w-40"></div><div className="h-10 bg-gray-200 rounded w-32"></div></div>
-                            </div>
-                        </div>
-                        <div className="overflow-hidden">
-                            <div className="border-b border-slate-200">
-                                <table className="w-full text-sm">
-                                    <thead className="bg-gradient-to-r from-slate-50 to-slate-100">
-                                        <tr>{[...Array(8)].map((_, i) => (<th key={i} className="text-center p-3"><div className="h-4 bg-gray-200 rounded w-20 mx-auto"></div></th>))}</tr>
-                                    </thead>
-                                </table>
-                            </div>
-                            <div className="p-4">{[...Array(6)].map((_, index) => (<div key={index} className="mb-4"><div className="h-12 bg-gray-100 rounded"></div></div>))}</div>
-                        </div>
-                    </div>
-                </div>
-            </div>
+        const handleScrollOrResize = () => {
+            if (dropdownModeRef.current === 'button' && actionAnchorRef.current) {
+                updateDropdownPosition(actionAnchorRef.current);
+                return;
+            }
+            if (dropdownModeRef.current === 'pointer') {
+                setActiveRowDropdown(null);
+                actionAnchorRef.current = null;
+            }
+        };
+
+        window.addEventListener('scroll', handleScrollOrResize, true);
+        window.addEventListener('resize', handleScrollOrResize);
+        return () => {
+            window.removeEventListener('scroll', handleScrollOrResize, true);
+            window.removeEventListener('resize', handleScrollOrResize);
+        };
+    }, [activeRowDropdown, updateDropdownPosition]);
+
+    const StatCardSkeleton = () => (
+        <div className="animate-pulse rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+            <div className="mb-2 h-3 w-24 rounded bg-slate-200" />
+            <div className="h-6 w-20 rounded bg-slate-200" />
         </div>
     );
 
-    // Show skeleton while loading
-    if (loading) {
-        return <SkeletonLoader />;
-    }
+    // Skeleton loader component
+    const SkeletonRow = () => (
+        <tr className="animate-pulse border-b border-slate-100">
+            <td className="p-2.5 text-center"><div className="mx-auto h-4 w-6 rounded bg-slate-200" /></td>
+            <td className="p-2.5 text-center"><div className="mx-auto h-4 w-16 rounded bg-slate-200" /></td>
+            <td className="p-2.5"><div className="mx-auto h-4 w-24 rounded bg-slate-200" /></td>
+            <td className="p-2.5 text-center"><div className="mx-auto h-4 w-16 rounded bg-slate-200" /></td>
+            <td className="p-2.5 text-center"><div className="mx-auto h-6 w-16 rounded bg-slate-200" /></td>
+            <td className="p-2.5"><div className="mx-auto h-4 w-20 rounded bg-slate-200" /></td>
+            <td className="p-2.5 text-center"><div className="mx-auto h-8 w-8 rounded bg-slate-200" /></td>
+        </tr>
+    );
 
     if (!check('finance_report')) {
         return (
@@ -832,196 +1020,192 @@ const ViewReceived = () => {
 
             {/* Main Content Area - Full Page Scroll */}
             <div className={`pt-16 transition-all duration-300 ease-in-out ${isMinimized ? 'md:pl-20' : 'md:pl-[260px]'}`}>
-                <div className="max-w-full mx-auto px-4 sm:px-6 lg:px-8 py-6">
-                    {/* Header Stats Card - Smaller */}
-                    <motion.div 
-                        initial={{ opacity: 0, y: 10 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ duration: 0.2 }}
-                        className="bg-gradient-to-r from-blue-500 to-blue-600 rounded-lg p-4 text-white shadow-md mb-4"
-                    >
-                        <div className="flex items-center justify-between">
-                            <div>
-                                <p className="text-blue-100 text-xs font-medium">Total Received</p>
-                                <h3 className="text-lg font-bold mt-1">₹{formatCurrency(totalAmount)}</h3>
-                            </div>
-                            <FiCreditCard className="w-5 h-5 opacity-80" />
-                        </div>
-                    </motion.div>
+                <div className="mx-auto max-w-full px-4 py-6 sm:px-6 lg:px-8">
+                    <div className="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
+                        {listLoading && received.length === 0 ? (
+                            <>
+                                <StatCardSkeleton />
+                                <StatCardSkeleton />
+                            </>
+                        ) : (
+                            <>
+                                <motion.div
+                                    initial={{ opacity: 0, y: 10 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    transition={{ duration: 0.2 }}
+                                    className="rounded-lg bg-gradient-to-r from-blue-500 to-blue-600 p-4 text-white shadow-md"
+                                >
+                                    <div className="flex items-center justify-between">
+                                        <div>
+                                            <p className="text-xs font-medium text-blue-100">Received entries</p>
+                                            <h3 className="mt-1 text-lg font-bold tabular-nums">{stats.count}</h3>
+                                        </div>
+                                        <FiFileText className="h-5 w-5 shrink-0 opacity-80" />
+                                    </div>
+                                </motion.div>
 
-                    {/* Error Message */}
+                                <motion.div
+                                    initial={{ opacity: 0, y: 10 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    transition={{ duration: 0.2, delay: 0.05 }}
+                                    className="rounded-lg bg-gradient-to-r from-emerald-500 to-emerald-600 p-4 text-white shadow-md"
+                                >
+                                    <div className="flex items-center justify-between">
+                                        <div>
+                                            <p className="text-xs font-medium text-emerald-100">Total received</p>
+                                            <h3 className="mt-1 text-lg font-bold tabular-nums">₹{formatCurrency(stats.amount)}</h3>
+                                        </div>
+                                        <TbCurrencyRupee className="h-5 w-5 shrink-0 opacity-80" />
+                                    </div>
+                                </motion.div>
+                            </>
+                        )}
+                    </div>
+
                     {error && (
-                        <motion.div 
+                        <motion.div
                             initial={{ opacity: 0, y: -10 }}
                             animate={{ opacity: 1, y: 0 }}
-                            className="bg-red-50 border border-red-200 rounded-lg p-4 mb-4"
+                            className="mb-4 rounded-lg border border-red-200 bg-red-50 p-4"
                         >
-                            <p className="text-red-600 text-sm">{error}</p>
+                            <p className="text-sm text-red-600">{error}</p>
                         </motion.div>
                     )}
 
-                    {/* Main Card */}
-                    <motion.div 
+                    <motion.div
                         initial={{ opacity: 0, scale: 0.98 }}
                         animate={{ opacity: 1, scale: 1 }}
                         transition={{ duration: 0.3 }}
-                        className="bg-white rounded-xl shadow-lg border border-slate-200"
+                        className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-lg"
                     >
-                        {/* Card Header */}
-                        <div className="border-b border-slate-200 px-6 py-4 bg-gradient-to-r from-slate-50 to-white sticky top-0 z-10">
-                            <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
-                                <div>
-                                    <div className="flex items-center gap-2 mb-1">
-                                        <div className="p-1.5 bg-blue-100 rounded-lg">
-                                            <FiDollarSign className="w-4 h-4 text-blue-600" />
-                                        </div>
-                                        <h5 className="text-lg font-bold text-slate-800">
-                                            Received Register
-                                        </h5>
+                        <div className="sticky top-0 z-10 border-b border-slate-200 bg-gradient-to-r from-slate-50 to-white px-3 py-2.5 sm:px-4">
+                            <div className="flex min-w-0 flex-col gap-2 xl:flex-row xl:items-center xl:justify-between xl:gap-3">
+                                <div className="flex shrink-0 items-center gap-2">
+                                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-blue-100">
+                                        <FiCreditCard className="h-4 w-4 text-blue-600" />
                                     </div>
-                                    {fromToDate && (
-                                        <div className="flex items-center gap-1 text-slate-600">
-                                            <FiFilter className="w-3 h-3" />
-                                            <p className="text-xs font-medium">
-                                                {fromToDate}
-                                            </p>
-                                        </div>
-                                    )}
+                                    <h5 className="shrink-0 text-sm font-bold tracking-tight text-slate-800 sm:text-base">
+                                        Received Register
+                                    </h5>
                                 </div>
 
-                                <div className="flex flex-col lg:flex-row gap-3 w-full lg:w-auto">
-                                    {/* Search Input */}
-                                    <div className="relative w-full lg:w-64">
+                                <div className="flex min-w-0 flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:justify-end sm:gap-2">
+                                    <div className="relative ml-auto w-full min-w-0 sm:ml-0 sm:w-60">
+                                        <FiSearch className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
                                         <input
                                             type="text"
-                                            placeholder="Search by invoice no, party, remark..."
+                                            placeholder="Search invoice, remark…"
                                             value={searchTerm}
-                                            onChange={handleSearchTermChange}
-                                            onKeyPress={handleSearchKeyPress}
-                                            className="w-full pl-9 pr-3 py-2 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                            onChange={(e) => setSearchTerm(e.target.value)}
+                                            className="h-9 w-full rounded-lg border border-slate-300 bg-white pl-9 pr-3 text-sm transition-all focus:border-transparent focus:outline-none focus:ring-2 focus:ring-blue-500"
                                         />
-                                        <FiSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 w-4 h-4" />
                                     </div>
 
-                                    {/* Date Filter Component */}
-                                    <div className="w-full lg:w-auto">
-                                        <DateFilter onChange={handleDateFilterChange} />
-                                    </div>
-
-                                    <div className="flex gap-2">
-                                        {/* Export Dropdown */}
-                                        <div className="dropdown-container relative">
-                                            <motion.button
-                                                onClick={() => setShowAddDropdown(!showAddDropdown)}
-                                                className="px-4 py-2.5 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white rounded-lg text-xs font-semibold transition-all duration-200 flex items-center gap-2 shadow-sm hover:shadow"
-                                                whileHover={{ scale: 1.02 }}
-                                                whileTap={{ scale: 0.98 }}
-                                            >
-                                                <PiExportBold className="w-4 h-4" />
-                                                Export
-                                                <FiChevronRight className={`w-3 h-3 transition-transform ${showAddDropdown ? 'rotate-90' : ''}`} />
-                                            </motion.button>
-
-                                            <AnimatePresence>
-                                                {showAddDropdown && (
-                                                    <motion.div
-                                                        initial={{ opacity: 0, y: 5 }}
-                                                        animate={{ opacity: 1, y: 0 }}
-                                                        exit={{ opacity: 0, y: 5 }}
-                                                        className="absolute right-0 mt-1 w-56 bg-white rounded-lg shadow-xl border border-slate-200 z-50 overflow-hidden"
-                                                    >
-                                                        <div className="py-1">
-                                                            <button
-                                                                onClick={handleExportClick}
-                                                                className="flex items-center w-full px-3 py-2 text-sm text-slate-700 hover:bg-blue-50 transition-all duration-150 group"
-                                                            >
-                                                                <div className="p-1.5 bg-red-50 rounded mr-2 group-hover:bg-red-100 transition-colors">
-                                                                    <PiFilePdfDuotone className="w-3.5 h-3.5 text-red-500" />
-                                                                </div>
-                                                                <div className="text-left">
-                                                                    <div className="font-medium text-xs">Export as PDF</div>
-                                                                </div>
-                                                            </button>
-                                                            <button
-                                                                onClick={handleExportClick}
-                                                                className="flex items-center w-full px-3 py-2 text-sm text-slate-700 hover:bg-blue-50 transition-all duration-150 group"
-                                                            >
-                                                                <div className="p-1.5 bg-green-50 rounded mr-2 group-hover:bg-green-100 transition-colors">
-                                                                    <PiMicrosoftExcelLogoDuotone className="w-3.5 h-3.5 text-green-500" />
-                                                                </div>
-                                                                <div className="text-left">
-                                                                    <div className="font-medium text-xs">Export as Excel</div>
-                                                                </div>
-                                                            </button>
-                                                            <button
-                                                                onClick={() => setWhatsappModalOpen(true)}
-                                                                className="flex items-center w-full px-3 py-2 text-sm text-slate-700 hover:bg-blue-50 transition-all duration-150 group"
-                                                            >
-                                                                <div className="p-1.5 bg-green-50 rounded mr-2 group-hover:bg-green-100 transition-colors">
-                                                                    <FaWhatsapp className="w-3.5 h-3.5 text-green-500" />
-                                                                </div>
-                                                                <div className="text-left">
-                                                                    <div className="font-medium text-xs">Share via WhatsApp</div>
-                                                                </div>
-                                                            </button>
-                                                            <button
-                                                                onClick={() => setIsEmailModalOpen(true)}
-                                                                className="flex items-center w-full px-3 py-2 text-sm text-slate-700 hover:bg-blue-50 transition-all duration-150 group"
-                                                            >
-                                                                <div className="p-1.5 bg-blue-50 rounded mr-2 group-hover:bg-blue-100 transition-colors">
-                                                                    <AiOutlineMail className="w-3.5 h-3.5 text-blue-500" />
-                                                                </div>
-                                                                <div className="text-left">
-                                                                    <div className="font-medium text-xs">Share via Email</div>
-                                                                </div>
-                                                            </button>
-                                                        </div>
-                                                    </motion.div>
-                                                )}
-                                            </AnimatePresence>
-                                        </div>
-
-                                        <motion.button
-                                            onClick={() => {
-                                                if (!check('finance_entry')) {
-                                                    toast.error('Need Access Permission');
-                                                } else {
-                                                    setPaymentReceivedModal(true);
-                                                }
+                                    <div className="w-full min-w-0 sm:w-56">
+                                        <DateRangePickerField
+                                            value={{ start: fromDate, end: toDate }}
+                                            onChange={(range) => {
+                                                setFromDate(range?.start || '');
+                                                setToDate(range?.end || '');
                                             }}
-                                            className={`px-4 py-2.5 bg-gradient-to-r from-emerald-600 to-emerald-700 hover:from-emerald-700 hover:to-emerald-800 text-white rounded-lg text-xs font-semibold transition-all duration-200 flex items-center gap-2 shadow-sm hover:shadow ${
-                                                !check('finance_entry') ? 'opacity-60 cursor-not-allowed hover:from-emerald-600 hover:to-emerald-700' : ''
-                                            }`}
-                                            whileHover={check('finance_entry') ? { scale: 1.02 } : {}}
-                                            whileTap={check('finance_entry') ? { scale: 0.98 } : {}}
-                                        >
-                                            {!check('finance_entry') ? <FiLock className="w-4 h-4 shrink-0" /> : <FiPlus className="w-4 h-4" />}
-                                            Add Received
-                                        </motion.button>
+                                            placeholder="Select date range"
+                                            mode="range"
+                                            initialTab="quick"
+                                            defaultQuickKey="tm"
+                                            quickOptionKeys={['tw', 'lw', 'lm', 'tm', 'lf', 'fy']}
+                                            showRangeHint={false}
+                                            showResetButton={false}
+                                            truncateRangeLabel={false}
+                                            buttonClassName="w-full h-9 min-w-0 px-3 bg-white border border-slate-200 rounded-lg text-sm text-slate-600 hover:border-blue-400 focus:outline-none transition-all"
+                                            wrapperClassName="w-full min-w-0"
+                                        />
                                     </div>
+
+                                    <div className="dropdown-container relative shrink-0">
+                                        <motion.button
+                                            type="button"
+                                            onClick={() => setShowAddDropdown(!showAddDropdown)}
+                                            className="inline-flex h-9 w-full items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-3 text-sm font-medium text-slate-700 transition-all hover:bg-slate-50 sm:h-10 sm:w-auto sm:px-4"
+                                            whileHover={{ scale: 1.02 }}
+                                            whileTap={{ scale: 0.98 }}
+                                        >
+                                            <PiExportBold className="h-4 w-4 shrink-0" />
+                                            <span>Export</span>
+                                            <FiChevronRight className={`h-3.5 w-3.5 shrink-0 transition-transform ${showAddDropdown ? 'rotate-90' : ''}`} />
+                                        </motion.button>
+
+                                        <AnimatePresence>
+                                            {showAddDropdown && (
+                                                <motion.div
+                                                    initial={{ opacity: 0, y: 5 }}
+                                                    animate={{ opacity: 1, y: 0 }}
+                                                    exit={{ opacity: 0, y: 5 }}
+                                                    className="absolute right-0 z-50 mt-1 w-56 overflow-hidden rounded-lg border border-slate-200 bg-white shadow-xl"
+                                                >
+                                                    <div className="py-1">
+                                                        <button type="button" onClick={handleExportClick} className="flex w-full items-center px-3 py-2 text-sm text-slate-700 hover:bg-blue-50">
+                                                            <div className="mr-2 rounded bg-red-50 p-1.5"><PiFilePdfDuotone className="h-3.5 w-3.5 text-red-500" /></div>
+                                                            <span className="text-xs font-medium">Export as PDF</span>
+                                                        </button>
+                                                        <button type="button" onClick={handleExportClick} className="flex w-full items-center px-3 py-2 text-sm text-slate-700 hover:bg-blue-50">
+                                                            <div className="mr-2 rounded bg-green-50 p-1.5"><PiMicrosoftExcelLogoDuotone className="h-3.5 w-3.5 text-green-500" /></div>
+                                                            <span className="text-xs font-medium">Export as Excel</span>
+                                                        </button>
+                                                        <button type="button" onClick={() => setWhatsappModalOpen(true)} className="flex w-full items-center px-3 py-2 text-sm text-slate-700 hover:bg-blue-50">
+                                                            <div className="mr-2 rounded bg-green-50 p-1.5"><FaWhatsapp className="h-3.5 w-3.5 text-green-500" /></div>
+                                                            <span className="text-xs font-medium">Share via WhatsApp</span>
+                                                        </button>
+                                                        <button type="button" onClick={() => setIsEmailModalOpen(true)} className="flex w-full items-center px-3 py-2 text-sm text-slate-700 hover:bg-blue-50">
+                                                            <div className="mr-2 rounded bg-blue-50 p-1.5"><AiOutlineMail className="h-3.5 w-3.5 text-blue-500" /></div>
+                                                            <span className="text-xs font-medium">Share via Email</span>
+                                                        </button>
+                                                    </div>
+                                                </motion.div>
+                                            )}
+                                        </AnimatePresence>
+                                    </div>
+
+                                    <motion.button
+                                        type="button"
+                                        onClick={() => {
+                                            if (!check('finance_entry')) {
+                                                toast.error('Need Access Permission');
+                                            } else {
+                                                setPaymentReceivedModal(true);
+                                            }
+                                        }}
+                                        className={`inline-flex h-9 shrink-0 items-center justify-center gap-1.5 rounded-lg bg-gradient-to-r from-emerald-600 to-emerald-700 px-3 text-sm font-semibold text-white shadow-sm transition-all hover:from-emerald-700 hover:to-emerald-800 sm:h-10 sm:px-4 ${
+                                            !check('finance_entry') ? 'cursor-not-allowed opacity-60 hover:from-emerald-600 hover:to-emerald-700' : ''
+                                        }`}
+                                        whileHover={check('finance_entry') ? { scale: 1.02 } : {}}
+                                        whileTap={check('finance_entry') ? { scale: 0.98 } : {}}
+                                    >
+                                        {!check('finance_entry') ? <FiLock className="h-4 w-4 shrink-0" /> : <FiPlus className="h-4 w-4 shrink-0" />}
+                                        <span className="whitespace-nowrap">Add Received</span>
+                                    </motion.button>
                                 </div>
                             </div>
                         </div>
 
-                        {/* Table Container */}
                         <div className="overflow-x-auto">
-                            <table className="w-full text-xs">
+                            <table className="w-full table-fixed text-sm">
                                 <thead>
                                     <tr className="bg-gradient-to-r from-slate-50 to-slate-100">
-                                        <th className="text-center p-3 font-semibold text-slate-700 text-[10px] uppercase tracking-wider min-w-[60px]">Sl No</th>
-                                        <th className="text-center p-3 font-semibold text-slate-700 text-[10px] uppercase tracking-wider min-w-[80px]">Date</th>
-                                        <th className="text-center p-3 font-semibold text-slate-700 text-[10px] uppercase tracking-wider min-w-[200px]">Particulars</th>
-                                        <th className="text-center p-3 font-semibold text-slate-700 text-[10px] uppercase tracking-wider min-w-[120px]">Voucher No</th>
-                                        <th className="text-center p-3 font-semibold text-slate-700 text-[10px] uppercase tracking-wider min-w-[100px]">Amount</th>
-                                        <th className="text-center p-3 font-semibold text-slate-700 text-[10px] uppercase tracking-wider min-w-[150px]">Received At</th>
-                                        <th className="text-center p-3 font-semibold text-slate-700 text-[10px] uppercase tracking-wider min-w-[150px]">Received By</th>
-                                        <th className="text-center p-3 font-semibold text-slate-700 text-[10px] uppercase tracking-wider min-w-[80px]">Actions</th>
+                                        <th className="w-[4%] p-2.5 text-center text-xs font-semibold uppercase tracking-wider text-slate-700">#</th>
+                                        <th className="w-[10%] p-2.5 text-center text-xs font-semibold uppercase tracking-wider text-slate-700">Date</th>
+                                        <th className="w-[26%] p-2.5 text-left text-xs font-semibold uppercase tracking-wider text-slate-700">Particulars</th>
+                                        <th className="w-[12%] p-2.5 text-center text-xs font-semibold uppercase tracking-wider text-slate-700">Voucher</th>
+                                        <th className="w-[12%] p-2.5 text-right text-xs font-semibold uppercase tracking-wider text-slate-700">Amount</th>
+                                        <th className="w-[20%] p-2.5 text-left text-xs font-semibold uppercase tracking-wider text-slate-700">Received At</th>
+                                        <th className="w-[10%] p-2.5 text-center text-xs font-semibold uppercase tracking-wider text-slate-700">Actions</th>
                                     </tr>
                                 </thead>
-                                <tbody className="bg-white divide-y divide-slate-100">
-                                    {received.length === 0 ? (
+                                <tbody className="divide-y divide-slate-100 bg-white">
+                                    {listLoading && received.length === 0 ? (
+                                        [...Array(5)].map((_, index) => <SkeletonRow key={index} />)
+                                    ) : received.length === 0 ? (
                                         <tr>
-                                            <td colSpan="8" className="text-center py-8 text-slate-500">
+                                            <td colSpan="7" className="text-center py-8 text-slate-500">
                                                 <div className="flex flex-col items-center justify-center">
                                                     <div className="p-3 bg-slate-100 rounded-full mb-3">
                                                         <FiFileText className="w-8 h-8 text-slate-400" />
@@ -1049,13 +1233,9 @@ const ViewReceived = () => {
                                             </td>
                                         </tr>
                                     ) : (
-                                        currentItems.map((item, index) => {
-                                            const { editLink, invoiceLink } = getActionLinks(item);
-                                            const isDropdownOpen = activeRowDropdown === item.transaction_id;
-                                            const actualIndex = showAll ? index : (currentPage - 1) * itemsPerPage + index;
+                                        received.map((item, index) => {
                                             const partyInfo = getPartyTypeInfo(item);
-                                            const bankInfo = getBankTypeInfo(item);
-                                            const creatorInfo = getCreatorTypeInfo(item);
+                                            const receivedAtInfo = getReceivedAtInfo(item);
 
                                             return (
                                                 <motion.tr
@@ -1063,174 +1243,74 @@ const ViewReceived = () => {
                                                     initial={{ opacity: 0 }}
                                                     animate={{ opacity: 1 }}
                                                     transition={{ duration: 0.15 }}
-                                                    className="hover:bg-blue-50/20 transition-colors duration-150"
+                                                    className="transition-colors duration-150 hover:bg-blue-50/30"
+                                                    onContextMenu={(e) => openActionsFromContextMenu(e, item.transaction_id)}
                                                 >
-                                                    <td className="text-center p-3 align-middle">
-                                                        <div className="text-slate-700 font-medium text-xs">
-                                                            {actualIndex + 1}
-                                                        </div>
+                                                    <td className="p-2.5 text-center align-middle">
+                                                        <span className="font-medium text-slate-700">
+                                                            {(currentPage - 1) * itemsPerPage + index + 1}
+                                                        </span>
                                                     </td>
-                                                    <td className="text-center p-3 align-middle">
-                                                        <div className="font-medium text-slate-700 text-xs">
+                                                    <td className="p-2.5 text-center align-middle">
+                                                        <span className="font-medium text-slate-700">
                                                             {formatDisplayDate(item.transaction_date)}
-                                                        </div>
+                                                        </span>
                                                     </td>
-                                                    <td className="text-center p-3 align-middle">
-                                                        <div className="mx-auto max-w-[180px]">
-                                                            <div className="text-slate-800 font-semibold text-xs">
+                                                    <td className="p-2.5 align-middle">
+                                                        <div className="min-w-0">
+                                                            <div className="font-semibold text-slate-800">
                                                                 {partyInfo.displayName}
                                                             </div>
-                                                            <div className="flex justify-center mt-1">
-                                                                <span className={`px-2 py-0.5 rounded-full text-[10px] font-medium capitalize ${partyInfo.bgColor} ${partyInfo.textColor}`}>
+                                                            <div className="mt-0.5">
+                                                                <span className={`inline-flex rounded-full px-2 py-0.5 text-[10px] font-medium capitalize ${partyInfo.bgColor} ${partyInfo.textColor}`}>
                                                                     {partyInfo.type}
                                                                 </span>
                                                             </div>
-                                                            {item.remark && (
-                                                                <div className="text-slate-500 text-[10px] text-center mt-1 italic truncate">
-                                                                    "{item.remark}"
+                                                            {item.remark ? (
+                                                                <div className="mt-0.5 truncate text-xs italic text-slate-500" title={item.remark}>
+                                                                    {item.remark}
                                                                 </div>
-                                                            )}
+                                                            ) : null}
                                                         </div>
                                                     </td>
-                                                    <td className="text-center p-3 align-middle">
-                                                        <span className="inline-flex items-center justify-center bg-gradient-to-r from-slate-100 to-slate-200 text-slate-800 font-bold px-3 py-1.5 rounded text-xs border border-slate-300/50 shadow-xs">
+                                                    <td className="p-2.5 text-center align-middle">
+                                                        <span className="inline-flex rounded-lg border border-slate-200 bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-800">
                                                             {item.invoice_no}
                                                         </span>
                                                     </td>
-                                                    <td className="text-center p-3 align-middle">
-                                                        <span className="inline-flex items-center justify-center bg-gradient-to-r from-green-50 to-green-100 text-green-800 font-bold px-3 py-1.5 rounded text-xs min-w-[90px] shadow-xs">
+                                                    <td className="p-2.5 text-right align-middle">
+                                                        <span className="text-sm font-bold tabular-nums text-emerald-700">
                                                             ₹{formatCurrency(item.amount)}
                                                         </span>
                                                     </td>
-                                                    <td className="text-center p-3 align-middle">
-                                                        <div className="mx-auto max-w-[140px]">
-                                                            <div className="text-slate-800 text-xs font-medium">
-                                                                {bankInfo.bankName || item.payment_to?.details?.bank || 'N/A'}
+                                                    <td className="p-2.5 align-middle">
+                                                        <div className="min-w-0">
+                                                            <div className="truncate text-sm font-medium text-slate-800" title={receivedAtInfo.displayName}>
+                                                                {receivedAtInfo.displayName}
                                                             </div>
-                                                            {bankInfo.accountNo && (
-                                                                <div className="text-slate-500 text-[10px] mt-0.5">
-                                                                    {bankInfo.accountNo}
+                                                            {receivedAtInfo.subtitle ? (
+                                                                <div className="mt-0.5 truncate text-xs text-slate-500" title={receivedAtInfo.subtitle}>
+                                                                    {receivedAtInfo.subtitle}
                                                                 </div>
-                                                            )}
-                                                            <div className="flex justify-center mt-1">
-                                                                <span className={`px-2 py-0.5 rounded-full text-[10px] font-medium capitalize ${bankInfo.bgColor} ${bankInfo.textColor}`}>
-                                                                    {bankInfo.bankType || 'bank'}
+                                                            ) : null}
+                                                            <div className="mt-0.5">
+                                                                <span className={`inline-flex rounded-full px-2 py-0.5 text-[10px] font-medium capitalize ${receivedAtInfo.bgColor} ${receivedAtInfo.textColor}`}>
+                                                                    {receivedAtInfo.badgeLabel}
                                                                 </span>
                                                             </div>
                                                         </div>
                                                     </td>
-                                                    <td className="text-center p-3 align-middle">
-                                                        <div className="mx-auto max-w-[140px]">
-                                                            <div className="text-slate-800 text-xs font-medium">
-                                                                {creatorInfo.name}
-                                                            </div>
-                                                            <div className="flex flex-col items-center gap-1 mt-1">
-                                                                <div className="text-slate-600 text-[10px]">
-                                                                    {creatorInfo.mobile}
-                                                                </div>
-                                                                <span className={`px-2 py-0.5 rounded-full text-[10px] font-medium capitalize ${creatorInfo.bgColor} ${creatorInfo.textColor}`}>
-                                                                    {creatorInfo.type}
-                                                                </span>
-                                                            </div>
-                                                        </div>
-                                                    </td>
-                                                    <td className="text-center p-3 align-middle">
-                                                        <div className="dropdown-container relative flex justify-center">
-                                                            <motion.button
-                                                                className="p-1.5 text-slate-500 hover:text-blue-600 rounded-lg hover:bg-blue-50 transition-colors duration-150 border border-slate-200 hover:border-blue-300"
-                                                                onClick={() => toggleRowDropdown(item.transaction_id)}
-                                                                whileHover={{ scale: 1.05 }}
-                                                                whileTap={{ scale: 0.95 }}
-                                                            >
-                                                                <FiMenu className="w-3.5 h-3.5" />
-                                                            </motion.button>
-                                                            <AnimatePresence>
-                                                                {isDropdownOpen && (
-                                                                    <motion.div
-                                                                        initial={{ opacity: 0, y: 5 }}
-                                                                        animate={{ opacity: 1, y: 0 }}
-                                                                        exit={{ opacity: 0, y: 5 }}
-                                                                        className="absolute right-0 mt-1 w-48 bg-white rounded-lg shadow-xl border border-slate-200 z-50 overflow-hidden"
-                                                                    >
-                                                                        <div className="py-1">
-                                                                            <button
-                                                                                type="button"
-                                                                                className={`flex items-center w-full px-3 py-2 text-xs text-slate-700 hover:bg-blue-50 transition-colors duration-150 ${
-                                                                                    !check('finance_entry_edit') ? 'opacity-60 cursor-not-allowed hover:bg-transparent' : ''
-                                                                                }`}
-                                                                                onClick={() => {
-                                                                                    if (!check('finance_entry_edit')) {
-                                                                                        toast.error('Need Access Permission');
-                                                                                        return;
-                                                                                    }
-                                                                                    openEditModal(item);
-                                                                                }}
-                                                                            >
-                                                                                <div className="p-1 bg-blue-50 rounded mr-2">
-                                                                                    {!check('finance_entry_edit') ? (
-                                                                                        <FiLock className="w-3 h-3 text-slate-400" />
-                                                                                    ) : (
-                                                                                        <FiEdit className="w-3 h-3 text-blue-500" />
-                                                                                    )}
-                                                                                </div>
-                                                                                <div className="text-left">
-                                                                                    <div className="font-medium">Edit Received</div>
-                                                                                </div>
-                                                                            </button>
-                                                                            {invoiceLink && (
-                                                                                <a
-                                                                                    href={invoiceLink}
-                                                                                    className="flex items-center w-full px-3 py-2 text-xs text-slate-700 hover:bg-blue-50 transition-colors duration-150"
-                                                                                    onClick={() => setActiveRowDropdown(null)}
-                                                                                >
-                                                                                    <div className="p-1 bg-purple-50 rounded mr-2">
-                                                                                        <FiFileText className="w-3 h-3 text-purple-500" />
-                                                                                    </div>
-                                                                                    <div className="text-left">
-                                                                                        <div className="font-medium">View Invoice</div>
-                                                                                    </div>
-                                                                                </a>
-                                                                            )}
-                                                                            <div className="border-t border-slate-100 mt-1 pt-1">
-                                                                                <button
-                                                                                    className="flex items-center w-full px-3 py-2 text-xs text-slate-700 hover:bg-blue-50 transition-colors duration-150"
-                                                                                    onClick={() => handleOtherExport('print', item)}
-                                                                                >
-                                                                                    <div className="p-1 bg-slate-50 rounded mr-2">
-                                                                                        <FiPrinter className="w-3 h-3 text-slate-600" />
-                                                                                    </div>
-                                                                                    <div className="text-left">
-                                                                                        <div className="font-medium">Print</div>
-                                                                                    </div>
-                                                                                </button>
-                                                                                <button
-                                                                                    className="flex items-center w-full px-3 py-2 text-xs text-slate-700 hover:bg-blue-50 transition-colors duration-150"
-                                                                                    onClick={() => handleOtherExport('whatsapp', item)}
-                                                                                >
-                                                                                    <div className="p-1 bg-green-50 rounded mr-2">
-                                                                                        <FaWhatsapp className="w-3 h-3 text-green-500" />
-                                                                                    </div>
-                                                                                    <div className="text-left">
-                                                                                        <div className="font-medium">WhatsApp</div>
-                                                                                    </div>
-                                                                                </button>
-                                                                                <button
-                                                                                    className="flex items-center w-full px-3 py-2 text-xs text-slate-700 hover:bg-blue-50 transition-colors duration-150"
-                                                                                    onClick={() => handleOtherExport('email', item)}
-                                                                                >
-                                                                                    <div className="p-1 bg-blue-50 rounded mr-2">
-                                                                                        <FiMail className="w-3 h-3 text-blue-500" />
-                                                                                    </div>
-                                                                                    <div className="text-left">
-                                                                                        <div className="font-medium">Email</div>
-                                                                                    </div>
-                                                                                </button>
-                                                                            </div>
-                                                                        </div>
-                                                                    </motion.div>
-                                                                )}
-                                                            </AnimatePresence>
-                                                        </div>
+                                                    <td className="p-2.5 text-center align-middle">
+                                                        <motion.button
+                                                            type="button"
+                                                            data-received-actions-trigger
+                                                            className="rounded-lg border border-slate-200 p-2 text-slate-500 transition-colors duration-150 hover:border-blue-300 hover:bg-blue-50 hover:text-blue-600"
+                                                            onClick={(e) => openActionsFromButton(e, item.transaction_id)}
+                                                            whileHover={{ scale: 1.05 }}
+                                                            whileTap={{ scale: 0.95 }}
+                                                        >
+                                                            <FiMenu className="h-4 w-4" />
+                                                        </motion.button>
                                                     </td>
                                                 </motion.tr>
                                             );
@@ -1238,91 +1318,90 @@ const ViewReceived = () => {
                                     )}
                                 </tbody>
                             </table>
-
-                            {/* Pagination Controls */}
-                            {!showAll && totalRecords > itemsPerPage && (
-                                <div className="border-t border-slate-200 bg-gradient-to-r from-slate-50 to-slate-100">
-                                    <div className="flex flex-col sm:flex-row justify-between items-center px-4 py-3 gap-3">
-                                        <div className="text-xs text-slate-600">
-                                            Showing {((currentPage - 1) * itemsPerPage) + 1} to {Math.min(currentPage * itemsPerPage, totalRecords)} of {totalRecords} entries
-                                        </div>
-                                        <div className="flex items-center gap-2">
-                                            <button
-                                                onClick={() => handlePageChange(currentPage - 1)}
-                                                disabled={currentPage === 1}
-                                                className="px-3 py-1.5 text-xs font-medium rounded-lg border border-slate-300 bg-white hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-1"
-                                            >
-                                                <FiChevronLeft className="w-3 h-3" />
-                                                Previous
-                                            </button>
-                                            <div className="flex items-center gap-1">
-                                                {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                                                    let pageNumber;
-                                                    if (totalPages <= 5) {
-                                                        pageNumber = i + 1;
-                                                    } else if (currentPage <= 3) {
-                                                        pageNumber = i + 1;
-                                                    } else if (currentPage >= totalPages - 2) {
-                                                        pageNumber = totalPages - 4 + i;
-                                                    } else {
-                                                        pageNumber = currentPage - 2 + i;
-                                                    }
-                                                    
-                                                    return (
-                                                        <button
-                                                            key={pageNumber}
-                                                            onClick={() => handlePageChange(pageNumber)}
-                                                            className={`w-8 h-8 text-xs font-medium rounded-lg transition-colors ${
-                                                                currentPage === pageNumber
-                                                                    ? 'bg-blue-600 text-white'
-                                                                    : 'border border-slate-300 bg-white hover:bg-slate-50 text-slate-700'
-                                                            }`}
-                                                        >
-                                                            {pageNumber}
-                                                        </button>
-                                                    );
-                                                })}
-                                            </div>
-                                            <button
-                                                onClick={() => handlePageChange(currentPage + 1)}
-                                                disabled={isLastPage}
-                                                className="px-3 py-1.5 text-xs font-medium rounded-lg border border-slate-300 bg-white hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-1"
-                                            >
-                                                Next
-                                                <FiChevronRightIcon className="w-3 h-3" />
-                                            </button>
-                                        </div>
-                                        <button
-                                            onClick={handleShowAll}
-                                            className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium rounded-lg border border-slate-300 bg-white hover:bg-slate-50 transition-colors"
-                                        >
-                                            Show All
-                                            <FiChevronDown className="w-3 h-3" />
-                                        </button>
-                                    </div>
-                                </div>
-                            )}
-
-                            {/* Show Less Button when showing all */}
-                            {showAll && totalRecords > itemsPerPage && (
-                                <div className="border-t border-slate-200 bg-gradient-to-r from-slate-50 to-slate-100">
-                                    <div className="flex justify-center px-4 py-3">
-                                        <button
-                                            onClick={handleShowLess}
-                                            className="flex items-center gap-1 px-4 py-2 text-xs font-medium rounded-lg border border-slate-300 bg-white hover:bg-slate-50 transition-colors shadow-sm"
-                                        >
-                                            Show Less
-                                            <FiChevronUp className="w-3 h-3" />
-                                        </button>
-                                    </div>
-                                </div>
-                            )}
                         </div>
+
+                        {!error && (received.length > 0 || totalRecords > 0) && (
+                            <TablePagination
+                                page={currentPage}
+                                limit={itemsPerPage}
+                                total={totalRecords}
+                                totalPages={Math.max(1, Math.ceil(totalRecords / (itemsPerPage || 1)))}
+                                isLastPage={isLastPage}
+                                rowOptions={[10, 20, 50, 100]}
+                                defaultRows={20}
+                                onPageChange={handlePageChange}
+                                onLimitChange={handleLimitChange}
+                            />
+                        )}
                     </motion.div>
                 </div>
             </div>
 
+            {activeRowDropdown && activeReceivedItem && createPortal(
+                <motion.div
+                    initial={{ opacity: 0, y: 4 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: 4 }}
+                    data-received-actions-menu
+                    className="fixed z-[10040] w-48 overflow-hidden rounded-lg border border-slate-200 bg-white py-1 shadow-xl"
+                    style={{
+                        top: dropdownPos.top,
+                        bottom: dropdownPos.bottom,
+                        right: dropdownPos.right,
+                        left: dropdownPos.left,
+                        minWidth: ACTIONS_MENU_WIDTH,
+                    }}
+                    onMouseDown={(e) => e.stopPropagation()}
+                >
+                    <button
+                        type="button"
+                        className="flex w-full items-center px-3 py-2 text-sm text-slate-700 transition-colors hover:bg-blue-50"
+                        onClick={() => openDetails(activeReceivedItem)}
+                    >
+                        <FiEye className="mr-2 h-4 w-4 text-blue-600" />
+                        View Details
+                    </button>
+                    <button
+                        type="button"
+                        className={`flex w-full items-center px-3 py-2 text-sm text-slate-700 transition-colors hover:bg-blue-50 ${
+                            !check('finance_entry_edit') ? 'cursor-not-allowed opacity-60 hover:bg-transparent' : ''
+                        }`}
+                        onClick={() => {
+                            if (!check('finance_entry_edit')) {
+                                toast.error('Need Access Permission');
+                                return;
+                            }
+                            openEditModal(activeReceivedItem);
+                        }}
+                    >
+                        <FiEdit className="mr-2 h-4 w-4 text-blue-500" />
+                        Edit Received
+                    </button>
+                    {getActionLinks(activeReceivedItem).invoiceLink ? (
+                        <a
+                            href={getActionLinks(activeReceivedItem).invoiceLink}
+                            className="flex w-full items-center px-3 py-2 text-sm text-slate-700 no-underline transition-colors hover:bg-blue-50"
+                            onClick={() => {
+                                setActiveRowDropdown(null);
+                                actionAnchorRef.current = null;
+                            }}
+                        >
+                            <FiFileText className="mr-2 h-4 w-4 text-purple-500" />
+                            View Invoice
+                        </a>
+                    ) : null}
+                </motion.div>,
+                document.body
+            )}
+
             {/* Modals */}
+            <ReceivedDetailsModal
+                isOpen={detailsOpen}
+                record={detailsRecord}
+                onClose={closeDetails}
+                formatCurrency={formatCurrency}
+            />
+
             <TransactionModalManager
                 modalType="RECEIVE"
                 isOpen={receivedFormModal}

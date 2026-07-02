@@ -15,6 +15,7 @@ export const BillDisplay = lazy(() => import('../pages/billing-view'));
 export const FinanceEntry = lazy(() => import('../pages/finance-voucher-entry'));
 export const BankList = lazy(() => import('../pages/bank-account'));
 export const CapitalAccounts = lazy(() => import('../pages/capital-accuont'));
+export const CapitalLedger = lazy(() => import('../finance/capital/capital-ledger'));
 export const ViewSales = lazy(() => import('../pages/sale-display'));
 export const ViewPurchase = lazy(() => import('../pages/purchase-display'));
 export const ViewReceived = lazy(() => import('../pages/received-display'));

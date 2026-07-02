@@ -1,23 +1,286 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import {
-    FiSearch,
     FiPlus,
-    FiMenu,
     FiEdit,
     FiFileText,
-    FiTrash2,
-    FiDownload,
-    FiPrinter,
-    FiFilter,
+    FiMenu,
+    FiEye,
     FiTag,
-    FiChevronRight
+    FiSearch,
+    FiX,
+    FiMail,
+    FiPhone,
 } from 'react-icons/fi';
-import { PiExportBold } from "react-icons/pi";
-import { PiFilePdfDuotone, PiMicrosoftExcelLogoDuotone } from "react-icons/pi";
-import DateFilter from '../components/DateFilter';
-import DiscountForm from '../components/discount-form';
+import { TbCurrencyRupee } from 'react-icons/tb';
 import { motion, AnimatePresence } from 'framer-motion';
+import { Link } from 'react-router-dom';
+import axios from 'axios';
+import toast from 'react-hot-toast';
 import { Header, Sidebar } from '../components/header';
+import { DateRangePickerField } from '../components/PortalDatePicker';
+import TablePagination from '../components/TablePagination';
+import { TransactionModalManager } from '../components/Modals/CreateTransactions';
+import { EditTransactionModalManager } from '../components/Modals/EditTransactions';
+import API_BASE_URL from '../utils/api-controller';
+import getHeaders from '../utils/get-headers';
+
+const ACTIONS_MENU_WIDTH = 176;
+const ACTIONS_MENU_HEIGHT = 96;
+
+const formatCareOfSubtitle = (party) => {
+    if (!party || typeof party !== 'object') return '';
+    const prefix = String(party.guardian_type || party.care_of || '').trim();
+    const guardianName = String(party.guardian_name || '').trim();
+    if (prefix && guardianName) {
+        const cleanPrefix = prefix.replace(/:\s*$/, '').trim();
+        return `${cleanPrefix} ${guardianName}`;
+    }
+    if (guardianName) return guardianName;
+    if (prefix) return prefix;
+    return '';
+};
+
+const getDiscountPartyProfilePath = (row) => {
+    const type = row?.discount_party?.type || row?.party_type;
+    const username = row?.discount_party?.details?.username || row?.party_id;
+    if (!type || !username) return null;
+
+    const encoded = encodeURIComponent(username);
+    switch (type) {
+        case 'client':
+            return `/client/profile/${encoded}`;
+        case 'ca':
+            return `/staff/office-assistance/ca-profile/${encoded}/profile`;
+        case 'agent':
+            return `/settings/agent-profile/${encoded}/profile`;
+        case 'staff':
+            return `/staff/view/profile/profile?username=${encoded}`;
+        default:
+            return null;
+    }
+};
+
+const getDiscountPartyLabel = (row) => {
+    const party = row?.discount_party;
+    if (!party?.details) return row?.party_id || '—';
+    const d = party.details;
+    if (party.type === 'bank') {
+        return d.bank || d.holder || d.account_no || 'Bank account';
+    }
+    if (party.type === 'capital') {
+        return d.name || d.capital_name || 'Capital account';
+    }
+    return d.name || d.username || row.party_id || '—';
+};
+
+const getDiscountPartyContactLines = (row) => {
+    const party = row?.discount_party;
+    if (!party?.details) return [];
+    const d = party.details;
+    const lines = [];
+
+    if (party.type === 'bank') {
+        if (d.holder && d.holder !== getDiscountPartyLabel(row)) lines.push(d.holder);
+        if (d.account_no) lines.push(`A/c ${d.account_no}`);
+        if (d.ifsc) lines.push(d.ifsc);
+        return lines;
+    }
+
+    if (d.email) lines.push(d.email);
+    if (d.mobile) {
+        lines.push(d.country_code ? `+${d.country_code} ${d.mobile}` : String(d.mobile));
+    }
+    if (party.type === 'capital' && d.remark) lines.push(d.remark);
+    return lines;
+};
+
+const getPartyTypeBadgeClass = (type) => {
+    switch (type) {
+        case 'client':
+            return 'bg-blue-100 text-blue-700';
+        case 'ca':
+            return 'bg-purple-100 text-purple-700';
+        case 'staff':
+            return 'bg-teal-100 text-teal-700';
+        case 'agent':
+            return 'bg-amber-100 text-amber-800';
+        default:
+            return 'bg-slate-100 text-slate-700';
+    }
+};
+
+const formatPartyTypeLabel = (type) => {
+    if (type === 'ca') return 'CA';
+    if (!type) return '—';
+    return type.charAt(0).toUpperCase() + type.slice(1);
+};
+
+const formatCurrency = (amount) => {
+    const value = Number(amount);
+    if (!Number.isFinite(value)) return '0.00';
+    return new Intl.NumberFormat('en-IN', {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+    }).format(value);
+};
+
+const formatDate = (dateString) => {
+    if (!dateString) return '—';
+    const raw = String(dateString).trim().slice(0, 10);
+    if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) {
+        const [year, month, day] = raw.split('-');
+        return `${day}/${month}/${year}`;
+    }
+    const date = new Date(dateString);
+    if (Number.isNaN(date.getTime())) return '—';
+    const day = String(date.getDate()).padStart(2, '0');
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const year = date.getFullYear();
+    return `${day}/${month}/${year}`;
+};
+
+const formatDateTime = (value) => {
+    if (!value) return '—';
+    const d = new Date(value);
+    if (Number.isNaN(d.getTime())) return String(value);
+    return d.toLocaleString('en-IN', {
+        day: '2-digit',
+        month: 'short',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+    });
+};
+
+const DetailRow = ({ label, children }) => (
+    <div className="flex items-start justify-between gap-4 border-b border-slate-100 py-2.5 last:border-0">
+        <span className="shrink-0 text-[11px] font-semibold uppercase tracking-wide text-slate-400">{label}</span>
+        <span className="min-w-0 text-right text-sm text-slate-800">{children}</span>
+    </div>
+);
+
+const DiscountDetailsModal = ({ isOpen, discount, onClose }) => (
+    createPortal(
+        <AnimatePresence>
+            {isOpen && discount ? (
+                <motion.div
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    className="fixed inset-0 z-[10050] flex items-center justify-center overflow-hidden p-3 sm:p-4"
+                >
+                    <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={onClose} aria-hidden />
+                    <motion.div
+                        initial={{ opacity: 0, scale: 0.96 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        exit={{ opacity: 0, scale: 0.96 }}
+                        role="dialog"
+                        aria-modal="true"
+                        className="relative z-[1] flex w-full max-w-lg max-h-[calc(100vh-2rem)] flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl"
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        <div className="shrink-0 flex items-center justify-between gap-2 border-b border-amber-500/25 bg-gradient-to-r from-amber-500 to-amber-600 px-4 py-2.5 text-white">
+                            <div className="flex min-w-0 items-center gap-2">
+                                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-white/15">
+                                    <FiEye className="h-3.5 w-3.5" aria-hidden />
+                                </div>
+                                <h2 className="truncate text-sm font-semibold">{discount.invoice_no || 'Discount entry'}</h2>
+                            </div>
+                            <button
+                                type="button"
+                                onClick={onClose}
+                                className="rounded-lg p-1.5 text-white/80 hover:bg-white/15 hover:text-white"
+                                aria-label="Close"
+                            >
+                                <FiX className="h-4 w-4" />
+                            </button>
+                        </div>
+                        <div className="flex-1 overflow-y-auto px-5 py-4">
+                            <div className="rounded-xl border border-amber-200/80 bg-gradient-to-br from-amber-50 to-white p-4 shadow-sm">
+                                <div className="mb-3 flex items-center justify-between gap-2">
+                                    <span className={`inline-flex rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${getPartyTypeBadgeClass(discount.discount_party?.type || discount.party_type)}`}>
+                                        {formatPartyTypeLabel(discount.discount_party?.type || discount.party_type)}
+                                    </span>
+                                    <span className="text-lg font-bold tabular-nums text-amber-700">
+                                        ₹{formatCurrency(discount.amount)}
+                                    </span>
+                                </div>
+                                <DetailRow label="Party">{getDiscountPartyLabel(discount)}</DetailRow>
+                                {formatCareOfSubtitle(discount.discount_party?.details) ? (
+                                    <DetailRow label="Care of">{formatCareOfSubtitle(discount.discount_party?.details)}</DetailRow>
+                                ) : null}
+                                {getDiscountPartyContactLines(discount).map((line) => (
+                                    <DetailRow key={line} label="Contact">{line}</DetailRow>
+                                ))}
+                                <DetailRow label="Invoice no.">{discount.invoice_no || '—'}</DetailRow>
+                                <DetailRow label="Date">{formatDate(discount.discount_date || discount.transaction_date)}</DetailRow>
+                                <DetailRow label="Remark">
+                                    <span className="block max-w-[14rem] truncate" title={discount.remark || ''}>
+                                        {discount.remark || '—'}
+                                    </span>
+                                </DetailRow>
+                            </div>
+                            <div className="mt-4 rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+                                <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-slate-400">Audit trail</p>
+                                <DetailRow label="Created">
+                                    <span>
+                                        {formatDateTime(discount.create_date)}
+                                        {discount.create_by?.name ? (
+                                            <span className="mt-0.5 block text-xs font-normal text-slate-500">
+                                                by {discount.create_by.name}
+                                            </span>
+                                        ) : null}
+                                    </span>
+                                </DetailRow>
+                                <DetailRow label="Last modified">
+                                    <span>
+                                        {formatDateTime(discount.modify_date)}
+                                        {discount.modify_by?.name ? (
+                                            <span className="mt-0.5 block text-xs font-normal text-slate-500">
+                                                by {discount.modify_by.name}
+                                            </span>
+                                        ) : null}
+                                    </span>
+                                </DetailRow>
+                            </div>
+                        </div>
+                        <div className="shrink-0 flex justify-end border-t border-slate-200 bg-slate-50/90 px-5 py-3">
+                            <button
+                                type="button"
+                                onClick={onClose}
+                                className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50"
+                            >
+                                Close
+                            </button>
+                        </div>
+                    </motion.div>
+                </motion.div>
+            ) : null}
+        </AnimatePresence>,
+        document.body
+    )
+);
+
+const StatCardSkeleton = () => (
+    <div className="animate-pulse rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+        <div className="mb-2 h-3 w-24 rounded bg-slate-200" />
+        <div className="h-6 w-20 rounded bg-slate-200" />
+    </div>
+);
+
+const SkeletonRow = () => (
+    <tr className="border-b border-slate-100 animate-pulse">
+        <td className="p-3 text-center"><div className="mx-auto h-4 w-6 rounded bg-slate-200" /></td>
+        <td className="p-3 text-center"><div className="mx-auto h-4 w-16 rounded bg-slate-200" /></td>
+        <td className="p-3 text-center"><div className="mx-auto h-4 w-20 rounded bg-slate-200" /></td>
+        <td className="p-3"><div className="mx-auto h-4 w-32 rounded bg-slate-200" /></td>
+        <td className="p-3"><div className="mx-auto h-4 w-28 rounded bg-slate-200" /></td>
+        <td className="p-3 text-center"><div className="mx-auto h-5 w-14 rounded-full bg-slate-200" /></td>
+        <td className="p-3 text-right"><div className="ml-auto h-4 w-16 rounded bg-slate-200" /></td>
+        <td className="p-3 text-center"><div className="mx-auto h-8 w-8 rounded bg-slate-200" /></td>
+    </tr>
+);
 
 const DiscountVoucherDetails = () => {
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -25,473 +288,231 @@ const DiscountVoucherDetails = () => {
         const saved = localStorage.getItem('sidebarMinimized');
         return saved ? JSON.parse(saved) : false;
     });
-    const [dateRange, setDateRange] = useState('');
-    const [fromToDate, setFromToDate] = useState('');
-    const [loading, setLoading] = useState(false);
-    const [vouchers, setVouchers] = useState([]);
-    const [totalDiscount, setTotalDiscount] = useState(0);
-    const [showAddVoucherModal, setShowAddVoucherModal] = useState(false);
-    const [activeRowDropdown, setActiveRowDropdown] = useState(null);
-    const [showAddDropdown, setShowAddDropdown] = useState(false);
-    const [exportModal, setExportModal] = useState({ open: false, type: '', data: null });
 
-    const [newVoucherForm, setNewVoucherForm] = useState({
-        invoice_no: '',
-        party_id: '',
-        party_type: '',
-        discount_amount: '',
-        discount_date: new Date().toISOString().split('T')[0],
-        discount_type: 'percentage',
-        discount_percentage: '',
-        reason: '',
-        status: 'active'
+    const [listLoading, setListLoading] = useState(true);
+    const [discounts, setDiscounts] = useState([]);
+    const [stats, setStats] = useState({ count: 0, amount: 0 });
+
+    const [fromDate, setFromDate] = useState(() => {
+        const d = new Date();
+        d.setDate(1);
+        return d.toISOString().split('T')[0];
     });
+    const [toDate, setToDate] = useState(() => new Date().toISOString().split('T')[0]);
 
-    // Mock data for discount vouchers
-    const mockVouchersData = [
-        {
-            id: '1',
-            invoice_no: 'INV-001',
-            party_name: 'Customer A',
-            party_type: 'customer',
-            discount_amount: 1500,
-            original_amount: 15000,
-            discount_date: '2024-01-15',
-            discount_type: 'percentage',
-            discount_percentage: 10,
-            reason: 'Seasonal Discount',
-            status: 'active',
-            created_date: '2024-01-15'
-        },
-        {
-            id: '2',
-            invoice_no: 'INV-002',
-            party_name: 'Vendor B',
-            party_type: 'vendor',
-            discount_amount: 2000,
-            original_amount: 20000,
-            discount_date: '2024-01-14',
-            discount_type: 'fixed',
-            discount_percentage: 0,
-            reason: 'Bulk Purchase',
-            status: 'active',
-            created_date: '2024-01-14'
-        },
-        {
-            id: '3',
-            invoice_no: 'INV-003',
-            party_name: 'Customer C',
-            party_type: 'customer',
-            discount_amount: 750,
-            original_amount: 7500,
-            discount_date: '2024-01-13',
-            discount_type: 'percentage',
-            discount_percentage: 10,
-            reason: 'Loyalty Discount',
-            status: 'active',
-            created_date: '2024-01-13'
-        },
-        {
-            id: '4',
-            invoice_no: 'INV-004',
-            party_name: 'Vendor D',
-            party_type: 'vendor',
-            discount_amount: 3000,
-            original_amount: 30000,
-            discount_date: '2024-01-12',
-            discount_type: 'fixed',
-            discount_percentage: 0,
-            reason: 'Early Payment',
-            status: 'active',
-            created_date: '2024-01-12'
-        },
-        {
-            id: '5',
-            invoice_no: 'INV-005',
-            party_name: 'Customer E',
-            party_type: 'customer',
-            discount_amount: 1200,
-            original_amount: 12000,
-            discount_date: '2024-01-11',
-            discount_type: 'percentage',
-            discount_percentage: 10,
-            reason: 'Festival Offer',
-            status: 'active',
-            created_date: '2024-01-11'
-        },
-        {
-            id: '6',
-            invoice_no: 'INV-006',
-            party_name: 'Vendor F',
-            party_type: 'vendor',
-            discount_amount: 2500,
-            original_amount: 25000,
-            discount_date: '2024-01-10',
-            discount_type: 'fixed',
-            discount_percentage: 0,
-            reason: 'Contract Discount',
-            status: 'active',
-            created_date: '2024-01-10'
-        },
-        {
-            id: '7',
-            invoice_no: 'INV-007',
-            party_name: 'Customer G',
-            party_type: 'customer',
-            discount_amount: 1800,
-            original_amount: 18000,
-            discount_date: '2024-01-09',
-            discount_type: 'percentage',
-            discount_percentage: 10,
-            reason: 'Promotional Offer',
-            status: 'active',
-            created_date: '2024-01-09'
-        },
-        {
-            id: '8',
-            invoice_no: 'INV-008',
-            party_name: 'Vendor H',
-            party_type: 'vendor',
-            discount_amount: 4000,
-            original_amount: 40000,
-            discount_date: '2024-01-08',
-            discount_type: 'fixed',
-            discount_percentage: 0,
-            reason: 'Long Term Contract',
-            status: 'active',
-            created_date: '2024-01-08'
-        },
-        {
-            id: '9',
-            invoice_no: 'INV-009',
-            party_name: 'Customer I',
-            party_type: 'customer',
-            discount_amount: 2200,
-            original_amount: 22000,
-            discount_date: '2024-01-07',
-            discount_type: 'percentage',
-            discount_percentage: 10,
-            reason: 'New Customer Offer',
-            status: 'active',
-            created_date: '2024-01-07'
-        }
-    ];
+    const [searchTerm, setSearchTerm] = useState('');
+    const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
 
-    // Mock parties data
-    const mockParties = [
-        { id: '1', name: 'Customer A', type: 'customer' },
-        { id: '2', name: 'Customer B', type: 'customer' },
-        { id: '3', name: 'Vendor C', type: 'vendor' },
-        { id: '4', name: 'Vendor D', type: 'vendor' },
-        { id: '5', name: 'Customer E', type: 'customer' }
-    ];
+    const [currentPage, setCurrentPage] = useState(1);
+    const [itemsPerPage, setItemsPerPage] = useState(20);
+    const [totalPages, setTotalPages] = useState(1);
+    const [totalRecords, setTotalRecords] = useState(0);
+    const [isLastPage, setIsLastPage] = useState(false);
 
-    // Persist sidebar minimized state
+    const [showCreateModal, setShowCreateModal] = useState(false);
+    const [editModalOpen, setEditModalOpen] = useState(false);
+    const [editRecord, setEditRecord] = useState(null);
+    const [detailsOpen, setDetailsOpen] = useState(false);
+    const [detailsRecord, setDetailsRecord] = useState(null);
+    const [activeRowDropdown, setActiveRowDropdown] = useState(null);
+    const [dropdownPos, setDropdownPos] = useState({ top: 0, left: undefined, right: 0, bottom: undefined, openUpward: false });
+    const actionAnchorRef = useRef(null);
+    const dropdownModeRef = useRef('button');
+
+    const emptySummary = { totalCredit: 0, totalDebit: 0 };
+
+    useEffect(() => {
+        const timer = setTimeout(() => setDebouncedSearchTerm(searchTerm), 500);
+        return () => clearTimeout(timer);
+    }, [searchTerm]);
+
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [debouncedSearchTerm, fromDate, toDate, itemsPerPage]);
+
     useEffect(() => {
         localStorage.setItem('sidebarMinimized', JSON.stringify(isMinimized));
     }, [isMinimized]);
 
-    // Lock body scroll when mobile sidebar is open
     useEffect(() => {
-        if (mobileMenuOpen) {
-            document.body.style.overflow = 'hidden';
-        } else {
-            document.body.style.overflow = 'auto';
-        }
+        document.body.style.overflow = mobileMenuOpen ? 'hidden' : '';
         return () => {
-            document.body.style.overflow = 'auto';
+            document.body.style.overflow = '';
         };
     }, [mobileMenuOpen]);
 
-    // Initialize with current month date range
+    const fetchDiscounts = useCallback(async () => {
+        if (!fromDate || !toDate) return;
+
+        setListLoading(true);
+        try {
+            const headers = getHeaders();
+            const params = {
+                page_no: currentPage,
+                limit: itemsPerPage,
+                from_date: fromDate,
+                to_date: toDate,
+            };
+            if (debouncedSearchTerm.trim()) {
+                params.search = debouncedSearchTerm.trim();
+            }
+
+            const response = await axios.get(`${API_BASE_URL}/expense/discount/list`, { headers, params });
+
+            if (response.data?.success) {
+                const rows = response.data.data || [];
+                setDiscounts(rows);
+                setStats({
+                    count: Number(response.data.stats?.count) || 0,
+                    amount: Number(response.data.stats?.amount) || 0,
+                });
+
+                const pagination = response.data.pagination || {};
+                const total = Number(pagination.total) || 0;
+                const limit = Number(pagination.limit) || itemsPerPage;
+                setTotalRecords(total);
+                setTotalPages(Math.max(1, Math.ceil(total / (limit || 1))));
+                setIsLastPage(Boolean(pagination.is_last_page));
+            } else {
+                setDiscounts([]);
+                setStats({ count: 0, amount: 0 });
+                setTotalRecords(0);
+                setTotalPages(1);
+                setIsLastPage(true);
+            }
+        } catch (error) {
+            console.error('Error fetching discounts:', error);
+            toast.error('Failed to load discount entries');
+            setDiscounts([]);
+            setStats({ count: 0, amount: 0 });
+            setTotalRecords(0);
+            setTotalPages(1);
+            setIsLastPage(true);
+        } finally {
+            setListLoading(false);
+        }
+    }, [fromDate, toDate, currentPage, itemsPerPage, debouncedSearchTerm]);
+
     useEffect(() => {
-        const today = new Date();
-        const firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
-        const lastDay = today;
+        fetchDiscounts();
+    }, [fetchDiscounts]);
 
-        const formatDate = (date) => {
-            return date.toLocaleDateString('en-GB', {
-                day: '2-digit',
-                month: '2-digit',
-                year: 'numeric'
-            }).replace(/\//g, '/');
-        };
+    const handlePageChange = (page) => {
+        setCurrentPage(page);
+    };
 
-        const from = formatDate(firstDay);
-        const to = formatDate(lastDay);
+    const handleDiscountSuccess = () => {
+        fetchDiscounts();
+    };
 
-        setDateRange(`${from} - ${to}`);
-        setFromToDate(`From ${from} to ${to}`);
-        fetchVouchersData(from, to);
+    const openEditModal = (row) => {
+        setEditRecord(row);
+        setEditModalOpen(true);
+        setActiveRowDropdown(null);
+        actionAnchorRef.current = null;
+    };
+
+    const closeEditModal = () => {
+        setEditModalOpen(false);
+        setEditRecord(null);
+    };
+
+    const openDetails = (row) => {
+        setDetailsRecord(row);
+        setDetailsOpen(true);
+        setActiveRowDropdown(null);
+        actionAnchorRef.current = null;
+    };
+
+    const closeDetails = () => {
+        setDetailsOpen(false);
+        setDetailsRecord(null);
+    };
+
+    const updateDropdownPosition = useCallback((anchorEl) => {
+        if (!anchorEl) return;
+        const rect = anchorEl.getBoundingClientRect();
+        const spaceBelow = window.innerHeight - rect.bottom;
+        const openUpward = spaceBelow < ACTIONS_MENU_HEIGHT + 8;
+        setDropdownPos({
+            top: openUpward ? undefined : rect.bottom + 4,
+            left: undefined,
+            bottom: openUpward ? window.innerHeight - rect.top + 4 : undefined,
+            right: window.innerWidth - rect.right,
+            openUpward,
+        });
     }, []);
 
-    // Format currency
-    const formatCurrency = (amount) => {
-        return new Intl.NumberFormat('en-IN', {
-            minimumFractionDigits: 2,
-            maximumFractionDigits: 2
-        }).format(amount);
-    };
-
-    // Format date
-    const formatDate = (dateString) => {
-        return new Date(dateString).toLocaleDateString('en-GB', {
-            day: '2-digit',
-            month: 'short',
-            year: 'numeric'
-        });
-    };
-
-    // Simulate API call to fetch vouchers data
-    const fetchVouchersData = async (from, to) => {
-        setLoading(true);
-
-        setTimeout(() => {
-            const vouchersData = mockVouchersData;
-            setVouchers(vouchersData);
-
-            const total = vouchersData.reduce((acc, item) => acc + item.discount_amount, 0);
-            setTotalDiscount(total);
-            setLoading(false);
-        }, 1500);
-    };
-
-    // Handle search
-    const handleSearch = () => {
-        const [from, to] = dateRange.split(' - ');
-        setFromToDate(`From ${from} to ${to}`);
-        fetchVouchersData(from, to);
-    };
-
-    // Handle date filter change
-    const handleDateFilterChange = (filter) => {
-        console.log('Selected filter:', filter);
-        if (filter.range) {
-            setDateRange(filter.range);
-            const [from, to] = filter.range.split(' - ');
-            setFromToDate(`From ${from} to ${to}`);
-            fetchVouchersData(from, to);
-        }
-    };
-
-    // Handle form input changes
-    const handleInputChange = (e) => {
-        const { name, value } = e.target;
-        setNewVoucherForm(prev => ({
-            ...prev,
-            [name]: value
-        }));
-
-        // Auto-calculate discount amount if percentage and original amount are provided
-        if (name === 'discount_percentage' && newVoucherForm.original_amount) {
-            const discountAmount = (parseFloat(newVoucherForm.original_amount) * parseFloat(value)) / 100;
-            setNewVoucherForm(prev => ({
-                ...prev,
-                discount_amount: discountAmount.toFixed(2)
-            }));
-        }
-    };
-
-    // Handle new voucher form submission
-    const handleCreateVoucher = async (e) => {
-        e.preventDefault();
-        setLoading(true);
-
-        setTimeout(() => {
-            console.log('Creating new discount voucher:', newVoucherForm);
-            
-            // Add new voucher to the list
-            const newVoucher = {
-                id: (vouchers.length + 1).toString(),
-                invoice_no: newVoucherForm.invoice_no,
-                party_name: mockParties.find(p => p.id === newVoucherForm.party_id)?.name || 'Unknown',
-                party_type: newVoucherForm.party_type,
-                discount_amount: parseFloat(newVoucherForm.discount_amount),
-                original_amount: parseFloat(newVoucherForm.original_amount) || 0,
-                discount_date: newVoucherForm.discount_date,
-                discount_type: newVoucherForm.discount_type,
-                discount_percentage: parseFloat(newVoucherForm.discount_percentage) || 0,
-                reason: newVoucherForm.reason,
-                status: 'active',
-                created_date: new Date().toISOString().split('T')[0]
-            };
-
-            setVouchers(prev => [...prev, newVoucher]);
-            setNewVoucherForm({
-                invoice_no: '',
-                party_id: '',
-                party_type: '',
-                discount_amount: '',
-                discount_date: new Date().toISOString().split('T')[0],
-                discount_type: 'percentage',
-                discount_percentage: '',
-                reason: '',
-                status: 'active'
-            });
-            setShowAddVoucherModal(false);
-
-            const [from, to] = dateRange.split(' - ');
-            fetchVouchersData(from, to);
-
-            alert('Discount voucher created successfully!');
-        }, 1000);
-    };
-
-    // Handle export
-    const handleExport = (type, data = null) => {
-        setExportModal({ open: true, type, data });
-        
-        // Simulate export process
-        setTimeout(() => {
-            setExportModal({ open: false, type: '', data: null });
-            alert(`${type.toUpperCase()} export completed successfully!`);
-        }, 1500);
-    };
-
-    // Handle voucher deletion
-    const handleDeleteVoucher = (voucherId) => {
-        if (window.confirm('Are you sure you want to delete this discount voucher?')) {
-            setVouchers(prev => prev.filter(voucher => voucher.id !== voucherId));
+    const openActionsFromButton = (e, discountId) => {
+        e.stopPropagation();
+        if (activeRowDropdown === discountId) {
             setActiveRowDropdown(null);
-            alert('Discount voucher deleted successfully!');
+            actionAnchorRef.current = null;
+            return;
         }
+        dropdownModeRef.current = 'button';
+        actionAnchorRef.current = e.currentTarget;
+        updateDropdownPosition(e.currentTarget);
+        setActiveRowDropdown(discountId);
     };
 
-    // Toggle row dropdown
-    const toggleRowDropdown = (voucherId) => {
-        setActiveRowDropdown(activeRowDropdown === voucherId ? null : voucherId);
+    const openActionsFromContextMenu = (e, discountId) => {
+        e.preventDefault();
+        e.stopPropagation();
+        dropdownModeRef.current = 'pointer';
+        actionAnchorRef.current = null;
+        const margin = 8;
+        const left = Math.min(e.clientX, window.innerWidth - ACTIONS_MENU_WIDTH - margin);
+        const top = Math.min(e.clientY, window.innerHeight - ACTIONS_MENU_HEIGHT - margin);
+        setDropdownPos({
+            top,
+            left,
+            right: undefined,
+            bottom: undefined,
+            openUpward: false,
+        });
+        setActiveRowDropdown(discountId);
     };
 
-    // Close all dropdowns when clicking outside
+    const activeDiscount = useMemo(
+        () => discounts.find((d) => d.discount_id === activeRowDropdown) || null,
+        [discounts, activeRowDropdown]
+    );
+
     useEffect(() => {
         const handleClickOutside = (event) => {
-            if (!event.target.closest('.dropdown-container')) {
-                setShowAddDropdown(false);
+            if (
+                !event.target.closest('[data-discount-actions-menu]') &&
+                !event.target.closest('[data-discount-actions-trigger]')
+            ) {
+                setActiveRowDropdown(null);
+                actionAnchorRef.current = null;
+            }
+        };
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, []);
+
+    useEffect(() => {
+        if (!activeRowDropdown) return undefined;
+
+        const handleScrollOrResize = () => {
+            if (dropdownModeRef.current === 'button' && actionAnchorRef.current) {
+                updateDropdownPosition(actionAnchorRef.current);
+                return;
+            }
+            if (dropdownModeRef.current === 'pointer') {
                 setActiveRowDropdown(null);
             }
         };
 
-        document.addEventListener('mousedown', handleClickOutside);
+        window.addEventListener('scroll', handleScrollOrResize, true);
+        window.addEventListener('resize', handleScrollOrResize);
         return () => {
-            document.removeEventListener('mousedown', handleClickOutside);
+            window.removeEventListener('scroll', handleScrollOrResize, true);
+            window.removeEventListener('resize', handleScrollOrResize);
         };
-    }, []);
-
-    // Get party type color
-    const getPartyTypeColor = (type) => {
-        switch(type) {
-            case 'customer': return 'bg-green-100 text-green-700';
-            case 'vendor': return 'bg-blue-100 text-blue-700';
-            default: return 'bg-slate-100 text-slate-700';
-        }
-    };
-
-    // Get discount type color
-    const getDiscountTypeColor = (type) => {
-        switch(type) {
-            case 'percentage': return 'bg-purple-100 text-purple-700';
-            case 'fixed': return 'bg-orange-100 text-orange-700';
-            default: return 'bg-slate-100 text-slate-700';
-        }
-    };
-
-    // Skeleton loader component
-    const SkeletonRow = () => (
-        <tr className="border-b border-slate-100 animate-pulse">
-            <td className="p-3 text-center">
-                <div className="h-4 bg-slate-200 rounded w-6 mx-auto"></div>
-            </td>
-            <td className="p-3 text-center">
-                <div className="h-4 bg-slate-200 rounded w-16 mx-auto"></div>
-            </td>
-            <td className="p-3 text-center">
-                <div className="h-4 bg-slate-200 rounded w-24 mx-auto"></div>
-            </td>
-            <td className="p-3 text-center">
-                <div className="h-4 bg-slate-200 rounded w-16 mx-auto"></div>
-            </td>
-            <td className="p-3 text-center">
-                <div className="h-6 bg-slate-200 rounded w-16 mx-auto"></div>
-            </td>
-            <td className="p-3 text-center">
-                <div className="h-6 bg-slate-200 rounded w-16 mx-auto"></div>
-            </td>
-            <td className="p-3 text-center">
-                <div className="h-4 bg-slate-200 rounded w-20 mx-auto"></div>
-            </td>
-            <td className="p-3 text-center">
-                <div className="h-6 bg-slate-200 rounded w-10 mx-auto"></div>
-            </td>
-        </tr>
-    );
-
-    // Skeleton Loading Component for full page
-    const SkeletonLoader = () => (
-        <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
-            <Header
-                mobileMenuOpen={mobileMenuOpen}
-                setMobileMenuOpen={setMobileMenuOpen}
-                isMinimized={isMinimized}
-                setIsMinimized={setIsMinimized}
-            />
-            <Sidebar
-                mobileMenuOpen={mobileMenuOpen}
-                setMobileMenuOpen={setMobileMenuOpen}
-                isMinimized={isMinimized}
-                setIsMinimized={setIsMinimized}
-            />
-
-            <div className={`pt-16 transition-all duration-300 ease-in-out ${isMinimized ? 'md:pl-20' : 'md:pl-[260px]'}`}>
-                <div className="max-w-full mx-auto px-4 sm:px-6 lg:px-8 py-6">
-                    <div className="bg-white rounded-xl shadow-sm border border-slate-200">
-                        {/* Skeleton Header */}
-                        <div className="border-b border-slate-200 px-6 py-4">
-                            <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
-                                <div>
-                                    <div className="h-6 bg-gray-200 rounded w-48 mb-2"></div>
-                                    <div className="h-4 bg-gray-200 rounded w-32"></div>
-                                </div>
-                                <div className="flex gap-3">
-                                    <div className="h-10 bg-gray-200 rounded w-40"></div>
-                                    <div className="h-10 bg-gray-200 rounded w-32"></div>
-                                </div>
-                            </div>
-                        </div>
-
-                        {/* Skeleton Table */}
-                        <div className="overflow-hidden">
-                            <div className="border-b border-slate-200">
-                                <table className="w-full text-sm">
-                                    <thead className="bg-gradient-to-r from-slate-50 to-slate-100">
-                                        <tr>
-                                            {[...Array(8)].map((_, i) => (
-                                                <th key={i} className="text-center p-3">
-                                                    <div className="h-4 bg-gray-200 rounded w-20 mx-auto"></div>
-                                                </th>
-                                            ))}
-                                        </tr>
-                                    </thead>
-                                </table>
-                            </div>
-
-                            <div className="p-4">
-                                {[...Array(6)].map((_, index) => (
-                                    <div key={index} className="mb-4">
-                                        <div className="h-12 bg-gray-100 rounded"></div>
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    );
-
-    // Show skeleton while loading
-    if (loading) {
-        return <SkeletonLoader />;
-    }
+    }, [activeRowDropdown, updateDropdownPosition]);
 
     return (
         <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
@@ -508,319 +529,238 @@ const DiscountVoucherDetails = () => {
                 setIsMinimized={setIsMinimized}
             />
 
-            {/* Main Content Area - Full Page Scroll */}
             <div className={`pt-16 transition-all duration-300 ease-in-out ${isMinimized ? 'md:pl-20' : 'md:pl-[260px]'}`}>
                 <div className="max-w-full mx-auto px-4 sm:px-6 lg:px-8 py-6">
-                    {/* Header Stats Card - Smaller */}
-                    <motion.div 
-                        initial={{ opacity: 0, y: 10 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ duration: 0.2 }}
-                        className="bg-gradient-to-r from-blue-500 to-blue-600 rounded-lg p-4 text-white shadow-md mb-4"
-                    >
-                        <div className="flex items-center justify-between">
-                            <div>
-                                <p className="text-blue-100 text-xs font-medium">Total Discount Given</p>
-                                <h3 className="text-lg font-bold mt-1">₹{formatCurrency(totalDiscount)}</h3>
-                            </div>
-                            <FiTag className="w-5 h-5 opacity-80" />
-                        </div>
-                    </motion.div>
+                    <div className="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
+                        {listLoading && discounts.length === 0 ? (
+                            <>
+                                <StatCardSkeleton />
+                                <StatCardSkeleton />
+                            </>
+                        ) : (
+                            <>
+                                <motion.div
+                                    initial={{ opacity: 0, y: 10 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    transition={{ duration: 0.2 }}
+                                    className="rounded-lg bg-gradient-to-r from-amber-500 to-amber-600 p-4 text-white shadow-md"
+                                >
+                                    <div className="flex items-center justify-between">
+                                        <div>
+                                            <p className="text-xs font-medium text-amber-100">Discount entries</p>
+                                            <h3 className="mt-1 text-lg font-bold tabular-nums">{stats.count}</h3>
+                                        </div>
+                                        <FiTag className="h-5 w-5 shrink-0 opacity-80" />
+                                    </div>
+                                </motion.div>
 
-                    {/* Main Card */}
-                    <motion.div 
+                                <motion.div
+                                    initial={{ opacity: 0, y: 10 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    transition={{ duration: 0.2, delay: 0.05 }}
+                                    className="rounded-lg bg-gradient-to-r from-orange-500 to-orange-600 p-4 text-white shadow-md"
+                                >
+                                    <div className="flex items-center justify-between">
+                                        <div>
+                                            <p className="text-xs font-medium text-orange-100">Total discount</p>
+                                            <h3 className="mt-1 text-lg font-bold tabular-nums">₹{formatCurrency(stats.amount)}</h3>
+                                        </div>
+                                        <TbCurrencyRupee className="h-5 w-5 shrink-0 opacity-80" />
+                                    </div>
+                                </motion.div>
+                            </>
+                        )}
+                    </div>
+
+                    <motion.div
                         initial={{ opacity: 0, scale: 0.98 }}
                         animate={{ opacity: 1, scale: 1 }}
                         transition={{ duration: 0.3 }}
-                        className="bg-white rounded-xl shadow-lg border border-slate-200"
+                        className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-lg"
                     >
-                        {/* Card Header */}
-                        <div className="border-b border-slate-200 px-6 py-4 bg-gradient-to-r from-slate-50 to-white sticky top-0 z-10">
-                            <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
-                                <div>
-                                    <div className="flex items-center gap-2 mb-1">
-                                        <div className="p-1.5 bg-blue-100 rounded-lg">
-                                            <FiTag className="w-4 h-4 text-blue-600" />
-                                        </div>
-                                        <h5 className="text-lg font-bold text-slate-800">
-                                            Discount Voucher Register
-                                        </h5>
+                        <div className="sticky top-0 z-10 border-b border-slate-200 bg-gradient-to-r from-slate-50 to-white px-3 py-2.5 sm:px-4">
+                            <div className="flex min-w-0 flex-col gap-2 xl:flex-row xl:items-center xl:justify-between xl:gap-3">
+                                <div className="flex shrink-0 items-center gap-2">
+                                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-amber-100">
+                                        <FiTag className="h-4 w-4 text-amber-600" />
                                     </div>
-                                    {fromToDate && (
-                                        <div className="flex items-center gap-1 text-slate-600">
-                                            <FiFilter className="w-3 h-3" />
-                                            <p className="text-xs font-medium">
-                                                {fromToDate}
-                                            </p>
-                                        </div>
-                                    )}
+                                    <h5 className="shrink-0 text-sm font-bold tracking-tight text-slate-800 sm:text-base">
+                                        Discount Register
+                                    </h5>
                                 </div>
-
-                                <div className="flex flex-col lg:flex-row gap-3 w-full lg:w-auto">
-                                    {/* Date Filter Component */}
-                                    <div className="w-full lg:w-auto">
-                                        <DateFilter onChange={handleDateFilterChange} />
+                                <div className="flex min-w-0 flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:justify-end sm:gap-2">
+                                    <div className="relative ml-auto w-full min-w-0 sm:ml-0 sm:w-60">
+                                        <FiSearch className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                                        <input
+                                            type="text"
+                                            value={searchTerm}
+                                            onChange={(e) => setSearchTerm(e.target.value)}
+                                            placeholder="Search invoice, party, remark, amount…"
+                                            className="h-9 w-full rounded-lg border border-slate-300 bg-white pl-9 pr-3 text-sm transition-all focus:border-transparent focus:outline-none focus:ring-2 focus:ring-amber-500"
+                                        />
                                     </div>
-
-                                    <div className="flex gap-2">
-                                        {/* Export Dropdown */}
-                                        <div className="dropdown-container relative">
-                                            <motion.button
-                                                onClick={() => setShowAddDropdown(!showAddDropdown)}
-                                                className="px-4 py-2.5 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white rounded-lg text-xs font-semibold transition-all duration-200 flex items-center gap-2 shadow-sm hover:shadow"
-                                                whileHover={{ scale: 1.02 }}
-                                                whileTap={{ scale: 0.98 }}
-                                            >
-                                                <PiExportBold className="w-4 h-4" />
-                                                Export
-                                                <FiChevronRight className={`w-3 h-3 transition-transform ${showAddDropdown ? 'rotate-90' : ''}`} />
-                                            </motion.button>
-
-                                            <AnimatePresence>
-                                                {showAddDropdown && (
-                                                    <motion.div
-                                                        initial={{ opacity: 0, y: 5 }}
-                                                        animate={{ opacity: 1, y: 0 }}
-                                                        exit={{ opacity: 0, y: 5 }}
-                                                        className="absolute right-0 mt-1 w-56 bg-white rounded-lg shadow-xl border border-slate-200 z-50 overflow-hidden"
-                                                    >
-                                                        <div className="py-1">
-                                                            <button
-                                                                onClick={() => handleExport('pdf')}
-                                                                className="flex items-center w-full px-3 py-2 text-sm text-slate-700 hover:bg-blue-50 transition-all duration-150 group"
-                                                            >
-                                                                <div className="p-1.5 bg-red-50 rounded mr-2 group-hover:bg-red-100 transition-colors">
-                                                                    <PiFilePdfDuotone className="w-3.5 h-3.5 text-red-500" />
-                                                                </div>
-                                                                <div className="text-left">
-                                                                    <div className="font-medium text-xs">Export as PDF</div>
-                                                                </div>
-                                                            </button>
-                                                            <button
-                                                                onClick={() => handleExport('excel')}
-                                                                className="flex items-center w-full px-3 py-2 text-sm text-slate-700 hover:bg-blue-50 transition-all duration-150 group"
-                                                            >
-                                                                <div className="p-1.5 bg-green-50 rounded mr-2 group-hover:bg-green-100 transition-colors">
-                                                                    <PiMicrosoftExcelLogoDuotone className="w-3.5 h-3.5 text-green-500" />
-                                                                </div>
-                                                                <div className="text-left">
-                                                                    <div className="font-medium text-xs">Export as Excel</div>
-                                                                </div>
-                                                            </button>
-                                                            <button
-                                                                onClick={() => handleExport('print')}
-                                                                className="flex items-center w-full px-3 py-2 text-sm text-slate-700 hover:bg-blue-50 transition-all duration-150 group"
-                                                            >
-                                                                <div className="p-1.5 bg-slate-50 rounded mr-2 group-hover:bg-slate-100 transition-colors">
-                                                                    <FiPrinter className="w-3.5 h-3.5 text-slate-600" />
-                                                                </div>
-                                                                <div className="text-left">
-                                                                    <div className="font-medium text-xs">Print Report</div>
-                                                                </div>
-                                                            </button>
-                                                        </div>
-                                                    </motion.div>
-                                                )}
-                                            </AnimatePresence>
-                                        </div>
-
-                                        {/* Add Voucher Button */}
-                                        <motion.button
-                                            onClick={() => setShowAddVoucherModal(true)}
-                                            className="px-4 py-2.5 bg-gradient-to-r from-emerald-600 to-emerald-700 hover:from-emerald-700 hover:to-emerald-800 text-white rounded-lg text-xs font-semibold transition-all duration-200 flex items-center gap-2 shadow-sm hover:shadow"
-                                            whileHover={{ scale: 1.02 }}
-                                            whileTap={{ scale: 0.98 }}
-                                        >
-                                            <FiPlus className="w-4 h-4" />
-                                            Add Voucher
-                                        </motion.button>
+                                    <div className="w-full min-w-0 sm:w-56">
+                                        <DateRangePickerField
+                                            value={{ start: fromDate, end: toDate }}
+                                            onChange={(range) => {
+                                                setFromDate(range?.start || '');
+                                                setToDate(range?.end || '');
+                                            }}
+                                            placeholder="Select date range"
+                                            mode="range"
+                                            initialTab="quick"
+                                            defaultQuickKey="tm"
+                                            quickOptionKeys={['tw', 'lw', 'lm', 'tm', 'lf', 'fy']}
+                                            showRangeHint={false}
+                                            showResetButton={false}
+                                            truncateRangeLabel={false}
+                                            buttonClassName="w-full h-9 min-w-0 px-3 bg-white border border-slate-200 rounded-lg text-sm text-slate-600 hover:border-amber-400 focus:outline-none transition-all"
+                                            wrapperClassName="w-full min-w-0"
+                                        />
                                     </div>
+                                    <motion.button
+                                        type="button"
+                                        onClick={() => setShowCreateModal(true)}
+                                        className="inline-flex h-9 shrink-0 items-center justify-center gap-1.5 rounded-lg bg-gradient-to-r from-amber-600 to-amber-700 px-3 text-sm font-semibold text-white shadow-sm transition-all hover:from-amber-700 hover:to-amber-800 sm:h-10 sm:px-4"
+                                        whileHover={{ scale: 1.02 }}
+                                        whileTap={{ scale: 0.98 }}
+                                    >
+                                        <FiPlus className="h-4 w-4 shrink-0" />
+                                        <span className="whitespace-nowrap">Add Discount</span>
+                                    </motion.button>
                                 </div>
                             </div>
                         </div>
 
-                        {/* Table Container */}
-                        <div className="w-full">
-                            <table className="w-full text-xs table-fixed">
+                        <div className="overflow-x-auto">
+                            <table className="w-full min-w-[820px] text-sm">
                                 <thead>
                                     <tr className="bg-gradient-to-r from-slate-50 to-slate-100">
-                                        <th className="text-center p-3 font-semibold text-slate-700 text-[10px] uppercase tracking-wider w-[5%]">
-                                            Sl No
-                                        </th>
-                                        <th className="text-center p-3 font-semibold text-slate-700 text-[10px] uppercase tracking-wider w-[10%]">
-                                            Invoice No
-                                        </th>
-                                        <th className="text-center p-3 font-semibold text-slate-700 text-[10px] uppercase tracking-wider w-[20%]">
-                                            Party Details
-                                        </th>
-                                        <th className="text-center p-3 font-semibold text-slate-700 text-[10px] uppercase tracking-wider w=[10%]">
-                                            Party Type
-                                        </th>
-                                        <th className="text-center p-3 font-semibold text-slate-700 text-[10px] uppercase tracking-wider w=[15%]">
-                                            Original Amount
-                                        </th>
-                                        <th className="text-center p-3 font-semibold text-slate-700 text-[10px] uppercase tracking-wider w=[15%]">
-                                            Discount Amount
-                                        </th>
-                                        <th className="text-center p-3 font-semibold text-slate-700 text-[10px] uppercase tracking-wider w=[10%]">
-                                            Date
-                                        </th>
-                                        <th className="text-center p-3 font-semibold text-slate-700 text-[10px] uppercase tracking-wider w=[15%]">
-                                            Actions
-                                        </th>
+                                        <th className="w-12 p-2.5 text-center text-xs font-semibold uppercase tracking-wider text-slate-700">#</th>
+                                        <th className="w-28 p-2.5 text-center text-xs font-semibold uppercase tracking-wider text-slate-700">Date</th>
+                                        <th className="w-28 p-2.5 text-center text-xs font-semibold uppercase tracking-wider text-slate-700">Invoice</th>
+                                        <th className="min-w-[180px] p-2.5 text-left text-xs font-semibold uppercase tracking-wider text-slate-700">Party</th>
+                                        <th className="min-w-[180px] p-2.5 text-left text-xs font-semibold uppercase tracking-wider text-slate-700">Contact</th>
+                                        <th className="w-24 p-2.5 text-center text-xs font-semibold uppercase tracking-wider text-slate-700">Type</th>
+                                        <th className="w-28 p-2.5 text-right text-xs font-semibold uppercase tracking-wider text-slate-700">Amount</th>
+                                        <th className="w-16 p-2.5 text-center text-xs font-semibold uppercase tracking-wider text-slate-700">Actions</th>
                                     </tr>
                                 </thead>
-                                <tbody className="bg-white divide-y divide-slate-100">
-                                    {vouchers.length === 0 ? (
+                                <tbody className="divide-y divide-slate-100 bg-white">
+                                    {listLoading ? (
+                                        [...Array(6)].map((_, i) => <SkeletonRow key={`sk-${i}`} />)
+                                    ) : discounts.length === 0 ? (
                                         <tr>
-                                            <td colSpan="8" className="text-center py-8 text-slate-500">
-                                                <div className="flex flex-col items-center justify-center">
-                                                    <div className="p-3 bg-slate-100 rounded-full mb-3">
-                                                        <FiTag className="w-8 h-8 text-slate-400" />
+                                            <td colSpan={8} className="py-12 text-center text-slate-500">
+                                                <div className="flex flex-col items-center gap-3">
+                                                    <div className="rounded-full bg-slate-100 p-3">
+                                                        <FiTag className="h-8 w-8 text-slate-400" />
                                                     </div>
-                                                    <p className="text-slate-600 text-sm font-medium mb-1">No discount vouchers found</p>
-                                                    <p className="text-slate-500 text-xs mb-4">Start by creating your first discount voucher</p>
-                                                    <motion.button 
-                                                        onClick={() => setShowAddVoucherModal(true)}
-                                                        className="px-4 py-2 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-lg text-xs font-semibold hover:shadow transition-all duration-200"
-                                                        whileHover={{ scale: 1.02 }}
-                                                        whileTap={{ scale: 0.98 }}
+                                                    <p className="text-sm font-medium text-slate-600">No discount entries found</p>
+                                                    <p className="text-xs text-slate-500">Try adjusting the date range or create a new discount</p>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setShowCreateModal(true)}
+                                                        className="mt-1 rounded-lg bg-amber-600 px-4 py-2 text-sm font-semibold text-white hover:bg-amber-700"
                                                     >
-                                                        Create Your First Voucher
-                                                    </motion.button>
+                                                        Add Discount
+                                                    </button>
                                                 </div>
                                             </td>
                                         </tr>
                                     ) : (
-                                        vouchers.map((voucher, index) => {
-                                            const isDropdownOpen = activeRowDropdown === voucher.id;
+                                        discounts.map((row, index) => {
+                                            const slNo = (currentPage - 1) * itemsPerPage + index + 1;
+                                            const partyType = row.discount_party?.type || row.party_type;
+                                            const contactLines = getDiscountPartyContactLines(row);
+                                            const profilePath = getDiscountPartyProfilePath(row);
+                                            const careOfLine = formatCareOfSubtitle(row.discount_party?.details);
 
                                             return (
                                                 <motion.tr
-                                                    key={voucher.id}
+                                                    key={row.discount_id}
                                                     initial={{ opacity: 0 }}
                                                     animate={{ opacity: 1 }}
                                                     transition={{ duration: 0.15 }}
-                                                    className="hover:bg-blue-50/20 transition-colors duration-150"
+                                                    className="transition-colors hover:bg-amber-50/25"
+                                                    onContextMenu={(e) => openActionsFromContextMenu(e, row.discount_id)}
                                                 >
-                                                    <td className="text-center p-3 align-middle">
-                                                        <div className="text-slate-700 font-medium text-xs">
-                                                            {index + 1}
-                                                        </div>
+                                                    <td className="p-2.5 text-center align-middle text-sm tabular-nums text-slate-600">{slNo}</td>
+                                                    <td className="whitespace-nowrap p-2.5 text-center align-middle text-sm text-slate-700">
+                                                        {formatDate(row.discount_date || row.transaction_date)}
                                                     </td>
-                                                    <td className="text-center p-3 align-middle">
-                                                        <span className="inline-flex items-center justify-center bg-gradient-to-r from-slate-100 to-slate-200 text-slate-800 font-bold px-3 py-1.5 rounded text-xs border border-slate-300/50">
-                                                            {voucher.invoice_no}
+                                                    <td className="p-2.5 text-center align-middle">
+                                                        <span className="inline-flex rounded bg-slate-100 px-2 py-1 text-xs font-semibold text-slate-800">
+                                                            {row.invoice_no || '—'}
                                                         </span>
                                                     </td>
-                                                    <td className="text-center p-3 align-middle">
-                                                        <div className="px-2">
-                                                            <div className="text-slate-800 font-semibold text-xs truncate">
-                                                                {voucher.party_name}
-                                                            </div>
-                                                            <div className="text-slate-500 text-[10px] italic truncate mt-1">
-                                                                "{voucher.reason}"
-                                                            </div>
-                                                        </div>
-                                                    </td>
-                                                    <td className="text-center p-3 align-middle">
-                                                        <div className="flex flex-col items-center gap-1">
-                                                            <span className={`px-2 py-1.5 rounded-full text-[9px] font-medium capitalize whitespace-nowrap ${getPartyTypeColor(voucher.party_type)}`}>
-                                                                {voucher.party_type}
-                                                            </span>
-                                                            <span className={`px-1.5 py-1 rounded-full text-[8px] font-medium capitalize ${getDiscountTypeColor(voucher.discount_type)}`}>
-                                                                {voucher.discount_type}
-                                                                {voucher.discount_type === 'percentage' && ` (${voucher.discount_percentage}%)`}
-                                                            </span>
-                                                        </div>
-                                                    </td>
-                                                    <td className="text-center p-3 align-middle">
-                                                        <span className="inline-flex items-center justify-center bg-gradient-to-r from-slate-50 to-slate-100 text-slate-700 font-bold px-3 py-1.5 rounded text-xs">
-                                                            ₹{formatCurrency(voucher.original_amount)}
-                                                        </span>
-                                                    </td>
-                                                    <td className="text-center p-3 align-middle">
-                                                        <span className="inline-flex items-center justify-center bg-gradient-to-r from-green-50 to-green-100 text-green-800 font-bold px-3 py-1.5 rounded text-xs">
-                                                            ₹{formatCurrency(voucher.discount_amount)}
-                                                        </span>
-                                                    </td>
-                                                    <td className="text-center p-3 align-middle">
-                                                        <div className="font-medium text-slate-700 text-xs">
-                                                            {formatDate(voucher.discount_date)}
-                                                        </div>
-                                                    </td>
-                                                    <td className="text-center p-3 align-middle">
-                                                        <div className="dropdown-container relative flex justify-center">
-                                                            <motion.button
-                                                                className="p-1.5 text-slate-500 hover:text-blue-600 rounded-lg hover:bg-blue-50 transition-colors duration-150 border border-slate-200 hover:border-blue-300"
-                                                                onClick={() => toggleRowDropdown(voucher.id)}
-                                                                whileHover={{ scale: 1.05 }}
-                                                                whileTap={{ scale: 0.95 }}
+                                                    <td className="min-w-0 p-2.5 align-middle">
+                                                        {profilePath ? (
+                                                            <Link
+                                                                to={profilePath}
+                                                                className="block truncate text-sm font-semibold text-slate-800 no-underline transition-colors hover:text-amber-700"
+                                                                title={getDiscountPartyLabel(row)}
+                                                                onClick={(e) => e.stopPropagation()}
                                                             >
-                                                                <FiMenu className="w-3.5 h-3.5" />
-                                                            </motion.button>
-                                                            <AnimatePresence>
-                                                                {isDropdownOpen && (
-                                                                    <motion.div
-                                                                        initial={{ opacity: 0, y: 5 }}
-                                                                        animate={{ opacity: 1, y: 0 }}
-                                                                        exit={{ opacity: 0, y: 5 }}
-                                                                        className="absolute right-0 mt-1 w-48 bg-white rounded-lg shadow-xl border border-slate-200 z-50 overflow-hidden"
+                                                                {getDiscountPartyLabel(row)}
+                                                            </Link>
+                                                        ) : (
+                                                            <div className="truncate text-sm font-semibold text-slate-800" title={getDiscountPartyLabel(row)}>
+                                                                {getDiscountPartyLabel(row)}
+                                                            </div>
+                                                        )}
+                                                        {careOfLine ? (
+                                                            <div className="mt-0.5 truncate text-xs text-slate-500" title={careOfLine}>
+                                                                {careOfLine}
+                                                            </div>
+                                                        ) : null}
+                                                    </td>
+                                                    <td className="min-w-0 p-2.5 align-middle">
+                                                        {contactLines.length > 0 ? (
+                                                            <div className="space-y-0.5">
+                                                                {contactLines.slice(0, 2).map((line) => (
+                                                                    <div
+                                                                        key={line}
+                                                                        className="flex items-center gap-1 truncate text-xs text-slate-600"
+                                                                        title={line}
                                                                     >
-                                                                        <div className="py-1">
-                                                                            <a 
-                                                                                href={`/edit-discount-voucher?voucher_id=${voucher.id}`}
-                                                                                className="flex items-center w-full px-3 py-2 text-xs text-slate-700 hover:bg-blue-50 transition-colors duration-150"
-                                                                                onClick={() => setActiveRowDropdown(null)}
-                                                                            >
-                                                                                <div className="p-1 bg-blue-50 rounded mr-2">
-                                                                                    <FiEdit className="w-3 h-3 text-blue-500" />
-                                                                                </div>
-                                                                                <div className="text-left">
-                                                                                    <div className="font-medium">Edit Voucher</div>
-                                                                                </div>
-                                                                            </a>
-                                                                            <a 
-                                                                                href={`/view-voucher-details?voucher_id=${voucher.id}`}
-                                                                                className="flex items-center w-full px-3 py-2 text-xs text-slate-700 hover:bg-blue-50 transition-colors duration-150"
-                                                                                onClick={() => setActiveRowDropdown(null)}
-                                                                            >
-                                                                                <div className="p-1 bg-green-50 rounded mr-2">
-                                                                                    <FiFileText className="w-3 h-3 text-green-500" />
-                                                                                </div>
-                                                                                <div className="text-left">
-                                                                                    <div className="font-medium">View Details</div>
-                                                                                </div>
-                                                                            </a>
-                                                                            <div className="border-t border-slate-100 mt-1 pt-1">
-                                                                                <button
-                                                                                    onClick={() => handleExport('print', voucher)}
-                                                                                    className="flex items-center w-full px-3 py-2 text-xs text-slate-700 hover:bg-blue-50 transition-colors duration-150"
-                                                                                >
-                                                                                    <div className="p-1 bg-slate-50 rounded mr-2">
-                                                                                        <FiPrinter className="w-3 h-3 text-slate-600" />
-                                                                                    </div>
-                                                                                    <div className="text-left">
-                                                                                        <div className="font-medium">Print</div>
-                                                                                    </div>
-                                                                                </button>
-                                                                                <button
-                                                                                    onClick={() => handleDeleteVoucher(voucher.id)}
-                                                                                    className="flex items-center w-full px-3 py-2 text-xs text-red-600 hover:bg-red-50 transition-colors duration-150"
-                                                                                >
-                                                                                    <div className="p-1 bg-red-50 rounded mr-2">
-                                                                                        <FiTrash2 className="w-3 h-3 text-red-500" />
-                                                                                    </div>
-                                                                                    <div className="text-left">
-                                                                                        <div className="font-medium">Delete Voucher</div>
-                                                                                    </div>
-                                                                                </button>
-                                                                            </div>
-                                                                        </div>
-                                                                    </motion.div>
-                                                                )}
-                                                            </AnimatePresence>
-                                                        </div>
+                                                                        {line.includes('@') ? (
+                                                                            <FiMail className="h-3 w-3 shrink-0 text-slate-400" />
+                                                                        ) : line.startsWith('+') || line.startsWith('A/c') ? (
+                                                                            <FiPhone className="h-3 w-3 shrink-0 text-slate-400" />
+                                                                        ) : null}
+                                                                        <span className="truncate">{line}</span>
+                                                                    </div>
+                                                                ))}
+                                                            </div>
+                                                        ) : (
+                                                            <span className="text-xs text-slate-400">—</span>
+                                                        )}
+                                                    </td>
+                                                    <td className="p-2.5 text-center align-middle">
+                                                        <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${getPartyTypeBadgeClass(partyType)}`}>
+                                                            {formatPartyTypeLabel(partyType)}
+                                                        </span>
+                                                    </td>
+                                                    <td className="p-2.5 text-right align-middle">
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => openDetails(row)}
+                                                            className="text-sm font-semibold tabular-nums text-amber-700 hover:underline"
+                                                        >
+                                                            ₹{formatCurrency(row.amount)}
+                                                        </button>
+                                                    </td>
+                                                    <td className="p-2.5 text-center align-middle">
+                                                        <button
+                                                            type="button"
+                                                            data-discount-actions-trigger
+                                                            className="rounded-lg border border-slate-200 p-1.5 text-slate-500 transition-colors hover:border-amber-300 hover:bg-amber-50 hover:text-amber-600"
+                                                            onClick={(e) => openActionsFromButton(e, row.discount_id)}
+                                                            aria-label="Row actions"
+                                                        >
+                                                            <FiMenu className="h-4 w-4" />
+                                                        </button>
                                                     </td>
                                                 </motion.tr>
                                             );
@@ -830,77 +770,83 @@ const DiscountVoucherDetails = () => {
                             </table>
                         </div>
 
-                        {/* Table Footer - Fixed */}
-                        {/* <div className="border-t border-slate-200 bg-gradient-to-r from-slate-50 to-white shrink-0">
-                            <table className="w-full text-sm">
-                                <tfoot>
-                                    <tr>
-                                        <td className="text-right p-4 font-bold text-slate-800 text-xs uppercase tracking-wider" colSpan="5">
-                                            Total Discount Given
-                                        </td>
-                                        <td className="text-center p-4">
-                                            <span className="inline-flex items-center justify-center bg-gradient-to-r from-green-100 to-green-200 text-green-800 text-sm font-bold px-4 py-2 rounded-lg min-w-[100px]">
-                                                ₹{formatCurrency(totalDiscount)}
-                                            </span>
-                                        </td>
-                                        <td className="p-4"></td>
-                                        <td className="p-4"></td>
-                                    </tr>
-                                </tfoot>
-                            </table>
-                        </div> */}
+                        {!listLoading && discounts.length > 0 && (
+                            <TablePagination
+                                page={currentPage}
+                                limit={itemsPerPage}
+                                total={totalRecords}
+                                totalPages={totalPages}
+                                isLastPage={isLastPage}
+                                rowOptions={[10, 20, 50, 100]}
+                                defaultRows={20}
+                                onPageChange={handlePageChange}
+                                onLimitChange={setItemsPerPage}
+                            />
+                        )}
                     </motion.div>
                 </div>
             </div>
 
-            {/* Add Voucher Modal */}
-            <DiscountForm
-                isOpen={showAddVoucherModal}
-                onClose={() => setShowAddVoucherModal(false)}
-                onSubmit={handleCreateVoucher}
-                formData={newVoucherForm}
-                onChange={handleInputChange}
-                loading={loading}
+            {activeRowDropdown && activeDiscount && createPortal(
+                <motion.div
+                    initial={{ opacity: 0, y: 4 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: 4 }}
+                    data-discount-actions-menu
+                    className="fixed z-[10040] w-44 overflow-hidden rounded-lg border border-slate-200 bg-white py-1 shadow-xl"
+                    style={{
+                        top: dropdownPos.top,
+                        bottom: dropdownPos.bottom,
+                        right: dropdownPos.right,
+                        left: dropdownPos.left,
+                        minWidth: ACTIONS_MENU_WIDTH,
+                    }}
+                    onMouseDown={(e) => e.stopPropagation()}
+                >
+                    <button
+                        type="button"
+                        className="flex w-full items-center gap-2 px-3 py-2 text-sm text-slate-700 transition-colors hover:bg-amber-50"
+                        onClick={() => openDetails(activeDiscount)}
+                    >
+                        <FiFileText className="h-4 w-4 text-amber-600" />
+                        View Details
+                    </button>
+                    <button
+                        type="button"
+                        className="flex w-full items-center gap-2 border-t border-slate-100 px-3 py-2 text-sm text-slate-700 transition-colors hover:bg-amber-50"
+                        onClick={() => openEditModal(activeDiscount)}
+                    >
+                        <FiEdit className="h-4 w-4 text-blue-600" />
+                        Edit
+                    </button>
+                </motion.div>,
+                document.body
+            )}
+
+            <TransactionModalManager
+                modalType="DISCOUNT"
+                isOpen={showCreateModal}
+                onClose={() => setShowCreateModal(false)}
+                onSubmit={handleDiscountSuccess}
+                formatCurrency={formatCurrency}
+                summary={emptySummary}
             />
 
-            {/* Export Confirmation Modal */}
-            <AnimatePresence>
-                {exportModal.open && (
-                    <motion.div
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        exit={{ opacity: 0 }}
-                        className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4"
-                    >
-                        <motion.div
-                            initial={{ opacity: 0, scale: 0.9, y: 10 }}
-                            animate={{ opacity: 1, scale: 1, y: 0 }}
-                            exit={{ opacity: 0, scale: 0.9, y: 10 }}
-                            className="bg-white rounded-xl p-6 max-w-sm w-full mx-auto shadow-xl"
-                        >
-                            <div className="text-center">
-                                <div className="w-16 h-16 bg-gradient-to-r from-blue-100 to-blue-200 rounded-full flex items-center justify-center mx-auto mb-4">
-                                    <PiExportBold className="w-8 h-8 text-blue-600" />
-                                </div>
-                                <h3 className="text-lg font-bold text-slate-800 mb-2">
-                                    Exporting {exportModal.type.toUpperCase()}
-                                </h3>
-                                <p className="text-slate-600 mb-6 text-sm">
-                                    Your {exportModal.type} export is being processed...
-                                </p>
-                                <div className="flex justify-center space-x-2 mb-6">
-                                    <div className="w-2 h-2 bg-gradient-to-r from-blue-500 to-blue-600 rounded-full animate-bounce"></div>
-                                    <div className="w-2 h-2 bg-gradient-to-r from-blue-500 to-blue-600 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
-                                    <div className="w-2 h-2 bg-gradient-to-r from-blue-500 to-blue-600 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
-                                </div>
-                                <div className="text-xs text-slate-500">
-                                    This will only take a moment...
-                                </div>
-                            </div>
-                        </motion.div>
-                    </motion.div>
-                )}
-            </AnimatePresence>
+            <EditTransactionModalManager
+                modalType="DISCOUNT"
+                isOpen={editModalOpen}
+                onClose={closeEditModal}
+                editRecord={editRecord}
+                onSubmit={handleDiscountSuccess}
+                formatCurrency={formatCurrency}
+                summary={emptySummary}
+            />
+
+            <DiscountDetailsModal
+                isOpen={detailsOpen}
+                discount={detailsRecord}
+                onClose={closeDetails}
+            />
         </div>
     );
 };

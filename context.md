@@ -67,7 +67,7 @@ src/
 │   ├── mobile-selection.js     # WhatsApp/mobile picker modal
 │   ├── DateRangePicker.js      # Custom date range picker
 │   ├── DateFilter.js           # Date filter component
-│   ├── DatePickerComponent.js  # Single date picker
+│   ├── PortalDatePicker.js       # Portal date picker (single + range)
 │   ├── delete-confirmation.js  # Delete confirm modal
 │   ├── menus.js                # Menu definitions
 │   ├── state-district-select.js # India state + district `<select>`s (shared; calls `/utils/states-and-districts`)

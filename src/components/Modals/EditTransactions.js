@@ -6,6 +6,7 @@ import {
     JournalModal,
     ContraModal,
     ExpenseModal,
+    DiscountModal,
 } from './CreateTransactions';
 
 const PARTY_LABELS = {
@@ -91,6 +92,17 @@ export const EditTransactionModalManager = ({
             return <ContraModal {...commonProps} />;
         case 'EXPENSE':
             return <ExpenseModal {...commonProps} showBank={showBank} />;
+        case 'DISCOUNT': {
+            const party = editRecord?.discount_party || editRecord?.payment_from;
+            const type = party?.type || partyTypeProp || 'client';
+            return (
+                <DiscountModal
+                    {...commonProps}
+                    partyType={type}
+                    partyLabel={partyLabelProp || PARTY_LABELS[type] || type}
+                />
+            );
+        }
         default:
             return null;
     }
