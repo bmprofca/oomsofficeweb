@@ -14,6 +14,8 @@ import { useWhatsappChannel } from '../pages/broadcast/whatsapp/useWhatsappChann
 import { useUserPermissions } from '../utils/permission-helper';
 import { useTaskCreate } from '../context/TaskCreateProvider';
 import { toast } from 'react-hot-toast';
+import BranchSetupModal from '../DashboardComponents/BranchSetupModal';
+import { useSubscription } from '../hooks/useSubscription';
 
 // ==========================================
 // 1. Constants & Styles (Modern Indigo Theme)
@@ -86,7 +88,7 @@ const fetchUserProfile = async () => {
 // ==========================================
 // 3. SwitchProjectModal Component (Moved inside)
 // ==========================================
-const SwitchProjectModal = ({ isOpen, onClose, onSelectCompany }) => {
+const SwitchProjectModal = ({ isOpen, onClose, onSelectCompany, onOpenBranchSetup }) => {
   const [companies, setCompanies] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
   const navigate = useNavigate();
@@ -177,7 +179,13 @@ const SwitchProjectModal = ({ isOpen, onClose, onSelectCompany }) => {
             )}
           </div>
 
-          <div className="mt-6 flex justify-end gap-3 pt-4 border-t border-slate-100">
+          <div className="mt-6 flex justify-between items-center gap-3 pt-4 border-t border-slate-100">
+            <button
+              onClick={onOpenBranchSetup}
+              className="px-4 py-2 text-sm font-semibold bg-indigo-50 hover:bg-indigo-100 text-indigo-600 rounded-lg transition-colors flex items-center gap-1.5"
+            >
+              <FiPlus size={16} /> Add Branch
+            </button>
             <button
               onClick={onClose}
               className="px-4 py-2 text-sm font-medium bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg transition-colors"
@@ -234,9 +242,24 @@ const isSubmenuItemActive = (submenuPath, currentPath) => {
 const NavItem = ({ item, isMobile, isMinimized, isHovered, currentPath, openSubmenus, toggleSubmenu, setHoveredMenu, hoveredMenu, setMobileMenuOpen, hasProjects, unreadCount, pendingBillingCount, checkPermission }) => {
   const navigate = useNavigate();
   const { openTaskCreate } = useTaskCreate();
+  const { hasAccess } = useSubscription();
+
+  const getSubscriptionLevel = (key) => {
+    if (key === 'whatsapp-live-chat') return 'live-chat';
+    if (key === 'staff-management') return 'staff-management';
+    if (['dashboard', 'tasks', 'recurring-tasks', 'clients', 'billing', 'finance', 'broadcast'].includes(key)) {
+      return 'core';
+    }
+    return null;
+  };
+
+  const subLevel = getSubscriptionLevel(item.key);
+  const isSubscriptionLocked = subLevel ? !hasAccess(subLevel) : false;
+  const isPermissionLocked = item.permission ? !checkPermission(item.permission) : false;
+  const isLocked = isPermissionLocked || isSubscriptionLocked;
+  const isDisabled = (requiresProject(item) && !hasProjects) || isPermissionLocked;
+
   const isActive = isItemActive(item, currentPath);
-  const isLocked = item.permission ? !checkPermission(item.permission) : false;
-  const isDisabled = (requiresProject(item) && !hasProjects) || isLocked;
   const hasSubmenu = item.submenus && item.submenus.length > 0;
   const isOpen = isMobile ? openSubmenus[`mobile-${item.key}`] : openSubmenus[item.key];
   const isMini = !isMobile && isMinimized && !isHovered;
@@ -335,13 +358,15 @@ const NavItem = ({ item, isMobile, isMinimized, isHovered, currentPath, openSubm
               <div className="ml-5 pl-4 border-l-2 border-indigo-100 my-1 space-y-0.5">
                 {item.submenus.map((sub, idx) => {
                   const isSubActive = isSubmenuItemActive(sub.path, currentPath);
-                  const isSubLocked = sub.permission ? !checkPermission(sub.permission) : false;
+                  const isSubPermissionLocked = sub.permission ? !checkPermission(sub.permission) : false;
+                  const isSubSubscriptionLocked = subLevel ? !hasAccess(subLevel) : false;
+                  const isSubLocked = isSubPermissionLocked || isSubSubscriptionLocked;
                   return (
                     <NavLink
                       key={idx}
-                      to={isSubLocked ? '#' : sub.path}
+                      to={isSubPermissionLocked ? '#' : sub.path}
                       onClick={(e) => {
-                        if (isSubLocked) {
+                        if (isSubPermissionLocked) {
                           e.preventDefault();
                           toast.error('Need Access Permission');
                         } else if (isMobile) {
@@ -350,7 +375,7 @@ const NavItem = ({ item, isMobile, isMinimized, isHovered, currentPath, openSubm
                       }}
                       className={
                         `flex items-center justify-between px-3 py-2 rounded-md text-sm transition-all duration-200 no-underline hover:no-underline ${
-                          isSubLocked
+                          isSubPermissionLocked
                             ? 'text-slate-300 cursor-not-allowed hover:bg-transparent'
                             : isSubActive
                               ? 'text-indigo-700 font-semibold bg-indigo-50'
@@ -359,7 +384,7 @@ const NavItem = ({ item, isMobile, isMinimized, isHovered, currentPath, openSubm
                       }
                     >
                       <span>{sub.title}</span>
-                      {isSubLocked && <FiLock size={12} className="text-slate-300/80" />}
+                      {isSubLocked && <FiLock size={12} className={isSubSubscriptionLocked ? "text-amber-500" : "text-slate-300/80"} />}
                     </NavLink>
                   )
                 })}
@@ -377,7 +402,7 @@ const NavItem = ({ item, isMobile, isMinimized, isHovered, currentPath, openSubm
       <NavLink to={isDisabled ? '#' : item.path} onClick={(e) => {
         if (isDisabled) {
           e.preventDefault();
-          if (isLocked) {
+          if (isPermissionLocked) {
             toast.error('Need Access Permission');
           }
         } else if (isMobile) {
@@ -418,13 +443,13 @@ const NavItem = ({ item, isMobile, isMinimized, isHovered, currentPath, openSubm
                   <span className="text-[10px] font-medium">Pending</span>
                 </div>
               )}
-              {isDisabled && <FiLock size={12} className="text-slate-300" />}
+              {isLocked && <FiLock size={12} className={isSubscriptionLocked ? "text-amber-500" : "text-slate-300"} />}
             </div>
           </div>
         )}
         {isMini && hoveredMenu === item.key && (
           <div className="absolute left-16 ml-3 px-3 py-1.5 bg-slate-800 text-white text-xs rounded-md shadow-lg z-50 whitespace-nowrap animate-in fade-in zoom-in-95 duration-200">
-            {item.title} {isDisabled && '(Locked)'}
+            {item.title} {isLocked && '(Locked)'}
             {showBillingBadge && ` • ${pendingBillingCount} Pending`}
           </div>
         )}
@@ -439,6 +464,7 @@ const NavItem = ({ item, isMobile, isMinimized, isHovered, currentPath, openSubm
 export const Header = ({ mobileMenuOpen, setMobileMenuOpen, isMinimized, setIsMinimized }) => {
   const [profileDropdownOpen, setProfileDropdownOpen] = useState(false);
   const [switchProjectModalOpen, setSwitchProjectModalOpen] = useState(false);
+  const [branchSetupOpen, setBranchSetupOpen] = useState(false);
   const [selectedCompany, setSelectedCompany] = useState(null);
   const [selectedProjectName, setSelectedProjectName] = useState('Select Branch');
   const [userProfile, setUserProfile] = useState({ name: 'User', email: '' });
@@ -611,6 +637,44 @@ export const Header = ({ mobileMenuOpen, setMobileMenuOpen, isMinimized, setIsMi
         isOpen={switchProjectModalOpen}
         onClose={() => setSwitchProjectModalOpen(false)}
         onSelectCompany={handleSelectCompany}
+        onOpenBranchSetup={() => {
+          setSwitchProjectModalOpen(false);
+          setBranchSetupOpen(true);
+        }}
+      />
+
+      <BranchSetupModal
+        isOpen={branchSetupOpen}
+        onClose={() => setBranchSetupOpen(false)}
+        onBranchCreated={(newBranch) => {
+          // Add the branch to user_branches list in localStorage
+          try {
+            const branchesJson = localStorage.getItem('user_branches');
+            let branches = [];
+            if (branchesJson) {
+              branches = JSON.parse(branchesJson);
+            }
+            const branchObj = {
+              branch_id: newBranch.branch_id,
+              name: newBranch.branch_name || newBranch.name,
+              owned: true
+            };
+            if (!branches.some(b => b.branch_id === branchObj.branch_id)) {
+              branches.push(branchObj);
+            }
+            localStorage.setItem('user_branches', JSON.stringify(branches));
+          } catch (e) {
+            console.error("Failed to update user_branches in localStorage:", e);
+          }
+
+          // Switch to the newly created branch immediately!
+          handleSelectCompany({
+            branch_id: newBranch.branch_id,
+            name: newBranch.branch_name || newBranch.name,
+            owned: true
+          });
+          setBranchSetupOpen(false);
+        }}
       />
     </>
   );
