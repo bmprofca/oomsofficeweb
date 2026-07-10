@@ -4,11 +4,13 @@ import { GoogleOAuthProvider } from '@react-oauth/google';
 import './index.css';
 import 'bootstrap/dist/css/bootstrap.min.css';
 import reportWebVitals from './reportWebVitals';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 import BodyScrollLockObserver from './components/BodyScrollLockObserver';
 import { TaskCreateProvider } from './context/TaskCreateProvider';
 import WhatsappChannelBootstrap from './pages/broadcast/whatsapp/WhatsappChannelBootstrap';
+import axios from 'axios';
+import { SubscriptionProtectedRoute } from './components/SubscriptionProtectedRoute';
 import RouteLoadingFallback from './app/RouteLoadingFallback';
 import {
   Login,
@@ -113,8 +115,52 @@ import {
 // Google Client ID
 const GOOGLE_CLIENT_ID = "process.env.REACT_APP_GOOGLE_CLIENT_ID" in process.env ? process.env.REACT_APP_GOOGLE_CLIENT_ID : "706030491156-5rq848qm4eih47h29675u6pdv11m8kvq.apps.googleusercontent.com";
 
-// Authentication wrapper component
+// Set up global axios interceptor
+axios.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error.response && error.response.status === 403) {
+      const errCode = error.response.data?.code;
+      if (errCode === 'SUBSCRIPTION_REQUIRED') {
+        window.location.href = '/subscription';
+      } else if (errCode === 'PLAN_UPGRADE_REQUIRED') {
+        window.location.href = '/subscription?upgrade=true';
+      }
+    }
+    return Promise.reject(error);
+  }
+);
+
+// Set up global fetch interceptor
+const originalFetch = window.fetch.bind(window);
+window.fetch = async function (...args) {
+  try {
+    const response = await originalFetch(...args);
+    if (response.status === 403) {
+      try {
+        const clone = response.clone();
+        const data = await clone.json();
+        if (data && data.code === 'SUBSCRIPTION_REQUIRED') {
+          window.location.href = '/subscription';
+        } else if (data && data.code === 'PLAN_UPGRADE_REQUIRED') {
+          window.location.href = '/subscription?upgrade=true';
+        }
+      } catch (e) {
+        // Body not JSON
+      }
+    }
+    return response;
+  } catch (error) {
+    // Pass network errors through transparently
+    throw error;
+  }
+};
+
+// Authentication & Subscription wrapper component
 const ProtectedRoute = ({ children }) => {
+  const location = useLocation();
+  const pathname = location.pathname;
+
   const isAuthenticated = () => {
     // Check for both possible token keys (for compatibility)
     const token = localStorage.getItem('token') || localStorage.getItem('user_token');
@@ -123,7 +169,43 @@ const ProtectedRoute = ({ children }) => {
     return !!(token && username);
   };
 
-  return isAuthenticated() ? children : <Navigate to="/login" replace />;
+  if (!isAuthenticated()) {
+    return <Navigate to="/login" replace />;
+  }
+
+  // Determine required subscription level based on path
+  let requiredLevel = null;
+
+  // 1. Live Chat
+  if (pathname.startsWith('/broadcast/whatsapp/onechatting/live-chat')) {
+    requiredLevel = 'live-chat';
+  }
+  // 2. Staff Management
+  else if (
+    (pathname.startsWith('/staff') && pathname !== '/staff/recurring-tasks') ||
+    pathname.startsWith('/settings/staff-list') ||
+    pathname.startsWith('/settings/permissions') ||
+    pathname.startsWith('/office-assistance')
+  ) {
+    requiredLevel = 'staff-management';
+  }
+  // 3. Core CRM Features (Exclude pages that must be accessible without subscription)
+  else if (
+    pathname !== '/subscription' &&
+    pathname !== '/my-profile'
+  ) {
+    requiredLevel = 'core';
+  }
+
+  if (requiredLevel) {
+    return (
+      <SubscriptionProtectedRoute requiredLevel={requiredLevel}>
+        {children}
+      </SubscriptionProtectedRoute>
+    );
+  }
+
+  return children;
 };
 
 const PublicRoute = ({ children }) => {
@@ -136,6 +218,7 @@ const PublicRoute = ({ children }) => {
   // If user is already authenticated and tries to access login/register, redirect to dashboard
   return isAuthenticated() ? <Navigate to="/" replace /> : children;
 };
+
 
 const root = ReactDOM.createRoot(document.getElementById('root'));
 root.render(

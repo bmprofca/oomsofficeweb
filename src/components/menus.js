@@ -33,6 +33,7 @@ import {
 import { useUserPermissions } from '../utils/permission-helper';
 import { useTaskCreate } from '../context/TaskCreateProvider';
 import { toast } from 'react-hot-toast';
+import { useSubscription } from '../hooks/useSubscription';
 
 // Sidebar Component
 export const Sidebar = ({ sidebarOpen, setSidebarOpen, sidebarCollapsed, setSidebarCollapsed }) => {
@@ -45,6 +46,16 @@ export const Sidebar = ({ sidebarOpen, setSidebarOpen, sidebarCollapsed, setSide
     const whatsappChannel = useWhatsappChannel();
     const { check } = useUserPermissions();
     const { openTaskCreate } = useTaskCreate();
+    const { hasAccess } = useSubscription();
+
+    const getSubscriptionLevel = (key) => {
+        if (key === 'whatsapp-live-chat') return 'live-chat';
+        if (key === 'staff') return 'staff-management';
+        if (['dashboard', 'task', 'recurring-tasks', 'client', 'finance', 'broadcast'].includes(key)) {
+            return 'core';
+        }
+        return null;
+    };
 
     const menuItems = useMemo(() => {
         const items = [
@@ -374,7 +385,10 @@ export const Sidebar = ({ sidebarOpen, setSidebarOpen, sidebarCollapsed, setSide
                 <div className="flex-1 overflow-y-auto py-2">
                     <div className="space-y-1 px-1">
                         {menuItems.map((item) => {
-                            const isLocked = item.permission ? !check(item.permission) : false;
+                            const subLevel = getSubscriptionLevel(item.id);
+                            const isSubscriptionLocked = subLevel ? !hasAccess(subLevel) : false;
+                            const isPermissionLocked = item.permission ? !check(item.permission) : false;
+                            const isLocked = isPermissionLocked || isSubscriptionLocked;
                             return (
                                 <div key={item.id} className="relative">
                                     {/* Main Menu Item */}
@@ -382,7 +396,7 @@ export const Sidebar = ({ sidebarOpen, setSidebarOpen, sidebarCollapsed, setSide
                                         type="button"
                                         data-menu-id={item.id}
                                         onClick={(e) => {
-                                            if (isLocked) {
+                                            if (isPermissionLocked) {
                                                 e.stopPropagation();
                                                 toast.error('Need Access Permission');
                                             } else {
@@ -416,15 +430,16 @@ export const Sidebar = ({ sidebarOpen, setSidebarOpen, sidebarCollapsed, setSide
                                             flex items-center justify-center transition-colors flex-shrink-0
                                             ${sidebarCollapsed ? 'w-5 h-5' : 'w-5 h-5'}
                                             ${isLocked
-                                                ? 'text-slate-600'
+                                                ? 'text-slate-600 font-semibold'
                                                 : isActiveMenuItem(item) ? 'text-white' : 'text-slate-400 group-hover:text-white'}
                                         `}>
-                                            {isLocked ? <FiLock className="text-base" /> : item.icon}
+                                            {isPermissionLocked ? <FiLock className="text-base" /> : item.icon}
                                         </div>
 
                                         {!sidebarCollapsed && (
                                             <>
                                                 <span className="ml-2 text-sm flex-1 text-left truncate">{item.label}</span>
+                                                {isSubscriptionLocked && <FiLock className="text-amber-500 text-sm ml-auto mr-2 flex-shrink-0 animate-bounce" />}
 
                                                 {/* Badge */}
                                                 {item.badge && (
@@ -509,14 +524,16 @@ export const Sidebar = ({ sidebarOpen, setSidebarOpen, sidebarCollapsed, setSide
                                         // NOTE: added class 'sidebar-submenu-expanded' so document click handler can detect clicks inside
                                         <div className="sidebar-submenu-expanded mt-1 ml-4 pl-2 border-l border-slate-600 space-y-0.5 animate-in fade-in duration-150">
                                             {item.submenu.map((subItem) => {
-                                                const isSubLocked = subItem.permission ? !check(subItem.permission) : false;
+                                                const isSubPermissionLocked = subItem.permission ? !check(subItem.permission) : false;
+                                                const isSubSubscriptionLocked = subLevel ? !hasAccess(subLevel) : false;
+                                                const isSubLocked = isSubPermissionLocked || isSubSubscriptionLocked;
                                                 return (
                                                     <button
                                                         key={subItem.id}
                                                         type="button"
                                                         onClick={(e) => {
                                                             e.stopPropagation();      // stop bubbling to parent menu
-                                                            if (isSubLocked) {
+                                                            if (isSubPermissionLocked) {
                                                                 toast.error('Need Access Permission');
                                                             } else {
                                                                 handleSubmenuItemClick(subItem);
@@ -524,14 +541,14 @@ export const Sidebar = ({ sidebarOpen, setSidebarOpen, sidebarCollapsed, setSide
                                                         }}
                                                         className={`
                                                             w-full flex items-center px-2 py-1.5 text-left rounded transition-all duration-150 group
-                                                            ${isSubLocked
+                                                            ${isSubPermissionLocked
                                                                 ? 'text-slate-600 cursor-not-allowed hover:bg-transparent opacity-60'
                                                                 : isActiveSubmenuItem(subItem)
                                                                     ? 'bg-slate-700 text-white'
                                                                     : 'text-slate-400 hover:bg-slate-700 hover:text-white'
                                                             }
                                                         `}
-                                                        title={isSubLocked ? 'Locked (No permission)' : ''}
+                                                        title={isSubPermissionLocked ? 'Locked (No permission)' : ''}
                                                     >
                                                         <div className={`
                                                             flex items-center justify-center w-4 h-4 mr-2 transition-colors flex-shrink-0
@@ -539,7 +556,7 @@ export const Sidebar = ({ sidebarOpen, setSidebarOpen, sidebarCollapsed, setSide
                                                                 ? 'text-slate-600'
                                                                 : isActiveSubmenuItem(subItem) ? 'text-white' : 'text-slate-500 group-hover:text-white'}
                                                         `}>
-                                                            {isSubLocked ? <FiLock className="w-3.5 h-3.5" /> : subItem.icon}
+                                                            {isSubLocked ? <FiLock className={`w-3.5 h-3.5 ${isSubSubscriptionLocked ? "text-amber-500" : ""}`} /> : subItem.icon}
                                                         </div>
                                                         <span className="text-sm truncate flex-1">{subItem.label}</span>
                                                     </button>
@@ -569,17 +586,20 @@ export const Sidebar = ({ sidebarOpen, setSidebarOpen, sidebarCollapsed, setSide
                             </h3>
                         </div>
                         <div className="space-y-0.5">
-                            {menuItems
-                                .find(item => item.id === activeSubmenu)
-                                ?.submenu?.map((subItem) => {
-                                    const isSubLocked = subItem.permission ? !check(subItem.permission) : false;
+                            {(() => {
+                                const parentItem = menuItems.find(item => item.id === activeSubmenu);
+                                const subLevel = parentItem ? getSubscriptionLevel(parentItem.id) : null;
+                                return parentItem?.submenu?.map((subItem) => {
+                                    const isSubPermissionLocked = subItem.permission ? !check(subItem.permission) : false;
+                                    const isSubSubscriptionLocked = subLevel ? !hasAccess(subLevel) : false;
+                                    const isSubLocked = isSubPermissionLocked || isSubSubscriptionLocked;
                                     return (
                                         <button
                                             key={subItem.id}
                                             type="button"
                                             onClick={(e) => {
                                                 e.stopPropagation();
-                                                if (isSubLocked) {
+                                                if (isSubPermissionLocked) {
                                                     toast.error('Need Access Permission');
                                                 } else {
                                                     handleSubmenuItemClick(subItem);
@@ -587,27 +607,28 @@ export const Sidebar = ({ sidebarOpen, setSidebarOpen, sidebarCollapsed, setSide
                                             }}
                                             className={`
                                                 w-full flex items-center px-3 py-2 text-left rounded mx-1 transition-all duration-150 group
-                                                ${isSubLocked
+                                                ${isSubPermissionLocked
                                                     ? 'text-slate-600 cursor-not-allowed hover:bg-transparent opacity-60'
                                                     : isActiveSubmenuItem(subItem)
                                                         ? 'bg-blue-600 text-white shadow-sm'
                                                         : 'text-slate-300 hover:bg-slate-700 hover:text-white'
                                                 }
                                             `}
-                                            title={isSubLocked ? 'Locked (No permission)' : ''}
+                                            title={isSubPermissionLocked ? 'Locked (No permission)' : ''}
                                         >
                                             <div className={`
                                                 flex items-center justify-center w-4 h-4 mr-2 transition-colors flex-shrink-0
                                                 ${isSubLocked
                                                     ? 'text-slate-600'
-                                                    : isActiveSubmenuItem(subItem) ? 'text-white' : 'text-slate-400 group-hover:text-white'}
+                                                    : isActiveSubmenuItem(subItem) ? 'text-white' : 'text-slate-500 group-hover:text-white'}
                                             `}>
-                                                {isSubLocked ? <FiLock className="w-3.5 h-3.5" /> : subItem.icon}
+                                                {isSubLocked ? <FiLock className={`w-3.5 h-3.5 ${isSubSubscriptionLocked ? "text-amber-500" : ""}`} /> : subItem.icon}
                                             </div>
                                             <span className="text-sm truncate flex-1">{subItem.label}</span>
                                         </button>
                                     );
-                                })}
+                                });
+                            })()}
                         </div>
                     </div>
                 )}

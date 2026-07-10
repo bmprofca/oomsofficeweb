@@ -12,7 +12,8 @@ import {
     FiTrash2,
     FiFileText,
     FiSettings,
-    FiUser
+    FiUser,
+    FiUpload
 } from 'react-icons/fi';
 import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'react-hot-toast';
@@ -80,6 +81,18 @@ const Backup = () => {
     const [backupHistory, setBackupHistory] = useState([]);
     const [expandedRow, setExpandedRow] = useState(null);
     const [individualLoading, setIndividualLoading] = useState({}); // format: { 'rowId_sectionKey_method': boolean }
+
+    // Progress modal and stats states
+    const [showProgressModal, setShowProgressModal] = useState(false);
+    const [progressPercent, setProgressPercent] = useState(0);
+    const [progressStatusText, setProgressStatusText] = useState('');
+    const [progressType, setProgressType] = useState('export'); // 'export' or 'import'
+
+    // Import states
+    const [importFile, setImportFile] = useState(null);
+    const [rawJsonText, setRawJsonText] = useState('');
+    const [importMode, setImportMode] = useState('file'); // 'file' or 'raw'
+    const [importing, setImporting] = useState(false);
 
     // Persist sidebar minimized state
     useEffect(() => {
@@ -199,6 +212,148 @@ const Backup = () => {
         window.URL.revokeObjectURL(url);
     };
 
+    // Progress Bar Simulation utilities
+    const startProgressSimulation = (type) => {
+        setProgressType(type);
+        setProgressPercent(0);
+        setShowProgressModal(true);
+        
+        let statusTexts = [];
+        if (type === 'export') {
+            statusTexts = [
+                { limit: 20, text: "Connecting to database modules..." },
+                { limit: 55, text: "Compiling database tables..." },
+                { limit: 80, text: "Compressing backup file..." },
+                { limit: 95, text: "Verifying checksum and securing links..." }
+            ];
+        } else {
+            statusTexts = [
+                { limit: 30, text: "Parsing backup payload..." },
+                { limit: 60, text: "Validating database schema and integrity..." },
+                { limit: 85, text: "Writing backup records to tables..." },
+                { limit: 95, text: "Rebuilding database indexes and establishing relations..." }
+            ];
+        }
+
+        setProgressStatusText(statusTexts[0].text);
+
+        const intervalId = setInterval(() => {
+            setProgressPercent(prev => {
+                const next = prev + Math.floor(Math.random() * 4) + 1;
+                const currentTextObj = statusTexts.find(s => next <= s.limit);
+                if (currentTextObj) {
+                    setProgressStatusText(currentTextObj.text);
+                }
+
+                if (next >= 95) {
+                    clearInterval(intervalId);
+                    return 95;
+                }
+                return next;
+            });
+        }, 150);
+
+        return intervalId;
+    };
+
+    const completeProgressSimulation = (intervalId, isSuccess) => {
+        if (intervalId) clearInterval(intervalId);
+        setProgressPercent(100);
+        setProgressStatusText(isSuccess ? "Operation completed successfully!" : "Operation failed!");
+        
+        setTimeout(() => {
+            setShowProgressModal(false);
+        }, 800);
+    };
+
+    // File selection validation
+    const handleFileChange = (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        if (file.type !== 'application/json' && !file.name.endsWith('.json')) {
+            toast.error("Please select a JSON file only.");
+            return;
+        }
+
+        setImportFile(file);
+
+        // Pre-validate locally
+        const reader = new FileReader();
+        reader.onload = (event) => {
+            try {
+                JSON.parse(event.target.result);
+                toast.success("JSON file format pre-validated successfully.");
+            } catch (err) {
+                toast.error("Selected file is not a valid JSON document.");
+                setImportFile(null);
+            }
+        };
+        reader.readAsText(file);
+    };
+
+    // Import action handler
+    const handleImportBackup = async (e) => {
+        if (e) e.preventDefault();
+
+        const headers = getHeaders(importMode === 'file');
+        if (!headers) {
+            toast.error("Session expired. Please log in again.");
+            return;
+        }
+
+        let body;
+        if (importMode === 'file') {
+            if (!importFile) {
+                toast.error("Please select a JSON backup file to import.");
+                return;
+            }
+            body = new FormData();
+            body.append('file', importFile);
+        } else {
+            if (!rawJsonText.trim()) {
+                toast.error("Please paste the JSON backup payload.");
+                return;
+            }
+            try {
+                JSON.parse(rawJsonText);
+            } catch (err) {
+                toast.error("Invalid JSON format in text box.");
+                return;
+            }
+            body = rawJsonText;
+        }
+
+        setImporting(true);
+        const progressInterval = startProgressSimulation('import');
+
+        try {
+            const response = await fetch(`${API_BASE_URL}/backup/import`, {
+                method: 'POST',
+                headers,
+                body: body
+            });
+
+            const result = await response.json();
+
+            if (result.success) {
+                completeProgressSimulation(progressInterval, true);
+                toast.success(result.message || "Backup data restored successfully!");
+                setImportFile(null);
+                setRawJsonText('');
+                fetchSummary();
+            } else {
+                throw new Error(result.message || "Failed to import backup data.");
+            }
+        } catch (error) {
+            console.error("Import backup error:", error);
+            completeProgressSimulation(progressInterval, false);
+            toast.error(error.message || "An unexpected error occurred during restore.");
+        } finally {
+            setImporting(false);
+        }
+    };
+
     // Main execute backup handler
     const handleRunBackup = async (e) => {
         if (e) e.preventDefault();
@@ -220,6 +375,7 @@ const Backup = () => {
         }
 
         setSubmitting(true);
+        const progressInterval = startProgressSimulation('export');
         const backupId = Date.now().toString();
         const runDate = new Date().toISOString();
 
@@ -263,6 +419,7 @@ const Backup = () => {
                     const fileName = result.data?.file_name;
 
                     if (downloadUrl) {
+                        completeProgressSimulation(progressInterval, true);
                         toast.promise(
                             triggerBackupDownload(downloadUrl, fileName),
                             {
@@ -283,6 +440,7 @@ const Backup = () => {
                         throw new Error("Missing download URL in API response.");
                     }
                 } else {
+                    completeProgressSimulation(progressInterval, true);
                     toast.success(result.message || "Backup emailed successfully.");
                     updateHistoryItem(backupId, {
                         status: 'success',
@@ -294,6 +452,7 @@ const Backup = () => {
             }
         } catch (error) {
             console.error("Backup trigger failed:", error);
+            completeProgressSimulation(progressInterval, false);
             toast.error(error.message || "An unexpected error occurred.");
             updateHistoryItem(backupId, {
                 status: 'failed',
@@ -315,6 +474,7 @@ const Backup = () => {
         // Generate loading key
         const runId = `${historyItem.id}_${sectionsToExport.join('_')}_${targetMethod}`;
         setIndividualLoading(prev => ({ ...prev, [runId]: true }));
+        const progressInterval = startProgressSimulation('export');
 
         try {
             const body = {
@@ -327,6 +487,8 @@ const Backup = () => {
                 if (!historyItem.recipient_email && !recipientEmail) {
                     toast.error("Email recipient is missing.");
                     setIndividualLoading(prev => ({ ...prev, [runId]: false }));
+                    if (progressInterval) clearInterval(progressInterval);
+                    setShowProgressModal(false);
                     return;
                 }
                 body.recipient_email = historyItem.recipient_email || recipientEmail;
@@ -341,6 +503,7 @@ const Backup = () => {
             const result = await response.json();
 
             if (result.success) {
+                completeProgressSimulation(progressInterval, true);
                 if (targetMethod === 'download') {
                     const downloadUrl = result.data?.download_url;
                     const fileName = result.data?.file_name;
@@ -374,6 +537,7 @@ const Backup = () => {
             }
         } catch (error) {
             console.error("Selective run error:", error);
+            completeProgressSimulation(progressInterval, false);
             toast.error(`Export failed: ${error.message}`);
         } finally {
             setIndividualLoading(prev => ({ ...prev, [runId]: false }));
@@ -561,8 +725,8 @@ const Backup = () => {
                                         <label className="block text-sm font-semibold text-gray-700 mb-2">
                                             Export File Format
                                         </label>
-                                        <div className="grid grid-cols-3 gap-2">
-                                            {['excel', 'csv', 'pdf'].map((format) => (
+                                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                                            {['excel', 'csv', 'pdf', 'json'].map((format) => (
                                                 <button
                                                     key={format}
                                                     type="button"
@@ -664,46 +828,161 @@ const Backup = () => {
                             </form>
                         </div>
 
-                        {/* RIGHT COLUMN: Quick Guide / Active User Branch info card (1/3 width) */}
-                        <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6 flex flex-col justify-between">
-                            <div>
+                        {/* RIGHT COLUMN: Active Context & Import Data (stacked) */}
+                        <div className="lg:col-span-1 flex flex-col gap-6">
+                            
+                            {/* Active Context */}
+                            <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6 flex flex-col justify-between h-fit">
+                                <div>
+                                    <h2 className="text-lg font-bold text-gray-800 mb-4 pb-2 border-b border-gray-100 flex items-center gap-2">
+                                        <FiUser className="text-gray-500 w-5 h-5" />
+                                        Active Context
+                                    </h2>
+
+                                    <div className="space-y-4 text-sm text-gray-600 mb-6">
+                                        <div className="flex justify-between py-2 border-b border-dashed border-gray-100">
+                                            <span className="font-medium text-gray-500">Name:</span>
+                                            <span className="font-bold text-gray-800">{userMeta.name || userMeta.username || 'Loading...'}</span>
+                                        </div>
+                                        <div className="flex justify-between py-2 border-b border-dashed border-gray-100">
+                                            <span className="font-medium text-gray-500">Branch Name:</span>
+                                            <span className="font-bold text-gray-800">{userMeta.branchName || userMeta.branchId || 'Loading...'}</span>
+                                        </div>
+                                        <div className="flex justify-between py-2 border-b border-dashed border-gray-100">
+                                            <span className="font-medium text-gray-500">Total Sections:</span>
+                                            <span className="font-bold text-teal-600">{Object.keys(SECTION_INFO).length} Modules</span>
+                                        </div>
+                                    </div>
+
+                                    <div className="bg-teal-50 border border-teal-200 rounded-lg p-4 mb-2">
+                                        <h4 className="text-xs font-bold text-teal-800 uppercase tracking-wider flex items-center gap-1.5 mb-2">
+                                            <FiCheckCircle className="w-4 h-4" />
+                                            Access Control Rules
+                                        </h4>
+                                        <ul className="text-xs text-teal-700 space-y-1.5 list-disc list-inside">
+                                            <li>Backup files are restricted to branch context level.</li>
+                                            <li>Downloads verify matching branch ID header token.</li>
+                                        </ul>
+                                    </div>
+                                </div>
+
+                                <div className="text-xs text-gray-400 mt-4 pt-4 border-t border-gray-100 flex items-center gap-1">
+                                    <FiClock className="w-3.5 h-3.5 text-gray-300" />
+                                    Last sync: {new Date().toLocaleTimeString()}
+                                </div>
+                            </div>
+
+                            {/* Import Backup Card */}
+                            <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
                                 <h2 className="text-lg font-bold text-gray-800 mb-4 pb-2 border-b border-gray-100 flex items-center gap-2">
-                                    <FiUser className="text-gray-500 w-5 h-5" />
-                                    Active Context
+                                    <FiUpload className="text-teal-600 w-5 h-5" />
+                                    Import Backup Data
                                 </h2>
+                                
+                                <p className="text-xs text-gray-500 mb-4">
+                                    Restore database from a JSON backup file or raw JSON payload directly.
+                                </p>
 
-                                <div className="space-y-4 text-sm text-gray-600 mb-6">
-                                    <div className="flex justify-between py-2 border-b border-dashed border-gray-100">
-                                        <span className="font-medium text-gray-500">Name:</span>
-                                        <span className="font-bold text-gray-800">{userMeta.name || userMeta.username || 'Loading...'}</span>
-                                    </div>
-                                    <div className="flex justify-between py-2 border-b border-dashed border-gray-100">
-                                        <span className="font-medium text-gray-500">Branch Name:</span>
-                                        <span className="font-bold text-gray-800">{userMeta.branchName || userMeta.branchId || 'Loading...'}</span>
-                                    </div>
-                                    <div className="flex justify-between py-2 border-b border-dashed border-gray-100">
-                                        <span className="font-medium text-gray-500">Total Sections:</span>
-                                        <span className="font-bold text-teal-600">{Object.keys(SECTION_INFO).length} Modules</span>
-                                    </div>
+                                {/* Import mode selector */}
+                                <div className="flex bg-gray-100 p-1 rounded-lg mb-4 text-xs font-bold">
+                                    <button
+                                        type="button"
+                                        onClick={() => setImportMode('file')}
+                                        className={`flex-1 py-1.5 rounded-md transition-all ${
+                                            importMode === 'file' ? 'bg-white text-gray-800 shadow-sm' : 'text-gray-500 hover:text-gray-800'
+                                        }`}
+                                    >
+                                        JSON File
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => setImportMode('raw')}
+                                        className={`flex-1 py-1.5 rounded-md transition-all ${
+                                            importMode === 'raw' ? 'bg-white text-gray-800 shadow-sm' : 'text-gray-500 hover:text-gray-800'
+                                        }`}
+                                    >
+                                        Raw JSON Text
+                                    </button>
                                 </div>
 
-                                <div className="bg-teal-50 border border-teal-200 rounded-lg p-4 mb-4">
-                                    <h4 className="text-xs font-bold text-teal-800 uppercase tracking-wider flex items-center gap-1.5 mb-2">
-                                        <FiCheckCircle className="w-4 h-4" />
-                                        Access Control Rules
-                                    </h4>
-                                    <ul className="text-xs text-teal-700 space-y-1.5 list-disc list-inside">
-                                        <li>Backup files are restricted to branch context level.</li>
-                                        <li>Downloads verify matching branch ID header token.</li>
-                                        <li>SMTP configurations must be setup for email deliveries.</li>
-                                    </ul>
-                                </div>
+                                <form onSubmit={handleImportBackup} className="space-y-4">
+                                    {importMode === 'file' ? (
+                                        <div>
+                                            <label className="block text-xs font-bold text-gray-600 mb-2">
+                                                Select JSON Backup File
+                                            </label>
+                                            <div className="border-2 border-dashed border-gray-200 rounded-lg p-4 hover:border-teal-500 transition-colors text-center cursor-pointer relative bg-gray-50/50">
+                                                <input
+                                                    type="file"
+                                                    accept=".json"
+                                                    onChange={handleFileChange}
+                                                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                                                />
+                                                <FiUpload className="w-8 h-8 text-gray-400 mx-auto mb-2" />
+                                                <p className="text-xs font-bold text-gray-700">
+                                                    {importFile ? importFile.name : 'Click or Drag & Drop'}
+                                                </p>
+                                                <p className="text-[10px] text-gray-400 mt-1">
+                                                    {importFile ? `${(importFile.size / 1024).toFixed(2)} KB` : 'JSON backups only'}
+                                                </p>
+                                            </div>
+                                            {importFile && (
+                                                <div className="flex justify-between items-center mt-2 px-1">
+                                                    <span className="text-[11px] font-bold text-green-600 bg-green-50 px-2 py-0.5 rounded border border-green-100 flex items-center gap-1">
+                                                        <FiCheckCircle className="w-3 h-3" /> Validated JSON
+                                                    </span>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setImportFile(null)}
+                                                        className="text-[11px] font-bold text-red-600 hover:underline"
+                                                    >
+                                                        Remove
+                                                    </button>
+                                                </div>
+                                            )}
+                                        </div>
+                                    ) : (
+                                        <div>
+                                            <label className="block text-xs font-bold text-gray-600 mb-1.5">
+                                                Paste JSON Payload
+                                            </label>
+                                            <textarea
+                                                rows="5"
+                                                value={rawJsonText}
+                                                onChange={(e) => setRawJsonText(e.target.value)}
+                                                placeholder='{ "tasks": [...], "clients": [...] }'
+                                                className="w-full p-2.5 border border-gray-200 rounded-lg outline-none focus:ring-2 focus:ring-teal-500 text-xs font-mono bg-gray-50/50"
+                                            />
+                                        </div>
+                                    )}
+
+                                    <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 text-[11px] text-amber-800 leading-normal flex items-start gap-2">
+                                        <FiAlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                                        <span>
+                                            <strong>Warning:</strong> Restoring backup data replaces/adds database records. Proceed with caution.
+                                        </span>
+                                    </div>
+
+                                    <button
+                                        type="submit"
+                                        disabled={importing || (importMode === 'file' ? !importFile : !rawJsonText.trim())}
+                                        className="w-full py-2.5 bg-teal-600 hover:bg-teal-700 text-white font-bold rounded-lg text-xs transition-all duration-200 flex items-center justify-center gap-2 shadow disabled:opacity-50 disabled:cursor-not-allowed"
+                                    >
+                                        {importing ? (
+                                            <>
+                                                <FiRefreshCw className="w-4 h-4 animate-spin" />
+                                                Restoring...
+                                            </>
+                                        ) : (
+                                            <>
+                                                <FiUpload className="w-4 h-4" />
+                                                Import & Restore
+                                            </>
+                                        )}
+                                    </button>
+                                </form>
                             </div>
 
-                            <div className="text-xs text-gray-400 mt-auto pt-4 flex items-center gap-1">
-                                <FiClock className="w-3.5 h-3.5 text-gray-300" />
-                                Last sync: {new Date().toLocaleTimeString()}
-                            </div>
                         </div>
 
                     </div>
@@ -788,6 +1067,8 @@ const Backup = () => {
                                                                     ? 'bg-green-50 text-green-700 border border-green-200' 
                                                                     : item.export_type === 'csv'
                                                                     ? 'bg-blue-50 text-blue-700 border border-blue-200'
+                                                                    : item.export_type === 'json'
+                                                                    ? 'bg-purple-50 text-purple-700 border border-purple-200'
                                                                     : 'bg-red-50 text-red-700 border border-red-200'
                                                             }`}>
                                                                 {item.export_type}
@@ -982,6 +1263,67 @@ const Backup = () => {
                     </div>
                 </div>
             </div>
+
+            {/* Professional Progress Modal Overlay */}
+            <AnimatePresence>
+                {showProgressModal && (
+                    <motion.div 
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
+                    >
+                        <motion.div 
+                            initial={{ scale: 0.95, opacity: 0 }}
+                            animate={{ scale: 1, opacity: 1 }}
+                            exit={{ scale: 0.95, opacity: 0 }}
+                            className="bg-white rounded-2xl shadow-xl border border-gray-100 max-w-md w-full p-6 text-center"
+                        >
+                            {/* Title & Icon */}
+                            <div className="flex flex-col items-center mb-6">
+                                <div className={`w-16 h-16 rounded-full flex items-center justify-center mb-4 ${
+                                    progressType === 'import' ? 'bg-teal-50 text-teal-600' : 'bg-blue-50 text-blue-600'
+                                }`}>
+                                    {progressType === 'import' ? (
+                                        <FiUpload className="w-8 h-8 text-teal-600 animate-bounce" />
+                                    ) : (
+                                        <FiDownload className="w-8 h-8 text-blue-600 animate-bounce" />
+                                    )}
+                                </div>
+                                <h3 className="text-lg font-bold text-gray-800">
+                                    {progressType === 'import' ? 'Importing Backup Data' : 'Generating Backup Archive'}
+                                </h3>
+                                <p className="text-sm text-gray-500 mt-1">
+                                    {progressStatusText}
+                                </p>
+                            </div>
+
+                            {/* Progress Bar Container */}
+                            <div className="w-full bg-gray-100 rounded-full h-3 mb-4 overflow-hidden relative">
+                                <motion.div 
+                                    className={`h-full rounded-full transition-all duration-300 ${
+                                        progressType === 'import' ? 'bg-teal-600' : 'bg-blue-600'
+                                    }`}
+                                    style={{ width: `${progressPercent}%` }}
+                                />
+                            </div>
+
+                            {/* Progress Details */}
+                            <div className="flex justify-between items-center text-xs font-bold text-gray-500 mb-6">
+                                <span>{progressPercent}% Complete</span>
+                                <span className="flex items-center gap-1">
+                                    <FiRefreshCw className="w-3.5 h-3.5 animate-spin" /> In Process
+                                </span>
+                            </div>
+
+                            {/* Info Text */}
+                            <p className="text-xs text-gray-400 bg-gray-50 rounded-lg p-3">
+                                Please do not close this tab or navigate away. The database operations are being synchronized securely.
+                            </p>
+                        </motion.div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
         </div>
     );
 };
