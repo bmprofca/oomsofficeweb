@@ -48,6 +48,24 @@ Scrollable body only
 Example body:
 `className="px-5 py-4 flex-1 min-h-0 overflow-y-auto overscroll-y-contain [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden"`
 
+## Register details modals
+
+Read-only row detail modals on finance registers follow the same viewport-safe pattern with compact header/footer and scrollable body.
+
+| Modal | Page | Shows |
+|-------|------|-------|
+| `ReceivedDetailsModal` | `received-display.js` | Party, amount, voucher, received at (bank/cash/capital), received by, remark, audit |
+| `DiscountDetailsModal` | `discount.js` | Party type, amount, invoice, date, remark, audit |
+
+- Render via `createPortal(..., document.body)`.
+- Open from row action menu “View Details”.
+- Use `DetailRow` helper: label left, value right, `border-b border-slate-100`.
+- Badge chips for party type / account type inside modal body.
+
+Received At in modal uses `getBankTypeInfo(record)` (wraps `getReceivedAtInfo`) so cash accounts show holder + `cash` badge.
+
+See `finance-registers.md` for `payment_to` cash vs bank display rules.
+
 Implementation checklist
 - Root overlay uses `overflow-hidden` (not `overflow-y-auto`) unless you intentionally scroll the full-screen layer.
 - Avoid setting `document.body.style.overflow` from every modal unless centralized: multiple modals + sidebar each toggling `overflow` often leaves the page stuck (`hidden` or conflicting `auto`). Prefer a fixed `overflow-hidden` overlay and inner scroll only; if you must lock the body, use a single shared lock (ref counter) or always restore with `removeProperty('overflow')` in one place.

@@ -28,6 +28,17 @@ const sanitizeDecimalInput = (value, maxDecimals = 2) => {
 };
 
 const parseDecimalValue = (value) => parseFloat(value || 0) || 0;
+const DEFAULT_NOTIFICATION_CHANNEL_STATUS = {
+    sms: { available: true, reason: '' },
+    whatsapp: { available: true, reason: '' },
+    email: { available: true, reason: '' },
+};
+
+const ensureChannelStatusShape = (channels) => ({
+    sms: channels?.sms || { available: true, reason: '' },
+    whatsapp: channels?.whatsapp || { available: true, reason: '' },
+    email: channels?.email || { available: true, reason: '' },
+});
 
 const toIsoDateOnly = (value) => {
     if (!value) return new Date().toISOString().split('T')[0];
@@ -196,7 +207,7 @@ const getCompactFieldClass = (accent = 'blue') => {
                         ? 'focus:ring-emerald-500/25 focus:border-emerald-400'
                         : accent === 'amber'
                             ? 'focus:ring-amber-500/25 focus:border-amber-400'
-                        : 'focus:ring-blue-500/25 focus:border-blue-400';
+                            : 'focus:ring-blue-500/25 focus:border-blue-400';
     return `w-full px-3 py-2 text-sm border border-slate-200 rounded-md focus:outline-none focus:ring-2 ${ring}`;
 };
 
@@ -267,7 +278,7 @@ const BankSearchSkeletonRows = ({ rows = 4 }) => (
 );
 
 /** Compact client preview after selection (payment / receive). — defined after ClientSearchAvatar */
-const AnimatedCheckbox = ({ checked, indeterminate = false, onChange, ariaLabel }) => {
+const AnimatedCheckbox = ({ checked, indeterminate = false, onChange, ariaLabel, disabled = false }) => {
     const inputRef = useRef(null);
 
     useEffect(() => {
@@ -279,7 +290,7 @@ const AnimatedCheckbox = ({ checked, indeterminate = false, onChange, ariaLabel 
     const isActive = checked || indeterminate;
 
     return (
-        <label className="relative inline-flex items-center cursor-pointer group">
+        <label className={`relative inline-flex items-center group ${disabled ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'}`}>
             <input
                 ref={inputRef}
                 type="checkbox"
@@ -287,11 +298,12 @@ const AnimatedCheckbox = ({ checked, indeterminate = false, onChange, ariaLabel 
                 checked={checked}
                 onChange={onChange}
                 aria-label={ariaLabel}
+                disabled={disabled}
             />
             <motion.span
                 className={`flex items-center justify-center w-[18px] h-[18px] rounded-[4px] border-2 transition-colors duration-200 ${isActive
                     ? 'bg-indigo-600 border-indigo-600 shadow-sm shadow-indigo-200'
-                    : 'bg-white border-gray-300 group-hover:border-indigo-400'
+                    : (disabled ? 'bg-slate-100 border-slate-200' : 'bg-white border-gray-300 group-hover:border-indigo-400')
                     }`}
                 animate={{ scale: isActive ? [1, 1.12, 1] : 1 }}
                 transition={{ duration: 0.18 }}
@@ -340,37 +352,65 @@ const TransactionNotifyCheckboxes = ({
     setSendWhatsApp,
     sendEmail,
     setSendEmail,
+    channelStatus = null,
+    loading = false,
 }) => (
-    <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
-        <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Notify</span>
-        <label className="inline-flex items-center gap-2 cursor-pointer select-none">
-            <AnimatedCheckbox
-                checked={sendSms}
-                onChange={(e) => setSendSms(e.target.checked)}
-                ariaLabel="Send SMS notification"
-            />
-            <FiMessageSquare className="w-3.5 h-3.5 text-sky-600" aria-hidden />
-            <span className="text-xs text-slate-600">SMS</span>
-        </label>
-        <label className="inline-flex items-center gap-2 cursor-pointer select-none">
-            <AnimatedCheckbox
-                checked={sendWhatsApp}
-                onChange={(e) => setSendWhatsApp(e.target.checked)}
-                ariaLabel="Send WhatsApp notification"
-            />
-            <FiMessageCircle className="w-3.5 h-3.5 text-emerald-600" aria-hidden />
-            <span className="text-xs text-slate-600">WhatsApp</span>
-        </label>
-        <label className="inline-flex items-center gap-2 cursor-pointer select-none">
-            <AnimatedCheckbox
-                checked={sendEmail}
-                onChange={(e) => setSendEmail(e.target.checked)}
-                ariaLabel="Send email notification"
-            />
-            <FiMail className="w-3.5 h-3.5 text-slate-600" aria-hidden />
-            <span className="text-xs text-slate-600">Email</span>
-        </label>
-    </div>
+    (() => {
+        const smsStatus = channelStatus?.sms || { available: true, reason: '' };
+        const whatsappStatus = channelStatus?.whatsapp || { available: true, reason: '' };
+        const emailStatus = channelStatus?.email || { available: true, reason: '' };
+        const smsDisabled = loading || !smsStatus.available;
+        const whatsappDisabled = loading || !whatsappStatus.available;
+        const emailDisabled = loading || !emailStatus.available;
+        const smsTitle = smsDisabled ? (smsStatus.reason || (loading ? 'Checking SMS availability...' : 'SMS unavailable')) : 'Send SMS notification';
+        const whatsappTitle = whatsappDisabled ? (whatsappStatus.reason || (loading ? 'Checking WhatsApp availability...' : 'WhatsApp unavailable')) : 'Send WhatsApp notification';
+        const emailTitle = emailDisabled ? (emailStatus.reason || (loading ? 'Checking email availability...' : 'Email unavailable')) : 'Send email notification';
+
+        return (
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+                <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Notify</span>
+                <label className={`inline-flex items-center gap-2 select-none ${smsDisabled ? 'cursor-not-allowed' : 'cursor-pointer'}`} title={smsTitle}>
+                    <AnimatedCheckbox
+                        checked={sendSms}
+                        onChange={(e) => {
+                            if (smsDisabled) return;
+                            setSendSms(e.target.checked);
+                        }}
+                        ariaLabel="Send SMS notification"
+                        disabled={smsDisabled}
+                    />
+                    <FiMessageSquare className={`w-3.5 h-3.5 ${smsDisabled ? 'text-slate-400' : 'text-sky-600'}`} aria-hidden />
+                    <span className={`text-xs ${smsDisabled ? 'text-slate-400' : 'text-slate-600'}`}>SMS</span>
+                </label>
+                <label className={`inline-flex items-center gap-2 select-none ${whatsappDisabled ? 'cursor-not-allowed' : 'cursor-pointer'}`} title={whatsappTitle}>
+                    <AnimatedCheckbox
+                        checked={sendWhatsApp}
+                        onChange={(e) => {
+                            if (whatsappDisabled) return;
+                            setSendWhatsApp(e.target.checked);
+                        }}
+                        ariaLabel="Send WhatsApp notification"
+                        disabled={whatsappDisabled}
+                    />
+                    <FiMessageCircle className={`w-3.5 h-3.5 ${whatsappDisabled ? 'text-slate-400' : 'text-emerald-600'}`} aria-hidden />
+                    <span className={`text-xs ${whatsappDisabled ? 'text-slate-400' : 'text-slate-600'}`}>WhatsApp</span>
+                </label>
+                <label className={`inline-flex items-center gap-2 select-none ${emailDisabled ? 'cursor-not-allowed' : 'cursor-pointer'}`} title={emailTitle}>
+                    <AnimatedCheckbox
+                        checked={sendEmail}
+                        onChange={(e) => {
+                            if (emailDisabled) return;
+                            setSendEmail(e.target.checked);
+                        }}
+                        ariaLabel="Send email notification"
+                        disabled={emailDisabled}
+                    />
+                    <FiMail className={`w-3.5 h-3.5 ${emailDisabled ? 'text-slate-400' : 'text-slate-600'}`} aria-hidden />
+                    <span className={`text-xs ${emailDisabled ? 'text-slate-400' : 'text-slate-600'}`}>Email</span>
+                </label>
+            </div>
+        );
+    })()
 );
 
 // Base Modal Component
@@ -1635,9 +1675,8 @@ const JournalPartyTypeToggle = ({ value, onChange, disabled = false }) => (
                 type="button"
                 disabled={disabled}
                 onClick={() => onChange(type)}
-                className={`px-2.5 py-1 text-xs font-medium rounded transition-colors disabled:opacity-50 ${
-                    value === type ? 'bg-indigo-600 text-white shadow-sm' : 'text-slate-600 hover:bg-slate-50'
-                }`}
+                className={`px-2.5 py-1 text-xs font-medium rounded transition-colors disabled:opacity-50 ${value === type ? 'bg-indigo-600 text-white shadow-sm' : 'text-slate-600 hover:bg-slate-50'
+                    }`}
             >
                 {JOURNAL_PARTY_TYPE_LABELS[type]}
             </button>
@@ -1977,6 +2016,8 @@ export const ReceiveModal = ({ isOpen, onClose, bankDetails, bankId, onSubmit, f
     const [sendEmail, setSendEmail] = useState(true);
     const [sendSms, setSendSms] = useState(true);
     const [sendWhatsApp, setSendWhatsApp] = useState(true);
+    const [notificationLoading, setNotificationLoading] = useState(false);
+    const [channelStatus, setChannelStatus] = useState(DEFAULT_NOTIFICATION_CHANNEL_STATUS);
     const hasPresetClient = Boolean(String(clientUsername || '').trim());
     const hasPresetBank = Boolean(String(bankId || '').trim());
     const shouldShowClientSelector = bankPageClientLookup || !hasPresetClient;
@@ -2010,6 +2051,48 @@ export const ReceiveModal = ({ isOpen, onClose, bankDetails, bankId, onSubmit, f
         setSendWhatsApp(true);
         if (shouldShowClientSelector) firmLookup.reset();
     }, [isOpen, shouldShowClientSelector, isEditMode, editRecord]); // eslint-disable-line react-hooks/exhaustive-deps
+
+    useEffect(() => {
+        if (!isOpen || isEditMode) return undefined;
+        let cancelled = false;
+
+        const loadNotificationAvailability = async () => {
+            setNotificationLoading(true);
+            try {
+                const response = await axios.get(
+                    `${API_BASE_URL}/utils/notification-availability`,
+                    {
+                        params: { type: 'receive' },
+                        headers: getHeaders(),
+                    }
+                );
+
+                const channels = ensureChannelStatusShape(response.data?.data?.channels);
+                if (cancelled) return;
+                setChannelStatus(channels);
+                if (!channels.sms.available) setSendSms(false);
+                if (!channels.whatsapp.available) setSendWhatsApp(false);
+                if (!channels.email.available) setSendEmail(false);
+            } catch (error) {
+                if (cancelled) return;
+                setChannelStatus({
+                    sms: { available: false, reason: 'Failed to check SMS availability' },
+                    whatsapp: { available: false, reason: 'Failed to check WhatsApp availability' },
+                    email: { available: false, reason: 'Failed to check email availability' },
+                });
+                setSendSms(false);
+                setSendWhatsApp(false);
+                setSendEmail(false);
+            } finally {
+                if (!cancelled) setNotificationLoading(false);
+            }
+        };
+
+        loadNotificationAvailability();
+        return () => {
+            cancelled = true;
+        };
+    }, [isOpen, isEditMode]);
 
     const resolveReceiveBank = useCallback(() => {
         if (hasPresetBank) {
@@ -2061,6 +2144,11 @@ export const ReceiveModal = ({ isOpen, onClose, bankDetails, bankId, onSubmit, f
             party2_type: 'bank',
             remark: remarkText || `Payment received from ${resolvedName}`,
             transaction_date: date,
+            notification: {
+                email: sendEmail,
+                sms: sendSms,
+                whatsapp: sendWhatsApp,
+            },
         };
 
         try {
@@ -2114,6 +2202,9 @@ export const ReceiveModal = ({ isOpen, onClose, bankDetails, bankId, onSubmit, f
         onClose,
         isEditMode,
         editRecord,
+        sendEmail,
+        sendSms,
+        sendWhatsApp,
     ]);
 
     const handleSubmit = (e) => {
@@ -2147,14 +2238,16 @@ export const ReceiveModal = ({ isOpen, onClose, bankDetails, bankId, onSubmit, f
             footer={(
                 <div className="flex flex-col gap-2.5 sm:flex-row sm:items-center sm:justify-between">
                     {!isEditMode && (
-                    <TransactionNotifyCheckboxes
-                        sendSms={sendSms}
-                        setSendSms={setSendSms}
-                        sendWhatsApp={sendWhatsApp}
-                        setSendWhatsApp={setSendWhatsApp}
-                        sendEmail={sendEmail}
-                        setSendEmail={setSendEmail}
-                    />
+                        <TransactionNotifyCheckboxes
+                            sendSms={sendSms}
+                            setSendSms={setSendSms}
+                            sendWhatsApp={sendWhatsApp}
+                            setSendWhatsApp={setSendWhatsApp}
+                            sendEmail={sendEmail}
+                            setSendEmail={setSendEmail}
+                            channelStatus={channelStatus}
+                            loading={notificationLoading}
+                        />
                     )}
                     <div className={`flex items-center justify-end gap-2 shrink-0 ${isEditMode ? 'w-full' : ''}`}>
                         <button
@@ -2308,6 +2401,8 @@ export const PaymentModal = ({ isOpen, onClose, bankDetails, bankId, onSubmit, f
     const [sendEmail, setSendEmail] = useState(true);
     const [sendSms, setSendSms] = useState(true);
     const [sendWhatsApp, setSendWhatsApp] = useState(true);
+    const [notificationLoading, setNotificationLoading] = useState(false);
+    const [channelStatus, setChannelStatus] = useState(DEFAULT_NOTIFICATION_CHANNEL_STATUS);
     const hasPresetClient = Boolean(String(clientUsername || '').trim());
     const hasPresetBank = Boolean(String(bankId || '').trim());
     const shouldShowClientSelector = bankPageClientLookup || !hasPresetClient;
@@ -2342,6 +2437,48 @@ export const PaymentModal = ({ isOpen, onClose, bankDetails, bankId, onSubmit, f
         setSendWhatsApp(true);
         if (shouldShowClientSelector) firmLookup.reset();
     }, [isOpen, shouldShowClientSelector, isEditMode, editRecord]); // eslint-disable-line react-hooks/exhaustive-deps
+
+    useEffect(() => {
+        if (!isOpen || isEditMode) return undefined;
+        let cancelled = false;
+
+        const loadNotificationAvailability = async () => {
+            setNotificationLoading(true);
+            try {
+                const response = await axios.get(
+                    `${API_BASE_URL}/utils/notification-availability`,
+                    {
+                        params: { type: 'payment' },
+                        headers: getHeaders(),
+                    }
+                );
+
+                const channels = ensureChannelStatusShape(response.data?.data?.channels);
+                if (cancelled) return;
+                setChannelStatus(channels);
+                if (!channels.sms.available) setSendSms(false);
+                if (!channels.whatsapp.available) setSendWhatsApp(false);
+                if (!channels.email.available) setSendEmail(false);
+            } catch (error) {
+                if (cancelled) return;
+                setChannelStatus({
+                    sms: { available: false, reason: 'Failed to check SMS availability' },
+                    whatsapp: { available: false, reason: 'Failed to check WhatsApp availability' },
+                    email: { available: false, reason: 'Failed to check email availability' },
+                });
+                setSendSms(false);
+                setSendWhatsApp(false);
+                setSendEmail(false);
+            } finally {
+                if (!cancelled) setNotificationLoading(false);
+            }
+        };
+
+        loadNotificationAvailability();
+        return () => {
+            cancelled = true;
+        };
+    }, [isOpen, isEditMode]);
 
     const resolvePaymentBank = useCallback(() => {
         if (hasPresetBank) {
@@ -2393,6 +2530,11 @@ export const PaymentModal = ({ isOpen, onClose, bankDetails, bankId, onSubmit, f
             party2_type: resolvedParty2Type,
             remark: remarkText || `Payment made to ${resolvedName}`,
             transaction_date: date,
+            notification: {
+                email: sendEmail,
+                sms: sendSms,
+                whatsapp: sendWhatsApp,
+            },
         };
 
         try {
@@ -2446,6 +2588,9 @@ export const PaymentModal = ({ isOpen, onClose, bankDetails, bankId, onSubmit, f
         onClose,
         isEditMode,
         editRecord,
+        sendEmail,
+        sendSms,
+        sendWhatsApp,
     ]);
 
     const handleSubmit = (e) => {
@@ -2479,14 +2624,16 @@ export const PaymentModal = ({ isOpen, onClose, bankDetails, bankId, onSubmit, f
             footer={(
                 <div className="flex flex-col gap-2.5 sm:flex-row sm:items-center sm:justify-between">
                     {!isEditMode && (
-                    <TransactionNotifyCheckboxes
-                        sendSms={sendSms}
-                        setSendSms={setSendSms}
-                        sendWhatsApp={sendWhatsApp}
-                        setSendWhatsApp={setSendWhatsApp}
-                        sendEmail={sendEmail}
-                        setSendEmail={setSendEmail}
-                    />
+                        <TransactionNotifyCheckboxes
+                            sendSms={sendSms}
+                            setSendSms={setSendSms}
+                            sendWhatsApp={sendWhatsApp}
+                            setSendWhatsApp={setSendWhatsApp}
+                            sendEmail={sendEmail}
+                            setSendEmail={setSendEmail}
+                            channelStatus={channelStatus}
+                            loading={notificationLoading}
+                        />
                     )}
                     <div className={`flex items-center justify-end gap-2 shrink-0 ${isEditMode ? 'w-full' : ''}`}>
                         <button
@@ -4249,7 +4396,7 @@ export const PurchaseForm = ({
     modalTitle = 'Create Purchase Bill',
     modalMaxWidth = 'max-w-4xl',
     closeOnOverlayClick = false,
-    showNotificationToggles = true,
+    showNotificationToggles = false,
     formClassName = '',
     submitButtonLabel = '',
 }) => {
@@ -4275,9 +4422,6 @@ export const PurchaseForm = ({
     const userSearchTermRef = useRef('');
     const userSearchRequestIdRef = useRef(0);
     const [selectedPurchaseUser, setSelectedPurchaseUser] = useState(null);
-    const [sendEmail, setSendEmail] = useState(true);
-    const [sendSms, setSendSms] = useState(true);
-    const [sendWhatsApp, setSendWhatsApp] = useState(true);
     const [purchaseBankPickerOpen, setPurchaseBankPickerOpen] = useState(true);
     const [purchaseBankRow, setPurchaseBankRow] = useState(null);
     const purchasePartySearchRef = useRef(null);
@@ -4321,9 +4465,6 @@ export const PurchaseForm = ({
         setPurchaseBankRow(null);
         if (lockedPurchaseType) setPurchaseType(lockedPurchaseType);
         else setPurchaseType(defaultPurchaseType);
-        setSendEmail(true);
-        setSendSms(true);
-        setSendWhatsApp(true);
         fetchServices();
     }, [isOpen, hidePartySelector, fixedParty?.id, initialPartyId, lockedPurchaseType, defaultPurchaseType]);
 
@@ -4646,11 +4787,6 @@ export const PurchaseForm = ({
                 selected_party: selectedParty,
                 timestamp: new Date().toISOString(),
                 api_response: data,
-                notifications: {
-                    email: sendEmail,
-                    sms: sendSms,
-                    whatsapp: sendWhatsApp,
-                },
             };
             onSuccess(submissionData);
             if (mode === 'modal') onClose();
@@ -4690,26 +4826,26 @@ export const PurchaseForm = ({
     const purchaseFormElement = (
         <form id={purchaseFormId} onSubmit={handleSubmit} noValidate={isCompactModal} className={formClassMerged || undefined}>
             <div className={isCompactModal ? 'space-y-3' : 'space-y-5 mb-6'}>
-                    {typeToggleVisible && (
-                        <div className="flex rounded-md border border-slate-200 bg-white p-0.5 w-fit" role="group" aria-label="Purchase party type">
-                            <button
-                                type="button"
-                                onClick={() => handlePurchaseTypeChange('ca')}
-                                className={`px-2.5 py-1 text-xs font-medium rounded transition-colors ${effectivePurchaseType === 'ca' ? 'bg-purple-600 text-white shadow-sm' : 'text-slate-600 hover:bg-slate-50'}`}
-                            >
-                                CA
-                            </button>
-                            <button
-                                type="button"
-                                onClick={() => handlePurchaseTypeChange('bank')}
-                                className={`px-2.5 py-1 text-xs font-medium rounded transition-colors ${effectivePurchaseType === 'bank' ? 'bg-purple-600 text-white shadow-sm' : 'text-slate-600 hover:bg-slate-50'}`}
-                            >
-                                Bank
-                            </button>
-                        </div>
-                    )}
+                {typeToggleVisible && (
+                    <div className="flex rounded-md border border-slate-200 bg-white p-0.5 w-fit" role="group" aria-label="Purchase party type">
+                        <button
+                            type="button"
+                            onClick={() => handlePurchaseTypeChange('ca')}
+                            className={`px-2.5 py-1 text-xs font-medium rounded transition-colors ${effectivePurchaseType === 'ca' ? 'bg-purple-600 text-white shadow-sm' : 'text-slate-600 hover:bg-slate-50'}`}
+                        >
+                            CA
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => handlePurchaseTypeChange('bank')}
+                            className={`px-2.5 py-1 text-xs font-medium rounded transition-colors ${effectivePurchaseType === 'bank' ? 'bg-purple-600 text-white shadow-sm' : 'text-slate-600 hover:bg-slate-50'}`}
+                        >
+                            Bank
+                        </button>
+                    </div>
+                )}
 
-                    {!hidePartySelector && effectivePurchaseType === 'ca' && (
+                {!hidePartySelector && effectivePurchaseType === 'ca' && (
                     <div className={isCompactModal ? 'space-y-1.5' : 'space-y-3'}>
                         <label className={purchaseLabelClass}>
                             CA <span className="text-red-500">*</span>
@@ -4805,62 +4941,62 @@ export const PurchaseForm = ({
                             />
                         )}
                     </div>
-                    )}
+                )}
 
-                    {!hidePartySelector && effectivePurchaseType === 'bank' && (
-                        <div className={isCompactModal ? 'space-y-1.5' : 'space-y-2'}>
-                            <label className={purchaseLabelClass}>
-                                Bank Account <span className="text-red-500">*</span>
-                            </label>
-                            {(!formData.party_id || purchaseBankPickerOpen) ? (
-                                <BankSearchDropdown
-                                    compact={isCompactModal}
-                                    focusAccent="purple"
-                                    onSelect={(bank) => {
-                                        setFormData((prev) => ({ ...prev, party_id: String(bank.bank_id) }));
-                                        setPurchaseBankRow(bank);
-                                        setPurchaseBankPickerOpen(false);
-                                    }}
-                                    selectedBankId={formData.party_id || undefined}
-                                />
-                            ) : (
-                                <SaleBankPreviewCard
-                                    bank={bankCardFromSearchOrParty()}
-                                    onChangeBank={() => setPurchaseBankPickerOpen(true)}
-                                    formatMoney={formatPlainInrAmount}
-                                    variant="purchase"
-                                />
-                            )}
-                        </div>
-                    )}
+                {!hidePartySelector && effectivePurchaseType === 'bank' && (
+                    <div className={isCompactModal ? 'space-y-1.5' : 'space-y-2'}>
+                        <label className={purchaseLabelClass}>
+                            Bank Account <span className="text-red-500">*</span>
+                        </label>
+                        {(!formData.party_id || purchaseBankPickerOpen) ? (
+                            <BankSearchDropdown
+                                compact={isCompactModal}
+                                focusAccent="purple"
+                                onSelect={(bank) => {
+                                    setFormData((prev) => ({ ...prev, party_id: String(bank.bank_id) }));
+                                    setPurchaseBankRow(bank);
+                                    setPurchaseBankPickerOpen(false);
+                                }}
+                                selectedBankId={formData.party_id || undefined}
+                            />
+                        ) : (
+                            <SaleBankPreviewCard
+                                bank={bankCardFromSearchOrParty()}
+                                onChangeBank={() => setPurchaseBankPickerOpen(true)}
+                                formatMoney={formatPlainInrAmount}
+                                variant="purchase"
+                            />
+                        )}
+                    </div>
+                )}
 
-                    {hidePartySelector && showFixedPartyBanner && fixedParty && (
-                        <div>
-                            {effectivePurchaseType === 'ca' ? (
-                                <SaleClientPreviewCard
-                                    party={selectedParty}
-                                    summary={null}
-                                    formatMoney={formatPlainInrAmount}
-                                    variant="purchase"
-                                    readOnly
-                                />
-                            ) : (
-                                <SaleBankPreviewCard
-                                    bank={{
-                                        bank: fixedParty.name,
-                                        holder: fixedParty.holder || '—',
-                                        account_no: fixedParty.account || fixedParty.account_no || '—',
-                                        ifsc: fixedParty.ifsc || '—',
-                                        branch: fixedParty.branch || '—',
-                                        balance: fixedParty.balance ?? 0,
-                                    }}
-                                    formatMoney={formatPlainInrAmount}
-                                    variant="purchase"
-                                    readOnly
-                                />
-                            )}
-                        </div>
-                    )}
+                {hidePartySelector && showFixedPartyBanner && fixedParty && (
+                    <div>
+                        {effectivePurchaseType === 'ca' ? (
+                            <SaleClientPreviewCard
+                                party={selectedParty}
+                                summary={null}
+                                formatMoney={formatPlainInrAmount}
+                                variant="purchase"
+                                readOnly
+                            />
+                        ) : (
+                            <SaleBankPreviewCard
+                                bank={{
+                                    bank: fixedParty.name,
+                                    holder: fixedParty.holder || '—',
+                                    account_no: fixedParty.account || fixedParty.account_no || '—',
+                                    ifsc: fixedParty.ifsc || '—',
+                                    branch: fixedParty.branch || '—',
+                                    balance: fixedParty.balance ?? 0,
+                                }}
+                                formatMoney={formatPlainInrAmount}
+                                variant="purchase"
+                                readOnly
+                            />
+                        )}
+                    </div>
+                )}
 
                 <div className={`grid grid-cols-1 gap-3 ${isCompactModal ? 'sm:grid-cols-2' : 'sm:grid-cols-2 gap-4'}`}>
                     <div>
@@ -5088,7 +5224,7 @@ export const PurchaseForm = ({
     const purchaseAccentBtn = MODAL_ACCENT_STYLES.purchase.primaryBtn;
 
     const triggerPurchaseSubmit = () => {
-        handleSubmit({ preventDefault: () => {} });
+        handleSubmit({ preventDefault: () => { } });
     };
 
     return (
@@ -5102,43 +5238,29 @@ export const PurchaseForm = ({
             accent="purchase"
             titleIcon={<FiTruck className="w-4 h-4" aria-hidden />}
             footer={(
-                <div className="flex flex-col gap-2.5 sm:flex-row sm:items-center sm:justify-between w-full">
-                    {showNotificationToggles ? (
-                        <TransactionNotifyCheckboxes
-                            sendSms={sendSms}
-                            setSendSms={setSendSms}
-                            sendWhatsApp={sendWhatsApp}
-                            setSendWhatsApp={setSendWhatsApp}
-                            sendEmail={sendEmail}
-                            setSendEmail={setSendEmail}
-                        />
-                    ) : (
-                        <div />
+                <div className="flex flex-wrap items-center justify-end gap-2 w-full shrink-0">
+                    {purchaseTotal > 0 && (
+                        <div className="text-xs text-right mr-1 hidden sm:block">
+                            <span className="text-slate-500">Total </span>
+                            <span className="font-semibold tabular-nums text-slate-900">{formatPurchaseMoney(purchaseTotal)}</span>
+                        </div>
                     )}
-                    <div className="flex flex-wrap items-center justify-end gap-2 shrink-0">
-                        {purchaseTotal > 0 && (
-                            <div className="text-xs text-right mr-1 hidden sm:block">
-                                <span className="text-slate-500">Total </span>
-                                <span className="font-semibold tabular-nums text-slate-900">{formatPurchaseMoney(purchaseTotal)}</span>
-                            </div>
-                        )}
-                        <button
-                            type="button"
-                            onClick={onClose}
-                            disabled={isSubmitting}
-                            className="px-3 py-1.5 bg-white border border-slate-300 text-slate-700 rounded-md text-xs font-medium hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-slate-500/30 disabled:opacity-50 transition-colors"
-                        >
-                            Cancel
-                        </button>
-                        <button
-                            type="button"
-                            disabled={isPurchaseSubmitDisabled}
-                            onClick={triggerPurchaseSubmit}
-                            className={`px-3 py-1.5 text-white rounded-md text-xs font-medium focus:outline-none focus:ring-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors inline-flex items-center justify-center min-w-[110px] ${purchaseAccentBtn}`}
-                        >
-                            {isSubmitting ? 'Creating…' : (submitButtonLabel || defaultSubmitLabel)}
-                        </button>
-                    </div>
+                    <button
+                        type="button"
+                        onClick={onClose}
+                        disabled={isSubmitting}
+                        className="px-3 py-1.5 bg-white border border-slate-300 text-slate-700 rounded-md text-xs font-medium hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-slate-500/30 disabled:opacity-50 transition-colors"
+                    >
+                        Cancel
+                    </button>
+                    <button
+                        type="button"
+                        disabled={isPurchaseSubmitDisabled}
+                        onClick={triggerPurchaseSubmit}
+                        className={`px-3 py-1.5 text-white rounded-md text-xs font-medium focus:outline-none focus:ring-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors inline-flex items-center justify-center min-w-[110px] ${purchaseAccentBtn}`}
+                    >
+                        {isSubmitting ? 'Creating…' : (submitButtonLabel || defaultSubmitLabel)}
+                    </button>
                 </div>
             )}
         >
@@ -5393,9 +5515,8 @@ const ExpenseItemSearchField = ({
                                     type="button"
                                     onMouseDown={(e) => e.preventDefault()}
                                     onClick={() => handleSelect(item)}
-                                    className={`w-full truncate px-3 py-2 text-left text-sm text-slate-800 hover:bg-emerald-50 ${
-                                        selectedItemId === item.item_id ? 'bg-emerald-50/80 font-medium' : ''
-                                    }`}
+                                    className={`w-full truncate px-3 py-2 text-left text-sm text-slate-800 hover:bg-emerald-50 ${selectedItemId === item.item_id ? 'bg-emerald-50/80 font-medium' : ''
+                                        }`}
                                 >
                                     {getExpenseItemOptionLabel(item)}
                                 </button>
@@ -5771,14 +5892,14 @@ export const ExpenseModal = ({
                             Expense items
                         </p>
                         {!isEditMode && (
-                        <button
-                            type="button"
-                            onClick={addLine}
-                            className="inline-flex items-center gap-1 rounded-md border border-emerald-200 bg-white px-2 py-1 text-[11px] font-medium text-emerald-700 hover:bg-emerald-50 transition-colors shrink-0"
-                        >
-                            <FiPlus className="w-3 h-3" />
-                            Add line
-                        </button>
+                            <button
+                                type="button"
+                                onClick={addLine}
+                                className="inline-flex items-center gap-1 rounded-md border border-emerald-200 bg-white px-2 py-1 text-[11px] font-medium text-emerald-700 hover:bg-emerald-50 transition-colors shrink-0"
+                            >
+                                <FiPlus className="w-3 h-3" />
+                                Add line
+                            </button>
                         )}
                     </div>
 
@@ -5891,9 +6012,6 @@ export const JournalModal = ({
     const [transactionDate, setTransactionDate] = useState(new Date().toISOString().split('T')[0]);
     const [amount, setAmount] = useState('');
     const [description, setDescription] = useState('');
-    const [sendEmail, setSendEmail] = useState(true);
-    const [sendSms, setSendSms] = useState(true);
-    const [sendWhatsApp, setSendWhatsApp] = useState(true);
     const [excludeForFromLookup, setExcludeForFromLookup] = useState(null);
     const [excludeForToLookup, setExcludeForToLookup] = useState(null);
 
@@ -5960,9 +6078,6 @@ export const JournalModal = ({
         setAmount('');
         setDescription('');
         setLoading(false);
-        setSendEmail(true);
-        setSendSms(true);
-        setSendWhatsApp(true);
         fromPartyLookup.reset();
         toPartyLookup.reset();
     }, [isOpen, isEditMode, editRecord]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -6144,35 +6259,23 @@ export const JournalModal = ({
             accent="journal"
             titleIcon={<FiFileText className="w-4 h-4" aria-hidden />}
             footer={(
-                <div className="flex flex-col gap-2.5 sm:flex-row sm:items-center sm:justify-between">
-                    {!isEditMode && (
-                    <TransactionNotifyCheckboxes
-                        sendSms={sendSms}
-                        setSendSms={setSendSms}
-                        sendWhatsApp={sendWhatsApp}
-                        setSendWhatsApp={setSendWhatsApp}
-                        sendEmail={sendEmail}
-                        setSendEmail={setSendEmail}
-                    />
-                    )}
-                    <div className={`flex items-center justify-end gap-2 shrink-0 ${isEditMode ? 'w-full' : ''}`}>
-                        <button
-                            type="button"
-                            onClick={onClose}
-                            disabled={loading}
-                            className="px-3 py-1.5 bg-white border border-slate-300 text-slate-700 rounded-md text-xs font-medium hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-slate-500/30 disabled:opacity-50 transition-colors"
-                        >
-                            Cancel
-                        </button>
-                        <button
-                            type="button"
-                            disabled={loading || !isJournalFormValid || (hasPresetFromParam && loadingPresetFrom)}
-                            onClick={submitJournal}
-                            className={`px-3 py-1.5 text-white rounded-md text-xs font-medium focus:outline-none focus:ring-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors inline-flex items-center justify-center min-w-[110px] ${journalAccentBtn}`}
-                        >
-                            {loading ? 'Processing…' : (hasPresetFromParam && loadingPresetFrom ? 'Loading…' : (isEditMode ? 'Update Journal' : 'Transfer'))}
-                        </button>
-                    </div>
+                <div className="flex items-center justify-end gap-2 w-full shrink-0">
+                    <button
+                        type="button"
+                        onClick={onClose}
+                        disabled={loading}
+                        className="px-3 py-1.5 bg-white border border-slate-300 text-slate-700 rounded-md text-xs font-medium hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-slate-500/30 disabled:opacity-50 transition-colors"
+                    >
+                        Cancel
+                    </button>
+                    <button
+                        type="button"
+                        disabled={loading || !isJournalFormValid || (hasPresetFromParam && loadingPresetFrom)}
+                        onClick={submitJournal}
+                        className={`px-3 py-1.5 text-white rounded-md text-xs font-medium focus:outline-none focus:ring-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors inline-flex items-center justify-center min-w-[110px] ${journalAccentBtn}`}
+                    >
+                        {loading ? 'Processing…' : (hasPresetFromParam && loadingPresetFrom ? 'Loading…' : (isEditMode ? 'Update Journal' : 'Transfer'))}
+                    </button>
                 </div>
             )}
         >
@@ -6344,9 +6447,6 @@ export const ContraModal = ({
     const [transactionDate, setTransactionDate] = useState(new Date().toISOString().split('T')[0]);
     const [amount, setAmount] = useState('');
     const [description, setDescription] = useState('');
-    const [sendEmail, setSendEmail] = useState(true);
-    const [sendSms, setSendSms] = useState(true);
-    const [sendWhatsApp, setSendWhatsApp] = useState(true);
 
     const todayIso = useMemo(() => new Date().toISOString().split('T')[0], []);
     const contraFieldClass = getCompactFieldClass('teal');
@@ -6381,9 +6481,6 @@ export const ContraModal = ({
         setAmount('');
         setDescription('');
         setLoading(false);
-        setSendEmail(true);
-        setSendSms(true);
-        setSendWhatsApp(true);
     }, [isOpen, fromBankDetails, fromBankId, toBankDetails, toBankId, isEditMode, editRecord, hasPresetFromBank, hasPresetToBank]);
 
     const effectiveFromBank = hasPresetFromBank
@@ -6515,35 +6612,23 @@ export const ContraModal = ({
             accent="contra"
             titleIcon={<FiRepeat className="w-4 h-4" aria-hidden />}
             footer={(
-                <div className="flex flex-col gap-2.5 sm:flex-row sm:items-center sm:justify-between">
-                    {!isEditMode && (
-                    <TransactionNotifyCheckboxes
-                        sendSms={sendSms}
-                        setSendSms={setSendSms}
-                        sendWhatsApp={sendWhatsApp}
-                        setSendWhatsApp={setSendWhatsApp}
-                        sendEmail={sendEmail}
-                        setSendEmail={setSendEmail}
-                    />
-                    )}
-                    <div className={`flex items-center justify-end gap-2 shrink-0 ${isEditMode ? 'w-full' : ''}`}>
-                        <button
-                            type="button"
-                            onClick={onClose}
-                            disabled={loading}
-                            className="px-3 py-1.5 bg-white border border-slate-300 text-slate-700 rounded-md text-xs font-medium hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-slate-500/30 disabled:opacity-50 transition-colors"
-                        >
-                            Cancel
-                        </button>
-                        <button
-                            type="button"
-                            disabled={loading || !isContraFormValid}
-                            onClick={submitContra}
-                            className={`px-3 py-1.5 text-white rounded-md text-xs font-medium focus:outline-none focus:ring-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors inline-flex items-center justify-center min-w-[110px] ${contraAccentBtn}`}
-                        >
-                            {loading ? 'Processing…' : (isEditMode ? 'Update Contra' : 'Transfer Funds')}
-                        </button>
-                    </div>
+                <div className="flex items-center justify-end gap-2 w-full shrink-0">
+                    <button
+                        type="button"
+                        onClick={onClose}
+                        disabled={loading}
+                        className="px-3 py-1.5 bg-white border border-slate-300 text-slate-700 rounded-md text-xs font-medium hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-slate-500/30 disabled:opacity-50 transition-colors"
+                    >
+                        Cancel
+                    </button>
+                    <button
+                        type="button"
+                        disabled={loading || !isContraFormValid}
+                        onClick={submitContra}
+                        className={`px-3 py-1.5 text-white rounded-md text-xs font-medium focus:outline-none focus:ring-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors inline-flex items-center justify-center min-w-[110px] ${contraAccentBtn}`}
+                    >
+                        {loading ? 'Processing…' : (isEditMode ? 'Update Contra' : 'Transfer Funds')}
+                    </button>
                 </div>
             )}
         >

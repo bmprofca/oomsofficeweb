@@ -27,3 +27,17 @@
     - Keyboard Enter is also supported.
     - Use the "enter" icon from React Icons (e.g., `FiCornerDownLeft` from `react-icons/fi`).
 - Changing filters or limit should reset page to `1`
+
+## Finance register tables
+
+Used on `received-display.js`, `discount.js`, `bank-account.js`, `capital-accuont.js`.
+
+- Prefer `table-fixed` with explicit `%` column widths when removing columns would leave uneven gaps.
+- Received register column widths: `# 4%`, `Date 10%`, `Particulars 26%`, `Voucher 12%`, `Amount 12%`, `Received At 20%`, `Actions 10%`.
+- Inline skeleton rows inside `<tbody>` while `listLoading` (not full-page overlay).
+- Row hover: `hover:bg-blue-50/30` (or page accent).
+- Amount columns: right-aligned, `tabular-nums`, ₹ prefix.
+- Date columns: `DD/MM/YYYY` in cells.
+- Row ⋮ menu + right-click both open the same portal action dropdown.
+
+Full register patterns: `finance-registers.md`.

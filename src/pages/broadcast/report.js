@@ -23,9 +23,10 @@ const BroadcastReport = () => {
         return saved ? JSON.parse(saved) : false;
     });
     
+    const validTabs = ['text-message', 'whatsapp'];
     // Get active tab from URL or default to 'text-message'
     const urlTab = searchParams.get('tab');
-    const [activeTab, setActiveTab] = useState(urlTab || 'text-message');
+    const [activeTab, setActiveTab] = useState(validTabs.includes(urlTab) ? urlTab : 'text-message');
     
     // Report states
     const [reports, setReports] = useState([]);
@@ -113,20 +114,6 @@ const BroadcastReport = () => {
         }
     ];
 
-    const mockPushReports = [
-        {
-            batch_id: '6',
-            date: '2024-01-15 13:20:00',
-            format: 'System Notification',
-            total: 500,
-            pending: 15,
-            success: 480,
-            failed: 5,
-            paused: 0,
-            type: 'push'
-        }
-    ];
-
     // Update URL when tab changes
     useEffect(() => {
         if (urlTab !== activeTab) {
@@ -138,8 +125,11 @@ const BroadcastReport = () => {
 
     // Set active tab from URL on component mount or when URL changes
     useEffect(() => {
-        if (urlTab && urlTab !== activeTab) {
+        if (urlTab && validTabs.includes(urlTab) && urlTab !== activeTab) {
             setActiveTab(urlTab);
+        }
+        if (urlTab && !validTabs.includes(urlTab)) {
+            setActiveTab('text-message');
         }
     }, [urlTab]);
 
@@ -163,9 +153,6 @@ const BroadcastReport = () => {
                     break;
                 case 'whatsapp':
                     data = mockWhatsappReports;
-                    break;
-                case 'push':
-                    data = mockPushReports;
                     break;
                 default:
                     data = mockSmsReports;
@@ -514,19 +501,6 @@ const BroadcastReport = () => {
                                             >
                                                 <FiBarChart2 className="w-4 h-4" />
                                                 WhatsApp Reports
-                                            </motion.button>
-                                            <motion.button
-                                                onClick={() => handleTabChange('push')}
-                                                className={`py-2 px-1 border-b-2 font-medium text-sm whitespace-nowrap flex items-center gap-2 ${
-                                                    activeTab === 'push'
-                                                        ? 'border-blue-500 text-blue-600'
-                                                        : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                                                }`}
-                                                whileHover={{ scale: 1.05 }}
-                                                whileTap={{ scale: 0.95 }}
-                                            >
-                                                <FiBarChart2 className="w-4 h-4" />
-                                                Push Reports
                                             </motion.button>
                                         </nav>
                                     </div>

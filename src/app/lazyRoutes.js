@@ -56,7 +56,6 @@ export const OneChattingTemplates = lazy(() => import('../pages/broadcast/whatsa
 export const WhatsAppWebSession = lazy(() => import('../pages/broadcast/whatsapp/WhatsAppWebSession'));
 export const WhatsAppWebTemplates = lazy(() => import('../pages/broadcast/whatsapp/WhatsAppWebTemplates'));
 export const OomsSystemTemplates = lazy(() => import('../pages/broadcast/whatsapp/OomsSystemTemplates'));
-export const PushNotification = lazy(() => import('../pages/broadcast/push-notification/notification'));
 export const EmailConfigList = lazy(() => import('../pages/broadcast/email/EmailConfigList'));
 export const EmailTemplateList = lazy(() => import('../pages/broadcast/email/EmailTemplateList'));
 export const EmailBroadcastList = lazy(() => import('../pages/broadcast/email/EmailBroadcastList'));

@@ -5,18 +5,14 @@ import {
     FiFileText,
     FiSettings,
     FiBarChart2,
-    FiBell,
     FiMessageSquare,
-    FiDatabase,
     FiLayers,
     FiMail,
-    FiHome,
-    FiChevronRight,
     FiLoader,
     FiMessageCircle,
     FiLock,
 } from 'react-icons/fi';
-import { useNavigate, useParams, Link } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { toast } from 'react-hot-toast';
 import {
@@ -28,10 +24,86 @@ import { setStoredWhatsappChannel } from './broadcast/whatsapp/whatsappChannelSt
 import { useWhatsappChannel } from './broadcast/whatsapp/useWhatsappChannel';
 import { useUserPermissions } from '../utils/permission-helper';
 
+const TAB_META = {
+    whatsapp: { label: 'WhatsApp', accent: 'green', icon: FiMessageCircle },
+    'text-message': { label: 'SMS', accent: 'blue', icon: FiMessageSquare },
+    'email-channel': { label: 'Email', accent: 'indigo', icon: FiMail },
+};
+
+const ACCENT_CLASS = {
+    green: {
+        chip: 'bg-emerald-100 text-emerald-700',
+        border: 'border-emerald-500',
+        text: 'text-emerald-700',
+        tab: 'border-emerald-500 text-emerald-600',
+        hover: 'hover:border-emerald-300 hover:bg-emerald-50/40',
+    },
+    blue: {
+        chip: 'bg-blue-100 text-blue-700',
+        border: 'border-blue-500',
+        text: 'text-blue-700',
+        tab: 'border-blue-500 text-blue-600',
+        hover: 'hover:border-blue-300 hover:bg-blue-50/40',
+    },
+    indigo: {
+        chip: 'bg-indigo-100 text-indigo-700',
+        border: 'border-indigo-500',
+        text: 'text-indigo-700',
+        tab: 'border-indigo-500 text-indigo-600',
+        hover: 'hover:border-indigo-300 hover:bg-indigo-50/40',
+    },
+};
+
+const ChannelSwitchPills = ({
+    label,
+    value,
+    options,
+    onChange,
+    disabled = false,
+    accent = 'blue',
+    loading = false,
+}) => {
+    const accentStyles = {
+        blue: 'bg-blue-600 text-white border-blue-600 shadow-blue-100',
+        green: 'bg-emerald-600 text-white border-emerald-600 shadow-emerald-100',
+    };
+
+    return (
+        <div className="flex w-full flex-col gap-1.5 sm:w-auto">
+            {label ? (
+                <span className="text-xs font-medium text-slate-600">{label}</span>
+            ) : null}
+            <div className="flex items-center gap-1.5">
+                <div className="inline-flex gap-1 rounded-lg border border-slate-200 bg-slate-50 p-0.5">
+                    {options.map((opt) => {
+                        const active = value === opt.value;
+                        return (
+                            <button
+                                key={opt.value}
+                                type="button"
+                                disabled={disabled}
+                                onClick={() => onChange(opt.value)}
+                                className={`rounded-md border px-2.5 py-1 text-xs font-medium transition-all ${active
+                                    ? `${accentStyles[accent]}`
+                                    : 'border-transparent bg-transparent text-slate-600 hover:bg-white hover:text-slate-800'
+                                    } ${disabled ? 'cursor-not-allowed opacity-60' : ''}`}
+                            >
+                                {opt.label}
+                            </button>
+                        );
+                    })}
+                </div>
+                {loading ? <FiLoader className="h-3.5 w-3.5 animate-spin text-emerald-600" /> : null}
+            </div>
+        </div>
+    );
+};
+
 const Broadcast = () => {
     const navigate = useNavigate();
     const { tab } = useParams();
-    const activeTab = tab || 'whatsapp';
+    const allowedTabs = ['whatsapp', 'text-message', 'email-channel'];
+    const activeTab = allowedTabs.includes(tab) ? tab : 'whatsapp';
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
     const [isMinimized, setIsMinimized] = useState(() => {
         const saved = localStorage.getItem('sidebarMinimized');
@@ -224,50 +296,6 @@ const Broadcast = () => {
         }
     ];
 
-    // Push Notification Cards data
-    const pushNotificationCards = [
-        {
-            title: "Send Notification",
-            description: "Send push notifications",
-            icon: <FiBell className="w-5 h-5" />,
-            link: "./push-notification?tab=send",
-            color: "bg-purple-100 text-purple-600",
-            permission: "broadcast_send"
-        },
-        {
-            title: "Static Templates",
-            description: "Manage static notification templates",
-            icon: <FiLayers className="w-5 h-5" />,
-            link: "./push-notification?tab=static-template",
-            color: "bg-purple-100 text-purple-600",
-            permission: "broadcast_config_edit"
-        },
-        {
-            title: "Dynamic Templates",
-            description: "Manage dynamic notification templates",
-            icon: <FiDatabase className="w-5 h-5" />,
-            link: "./push-notification?tab=dynamic-template",
-            color: "bg-purple-100 text-purple-600",
-            permission: "broadcast_config_edit"
-        },
-        {
-            title: "Configuration",
-            description: "Notification settings",
-            icon: <FiSettings className="w-5 h-5" />,
-            link: "./push-notification?tab=configuration",
-            color: "bg-purple-100 text-purple-600",
-            permission: "broadcast_config_edit"
-        },
-        {
-            title: "Reports",
-            description: "View notification reports",
-            icon: <FiBarChart2 className="w-5 h-5" />,
-            link: "./report?tab=push",
-            color: "bg-purple-100 text-purple-600",
-            permission: ["broadcast_send", "broadcast_config_edit"]
-        }
-    ];
-
     const emailCards = [
         {
             title: "SMTP Configs",
@@ -320,6 +348,11 @@ const Broadcast = () => {
         // await updateTextMessageChannel(newChannel);
     };
 
+    const textMessageChannelOptions = [
+        { value: '0', label: 'Disabled' },
+        { value: 'ooms', label: 'OOMS' },
+    ];
+
     const handleWhatsappChannelChange = async (newChannel) => {
         const previousChannel = whatsappChannel;
         setWhatsappChannelSaving(true);
@@ -342,6 +375,14 @@ const Broadcast = () => {
         setWhatsappSubTab(subTabId);
     };
 
+    const renderEmptyChannelState = (title, description, accent = 'green') => (
+        <div className="rounded-xl border border-dashed border-slate-300 bg-white p-7 text-center">
+            <FiMessageSquare className={`mx-auto mb-2.5 h-8 w-8 ${ACCENT_CLASS[accent].text}`} />
+            <h3 className="text-base font-semibold text-slate-700">{title}</h3>
+            <p className="mx-auto mt-1 max-w-md text-sm text-slate-500">{description}</p>
+        </div>
+    );
+
     const renderWhatsappSubTabContent = () => {
         if (whatsappSubTab === 'onechatting') {
             return renderCardGrid(whatsappOneChattingCards);
@@ -353,8 +394,8 @@ const Broadcast = () => {
     };
 
     // Render card grid
-    const renderCardGrid = (cards) => (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-4">
+    const renderCardGrid = (cards, accent = 'green') => (
+        <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
             {cards.map((card, index) => {
                 const hasPermission = card.permission
                     ? (Array.isArray(card.permission)
@@ -368,7 +409,7 @@ const Broadcast = () => {
                         initial={{ opacity: 0, y: 20 }}
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ delay: index * 0.05 }}
-                        whileHover={hasPermission ? { y: -5, scale: 1.02 } : {}}
+                        whileHover={hasPermission ? { y: -4 } : {}}
                         whileTap={hasPermission ? { scale: 0.98 } : {}}
                         onClick={() => {
                             if (!hasPermission) {
@@ -377,22 +418,22 @@ const Broadcast = () => {
                             }
                             navigate(card.link);
                         }}
-                        className={`cursor-pointer ${!hasPermission ? 'opacity-60 cursor-not-allowed' : ''}`}
+                        className={`group ${hasPermission ? 'cursor-pointer' : 'cursor-not-allowed opacity-60'}`}
                     >
-                        <div className="bg-white rounded-lg border border-gray-200 p-4 hover:border-gray-300 hover:shadow-md transition-all duration-200 h-full relative">
+                        <div className={`relative h-full rounded-lg border border-slate-200 bg-white p-3 shadow-sm transition-all duration-200 ${ACCENT_CLASS[accent].hover}`}>
                             {!hasPermission && (
-                                <div className="absolute top-2 right-2 text-gray-400 bg-gray-100 p-1 rounded-full">
-                                    <FiLock className="w-3 h-3" />
+                                <div className="absolute right-3 top-3 rounded-full bg-slate-100 p-1 text-slate-400">
+                                    <FiLock className="h-3 w-3" />
                                 </div>
                             )}
-                            <div className="flex flex-col items-center text-center">
-                                <div className={`rounded-lg p-3 mb-3 ${card.color}`}>
+                            <div className="flex h-full flex-col">
+                                <div className={`mb-2 inline-flex h-8 w-8 items-center justify-center rounded-md ${card.color}`}>
                                     {card.icon}
                                 </div>
-                                <h6 className="text-sm font-semibold text-gray-800 mb-2 leading-tight">
+                                <h6 className="mb-0.5 text-[13px] font-semibold leading-tight text-slate-800">
                                     {card.title}
                                 </h6>
-                                <p className="text-xs text-gray-500 leading-tight">
+                                <p className="text-[11px] leading-relaxed text-slate-500">
                                     {card.description}
                                 </p>
                             </div>
@@ -405,34 +446,33 @@ const Broadcast = () => {
 
     // Render Text Message section
     const renderTextMessageSection = () => (
-        <div className="bg-white rounded-lg border border-gray-200 mb-6">
-            <div className="border-b border-gray-200 px-6 py-4">
-                <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
-                    <h5 className="text-lg font-semibold text-gray-800">SMS</h5>
+        <div className="rounded-xl border border-slate-200 bg-white shadow-sm">
+            <div className="border-b border-slate-200 px-4 py-3">
+                <div className="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
+                    <div>
+                        <h5 className="text-base font-semibold text-slate-800">SMS</h5>
+                        <p className="text-xs text-slate-500">Manage gateway, templates and campaign execution.</p>
+                    </div>
                     {isHeadBranch && (
-                        <div className="flex items-center gap-3">
-                            <div className="text-sm text-gray-600 whitespace-nowrap">Select Channel</div>
-                            <select
-                                value={textMessageChannel}
-                                onChange={(e) => handleTextMessageChannelChange(e.target.value)}
-                                className="px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white outline-none text-sm"
-                            >
-                                <option value="0">Disable</option>
-                                <option value="ooms">OOMS</option>
-                            </select>
-                        </div>
+                        <ChannelSwitchPills
+                            label="SMS Channel"
+                            value={textMessageChannel}
+                            options={textMessageChannelOptions}
+                            onChange={handleTextMessageChannelChange}
+                            accent="blue"
+                        />
                     )}
                 </div>
             </div>
-            <div className="p-6">
+            <div className="p-4">
                 {textMessageChannel === 'ooms' ? (
-                    renderCardGrid(textMessageCards)
+                    renderCardGrid(textMessageCards, 'blue')
                 ) : textMessageChannel === '0' ? (
-                    <div className="text-center py-12 text-gray-500">
-                        <FiMessageSquare className="w-16 h-16 mx-auto text-gray-300 mb-4" />
-                        <p className="text-lg font-medium">Text Message broadcasting is currently disabled</p>
-                        <p className="text-sm text-gray-400 mt-2">Enable it to start sending messages</p>
-                    </div>
+                    renderEmptyChannelState(
+                        'SMS broadcasting is currently disabled',
+                        'Select OOMS channel to enable campaign and template tools.',
+                        'blue'
+                    )
                 ) : null}
             </div>
         </div>
@@ -440,48 +480,43 @@ const Broadcast = () => {
 
     // Render WhatsApp section
     const renderWhatsappSection = () => (
-        <div className="bg-white rounded-lg border border-gray-200 mb-6">
-            <div className="border-b border-gray-200 px-6 py-4">
-                <h5 className="text-lg font-semibold text-gray-800">WhatsApp</h5>
+        <div className="rounded-xl border border-slate-200 bg-white shadow-sm">
+            <div className="border-b border-slate-200 px-4 py-3">
+                <h5 className="text-base font-semibold text-slate-800">WhatsApp</h5>
             </div>
-            <div className="px-6 py-4 bg-gray-50 border-b border-gray-200">
-                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div className="border-b border-slate-200 bg-slate-50/70 px-4 py-3">
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                     <div>
-                        <p className="text-sm font-medium text-gray-800">Active WhatsApp Channel</p>
-                        <p className="text-xs text-gray-500 mt-0.5">
+                        <p className="text-sm font-medium text-slate-800">Active WhatsApp Channel</p>
+                        <p className="mt-0.5 text-xs text-slate-500">
                             Select which integration this branch uses for WhatsApp broadcasts
                         </p>
                     </div>
-                    <div className="flex items-center gap-2 sm:min-w-[220px]">
-                        <select
-                            value={whatsappChannel}
-                            onChange={(e) => handleWhatsappChannelChange(e.target.value)}
-                            disabled={whatsappChannelSaving}
-                            className="w-full sm:w-auto min-w-[200px] px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 bg-white outline-none text-sm disabled:opacity-60 disabled:cursor-not-allowed"
-                        >
-                            {WHATSAPP_CHANNEL_OPTIONS.map((option) => (
-                                <option key={option.value} value={option.value}>
-                                    {option.label}
-                                </option>
-                            ))}
-                        </select>
-                        {whatsappChannelSaving && (
-                            <FiLoader className="w-4 h-4 animate-spin text-green-600 shrink-0" />
-                        )}
-                    </div>
+                    <ChannelSwitchPills
+                        label="WhatsApp Channel"
+                        value={whatsappChannel}
+                        options={WHATSAPP_CHANNEL_OPTIONS.map((option) => ({
+                            value: option.value,
+                            label: option.label,
+                        }))}
+                        onChange={handleWhatsappChannelChange}
+                        disabled={whatsappChannelSaving}
+                        loading={whatsappChannelSaving}
+                        accent="green"
+                    />
                 </div>
             </div>
             {whatsappChannel !== 'disabled' && (
-                <div className="px-6 pt-4 border-b border-gray-200">
-                    <nav className="-mb-px flex space-x-6 overflow-x-auto">
+                <div className="border-b border-slate-200 px-4 pt-2.5">
+                    <nav className="-mb-px flex space-x-4 overflow-x-auto">
                         {WHATSAPP_SUB_TABS.map((subTab) => (
                             <button
                                 key={subTab.value}
                                 type="button"
                                 onClick={() => handleWhatsappSubTabChange(subTab.value)}
-                                className={`py-2 px-1 border-b-2 font-medium text-sm whitespace-nowrap transition-colors ${whatsappSubTab === subTab.value
-                                    ? 'border-green-500 text-green-600'
-                                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                                className={`border-b-2 px-1 py-1.5 text-sm font-medium whitespace-nowrap transition-colors ${whatsappSubTab === subTab.value
+                                    ? 'border-emerald-500 text-emerald-600'
+                                    : 'border-transparent text-slate-500 hover:border-slate-300 hover:text-slate-700'
                                     }`}
                             >
                                 {subTab.label}
@@ -490,13 +525,13 @@ const Broadcast = () => {
                     </nav>
                 </div>
             )}
-            <div className="p-6">
+            <div className="p-4">
                 {whatsappChannel === 'disabled' ? (
-                    <div className="text-center py-12 text-gray-500">
-                        <FiMessageSquare className="w-16 h-16 mx-auto text-gray-300 mb-4" />
-                        <p className="text-lg font-medium">WhatsApp broadcasting is currently disabled</p>
-                        <p className="text-sm text-gray-400 mt-2">Enable it to start sending messages</p>
-                    </div>
+                    renderEmptyChannelState(
+                        'WhatsApp broadcasting is currently disabled',
+                        'Select an active WhatsApp channel to unlock template and send flows.',
+                        'green'
+                    )
                 ) : (
                     renderWhatsappSubTabContent()
                 )}
@@ -504,34 +539,21 @@ const Broadcast = () => {
         </div>
     );
 
-    // Render Push Notification section
-    const renderPushNotificationSection = () => (
-        <div className="bg-white rounded-lg border border-gray-200 mb-6">
-            <div className="border-b border-gray-200 px-6 py-4">
-                <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
-                    <h5 className="text-lg font-semibold text-gray-800">Push Notification</h5>
-                </div>
-            </div>
-            <div className="p-6">
-                {renderCardGrid(pushNotificationCards)}
-            </div>
-        </div>
-    );
-
     const renderEmailSection = () => (
-        <div className="bg-white rounded-lg border border-gray-200 mb-6">
-            <div className="border-b border-gray-200 px-6 py-4">
-                <h5 className="text-lg font-semibold text-gray-800">Email Broadcast</h5>
+        <div className="rounded-xl border border-slate-200 bg-white shadow-sm">
+            <div className="border-b border-slate-200 px-4 py-3">
+                <h5 className="text-base font-semibold text-slate-800">Email Broadcast</h5>
+                <p className="text-xs text-slate-500">Control SMTP, reusable templates, and bulk campaign delivery.</p>
             </div>
-            <div className="p-6">
-                {renderCardGrid(emailCards)}
+            <div className="p-4">
+                {renderCardGrid(emailCards, 'indigo')}
             </div>
         </div>
     );
 
     if (!check('broadcast_livechat') && !check('broadcast_send') && !check('broadcast_config_edit')) {
         return (
-            <div className="min-h-screen bg-gray-50">
+            <div className="min-h-screen bg-slate-50">
                 <Header
                     mobileMenuOpen={mobileMenuOpen}
                     setMobileMenuOpen={setMobileMenuOpen}
@@ -544,13 +566,13 @@ const Broadcast = () => {
                     isMinimized={isMinimized}
                     setIsMinimized={setIsMinimized}
                 />
-                <div className={`pt-16 flex items-center justify-center transition-all duration-300 h-[calc(100vh-4rem)] ${isMinimized ? 'md:pl-20' : 'md:pl-[260px]'}`}>
-                    <div className="text-center p-8 bg-white rounded-2xl border border-gray-200 shadow-sm max-w-sm w-full mx-4">
-                        <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                            <FiLock className="w-8 h-8 text-slate-400" />
+                <div className={`flex h-[calc(100vh-4rem)] items-center justify-center pt-16 transition-all duration-300 ${isMinimized ? 'md:pl-20' : 'md:pl-[260px]'}`}>
+                    <div className="mx-4 w-full max-w-sm rounded-xl border border-slate-200 bg-white p-6 text-center shadow-sm">
+                        <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-full bg-slate-100">
+                            <FiLock className="h-7 w-7 text-slate-400" />
                         </div>
-                        <h3 className="text-lg font-bold text-gray-800 mb-2">Access Denied</h3>
-                        <p className="text-gray-500 text-sm">You do not have permission to access the Broadcast section.</p>
+                        <h3 className="mb-1.5 text-base font-bold text-slate-800">Access Denied</h3>
+                        <p className="text-sm text-slate-500">You do not have permission to access the Broadcast section.</p>
                     </div>
                 </div>
             </div>
@@ -558,7 +580,7 @@ const Broadcast = () => {
     }
 
     return (
-        <div className="min-h-screen bg-gray-50">
+        <div className="min-h-screen bg-slate-50">
             <Header
                 mobileMenuOpen={mobileMenuOpen}
                 setMobileMenuOpen={setMobileMenuOpen}
@@ -574,108 +596,46 @@ const Broadcast = () => {
 
             {/* Main content */}
             <div className={`pt-16 transition-all duration-300 ease-in-out ${isMinimized ? 'md:pl-20' : 'md:pl-[260px]'}`}>
-                <div className="max-w-7xl mx-auto px-4 sm:px-6 md:px-8 py-6">
-                    {/* Breadcrumbs */}
-                    <motion.div
-                        className="mb-4"
-                        initial={{ opacity: 0, x: -20 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        transition={{ duration: 0.3 }}
-                    >
-                        <nav className="flex items-center text-sm text-gray-600">
-                            <Link
-                                to="/"
-                                className="flex items-center gap-1 hover:text-blue-600 transition-colors"
-                            >
-                                <FiHome className="w-4 h-4" />
-                                <span>Dashboard</span>
-                            </Link>
-                            <FiChevronRight className="w-4 h-4 mx-2 text-gray-400" />
-                            <Link
-                                to="/broadcast"
-                                className="flex items-center gap-1 hover:text-blue-600 transition-colors"
-                            >
-                                <FiSend className="w-4 h-4" />
-                                <span>Broadcast</span>
-                            </Link>
-                            {tab && (
-                                <>
-                                    <FiChevronRight className="w-4 h-4 mx-2 text-gray-400" />
-                                    <span className="text-gray-900 font-medium capitalize">
-                                        {tab === 'email-channel' ? 'Email' : tab.replace('-', ' ')}
-                                    </span>
-                                </>
-                            )}
-                        </nav>
-                    </motion.div>
-
+                <div className="mx-auto max-w-7xl px-4 py-4 sm:px-6 md:px-8">
                     <motion.div
                         initial={{ opacity: 0, y: 20 }}
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ duration: 0.3 }}
-                        className="space-y-6"
+                        className="space-y-3"
                     >
-                        {/* Header with Tabs */}
-                        <div className="bg-white rounded-lg border border-gray-200 shadow-sm">
-                            <div className="border-b border-gray-200 px-6 py-4">
-                                <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
+                        <div className="rounded-xl border border-slate-200 bg-white shadow-sm">
+                            <div className="border-b border-slate-200 px-4 py-3">
+                                <div className="flex flex-col gap-2.5 lg:flex-row lg:items-center lg:justify-between">
                                     <div>
-                                        <h5 className="text-lg font-semibold text-gray-800 mb-1">
+                                        <h5 className="mb-0.5 text-lg font-semibold text-slate-800">
                                             Broadcast
                                         </h5>
-                                        <p className="text-gray-500 text-sm">
-                                            Manage WhatsApp, SMS, Email, and Push Notifications
+                                        <p className="text-sm text-slate-500">
+                                            Manage WhatsApp, SMS and Email notifications
                                         </p>
+                                    </div>
+                                    <div className="grid w-full grid-cols-1 gap-1.5 sm:w-auto sm:grid-cols-3">
+                                        {Object.entries(TAB_META).map(([key, meta]) => {
+                                            const Icon = meta.icon;
+                                            const active = activeTab === key;
+                                            return (
+                                                <button
+                                                    key={key}
+                                                    type="button"
+                                                    onClick={() => navigate(`/broadcast/${key}`)}
+                                                    className={`inline-flex items-center justify-center gap-1.5 rounded-md border px-2.5 py-1.5 text-xs font-medium transition-colors ${active ? `${ACCENT_CLASS[meta.accent].chip} border-transparent` : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'}`}
+                                                >
+                                                    <Icon className="h-3.5 w-3.5" />
+                                                    <span className="truncate">{meta.label}</span>
+                                                </button>
+                                            );
+                                        })}
                                     </div>
                                 </div>
                             </div>
 
-                            {/* Tabs */}
-                            <div className="px-6 pt-4">
-                                <div className="border-b border-gray-200">
-                                    <nav className="-mb-px flex space-x-8 overflow-x-auto">
-                                        <button
-                                            onClick={() => navigate('/broadcast/whatsapp')}
-                                            className={`py-2 px-1 border-b-2 font-medium text-sm whitespace-nowrap transition-colors ${activeTab === 'whatsapp'
-                                                ? 'border-green-500 text-green-600'
-                                                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                                                }`}
-                                        >
-                                            WhatsApp
-                                        </button>
-                                        <button
-                                            onClick={() => navigate('/broadcast/text-message')}
-                                            className={`py-2 px-1 border-b-2 font-medium text-sm whitespace-nowrap transition-colors ${activeTab === 'text-message'
-                                                ? 'border-blue-500 text-blue-600'
-                                                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                                                }`}
-                                        >
-                                            SMS
-                                        </button>
-                                        <button
-                                            onClick={() => navigate('/broadcast/email-channel')}
-                                            className={`py-2 px-1 border-b-2 font-medium text-sm whitespace-nowrap transition-colors ${activeTab === 'email-channel'
-                                                ? 'border-indigo-500 text-indigo-600'
-                                                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                                                }`}
-                                        >
-                                            Email
-                                        </button>
-                                        <button
-                                            onClick={() => navigate('/broadcast/push')}
-                                            className={`py-2 px-1 border-b-2 font-medium text-sm whitespace-nowrap transition-colors ${activeTab === 'push'
-                                                ? 'border-purple-500 text-purple-600'
-                                                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                                                }`}
-                                        >
-                                            Push Notification
-                                        </button>
-                                    </nav>
-                                </div>
-                            </div>
-
                             {/* Tab Content */}
-                            <div className="p-6">
+                            <div className="p-4">
                                 {activeTab === 'whatsapp' && renderWhatsappSection()}
 
                                 {activeTab === 'text-message' && isHeadBranch && renderTextMessageSection()}
@@ -683,14 +643,14 @@ const Broadcast = () => {
                                     <motion.div
                                         initial={{ opacity: 0 }}
                                         animate={{ opacity: 1 }}
-                                        className="bg-gray-50 rounded-lg border border-gray-200 p-12 text-center"
+                                        className="rounded-xl border border-slate-200 bg-slate-50/80 p-8 text-center"
                                     >
-                                        <div className="text-gray-500 max-w-md mx-auto">
-                                            <FiMessageSquare className="w-16 h-16 mx-auto text-gray-300 mb-4" />
-                                            <h3 className="text-lg font-semibold text-gray-700 mb-2">
+                                        <div className="mx-auto max-w-md text-slate-500">
+                                            <FiMessageSquare className="mx-auto mb-3 h-9 w-9 text-slate-300" />
+                                            <h3 className="mb-1.5 text-base font-semibold text-slate-700">
                                                 Restricted Access
                                             </h3>
-                                            <p className="text-gray-500">
+                                            <p className="text-sm text-slate-500">
                                                 SMS broadcasting is only available for head branches.
                                                 Please contact your administrator for access.
                                             </p>
@@ -699,8 +659,6 @@ const Broadcast = () => {
                                 )}
 
                                 {activeTab === 'email-channel' && renderEmailSection()}
-
-                                {activeTab === 'push' && renderPushNotificationSection()}
                             </div>
                         </div>
                     </motion.div>

@@ -135,9 +135,6 @@ const BroadcastReport = () => {
                 case 'whatsapp':
                     endpoint = `${API_BASE_URL}/whatsapp/broadcast/report-list?${params}`;
                     break;
-                case 'push':
-                    endpoint = `${API_BASE_URL}/push/broadcast/report-list?${params}`;
-                    break;
                 default:
                     endpoint = `${API_BASE_URL}/email/broadcast/report-list?${params}`;
             }
@@ -194,9 +191,6 @@ const BroadcastReport = () => {
                 case 'whatsapp':
                     endpoint = `${API_BASE_URL}/whatsapp/broadcast/bulk-delete`;
                     break;
-                case 'push':
-                    endpoint = `${API_BASE_URL}/push/broadcast/bulk-delete`;
-                    break;
                 default:
                     endpoint = `${API_BASE_URL}/email/broadcast/bulk-delete`;
             }
@@ -250,9 +244,6 @@ const BroadcastReport = () => {
                     break;
                 case 'whatsapp':
                     endpoint = `${API_BASE_URL}/whatsapp/analytics/export?${params}`;
-                    break;
-                case 'push':
-                    endpoint = `${API_BASE_URL}/push/analytics/export?${params}`;
                     break;
                 default:
                     endpoint = `${API_BASE_URL}/email/analytics/export?${params}`;

@@ -66,7 +66,6 @@ import {
   WhatsAppWebSession,
   WhatsAppWebTemplates,
   OomsSystemTemplates,
-  PushNotification,
   EmailConfigList,
   EmailTemplateList,
   EmailBroadcastList,
@@ -540,12 +539,6 @@ root.render(
             <Route path="/broadcast/whatsapp/web/templates" element={
               <ProtectedRoute>
                 <WhatsAppWebTemplates />
-              </ProtectedRoute>
-            } />
-
-            <Route path="/broadcast/push-notification" element={
-              <ProtectedRoute>
-                <PushNotification />
               </ProtectedRoute>
             } />
 
