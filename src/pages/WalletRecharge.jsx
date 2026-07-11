@@ -1,28 +1,26 @@
-import React, { useState, useEffect } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { toast } from 'react-hot-toast';
-import { Spinner, Badge, Table } from 'react-bootstrap';
+import { Spinner } from 'react-bootstrap';
 import { Header, Sidebar } from '../components/header';
+import TablePagination from '../components/TablePagination';
 import getHeaders from '../utils/get-headers';
 import API_BASE_URL from '../utils/api-controller';
 import {
   FiCreditCard,
   FiPlus,
-  FiArrowLeft,
   FiRefreshCw,
   FiClock,
-  FiDollarSign,
   FiList,
-  FiActivity,
-  FiHome,
-  FiChevronRight,
-  FiChevronLeft,
-  FiSend,
-  FiUser,
   FiInfo,
   FiX,
-  FiCheck
+  FiMoreVertical,
+  FiEye,
+  FiDownload,
 } from 'react-icons/fi';
+
+const ACTIONS_MENU_WIDTH = 168;
+const ACTIONS_MENU_HEIGHT = 88;
 
 const loadScript = (src) => {
   return new Promise((resolve) => {
@@ -38,31 +36,53 @@ const loadScript = (src) => {
   });
 };
 
+const downloadFileFromUrl = async (fileUrl, filename) => {
+  const response = await fetch(fileUrl);
+  if (!response.ok) {
+    throw new Error('Failed to fetch invoice file');
+  }
+  const blob = await response.blob();
+  const objectUrl = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = objectUrl;
+  link.download = filename || 'wallet-invoice.pdf';
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(objectUrl);
+};
+
 const WalletRecharge = () => {
-  const navigate = useNavigate();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [isMinimized, setIsMinimized] = useState(() => JSON.parse(localStorage.getItem('sidebarMinimized') || 'false'));
 
-  // Wallet State
   const [balanceData, setBalanceData] = useState(null);
   const [loadingBalance, setLoadingBalance] = useState(true);
   const [transactions, setTransactions] = useState([]);
   const [loadingTransactions, setLoadingTransactions] = useState(true);
   const [pagination, setPagination] = useState({ page_no: 1, limit: 10, total: 0, total_pages: 1 });
   const [selectedTx, setSelectedTx] = useState(null);
+  const [activeRowDropdown, setActiveRowDropdown] = useState(null);
+  const [dropdownPos, setDropdownPos] = useState({ top: 0, right: 0, openUpward: false });
+  const [downloadingInvoiceId, setDownloadingInvoiceId] = useState(null);
+
+  const [rechargeAmount, setRechargeAmount] = useState('');
+  const [purpose, setPurpose] = useState('SMS Billing Topup');
+  const [details, setDetails] = useState('');
+  const [submitting, setSubmitting] = useState(false);
 
   const parseTxDetails = (tx) => {
     if (!tx) return {};
-    
+
     const detailsText = tx.details || '';
     let parsedJson = null;
-    
+
     if (detailsText.trim().startsWith('{')) {
       try {
         parsedJson = JSON.parse(detailsText);
       } catch (e) {}
     }
-    
+
     const sms_id = tx.sms_id || parsedJson?.sms_id || detailsText.match(/sms_id:\s*([a-zA-Z0-9_-]+)/i)?.[1];
     const campaign_id = tx.campaign_id || tx.broadcast_id || parsedJson?.campaign_id || parsedJson?.broadcast_id || detailsText.match(/(?:campaign_id|broadcast_id):\s*([a-zA-Z0-9_-]+)/i)?.[1];
     const message = tx.message || parsedJson?.message || detailsText.match(/(?:message|msg):\s*["']?([^"'\n]+)/i)?.[1];
@@ -75,15 +95,9 @@ const WalletRecharge = () => {
       message,
       recipients_count,
       gateway,
-      rawDetails: parsedJson ? null : detailsText
+      rawDetails: parsedJson ? null : detailsText,
     };
   };
-
-  // Add Money Form State
-  const [rechargeAmount, setRechargeAmount] = useState('');
-  const [purpose, setPurpose] = useState('SMS Billing Topup');
-  const [details, setDetails] = useState('');
-  const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
     localStorage.setItem('sidebarMinimized', JSON.stringify(isMinimized));
@@ -92,7 +106,7 @@ const WalletRecharge = () => {
   const fetchWalletBalance = async () => {
     setLoadingBalance(true);
     try {
-      const headers = await getHeaders();
+      const headers = getHeaders();
       const res = await fetch(`${API_BASE_URL}/wallet/balance`, { headers });
       const result = await res.json();
       if (result.success) {
@@ -108,13 +122,13 @@ const WalletRecharge = () => {
     }
   };
 
-  const fetchTransactions = async (page = 1) => {
+  const fetchTransactions = useCallback(async (page = 1, limit = 10) => {
     setLoadingTransactions(true);
     try {
-      const headers = await getHeaders();
+      const headers = getHeaders();
       const params = new URLSearchParams({
         page_no: page,
-        limit: pagination.limit
+        limit,
       });
       const res = await fetch(`${API_BASE_URL}/wallet/transactions?${params}`, { headers });
       const result = await res.json();
@@ -123,9 +137,9 @@ const WalletRecharge = () => {
         if (result.pagination) {
           setPagination({
             page_no: Number(result.pagination.page_no || page),
-            limit: Number(result.pagination.limit || 10),
+            limit: Number(result.pagination.limit || limit),
             total: Number(result.pagination.total || 0),
-            total_pages: Number(result.pagination.total_pages || 1)
+            total_pages: Number(result.pagination.total_pages || 1),
           });
         }
       } else {
@@ -137,16 +151,105 @@ const WalletRecharge = () => {
     } finally {
       setLoadingTransactions(false);
     }
-  };
-
-  const loadData = () => {
-    fetchWalletBalance();
-    fetchTransactions(1);
-  };
+  }, []);
 
   useEffect(() => {
-    loadData();
+    fetchWalletBalance();
   }, []);
+
+  useEffect(() => {
+    fetchTransactions(pagination.page_no, pagination.limit);
+  }, [pagination.page_no, pagination.limit, fetchTransactions]);
+
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (
+        !e.target.closest('[data-wallet-actions-menu]') &&
+        !e.target.closest('.wallet-actions-trigger')
+      ) {
+        setActiveRowDropdown(null);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  useEffect(() => {
+    const close = () => setActiveRowDropdown(null);
+    window.addEventListener('scroll', close, true);
+    window.addEventListener('resize', close);
+    return () => {
+      window.removeEventListener('scroll', close, true);
+      window.removeEventListener('resize', close);
+    };
+  }, []);
+
+  const activeTx = useMemo(
+    () => transactions.find((tx) => tx.transaction_id === activeRowDropdown) || null,
+    [transactions, activeRowDropdown]
+  );
+
+  const toggleRowDropdown = (transactionId, e) => {
+    if (activeRowDropdown === transactionId) {
+      setActiveRowDropdown(null);
+      return;
+    }
+    const rect = e.currentTarget.getBoundingClientRect();
+    const spaceBelow = window.innerHeight - rect.bottom;
+    const openUpward = spaceBelow < ACTIONS_MENU_HEIGHT + 8;
+    setDropdownPos({
+      top: openUpward ? undefined : rect.bottom + 4,
+      bottom: openUpward ? window.innerHeight - rect.top + 4 : undefined,
+      right: window.innerWidth - rect.right,
+      openUpward,
+    });
+    setActiveRowDropdown(transactionId);
+  };
+
+  const openDetailsModal = (tx) => {
+    setActiveRowDropdown(null);
+    setSelectedTx(tx);
+  };
+
+  const handleDownloadInvoice = async (tx) => {
+    setActiveRowDropdown(null);
+    if (!tx?.transaction_id) return;
+
+    setDownloadingInvoiceId(tx.transaction_id);
+    const toastId = toast.loading('Generating invoice...');
+
+    try {
+      const headers = getHeaders();
+      if (!headers) {
+        toast.error('Please log in again to download the invoice', { id: toastId });
+        return;
+      }
+
+      const res = await fetch(
+        `${API_BASE_URL}/wallet/transactions/${encodeURIComponent(tx.transaction_id)}/invoice`,
+        { headers }
+      );
+      const result = await res.json();
+
+      if (!result.success || !result.data?.url) {
+        toast.error(result.message || 'Failed to generate invoice', { id: toastId });
+        return;
+      }
+
+      await downloadFileFromUrl(result.data.url, result.data.filename || `wallet-invoice-${tx.transaction_id}.pdf`);
+      toast.success('Invoice downloaded', { id: toastId });
+    } catch (error) {
+      console.error('Wallet invoice download error:', error);
+      toast.error(error.message || 'Failed to download invoice', { id: toastId });
+    } finally {
+      setDownloadingInvoiceId(null);
+    }
+  };
+
+  const refreshData = () => {
+    fetchWalletBalance();
+    fetchTransactions(pagination.page_no, pagination.limit);
+  };
 
   const handleAddMoney = async (e) => {
     e.preventDefault();
@@ -160,7 +263,7 @@ const WalletRecharge = () => {
     const toastId = toast.loading('Initializing payment gateway...');
 
     try {
-      const headers = await getHeaders();
+      const headers = getHeaders();
       if (!headers) {
         toast.error('Please login to recharge your wallet.', { id: toastId });
         return;
@@ -224,7 +327,7 @@ const WalletRecharge = () => {
               });
               setRechargeAmount('');
               setDetails('');
-              loadData();
+              refreshData();
             } else {
               toast.error(verifyData.message || 'Payment verification failed.', { id: verificationToastId });
             }
@@ -269,9 +372,10 @@ const WalletRecharge = () => {
       month: 'short',
       year: 'numeric',
       hour: '2-digit',
-      minute: '2-digit'
+      minute: '2-digit',
     });
   };
+
   const info = selectedTx ? parseTxDetails(selectedTx) : {};
 
   return (
@@ -291,23 +395,10 @@ const WalletRecharge = () => {
 
       <div className={`pt-16 transition-all duration-300 ${isMinimized ? 'md:pl-20' : 'md:pl-[260px]'}`}>
         <div className="p-4 md:p-6 lg:p-8 max-w-7xl mx-auto space-y-6">
-          {/* Breadcrumbs */}
-          <div className="flex items-center justify-between flex-wrap gap-4">
-            <nav className="flex items-center text-sm text-gray-600">
-              <Link to="/" className="flex items-center gap-1 hover:text-indigo-600 transition-colors">
-                <FiHome className="w-4 h-4" />
-                <span>Dashboard</span>
-              </Link>
-              <FiChevronRight className="w-4 h-4 mx-2 text-gray-400" />
-              <Link to="/broadcast" className="flex items-center gap-1 hover:text-indigo-600 transition-colors">
-                <FiSend className="w-4 h-4" />
-                <span>Broadcast</span>
-              </Link>
-              <FiChevronRight className="w-4 h-4 mx-2 text-gray-400" />
-              <span className="text-gray-900 font-medium">Wallet Recharge</span>
-            </nav>
+          <div className="flex items-center justify-end">
             <button
-              onClick={loadData}
+              type="button"
+              onClick={refreshData}
               disabled={loadingBalance || loadingTransactions}
               className="inline-flex items-center gap-2 px-3 py-1.5 text-xs font-semibold bg-white border border-slate-200 rounded-lg hover:bg-slate-50 transition-all text-slate-700"
             >
@@ -316,9 +407,7 @@ const WalletRecharge = () => {
             </button>
           </div>
 
-          {/* Top Info Banner */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            {/* Balance Card */}
             <div className="bg-gradient-to-br from-indigo-600 via-indigo-700 to-violet-800 text-white rounded-2xl p-6 shadow-xl relative overflow-hidden flex flex-col justify-between h-48 lg:h-auto">
               <div className="absolute right-0 bottom-0 opacity-10 translate-x-4 translate-y-4">
                 <FiCreditCard className="w-48 h-48" />
@@ -342,7 +431,6 @@ const WalletRecharge = () => {
               </div>
             </div>
 
-            {/* Recharge Form Card */}
             <div className="lg:col-span-2 bg-white rounded-2xl border border-slate-200 p-6 shadow-sm">
               <div className="flex items-center gap-3 mb-4">
                 <div className="p-2 bg-indigo-50 text-indigo-600 rounded-lg">
@@ -395,7 +483,6 @@ const WalletRecharge = () => {
                   </div>
                 </div>
 
-                {/* Quick Add Buttons */}
                 <div className="flex flex-wrap gap-2 items-center">
                   <span className="text-xs text-slate-500 font-medium">Quick Add:</span>
                   {[50, 100, 200, 500, 1000].map((amt) => (
@@ -424,7 +511,6 @@ const WalletRecharge = () => {
             </div>
           </div>
 
-          {/* Transaction History Section */}
           <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
             <div className="px-6 py-4 border-b border-slate-200 bg-gradient-to-r from-slate-50 to-white flex items-center justify-between">
               <div className="flex items-center gap-3">
@@ -458,75 +544,76 @@ const WalletRecharge = () => {
                     <table className="w-full text-sm text-left">
                       <thead className="bg-slate-50 border-b border-slate-200 text-xs font-semibold text-slate-500 uppercase tracking-wider">
                         <tr>
+                          <th className="px-4 py-3 w-12 text-center">#</th>
                           <th className="px-6 py-3">Transaction ID</th>
                           <th className="px-6 py-3">Date</th>
                           <th className="px-6 py-3">Purpose</th>
-                          <th className="px-6 py-3">Details</th>
                           <th className="px-6 py-3 text-right">Amount</th>
                           <th className="px-6 py-3 text-center">Type</th>
+                          <th className="px-4 py-3 text-center w-16">Action</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-100">
-                        {transactions.map((tx) => (
-                          <tr key={tx.id} className="hover:bg-slate-50/50 transition-colors">
-                            <td className="px-6 py-3 font-mono text-xs text-slate-500">{tx.transaction_id}</td>
-                            <td className="px-6 py-3 text-xs text-slate-600">{formatTxDate(tx.create_date)}</td>
-                            <td className="px-6 py-3">
-                              <button
-                                onClick={() => setSelectedTx(tx)}
-                                className="font-semibold text-slate-800 hover:text-indigo-600 hover:underline focus:outline-none text-left flex items-center gap-1.5 transition-colors"
-                                title="Click to view detailed purpose transaction details"
-                              >
-                                <span>{tx.purpose}</span>
-                                <FiInfo className="w-3.5 h-3.5 text-slate-400 hover:text-indigo-500 transition-colors" />
-                              </button>
-                            </td>
-                            <td className="px-6 py-3 text-slate-600 text-xs truncate max-w-xs" title={tx.details}>{tx.details}</td>
-                            <td className="px-6 py-3 text-right font-bold text-slate-800 font-mono">
-                              ₹{Number(tx.amount || 0).toFixed(2)}
-                            </td>
-                            <td className="px-6 py-3 text-center">
-                              {tx.type === 'credit' ? (
-                                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-green-50 text-green-700 border border-green-200">
-                                  Credit
-                                </span>
-                              ) : (
-                                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-red-50 text-red-700 border border-red-200">
-                                  Debit
-                                </span>
-                              )}
-                            </td>
-                          </tr>
-                        ))}
+                        {transactions.map((tx, index) => {
+                          const serialNo = (pagination.page_no - 1) * pagination.limit + index + 1;
+                          return (
+                            <tr key={tx.id || tx.transaction_id} className="hover:bg-slate-50/50 transition-colors">
+                              <td className="px-4 py-3 text-center text-xs font-semibold text-slate-500 tabular-nums">
+                                {serialNo}
+                              </td>
+                              <td className="px-6 py-3 font-mono text-xs text-slate-500">{tx.transaction_id}</td>
+                              <td className="px-6 py-3 text-xs text-slate-600">{formatTxDate(tx.create_date)}</td>
+                              <td className="px-6 py-3 font-semibold text-slate-800">{tx.purpose}</td>
+                              <td className="px-6 py-3 text-right font-bold text-slate-800 font-mono">
+                                ₹{Number(tx.amount || 0).toFixed(2)}
+                              </td>
+                              <td className="px-6 py-3 text-center">
+                                {tx.type === 'credit' ? (
+                                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-green-50 text-green-700 border border-green-200">
+                                    Credit
+                                  </span>
+                                ) : (
+                                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-red-50 text-red-700 border border-red-200">
+                                    Debit
+                                  </span>
+                                )}
+                              </td>
+                              <td className="px-4 py-3 text-center">
+                                <button
+                                  type="button"
+                                  onClick={(e) => toggleRowDropdown(tx.transaction_id, e)}
+                                  className="wallet-actions-trigger inline-flex rounded-lg border border-slate-200 p-1.5 text-slate-500 transition-colors hover:border-slate-300 hover:bg-slate-50 hover:text-slate-700"
+                                  aria-label="Transaction actions"
+                                  title="Actions"
+                                >
+                                  <FiMoreVertical className="h-4 w-4" />
+                                </button>
+                              </td>
+                            </tr>
+                          );
+                        })}
                       </tbody>
                     </table>
                   </div>
 
-                  {/* Pagination footer */}
-                  <div className="px-6 py-4 border-t border-slate-150 bg-slate-50 flex items-center justify-between flex-wrap gap-4">
-                    <div className="text-xs text-slate-500 font-medium">
-                      Showing page <span className="text-slate-800 font-bold">{pagination.page_no}</span> of{' '}
-                      <span className="text-slate-800 font-bold">{pagination.total_pages}</span> ({pagination.total} records)
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <button
-                        onClick={() => fetchTransactions(pagination.page_no - 1)}
-                        disabled={pagination.page_no <= 1 || loadingTransactions}
-                        className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-semibold rounded-lg border border-slate-200 bg-white hover:bg-slate-50 disabled:opacity-50 transition-all text-slate-700"
-                      >
-                        <FiChevronLeft className="w-3.5 h-3.5" />
-                        Previous
-                      </button>
-                      <button
-                        onClick={() => fetchTransactions(pagination.page_no + 1)}
-                        disabled={pagination.page_no >= pagination.total_pages || loadingTransactions}
-                        className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-semibold rounded-lg border border-slate-200 bg-white hover:bg-slate-50 disabled:opacity-50 transition-all text-slate-700"
-                      >
-                        Next
-                        <FiChevronRight className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
-                  </div>
+                  {pagination.total > 0 && (
+                    <TablePagination
+                      showRange
+                      showRows
+                      showJump
+                      showFirstLast
+                      rowOptions={[10, 20, 50, 100]}
+                      defaultRows={10}
+                      page={pagination.page_no}
+                      limit={pagination.limit}
+                      total={pagination.total}
+                      totalPages={pagination.total_pages}
+                      onPageChange={(page) => setPagination((prev) => ({ ...prev, page_no: page }))}
+                      onLimitChange={(limit) =>
+                        setPagination((prev) => ({ ...prev, limit, page_no: 1 }))
+                      }
+                    />
+                  )}
                 </>
               )}
             </div>
@@ -534,26 +621,58 @@ const WalletRecharge = () => {
         </div>
       </div>
 
-      {/* Transaction Details Modal */}
+      {activeRowDropdown && activeTx && createPortal(
+        <div
+          data-wallet-actions-menu
+          className="fixed z-[99999] w-44 overflow-hidden rounded-lg border border-slate-200 bg-white py-1 shadow-xl animate-in fade-in zoom-in-95 duration-150"
+          style={{
+            top: dropdownPos.top,
+            bottom: dropdownPos.bottom,
+            right: dropdownPos.right,
+            minWidth: ACTIONS_MENU_WIDTH,
+          }}
+        >
+          <button
+            type="button"
+            onClick={() => openDetailsModal(activeTx)}
+            className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs text-slate-700 hover:bg-slate-50"
+          >
+            <FiEye className="h-3.5 w-3.5 text-slate-500" />
+            Details
+          </button>
+          <button
+            type="button"
+            onClick={() => handleDownloadInvoice(activeTx)}
+            disabled={downloadingInvoiceId === activeTx.transaction_id}
+            className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+          >
+            {downloadingInvoiceId === activeTx.transaction_id ? (
+              <Spinner size="sm" />
+            ) : (
+              <FiDownload className="h-3.5 w-3.5 text-slate-500" />
+            )}
+            Download
+          </button>
+        </div>,
+        document.body
+      )}
+
       {selectedTx && (
         <div className="fixed inset-0 z-50 flex items-center justify-center overflow-hidden overscroll-none p-3 sm:p-4 pointer-events-none">
-          {/* Backdrop */}
-          <div className="absolute inset-0 bg-black/50 backdrop-blur-sm pointer-events-auto" onClick={() => setSelectedTx(null)}></div>
+          <div className="absolute inset-0 bg-black/50 backdrop-blur-sm pointer-events-auto" onClick={() => setSelectedTx(null)} />
 
-          {/* Modal Panel */}
           <div className="relative z-[1] pointer-events-auto bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[calc(100vh-1.5rem)] sm:max-h-[calc(100vh-2rem)] overflow-hidden flex flex-col border border-slate-200">
-            {/* Header */}
             <div className="shrink-0 flex items-center justify-between px-5 py-3.5 border-b border-gray-200 bg-gradient-to-r from-blue-50 to-indigo-50">
               <h3 className="text-sm font-bold text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
                 <FiList className="text-blue-500" />
                 Transaction Details
               </h3>
-              <button onClick={() => setSelectedTx(null)} className="p-1 hover:bg-slate-200 rounded-lg transition-colors"><FiX /></button>
+              <button type="button" onClick={() => setSelectedTx(null)} className="p-1 hover:bg-slate-200 rounded-lg transition-colors">
+                <FiX />
+              </button>
             </div>
 
-            {/* Body */}
             <div className="px-5 py-4 flex-1 min-h-0 overflow-y-auto overscroll-y-contain [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden space-y-4">
-              {/* Stats Grid */}
               <div className="grid grid-cols-2 gap-4">
                 <div className="bg-slate-50 p-3 rounded-xl border border-slate-100">
                   <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block mb-1">Transaction ID</span>
@@ -583,7 +702,6 @@ const WalletRecharge = () => {
                 </div>
               </div>
 
-              {/* Purpose details */}
               <div className="space-y-1">
                 <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Transaction Purpose</span>
                 <div className="bg-slate-50/50 p-3 rounded-xl border border-slate-200 font-semibold text-slate-800 text-sm">
@@ -591,7 +709,6 @@ const WalletRecharge = () => {
                 </div>
               </div>
 
-              {/* Metadata details */}
               {(info.campaign_id || info.sms_id || info.gateway || info.recipients_count) && (
                 <div className="bg-slate-50 border border-slate-200 rounded-xl p-3.5 space-y-2">
                   <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">Campaign & Message Metadata</h4>
@@ -624,7 +741,6 @@ const WalletRecharge = () => {
                 </div>
               )}
 
-              {/* Sent Message details */}
               {info.message && (
                 <div className="space-y-1">
                   <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Sent Message Body</span>
@@ -634,7 +750,6 @@ const WalletRecharge = () => {
                 </div>
               )}
 
-              {/* Remarks/Raw Details */}
               {info.rawDetails && (
                 <div className="space-y-1">
                   <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Transaction Remarks / Details</span>
@@ -645,9 +760,8 @@ const WalletRecharge = () => {
               )}
             </div>
 
-            {/* Footer */}
             <div className="shrink-0 flex justify-end px-5 py-3 border-t border-slate-200 bg-slate-50">
-              <button onClick={() => setSelectedTx(null)} className="px-4 py-1.5 bg-slate-200 hover:bg-slate-300 text-slate-700 rounded-lg text-xs font-semibold transition-all">
+              <button type="button" onClick={() => setSelectedTx(null)} className="px-4 py-1.5 bg-slate-200 hover:bg-slate-300 text-slate-700 rounded-lg text-xs font-semibold transition-all">
                 Close Details
               </button>
             </div>
