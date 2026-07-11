@@ -10,7 +10,7 @@ import {
     FiUserPlus, FiFileText, FiPlus, FiSearch, FiRefreshCw,
     FiPaperclip, FiX, FiMic, FiStopCircle, FiDownload, FiTrash2,
     FiArrowRight, FiArrowLeft, FiUser, FiLoader, FiCheckCircle,
-    FiXCircle, FiClock, FiMenu, FiInfo, FiEdit, FiEye, FiSettings, FiLock,
+    FiXCircle, FiClock, FiMenu, FiEdit, FiEye, FiSettings, FiLock,
     FiGrid, FiMail, FiPrinter, FiPhone, FiFilter, FiMessageSquare,
     FiMove, FiSave, FiList, FiChevronDown, FiChevronUp, FiMapPin,
     FiCreditCard, FiHome, FiMap, FiGlobe
@@ -377,144 +377,6 @@ const FilterRow = ({ filters, setFilters, serviceOptions, statusOptions, onSearc
     );
 };
 
-// Bulk Status Change Modal
-const BulkStatusChangeModal = ({ isOpen, onClose, selectedCount, onConfirm, loading }) => {
-    const [selectedStatus, setSelectedStatus] = useState('');
-    const [localLoading, setLocalLoading] = useState(false);
-
-    if (!isOpen) return null;
-
-    const statusOptions = [
-        { value: 'unassign', name: 'Unassign' },
-        { value: 'in process', name: 'In Process' },
-        { value: 'pending from client', name: 'Pending from Client' },
-        { value: 'pending from department', name: 'Pending from Department' },
-        { value: 'complete', name: 'Complete' },
-        { value: 'cancel', name: 'Cancel' }
-    ].filter(status => {
-        if (status.value === 'cancel' && !checkPermissionSync('task_cancel')) return false;
-        if (status.value === 'complete' && !checkPermissionSync('task_complete')) return false;
-        return true;
-    });
-
-    const getStatusColor = (status) => ({
-        unassign: 'bg-blue-100 text-blue-700',
-        'in process': 'bg-orange-100 text-orange-700',
-        'pending from client': 'bg-purple-100 text-purple-700',
-        'pending from department': 'bg-yellow-100 text-yellow-700',
-        complete: 'bg-green-100 text-green-700',
-        cancel: 'bg-red-100 text-red-700'
-    }[status] || 'bg-gray-100 text-gray-700');
-
-    const handleConfirm = async () => {
-        if (!selectedStatus) return;
-        setLocalLoading(true);
-        await onConfirm(selectedStatus);
-        setLocalLoading(false);
-        onClose();
-    };
-
-    return (
-        <AnimatePresence>
-            {isOpen && (
-                <motion.div
-                    className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[100] p-4"
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    exit={{ opacity: 0 }}
-                    onClick={onClose}
-                >
-                    <motion.div
-                        className="bg-white rounded-xl shadow-2xl w-full max-w-md mx-auto overflow-hidden"
-                        initial={{ scale: 0.95, opacity: 0, y: 20 }}
-                        animate={{ scale: 1, opacity: 1, y: 0 }}
-                        exit={{ scale: 0.95, opacity: 0, y: 20 }}
-                        onClick={(e) => e.stopPropagation()}
-                    >
-                        <div className="bg-gradient-to-r from-indigo-600 to-indigo-700 text-white px-6 py-4">
-                            <div className="flex items-center justify-between">
-                                <div className="flex items-center gap-3">
-                                    <div className="w-10 h-10 bg-white/20 rounded-lg flex items-center justify-center">
-                                        <FiCheckCircle className="w-5 h-5" />
-                                    </div>
-                                    <div>
-                                        <h3 className="text-lg font-bold">Bulk Status Change</h3>
-                                        <p className="text-indigo-100 text-sm">Update status for {selectedCount} selected task{selectedCount !== 1 ? 's' : ''}</p>
-                                    </div>
-                                </div>
-                                <motion.button
-                                    onClick={onClose}
-                                    className="text-white p-2 rounded-lg hover:bg-white/10"
-                                    whileHover={{ scale: 1.1 }}
-                                    whileTap={{ scale: 0.9 }}
-                                >
-                                    <FiX className="w-5 h-5" />
-                                </motion.button>
-                            </div>
-                        </div>
-
-                        <div className="p-6">
-                            <div className="mb-4">
-                                <label className="block text-sm font-semibold text-gray-700 mb-3">Select New Status</label>
-                                <div className="space-y-2">
-                                    {statusOptions.map((status) => (
-                                        <motion.button
-                                            key={status.value}
-                                            onClick={() => setSelectedStatus(status.value)}
-                                            className={`w-full flex items-center justify-between p-3 rounded-lg border transition-all ${selectedStatus === status.value ? 'ring-2 ring-indigo-500 ring-offset-1' : ''} ${getStatusColor(status.value)}`}
-                                            whileHover={{ scale: 1.01 }}
-                                            whileTap={{ scale: 0.99 }}
-                                        >
-                                            <div className="flex items-center gap-3">
-                                                {status.value === 'unassign' ? <FiClock /> : status.value === 'in process' ? <FiLoader /> : status.value === 'pending from client' ? <FiEye /> : status.value === 'pending from department' ? <FiXCircle /> : status.value === 'complete' ? <FiCheckCircle /> : <FiXCircle />}
-                                                <span className="font-medium">{status.name}</span>
-                                            </div>
-                                            {selectedStatus === status.value && <FiCheckCircle className="w-5 h-5" />}
-                                        </motion.button>
-                                    ))}
-                                </div>
-                            </div>
-
-                            <div className="mt-4 p-3 bg-yellow-50 rounded-lg border border-yellow-200">
-                                <div className="flex items-start gap-2">
-                                    <FiInfo className="w-4 h-4 text-yellow-600 mt-0.5 flex-shrink-0" />
-                                    <p className="text-xs text-yellow-700">This will update the status of all {selectedCount} selected task{selectedCount !== 1 ? 's' : ''} to the selected status.</p>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div className="px-6 py-4 bg-gray-50 border-t border-gray-200 flex justify-end gap-3">
-                            <motion.button
-                                onClick={onClose}
-                                className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-100 font-medium text-sm"
-                                whileHover={{ scale: 1.05 }}
-                                whileTap={{ scale: 0.95 }}
-                                disabled={localLoading || loading}
-                            >
-                                Cancel
-                            </motion.button>
-
-                            <motion.button
-                                onClick={handleConfirm}
-                                disabled={!selectedStatus || localLoading || loading}
-                                className={`px-4 py-2 rounded-lg font-medium text-sm flex items-center gap-2 ${!selectedStatus ? 'bg-gray-300 cursor-not-allowed' : 'bg-gradient-to-r from-indigo-600 to-indigo-700 text-white hover:from-indigo-700 hover:to-indigo-800'}`}
-                                whileHover={selectedStatus ? { scale: 1.05 } : {}}
-                                whileTap={selectedStatus ? { scale: 0.95 } : {}}
-                            >
-                                {(localLoading || loading) ? (
-                                    <><FiLoader className="w-4 h-4 animate-spin" />Updating...</>
-                                ) : (
-                                    <><FiCheckCircle className="w-4 h-4" />Update {selectedCount} Task{selectedCount !== 1 ? 's' : ''}</>
-                                )}
-                            </motion.button>
-                        </div>
-                    </motion.div>
-                </motion.div>
-            )}
-        </AnimatePresence>
-    );
-};
-
 // Client Details Modal
 const ClientDetailsModal = ({ isOpen, onClose, clientData, loading }) => {
     if (!isOpen) return null;
@@ -680,7 +542,7 @@ const TaskDisplay = () => {
     const [usersModal, setUsersModal] = useState({ open: false, users: [], taskName: '' });
     const [showFilterRow, setShowFilterRow] = useState(false);
     const [clientModal, setClientModal] = useState({ open: false, clientData: null, loading: false });
-    const [bulkStatusModal, setBulkStatusModal] = useState({ open: false, loading: false });
+    const [bulkStatusModalOpen, setBulkStatusModalOpen] = useState(false);
     const [editModal, setEditModal] = useState({ open: false, taskData: null });
     const [tasks, setTasks] = useState([]);
     const [serviceOptions, setServiceOptions] = useState([]);
@@ -978,8 +840,6 @@ const TaskDisplay = () => {
         const taskIds = Array.from(selectedTasks);
         if (taskIds.length === 0) return;
 
-        setBulkStatusModal(prev => ({ ...prev, loading: true }));
-
         try {
             const headers = await getHeaders();
             const response = await fetch(`${API_BASE_URL}/task/change-status`, {
@@ -998,15 +858,17 @@ const TaskDisplay = () => {
                         : task
                 ));
                 setSelectedTasks(new Set());
-                alert(`Successfully updated ${taskIds.length} task${taskIds.length !== 1 ? 's' : ''} to ${statusOptions.find(s => s.value === newStatus)?.name || newStatus}`);
+                toast.success(
+                    responseData.message ||
+                    `Successfully updated ${taskIds.length} task${taskIds.length !== 1 ? 's' : ''} to ${statusOptions.find(s => s.value === newStatus)?.name || newStatus}`
+                );
             } else {
                 throw new Error(responseData.message || 'Failed to update statuses');
             }
         } catch (error) {
             console.error('Error in bulk status update:', error);
-            alert(`Failed to update statuses: ${error.message}`);
-        } finally {
-            setBulkStatusModal(prev => ({ ...prev, loading: false, open: false }));
+            toast.error(error.message || 'Failed to update statuses');
+            throw error;
         }
     };
 
@@ -1720,7 +1582,7 @@ const TaskDisplay = () => {
         : null;
     const openBulkStatusModal = () => {
         if (selectedTasks.size === 0) return;
-        setBulkStatusModal({ open: true, loading: false });
+        setBulkStatusModalOpen(true);
     };
 
     return (
@@ -2184,12 +2046,13 @@ const TaskDisplay = () => {
                 statusOptions={statusOptions}
             />
 
-            <BulkStatusChangeModal
-                isOpen={bulkStatusModal.open}
-                onClose={() => setBulkStatusModal(prev => ({ ...prev, open: false }))}
+            <TaskStatusChange
+                isOpen={bulkStatusModalOpen}
+                onClose={() => setBulkStatusModalOpen(false)}
+                isBulk
                 selectedCount={selectedTasks.size}
-                onConfirm={handleBulkStatusChange}
-                loading={bulkStatusModal.loading}
+                onStatusChange={async (_taskId, newStatus) => handleBulkStatusChange(newStatus)}
+                statusOptions={statusOptions}
             />
 
             <AssignedStaffList

@@ -1,9 +1,19 @@
 import React, { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { FiCheckCircle, FiClock, FiEye, FiLoader, FiX, FiXCircle } from 'react-icons/fi';
+import { FiCheckCircle, FiClock, FiEye, FiInfo, FiLoader, FiX, FiXCircle } from 'react-icons/fi';
 import { checkPermissionSync } from '../../utils/permission-helper';
 
-const TaskStatusChange = ({ isOpen, onClose, taskId, taskName = '', currentStatus, onStatusChange, statusOptions = [] }) => {
+const TaskStatusChange = ({
+    isOpen,
+    onClose,
+    taskId,
+    taskName = '',
+    currentStatus,
+    onStatusChange,
+    statusOptions = [],
+    isBulk = false,
+    selectedCount = 0,
+}) => {
     const [selectedStatus, setSelectedStatus] = useState('');
     const [loading, setLoading] = useState(false);
 
@@ -33,9 +43,14 @@ const TaskStatusChange = ({ isOpen, onClose, taskId, taskName = '', currentStatu
 
     const handleConfirm = async () => {
         setLoading(true);
-        await onStatusChange(taskId, selectedStatus);
-        setLoading(false);
-        onClose();
+        try {
+            await onStatusChange(isBulk ? null : taskId, selectedStatus);
+            onClose();
+        } catch {
+            // Keep modal open on failure (bulk handler rethrows after alerting)
+        } finally {
+            setLoading(false);
+        }
     };
 
     const visibleStatusOptions = statusOptions.filter((status) => status.value !== 'unassign');
@@ -67,8 +82,12 @@ const TaskStatusChange = ({ isOpen, onClose, taskId, taskName = '', currentStatu
                                         <FiCheckCircle className="w-4 h-4" />
                                     </div>
                                     <div>
-                                        <h3 className="text-base font-bold">Change Status</h3>
-                                        <p className="text-indigo-100 text-xs truncate max-w-[210px]">{taskName || '-'}</p>
+                                        <h3 className="text-base font-bold">{isBulk ? 'Bulk Status Change' : 'Change Status'}</h3>
+                                        <p className="text-indigo-100 text-xs truncate max-w-[210px]">
+                                            {isBulk
+                                                ? `Update status for ${selectedCount} selected task${selectedCount !== 1 ? 's' : ''}`
+                                                : (taskName || '-')}
+                                        </p>
                                     </div>
                                 </div>
                                 <motion.button
@@ -86,8 +105,8 @@ const TaskStatusChange = ({ isOpen, onClose, taskId, taskName = '', currentStatu
                             <div className="mb-2">
                                 <div className="space-y-1.5">
                                     {visibleStatusOptions.map((status) => {
-                                        const isCurrentStatus = status.value === currentStatus;
-                                        const isBlockedByCompleteRule = currentStatus === 'complete' && status.value !== 'complete';
+                                        const isCurrentStatus = !isBulk && status.value === currentStatus;
+                                        const isBlockedByCompleteRule = !isBulk && currentStatus === 'complete' && status.value !== 'complete';
                                         let isBlockedByPermission = false;
                                         if (status.value === 'cancel' && !checkPermissionSync('task_cancel')) {
                                             isBlockedByPermission = true;
@@ -132,9 +151,19 @@ const TaskStatusChange = ({ isOpen, onClose, taskId, taskName = '', currentStatu
                         </div>
 
                         <div className="px-4 py-3 bg-gray-50">
+                            {isBulk && (
+                                <div className="mb-2 flex items-start gap-2 text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+                                    <FiInfo className="w-3.5 h-3.5 mt-0.5 flex-shrink-0" />
+                                    <p>
+                                        This will update all {selectedCount} selected task{selectedCount !== 1 ? 's' : ''} to the chosen status.
+                                    </p>
+                                </div>
+                            )}
                             {showFinalStatusWarning && (
                                 <div className="mb-2 text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
-                                    After changing the status can't be changed on other status.
+                                    {isBulk
+                                        ? 'Tasks marked complete cannot be changed to another status.'
+                                        : "After changing the status can't be changed on other status."}
                                 </div>
                             )}
                             <div className="flex justify-end gap-2">
@@ -155,7 +184,13 @@ const TaskStatusChange = ({ isOpen, onClose, taskId, taskName = '', currentStatu
                                     whileTap={{ scale: 0.95 }}
                                     disabled={isUpdateDisabled}
                                 >
-                                    {loading ? (<><FiLoader className="w-4 h-4 animate-spin" />Updating...</>) : ('Update')}
+                                    {loading ? (
+                                        <><FiLoader className="w-4 h-4 animate-spin" />Updating...</>
+                                    ) : isBulk ? (
+                                        `Update ${selectedCount} Task${selectedCount !== 1 ? 's' : ''}`
+                                    ) : (
+                                        'Update'
+                                    )}
                                 </motion.button>
                             </div>
                         </div>
