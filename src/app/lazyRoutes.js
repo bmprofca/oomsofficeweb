@@ -5,6 +5,7 @@ export const Login = lazy(() => import('../pages/login'));
 export const PageNotFound = lazy(() => import('../pages/error/page-not-found'));
 export const Dashboard = lazy(() => import('../pages/dashboard'));
 export const Register = lazy(() => import('../pages/register'));
+export const BranchSetup = lazy(() => import('../pages/branch-setup'));
 export const InvitationRequest = lazy(() => import('../pages/public/InvitationRequest'));
 export const TaskDisplay = lazy(() => import('../pages/task-display'));
 export const CreateClient = lazy(() => import('../pages/client-create'));

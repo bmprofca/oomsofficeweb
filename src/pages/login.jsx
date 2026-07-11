@@ -231,6 +231,8 @@ const Login = () => {
             if (redirect) {
                 sessionStorage.removeItem('post_login_redirect');
                 window.location.href = redirect;
+            } else if (!branchId && (!result.branches || result.branches.length === 0)) {
+                window.location.href = '/branch-setup';
             } else {
                 window.location.href = '/';
             }

@@ -5,7 +5,23 @@ import API_BASE_URL from '../utils/api-controller';
 // Simple global memory cache to share subscription state across hook instances without multiple network requests
 let globalSubscriptionState = null;
 let globalSubscriptionListeners = new Set();
-let isFetchingStatus = false;
+let subscriptionFetchPromise = null;
+
+export function resetSubscriptionCache() {
+    globalSubscriptionState = null;
+    subscriptionFetchPromise = null;
+    localStorage.removeItem('ooms_subscription_status');
+    localStorage.removeItem('ooms_subscription_timestamp');
+}
+
+const hasCachedSubscription = () => {
+    if (globalSubscriptionState) return true;
+    try {
+        return !!localStorage.getItem('ooms_subscription_status');
+    } catch {
+        return false;
+    }
+};
 
 export const useSubscription = () => {
     const [subscription, setSubscription] = useState(() => {
@@ -13,21 +29,32 @@ export const useSubscription = () => {
         try {
             const cached = localStorage.getItem('ooms_subscription_status');
             if (cached) {
-                return JSON.parse(cached);
+                const parsed = JSON.parse(cached);
+                if (!globalSubscriptionState) {
+                    globalSubscriptionState = parsed;
+                }
+                return parsed;
             }
         } catch (e) {
             console.error('Failed to parse cached subscription', e);
         }
         return globalSubscriptionState || {
+            branch_id: null,
             is_subscribed: 'no',
             subscription_plan: 'None',
             subscription_expires_at: null,
             is_expired: true,
-            effective_plan_source: 'self'
+            effective_plan_source: 'branch',
+            active_plans: [],
+            features: {
+                core: false,
+                'staff-management': false,
+                'live-chat': false,
+            },
         };
     });
     
-    const [loading, setLoading] = useState(!globalSubscriptionState);
+    const [loading, setLoading] = useState(() => !hasCachedSubscription());
 
     const updateState = (newState) => {
         globalSubscriptionState = newState;
@@ -38,41 +65,53 @@ export const useSubscription = () => {
     const fetchSubscriptionStatus = useCallback(async (force = false) => {
         const username = localStorage.getItem('user_username') || localStorage.getItem('username');
         const token = localStorage.getItem('user_token') || localStorage.getItem('token');
-        
+
         if (!username || !token) {
             setLoading(false);
             return;
         }
 
-        // Avoid concurrent duplicate fetches
-        if (isFetchingStatus && !force) return;
+        if (subscriptionFetchPromise && !force) {
+            if (!hasCachedSubscription()) {
+                setLoading(true);
+            }
+            try {
+                await subscriptionFetchPromise;
+            } finally {
+                setLoading(false);
+            }
+            return;
+        }
 
-        isFetchingStatus = true;
-        if (force) setLoading(true);
+        if (!hasCachedSubscription()) {
+            setLoading(true);
+        }
+
+        subscriptionFetchPromise = (async () => {
+            try {
+                const headers = getHeaders();
+                if (!headers) return;
+
+                const response = await fetch(`${API_BASE_URL}/subscription/status`, {
+                    method: 'GET',
+                    headers,
+                });
+
+                if (response.ok) {
+                    const result = await response.json();
+                    if (result.success && result.data) {
+                        updateState(result.data);
+                    }
+                }
+            } catch (err) {
+                console.error('Error fetching subscription status:', err);
+            }
+        })();
 
         try {
-            const headers = getHeaders();
-            if (!headers) {
-                isFetchingStatus = false;
-                setLoading(false);
-                return;
-            }
-
-            const response = await fetch(`${API_BASE_URL}/subscription/status`, {
-                method: 'GET',
-                headers
-            });
-
-            if (response.ok) {
-                const result = await response.json();
-                if (result.success && result.data) {
-                    updateState(result.data);
-                }
-            }
-        } catch (err) {
-            console.error('Error fetching subscription status:', err);
+            await subscriptionFetchPromise;
         } finally {
-            isFetchingStatus = false;
+            subscriptionFetchPromise = null;
             setLoading(false);
         }
     }, []);
@@ -102,24 +141,32 @@ export const useSubscription = () => {
         const username = localStorage.getItem('user_username') || localStorage.getItem('username') || '';
         if (username.toLowerCase() === 'admin') return true;
 
+        if (subscription.features && typeof subscription.features[feature] === 'boolean') {
+            return subscription.features[feature];
+        }
+
+        const activePlans = (subscription.active_plans || []).filter((plan) => plan.is_active);
+        const activeNames = activePlans.map((plan) => plan.plan_name);
         const isSub = subscription.is_subscribed === 'yes' && !subscription.is_expired;
-        
+
         if (feature === 'core') {
             return isSub;
         }
         if (feature === 'staff-management') {
-            return isSub && (subscription.subscription_plan === 'BusinessPlus' || subscription.subscription_plan === 'BusinessPro');
+            return activeNames.includes('BusinessPlus') || activeNames.includes('BusinessPro');
         }
         if (feature === 'live-chat') {
-            return isSub && subscription.subscription_plan === 'BusinessPro';
+            return activeNames.includes('BusinessPro');
         }
         return isSub;
     }, [subscription]);
 
+    const refetch = useCallback(() => fetchSubscriptionStatus(true), [fetchSubscriptionStatus]);
+
     return {
         subscription,
         loading,
-        refetch: () => fetchSubscriptionStatus(true),
+        refetch,
         hasAccess,
         isSubscribed: subscription.is_subscribed === 'yes' && !subscription.is_expired,
         plan: subscription.subscription_plan || 'None'

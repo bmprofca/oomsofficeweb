@@ -14,8 +14,8 @@ import { useWhatsappChannel } from '../pages/broadcast/whatsapp/useWhatsappChann
 import { useUserPermissions } from '../utils/permission-helper';
 import { useTaskCreate } from '../context/TaskCreateProvider';
 import { toast } from 'react-hot-toast';
-import BranchSetupModal from '../DashboardComponents/BranchSetupModal';
-import { useSubscription } from '../hooks/useSubscription';
+import CreateBranch from './Modals/CreateBranch';
+import { useSubscription, resetSubscriptionCache } from '../hooks/useSubscription';
 
 // ==========================================
 // 1. Constants & Styles (Modern Indigo Theme)
@@ -528,6 +528,7 @@ export const Header = ({ mobileMenuOpen, setMobileMenuOpen, isMinimized, setIsMi
       localStorage.setItem('branch_id', company.branch_id);
       localStorage.setItem('branch_name', company.name);
       localStorage.setItem('branch_owned', company.owned ? 'true' : 'false');
+      resetSubscriptionCache();
       window.location.reload();
     } catch (error) {
       console.error('Failed to update selected branch', error);
@@ -643,11 +644,10 @@ export const Header = ({ mobileMenuOpen, setMobileMenuOpen, isMinimized, setIsMi
         }}
       />
 
-      <BranchSetupModal
+      <CreateBranch
         isOpen={branchSetupOpen}
         onClose={() => setBranchSetupOpen(false)}
-        onBranchCreated={(newBranch) => {
-          // Add the branch to user_branches list in localStorage
+        onSuccess={(newBranch) => {
           try {
             const branchesJson = localStorage.getItem('user_branches');
             let branches = [];
@@ -657,21 +657,20 @@ export const Header = ({ mobileMenuOpen, setMobileMenuOpen, isMinimized, setIsMi
             const branchObj = {
               branch_id: newBranch.branch_id,
               name: newBranch.branch_name || newBranch.name,
-              owned: true
+              owned: true,
             };
-            if (!branches.some(b => b.branch_id === branchObj.branch_id)) {
+            if (!branches.some((b) => b.branch_id === branchObj.branch_id)) {
               branches.push(branchObj);
             }
             localStorage.setItem('user_branches', JSON.stringify(branches));
           } catch (e) {
-            console.error("Failed to update user_branches in localStorage:", e);
+            console.error('Failed to update user_branches in localStorage:', e);
           }
 
-          // Switch to the newly created branch immediately!
           handleSelectCompany({
             branch_id: newBranch.branch_id,
             name: newBranch.branch_name || newBranch.name,
-            owned: true
+            owned: true,
           });
           setBranchSetupOpen(false);
         }}

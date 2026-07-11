@@ -11,12 +11,14 @@ import { TaskCreateProvider } from './context/TaskCreateProvider';
 import WhatsappChannelBootstrap from './pages/broadcast/whatsapp/WhatsappChannelBootstrap';
 import axios from 'axios';
 import { SubscriptionProtectedRoute } from './components/SubscriptionProtectedRoute';
+import BranchRequiredRoute from './components/BranchRequiredRoute';
 import RouteLoadingFallback from './app/RouteLoadingFallback';
 import {
   Login,
   PageNotFound,
   Dashboard,
   Register,
+  BranchSetup,
   InvitationRequest,
   TaskDisplay,
   CreateClient,
@@ -192,20 +194,27 @@ const ProtectedRoute = ({ children }) => {
   // 3. Core CRM Features (Exclude pages that must be accessible without subscription)
   else if (
     pathname !== '/subscription' &&
-    pathname !== '/my-profile'
+    pathname !== '/my-profile' &&
+    pathname !== '/branch-setup'
   ) {
     requiredLevel = 'core';
   }
 
   if (requiredLevel) {
     return (
-      <SubscriptionProtectedRoute requiredLevel={requiredLevel}>
-        {children}
-      </SubscriptionProtectedRoute>
+      <BranchRequiredRoute>
+        <SubscriptionProtectedRoute requiredLevel={requiredLevel}>
+          {children}
+        </SubscriptionProtectedRoute>
+      </BranchRequiredRoute>
     );
   }
 
-  return children;
+  return (
+    <BranchRequiredRoute>
+      {children}
+    </BranchRequiredRoute>
+  );
 };
 
 const PublicRoute = ({ children }) => {
@@ -247,6 +256,12 @@ root.render(
             } />
 
             <Route path="/invitation/:token" element={<InvitationRequest />} />
+
+            <Route path="/branch-setup" element={
+              <ProtectedRoute>
+                <BranchSetup />
+              </ProtectedRoute>
+            } />
 
             {/* Protected Routes */}
             <Route path="/" element={

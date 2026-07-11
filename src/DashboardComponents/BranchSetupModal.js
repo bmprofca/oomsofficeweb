@@ -356,12 +356,20 @@ const BranchSetupModal = ({ isOpen, onBranchCreated, onClose, invitationToken })
             console.log('Response:', data);
 
             if (response.ok && data.success) {
-                localStorage.setItem('branch_id', data.data.branch_id);
-                localStorage.setItem('branch_name', data.data.branch_name || formData.branch_name);
-                localStorage.setItem('branch_code', data.data.branch_id || formData.branch_id);
+                const branch = data.data?.branch_id
+                    ? data.data
+                    : {
+                        branch_id: data.data?.branch?.branch_id,
+                        branch_name: data.data?.branch?.branch_name,
+                        owned: true,
+                    };
+
+                localStorage.setItem('branch_id', branch.branch_id);
+                localStorage.setItem('branch_name', branch.branch_name || formData.branch_name);
+                localStorage.setItem('branch_code', branch.branch_id);
                 
                 if (onBranchCreated) {
-                    onBranchCreated(data.data);
+                    onBranchCreated(branch);
                 }
                 
                 setStep(3);
