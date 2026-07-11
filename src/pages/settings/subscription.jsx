@@ -69,6 +69,17 @@ const Subscription = () => {
     const [showSuccessModal, setShowSuccessModal] = useState(false);
     const [successDetails, setSuccessDetails] = useState(null);
 
+    const buildSuccessConfetti = () => (
+        Array.from({ length: 10 }, (_, index) => ({
+            id: index,
+            left: `${10 + (index * 8) % 80}%`,
+            delay: `${(index % 4) * 0.08}s`,
+            size: index % 3 === 0 ? 5 : 4,
+            color: ['#6366f1', '#8b5cf6', '#10b981', '#f59e0b', '#ec4899'][index % 5],
+            drift: index % 2 === 0 ? -10 : 10,
+        }))
+    );
+
     const { subscription, loading: subLoading, refetch } = useSubscription();
     const branchName = localStorage.getItem('branch_name') || 'Current branch';
     const branchId = subscription?.branch_id || localStorage.getItem('branch_id') || '';
@@ -244,6 +255,8 @@ const Subscription = () => {
         const planLabel = planMeta.name || planName;
 
         setSuccessDetails({
+            modalKey: Date.now(),
+            confetti: buildSuccessConfetti(),
             planName,
             planLabel,
             planColor: planMeta.color || 'indigo',
@@ -461,27 +474,6 @@ const Subscription = () => {
             purple: 'bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700',
         };
         return map[color] || map.indigo;
-    };
-
-    const successConfetti = useMemo(
-        () => Array.from({ length: 14 }, (_, index) => ({
-            id: index,
-            left: `${8 + (index * 6.5) % 84}%`,
-            delay: (index % 5) * 0.06,
-            size: index % 3 === 0 ? 6 : 4,
-            color: ['#6366f1', '#8b5cf6', '#10b981', '#f59e0b', '#ec4899'][index % 5],
-            drift: index % 2 === 0 ? -12 : 12,
-        })),
-        [showSuccessModal]
-    );
-
-    const successDetailVariants = {
-        hidden: { opacity: 0, y: 10 },
-        visible: (index) => ({
-            opacity: 1,
-            y: 0,
-            transition: { delay: 0.22 + index * 0.07, duration: 0.35, ease: 'easeOut' },
-        }),
     };
 
     return (
@@ -844,32 +836,59 @@ const Subscription = () => {
             )}
 
             {createPortal(
-                <AnimatePresence>
+                <AnimatePresence mode="wait">
                     {showSuccessModal && successDetails && (
                         <div className="fixed inset-0 z-[60] flex items-start justify-center overflow-hidden overscroll-none p-3 sm:p-4 pointer-events-none">
+                            <style>{`
+                                @keyframes subSuccessRing {
+                                    0% { transform: scale(0.88); opacity: 0.4; }
+                                    100% { transform: scale(1.5); opacity: 0; }
+                                }
+                                @keyframes subSuccessPop {
+                                    0% { transform: scale(0.6); opacity: 0; }
+                                    100% { transform: scale(1); opacity: 1; }
+                                }
+                                @keyframes subSuccessFadeUp {
+                                    0% { opacity: 0; transform: translateY(8px); }
+                                    100% { opacity: 1; transform: translateY(0); }
+                                    }
+                                @keyframes subConfettiBurst {
+                                    0% { opacity: 0; transform: translate(0, 0) scale(0.4); }
+                                    20% { opacity: 1; }
+                                    100% { opacity: 0; transform: translate(var(--drift), -56px) scale(0.6); }
+                                }
+                                .sub-success-ring { animation: subSuccessRing 0.9s ease-out forwards; }
+                                .sub-success-ring-delay { animation: subSuccessRing 0.9s ease-out 0.35s forwards; }
+                                .sub-success-pop { animation: subSuccessPop 0.45s cubic-bezier(0.34, 1.4, 0.64, 1) forwards; }
+                                .sub-success-fade-up { animation: subSuccessFadeUp 0.35s ease-out forwards; }
+                                .sub-success-fade-up-delay { animation: subSuccessFadeUp 0.35s ease-out 0.12s forwards; opacity: 0; }
+                                .sub-success-fade-up-delay-2 { animation: subSuccessFadeUp 0.35s ease-out 0.2s forwards; opacity: 0; }
+                                .sub-success-card { animation: subSuccessFadeUp 0.35s ease-out forwards; opacity: 0; }
+                                .sub-confetti-piece { animation: subConfettiBurst 1s ease-out forwards; opacity: 0; }
+                            `}</style>
+
                             <motion.div
                                 initial={{ opacity: 0 }}
                                 animate={{ opacity: 1 }}
                                 exit={{ opacity: 0 }}
-                                transition={{ duration: 0.15 }}
+                                transition={{ duration: 0.2 }}
                                 className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm pointer-events-auto"
                                 onClick={closeSubscriptionSuccessModal}
                                 aria-hidden
                             />
 
                             <motion.div
+                                key={successDetails.modalKey}
                                 role="dialog"
                                 aria-modal="true"
                                 aria-labelledby="subscription-success-modal-title"
                                 initial={{ opacity: 0 }}
                                 animate={{ opacity: 1 }}
                                 exit={{ opacity: 0 }}
-                                transition={{ duration: 0.15 }}
+                                transition={{ duration: 0.2 }}
                                 className="relative z-[1] pointer-events-auto flex w-full max-w-sm flex-col overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-2xl my-2 sm:my-4 max-h-[calc(100vh-1.5rem)] sm:max-h-[calc(100vh-2rem)]"
                                 onClick={(e) => e.stopPropagation()}
                             >
-                                <div className="h-1 shrink-0 bg-gradient-to-r from-indigo-500 via-violet-500 to-fuchsia-500" />
-
                                 {/* Slim header */}
                                 <div className="flex shrink-0 items-center justify-between border-b border-slate-100 px-4 py-2.5">
                                     <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">
@@ -888,87 +907,44 @@ const Subscription = () => {
                                 {/* Scrollable body */}
                                 <div className="flex-1 min-h-0 overflow-y-auto overscroll-y-contain [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
                                     <div className="relative px-5 pt-4 pb-3 text-center">
-                                        {successConfetti.map((piece) => (
-                                            <motion.span
+                                        {(successDetails.confetti || []).map((piece) => (
+                                            <span
                                                 key={piece.id}
-                                                className="pointer-events-none absolute top-6 rounded-full"
+                                                className="sub-confetti-piece pointer-events-none absolute top-6 rounded-full"
                                                 style={{
                                                     left: piece.left,
                                                     width: piece.size,
                                                     height: piece.size,
                                                     backgroundColor: piece.color,
-                                                }}
-                                                initial={{ opacity: 0, y: 0, x: 0, scale: 0 }}
-                                                animate={{
-                                                    opacity: [0, 1, 1, 0],
-                                                    y: [0, -28, -52, -72],
-                                                    x: [0, piece.drift, piece.drift * 1.4, piece.drift * 1.8],
-                                                    scale: [0, 1, 0.8, 0.4],
-                                                    rotate: [0, 90, 180],
-                                                }}
-                                                transition={{
-                                                    duration: 1.1,
-                                                    delay: 0.12 + piece.delay,
-                                                    ease: 'easeOut',
+                                                    animationDelay: piece.delay,
+                                                    '--drift': `${piece.drift}px`,
                                                 }}
                                             />
                                         ))}
 
                                         <div className="relative mx-auto mb-3 flex h-[52px] w-[52px] items-center justify-center">
-                                            <motion.span
-                                                className="absolute inset-0 rounded-full bg-emerald-400/25"
-                                                initial={{ scale: 0.6, opacity: 0.8 }}
-                                                animate={{ scale: 1.8, opacity: 0 }}
-                                                transition={{ duration: 1.2, repeat: Infinity, ease: 'easeOut' }}
-                                            />
-                                            <motion.span
-                                                className="absolute inset-0 rounded-full bg-emerald-400/20"
-                                                initial={{ scale: 0.6, opacity: 0.6 }}
-                                                animate={{ scale: 1.45, opacity: 0 }}
-                                                transition={{ duration: 1.2, repeat: Infinity, ease: 'easeOut', delay: 0.35 }}
-                                            />
-                                            <motion.div
-                                                initial={{ scale: 0, rotate: -20 }}
-                                                animate={{ scale: 1, rotate: 0 }}
-                                                transition={{ type: 'spring', stiffness: 380, damping: 16, delay: 0.05 }}
-                                                className="relative flex h-[52px] w-[52px] items-center justify-center rounded-full bg-gradient-to-br from-emerald-400 to-emerald-600 text-white shadow-lg shadow-emerald-500/30"
-                                            >
-                                                <motion.div
-                                                    initial={{ opacity: 0, scale: 0.5 }}
-                                                    animate={{ opacity: 1, scale: 1 }}
-                                                    transition={{ delay: 0.22, type: 'spring', stiffness: 500, damping: 18 }}
-                                                >
-                                                    <FiCheck className="h-6 w-6" strokeWidth={3} />
-                                                </motion.div>
-                                            </motion.div>
+                                            <span className="sub-success-ring absolute inset-0 rounded-full bg-emerald-400/25" />
+                                            <span className="sub-success-ring-delay absolute inset-0 rounded-full bg-emerald-400/20" />
+                                            <div className="sub-success-pop relative flex h-[52px] w-[52px] items-center justify-center rounded-full bg-gradient-to-br from-emerald-400 to-emerald-600 text-white shadow-lg shadow-emerald-500/30">
+                                                <FiCheck className="h-6 w-6" strokeWidth={3} />
+                                            </div>
                                         </div>
 
-                                        <motion.h3
+                                        <h3
                                             id="subscription-success-modal-title"
-                                            initial={{ opacity: 0, y: 6 }}
-                                            animate={{ opacity: 1, y: 0 }}
-                                            transition={{ delay: 0.18, duration: 0.3 }}
-                                            className="text-base font-bold text-slate-900"
+                                            className="sub-success-fade-up text-base font-bold text-slate-900"
                                         >
                                             {successDetails.isExtension ? 'Plan extended successfully' : 'Subscription activated'}
-                                        </motion.h3>
-                                        <motion.p
-                                            initial={{ opacity: 0, y: 6 }}
-                                            animate={{ opacity: 1, y: 0 }}
-                                            transition={{ delay: 0.24, duration: 0.3 }}
-                                            className="mt-1 text-xs text-slate-500"
-                                        >
+                                        </h3>
+                                        <p className="sub-success-fade-up-delay mt-1 text-xs text-slate-500">
                                             {successDetails.planLabel} · {successDetails.billingCycle} plan
-                                        </motion.p>
+                                        </p>
                                     </div>
 
                                     <div className="space-y-2 px-4 pb-4">
-                                        <motion.div
-                                            custom={0}
-                                            variants={successDetailVariants}
-                                            initial="hidden"
-                                            animate="visible"
-                                            className={`flex items-center gap-3 rounded-xl border px-3 py-2.5 ${getColorClasses(successDetails.planColor)}`}
+                                        <div
+                                            className={`sub-success-card flex items-center gap-3 rounded-xl border px-3 py-2.5 ${getColorClasses(successDetails.planColor)}`}
+                                            style={{ animationDelay: '0.22s' }}
                                         >
                                             {(() => {
                                                 const PlanIcon = successDetails.planIcon || FiStar;
@@ -985,14 +961,11 @@ const Subscription = () => {
                                             <span className="shrink-0 rounded-full bg-white/80 px-2 py-0.5 text-[10px] font-bold uppercase text-emerald-700">
                                                 Active
                                             </span>
-                                        </motion.div>
+                                        </div>
 
-                                        <motion.div
-                                            custom={1}
-                                            variants={successDetailVariants}
-                                            initial="hidden"
-                                            animate="visible"
-                                            className="grid grid-cols-2 gap-2"
+                                        <div
+                                            className="sub-success-card grid grid-cols-2 gap-2"
+                                            style={{ animationDelay: '0.3s' }}
                                         >
                                             <div className="rounded-xl border border-slate-200 bg-slate-50/80 px-3 py-2.5 text-left">
                                                 <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">Valid until</p>
@@ -1006,14 +979,11 @@ const Subscription = () => {
                                                 <p className="mt-1 text-sm font-bold text-slate-900">₹{formatINR(successDetails.amountPaid || 0)}</p>
                                                 <p className="text-[10px] text-slate-400">incl. GST</p>
                                             </div>
-                                        </motion.div>
+                                        </div>
 
-                                        <motion.div
-                                            custom={2}
-                                            variants={successDetailVariants}
-                                            initial="hidden"
-                                            animate="visible"
-                                            className="flex items-center gap-2.5 rounded-xl border border-slate-200 bg-white px-3 py-2.5"
+                                        <div
+                                            className="sub-success-card flex items-center gap-2.5 rounded-xl border border-slate-200 bg-white px-3 py-2.5"
+                                            style={{ animationDelay: '0.38s' }}
                                         >
                                             <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-slate-600">
                                                 {successDetails.paymentMethod === 'wallet' ? (
@@ -1034,25 +1004,20 @@ const Subscription = () => {
                                                     </span>
                                                 </p>
                                             </div>
-                                        </motion.div>
+                                        </div>
                                     </div>
                                 </div>
 
                                 {/* Footer */}
                                 <div className="shrink-0 border-t border-slate-100 bg-slate-50/80 px-4 py-3">
-                                    <motion.button
+                                    <button
                                         type="button"
                                         onClick={closeSubscriptionSuccessModal}
-                                        initial={{ opacity: 0, y: 6 }}
-                                        animate={{ opacity: 1, y: 0 }}
-                                        transition={{ delay: 0.45, duration: 0.3 }}
-                                        whileHover={{ scale: 1.01 }}
-                                        whileTap={{ scale: 0.98 }}
-                                        className="flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-indigo-600 to-violet-600 py-2.5 text-sm font-semibold text-white shadow-md shadow-indigo-500/20 transition-shadow hover:shadow-lg hover:shadow-indigo-500/25"
+                                        className="sub-success-fade-up-delay-2 flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-indigo-600 to-violet-600 py-2.5 text-sm font-semibold text-white shadow-md shadow-indigo-500/20 transition-shadow hover:shadow-lg hover:shadow-indigo-500/25"
                                     >
                                         Continue
                                         <FiArrowRight className="h-4 w-4" />
-                                    </motion.button>
+                                    </button>
                                 </div>
                             </motion.div>
                         </div>

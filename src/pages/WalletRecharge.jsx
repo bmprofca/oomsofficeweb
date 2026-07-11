@@ -24,6 +24,20 @@ import {
   FiCheck
 } from 'react-icons/fi';
 
+const loadScript = (src) => {
+  return new Promise((resolve) => {
+    if (document.querySelector(`script[src="${src}"]`)) {
+      resolve(true);
+      return;
+    }
+    const script = document.createElement('script');
+    script.src = src;
+    script.onload = () => resolve(true);
+    script.onerror = () => resolve(false);
+    document.body.appendChild(script);
+  });
+};
+
 const WalletRecharge = () => {
   const navigate = useNavigate();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -143,33 +157,101 @@ const WalletRecharge = () => {
     }
 
     setSubmitting(true);
+    const toastId = toast.loading('Initializing payment gateway...');
+
     try {
       const headers = await getHeaders();
-      const res = await fetch(`${API_BASE_URL}/wallet/add-money`, {
+      if (!headers) {
+        toast.error('Please login to recharge your wallet.', { id: toastId });
+        return;
+      }
+
+      const scriptLoaded = await loadScript('https://checkout.razorpay.com/v1/checkout.js');
+      if (!scriptLoaded) {
+        toast.error('Razorpay SDK failed to load. Please check your internet connection.', { id: toastId });
+        return;
+      }
+
+      const checkoutRes = await fetch(`${API_BASE_URL}/wallet/create-checkout`, {
         method: 'POST',
         headers: {
           ...headers,
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
         },
         body: JSON.stringify({
           amount: amountNum,
           purpose,
-          details: details || 'Recharged via dashboard'
-        })
+          details: details || 'Recharged via dashboard',
+        }),
       });
-      const result = await res.json();
-      if (result.success) {
-        toast.success(result.message || `Successfully added ₹${amountNum.toFixed(2)} to wallet!`);
-        setRechargeAmount('');
-        setDetails('');
-        // Trigger balance and transaction list reload
-        loadData();
-      } else {
-        toast.error(result.message || 'Failed to add money');
+
+      const checkoutData = await checkoutRes.json();
+      if (!checkoutData.success) {
+        toast.error(checkoutData.message || 'Failed to initiate payment.', { id: toastId });
+        return;
       }
+
+      const { key, amount, currency, order_id, name, description } = checkoutData.data;
+      toast.dismiss(toastId);
+
+      const options = {
+        key,
+        amount,
+        currency,
+        name,
+        description,
+        order_id,
+        handler: async function (response) {
+          const verificationToastId = toast.loading('Verifying payment transaction...');
+          try {
+            const verifyRes = await fetch(`${API_BASE_URL}/wallet/verify-payment`, {
+              method: 'POST',
+              headers: {
+                ...headers,
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                razorpay_order_id: order_id,
+                razorpay_payment_id: response.razorpay_payment_id,
+                razorpay_signature: response.razorpay_signature,
+              }),
+            });
+
+            const verifyData = await verifyRes.json();
+            if (verifyData.success) {
+              toast.success(verifyData.message || `Successfully added ₹${amountNum.toFixed(2)} to wallet!`, {
+                id: verificationToastId,
+              });
+              setRechargeAmount('');
+              setDetails('');
+              loadData();
+            } else {
+              toast.error(verifyData.message || 'Payment verification failed.', { id: verificationToastId });
+            }
+          } catch (error) {
+            console.error('Verify payment error:', error);
+            toast.error('Error verifying payment. Please contact support.', { id: verificationToastId });
+          }
+        },
+        prefill: {
+          email: localStorage.getItem('user_email') || 'user@example.com',
+          name: localStorage.getItem('user_name') || 'User',
+        },
+        theme: {
+          color: '#4f46e5',
+        },
+        modal: {
+          ondismiss: function () {
+            toast.error('Payment cancelled.');
+          },
+        },
+      };
+
+      const razorpay = new window.Razorpay(options);
+      razorpay.open();
     } catch (error) {
       console.error('Add money error:', error);
-      toast.error('Failed to add money');
+      toast.error('Failed to start wallet recharge.', { id: toastId });
     } finally {
       setSubmitting(false);
     }
@@ -334,8 +416,8 @@ const WalletRecharge = () => {
                     disabled={submitting}
                     className="inline-flex items-center justify-center gap-2 px-5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-lg shadow-md hover:shadow-lg transition-all text-sm disabled:opacity-55"
                   >
-                    {submitting ? <Spinner size="sm" /> : <FiPlus className="w-4 h-4" />}
-                    Add Money
+                    {submitting ? <Spinner size="sm" /> : <FiCreditCard className="w-4 h-4" />}
+                    Pay with Razorpay
                   </button>
                 </div>
               </form>

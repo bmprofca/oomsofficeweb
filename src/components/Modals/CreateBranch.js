@@ -1,6 +1,17 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { FiImage, FiRefreshCw, FiX } from 'react-icons/fi';
+import { AnimatePresence, motion } from 'framer-motion';
+import {
+    FiAlertCircle,
+    FiFileText,
+    FiHome,
+    FiImage,
+    FiMapPin,
+    FiPenTool,
+    FiPlus,
+    FiRefreshCw,
+    FiX,
+} from 'react-icons/fi';
 import { toast } from 'react-hot-toast';
 import { createBranch } from '../../services/branchSetupService';
 import { uploadOneSaasFileUrl } from '../../utils/onesaas-upload';
@@ -27,6 +38,24 @@ const inputClass =
 
 const labelClass = 'block text-xs font-semibold text-slate-600 mb-1';
 
+function SectionTitle({ icon: Icon, title, accent = 'indigo' }) {
+    const accentMap = {
+        indigo: 'bg-indigo-50 text-indigo-600 border-indigo-100',
+        violet: 'bg-violet-50 text-violet-600 border-violet-100',
+        emerald: 'bg-emerald-50 text-emerald-600 border-emerald-100',
+        sky: 'bg-sky-50 text-sky-600 border-sky-100',
+    };
+
+    return (
+        <div className="flex items-center gap-2 mb-3">
+            <span className={`inline-flex h-7 w-7 items-center justify-center rounded-lg border ${accentMap[accent]}`}>
+                <Icon size={14} />
+            </span>
+            <p className="text-xs font-bold uppercase tracking-wider text-slate-600">{title}</p>
+        </div>
+    );
+}
+
 function Field({ label, required, children }) {
     return (
         <div>
@@ -40,7 +69,6 @@ function Field({ label, required, children }) {
 }
 
 export default function CreateBranch({ isOpen, onClose, onSuccess }) {
-    const [mounted, setMounted] = useState(false);
     const [submitting, setSubmitting] = useState(false);
     const [error, setError] = useState('');
     const [form, setForm] = useState(EMPTY_FORM);
@@ -56,10 +84,6 @@ export default function CreateBranch({ isOpen, onClose, onSuccess }) {
 
     const logoInputRef = useRef(null);
     const signInputRef = useRef(null);
-
-    useEffect(() => {
-        if (isOpen) setMounted(true);
-    }, [isOpen]);
 
     useEffect(() => {
         if (!isOpen) return;
@@ -196,42 +220,55 @@ export default function CreateBranch({ isOpen, onClose, onSuccess }) {
         }
     };
 
-    if (!mounted && !isOpen) return null;
-
     return createPortal(
-        isOpen ? (
-            <div className="fixed inset-0 z-[220] flex items-start justify-center overflow-hidden overscroll-none p-3 sm:p-4 pointer-events-none">
-                <div
-                    className="absolute inset-0 bg-black/50 backdrop-blur-sm pointer-events-auto"
-                    onClick={handleClose}
-                    aria-hidden
-                />
-                <div
-                    role="dialog"
-                    aria-modal="true"
-                    aria-labelledby="create-branch-modal-title"
-                    className="relative z-[1] pointer-events-auto bg-white rounded-2xl shadow-2xl border border-gray-200 w-full max-w-3xl my-2 sm:my-4 max-h-[calc(100vh-1.5rem)] sm:max-h-[calc(100vh-2rem)] overflow-hidden flex flex-col"
-                    onClick={(e) => e.stopPropagation()}
-                >
-                    <div className="shrink-0 px-5 py-3.5 border-b border-gray-100 bg-gradient-to-r from-slate-50 to-indigo-50/30 flex items-center justify-between gap-3">
-                        <div>
-                            <h2 id="create-branch-modal-title" className="text-sm font-semibold text-gray-900">
-                                Create Branch
-                            </h2>
-                            <p className="text-xs text-slate-500 mt-0.5">
-                                Only branch name and legal name are required.
-                            </p>
+        <AnimatePresence>
+            {isOpen && (
+                <div className="fixed inset-0 z-[220] flex items-start justify-center overflow-hidden overscroll-none p-3 sm:p-4 pointer-events-none">
+                    <motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        transition={{ duration: 0.2 }}
+                        className="absolute inset-0 bg-slate-900/55 backdrop-blur-sm pointer-events-auto"
+                        onClick={handleClose}
+                        aria-hidden
+                    />
+
+                    <motion.div
+                        role="dialog"
+                        aria-modal="true"
+                        aria-labelledby="create-branch-modal-title"
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: 10 }}
+                        transition={{ duration: 0.2 }}
+                        className="relative z-[1] pointer-events-auto bg-white rounded-2xl shadow-2xl ring-1 ring-slate-200/80 w-full max-w-3xl my-2 sm:my-4 max-h-[calc(100vh-1.5rem)] sm:max-h-[calc(100vh-2rem)] overflow-hidden flex flex-col"
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        <div className="shrink-0 px-5 py-3 border-b border-emerald-100 bg-gradient-to-r from-emerald-600 via-teal-600 to-cyan-600 flex items-center justify-between gap-3">
+                            <div className="flex min-w-0 items-center gap-2.5">
+                                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-white/15 text-white ring-1 ring-white/20">
+                                    <FiPlus size={16} />
+                                </div>
+                                <div className="min-w-0">
+                                    <h2 id="create-branch-modal-title" className="text-sm font-semibold text-white truncate">
+                                        Create Branch
+                                    </h2>
+                                    <p className="text-emerald-50 text-xs truncate">
+                                        Only branch name and legal name are required
+                                    </p>
+                                </div>
+                            </div>
+                            <button
+                                type="button"
+                                onClick={handleClose}
+                                disabled={submitting}
+                                className="shrink-0 inline-flex h-8 w-8 items-center justify-center rounded-lg text-white/90 hover:bg-white/15 transition-colors disabled:opacity-50"
+                                aria-label="Close"
+                            >
+                                <FiX size={16} />
+                            </button>
                         </div>
-                        <button
-                            type="button"
-                            onClick={handleClose}
-                            disabled={submitting}
-                            className="shrink-0 p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors disabled:opacity-50"
-                            aria-label="Close"
-                        >
-                            <FiX className="w-4 h-4" />
-                        </button>
-                    </div>
 
                     <form onSubmit={handleSubmit} className="flex flex-col flex-1 min-h-0">
                         <div
@@ -239,16 +276,15 @@ export default function CreateBranch({ isOpen, onClose, onSuccess }) {
                             style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
                         >
                             {error && (
-                                <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs font-medium text-red-700">
-                                    {error}
+                                <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs font-medium text-red-700 flex items-start gap-2">
+                                    <FiAlertCircle className="shrink-0 mt-0.5" size={14} />
+                                    <span>{error}</span>
                                 </div>
                             )}
 
                             <div className="space-y-5">
-                                <section>
-                                    <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-3">
-                                        Basic details
-                                    </p>
+                                <section className="rounded-xl border border-slate-100 bg-slate-50/50 p-4">
+                                    <SectionTitle icon={FiHome} title="Basic details" accent="indigo" />
                                     <div className="grid sm:grid-cols-2 gap-3">
                                         <Field label="Branch name" required>
                                             <input
@@ -271,19 +307,17 @@ export default function CreateBranch({ isOpen, onClose, onSuccess }) {
                                     </div>
                                 </section>
 
-                                <section>
-                                    <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-3">
-                                        Branding
-                                    </p>
+                                <section className="rounded-xl border border-slate-100 bg-slate-50/50 p-4">
+                                    <SectionTitle icon={FiImage} title="Branding" accent="violet" />
                                     <div className="grid sm:grid-cols-2 gap-3">
                                         <Field label="Logo">
-                                            <div className="rounded-lg border border-dashed border-slate-200 bg-slate-50 p-3">
+                                            <div className="rounded-lg border border-dashed border-violet-200 bg-violet-50/40 p-3">
                                                 <div className="flex items-center gap-3">
                                                     <div className="w-12 h-12 rounded-lg bg-white border border-slate-200 flex items-center justify-center overflow-hidden shrink-0">
                                                         {logoPreview ? (
                                                             <img src={logoPreview} alt="Logo preview" className="w-full h-full object-contain" />
                                                         ) : (
-                                                            <FiImage className="text-slate-400" size={18} />
+                                                            <FiImage className="text-violet-500" size={18} />
                                                         )}
                                                     </div>
                                                     <div className="flex-1 min-w-0">
@@ -292,7 +326,7 @@ export default function CreateBranch({ isOpen, onClose, onSuccess }) {
                                                             type="file"
                                                             accept="image/*"
                                                             onChange={(e) => handleImageSelect(e, 'logo')}
-                                                            className="block w-full text-xs text-slate-600 file:mr-2 file:rounded-md file:border-0 file:bg-indigo-50 file:px-2 file:py-1 file:text-xs file:font-semibold file:text-indigo-700"
+                                                            className="block w-full text-xs text-slate-600 file:mr-2 file:rounded-md file:border-0 file:bg-violet-50 file:px-2 file:py-1 file:text-xs file:font-semibold file:text-violet-700"
                                                         />
                                                         {logoUploading && (
                                                             <p className="mt-1 text-[11px] text-indigo-600 flex items-center gap-1">
@@ -305,13 +339,13 @@ export default function CreateBranch({ isOpen, onClose, onSuccess }) {
                                             </div>
                                         </Field>
                                         <Field label="Signature">
-                                            <div className="rounded-lg border border-dashed border-slate-200 bg-slate-50 p-3">
+                                            <div className="rounded-lg border border-dashed border-cyan-200 bg-cyan-50/40 p-3">
                                                 <div className="flex items-center gap-3">
                                                     <div className="w-12 h-12 rounded-lg bg-white border border-slate-200 flex items-center justify-center overflow-hidden shrink-0">
                                                         {signPreview ? (
                                                             <img src={signPreview} alt="Signature preview" className="w-full h-full object-contain" />
                                                         ) : (
-                                                            <FiImage className="text-slate-400" size={18} />
+                                                            <FiPenTool className="text-cyan-600" size={18} />
                                                         )}
                                                     </div>
                                                     <div className="flex-1 min-w-0">
@@ -320,7 +354,7 @@ export default function CreateBranch({ isOpen, onClose, onSuccess }) {
                                                             type="file"
                                                             accept="image/*"
                                                             onChange={(e) => handleImageSelect(e, 'sign')}
-                                                            className="block w-full text-xs text-slate-600 file:mr-2 file:rounded-md file:border-0 file:bg-indigo-50 file:px-2 file:py-1 file:text-xs file:font-semibold file:text-indigo-700"
+                                                            className="block w-full text-xs text-slate-600 file:mr-2 file:rounded-md file:border-0 file:bg-cyan-50 file:px-2 file:py-1 file:text-xs file:font-semibold file:text-cyan-700"
                                                         />
                                                         {signUploading && (
                                                             <p className="mt-1 text-[11px] text-indigo-600 flex items-center gap-1">
@@ -335,10 +369,8 @@ export default function CreateBranch({ isOpen, onClose, onSuccess }) {
                                     </div>
                                 </section>
 
-                                <section>
-                                    <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-3">
-                                        Tax & contact
-                                    </p>
+                                <section className="rounded-xl border border-slate-100 bg-slate-50/50 p-4">
+                                    <SectionTitle icon={FiFileText} title="Tax & contact" accent="emerald" />
                                     <div className="grid sm:grid-cols-2 gap-3">
                                         <Field label="PAN">
                                             <input name="pan" value={form.pan} onChange={handleChange} className={inputClass} placeholder="PAN number" />
@@ -361,10 +393,8 @@ export default function CreateBranch({ isOpen, onClose, onSuccess }) {
                                     </div>
                                 </section>
 
-                                <section>
-                                    <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-3">
-                                        Address
-                                    </p>
+                                <section className="rounded-xl border border-slate-100 bg-slate-50/50 p-4">
+                                    <SectionTitle icon={FiMapPin} title="Address" accent="sky" />
                                     <div className="space-y-3">
                                         <Field label="Address line 1">
                                             <input name="address_line_1" value={form.address_line_1} onChange={handleChange} className={inputClass} placeholder="Street address" />
@@ -398,28 +428,33 @@ export default function CreateBranch({ isOpen, onClose, onSuccess }) {
                             </div>
                         </div>
 
-                        <div className="shrink-0 px-5 py-3 border-t border-gray-100 bg-slate-50 flex items-center justify-end gap-2">
+                        <div className="shrink-0 px-5 py-3.5 border-t border-slate-100 bg-slate-50 flex items-center justify-end gap-2">
                             <button
                                 type="button"
                                 onClick={handleClose}
                                 disabled={submitting}
-                                className="rounded-lg border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-50 disabled:opacity-50"
+                                className="rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50 disabled:opacity-50 transition-colors"
                             >
                                 Cancel
                             </button>
                             <button
                                 type="submit"
                                 disabled={submitting || logoUploading || signUploading}
-                                className="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-xs font-semibold text-white hover:bg-indigo-700 disabled:opacity-60"
+                                className="inline-flex items-center gap-1.5 rounded-lg bg-gradient-to-r from-emerald-600 to-teal-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:from-emerald-700 hover:to-teal-700 disabled:opacity-60 transition-colors"
                             >
-                                {submitting && <FiRefreshCw className="animate-spin" size={13} />}
+                                {submitting ? (
+                                    <FiRefreshCw className="animate-spin" size={14} />
+                                ) : (
+                                    <FiPlus size={14} />
+                                )}
                                 Create branch
                             </button>
                         </div>
                     </form>
+                    </motion.div>
                 </div>
-            </div>
-        ) : null,
+            )}
+        </AnimatePresence>,
         document.body
     );
 }

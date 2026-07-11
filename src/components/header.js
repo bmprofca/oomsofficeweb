@@ -15,6 +15,7 @@ import { useUserPermissions } from '../utils/permission-helper';
 import { useTaskCreate } from '../context/TaskCreateProvider';
 import { toast } from 'react-hot-toast';
 import CreateBranch from './Modals/CreateBranch';
+import SwitchBranchModal from './Modals/SwitchBranchModal';
 import { useSubscription, resetSubscriptionCache } from '../hooks/useSubscription';
 
 // ==========================================
@@ -86,121 +87,7 @@ const fetchUserProfile = async () => {
 };
 
 // ==========================================
-// 3. SwitchProjectModal Component (Moved inside)
-// ==========================================
-const SwitchProjectModal = ({ isOpen, onClose, onSelectCompany, onOpenBranchSetup }) => {
-  const [companies, setCompanies] = useState([]);
-  const [searchTerm, setSearchTerm] = useState('');
-  const navigate = useNavigate();
-
-  useEffect(() => {
-    if (isOpen) {
-      const branchesJson = localStorage.getItem('user_branches');
-      if (branchesJson) {
-        try {
-          const parsed = JSON.parse(branchesJson);
-          setCompanies(parsed || []);
-        } catch (e) {
-          console.error(e);
-        }
-      }
-    }
-  }, [isOpen]);
-
-  const filteredCompanies = companies.filter(company =>
-    company.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    String(company.branch_id).toLowerCase().includes(searchTerm.toLowerCase())
-  );
-
-  if (!isOpen) return null;
-
-  return (
-    <div className="fixed inset-0 z-50 overflow-y-auto">
-      <div className="flex min-h-screen items-center justify-center p-4">
-        <div className="fixed inset-0 bg-black opacity-30" onClick={onClose}></div>
-        <div className="relative z-50 w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl">
-          <div className="mb-6">
-            <h2 className="text-xl font-bold text-slate-800">Switch Branch</h2>
-            <p className="text-slate-500 text-sm mt-1">Select a branch to work with</p>
-          </div>
-
-          <div className="mb-4">
-            <div className="relative">
-              <input
-                type="text"
-                placeholder="Search branches..."
-                className="w-full rounded-lg border border-slate-200 bg-slate-50 px-4 py-2.5 pl-10 text-sm focus:border-indigo-300 focus:outline-none focus:ring-2 focus:ring-indigo-100"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-              />
-              <div className="absolute left-3 top-1/2 -translate-y-1/2">
-                <FiHome size={16} className="text-slate-400" />
-              </div>
-            </div>
-          </div>
-
-          <div className="space-y-2 max-h-72 overflow-y-auto pr-1">
-            {filteredCompanies.length > 0 ? (
-              filteredCompanies.map((branch) => (
-                <button
-                  key={branch.branch_id}
-                  onClick={() => {
-                    onSelectCompany(branch);
-                    onClose();
-                  }}
-                  className="flex w-full items-center justify-between rounded-lg border border-slate-100 bg-white p-4 text-left hover:border-indigo-200 hover:bg-indigo-50/30 transition-all duration-200"
-                >
-                  <div className="flex items-center gap-3">
-                    <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-gradient-to-br from-indigo-100 to-purple-100 text-indigo-600">
-                      <FiHome size={18} />
-                    </div>
-                    <div>
-                      <p className="font-medium text-slate-800 flex items-center gap-2">
-                        {branch.name}
-                        {branch.owned && (
-                          <span className="px-1.5 py-0.5 bg-green-50 text-green-700 text-[10px] font-bold rounded-full border border-green-200">
-                            Owned
-                          </span>
-                        )}
-                      </p>
-                      <p className="text-xs text-slate-500 mt-0.5">Branch ID: {branch.branch_id}</p>
-                    </div>
-                  </div>
-                  <FiChevronRight size={16} className="text-slate-400" />
-                </button>
-              ))
-            ) : (
-              <div className="py-8 text-center">
-                <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-slate-100">
-                  <FiHome size={20} className="text-slate-400" />
-                </div>
-                <p className="text-slate-500">No branches found</p>
-              </div>
-            )}
-          </div>
-
-          <div className="mt-6 flex justify-between items-center gap-3 pt-4 border-t border-slate-100">
-            <button
-              onClick={onOpenBranchSetup}
-              className="px-4 py-2 text-sm font-semibold bg-indigo-50 hover:bg-indigo-100 text-indigo-600 rounded-lg transition-colors flex items-center gap-1.5"
-            >
-              <FiPlus size={16} /> Add Branch
-            </button>
-            <button
-              onClick={onClose}
-              className="px-4 py-2 text-sm font-medium bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg transition-colors"
-            >
-              Cancel
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-};
-
-// ==========================================
-// 4. Helper Functions
+// 3. Helper Functions
 // ==========================================
 const getUserData = () => {
   try {
@@ -374,12 +261,11 @@ const NavItem = ({ item, isMobile, isMinimized, isHovered, currentPath, openSubm
                         }
                       }}
                       className={
-                        `flex items-center justify-between px-3 py-2 rounded-md text-sm transition-all duration-200 no-underline hover:no-underline ${
-                          isSubPermissionLocked
-                            ? 'text-slate-300 cursor-not-allowed hover:bg-transparent'
-                            : isSubActive
-                              ? 'text-indigo-700 font-semibold bg-indigo-50'
-                              : 'text-slate-500 hover:text-indigo-600 hover:bg-slate-50'
+                        `flex items-center justify-between px-3 py-2 rounded-md text-sm transition-all duration-200 no-underline hover:no-underline ${isSubPermissionLocked
+                          ? 'text-slate-300 cursor-not-allowed hover:bg-transparent'
+                          : isSubActive
+                            ? 'text-indigo-700 font-semibold bg-indigo-50'
+                            : 'text-slate-500 hover:text-indigo-600 hover:bg-slate-50'
                         }`
                       }
                     >
@@ -634,7 +520,7 @@ export const Header = ({ mobileMenuOpen, setMobileMenuOpen, isMinimized, setIsMi
         </div>
       </header>
 
-      <SwitchProjectModal
+      <SwitchBranchModal
         isOpen={switchProjectModalOpen}
         onClose={() => setSwitchProjectModalOpen(false)}
         onSelectCompany={handleSelectCompany}
@@ -823,12 +709,12 @@ export const Sidebar = ({ mobileMenuOpen, setMobileMenuOpen, isMinimized, setIsM
       { key: 'broadcast', title: 'Broadcast', icon: <FiMessageSquare size={18} />, path: '/broadcast', permission: 'broadcast_' },
       ...(whatsappChannel === 'onechatting'
         ? [{
-            key: 'whatsapp-live-chat',
-            title: 'Live Chat',
-            icon: <FiMessageSquare size={18} />,
-            path: '/broadcast/whatsapp/onechatting/live-chat',
-            permission: 'broadcast_'
-          }]
+          key: 'whatsapp-live-chat',
+          title: 'Live Chat',
+          icon: <FiMessageSquare size={18} />,
+          path: '/broadcast/whatsapp/onechatting/live-chat',
+          permission: 'broadcast_'
+        }]
         : []),
       { key: 'settings', title: 'Settings', icon: <FiSettings size={18} />, path: '/settings', permission: 'setting_' },
       { key: 'subscription', title: 'Subscription', icon: <FiCreditCard size={18} />, path: '/subscription', permission: 'subscription_' }
