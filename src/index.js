@@ -117,6 +117,11 @@ import {
 // Google Client ID
 const GOOGLE_CLIENT_ID = "process.env.REACT_APP_GOOGLE_CLIENT_ID" in process.env ? process.env.REACT_APP_GOOGLE_CLIENT_ID : "706030491156-5rq848qm4eih47h29675u6pdv11m8kvq.apps.googleusercontent.com";
 
+const redirectToSubscription = (upgrade = false) => {
+  if (window.location.pathname === '/subscription') return;
+  window.location.href = upgrade ? '/subscription?upgrade=true' : '/subscription';
+};
+
 // Set up global axios interceptor
 axios.interceptors.response.use(
   (response) => response,
@@ -124,9 +129,9 @@ axios.interceptors.response.use(
     if (error.response && error.response.status === 403) {
       const errCode = error.response.data?.code;
       if (errCode === 'SUBSCRIPTION_REQUIRED') {
-        window.location.href = '/subscription';
+        redirectToSubscription(false);
       } else if (errCode === 'PLAN_UPGRADE_REQUIRED') {
-        window.location.href = '/subscription?upgrade=true';
+        redirectToSubscription(true);
       }
     }
     return Promise.reject(error);
@@ -143,9 +148,9 @@ window.fetch = async function (...args) {
         const clone = response.clone();
         const data = await clone.json();
         if (data && data.code === 'SUBSCRIPTION_REQUIRED') {
-          window.location.href = '/subscription';
+          redirectToSubscription(false);
         } else if (data && data.code === 'PLAN_UPGRADE_REQUIRED') {
-          window.location.href = '/subscription?upgrade=true';
+          redirectToSubscription(true);
         }
       } catch (e) {
         // Body not JSON
@@ -182,16 +187,20 @@ const ProtectedRoute = ({ children }) => {
   if (pathname.startsWith('/broadcast/whatsapp/onechatting/live-chat')) {
     requiredLevel = 'live-chat';
   }
-  // 2. Staff Management
-  else if (
-    (pathname.startsWith('/staff') && pathname !== '/staff/recurring-tasks') ||
-    pathname.startsWith('/settings/staff-list') ||
-    pathname.startsWith('/settings/permissions') ||
-    pathname.startsWith('/office-assistance')
-  ) {
-    requiredLevel = 'staff-management';
+  // 2. Attendance management
+  else if (pathname.startsWith('/staff/attendance')) {
+    requiredLevel = 'attendance-management';
   }
-  // 3. Core CRM Features (Exclude pages that must be accessible without subscription)
+  // 3. Staff profile tabs gated by feature
+  else if (pathname.startsWith('/staff/view/profile/')) {
+    const tab = pathname.split('/').filter(Boolean).pop();
+    if (['salary', 'payslip'].includes(tab)) {
+      requiredLevel = 'salary-management';
+    } else if (tab === 'attendance') {
+      requiredLevel = 'attendance-management';
+    }
+  }
+  // 4. Core CRM Features (Exclude pages that must be accessible without subscription)
   else if (
     pathname !== '/subscription' &&
     pathname !== '/my-profile' &&

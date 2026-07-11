@@ -1,8 +1,13 @@
-import React from 'react';
+import React, { useCallback, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { FiBriefcase, FiEdit, FiPlus, FiTrash2 } from 'react-icons/fi';
-import SearchableSelect from '../../../components/SearchableSelect';
-import { TASK_CREATE_SERVICE_LIST_PARAMS } from '../taskCreateConstants';
+import CustomSelect from '../../../components/CustomSelect';
+import { formatMoney, getServiceAmounts } from '../taskCreateConstants';
+import {
+    fetchTaskCreateServiceList,
+    mapServiceListToSelectOptions,
+    mapServiceToSelectOption,
+} from '../taskCreateServiceList';
 
 export default function SubtasksStep({
     subtasks,
@@ -13,6 +18,57 @@ export default function SubtasksStep({
     setShowSubTaskForm,
     addSubTask,
 }) {
+    const subTaskServiceValue = useMemo(() => {
+        if (!subTaskForm.service_id) return null;
+        return mapServiceToSelectOption({
+            service_id: subTaskForm.service_id,
+            name: subTaskForm.service_name,
+            fees: subTaskForm.service_fees,
+            gst_rate: subTaskForm.service_gst_rate,
+            gst_value: subTaskForm.service_gst_value,
+        });
+    }, [
+        subTaskForm.service_fees,
+        subTaskForm.service_gst_rate,
+        subTaskForm.service_gst_value,
+        subTaskForm.service_id,
+        subTaskForm.service_name,
+    ]);
+
+    const loadServiceOptions = useCallback(async (query) => {
+        const result = await fetchTaskCreateServiceList({
+            search: query,
+            page_no: 1,
+            limit: 100,
+        });
+        const rows = Array.isArray(result?.data) ? result.data : [];
+        return mapServiceListToSelectOptions(rows);
+    }, []);
+
+    const renderServiceOption = (option) => {
+        const { fees, gstRate, gstValue, total } = getServiceAmounts(option);
+        const gstPart =
+            gstValue > 0 ? ` · GST ${gstRate}% ₹${formatMoney(gstValue)}` : '';
+        return (
+            <div className="flex flex-col gap-0.5 min-w-0">
+                <span className="font-medium truncate">{option.name}</span>
+                <span className="text-xs text-gray-500 truncate">
+                    {`₹${formatMoney(fees)}${gstPart} · Total ₹${formatMoney(total)}`}
+                </span>
+            </div>
+        );
+    };
+
+    const resetSubTaskFields = (type) => ({
+        type,
+        service_id: '',
+        service_name: '',
+        service_fees: '',
+        service_gst_rate: '',
+        service_gst_value: '',
+        manual_text: '',
+    });
+
     return (
         <div className="space-y-4">
             <div className="flex justify-between items-center">
@@ -45,9 +101,7 @@ export default function SubtasksStep({
                                     <button
                                         key={tab.id}
                                         type="button"
-                                        onClick={() =>
-                                            setSubTaskForm({ type: tab.id, service_id: '', manual_text: '' })
-                                        }
+                                        onClick={() => setSubTaskForm(resetSubTaskFields(tab.id))}
                                         className={`flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-xs font-semibold transition-all ${
                                             subTaskForm.type === tab.id
                                                 ? 'bg-indigo-600 text-white shadow-sm'
@@ -62,19 +116,39 @@ export default function SubtasksStep({
                         </div>
                         <div className="px-5 py-4">
                             {subTaskForm.type === 'service' ? (
-                                <SearchableSelect
-                                    listEndpoint="service/list"
-                                    endpoint="service/list"
-                                    initialParams={TASK_CREATE_SERVICE_LIST_PARAMS}
-                                    queryParams={{ type: TASK_CREATE_SERVICE_LIST_PARAMS.type }}
-                                    valueKey="service_id"
-                                    labelMapping={{ primary: 'name', secondary: (s) => `₹${s.fees ?? 0}` }}
-                                    dataExtractor={(res) => (Array.isArray(res?.data) ? res.data : [])}
+                                <CustomSelect
+                                    loadOptions={loadServiceOptions}
+                                    defaultOptions
+                                    minSearchLength={0}
+                                    value={subTaskServiceValue}
+                                    onChange={(option) => {
+                                        if (!option) {
+                                            setSubTaskForm((prev) => ({
+                                                ...prev,
+                                                service_id: '',
+                                                service_name: '',
+                                                service_fees: '',
+                                                service_gst_rate: '',
+                                                service_gst_value: '',
+                                            }));
+                                            return;
+                                        }
+                                        setSubTaskForm((prev) => ({
+                                            ...prev,
+                                            service_id: option.service_id,
+                                            service_name: option.name,
+                                            service_fees: option.fees,
+                                            service_gst_rate: option.gst_rate,
+                                            service_gst_value: option.gst_value,
+                                        }));
+                                    }}
+                                    getOptionLabel={(option) => option.label}
+                                    getOptionValue={(option) => option.value}
+                                    renderOption={renderServiceOption}
                                     placeholder="Search and select a service..."
-                                    minChars={1}
-                                    onSelect={(item) =>
-                                        setSubTaskForm((p) => ({ ...p, service_id: item.service_id }))
-                                    }
+                                    searchPlaceholder="Search services..."
+                                    noOptionsMessage="No branch services found"
+                                    loadingMessage="Loading services..."
                                 />
                             ) : (
                                 <input

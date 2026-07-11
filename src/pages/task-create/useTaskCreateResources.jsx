@@ -1,10 +1,9 @@
 import { useCallback, useEffect, useState } from 'react';
-import axios from 'axios';
 import API_BASE_URL from '../../utils/api-controller';
 import getHeaders from '../../utils/get-headers';
 import { fetchCaList } from '../../services/caService';
 import { fetchAgentList } from '../../services/agentService';
-import { TASK_CREATE_SERVICE_LIST_PARAMS } from './taskCreateConstants';
+import { fetchTaskCreateServiceList } from './taskCreateServiceList';
 
 const mapMember = (row) => ({
     username: row.username,
@@ -78,18 +77,13 @@ export default function useTaskCreateResources({ enabled = true } = {}) {
                 ayRes,
                 fyRes,
             ] = await Promise.all([
-                fetchPaginatedList(async (p) => {
-                    const res = await axios.get(`${base}/service/list`, {
-                        headers,
-                        params: {
-                            type: TASK_CREATE_SERVICE_LIST_PARAMS.type,
-                            search: p.search || '',
-                            page_no: p.page,
-                            limit: p.limit,
-                        },
-                    });
-                    return res.data;
-                }),
+                fetchPaginatedList(async (p) =>
+                    fetchTaskCreateServiceList({
+                        search: p.search || '',
+                        page_no: p.page,
+                        limit: p.limit,
+                    })
+                ),
                 fetchPaginatedList(
                     (p) =>
                         fetch(`${base}/group/list?search=&page=${p.page}&limit=${p.limit}`, { headers }).then(

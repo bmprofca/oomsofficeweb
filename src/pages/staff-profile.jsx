@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import { Sidebar, Header } from '../components/header';
@@ -28,6 +28,7 @@ import {
 } from 'react-icons/fi';
 import  API_BASE_URL  from '../utils/api-controller';
 import  getHeaders  from '../utils/get-headers';
+import { useSubscription } from '../hooks/useSubscription';
 // Import tab components
 import ProfileTab from '../staff/ProfileTab';
 import AttendanceTab from '../staff/AttendanceTab';
@@ -202,6 +203,7 @@ const StaffProfile = () => {
     const navigate = useNavigate();
     const { tab } = useParams();
     const location = useLocation();
+    const { hasAccess } = useSubscription();
 
     const [username, setUsername] = useState(null);
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -721,17 +723,30 @@ const handleEndBreak = async () => {
 
     const profileTabs = [
         { id: 'profile', name: 'Profile', icon: FiUser },
-        { id: 'attendance', name: 'Attendance', icon: FiClock },
+        { id: 'attendance', name: 'Attendance', icon: FiClock, subscriptionFeature: 'attendance-management' },
         { id: 'expense', name: 'Expense', icon: FiDollarSign },
         { id: 'bonus-fine', name: 'Bonus/Fine', icon: FiAward },
-        { id: 'salary', name: 'Salary', icon: FiBriefcase },
+        { id: 'salary', name: 'Salary', icon: FiBriefcase, subscriptionFeature: 'salary-management' },
         { id: 'ledger', name: 'Ledger', icon: FiBookOpen },
         { id: 'loan', name: 'Loan', icon: FiDollarSign },
         { id: 'performance', name: 'Performance', icon: FiTrendingUp },
         { id: 'entry-report', name: 'Entry Report', icon: FiFileText },
         { id: 'task', name: 'Task', icon: FiCheckSquare },
-        { id: 'payslip', name: 'Payslip', icon: FiFileText }
+        { id: 'payslip', name: 'Payslip', icon: FiFileText, subscriptionFeature: 'salary-management' },
     ];
+
+    const visibleTabs = useMemo(
+        () => profileTabs.filter((tabItem) => !tabItem.subscriptionFeature || hasAccess(tabItem.subscriptionFeature)),
+        [hasAccess]
+    );
+
+    useEffect(() => {
+        const currentTab = profileTabs.find((tabItem) => tabItem.id === activeTab);
+        if (currentTab?.subscriptionFeature && !hasAccess(currentTab.subscriptionFeature) && username) {
+            setActiveTab('profile');
+            navigate(`/staff/view/profile/profile?username=${username}`, { replace: true });
+        }
+    }, [activeTab, hasAccess, username, navigate]);
 
     const handleTabChange = (tabId) => {
         setActiveTab(tabId);
@@ -1094,7 +1109,7 @@ const handleEndBreak = async () => {
                                 {tabsMinimized ? (
                                     <>
                                         <div className="flex items-center justify-center gap-1 flex-1 flex-wrap">
-                                            {profileTabs.map((tabItem) => {
+                                            {visibleTabs.map((tabItem) => {
                                                 const Icon = tabItem.icon;
                                                 const isActive = activeTab === tabItem.id;
                                                 return (
@@ -1122,7 +1137,7 @@ const handleEndBreak = async () => {
                                 ) : (
                                     <>
                                         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2 flex-1">
-                                            {profileTabs.map((tabItem) => {
+                                            {visibleTabs.map((tabItem) => {
                                                 const Icon = tabItem.icon;
                                                 const isActive = activeTab === tabItem.id;
                                                 return (

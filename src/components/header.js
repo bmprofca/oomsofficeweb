@@ -133,12 +133,13 @@ const NavItem = ({ item, isMobile, isMinimized, isHovered, currentPath, openSubm
 
   const getSubscriptionLevel = (key) => {
     if (key === 'whatsapp-live-chat') return 'live-chat';
-    if (key === 'staff-management') return 'staff-management';
-    if (['dashboard', 'tasks', 'recurring-tasks', 'clients', 'billing', 'finance', 'broadcast'].includes(key)) {
+    if (['dashboard', 'tasks', 'recurring-tasks', 'clients', 'billing', 'finance', 'broadcast', 'staff-management'].includes(key)) {
       return 'core';
     }
     return null;
   };
+
+  const getSubmenuSubscriptionLevel = (sub) => sub?.subscriptionFeature || null;
 
   const subLevel = getSubscriptionLevel(item.key);
   const isSubscriptionLocked = subLevel ? !hasAccess(subLevel) : false;
@@ -246,7 +247,8 @@ const NavItem = ({ item, isMobile, isMinimized, isHovered, currentPath, openSubm
                 {item.submenus.map((sub, idx) => {
                   const isSubActive = isSubmenuItemActive(sub.path, currentPath);
                   const isSubPermissionLocked = sub.permission ? !checkPermission(sub.permission) : false;
-                  const isSubSubscriptionLocked = subLevel ? !hasAccess(subLevel) : false;
+                  const subFeature = getSubmenuSubscriptionLevel(sub);
+                  const isSubSubscriptionLocked = subFeature ? !hasAccess(subFeature) : false;
                   const isSubLocked = isSubPermissionLocked || isSubSubscriptionLocked;
                   return (
                     <NavLink
@@ -702,7 +704,7 @@ export const Sidebar = ({ mobileMenuOpen, setMobileMenuOpen, isMinimized, setIsM
         submenus: [
           { title: 'Staff', path: '/staff/view', permission: 'staff_view' },
           { title: 'Team Report', path: '/staff/team-report', permission: 'staff_report' },
-          { title: 'Attendance', path: '/staff/attendance', permission: 'staff_attendance' },
+          { title: 'Attendance', path: '/staff/attendance', permission: 'staff_attendance', subscriptionFeature: 'attendance-management' },
           { title: 'Assistance', path: '/staff/office-assistance', permission: 'office_assistance_' }
         ]
       },

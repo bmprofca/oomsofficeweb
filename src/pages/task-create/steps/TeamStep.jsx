@@ -1,15 +1,26 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { motion } from 'framer-motion';
-import { FiArrowLeft, FiArrowRight, FiSearch, FiUserCheck, FiUserPlus } from 'react-icons/fi';
-import SearchablePickField, {
-    assignableMemberExtractor,
-    formatMemberSelectedLabel,
-    memberLabelMapping,
-} from '../SearchablePickField';
+import { FiArrowLeft, FiArrowRight, FiSearch } from 'react-icons/fi';
+import CustomSelect from '../../../components/CustomSelect';
+import { formatMemberSelectedLabel } from '../SearchablePickField';
+
+function toMemberOption(member) {
+    if (!member?.username) return null;
+    return {
+        label: formatMemberSelectedLabel(member),
+        value: member.username,
+        username: member.username,
+        name: member.name,
+        mobile: member.mobile,
+        balance: member.balance,
+    };
+}
 
 export default function TeamStep({
     form,
     setForm,
+    caList = [],
+    agentList = [],
     selectedCa,
     setSelectedCa,
     selectedAgent,
@@ -29,64 +40,88 @@ export default function TeamStep({
     const caLocked = Boolean(lockedFields.ca);
     const agentLocked = Boolean(lockedFields.agent);
 
+    const caOptions = useMemo(
+        () => caList.map((member) => toMemberOption(member)).filter(Boolean),
+        [caList]
+    );
+
+    const agentOptions = useMemo(
+        () => agentList.map((member) => toMemberOption(member)).filter(Boolean),
+        [agentList]
+    );
+
+    const caValue = useMemo(() => {
+        if (!selectedCa) return null;
+        return (
+            caOptions.find((option) => option.value === selectedCa.username) ||
+            toMemberOption(selectedCa)
+        );
+    }, [caOptions, selectedCa]);
+
+    const agentValue = useMemo(() => {
+        if (!selectedAgent) return null;
+        return (
+            agentOptions.find((option) => option.value === selectedAgent.username) ||
+            toMemberOption(selectedAgent)
+        );
+    }, [agentOptions, selectedAgent]);
+
     return (
         <div className="space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <SearchablePickField
+                <CustomSelect
                     label="CA"
-                    icon={FiUserCheck}
-                    locked={caLocked}
-                    selected={selectedCa}
-                    onClear={() => {
+                    options={caOptions}
+                    value={caValue}
+                    onChange={(option) => {
                         if (caLocked) return;
-                        setSelectedCa(null);
-                        setForm((p) => ({ ...p, ca: '' }));
-                    }}
-                    onSelect={(item) => {
-                        if (caLocked) return;
+                        if (!option) {
+                            setSelectedCa(null);
+                            setForm((prev) => ({ ...prev, ca: '' }));
+                            return;
+                        }
                         setSelectedCa({
-                            username: item.username,
-                            name: item.name || item.profile?.name,
-                            mobile: item.mobile || item.profile?.mobile,
-                            balance: item.balance ?? item.profile?.balance,
+                            username: option.username,
+                            name: option.name,
+                            mobile: option.mobile,
+                            balance: option.balance,
                         });
-                        setForm((p) => ({ ...p, ca: item.username }));
+                        setForm((prev) => ({ ...prev, ca: option.username }));
                     }}
-                    listEndpoint="ca/list"
-                    endpoint="ca/list"
-                    valueKey="username"
-                    labelMapping={memberLabelMapping}
-                    dataExtractor={assignableMemberExtractor}
+                    getOptionLabel={(option) => option.label}
+                    getOptionValue={(option) => option.value}
                     placeholder="Search CA by name or mobile..."
-                    renderSelected={(s) => formatMemberSelectedLabel(s)}
+                    searchPlaceholder="Search CA..."
+                    noOptionsMessage="No CA found"
+                    isDisabled={caLocked}
+                    isClearable={!caLocked}
                 />
-                <SearchablePickField
+                <CustomSelect
                     label="Agent"
-                    icon={FiUserPlus}
-                    locked={agentLocked}
-                    selected={selectedAgent}
-                    onClear={() => {
+                    options={agentOptions}
+                    value={agentValue}
+                    onChange={(option) => {
                         if (agentLocked) return;
-                        setSelectedAgent(null);
-                        setForm((p) => ({ ...p, agent: '' }));
-                    }}
-                    onSelect={(item) => {
-                        if (agentLocked) return;
+                        if (!option) {
+                            setSelectedAgent(null);
+                            setForm((prev) => ({ ...prev, agent: '' }));
+                            return;
+                        }
                         setSelectedAgent({
-                            username: item.username,
-                            name: item.name || item.profile?.name,
-                            mobile: item.mobile || item.profile?.mobile,
-                            balance: item.balance ?? item.profile?.balance,
+                            username: option.username,
+                            name: option.name,
+                            mobile: option.mobile,
+                            balance: option.balance,
                         });
-                        setForm((p) => ({ ...p, agent: item.username }));
+                        setForm((prev) => ({ ...prev, agent: option.username }));
                     }}
-                    listEndpoint="agent/list"
-                    endpoint="agent/list"
-                    valueKey="username"
-                    labelMapping={memberLabelMapping}
-                    dataExtractor={assignableMemberExtractor}
+                    getOptionLabel={(option) => option.label}
+                    getOptionValue={(option) => option.value}
                     placeholder="Search agent by name or mobile..."
-                    renderSelected={(s) => formatMemberSelectedLabel(s)}
+                    searchPlaceholder="Search agent..."
+                    noOptionsMessage="No agent found"
+                    isDisabled={agentLocked}
+                    isClearable={!agentLocked}
                 />
             </div>
 

@@ -10,6 +10,8 @@ import {
     FiMessageCircle,
     FiUsers,
     FiHome,
+    FiClock,
+    FiDollarSign,
 } from 'react-icons/fi';
 import { useSubscription } from '../hooks/useSubscription';
 import GateScreenLayout, {
@@ -34,17 +36,18 @@ export const PLAN_CONFIG = {
         features: [
             'Task management',
             'Client database',
+            'Staff management',
             'Billing & invoicing',
             'Finance ledger',
             'Broadcast messages',
         ],
     },
-    'staff-management': {
-        headline: 'Team tools need BusinessPlus',
-        subheadline: 'Upgrade to manage staff profiles, attendance, and office assistance.',
+    'salary-management': {
+        headline: 'Salary management needs BusinessPlus',
+        subheadline: 'Upgrade to configure staff salaries, adjustments, and payslips.',
         requiredPlan: 'BusinessPlus',
         planLabel: 'BusinessPlus Plan',
-        icon: FiUsers,
+        icon: FiDollarSign,
         gradient: 'from-violet-600 via-purple-600 to-fuchsia-500',
         softBg: 'bg-violet-50',
         softBorder: 'border-violet-200',
@@ -52,10 +55,29 @@ export const PLAN_CONFIG = {
         chipBg: 'bg-violet-50 text-violet-700 border-violet-200',
         button: 'bg-violet-600 hover:bg-violet-700 shadow-sm shadow-violet-200/60',
         features: [
-            'Staff profiles',
-            'Attendance logs',
-            'Office assistance',
-            'Team performance reports',
+            'Staff salary setup',
+            'Salary history',
+            'Salary adjustments',
+            'Payslip generation',
+        ],
+    },
+    'attendance-management': {
+        headline: 'Attendance management needs BusinessPlus',
+        subheadline: 'Upgrade to track punch-in/out, breaks, and attendance verification.',
+        requiredPlan: 'BusinessPlus',
+        planLabel: 'BusinessPlus Plan',
+        icon: FiClock,
+        gradient: 'from-violet-600 via-purple-600 to-fuchsia-500',
+        softBg: 'bg-violet-50',
+        softBorder: 'border-violet-200',
+        softText: 'text-violet-700',
+        chipBg: 'bg-violet-50 text-violet-700 border-violet-200',
+        button: 'bg-violet-600 hover:bg-violet-700 shadow-sm shadow-violet-200/60',
+        features: [
+            'Daily attendance logs',
+            'Punch in / punch out',
+            'Break tracking',
+            'Attendance verification',
         ],
     },
     'live-chat': {

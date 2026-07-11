@@ -1,13 +1,17 @@
-import React, { useMemo } from 'react';
+import React, { useCallback, useMemo } from 'react';
 import { DatePickerField } from '../../../components/PortalDatePicker';
-import SearchablePickField from '../SearchablePickField';
+import CustomSelect from '../../../components/CustomSelect';
 import {
     formatMoney,
     getServiceAmounts,
     parseAmount,
     sanitizeFeesInput,
-    TASK_CREATE_SERVICE_LIST_PARAMS,
 } from '../taskCreateConstants';
+import {
+    fetchTaskCreateServiceList,
+    mapServiceListToSelectOptions,
+    mapServiceToSelectOption,
+} from '../taskCreateServiceList';
 
 const DATE_BTN_CLASS =
     'w-full min-h-[42px] pl-3 pr-3 py-2.5 text-sm text-gray-900 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-white outline-none';
@@ -39,65 +43,86 @@ export default function ServiceStep({
     const taskCount = Math.max(1, estimatedTaskCreateCount || 1);
     const err = (field) => fieldError?.field === field;
 
+    const serviceValue = useMemo(
+        () => (selectedService ? mapServiceToSelectOption(selectedService) : null),
+        [selectedService]
+    );
+
+    const loadServiceOptions = useCallback(async (query) => {
+        const result = await fetchTaskCreateServiceList({
+            search: query,
+            page_no: 1,
+            limit: 100,
+        });
+        const rows = Array.isArray(result?.data) ? result.data : [];
+        return mapServiceListToSelectOptions(rows);
+    }, []);
+
     const amounts = useMemo(
         () => serviceFeeSummary(selectedService, form.fees),
         [selectedService, form.fees]
     );
 
+    const renderServiceOption = (option) => {
+        const { fees, gstRate, gstValue, total } = getServiceAmounts(option);
+        const gstPart =
+            gstValue > 0 ? ` · GST ${gstRate}% ₹${formatMoney(gstValue)}` : '';
+        return (
+            <div className="flex flex-col gap-0.5 min-w-0">
+                <span className="font-medium truncate">{option.name}</span>
+                <span className="text-xs text-gray-500 truncate">
+                    {`₹${formatMoney(fees)}${gstPart} · Total ₹${formatMoney(total)}`}
+                </span>
+            </div>
+        );
+    };
+
     return (
         <div className="space-y-4">
-            <SearchablePickField
-                label={
-                    <span>
-                        Service <span className="text-red-500">*</span>
-                    </span>
-                }
-                locked={serviceLocked}
-                selected={selectedService}
-                onClear={() => {
-                    if (serviceLocked) return;
-                    setSelectedService(null);
-                    setForm((p) => ({ ...p, service_id: '', fees: '' }));
-                }}
-                onSelect={(item) => {
-                    if (serviceLocked) return;
-                    setSelectedService({
-                        service_id: item.service_id,
-                        name: item.name,
-                        displayName: item.name,
-                        fees: item.fees,
-                        gst_rate: item.gst_rate,
-                        gst_value: item.gst_value,
-                    });
-                    setForm((p) => ({
-                        ...p,
-                        service_id: item.service_id,
-                        fees: item.fees != null ? sanitizeFeesInput(String(item.fees)) : p.fees,
-                    }));
-                }}
-                listEndpoint="service/list"
-                endpoint="service/list"
-                initialParams={TASK_CREATE_SERVICE_LIST_PARAMS}
-                queryParams={{ type: TASK_CREATE_SERVICE_LIST_PARAMS.type }}
-                valueKey="service_id"
-                labelMapping={{
-                    primary: (s) => s.name,
-                    secondary: (s) => {
-                        const { fees, gstRate, gstValue, total } = getServiceAmounts(s);
-                        const gstPart =
-                            gstValue > 0
-                                ? ` · GST ${gstRate}% ₹${formatMoney(gstValue)}`
-                                : '';
-                        return `₹${formatMoney(fees)}${gstPart} · Total ₹${formatMoney(total)}`;
-                    },
-                }}
-                dataExtractor={(res) => (Array.isArray(res?.data) ? res.data : [])}
-                placeholder="Search and select service..."
-                renderSelected={(s) => s.displayName || s.name}
-                hasError={err('service')}
-                fieldRef={fieldRefs.service}
-                errorMessage={err('service') ? fieldError.message : undefined}
-            />
+            <div ref={fieldRefs.service}>
+                <CustomSelect
+                    label="Service"
+                    required
+                    loadOptions={loadServiceOptions}
+                    defaultOptions
+                    minSearchLength={0}
+                    value={serviceValue}
+                    onChange={(option) => {
+                        if (serviceLocked) return;
+                        if (!option) {
+                            setSelectedService(null);
+                            setForm((prev) => ({ ...prev, service_id: '', fees: '' }));
+                            return;
+                        }
+                        setSelectedService({
+                            service_id: option.service_id,
+                            name: option.name,
+                            displayName: option.name,
+                            fees: option.fees,
+                            gst_rate: option.gst_rate,
+                            gst_value: option.gst_value,
+                        });
+                        setForm((prev) => ({
+                            ...prev,
+                            service_id: option.service_id,
+                            fees:
+                                option.fees != null
+                                    ? sanitizeFeesInput(String(option.fees))
+                                    : prev.fees,
+                        }));
+                    }}
+                    getOptionLabel={(option) => option.label}
+                    getOptionValue={(option) => option.value}
+                    renderOption={renderServiceOption}
+                    placeholder="Search and select service..."
+                    searchPlaceholder="Search services..."
+                    noOptionsMessage="No branch services found"
+                    loadingMessage="Loading services..."
+                    isDisabled={serviceLocked}
+                    isClearable={!serviceLocked}
+                    error={err('service') ? fieldError.message : undefined}
+                />
+            </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-1.5" ref={fieldRefs.fees}>

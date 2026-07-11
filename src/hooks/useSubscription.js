@@ -48,7 +48,8 @@ export const useSubscription = () => {
             active_plans: [],
             features: {
                 core: false,
-                'staff-management': false,
+                'salary-management': false,
+                'attendance-management': false,
                 'live-chat': false,
             },
         };
@@ -152,7 +153,10 @@ export const useSubscription = () => {
         if (feature === 'core') {
             return isSub;
         }
-        if (feature === 'staff-management') {
+        if (feature === 'salary-management') {
+            return activeNames.includes('BusinessPlus') || activeNames.includes('BusinessPro');
+        }
+        if (feature === 'attendance-management') {
             return activeNames.includes('BusinessPlus') || activeNames.includes('BusinessPro');
         }
         if (feature === 'live-chat') {

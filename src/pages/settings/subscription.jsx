@@ -180,7 +180,7 @@ const Subscription = () => {
                     { label: 'Broadcast Access (Email/SMS)', included: true },
                     { label: 'Document Management System', included: true },
                     { label: 'Gateway Access & Ledger Groups', included: true },
-                    { label: 'Staff Management', included: false },
+                    { label: 'Staff Management', included: true },
                     { label: 'Salary Management', included: false },
                     { label: 'Attendance Management', included: false },
                     { label: 'Live Chat (OOMS)', included: false },
@@ -797,7 +797,7 @@ const Subscription = () => {
                                                 Card, UPI or NetBanking
                                             </h4>
                                             <p className="text-[11px] text-slate-500 mt-1">
-                                                Secure checkout powered by Razorpay.
+                                                Secure checkout powered by Razorpay. You will be charged ₹{formatINR(selectedPlanCharge)} (total incl. 18% GST).
                                             </p>
                                         </div>
                                     </div>
@@ -808,7 +808,7 @@ const Subscription = () => {
                                         className="w-full py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold mt-4 text-xs flex items-center justify-center gap-2 shadow-sm transition-all"
                                     >
                                         <FiZap className="w-3.5 h-3.5" />
-                                        Pay via Cards / UPI / NetBanking
+                                        Pay ₹{formatINR(selectedPlanCharge)} via Cards / UPI / NetBanking
                                     </button>
                                 </div>
 

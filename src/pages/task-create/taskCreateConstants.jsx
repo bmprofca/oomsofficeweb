@@ -2,7 +2,8 @@
 export const TASK_CREATE_SERVICE_LIST_PARAMS = {
     type: 'general',
     page_no: 1,
-    limit: 200,
+    limit: 100,
+    is_added: true,
 };
 
 export const STEPS = [

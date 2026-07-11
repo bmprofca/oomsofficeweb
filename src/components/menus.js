@@ -50,12 +50,13 @@ export const Sidebar = ({ sidebarOpen, setSidebarOpen, sidebarCollapsed, setSide
 
     const getSubscriptionLevel = (key) => {
         if (key === 'whatsapp-live-chat') return 'live-chat';
-        if (key === 'staff') return 'staff-management';
-        if (['dashboard', 'task', 'recurring-tasks', 'client', 'finance', 'broadcast'].includes(key)) {
+        if (['dashboard', 'task', 'recurring-tasks', 'client', 'finance', 'broadcast', 'staff'].includes(key)) {
             return 'core';
         }
         return null;
     };
+
+    const getSubmenuSubscriptionLevel = (subItem) => subItem.subscriptionFeature || null;
 
     const menuItems = useMemo(() => {
         const items = [
@@ -163,7 +164,8 @@ export const Sidebar = ({ sidebarOpen, setSidebarOpen, sidebarCollapsed, setSide
                         label: 'Attendance',
                         icon: <FiCalendar className="w-4 h-4" />,
                         path: '/staff/attendance',
-                        permission: 'staff_attendance'
+                        permission: 'staff_attendance',
+                        subscriptionFeature: 'attendance-management',
                     },
                     {
                         id: 'staff-office-assistance',
@@ -525,7 +527,8 @@ export const Sidebar = ({ sidebarOpen, setSidebarOpen, sidebarCollapsed, setSide
                                         <div className="sidebar-submenu-expanded mt-1 ml-4 pl-2 border-l border-slate-600 space-y-0.5 animate-in fade-in duration-150">
                                             {item.submenu.map((subItem) => {
                                                 const isSubPermissionLocked = subItem.permission ? !check(subItem.permission) : false;
-                                                const isSubSubscriptionLocked = subLevel ? !hasAccess(subLevel) : false;
+                                                const subFeature = getSubmenuSubscriptionLevel(subItem);
+                                                const isSubSubscriptionLocked = subFeature ? !hasAccess(subFeature) : false;
                                                 const isSubLocked = isSubPermissionLocked || isSubSubscriptionLocked;
                                                 return (
                                                     <button
@@ -588,10 +591,10 @@ export const Sidebar = ({ sidebarOpen, setSidebarOpen, sidebarCollapsed, setSide
                         <div className="space-y-0.5">
                             {(() => {
                                 const parentItem = menuItems.find(item => item.id === activeSubmenu);
-                                const subLevel = parentItem ? getSubscriptionLevel(parentItem.id) : null;
                                 return parentItem?.submenu?.map((subItem) => {
                                     const isSubPermissionLocked = subItem.permission ? !check(subItem.permission) : false;
-                                    const isSubSubscriptionLocked = subLevel ? !hasAccess(subLevel) : false;
+                                    const subFeature = getSubmenuSubscriptionLevel(subItem);
+                                    const isSubSubscriptionLocked = subFeature ? !hasAccess(subFeature) : false;
                                     const isSubLocked = isSubPermissionLocked || isSubSubscriptionLocked;
                                     return (
                                         <button
