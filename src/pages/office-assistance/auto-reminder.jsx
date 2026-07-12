@@ -5,7 +5,14 @@ import { Header, Sidebar } from '../../components/header';
 import getHeaders from '../../utils/get-headers';
 import API_BASE_URL from '../../utils/api-controller';
 import toast from 'react-hot-toast';
-import SearchableSelect from '../../components/SearchableSelect';
+import CustomSelect from '../../components/CustomSelect';
+import {
+    CLIENT_LIST_QUERY_PARAMS,
+    createClientListLoadOptions,
+    getClientOptionLabel,
+    getClientOptionValue,
+    renderClientListOption,
+} from '../../utils/customSelectHelpers';
 import TablePagination from '../../components/TablePagination';
 import { DateRangePickerField } from '../../components/PortalDatePicker';
 
@@ -1989,42 +1996,38 @@ const AutoReminder = () => {
                                                         </select>
                                                     </div>
                                                 </div>
-                                                <SearchableSelect
-                                                    endpoint="/client/list"
-                                                    queryParams={{ page: 1, limit: 20 }}
-                                                    searchParam="search"
-                                                    valueKey="username"
-                                                    labelMapping={{
-                                                        primary: 'name',
-                                                        secondary: (item) => `${item.user_type || ''} • ${item.mobile || ''} • ${item.email || ''}`
-                                                    }}
-                                                    onSelect={(item, value) => {
+                                                <CustomSelect
+                                                    loadOptions={createClientListLoadOptions(CLIENT_LIST_QUERY_PARAMS)}
+                                                    value={null}
+                                                    onChange={(item) => {
+                                                        if (!item) return;
+                                                        const value = item.username;
                                                         if (value && !whitelistForm.usernames.includes(value)) {
                                                             const newUsernames = [...whitelistForm.usernames, value];
                                                             handleWhitelistChange('usernames', newUsernames);
-                                                            if (item) {
-                                                                const formattedItem = {
-                                                                    username: item.username || item.profile_id || value,
-                                                                    name: item.name || item.full_name || item.client_name || 'N/A',
-                                                                    mobile: item.mobile || item.phone || 'N/A',
-                                                                    email: item.email || 'N/A',
-                                                                    firm_name: item.firms?.[0]?.firm_name || 'Individual'
-                                                                };
-                                                                setAllClients(prev => {
-                                                                    if (prev.some(c => c.username === value)) return prev;
-                                                                    return [...prev, formattedItem];
-                                                                });
-                                                            }
+                                                            const formattedItem = {
+                                                                username: item.username || item.profile_id || value,
+                                                                name: item.name || item.full_name || item.client_name || 'N/A',
+                                                                mobile: item.mobile || item.phone || 'N/A',
+                                                                email: item.email || 'N/A',
+                                                                firm_name: item.firms?.[0]?.firm_name || 'Individual'
+                                                            };
+                                                            setAllClients(prev => {
+                                                                if (prev.some(c => c.username === value)) return prev;
+                                                                return [...prev, formattedItem];
+                                                            });
                                                             setSelectedClientsForModal(prev => {
                                                                 if (prev.includes(value)) return prev;
                                                                 return [...prev, value];
                                                             });
                                                         }
                                                     }}
+                                                    getOptionLabel={getClientOptionLabel}
+                                                    getOptionValue={getClientOptionValue}
+                                                    renderOption={renderClientListOption}
                                                     placeholder="Search client by name or mobile..."
-                                                    dataExtractor={(response) => {
-                                                        return response?.data || [];
-                                                    }}
+                                                    searchPlaceholder="Search client by name or mobile..."
+                                                    isClearable={false}
                                                 />
 
                                                 <div className="mt-2">

@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Sidebar, Header } from '../components/header';
 import {
     FiUser,
@@ -22,11 +23,14 @@ import {
     FiSearch,
     FiSettings,
     FiHelpCircle,
-    FiLock
+    FiLock,
+    FiEye,
+    FiLoader
 } from 'react-icons/fi';
 import { DatePickerField } from "../components/PortalDatePicker";
 import getHeaders from "../utils/get-headers";
 import API_BASE_URL from '../utils/api-controller';
+import useDebouncedValue from '../hooks/useDebouncedValue';
 import { FaCheckCircle, FaTimesCircle } from "react-icons/fa";
 import { motion } from 'framer-motion';
 import axios from 'axios';
@@ -35,6 +39,7 @@ import { uploadOneSaasFileUrl } from '../utils/onesaas-upload';
 
 
 const CreateClient = () => {
+    const navigate = useNavigate();
     const { check } = useUserPermissions();
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
     const [isMinimized, setIsMinimized] = useState(() => {
@@ -56,6 +61,11 @@ const CreateClient = () => {
     const [bulkPreview, setBulkPreview] = useState(null);
     const [bulkError, setBulkError] = useState(null);
     const [bulkSuccessResult, setBulkSuccessResult] = useState(null);
+    const [showCreateSuccessModal, setShowCreateSuccessModal] = useState(false);
+    const [clientCreateSuccess, setClientCreateSuccess] = useState(null);
+    const [panDuplicateClient, setPanDuplicateClient] = useState(null);
+    const [panChecking, setPanChecking] = useState(false);
+    const [showExistingPanModal, setShowExistingPanModal] = useState(false);
     const [dragActive, setDragActive] = useState(false);
     const [fileHeaders, setFileHeaders] = useState([]);
     const [parsedRows, setParsedRows] = useState([]);
@@ -565,6 +575,8 @@ const CreateClient = () => {
         }
     });
 
+    const debouncedPan = useDebouncedValue(formData.pan, 400);
+
     // Persist sidebar minimized state
     useEffect(() => {
         localStorage.setItem('sidebarMinimized', JSON.stringify(isMinimized));
@@ -593,6 +605,52 @@ const CreateClient = () => {
             }));
         }
     }, [formData.pan, formData.businesses[0]?.type]);
+
+    useEffect(() => {
+        const checkPanAvailability = async () => {
+            const pan = debouncedPan.trim().toUpperCase();
+            const panRegex = /^[A-Z]{5}[0-9]{4}[A-Z]{1}$/;
+
+            if (!panRegex.test(pan)) {
+                setPanDuplicateClient(null);
+                setPanChecking(false);
+                return;
+            }
+
+            const authHeaders = getHeaders();
+            if (!authHeaders) {
+                setPanDuplicateClient(null);
+                setPanChecking(false);
+                return;
+            }
+
+            setPanChecking(true);
+            try {
+                const response = await axios.get(`${API_BASE_URL}/client/check-pan`, {
+                    headers: authHeaders,
+                    params: { pan }
+                });
+
+                if (response.data?.success) {
+                    const { exist } = response.data;
+                    if (exist && typeof exist === 'object') {
+                        setPanDuplicateClient(exist);
+                    } else {
+                        setPanDuplicateClient(null);
+                    }
+                } else {
+                    setPanDuplicateClient(null);
+                }
+            } catch (error) {
+                console.error('PAN check error:', error);
+                setPanDuplicateClient(null);
+            } finally {
+                setPanChecking(false);
+            }
+        };
+
+        checkPanAvailability();
+    }, [debouncedPan]);
 
     // Dummy data arrays
     const [guardianTypes] = useState([
@@ -708,7 +766,8 @@ const CreateClient = () => {
 
     // Handle input changes
     const handleInputChange = (e) => {
-        const { name, value, type, files } = e.target;
+        const { name, type, files } = e.target;
+        let value = e.target.value;
 
         if (type === 'file') {
             const file = files[0];
@@ -751,13 +810,15 @@ const CreateClient = () => {
         } else {
             // PAN validation
             if (name === 'pan') {
+                value = value.toUpperCase().replace(/[^A-Z0-9]/g, '');
                 if (value.length > 10) return;
                 const panRegex = /^[A-Z]{5}[0-9]{4}[A-Z]{1}$/;
-                const isValid = panRegex.test(value.toUpperCase());
+                const isValid = panRegex.test(value);
                 setErrors(prev => ({
                     ...prev,
                     pan: value && !isValid ? 'Invalid PAN format (e.g., ABCDE1234H)' : ''
                 }));
+                setPanDuplicateClient(null);
             }
 
             // Email validation
@@ -921,6 +982,7 @@ const CreateClient = () => {
         // Step 1 validation
         if (currentStep === 1) {
             if (!formData.pan.trim()) newErrors.pan = 'PAN is required';
+            else if (panDuplicateClient) newErrors.pan = 'A client already exists with this PAN';
             if (!formData.full_name.trim()) newErrors.full_name = 'Full name is required';
             if (!formData.mobile.trim()) newErrors.mobile = 'Mobile is required';
             if (!formData.email.trim()) newErrors.email = 'Email is required';
@@ -962,6 +1024,21 @@ const CreateClient = () => {
         
         if (!validateForm()) {
             alert('Please fill all required fields correctly');
+            return;
+        }
+
+        if (panChecking) {
+            alert('Please wait while PAN availability is being checked.');
+            return;
+        }
+
+        if (panDuplicateClient) {
+            setCurrentStep(1);
+            setErrors((prev) => ({
+                ...prev,
+                pan: 'A client already exists with this PAN'
+            }));
+            alert('A client already exists with this PAN. Please use a different PAN.');
             return;
         }
 
@@ -1035,7 +1112,8 @@ try {
 
     // Handle API response
     if (response.data.success) {
-        alert('Client created successfully!');
+        setClientCreateSuccess(response.data.data || null);
+        setShowCreateSuccessModal(true);
         resetForm();
     } else {
         // Handle API error response
@@ -1064,7 +1142,7 @@ try {
                 errorMessage = 'Forbidden. You do not have permission to create clients.';
                 break;
             case 409:
-                errorMessage = 'Client with this PAN or mobile already exists.';
+                errorMessage = data.message || 'Client with this PAN or email already exists.';
                 break;
             case 422:
                 errorMessage = 'Validation error. Please check all required fields.';
@@ -1144,6 +1222,22 @@ try {
         setSearchBusinessState('');
         setSearchBusinessDistrict('');
         setSearchGroup('');
+        setPanDuplicateClient(null);
+        setShowExistingPanModal(false);
+        setPanChecking(false);
+    };
+
+    const closeCreateSuccessModal = () => {
+        setShowCreateSuccessModal(false);
+        setClientCreateSuccess(null);
+    };
+
+    const handleViewCreatedClient = () => {
+        const username = clientCreateSuccess?.username;
+        closeCreateSuccessModal();
+        if (username) {
+            navigate(`/client/profile/${username}`);
+        }
     };
 
     // Navigation functions with smooth transitions
@@ -1381,23 +1475,51 @@ try {
                                                             name="pan"
                                                             value={formData.pan}
                                                             onChange={handleInputChange}
-                                                            className={`w-full pl-10 pr-8 py-3 text-sm border ${errors.pan ? 'border-red-500' : formData.pan.length === 10 ? 'border-green-500' : 'border-gray-300'} rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-white outline-none transition-colors duration-200 uppercase`}
+                                                            className={`w-full pl-10 pr-20 py-3 text-sm border ${errors.pan || panDuplicateClient ? 'border-red-500' : formData.pan.length === 10 && !panChecking ? 'border-green-500' : 'border-gray-300'} rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-white outline-none transition-colors duration-200 uppercase`}
                                                             placeholder="Enter PAN number (e.g., ABCDE1234H)"
                                                             maxLength="10"
                                                             required
                                                         />
-                                                        {formData.pan.length === 10 && !errors.pan && (
-                                                            <FaCheckCircle className="absolute right-3 top-1/2 transform -translate-y-1/2 text-green-500 text-sm" />
-                                                        )}
-                                                        {errors.pan && (
-                                                            <FaTimesCircle className="absolute right-3 top-1/2 transform -translate-y-1/2 text-red-500 text-sm" />
-                                                        )}
+                                                        <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-1.5">
+                                                            {panChecking && (
+                                                                <FiLoader className="w-4 h-4 text-indigo-500 animate-spin" />
+                                                            )}
+                                                            {panDuplicateClient && !panChecking && (
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => setShowExistingPanModal(true)}
+                                                                    className="p-1 rounded-md text-indigo-600 hover:bg-indigo-50 transition-colors"
+                                                                    title="View existing client"
+                                                                    aria-label="View existing client with this PAN"
+                                                                >
+                                                                    <FiEye className="w-4 h-4" />
+                                                                </button>
+                                                            )}
+                                                            {!panChecking && formData.pan.length === 10 && !errors.pan && !panDuplicateClient && (
+                                                                <FaCheckCircle className="text-green-500 text-sm" />
+                                                            )}
+                                                            {!panChecking && (errors.pan || panDuplicateClient) && (
+                                                                <FaTimesCircle className="text-red-500 text-sm" />
+                                                            )}
+                                                        </div>
                                                     </div>
                                                     {errors.pan && (
                                                         <p className="text-red-500 text-xs mt-1">{errors.pan}</p>
                                                     )}
-                                                    {formData.pan.length === 10 && !errors.pan && (
-                                                        <p className="text-green-500 text-xs mt-1">✓ Valid PAN format</p>
+                                                    {panDuplicateClient && !errors.pan && (
+                                                        <p className="text-red-500 text-xs mt-1">
+                                                            A client already exists with this PAN.
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => setShowExistingPanModal(true)}
+                                                                className="ml-1 font-semibold text-indigo-600 hover:text-indigo-700"
+                                                            >
+                                                                View existing client
+                                                            </button>
+                                                        </p>
+                                                    )}
+                                                    {formData.pan.length === 10 && !errors.pan && !panDuplicateClient && !panChecking && (
+                                                        <p className="text-green-500 text-xs mt-1">PAN is available</p>
                                                     )}
                                                 </div>
 
@@ -2899,6 +3021,228 @@ try {
                                 </div>
                             </div>
                         )}
+                    </motion.div>
+                </div>
+            )}
+
+            {/* Existing PAN Client Modal */}
+            {showExistingPanModal && panDuplicateClient && (
+                <div className="fixed inset-0 z-[60] flex items-center justify-center overflow-hidden overscroll-none p-3 sm:p-4 pointer-events-none">
+                    <div
+                        className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm pointer-events-auto"
+                        onClick={() => setShowExistingPanModal(false)}
+                        aria-hidden
+                    />
+                    <motion.div
+                        role="dialog"
+                        aria-modal="true"
+                        aria-labelledby="existing-pan-modal-title"
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        transition={{ duration: 0.2 }}
+                        className="relative z-[1] pointer-events-auto bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-sm overflow-hidden flex flex-col"
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        <div className="bg-gradient-to-r from-amber-500 to-orange-600 px-4 py-3 text-white flex justify-between items-center shrink-0">
+                            <div className="min-w-0">
+                                <h3 id="existing-pan-modal-title" className="text-sm font-bold truncate">Existing Client</h3>
+                                <p className="text-[11px] text-amber-100 truncate">PAN already registered in this branch</p>
+                            </div>
+                            <button
+                                type="button"
+                                onClick={() => setShowExistingPanModal(false)}
+                                className="p-1 rounded-full hover:bg-white/10 text-white/80 hover:text-white transition-colors shrink-0"
+                                aria-label="Close"
+                            >
+                                <FiX className="w-5 h-5" />
+                            </button>
+                        </div>
+
+                        <div className="px-4 py-3 shrink-0">
+                            <div className="flex items-center gap-3 mb-3 pb-3 border-b border-slate-100">
+                                <div className="w-12 h-12 rounded-full overflow-hidden bg-slate-100 border border-slate-200 flex items-center justify-center shrink-0">
+                                    {panDuplicateClient.image ? (
+                                        <img
+                                            src={panDuplicateClient.image}
+                                            alt={panDuplicateClient.name || 'Client'}
+                                            className="w-full h-full object-cover"
+                                        />
+                                    ) : (
+                                        <FiUser className="w-5 h-5 text-slate-400" />
+                                    )}
+                                </div>
+                                <div className="min-w-0 flex-1">
+                                    <p className="text-sm font-bold text-slate-900 leading-tight break-words">{panDuplicateClient.name || '-'}</p>
+                                    {(panDuplicateClient.care_of || panDuplicateClient.guardian_name) && (
+                                        <p className="text-xs text-slate-500 mt-0.5 break-words">
+                                            {[panDuplicateClient.care_of, panDuplicateClient.guardian_name].filter(Boolean).join(' ')}
+                                        </p>
+                                    )}
+                                </div>
+                            </div>
+
+                            <dl className="grid grid-cols-2 gap-x-3 gap-y-2.5 text-xs">
+                                <div className="min-w-0">
+                                    <dt className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">PAN</dt>
+                                    <dd className="font-mono font-medium text-slate-800 mt-0.5 break-all">{formData.pan || '-'}</dd>
+                                </div>
+                                <div className="min-w-0">
+                                    <dt className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">Username</dt>
+                                    <dd className="font-medium text-slate-800 mt-0.5 break-all">{panDuplicateClient.username || '-'}</dd>
+                                </div>
+                                <div className="min-w-0">
+                                    <dt className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">Mobile</dt>
+                                    <dd className="font-medium text-slate-800 mt-0.5 break-all">{panDuplicateClient.mobile || '-'}</dd>
+                                </div>
+                                <div className="min-w-0">
+                                    <dt className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">Email</dt>
+                                    <dd className="font-medium text-slate-800 mt-0.5 break-all">{panDuplicateClient.email || '-'}</dd>
+                                </div>
+                                <div className="min-w-0">
+                                    <dt className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">Care Of</dt>
+                                    <dd className="font-medium text-slate-800 mt-0.5 break-all">{panDuplicateClient.care_of || '-'}</dd>
+                                </div>
+                                <div className="min-w-0">
+                                    <dt className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">Guardian</dt>
+                                    <dd className="font-medium text-slate-800 mt-0.5 break-all">{panDuplicateClient.guardian_name || '-'}</dd>
+                                </div>
+                            </dl>
+                        </div>
+
+                        <div className="px-4 py-3 bg-slate-50 border-t border-slate-200 flex gap-2 shrink-0">
+                            <button
+                                type="button"
+                                onClick={() => setShowExistingPanModal(false)}
+                                className="flex-1 px-3 py-2 border border-slate-300 text-slate-700 text-xs font-semibold rounded-lg hover:bg-white transition-colors"
+                            >
+                                Close
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    const username = panDuplicateClient.username;
+                                    setShowExistingPanModal(false);
+                                    if (username) {
+                                        navigate(`/client/profile/${username}`);
+                                    }
+                                }}
+                                className="flex-1 px-3 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold rounded-lg transition-colors"
+                            >
+                                View Profile
+                            </button>
+                        </div>
+                    </motion.div>
+                </div>
+            )}
+
+            {/* Client Create Success Modal */}
+            {showCreateSuccessModal && clientCreateSuccess && (
+                <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
+                    <motion.div
+                        initial={{ opacity: 0, scale: 0.95, y: 20 }}
+                        animate={{ opacity: 1, scale: 1, y: 0 }}
+                        transition={{ duration: 0.2 }}
+                        className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-lg max-h-[90vh] flex flex-col overflow-hidden"
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        <div className="bg-gradient-to-r from-emerald-600 to-emerald-700 px-6 py-4 text-white flex justify-between items-center shrink-0">
+                            <div className="flex items-center gap-3">
+                                <div className="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center">
+                                    <FiCheck className="w-5 h-5" />
+                                </div>
+                                <div>
+                                    <h3 className="text-lg font-bold">Client Created</h3>
+                                    <p className="text-xs text-emerald-100 mt-0.5">Client has been added successfully</p>
+                                </div>
+                            </div>
+                            <button
+                                type="button"
+                                onClick={closeCreateSuccessModal}
+                                className="p-1 rounded-full hover:bg-white/10 text-white/80 hover:text-white transition-colors"
+                                aria-label="Close"
+                            >
+                                <FiX className="w-6 h-6" />
+                            </button>
+                        </div>
+
+                        <div className="p-6 overflow-y-auto flex-1 space-y-4">
+                            <div className="rounded-xl border border-slate-200 bg-slate-50/60 p-4">
+                                <p className="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1">Client Name</p>
+                                <p className="text-lg font-bold text-slate-900">{clientCreateSuccess.name || '-'}</p>
+                            </div>
+
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                <div className="rounded-xl border border-slate-200 p-3">
+                                    <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Username</p>
+                                    <p className="text-sm font-medium text-slate-800 mt-1 break-all">{clientCreateSuccess.username || '-'}</p>
+                                </div>
+                                <div className="rounded-xl border border-slate-200 p-3">
+                                    <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Profile ID</p>
+                                    <p className="text-sm font-medium text-slate-800 mt-1 break-all">{clientCreateSuccess.profile_id || '-'}</p>
+                                </div>
+                                <div className="rounded-xl border border-slate-200 p-3">
+                                    <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400 flex items-center gap-1">
+                                        <FiPhone className="w-3 h-3" /> Mobile
+                                    </p>
+                                    <p className="text-sm font-medium text-slate-800 mt-1">{clientCreateSuccess.mobile || '-'}</p>
+                                </div>
+                                <div className="rounded-xl border border-slate-200 p-3">
+                                    <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400 flex items-center gap-1">
+                                        <FiMail className="w-3 h-3" /> Email
+                                    </p>
+                                    <p className="text-sm font-medium text-slate-800 mt-1 break-all">{clientCreateSuccess.email || '-'}</p>
+                                </div>
+                                <div className="rounded-xl border border-slate-200 p-3">
+                                    <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400 flex items-center gap-1">
+                                        <FiFileText className="w-3 h-3" /> PAN
+                                    </p>
+                                    <p className="text-sm font-medium text-slate-800 mt-1 font-mono">{clientCreateSuccess.pan_number || '-'}</p>
+                                </div>
+                                <div className="rounded-xl border border-slate-200 p-3">
+                                    <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400 flex items-center gap-1">
+                                        <FiHome className="w-3 h-3" /> Branch
+                                    </p>
+                                    <p className="text-sm font-medium text-slate-800 mt-1">{clientCreateSuccess.branch_id || '-'}</p>
+                                </div>
+                            </div>
+
+                            {Array.isArray(clientCreateSuccess.firms) && clientCreateSuccess.firms.length > 0 && (
+                                <div className="rounded-xl border border-slate-200 overflow-hidden">
+                                    <div className="bg-slate-50 px-4 py-2.5 border-b border-slate-200 flex items-center gap-2">
+                                        <FiBriefcase className="w-4 h-4 text-indigo-600" />
+                                        <p className="text-xs font-bold uppercase tracking-wider text-slate-600">Business / Firms</p>
+                                    </div>
+                                    <div className="divide-y divide-slate-100">
+                                        {clientCreateSuccess.firms.map((firm) => (
+                                            <div key={firm.firm_id} className="px-4 py-3">
+                                                <p className="text-sm font-semibold text-slate-900">{firm.firm_name || '-'}</p>
+                                                <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-xs text-slate-500">
+                                                    <span className="capitalize">{firm.business_type || '-'}</span>
+                                                    <span className="font-mono">Firm ID: {firm.firm_id || '-'}</span>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+
+                        <div className="px-6 py-4 bg-slate-50 border-t border-slate-200 flex flex-col sm:flex-row justify-end gap-3 shrink-0">
+                            <button
+                                type="button"
+                                onClick={closeCreateSuccessModal}
+                                className="px-5 py-2.5 border border-slate-300 text-slate-700 text-sm font-semibold rounded-lg hover:bg-white transition-colors"
+                            >
+                                Create Another
+                            </button>
+                            <button
+                                type="button"
+                                onClick={handleViewCreatedClient}
+                                className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold rounded-lg shadow-md shadow-indigo-100 transition-colors"
+                            >
+                                View Client Profile
+                            </button>
+                        </div>
                     </motion.div>
                 </div>
             )}

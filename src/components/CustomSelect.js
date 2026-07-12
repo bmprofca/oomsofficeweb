@@ -2,10 +2,12 @@ import React, {
     useCallback,
     useEffect,
     useId,
+    useLayoutEffect,
     useMemo,
     useRef,
     useState,
 } from 'react';
+import { createPortal } from 'react-dom';
 import useDebounce from './useDebounce';
 
 const theme = {
@@ -238,6 +240,12 @@ const defaultGetOptionLabel = (opt) => opt?.label ?? '';
 const defaultGetOptionValue = (opt) => opt?.value;
 const defaultIsOptionDisabled = (opt) => Boolean(opt?.isDisabled);
 
+const MENU_MAX_HEIGHT = 240;
+const MENU_MIN_HEIGHT = 96;
+const MENU_GAP = 4;
+/** Above BaseModal shell (z-[10051]) and date-picker portals */
+const MENU_PORTAL_Z_INDEX = 10060;
+
 /**
  * Dependency-free searchable select replacement.
  * Local mode: pass `options`. API mode: pass `loadOptions` (takes priority).
@@ -271,6 +279,7 @@ export default function CustomSelect({
     error,
     helperText,
     name,
+    usePortal = true,
 }) {
     const isApiMode = typeof loadOptions === 'function';
     const listboxId = useId();
@@ -291,6 +300,7 @@ export default function CustomSelect({
     const [isClearHovered, setIsClearHovered] = useState(false);
     const [hoveredOptionIndex, setHoveredOptionIndex] = useState(-1);
     const [isSearchFocused, setIsSearchFocused] = useState(false);
+    const [menuPosition, setMenuPosition] = useState(null);
 
     const debouncedQuery = useDebounce(searchQuery, debounceMs);
 
@@ -332,20 +342,49 @@ export default function CustomSelect({
         [isOptionDisabled, visibleOptions]
     );
 
+    const updateMenuPosition = useCallback(() => {
+        const el = controlRef.current;
+        if (!el) return;
+
+        const rect = el.getBoundingClientRect();
+        const spaceBelow = window.innerHeight - rect.bottom;
+        const spaceAbove = rect.top;
+        const openAbove =
+            spaceBelow < MENU_MAX_HEIGHT + MENU_GAP && spaceAbove > spaceBelow;
+        const availableSpace = openAbove ? spaceAbove - MENU_GAP : spaceBelow - MENU_GAP;
+        const maxHeight = Math.min(
+            MENU_MAX_HEIGHT,
+            Math.max(availableSpace, MENU_MIN_HEIGHT)
+        );
+
+        setMenuPosition({
+            left: rect.left,
+            width: rect.width,
+            maxHeight,
+            placement: openAbove ? 'top' : 'bottom',
+            top: openAbove ? undefined : rect.bottom + MENU_GAP,
+            bottom: openAbove ? window.innerHeight - rect.top + MENU_GAP : undefined,
+        });
+    }, []);
+
     const closeMenu = useCallback(() => {
         setIsOpen(false);
         setSearchQuery('');
         setHighlightedIndex(-1);
         setHoveredOptionIndex(-1);
+        setMenuPosition(null);
     }, []);
 
     const openMenu = useCallback(() => {
         if (isDisabled) {
             return;
         }
+        if (usePortal) {
+            updateMenuPosition();
+        }
         setIsOpen(true);
         setHighlightedIndex(-1);
-    }, [isDisabled]);
+    }, [isDisabled, usePortal, updateMenuPosition]);
 
     const emitChange = useCallback(
         (next) => {
@@ -525,9 +564,29 @@ export default function CustomSelect({
         }
     }, [isOpen]);
 
+    useLayoutEffect(() => {
+        if (!isOpen || !usePortal) {
+            return undefined;
+        }
+
+        updateMenuPosition();
+
+        const handleReposition = () => updateMenuPosition();
+        window.addEventListener('resize', handleReposition);
+        window.addEventListener('scroll', handleReposition, true);
+
+        return () => {
+            window.removeEventListener('resize', handleReposition);
+            window.removeEventListener('scroll', handleReposition, true);
+        };
+    }, [isOpen, usePortal, updateMenuPosition, visibleOptions.length, searchQuery, isLoading]);
+
     useEffect(() => {
         const handlePointerDown = (event) => {
-            if (fieldRef.current && !fieldRef.current.contains(event.target)) {
+            const target = event.target;
+            const inField = fieldRef.current?.contains(target);
+            const inMenu = menuRef.current?.contains(target);
+            if (!inField && !inMenu) {
                 closeMenu();
             }
         };
@@ -655,6 +714,136 @@ export default function CustomSelect({
         </>
     );
 
+    const menuContent = isOpen ? (
+        <div
+            ref={menuRef}
+            style={{
+                ...baseStyles.menu,
+                ...(usePortal
+                    ? {
+                        position: 'fixed',
+                        zIndex: MENU_PORTAL_Z_INDEX,
+                        left: menuPosition?.left ?? 0,
+                        width: menuPosition?.width ?? controlRef.current?.offsetWidth ?? 'auto',
+                        right: 'auto',
+                        marginTop: 0,
+                        maxHeight: menuPosition?.maxHeight ?? MENU_MAX_HEIGHT,
+                        ...(menuPosition?.placement === 'top'
+                            ? { bottom: menuPosition.bottom, top: 'auto' }
+                            : { top: menuPosition?.top ?? 0, bottom: 'auto' }),
+                    }
+                    : {
+                        zIndex: 50,
+                    }),
+            }}
+        >
+            {!isMulti && isSearchable ? (
+                <div
+                    style={baseStyles.searchRow}
+                    onClick={(event) => event.stopPropagation()}
+                >
+                    <input
+                        ref={singleSearchRef}
+                        type="text"
+                        style={{
+                            ...baseStyles.searchInput,
+                            borderColor: isSearchFocused
+                                ? theme.primary
+                                : theme.border,
+                            boxShadow: isSearchFocused
+                                ? `0 0 0 2px ${theme.primarySoft}`
+                                : 'none',
+                        }}
+                        value={searchQuery}
+                        placeholder={searchPlaceholder}
+                        onChange={(event) =>
+                            setSearchQuery(event.target.value)
+                        }
+                        onKeyDown={handleControlKeyDown}
+                        onFocus={() => setIsSearchFocused(true)}
+                        onBlur={() => setIsSearchFocused(false)}
+                    />
+                </div>
+            ) : null}
+
+            {menuMessage ? (
+                <div style={baseStyles.message}>{menuMessage}</div>
+            ) : (
+                <div
+                    id={listboxId}
+                    style={{
+                        ...baseStyles.options,
+                        maxHeight: usePortal && menuPosition?.maxHeight
+                            ? Math.max(
+                                (menuPosition.maxHeight || MENU_MAX_HEIGHT)
+                                    - (!isMulti && isSearchable ? 56 : 0),
+                                MENU_MIN_HEIGHT
+                            )
+                            : baseStyles.options.maxHeight,
+                    }}
+                    role="listbox"
+                    aria-multiselectable={isMulti}
+                >
+                    {visibleOptions.map((option) => {
+                        const optionValue = getOptionValue(option);
+                        const disabled = isOptionDisabled(option);
+                        const selected = isValueSelected(option);
+                        const enabledIndex = enabledOptions.findIndex(
+                            (item) =>
+                                getOptionValue(item) === optionValue
+                        );
+                        const isFocused =
+                            !disabled &&
+                            enabledIndex === highlightedIndex;
+                        const isHovered =
+                            !disabled &&
+                            enabledIndex === hoveredOptionIndex;
+
+                        return (
+                            <button
+                                key={String(optionValue)}
+                                type="button"
+                                role="option"
+                                data-option-index={enabledIndex}
+                                aria-selected={selected}
+                                disabled={disabled}
+                                style={getOptionStyle({
+                                    disabled,
+                                    selected,
+                                    isFocused,
+                                    isHovered,
+                                })}
+                                onMouseDown={(event) =>
+                                    event.preventDefault()
+                                }
+                                onMouseEnter={() =>
+                                    setHoveredOptionIndex(enabledIndex)
+                                }
+                                onMouseLeave={() =>
+                                    setHoveredOptionIndex(-1)
+                                }
+                                onClick={(event) => {
+                                    event.stopPropagation();
+                                    selectOption(option);
+                                }}
+                            >
+                                {renderOption
+                                    ? renderOption(option, {
+                                          isSelected: selected,
+                                          isFocused,
+                                      })
+                                    : renderDefaultOption(option, {
+                                          isSelected: selected,
+                                          isFocused,
+                                      })}
+                            </button>
+                        );
+                    })}
+                </div>
+            )}
+        </div>
+    ) : null;
+
     return (
         <div ref={fieldRef} style={baseStyles.field}>
             {label ? (
@@ -780,105 +969,11 @@ export default function CustomSelect({
                 </div>
             </div>
 
-            {isOpen ? (
-                <div ref={menuRef} style={baseStyles.menu}>
-                    {!isMulti && isSearchable ? (
-                        <div
-                            style={baseStyles.searchRow}
-                            onClick={(event) => event.stopPropagation()}
-                        >
-                            <input
-                                ref={singleSearchRef}
-                                type="text"
-                                style={{
-                                    ...baseStyles.searchInput,
-                                    borderColor: isSearchFocused
-                                        ? theme.primary
-                                        : theme.border,
-                                    boxShadow: isSearchFocused
-                                        ? `0 0 0 2px ${theme.primarySoft}`
-                                        : 'none',
-                                }}
-                                value={searchQuery}
-                                placeholder={searchPlaceholder}
-                                onChange={(event) =>
-                                    setSearchQuery(event.target.value)
-                                }
-                                onKeyDown={handleControlKeyDown}
-                                onFocus={() => setIsSearchFocused(true)}
-                                onBlur={() => setIsSearchFocused(false)}
-                            />
-                        </div>
-                    ) : null}
-
-                    {menuMessage ? (
-                        <div style={baseStyles.message}>{menuMessage}</div>
-                    ) : (
-                        <div
-                            id={listboxId}
-                            style={baseStyles.options}
-                            role="listbox"
-                            aria-multiselectable={isMulti}
-                        >
-                            {visibleOptions.map((option) => {
-                                const optionValue = getOptionValue(option);
-                                const disabled = isOptionDisabled(option);
-                                const selected = isValueSelected(option);
-                                const enabledIndex = enabledOptions.findIndex(
-                                    (item) =>
-                                        getOptionValue(item) === optionValue
-                                );
-                                const isFocused =
-                                    !disabled &&
-                                    enabledIndex === highlightedIndex;
-                                const isHovered =
-                                    !disabled &&
-                                    enabledIndex === hoveredOptionIndex;
-
-                                return (
-                                    <button
-                                        key={String(optionValue)}
-                                        type="button"
-                                        role="option"
-                                        data-option-index={enabledIndex}
-                                        aria-selected={selected}
-                                        disabled={disabled}
-                                        style={getOptionStyle({
-                                            disabled,
-                                            selected,
-                                            isFocused,
-                                            isHovered,
-                                        })}
-                                        onMouseDown={(event) =>
-                                            event.preventDefault()
-                                        }
-                                        onMouseEnter={() =>
-                                            setHoveredOptionIndex(enabledIndex)
-                                        }
-                                        onMouseLeave={() =>
-                                            setHoveredOptionIndex(-1)
-                                        }
-                                        onClick={(event) => {
-                                            event.stopPropagation();
-                                            selectOption(option);
-                                        }}
-                                    >
-                                        {renderOption
-                                            ? renderOption(option, {
-                                                  isSelected: selected,
-                                                  isFocused,
-                                              })
-                                            : renderDefaultOption(option, {
-                                                  isSelected: selected,
-                                                  isFocused,
-                                              })}
-                                    </button>
-                                );
-                            })}
-                        </div>
-                    )}
-                </div>
-            ) : null}
+            {usePortal
+                ? (menuContent && typeof document !== 'undefined'
+                    ? createPortal(menuContent, document.body)
+                    : null)
+                : menuContent}
 
             {name ? (
                 <input

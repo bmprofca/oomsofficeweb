@@ -4,7 +4,8 @@ import axios from 'axios';
 import { motion, AnimatePresence } from 'framer-motion';
 import { DatePicker } from 'rsuite';
 import { toast } from 'react-hot-toast';
-import SearchableSelectStatic from '../components/SearchableSelectStatic';
+import CustomSelect from '../components/CustomSelect';
+import { optionByValue } from '../utils/customSelectHelpers';
 import getHeaders from '../utils/get-headers';
 import API_BASE_URL from '../utils/api-controller';
 import {
@@ -456,14 +457,14 @@ const EditTaskModal = ({ isOpen, onClose, taskData, onTaskUpdated }) => {
                                                 <label className="block text-sm font-medium text-gray-700">
                                                     Service Category
                                                 </label>
-                                                <SearchableSelectStatic
+                                                <CustomSelect
                                                     options={serviceCategoryOptions}
-                                                    value={formData.service_category || ''}
-                                                    onChange={handleServiceCategorySelect}
+                                                    value={optionByValue(serviceCategoryOptions, formData.service_category || '', 'category_id')}
+                                                    onChange={(opt) => handleServiceCategorySelect(opt ? opt.category_id : '')}
+                                                    getOptionLabel={(opt) => opt.name}
+                                                    getOptionValue={(opt) => opt.category_id}
                                                     placeholder="All Categories"
-                                                    labelKey="name"
-                                                    valueKey="category_id"
-                                                    leftIcon={<FiLayers className="text-base" />}
+                                                    isClearable={false}
                                                 />
                                             </div>
 
@@ -471,14 +472,14 @@ const EditTaskModal = ({ isOpen, onClose, taskData, onTaskUpdated }) => {
                                                 <label className="block text-sm font-medium text-gray-700">
                                                     Service <span className="text-red-500">*</span>
                                                 </label>
-                                                <SearchableSelectStatic
+                                                <CustomSelect
                                                     options={mainServiceOptions}
-                                                    value={formData.service_id || ''}
-                                                    onChange={handleServiceSelect}
+                                                    value={optionByValue(mainServiceOptions, formData.service_id || '', 'service_id')}
+                                                    onChange={(opt) => handleServiceSelect(opt ? opt.service_id : '')}
+                                                    getOptionLabel={(opt) => opt.name}
+                                                    getOptionValue={(opt) => opt.service_id}
                                                     placeholder="Select service..."
-                                                    labelKey="name"
-                                                    valueKey="service_id"
-                                                    leftIcon={<FiBriefcase className="text-base" />}
+                                                    isClearable={false}
                                                 />
                                             </div>
 

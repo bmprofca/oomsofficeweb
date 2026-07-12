@@ -848,19 +848,26 @@ const TaskDisplay = () => {
                 body: JSON.stringify({ task_ids: taskIds, status: newStatus })
             });
 
-            if (!response.ok) throw new Error('Failed to update statuses');
+            const responseData = await response.json().catch(() => ({}));
+            if (!response.ok) {
+                throw new Error(responseData.message || 'Failed to update statuses');
+            }
 
-            const responseData = await response.json();
             if (responseData.success) {
+                const updatedTaskIds = new Set(responseData.data?.task_ids || taskIds);
                 setTasks(prev => prev.map(task =>
-                    selectedTasks.has(task.task_id)
+                    updatedTaskIds.has(task.task_id)
                         ? { ...task, status: newStatus }
                         : task
                 ));
-                setSelectedTasks(new Set());
+                setSelectedTasks(prev => {
+                    const next = new Set(prev);
+                    updatedTaskIds.forEach((id) => next.delete(id));
+                    return next;
+                });
                 toast.success(
                     responseData.message ||
-                    `Successfully updated ${taskIds.length} task${taskIds.length !== 1 ? 's' : ''} to ${statusOptions.find(s => s.value === newStatus)?.name || newStatus}`
+                    `Successfully updated ${updatedTaskIds.size} task${updatedTaskIds.size !== 1 ? 's' : ''} to ${statusOptions.find(s => s.value === newStatus)?.name || newStatus}`
                 );
             } else {
                 throw new Error(responseData.message || 'Failed to update statuses');
@@ -881,9 +888,11 @@ const TaskDisplay = () => {
                 body: JSON.stringify({ task_ids: [taskId], status: newStatus })
             });
 
-            if (!response.ok) throw new Error('Failed to update status');
+            const responseData = await response.json().catch(() => ({}));
+            if (!response.ok) {
+                throw new Error(responseData.message || 'Failed to update status');
+            }
 
-            const responseData = await response.json();
             if (responseData.success) {
                 toast.success(responseData.message || 'Task status updated successfully');
                 setTasks((prev) => {

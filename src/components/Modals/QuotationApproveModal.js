@@ -19,7 +19,8 @@ import { toast } from 'react-hot-toast';
 import API_BASE_URL from '../../utils/api-controller';
 import getHeaders from '../../utils/get-headers';
 import { uploadOneSaasFile } from '../../utils/onesaas-upload';
-import SelectInput from '../SelectInput';
+import CustomSelect from '../CustomSelect';
+import { optionByValue } from '../../utils/customSelectHelpers';
 import { DatePickerField } from '../PortalDatePicker';
 
 const formatMoney = (value) => {
@@ -949,10 +950,12 @@ const QuotationApproveModal = ({ isOpen, quotation, onClose, onSuccess }) => {
                                                 ))}
                                             </div>
                                             {subTaskForm.type === 'service' ? (
-                                                <SelectInput
+                                                <CustomSelect
                                                     options={serviceOptions}
-                                                    value={subTaskForm.service_id || null}
-                                                    onChange={(val) => setSubTaskForm((prev) => ({ ...prev, service_id: val || '' }))}
+                                                    value={optionByValue(serviceOptions, subTaskForm.service_id || null)}
+                                                    onChange={(opt) => setSubTaskForm((prev) => ({ ...prev, service_id: opt ? opt.value : '' }))}
+                                                    getOptionLabel={(opt) => opt.label}
+                                                    getOptionValue={(opt) => opt.value}
                                                     placeholder="Select service"
                                                 />
                                             ) : (

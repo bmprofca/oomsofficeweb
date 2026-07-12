@@ -13,7 +13,8 @@ import { toast } from 'react-hot-toast';
 import TaskStatusChange from '../components/Modals/TaskStatusChange';
 import { DatePickerField } from '../components/PortalDatePicker';
 import { checkPermissionSync } from '../utils/permission-helper';
-import SelectInput from '../components/SelectInput';
+import AppSelect from '../components/CustomSelect';
+import { optionByValue } from '../utils/customSelectHelpers';
 
 const BILLING_GENERATE_BILLABLE = '/billing/generate/billable';
 const BILLING_GENERATE_NONBILLABLE = '/billing/generate/nonbillable';
@@ -725,16 +726,24 @@ const DetailsTab = ({ taskData: initialData, task_id, onTaskUpdated }) => {
                                                 <label className="block text-sm font-medium text-gray-700">
                                                     Service <span className="text-red-500">*</span>
                                                 </label>
-                                                <SelectInput
+                                                <AppSelect
                                                     options={services.map((service) => ({
                                                         value: service.service_id,
                                                         label: service.name || 'Unnamed Service',
                                                     }))}
-                                                    value={editForm.service_id || null}
-                                                    onChange={(nextValue) => setEF({ service_id: nextValue || '' })}
+                                                    value={optionByValue(
+                                                        services.map((service) => ({
+                                                            value: service.service_id,
+                                                            label: service.name || 'Unnamed Service',
+                                                        })),
+                                                        editForm.service_id || null
+                                                    )}
+                                                    onChange={(opt) => setEF({ service_id: opt ? opt.value : '' })}
+                                                    getOptionLabel={(opt) => opt.label}
+                                                    getOptionValue={(opt) => opt.value}
                                                     placeholder="Select service"
                                                     searchPlaceholder="Search service..."
-                                                    clearable={true}
+                                                    isClearable
                                                 />
                                             </div>
                                         )}

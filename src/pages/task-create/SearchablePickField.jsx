@@ -1,9 +1,10 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { FiLock, FiX } from 'react-icons/fi';
-import SearchableSelect from '../../components/SearchableSelect';
+import CustomSelect from '../../components/CustomSelect';
+import { createFetchLoadOptions } from '../../utils/customSelectHelpers';
 
 /**
- * SearchableSelect with a selected-value display (clear to search again).
+ * CustomSelect with a selected-value display (clear to search again).
  */
 export default function SearchablePickField({
     label,
@@ -27,6 +28,41 @@ export default function SearchablePickField({
     errorMessage,
 }) {
     const errorRing = hasError ? 'ring-2 ring-red-500 border-red-500' : '';
+
+    const getOptionLabel = useMemo(() => {
+        return (item) => {
+            if (!item) return '—';
+            if (labelMapping?.primary) {
+                return typeof labelMapping.primary === 'function'
+                    ? labelMapping.primary(item)
+                    : item?.[labelMapping.primary] || '—';
+            }
+            if (valueKey && item?.[valueKey] != null) {
+                return String(item[valueKey]);
+            }
+            return item?.name || item?.label || '—';
+        };
+    }, [labelMapping, valueKey]);
+
+    const getOptionValue = useMemo(() => {
+        return (item) => {
+            if (!item) return '';
+            if (valueKey && item?.[valueKey] != null) {
+                return item[valueKey];
+            }
+            return item?.value ?? item?.id ?? item?.username ?? '';
+        };
+    }, [valueKey]);
+
+    const loadOptions = useMemo(
+        () =>
+            createFetchLoadOptions({
+                endpoint: endpoint || listEndpoint,
+                queryParams: { ...initialParams, ...queryParams },
+                dataExtractor: dataExtractor || ((response) => response?.data || []),
+            }),
+        [dataExtractor, endpoint, initialParams, listEndpoint, queryParams]
+    );
 
     return (
         <div className="space-y-1.5" ref={fieldRef}>
@@ -75,19 +111,22 @@ export default function SearchablePickField({
                     {Icon && (
                         <Icon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 shrink-0 pointer-events-none z-10" />
                     )}
-                    <div className={Icon ? '[&_input]:!pl-9' : ''}>
-                        <SearchableSelect
-                            listEndpoint={listEndpoint}
-                            endpoint={endpoint || listEndpoint}
-                            initialParams={initialParams}
-                            queryParams={queryParams}
-                            searchParam="search"
-                            valueKey={valueKey}
-                            labelMapping={labelMapping}
-                            dataExtractor={dataExtractor}
-                            onSelect={onSelect}
+                    <div className={Icon ? '[&>div]:!pl-9' : ''}>
+                        <CustomSelect
+                            loadOptions={loadOptions}
+                            value={null}
+                            onChange={(item) => {
+                                if (!item) return;
+                                onSelect?.(item, getOptionValue(item));
+                            }}
+                            getOptionLabel={getOptionLabel}
+                            getOptionValue={getOptionValue}
                             placeholder={placeholder}
-                            minChars={minChars}
+                            searchPlaceholder={placeholder}
+                            minSearchLength={minChars}
+                            defaultOptions={Boolean(listEndpoint)}
+                            isClearable={false}
+                            error={hasError ? errorMessage : undefined}
                         />
                     </div>
                 </div>

@@ -11,7 +11,8 @@ import {
 } from 'react-icons/fi';
 import TaskTable from '../TaskComponent/TaskTable';
 import MultiSelectInput from '../components/MultiSelectInput';
-import SelectInput from '../components/SelectInput';
+import CustomSelect from '../components/CustomSelect';
+import { optionByValue } from '../utils/customSelectHelpers';
 import TablePagination from '../components/TablePagination';
 import TaskStatusChange from '../components/Modals/TaskStatusChange';
 import getHeaders from '../utils/get-headers';
@@ -546,8 +547,10 @@ const TaskTab = ({
                     headers: { ...headers, 'Content-Type': 'application/json' },
                     body: JSON.stringify({ task_ids: [taskId], status: newStatus }),
                 });
-                if (!response.ok) throw new Error('Failed to update status');
-                const responseData = await response.json();
+                const responseData = await response.json().catch(() => ({}));
+                if (!response.ok) {
+                    throw new Error(responseData.message || 'Failed to update status');
+                }
                 if (responseData.success) {
                     toast.success(responseData.message || 'Task status updated successfully');
                     fetchTasks();
@@ -960,14 +963,15 @@ const TaskTab = ({
                     {!isProfileScopedMode && (
                     <>
                     <div className="min-w-0 w-full md:w-[10rem]">
-                        <SelectInput
+                        <CustomSelect
                             options={firmOptions}
-                            value={selectedFirmId}
-                            onChange={setSelectedFirmId}
+                            value={optionByValue(firmOptions, selectedFirmId)}
+                            onChange={(opt) => setSelectedFirmId(opt ? opt.value : null)}
+                            getOptionLabel={(opt) => opt.label}
+                            getOptionValue={(opt) => opt.value}
                             placeholder="All firms"
                             searchPlaceholder="Search firm..."
-                            clearable={false}
-                            className="w-full"
+                            isClearable={false}
                         />
                     </div>
                     {selectedFirmId != null && (

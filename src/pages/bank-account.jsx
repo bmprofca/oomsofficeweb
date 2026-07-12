@@ -31,7 +31,8 @@ import API_BASE_URL from '../utils/api-controller';
 import getHeaders from '../utils/get-headers';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
-import SelectInput from '../components/SelectInput';
+import CustomSelect from '../components/CustomSelect';
+import { optionByValue } from '../utils/customSelectHelpers';
 import { DatePickerField } from '../components/PortalDatePicker';
 import TablePagination from '../components/TablePagination';
 import { lookupIfscBankAndBranch, normalizeIfsc } from '../utils/ifscLookup';
@@ -472,13 +473,15 @@ const ModalContent = React.memo(({
                                 <label className="block text-xs font-semibold text-gray-700">
                                     Account Type <span className="text-red-500">*</span>
                                 </label>
-                                <SelectInput
+                                <CustomSelect
                                     options={bankTypes.map((type) => ({ value: type.value, label: type.name }))}
-                                    value={formData.type || null}
-                                    onChange={(value) => onChange({ target: { name: 'type', value: value || '' } })}
+                                    value={optionByValue(bankTypes.map((type) => ({ value: type.value, label: type.name })), formData.type || null)}
+                                    onChange={(opt) => onChange({ target: { name: 'type', value: opt ? opt.value : '' } })}
+                                    getOptionLabel={(opt) => opt.label}
+                                    getOptionValue={(opt) => opt.value}
                                     placeholder="Select Account Type"
                                     searchPlaceholder="Search account type..."
-                                    clearable={false}
+                                    isClearable={false}
                                 />
                             </div>
 
@@ -624,13 +627,15 @@ const ModalContent = React.memo(({
                                 <label className="block text-xs font-semibold text-gray-700">
                                     Balance Type <span className="text-red-500">*</span>
                                 </label>
-                                <SelectInput
+                                <CustomSelect
                                     options={openingTypes.map((type) => ({ value: type.value, label: type.name }))}
-                                    value={formData.opening_balance?.type || 'credit'}
-                                    onChange={(value) => onChange({ target: { name: 'opening_balance.type', value: value || 'credit' } })}
+                                    value={optionByValue(openingTypes.map((type) => ({ value: type.value, label: type.name })), formData.opening_balance?.type || 'credit')}
+                                    onChange={(opt) => onChange({ target: { name: 'opening_balance.type', value: opt ? opt.value : 'credit' } })}
+                                    getOptionLabel={(opt) => opt.label}
+                                    getOptionValue={(opt) => opt.value}
                                     placeholder="Select balance type"
                                     searchPlaceholder="Search balance type..."
-                                    clearable={false}
+                                    isClearable={false}
                                 />
                             </div>
 

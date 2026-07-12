@@ -73,6 +73,39 @@ const getExpensePartyMeta = (expense) => {
     return label;
 };
 
+const getExpenseLineItems = (expense) => {
+    if (Array.isArray(expense?.items) && expense.items.length > 0) {
+        return expense.items;
+    }
+    if (expense?.item?.item_id || expense?.item?.name) {
+        return [{
+            item_id: expense.item.item_id,
+            amount: expense.amount,
+            item: expense.item,
+        }];
+    }
+    return [];
+};
+
+const getExpenseItemDisplayName = (expense) => {
+    const lines = getExpenseLineItems(expense);
+    if (lines.length === 0) return '—';
+    if (lines.length === 1) return lines[0]?.item?.name || '—';
+    const names = lines
+        .map((line) => line?.item?.name)
+        .filter(Boolean);
+    if (names.length <= 2) return names.join(', ');
+    return `${names.slice(0, 2).join(', ')} +${names.length - 2} more`;
+};
+
+const getExpenseItemDisplayType = (expense) => {
+    const lines = getExpenseLineItems(expense);
+    if (lines.length === 0) return '';
+    const types = [...new Set(lines.map((line) => line?.item?.type).filter(Boolean))];
+    if (types.length === 1) return types[0];
+    return 'mixed';
+};
+
 const MODAL_BODY_CLASS =
     'px-5 py-4 flex-1 min-h-0 overflow-y-auto overscroll-y-contain [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden';
 
@@ -188,8 +221,9 @@ const getExpensePartyDetailLines = (expense) => {
 };
 
 const ExpenseEntryDetailsModal = ({ isOpen, expense, onClose, formatCurrency }) => {
-    const itemName = expense?.item?.name || '—';
-    const itemType = expense?.item?.type || '';
+    const lineItems = expense ? getExpenseLineItems(expense) : [];
+    const itemName = getExpenseItemDisplayName(expense);
+    const itemType = getExpenseItemDisplayType(expense);
     const partyMeta = getExpensePartyMeta(expense);
     const partyLines = expense ? getExpensePartyDetailLines(expense) : [];
 
@@ -229,6 +263,35 @@ const ExpenseEntryDetailsModal = ({ isOpen, expense, onClose, formatCurrency }) 
                                 </span>
                             </div>
                             <DetailRow label="Expense item">{itemName}</DetailRow>
+                            {lineItems.length > 1 ? (
+                                <div className="border-b border-slate-100 py-2.5 last:border-0">
+                                    <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-slate-400">
+                                        Line items
+                                    </p>
+                                    <div className="space-y-2">
+                                        {lineItems.map((line, index) => (
+                                            <div
+                                                key={`${line.item_id || 'item'}-${index}`}
+                                                className="flex items-start justify-between gap-3 rounded-lg border border-slate-100 bg-slate-50/70 px-3 py-2"
+                                            >
+                                                <div className="min-w-0 text-left">
+                                                    <p className="truncate text-sm font-medium text-slate-800">
+                                                        {line?.item?.name || '—'}
+                                                    </p>
+                                                    {line?.item?.type ? (
+                                                        <p className="mt-0.5 text-[11px] text-slate-500">
+                                                            {formatExpenseItemType(line.item.type)}
+                                                        </p>
+                                                    ) : null}
+                                                </div>
+                                                <span className="shrink-0 text-sm font-semibold tabular-nums text-emerald-700">
+                                                    ₹{formatCurrency(line.amount)}
+                                                </span>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            ) : null}
                             <DetailRow label="Invoice no.">{expense.invoice_no || '—'}</DetailRow>
                             <DetailRow label="Date">
                                 {formatDate(expense.expense_date || expense.transaction_date)}
@@ -727,8 +790,8 @@ const ViewExpenses = () => {
                                         currentItems.map((expense, index) => {
                                             const isDropdownOpen = activeRowDropdown === expense.expense_id;
                                             const actualIndex = (currentPage - 1) * itemsPerPage + index;
-                                            const itemName = expense.item?.name || '—';
-                                            const itemType = expense.item?.type || '';
+                                            const itemName = getExpenseItemDisplayName(expense);
+                                            const itemType = getExpenseItemDisplayType(expense);
                                             const partyMeta = getExpensePartyMeta(expense);
 
                                             return (

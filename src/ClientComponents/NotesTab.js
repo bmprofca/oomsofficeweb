@@ -13,7 +13,8 @@ import getHeaders from "../utils/get-headers";
 import API_BASE_URL from "../utils/api-controller";
 import { uploadOneSaasFileUrl } from '../utils/onesaas-upload';
 import TablePagination from "../components/TablePagination";
-import SelectInput from "../components/SelectInput";
+import CustomSelect from "../components/CustomSelect";
+import { optionByValue } from "../utils/customSelectHelpers";
 
 const NotesTab = ({ clientUsername }) => {
     const [notes, setNotes] = useState([]);
@@ -1144,33 +1145,47 @@ const NotesTab = ({ clientUsername }) => {
                     {/* Status + Priority selects */}
                     <div className="flex items-center gap-2">
                         <div style={{ width: 148 }}>
-                            <SelectInput
+                            <CustomSelect
                                 options={[
                                     { value: 'all', label: 'All Status' },
                                     { value: 'pending', label: 'Pending' },
                                     { value: 'complete', label: 'Complete' },
                                     { value: 'cancel', label: 'Cancel' },
                                 ]}
-                                value={statusFilter}
-                                onChange={(v) => setStatusFilter(v ?? 'all')}
+                                value={optionByValue([
+                                    { value: 'all', label: 'All Status' },
+                                    { value: 'pending', label: 'Pending' },
+                                    { value: 'complete', label: 'Complete' },
+                                    { value: 'cancel', label: 'Cancel' },
+                                ], statusFilter)}
+                                onChange={(opt) => setStatusFilter(opt ? opt.value : 'all')}
+                                getOptionLabel={(opt) => opt.label}
+                                getOptionValue={(opt) => opt.value}
                                 placeholder="All Status"
                                 searchPlaceholder="Search status…"
-                                clearable={false}
+                                isClearable={false}
                             />
                         </div>
                         <div style={{ width: 148 }}>
-                            <SelectInput
+                            <CustomSelect
                                 options={[
                                     { value: 'all', label: 'All Priority' },
                                     { value: 'high', label: 'High' },
                                     { value: 'medium', label: 'Medium' },
                                     { value: 'low', label: 'Low' },
                                 ]}
-                                value={priorityListFilter}
-                                onChange={(v) => setPriorityListFilter(v ?? 'all')}
+                                value={optionByValue([
+                                    { value: 'all', label: 'All Priority' },
+                                    { value: 'high', label: 'High' },
+                                    { value: 'medium', label: 'Medium' },
+                                    { value: 'low', label: 'Low' },
+                                ], priorityListFilter)}
+                                onChange={(opt) => setPriorityListFilter(opt ? opt.value : 'all')}
+                                getOptionLabel={(opt) => opt.label}
+                                getOptionValue={(opt) => opt.value}
                                 placeholder="All Priority"
                                 searchPlaceholder="Search priority…"
-                                clearable={false}
+                                isClearable={false}
                             />
                         </div>
                         {(statusFilter !== 'all' || priorityListFilter !== 'all' || activeFilter !== 'all') && (
@@ -1710,31 +1725,43 @@ const NotesTab = ({ clientUsername }) => {
                                 {/* Priority + Status */}
                                 <div className="grid grid-cols-2 gap-3 mb-5">
                                     <div>
-                                        <SelectInput
+                                        <CustomSelect
                                             label="Priority"
                                             options={[
                                                 { value: 'low', label: 'Low' },
                                                 { value: 'medium', label: 'Medium' },
                                                 { value: 'high', label: 'High' },
                                             ]}
-                                            value={createForm.priority}
-                                            onChange={(v) => setCreateForm(prev => ({ ...prev, priority: v ?? 'low' }))}
+                                            value={optionByValue([
+                                                { value: 'low', label: 'Low' },
+                                                { value: 'medium', label: 'Medium' },
+                                                { value: 'high', label: 'High' },
+                                            ], createForm.priority)}
+                                            onChange={(opt) => setCreateForm(prev => ({ ...prev, priority: opt ? opt.value : 'low' }))}
+                                            getOptionLabel={(opt) => opt.label}
+                                            getOptionValue={(opt) => opt.value}
                                             placeholder="Select priority…"
-                                            clearable={false}
+                                            isClearable={false}
                                         />
                                     </div>
                                     <div>
-                                        <SelectInput
+                                        <CustomSelect
                                             label="Status"
                                             options={[
                                                 { value: 'pending', label: 'Pending' },
                                                 { value: 'complete', label: 'Complete' },
                                                 { value: 'cancel', label: 'Cancel' },
                                             ]}
-                                            value={createForm.status}
-                                            onChange={(v) => setCreateForm(prev => ({ ...prev, status: v ?? 'pending' }))}
+                                            value={optionByValue([
+                                                { value: 'pending', label: 'Pending' },
+                                                { value: 'complete', label: 'Complete' },
+                                                { value: 'cancel', label: 'Cancel' },
+                                            ], createForm.status)}
+                                            onChange={(opt) => setCreateForm(prev => ({ ...prev, status: opt ? opt.value : 'pending' }))}
+                                            getOptionLabel={(opt) => opt.label}
+                                            getOptionValue={(opt) => opt.value}
                                             placeholder="Select status…"
-                                            clearable={false}
+                                            isClearable={false}
                                         />
                                     </div>
                                 </div>
@@ -2120,27 +2147,39 @@ const NotesTab = ({ clientUsername }) => {
                                             )}
                                         </div>
                                         <div className="grid grid-cols-2 gap-4">
-                                            <SelectInput
+                                            <CustomSelect
                                                 label="Priority *"
                                                 options={[
                                                     { value: 'high', label: 'High Priority' },
                                                     { value: 'medium', label: 'Medium Priority' },
                                                     { value: 'low', label: 'Low Priority' },
                                                 ]}
-                                                value={newNote.priority}
-                                                onChange={(v) => setNewNote({ ...newNote, priority: v ?? 'high' })}
-                                                clearable={false}
+                                                value={optionByValue([
+                                                    { value: 'high', label: 'High Priority' },
+                                                    { value: 'medium', label: 'Medium Priority' },
+                                                    { value: 'low', label: 'Low Priority' },
+                                                ], newNote.priority)}
+                                                onChange={(opt) => setNewNote({ ...newNote, priority: opt ? opt.value : 'high' })}
+                                                getOptionLabel={(opt) => opt.label}
+                                                getOptionValue={(opt) => opt.value}
+                                                isClearable={false}
                                             />
-                                            <SelectInput
+                                            <CustomSelect
                                                 label="Status *"
                                                 options={[
                                                     { value: 'pending', label: 'Pending' },
                                                     { value: 'complete', label: 'Complete' },
                                                     { value: 'cancel', label: 'Cancel' },
                                                 ]}
-                                                value={newNote.status}
-                                                onChange={(v) => setNewNote({ ...newNote, status: v ?? 'pending' })}
-                                                clearable={false}
+                                                value={optionByValue([
+                                                    { value: 'pending', label: 'Pending' },
+                                                    { value: 'complete', label: 'Complete' },
+                                                    { value: 'cancel', label: 'Cancel' },
+                                                ], newNote.status)}
+                                                onChange={(opt) => setNewNote({ ...newNote, status: opt ? opt.value : 'pending' })}
+                                                getOptionLabel={(opt) => opt.label}
+                                                getOptionValue={(opt) => opt.value}
+                                                isClearable={false}
                                             />
                                         </div>
                                     </div>

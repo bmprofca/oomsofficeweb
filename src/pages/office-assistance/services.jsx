@@ -15,7 +15,8 @@ import getHeaders from '../../utils/get-headers';
 import API_BASE_URL from '../../utils/api-controller';
 import TablePagination from '../../components/TablePagination';
 import { useUserPermissions } from '../../utils/permission-helper';
-import SelectInput from '../../components/SelectInput';
+import CustomSelect from '../../components/CustomSelect';
+import { optionByValue } from '../../utils/customSelectHelpers';
 import { ViewportTooltip } from '../../components/ViewportTooltip';
 
 /* ─── helpers ─────────────────────────────────────────────────────── */
@@ -278,13 +279,15 @@ const FeeForm = ({ form, onChange, loading, showDueDate = false }) => {
                 </div>
                 <div>
                     <label className="block text-xs font-semibold text-gray-600 mb-1.5">GST Rate *</label>
-                    <SelectInput
+                    <CustomSelect
                         options={GST_RATE_OPTIONS}
-                        value={form.gst_rate !== null && form.gst_rate !== '' ? Number(form.gst_rate) : null}
-                        onChange={(val) => onChange('gst_rate', val)}
+                        value={optionByValue(GST_RATE_OPTIONS, form.gst_rate !== null && form.gst_rate !== '' ? Number(form.gst_rate) : null)}
+                        onChange={(opt) => onChange('gst_rate', opt ? opt.value : null)}
+                        getOptionLabel={(opt) => opt.label}
+                        getOptionValue={(opt) => opt.value}
                         placeholder="Select rate…"
-                        disabled={loading}
-                        clearable={false}
+                        isDisabled={loading}
+                        isClearable={false}
                     />
                 </div>
             </div>

@@ -16,7 +16,14 @@ import moment from 'moment';
 import getHeaders from "../../utils/get-headers";
 import API_BASE_URL from '../../utils/api-controller';
 import axios from 'axios';
-import SearchableSelect from '../../components/SearchableSelect';
+import CustomSelect from '../../components/CustomSelect';
+import {
+    CLIENT_LIST_QUERY_PARAMS,
+    createClientListLoadOptions,
+    getClientOptionLabel,
+    getClientOptionValue,
+    renderClientListOption,
+} from '../../utils/customSelectHelpers';
 
 const ViewFileIndex = () => {
     // Sidebar states
@@ -1079,24 +1086,23 @@ const ViewFileIndex = () => {
                                         <label className="block text-xs font-semibold text-slate-700 mb-2">
                                             Select User <span className="text-rose-500">*</span>
                                         </label>
-                                        <SearchableSelect
-                                            endpoint="/client/list"
-                                            queryParams={{ page: 1, limit: 20 }}
-                                            searchParam="search"
-                                            valueKey="username"
-                                            labelMapping={{
-                                                primary: 'name',
-                                                secondary: (item) => `${item.user_type || ''} • ${item.mobile || ''} • ${item.email || ''}`
-                                            }}
-                                            onSelect={(item, value) => {
-                                                handleCreateChange('username', value);
+                                        <CustomSelect
+                                            loadOptions={createClientListLoadOptions(CLIENT_LIST_QUERY_PARAMS)}
+                                            value={createForm.selectedUser}
+                                            onChange={(item) => {
+                                                if (!item) {
+                                                    handleCreateChange('username', '');
+                                                    handleCreateChange('selectedUser', null);
+                                                    return;
+                                                }
+                                                handleCreateChange('username', item.username);
                                                 handleCreateChange('selectedUser', item);
                                             }}
+                                            getOptionLabel={getClientOptionLabel}
+                                            getOptionValue={getClientOptionValue}
+                                            renderOption={renderClientListOption}
                                             placeholder="Search user by name, type or mobile..."
-                                            dataExtractor={(response) => {
-                                                // Your API returns { success: true, data: [...] }
-                                                return response?.data || [];
-                                            }}
+                                            searchPlaceholder="Search user by name, type or mobile..."
                                         />
 
                                         {/* Show selected user info */}

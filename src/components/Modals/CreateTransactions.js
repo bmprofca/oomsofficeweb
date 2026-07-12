@@ -1,5 +1,5 @@
 // Client ledger transaction create modals (Receive, Payment, Sale, …)
-import React, { useState, useEffect, useLayoutEffect, useCallback, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { IoTrash, IoAdd } from "react-icons/io5";
@@ -9,7 +9,8 @@ import API_BASE_URL from '../../utils/api-controller';
 import getHeaders from '../../utils/get-headers';
 import axios from 'axios';
 import { DatePickerField, isDatePickerPortalOpen } from '../PortalDatePicker';
-import SelectInput from '../SelectInput';
+import CustomSelect from '../CustomSelect';
+import { optionByValue } from '../../utils/customSelectHelpers';
 
 const appSettings = {
     company_name: 'Professional Accounting Services',
@@ -73,6 +74,18 @@ const mapUserPartyToFirm = (party) => {
             userType: 'capital',
         };
     }
+    if (type === 'expense') {
+        return {
+            username: d.item_id || d.party_id || '',
+            party_id: d.item_id || d.party_id || '',
+            name: d.name || 'Expense',
+            email: d.email || '',
+            mobile: d.mobile || '',
+            balance: d.balance ?? 0,
+            userType: 'expense',
+            remark: d.remark ?? null,
+        };
+    }
     return {
         username: d.username || '',
         name: d.name || d.username || '',
@@ -84,18 +97,33 @@ const mapUserPartyToFirm = (party) => {
 };
 
 const mapUserPartyToJournal = (party) => {
-    const base = mapUserPartyToFirm(party);
-    const type = party?.type || base.userType || 'client';
+    const type = party?.type || 'client';
+    const d = party?.details || {};
     if (type === 'bank') {
-        const d = party?.details || {};
+        const bankId = d.bank_id || party?.id || '';
         return {
-            bank_id: d.bank_id,
-            name: d.bank || d.holder || 'Bank',
+            bank_id: bankId,
+            party_id: bankId,
+            username: bankId,
+            name: getBankPrimaryLabel({ bank: d.bank, holder: d.holder, type: d.type }) || bankId,
             balance: d.balance ?? 0,
             userType: 'bank',
+            holder: d.holder,
+            account_no: d.account_no,
         };
     }
-    return { ...base, userType: type };
+    const firm = mapUserPartyToFirm(party);
+    const partyId = type === 'capital'
+        ? (d.capital_id || firm.party_id || firm.username)
+        : type === 'expense'
+            ? (d.item_id || firm.party_id || firm.username)
+            : (firm.username || firm.party_id);
+    return {
+        ...firm,
+        party_id: partyId,
+        username: type === 'capital' || type === 'expense' ? partyId : (firm.username || partyId),
+        userType: firm.userType || type,
+    };
 };
 
 const formatPlainInrAmount = (value) =>
@@ -149,6 +177,45 @@ const getBankSecondaryLabel = (bank) => {
     const t = String(bank.type ?? '').toLowerCase();
     if (t === 'cash') return 'Cash';
     return bank.type ? String(bank.type) : '—';
+};
+
+const PARTY_TYPE_LABELS = {
+    client: 'Client',
+    ca: 'CA',
+    agent: 'Agent',
+    staff: 'Staff',
+    bank: 'Bank',
+    capital: 'Capital',
+    expense: 'Expense',
+    admin: 'Admin',
+    user: 'Client',
+};
+
+const resolvePartyTypeKey = (party, fallbackType = '') => {
+    if (!party && !fallbackType) return '';
+    const raw = party?.userType ?? party?.type ?? fallbackType ?? '';
+    const key = String(raw).trim().toLowerCase();
+    if (!key) return '';
+    if (key === 'user') return 'client';
+    return key;
+};
+
+const getPartyTypeLabel = (party, fallbackType = '') => {
+    const key = resolvePartyTypeKey(party, fallbackType);
+    if (!key) return '';
+    return PARTY_TYPE_LABELS[key] || key.charAt(0).toUpperCase() + key.slice(1);
+};
+
+const PartyTypeBadge = ({ party, fallbackType = '', className = '' }) => {
+    const label = getPartyTypeLabel(party, fallbackType);
+    if (!label) return null;
+    return (
+        <span
+            className={`shrink-0 text-[10px] font-medium leading-none text-indigo-700 bg-indigo-50 px-1.5 py-0.5 rounded ${className}`}
+        >
+            {label}
+        </span>
+    );
 };
 
 const MODAL_ACCENT_STYLES = {
@@ -597,7 +664,10 @@ const SaleBankPreviewCard = ({ bank, onChangeBank, formatMoney, readOnly = false
         <div className={`rounded-md border ${shellClass} shadow-sm`}>
             <div className="flex items-center gap-2 px-2.5 py-1.5">
                 <div className="flex-1 min-w-0">
-                    <p className="text-sm font-semibold text-slate-800 truncate leading-none">{title}</p>
+                    <div className="flex items-center gap-1.5 min-w-0">
+                        <p className="text-sm font-semibold text-slate-800 truncate leading-none">{title}</p>
+                        <PartyTypeBadge party={{ userType: 'bank' }} />
+                    </div>
                     <p className="text-xs text-slate-500 truncate leading-none -mt-px" title={metaLine}>
                         {metaLine}
                     </p>
@@ -674,7 +744,10 @@ const SaleClientPreviewCard = ({
                     roundedClass="rounded-md ring-1 ring-white/80"
                 />
                 <div className="flex-1 min-w-0">
-                    <p className="text-sm font-semibold text-slate-800 truncate leading-none">{displayName}</p>
+                    <div className="flex items-center gap-1.5 min-w-0">
+                        <p className="text-sm font-semibold text-slate-800 truncate leading-none">{displayName}</p>
+                        <PartyTypeBadge party={p} />
+                    </div>
                     <p className="text-xs text-slate-500 truncate leading-none -mt-px" title={metaLine}>
                         {metaLine}
                     </p>
@@ -943,6 +1016,163 @@ const BankSearchDropdown = ({ onSelect, selectedBankId, excludeBankId, compact =
 };
 
 const USER_SEARCH_LIMIT = 20;
+const TRANSACTION_PARTY_SEARCH_LIMIT = 10;
+const RECEIVE_PARTY_SEARCH_TYPES = ['client', 'ca', 'agent', 'staff', 'capital'];
+const PAYMENT_PARTY_SEARCH_TYPES = ['client', 'ca', 'agent', 'staff', 'capital', 'expense'];
+const JOURNAL_PARTY_SEARCH_TYPES = ['client', 'ca', 'agent', 'staff', 'capital', 'bank', 'expense'];
+
+const mapSearchPartyItemToTransactionOption = (item) => {
+    if (!item?.party_type || !item?.party_id) return null;
+    const partyType = String(item.party_type).trim();
+    const partyId = String(item.party_id).trim();
+    const balance = item.balance ?? 0;
+
+    if (partyType === 'bank') {
+        const bank = item.bank || {};
+        const title = String(bank.bank ?? '').trim() || String(bank.holder ?? '').trim() || partyId;
+        const metaParts = [
+            bank.holder,
+            bank.account_no ? `••${String(bank.account_no).slice(-4)}` : '',
+            bank.ifsc,
+        ]
+            .map((v) => (v != null ? String(v).trim() : ''))
+            .filter(Boolean);
+        return {
+            party_id: partyId,
+            bank_id: partyId,
+            username: partyId,
+            name: title,
+            holder: bank.holder ?? null,
+            account_no: bank.account_no ?? null,
+            ifsc: bank.ifsc ?? null,
+            bank: bank.bank ?? null,
+            type: bank.type ?? null,
+            balance,
+            userType: 'bank',
+            metaLine: metaParts.length > 0 ? metaParts.join(' · ') : '',
+        };
+    }
+
+    if (partyType === 'capital') {
+        const capital = item.capital || {};
+        return {
+            party_id: partyId,
+            username: partyId,
+            name: capital.name || partyId,
+            email: '',
+            mobile: '',
+            balance,
+            userType: 'capital',
+            remark: capital.remark ?? null,
+        };
+    }
+
+    if (partyType === 'expense') {
+        const expense = item.expense || {};
+        const metaParts = [expense.type, expense.remark]
+            .map((v) => (v != null ? String(v).trim() : ''))
+            .filter(Boolean);
+        return {
+            party_id: partyId,
+            username: partyId,
+            name: expense.name || partyId,
+            email: '',
+            mobile: '',
+            balance,
+            userType: 'expense',
+            remark: expense.remark ?? null,
+            metaLine: metaParts.length > 0 ? metaParts.join(' · ') : '',
+        };
+    }
+
+    const details = item[partyType] || {};
+    const metaLineParts = [
+        details.designation,
+        details.mobile
+            ? (details.country_code ? `+${details.country_code} ${details.mobile}` : String(details.mobile))
+            : '',
+        details.email,
+    ]
+        .map((v) => (v != null ? String(v).trim() : ''))
+        .filter(Boolean);
+
+    return {
+        party_id: partyId,
+        username: partyId,
+        name: details.name || partyId,
+        email: details.email || '',
+        mobile: details.mobile || '',
+        country_code: details.country_code,
+        designation: details.designation || '',
+        balance,
+        userType: partyType,
+        metaLine: metaLineParts.join(' · '),
+    };
+};
+
+const fetchTransactionPartySearchPage = async ({ search = '', pageNo = 1, partyTypes = [] } = {}) => {
+    const headers = getHeaders();
+    if (!headers) {
+        throw new Error('Authentication headers missing');
+    }
+    const response = await axios.post(
+        `${API_BASE_URL}/transaction/search-party`,
+        {
+            search: String(search ?? '').trim(),
+            party_types: partyTypes,
+            page_no: pageNo,
+            limit: TRANSACTION_PARTY_SEARCH_LIMIT,
+        },
+        { headers }
+    );
+    if (!response.data?.success) {
+        throw new Error(response.data?.message || 'Failed to search parties');
+    }
+    const list = (response.data.data || [])
+        .map(mapSearchPartyItemToTransactionOption)
+        .filter(Boolean);
+    const isLast = response.data.meta?.is_last_page ?? true;
+    return { list, isLast };
+};
+
+const resolveTransactionPartySelection = (party, defaultType = 'client') => {
+    if (!party) return { party_id: '', party_type: defaultType, name: '' };
+    const partyType = party.userType || defaultType;
+    let partyId = '';
+    if (partyType === 'bank') {
+        partyId = String(party.bank_id || party.party_id || party.username || '').trim();
+    } else if (partyType === 'capital' || partyType === 'expense') {
+        partyId = String(party.party_id || party.username || '').trim();
+    } else {
+        partyId = String(party.username || party.party_id || '').trim();
+    }
+    return {
+        party_id: partyId,
+        party_type: partyType,
+        name: party.name || partyId,
+    };
+};
+
+const transactionPartyKey = (party, fallbackType = 'client') => {
+    const resolved = resolveTransactionPartySelection(party, party?.userType || fallbackType);
+    if (!resolved.party_id) return '';
+    return `${resolved.party_type}:${resolved.party_id}`;
+};
+
+const fetchPresetTransactionParty = async (partyId, partyType, partyTypes = JOURNAL_PARTY_SEARCH_TYPES) => {
+    const id = String(partyId || '').trim();
+    if (!id) return null;
+    const type = String(partyType || 'client').trim();
+    const { list } = await fetchTransactionPartySearchPage({
+        search: id,
+        pageNo: 1,
+        partyTypes,
+    });
+    const match = (list || []).find(
+        (row) => row.userType === type && (String(row.party_id) === id || String(row.username) === id)
+    );
+    return match || (list || []).find((row) => String(row.party_id) === id || String(row.username) === id) || null;
+};
 
 const fetchClientSearchPage = async ({ search = '', pageNo = 1, excludeUsername = '' } = {}) => {
     const headers = getHeaders();
@@ -1047,14 +1277,7 @@ const mapCaToPurchasePartyOption = (ca) => ({
     guardian_name: ca.guardian_name,
 });
 
-const JOURNAL_PARTY_TYPE_LABELS = {
-    client: 'Client',
-    agent: 'Agent',
-    ca: 'CA',
-    staff: 'Staff',
-    bank: 'Bank',
-    capital: 'Capital',
-};
+const JOURNAL_PARTY_TYPE_LABELS = PARTY_TYPE_LABELS;
 
 const JOURNAL_PARTY_EMPTY_LABELS = {
     client: 'No clients found',
@@ -1065,18 +1288,17 @@ const JOURNAL_PARTY_EMPTY_LABELS = {
     capital: 'No capital accounts found',
 };
 
-const resolveJournalPartyId = (party, type) => {
-    if (!party) return '';
-    const partyType = type || party.userType || 'client';
-    if (partyType === 'bank') return String(party.bank_id || '');
-    if (partyType === 'capital') return String(party.capital_id || '');
-    return String(party.username || '');
-};
+const resolveJournalPartyId = (party, type) =>
+    resolveTransactionPartySelection(party, type || party?.userType || 'client').party_id;
+
+const journalPartyKey = (party, fallbackType = 'client') =>
+    transactionPartyKey(party, party?.userType || fallbackType);
 
 const mapRowToJournalParty = (row, userType) => {
     if (!row) return null;
     return {
         username: row.username,
+        party_id: row.username,
         name: row.name || row.username,
         email: row.email || '',
         mobile: row.mobile || '',
@@ -1131,14 +1353,6 @@ const fetchPresetJournalParty = async (username, userType) => {
     const { list } = await fetchJournalPartySearchPage(type, { search: u, page: 1 });
     const match = (list || []).find((row) => String(row.username) === u) || list[0];
     return mapRowToJournalParty(match, type);
-};
-
-const journalPartyKey = (party, fallbackType = 'client') => {
-    if (!party) return '';
-    const type = party.userType || fallbackType;
-    const id = resolveJournalPartyId(party, type);
-    if (!id) return '';
-    return `${type}:${id}`;
 };
 
 const getClientProfileImageUrl = (client) => {
@@ -1213,6 +1427,7 @@ const TransactionClientPreviewCard = ({
     readOnly = false,
     onChange,
     careSubtitle = '',
+    partyType = '',
 }) => {
     if (!client) return null;
     const fmtBal = (v) => (typeof formatCurrency === 'function' ? formatCurrency(v ?? 0) : String(v ?? 0));
@@ -1248,7 +1463,10 @@ const TransactionClientPreviewCard = ({
                     roundedClass="rounded-md ring-1 ring-white/80"
                 />
                 <div className="flex-1 min-w-0">
-                    <p className="text-sm font-semibold text-slate-800 truncate leading-none">{client.name || '—'}</p>
+                    <div className="flex items-center gap-1.5 min-w-0">
+                        <p className="text-sm font-semibold text-slate-800 truncate leading-none">{client.name || '—'}</p>
+                        <PartyTypeBadge party={client} fallbackType={partyType} />
+                    </div>
                     <p className="text-xs text-slate-500 truncate leading-none -mt-px" title={metaLine}>
                         {metaLine}
                     </p>
@@ -1272,14 +1490,17 @@ const TransactionClientPreviewCard = ({
 };
 
 /** Compact row for client search dropdown — name + one meta line + balance. */
-const ClientSearchOptionRow = ({ client, formatBalance, itemHover, onSelect }) => {
+const ClientSearchOptionRow = ({ client, formatBalance, itemHover, onSelect, showPartyType = false }) => {
     const mobileRaw = client.mobile
         ? (client.country_code ? `+${client.country_code} ${client.mobile}` : String(client.mobile))
         : '';
-    const metaParts = [mobileRaw, client.email, client.pan_number]
-        .map((v) => (v != null ? String(v).trim() : ''))
-        .filter(Boolean);
+    const metaParts = client.metaLine
+        ? [client.metaLine]
+        : [mobileRaw, client.email, client.pan_number, client.designation, client.remark]
+            .map((v) => (v != null ? String(v).trim() : ''))
+            .filter(Boolean);
     const metaLine = metaParts.length > 0 ? metaParts.join(' · ') : '—';
+    const partyTypeLabel = PARTY_TYPE_LABELS[client.userType] || getPartyTypeLabel(client);
 
     return (
         <button
@@ -1288,7 +1509,14 @@ const ClientSearchOptionRow = ({ client, formatBalance, itemHover, onSelect }) =
             className={`w-full flex items-center gap-2 px-2.5 py-1.5 text-left border-b border-slate-100 last:border-0 transition-colors ${itemHover}`}
         >
             <div className="min-w-0 flex-1">
-                <p className="text-sm font-semibold text-slate-800 truncate leading-none">{client.name || '—'}</p>
+                <div className="flex items-center gap-1.5 min-w-0">
+                    <p className="text-sm font-semibold text-slate-800 truncate leading-none">{client.name || '—'}</p>
+                    {showPartyType && client.userType ? (
+                        <span className="shrink-0 text-[10px] font-medium text-indigo-700 bg-indigo-50 px-1.5 py-0.5 rounded">
+                            {partyTypeLabel}
+                        </span>
+                    ) : null}
+                </div>
                 <p className="text-xs text-slate-500 truncate leading-none -mt-px" title={metaLine}>
                     {metaLine}
                 </p>
@@ -1478,6 +1706,188 @@ const useFirmClientSearch = (enabled, excludeUsername = '', options = {}) => {
         handleListScroll,
         clearSelection,
         loadClientsOnFocus,
+        reset,
+    };
+};
+
+/** Multi-party search for Receive/Payment/Journal modals (POST /transaction/search-party). */
+const useTransactionPartySearch = (partyTypes, enabled, options = {}) => {
+    const { fetchOnFocusOnly = false, excludeParty = null } = options;
+    const excludeKey = excludeParty ? transactionPartyKey(excludeParty) : '';
+    const [searchTerm, setSearchTerm] = useState('');
+    const [firms, setFirms] = useState([]);
+    const [searchLoading, setSearchLoading] = useState(false);
+    const [loadingMore, setLoadingMore] = useState(false);
+    const [hasMore, setHasMore] = useState(false);
+    const [selectedFirm, setSelectedFirm] = useState(null);
+    const [showDropdown, setShowDropdown] = useState(false);
+    const dropdownActiveRef = useRef(false);
+    const pageRef = useRef(1);
+    const hasMoreRef = useRef(false);
+    const isLoadingMoreRef = useRef(false);
+    const searchTermRef = useRef('');
+    const searchRequestIdRef = useRef(0);
+
+    const searchParties = useCallback(async (term, pageNum = 1, append = false) => {
+        const requestId = ++searchRequestIdRef.current;
+        const isFirstPage = pageNum === 1 && !append;
+
+        if (isFirstPage) {
+            setSearchLoading(true);
+        } else {
+            setLoadingMore(true);
+            isLoadingMoreRef.current = true;
+        }
+
+        try {
+            const { list, isLast } = await fetchTransactionPartySearchPage({
+                search: term,
+                pageNo: pageNum,
+                partyTypes,
+            });
+            if (requestId !== searchRequestIdRef.current) return;
+
+            let nextList = list;
+            if (excludeKey) {
+                nextList = list.filter((party) => transactionPartyKey(party) !== excludeKey);
+            }
+
+            if (append) {
+                setFirms((prev) => [...prev, ...nextList]);
+            } else {
+                setFirms(nextList);
+            }
+            hasMoreRef.current = !isLast;
+            setHasMore(!isLast);
+            if (dropdownActiveRef.current) {
+                setShowDropdown(true);
+            }
+        } catch (error) {
+            if (requestId !== searchRequestIdRef.current) return;
+            console.error('Error searching receive parties:', error);
+            toast.error(error.response?.data?.message || error.message || 'Failed to search parties');
+            if (!append) {
+                setFirms([]);
+                if (dropdownActiveRef.current) {
+                    setShowDropdown(false);
+                }
+            }
+            hasMoreRef.current = false;
+            setHasMore(false);
+        } finally {
+            if (requestId !== searchRequestIdRef.current) return;
+            setSearchLoading(false);
+            setLoadingMore(false);
+            isLoadingMoreRef.current = false;
+        }
+    }, [partyTypes, excludeKey]);
+
+    useEffect(() => {
+        if (!excludeKey || !selectedFirm) return;
+        if (transactionPartyKey(selectedFirm) === excludeKey) {
+            setSelectedFirm(null);
+            setSearchTerm('');
+            setFirms([]);
+            dropdownActiveRef.current = false;
+            setShowDropdown(false);
+        }
+    }, [excludeKey, selectedFirm]);
+
+    useEffect(() => {
+        searchTermRef.current = searchTerm;
+    }, [searchTerm]);
+
+    useEffect(() => {
+        if (!enabled || selectedFirm) return;
+        const q = String(searchTerm || '').trim();
+        if (fetchOnFocusOnly && q === '' && !dropdownActiveRef.current) return;
+
+        setSearchLoading(true);
+        setFirms([]);
+
+        const debounceTimer = setTimeout(() => {
+            pageRef.current = 1;
+            searchParties(searchTerm, 1, false);
+        }, SEARCH_DEBOUNCE_MS);
+
+        return () => clearTimeout(debounceTimer);
+    }, [searchTerm, selectedFirm, enabled, searchParties, fetchOnFocusOnly, partyTypes]);
+
+    const openDropdown = useCallback(() => {
+        dropdownActiveRef.current = true;
+        setShowDropdown(true);
+    }, []);
+
+    const dismissDropdown = useCallback(() => {
+        dropdownActiveRef.current = false;
+        setShowDropdown(false);
+    }, []);
+
+    const loadPartiesOnFocus = useCallback(() => {
+        openDropdown();
+        const q = String(searchTermRef.current || '').trim();
+        if (q === '') {
+            pageRef.current = 1;
+            setSearchLoading(true);
+            setFirms([]);
+            searchParties('', 1, false);
+        }
+    }, [searchParties, openDropdown]);
+
+    const handleListScroll = useCallback((e) => {
+        const el = e.currentTarget;
+        if (isLoadingMoreRef.current || !hasMoreRef.current || searchLoading) return;
+        if (el.scrollTop + el.clientHeight >= el.scrollHeight - 40) {
+            isLoadingMoreRef.current = true;
+            const nextPage = pageRef.current + 1;
+            pageRef.current = nextPage;
+            searchParties(searchTermRef.current, nextPage, true);
+        }
+    }, [searchParties, searchLoading]);
+
+    const clearSelection = useCallback(() => {
+        setSelectedFirm(null);
+        setSearchTerm('');
+        pageRef.current = 1;
+        searchTermRef.current = '';
+        dropdownActiveRef.current = true;
+        setSearchLoading(true);
+        setFirms([]);
+        searchParties('', 1, false);
+    }, [searchParties]);
+
+    const reset = useCallback(() => {
+        searchRequestIdRef.current += 1;
+        setSearchTerm('');
+        setFirms([]);
+        setSelectedFirm(null);
+        dropdownActiveRef.current = false;
+        setShowDropdown(false);
+        setSearchLoading(false);
+        setLoadingMore(false);
+        pageRef.current = 1;
+        hasMoreRef.current = false;
+        setHasMore(false);
+        searchTermRef.current = '';
+    }, []);
+
+    return {
+        searchTerm,
+        setSearchTerm,
+        firms,
+        setFirms,
+        selectedFirm,
+        setSelectedFirm,
+        showDropdown,
+        setShowDropdown,
+        openDropdown,
+        dismissDropdown,
+        searchLoading,
+        loadingMore,
+        hasMore,
+        handleListScroll,
+        clearSelection,
+        loadPartiesOnFocus,
         reset,
     };
 };
@@ -1739,6 +2149,7 @@ const JournalPartySearchFields = ({
                     formatCurrency={formatCurrency}
                     variant={variant}
                     readOnly={readOnly}
+                    partyType={lockedParty?.userType || partyType}
                 />
             </div>
         );
@@ -1842,6 +2253,7 @@ const JournalPartySearchFields = ({
                     variant={variant}
                     readOnly={readOnly}
                     onChange={!readOnly && !lockedParty ? handleChangeParty : undefined}
+                    partyType={previewParty?.userType || partyType}
                 />
             ) : null}
         </div>
@@ -1872,6 +2284,11 @@ const FirmClientSearchFields = ({
     hideSearchHint = false,
     compact = false,
     focusAccent = 'blue',
+    searchPlaceholder = 'Name, mobile, email, or PAN',
+    searchHint = 'Search by name, mobile, email, or PAN.',
+    emptyMessage = 'No clients found',
+    showPartyType = false,
+    getRowKey = (client) => client.username,
 }) => {
     const wrapperRef = useRef(null);
     const closeDropdown = dismissDropdown || (() => setShowDropdown(false));
@@ -1899,6 +2316,7 @@ const FirmClientSearchFields = ({
                     formatCurrency={formatCurrency}
                     variant={variant}
                     readOnly={readOnly}
+                    partyType={lockedFirm?.userType || ''}
                 />
             </div>
         );
@@ -1923,7 +2341,7 @@ const FirmClientSearchFields = ({
             {showSearchUi ? (
                 <>
                     {!hideSearchHint && (
-                        <p className="text-[10px] text-slate-500 mb-1">Search by name, mobile, email, or PAN.</p>
+                        <p className="text-[10px] text-slate-500 mb-1">{searchHint}</p>
                     )}
                     <div ref={wrapperRef}>
                         <div className={`rounded-md border bg-white overflow-hidden transition-all ${getComboboxOpenClass(listOpen, focusAccent)}`}>
@@ -1944,7 +2362,7 @@ const FirmClientSearchFields = ({
                                         }
                                         if (firms.length > 0) revealDropdown();
                                     }}
-                                    placeholder="Name, mobile, email, or PAN"
+                                    placeholder={searchPlaceholder}
                                     className="flex-1 min-w-0 border-0 bg-transparent text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-0 py-0.5"
                                     autoComplete="off"
                                 />
@@ -1968,10 +2386,11 @@ const FirmClientSearchFields = ({
                                         <>
                                             {firms.map((client) => (
                                                 <ClientSearchOptionRow
-                                                    key={client.username}
+                                                    key={getRowKey(client)}
                                                     client={client}
                                                     formatBalance={fmtBal}
                                                     itemHover={itemHover}
+                                                    showPartyType={showPartyType}
                                                     onSelect={() => {
                                                         setSelectedFirm(client);
                                                         setSearchTerm(client.name || '');
@@ -1984,7 +2403,7 @@ const FirmClientSearchFields = ({
                                         </>
                                     )}
                                     {!searchLoading && !loadingMore && firms.length === 0 && (
-                                        <p className="px-2.5 py-3 text-xs text-center text-slate-500">No clients found</p>
+                                        <p className="px-2.5 py-3 text-xs text-center text-slate-500">{emptyMessage}</p>
                                     )}
                                 </div>
                             )}
@@ -1999,6 +2418,7 @@ const FirmClientSearchFields = ({
                     variant={variant}
                     readOnly={readOnly}
                     onChange={!readOnly && !lockedFirm ? handleChangeClient : undefined}
+                    partyType={previewFirm?.userType || ''}
                 />
             ) : null}
         </div>
@@ -2022,7 +2442,7 @@ export const ReceiveModal = ({ isOpen, onClose, bankDetails, bankId, onSubmit, f
     const hasPresetBank = Boolean(String(bankId || '').trim());
     const shouldShowClientSelector = bankPageClientLookup || !hasPresetClient;
     const shouldShowBankSelector = !hasPresetBank;
-    const firmLookup = useFirmClientSearch(Boolean(shouldShowClientSelector), '', { fetchOnFocusOnly: true });
+    const firmLookup = useTransactionPartySearch(RECEIVE_PARTY_SEARCH_TYPES, Boolean(shouldShowClientSelector), { fetchOnFocusOnly: true });
     const receiveFieldClass = getCompactFieldClass('blue');
     const todayIso = useMemo(() => new Date().toISOString().split('T')[0], []);
     const isEditMode = Boolean(editRecord?.transaction_id);
@@ -2110,8 +2530,8 @@ export const ReceiveModal = ({ isOpen, onClose, bankDetails, bankId, onSubmit, f
             return;
         }
 
-        if (!hasPresetClient && !firmLookup.selectedFirm?.username) {
-            toast.error(`Please select a ${partyLabel}`);
+        if (!hasPresetClient && !firmLookup.selectedFirm) {
+            toast.error('Please select a party');
             return;
         }
 
@@ -2131,9 +2551,13 @@ export const ReceiveModal = ({ isOpen, onClose, bankDetails, bankId, onSubmit, f
 
         setLoading(true);
 
-        const resolvedParty1 = hasPresetClient ? clientUsername : firmLookup.selectedFirm?.username;
-        const resolvedName = hasPresetClient ? clientName : firmLookup.selectedFirm?.name;
-        const resolvedParty1Type = hasPresetClient ? partyType : (firmLookup.selectedFirm?.userType || partyType);
+        const selectedParty = firmLookup.selectedFirm;
+        const resolved = hasPresetClient
+            ? { party_id: clientUsername, party_type: partyType, name: clientName }
+            : resolveTransactionPartySelection(selectedParty);
+        const resolvedParty1 = resolved.party_id;
+        const resolvedName = resolved.name;
+        const resolvedParty1Type = resolved.party_type;
         const party2BankId = effectiveBank.bank_id;
 
         const payload = {
@@ -2217,13 +2641,13 @@ export const ReceiveModal = ({ isOpen, onClose, bankDetails, bankId, onSubmit, f
         hasSelectedBank &&
         Boolean(transactionDate) &&
         parseDecimalValue(amount) > 0 &&
-        (hasPresetClient || Boolean(firmLookup.selectedFirm?.username));
-    const selectedClientDisplayName = hasPresetClient ? clientName : (firmLookup.selectedFirm?.name || 'Selected client');
+        (hasPresetClient || Boolean(firmLookup.selectedFirm));
+    const selectedClientDisplayName = hasPresetClient ? clientName : (firmLookup.selectedFirm?.name || 'Selected party');
     const effectiveReceiveBank = resolveReceiveBank();
     const selectedBankDisplayName = effectiveReceiveBank
         ? getBankPrimaryLabel(effectiveReceiveBank)
         : (bankId ? `Bank #${bankId}` : '—');
-    const shouldShowReceiveSummary = showSummary && hasSelectedBank && (hasPresetClient || Boolean(firmLookup.selectedFirm?.username));
+    const shouldShowReceiveSummary = showSummary && hasSelectedBank && (hasPresetClient || Boolean(firmLookup.selectedFirm));
 
     return (
         <BaseModal
@@ -2271,30 +2695,6 @@ export const ReceiveModal = ({ isOpen, onClose, bankDetails, bankId, onSubmit, f
             )}
         >
             <form id="receive-form" onSubmit={handleSubmit} noValidate className="space-y-3">
-                {shouldShowClientSelector && (
-                    <FirmClientSearchFields
-                        variant="receive"
-                        formatCurrency={formatCurrency}
-                        compact
-                        hideSearchHint
-                        focusAccent="blue"
-                        searchTerm={firmLookup.searchTerm}
-                        setSearchTerm={firmLookup.setSearchTerm}
-                        firms={firmLookup.firms}
-                        setFirms={firmLookup.setFirms}
-                        showDropdown={firmLookup.showDropdown}
-                        setShowDropdown={firmLookup.setShowDropdown}
-                        openDropdown={firmLookup.openDropdown}
-                        dismissDropdown={firmLookup.dismissDropdown}
-                        searchLoading={firmLookup.searchLoading}
-                        loadingMore={firmLookup.loadingMore}
-                        handleListScroll={firmLookup.handleListScroll}
-                        clearSelection={firmLookup.clearSelection}
-                        onSearchFocus={firmLookup.loadClientsOnFocus}
-                        selectedFirm={firmLookup.selectedFirm}
-                        setSelectedFirm={firmLookup.setSelectedFirm}
-                    />
-                )}
                 {showBank && shouldShowBankSelector && (
                     <div>
                         <label className={COMPACT_LABEL}>
@@ -2319,6 +2719,36 @@ export const ReceiveModal = ({ isOpen, onClose, bankDetails, bankId, onSubmit, f
                             />
                         )}
                     </div>
+                )}
+                {shouldShowClientSelector && (
+                    <FirmClientSearchFields
+                        variant="receive"
+                        label="From"
+                        formatCurrency={formatCurrency}
+                        compact
+                        hideSearchHint
+                        focusAccent="blue"
+                        searchPlaceholder="Search client, CA, agent, staff, or capital"
+                        searchHint="Search client, CA, agent, staff, or capital."
+                        emptyMessage="No parties found"
+                        showPartyType
+                        getRowKey={(party) => `${party.userType || 'client'}:${party.party_id || party.username}`}
+                        searchTerm={firmLookup.searchTerm}
+                        setSearchTerm={firmLookup.setSearchTerm}
+                        firms={firmLookup.firms}
+                        setFirms={firmLookup.setFirms}
+                        showDropdown={firmLookup.showDropdown}
+                        setShowDropdown={firmLookup.setShowDropdown}
+                        openDropdown={firmLookup.openDropdown}
+                        dismissDropdown={firmLookup.dismissDropdown}
+                        searchLoading={firmLookup.searchLoading}
+                        loadingMore={firmLookup.loadingMore}
+                        handleListScroll={firmLookup.handleListScroll}
+                        clearSelection={firmLookup.clearSelection}
+                        onSearchFocus={firmLookup.loadPartiesOnFocus}
+                        selectedFirm={firmLookup.selectedFirm}
+                        setSelectedFirm={firmLookup.setSelectedFirm}
+                    />
                 )}
 
                 <div className="grid grid-cols-2 gap-3">
@@ -2407,7 +2837,7 @@ export const PaymentModal = ({ isOpen, onClose, bankDetails, bankId, onSubmit, f
     const hasPresetBank = Boolean(String(bankId || '').trim());
     const shouldShowClientSelector = bankPageClientLookup || !hasPresetClient;
     const shouldShowBankSelector = !hasPresetBank;
-    const firmLookup = useFirmClientSearch(Boolean(shouldShowClientSelector), '', { fetchOnFocusOnly: true });
+    const firmLookup = useTransactionPartySearch(PAYMENT_PARTY_SEARCH_TYPES, Boolean(shouldShowClientSelector), { fetchOnFocusOnly: true });
     const paymentFieldClass = getCompactFieldClass('red');
     const todayIso = useMemo(() => new Date().toISOString().split('T')[0], []);
     const isEditMode = Boolean(editRecord?.transaction_id);
@@ -2496,8 +2926,8 @@ export const PaymentModal = ({ isOpen, onClose, bankDetails, bankId, onSubmit, f
             return;
         }
 
-        if (!hasPresetClient && !firmLookup.selectedFirm?.username) {
-            toast.error(`Please select a ${partyLabel}`);
+        if (!hasPresetClient && !firmLookup.selectedFirm) {
+            toast.error('Please select a party');
             return;
         }
 
@@ -2517,9 +2947,13 @@ export const PaymentModal = ({ isOpen, onClose, bankDetails, bankId, onSubmit, f
 
         setLoading(true);
 
-        const resolvedParty2 = hasPresetClient ? clientUsername : firmLookup.selectedFirm?.username;
-        const resolvedName = hasPresetClient ? clientName : firmLookup.selectedFirm?.name;
-        const resolvedParty2Type = hasPresetClient ? partyType : (firmLookup.selectedFirm?.userType || partyType);
+        const selectedParty = firmLookup.selectedFirm;
+        const resolved = hasPresetClient
+            ? { party_id: clientUsername, party_type: partyType, name: clientName }
+            : resolveTransactionPartySelection(selectedParty);
+        const resolvedParty2 = resolved.party_id;
+        const resolvedName = resolved.name;
+        const resolvedParty2Type = resolved.party_type;
         const party1BankId = effectiveBank.bank_id;
 
         const payload = {
@@ -2603,13 +3037,13 @@ export const PaymentModal = ({ isOpen, onClose, bankDetails, bankId, onSubmit, f
         hasSelectedBank &&
         Boolean(transactionDate) &&
         parseDecimalValue(amount) > 0 &&
-        (hasPresetClient || Boolean(firmLookup.selectedFirm?.username));
-    const selectedClientDisplayName = hasPresetClient ? clientName : (firmLookup.selectedFirm?.name || 'Selected client');
+        (hasPresetClient || Boolean(firmLookup.selectedFirm));
+    const selectedClientDisplayName = hasPresetClient ? clientName : (firmLookup.selectedFirm?.name || 'Selected party');
     const effectivePaymentBank = resolvePaymentBank();
     const selectedBankDisplayName = effectivePaymentBank
         ? getBankPrimaryLabel(effectivePaymentBank)
         : (bankId ? `Bank #${bankId}` : '—');
-    const shouldShowPaymentSummary = showSummary && (hasPresetBank || Boolean(selectedBank)) && (hasPresetClient || Boolean(firmLookup.selectedFirm?.username));
+    const shouldShowPaymentSummary = showSummary && (hasPresetBank || Boolean(selectedBank)) && (hasPresetClient || Boolean(firmLookup.selectedFirm));
 
     return (
         <BaseModal
@@ -2657,30 +3091,6 @@ export const PaymentModal = ({ isOpen, onClose, bankDetails, bankId, onSubmit, f
             )}
         >
             <form id="payment-form" onSubmit={handleSubmit} noValidate className="space-y-3">
-                {shouldShowClientSelector && (
-                    <FirmClientSearchFields
-                        variant="payment"
-                        formatCurrency={formatCurrency}
-                        compact
-                        hideSearchHint
-                        focusAccent="red"
-                        searchTerm={firmLookup.searchTerm}
-                        setSearchTerm={firmLookup.setSearchTerm}
-                        firms={firmLookup.firms}
-                        setFirms={firmLookup.setFirms}
-                        showDropdown={firmLookup.showDropdown}
-                        setShowDropdown={firmLookup.setShowDropdown}
-                        openDropdown={firmLookup.openDropdown}
-                        dismissDropdown={firmLookup.dismissDropdown}
-                        searchLoading={firmLookup.searchLoading}
-                        loadingMore={firmLookup.loadingMore}
-                        handleListScroll={firmLookup.handleListScroll}
-                        clearSelection={firmLookup.clearSelection}
-                        onSearchFocus={firmLookup.loadClientsOnFocus}
-                        selectedFirm={firmLookup.selectedFirm}
-                        setSelectedFirm={firmLookup.setSelectedFirm}
-                    />
-                )}
                 {showBank && shouldShowBankSelector && (
                     <div>
                         <label className={COMPACT_LABEL}>
@@ -2705,6 +3115,36 @@ export const PaymentModal = ({ isOpen, onClose, bankDetails, bankId, onSubmit, f
                             />
                         )}
                     </div>
+                )}
+                {shouldShowClientSelector && (
+                    <FirmClientSearchFields
+                        variant="payment"
+                        label="To"
+                        formatCurrency={formatCurrency}
+                        compact
+                        hideSearchHint
+                        focusAccent="red"
+                        searchPlaceholder="Search client, CA, agent, staff, capital, or expense"
+                        searchHint="Search client, CA, agent, staff, capital, or expense."
+                        emptyMessage="No parties found"
+                        showPartyType
+                        getRowKey={(party) => `${party.userType || 'client'}:${party.party_id || party.username}`}
+                        searchTerm={firmLookup.searchTerm}
+                        setSearchTerm={firmLookup.setSearchTerm}
+                        firms={firmLookup.firms}
+                        setFirms={firmLookup.setFirms}
+                        showDropdown={firmLookup.showDropdown}
+                        setShowDropdown={firmLookup.setShowDropdown}
+                        openDropdown={firmLookup.openDropdown}
+                        dismissDropdown={firmLookup.dismissDropdown}
+                        searchLoading={firmLookup.searchLoading}
+                        loadingMore={firmLookup.loadingMore}
+                        handleListScroll={firmLookup.handleListScroll}
+                        clearSelection={firmLookup.clearSelection}
+                        onSearchFocus={firmLookup.loadPartiesOnFocus}
+                        selectedFirm={firmLookup.selectedFirm}
+                        setSelectedFirm={firmLookup.setSelectedFirm}
+                    />
                 )}
 
                 <div className="grid grid-cols-2 gap-3">
@@ -3673,15 +4113,17 @@ export const SaleForm = ({
                                     />
                                     {selectedSaleFirms.length > 0 && (
                                         <div className={`rounded-md border border-slate-200 bg-white ${isCompactModal ? 'p-2.5' : 'p-3'}`}>
-                                            <SelectInput
+                                            <CustomSelect
                                                 label="Firm (optional)"
                                                 options={saleFirmSelectOptions}
-                                                value={selectedSaleFirmId || null}
-                                                onChange={(value) => setSelectedSaleFirmId(value ? String(value) : '')}
+                                                value={optionByValue(saleFirmSelectOptions, selectedSaleFirmId || null)}
+                                                onChange={(opt) => setSelectedSaleFirmId(opt ? String(opt.value) : '')}
+                                                getOptionLabel={(opt) => opt.label}
+                                                getOptionValue={(opt) => opt.value}
                                                 placeholder="Select firm for this sale"
                                                 searchPlaceholder="Search firm by name, PAN, file no, type"
-                                                noOptionsText="No firms available"
-                                                clearable
+                                                noOptionsMessage="No firms available"
+                                                isClearable
                                             />
                                             {selectedSaleFirm && !isCompactModal && (
                                                 <div className="mt-3 rounded-lg border border-slate-100 bg-slate-50 p-3 text-xs text-slate-700">
@@ -3809,15 +4251,16 @@ export const SaleForm = ({
                                 {formData.items.map((item, index) => (
                                     <tr key={index} className="hover:bg-gray-50 transition-colors duration-150">
                                         <td className={`${isCompactModal ? 'px-2 py-1.5' : 'px-3 py-2.5'} min-w-[180px]`}>
-                                            <SelectInput
+                                            <CustomSelect
                                                 options={serviceSelectOptions}
-                                                value={item.service_id !== '' && item.service_id != null ? String(item.service_id) : null}
-                                                onChange={(v) => handleServiceChange(index, v ?? '')}
+                                                value={optionByValue(serviceSelectOptions, item.service_id !== '' && item.service_id != null ? String(item.service_id) : null)}
+                                                onChange={(opt) => handleServiceChange(index, opt ? opt.value : '')}
+                                                getOptionLabel={(opt) => opt.label}
+                                                getOptionValue={(opt) => opt.value}
                                                 placeholder={isLoadingServices ? 'Loading services…' : 'Select service'}
                                                 searchPlaceholder="Search services…"
-                                                disabled={isLoadingServices}
-                                                clearable={false}
-                                                className="text-sm"
+                                                isDisabled={isLoadingServices}
+                                                isClearable={false}
                                             />
                                         </td>
                                         <td className={isCompactModal ? 'px-2 py-1.5' : 'px-3 py-2.5'}>
@@ -5070,14 +5513,15 @@ export const PurchaseForm = ({
                                 {formData.items.map((item, index) => (
                                     <tr key={index} className="hover:bg-gray-50 transition-colors">
                                         <td className="px-2 py-1.5 min-w-[180px]">
-                                            <SelectInput
+                                            <CustomSelect
                                                 options={serviceSelectOptions}
-                                                value={item.service_id ? String(item.service_id) : null}
-                                                onChange={(value) => handleServiceChange(index, value ? String(value) : '')}
+                                                value={optionByValue(serviceSelectOptions, item.service_id ? String(item.service_id) : null)}
+                                                onChange={(opt) => handleServiceChange(index, opt ? String(opt.value) : '')}
+                                                getOptionLabel={(opt) => opt.label}
+                                                getOptionValue={(opt) => opt.value}
                                                 placeholder={isLoadingServices ? 'Loading…' : 'Select service'}
                                                 searchPlaceholder="Search services…"
-                                                noOptionsText={isLoadingServices ? 'Loading…' : 'No services found'}
-                                                className="text-sm"
+                                                noOptionsMessage={isLoadingServices ? 'Loading…' : 'No services found'}
                                             />
                                         </td>
                                         <td className="px-2 py-1.5">
@@ -5121,13 +5565,15 @@ export const PurchaseForm = ({
                                 <div key={index} className="grid grid-cols-1 gap-3 rounded-lg border border-slate-100 p-3 sm:grid-cols-12">
                                     <div className="sm:col-span-5">
                                         <label className="mb-1 block text-xs font-medium text-slate-500">Service</label>
-                                        <SelectInput
+                                        <CustomSelect
                                             options={serviceSelectOptions}
-                                            value={item.service_id ? String(item.service_id) : null}
-                                            onChange={(value) => handleServiceChange(index, value ? String(value) : '')}
+                                            value={optionByValue(serviceSelectOptions, item.service_id ? String(item.service_id) : null)}
+                                            onChange={(opt) => handleServiceChange(index, opt ? String(opt.value) : '')}
+                                            getOptionLabel={(opt) => opt.label}
+                                            getOptionValue={(opt) => opt.value}
                                             placeholder={isLoadingServices ? 'Loading services...' : 'Select service'}
                                             searchPlaceholder="Search service..."
-                                            noOptionsText={isLoadingServices ? 'Loading...' : 'No services found'}
+                                            noOptionsMessage={isLoadingServices ? 'Loading...' : 'No services found'}
                                         />
                                     </div>
                                     <div className="sm:col-span-3">
@@ -5354,182 +5800,6 @@ const getExpenseItemOptionLabel = (item) => {
     return typeLabel ? `${name} (${typeLabel})` : name;
 };
 
-const EXPENSE_ITEM_MENU_MAX_HEIGHT = 160;
-const EXPENSE_ITEM_MENU_Z_INDEX = 10060;
-
-const ExpenseItemSearchField = ({
-    items = [],
-    selectedItemId = '',
-    onSelect,
-    isOpen = false,
-    onOpen,
-    onClose,
-    fieldClass = '',
-    placeholder = 'Select expense item',
-}) => {
-    const wrapperRef = useRef(null);
-    const inputRef = useRef(null);
-    const menuRef = useRef(null);
-    const [searchTerm, setSearchTerm] = useState('');
-    const [menuPosition, setMenuPosition] = useState({
-        top: 0,
-        left: 0,
-        width: 0,
-        maxHeight: EXPENSE_ITEM_MENU_MAX_HEIGHT,
-        placement: 'bottom',
-    });
-
-    const selectedItem = useMemo(
-        () => items.find((item) => item.item_id === selectedItemId) || null,
-        [items, selectedItemId]
-    );
-
-    const selectedLabel = selectedItem ? getExpenseItemOptionLabel(selectedItem) : '';
-
-    const filteredItems = useMemo(() => {
-        const q = String(searchTerm || '').trim().toLowerCase();
-        if (!q) return items;
-        return items.filter((item) => getExpenseItemOptionLabel(item).toLowerCase().includes(q));
-    }, [items, searchTerm]);
-
-    const updateMenuPosition = useCallback(() => {
-        const el = inputRef.current;
-        if (!el) return;
-
-        const rect = el.getBoundingClientRect();
-        const spaceBelow = window.innerHeight - rect.bottom;
-        const spaceAbove = rect.top;
-        const placement =
-            spaceBelow < EXPENSE_ITEM_MENU_MAX_HEIGHT + 8 && spaceAbove > spaceBelow
-                ? 'top'
-                : 'bottom';
-        const maxHeight = Math.min(
-            EXPENSE_ITEM_MENU_MAX_HEIGHT,
-            placement === 'top' ? spaceAbove - 8 : spaceBelow - 8
-        );
-
-        setMenuPosition({
-            top: placement === 'bottom' ? rect.bottom + 4 : rect.top - 4,
-            left: rect.left,
-            width: rect.width,
-            maxHeight: Math.max(maxHeight, 96),
-            placement,
-        });
-    }, []);
-
-    useEffect(() => {
-        if (!isOpen) {
-            setSearchTerm(selectedLabel);
-        }
-    }, [selectedLabel, isOpen]);
-
-    useLayoutEffect(() => {
-        if (!isOpen) return undefined;
-
-        updateMenuPosition();
-
-        const handleReposition = () => updateMenuPosition();
-        window.addEventListener('resize', handleReposition);
-        window.addEventListener('scroll', handleReposition, true);
-
-        return () => {
-            window.removeEventListener('resize', handleReposition);
-            window.removeEventListener('scroll', handleReposition, true);
-        };
-    }, [isOpen, updateMenuPosition, filteredItems.length, searchTerm]);
-
-    useEffect(() => {
-        if (!isOpen) return undefined;
-
-        const handlePointerDown = (event) => {
-            const target = event.target;
-            if (wrapperRef.current?.contains(target) || menuRef.current?.contains(target)) return;
-            onClose?.();
-        };
-
-        document.addEventListener('mousedown', handlePointerDown);
-        return () => document.removeEventListener('mousedown', handlePointerDown);
-    }, [isOpen, onClose]);
-
-    const handleSelect = (item) => {
-        onSelect(item.item_id);
-        setSearchTerm(getExpenseItemOptionLabel(item));
-        onClose?.();
-    };
-
-    const handleChange = (value) => {
-        setSearchTerm(value);
-        onOpen?.();
-        if (!String(value || '').trim()) {
-            onSelect('');
-        }
-    };
-
-    const menuStyle =
-        menuPosition.placement === 'bottom'
-            ? {
-                top: menuPosition.top,
-                left: menuPosition.left,
-                width: menuPosition.width,
-                maxHeight: menuPosition.maxHeight,
-            }
-            : {
-                bottom: window.innerHeight - menuPosition.top,
-                left: menuPosition.left,
-                width: menuPosition.width,
-                maxHeight: menuPosition.maxHeight,
-            };
-
-    return (
-        <div className="relative min-w-0" ref={wrapperRef}>
-            <input
-                ref={inputRef}
-                type="text"
-                value={searchTerm}
-                onChange={(e) => handleChange(e.target.value)}
-                onFocus={() => {
-                    onOpen?.();
-                    setSearchTerm('');
-                }}
-                placeholder={placeholder}
-                className={fieldClass}
-                autoComplete="off"
-            />
-            {isOpen
-                ? createPortal(
-                    <div
-                        ref={menuRef}
-                        style={{
-                            position: 'fixed',
-                            zIndex: EXPENSE_ITEM_MENU_Z_INDEX,
-                            ...menuStyle,
-                        }}
-                        className="overflow-y-auto overscroll-y-contain rounded-md border border-slate-200 bg-white py-1 shadow-lg"
-                    >
-                        {filteredItems.length === 0 ? (
-                            <p className="px-3 py-2 text-xs text-center text-slate-500">No items found</p>
-                        ) : (
-                            filteredItems.map((item) => (
-                                <button
-                                    key={item.item_id}
-                                    type="button"
-                                    onMouseDown={(e) => e.preventDefault()}
-                                    onClick={() => handleSelect(item)}
-                                    className={`w-full truncate px-3 py-2 text-left text-sm text-slate-800 hover:bg-emerald-50 ${selectedItemId === item.item_id ? 'bg-emerald-50/80 font-medium' : ''
-                                        }`}
-                                >
-                                    {getExpenseItemOptionLabel(item)}
-                                </button>
-                            ))
-                        )}
-                    </div>,
-                    document.body
-                )
-                : null}
-        </div>
-    );
-};
-
 export const ExpenseModal = ({
     isOpen,
     onClose,
@@ -5548,7 +5818,6 @@ export const ExpenseModal = ({
     const [lines, setLines] = useState([{ ...EMPTY_EXPENSE_LINE }]);
     const [expenseItems, setExpenseItems] = useState([]);
     const [itemsLoading, setItemsLoading] = useState(false);
-    const [openItemDropdownIndex, setOpenItemDropdownIndex] = useState(null);
 
     const hasPresetBank = Boolean(String(bankId || '').trim());
     const shouldShowBankSelector = showBank && !hasPresetBank;
@@ -5561,8 +5830,15 @@ export const ExpenseModal = ({
         setItemsLoading(true);
         try {
             const response = await axios.get(
-                `${API_BASE_URL}/expense/item/list?page_no=1&limit=100`,
-                { headers: getHeaders() }
+                `${API_BASE_URL}/expense/item/list`,
+                {
+                    headers: getHeaders(),
+                    params: {
+                        page_no: 1,
+                        limit: 100,
+                        include_reserved: false,
+                    },
+                }
             );
             if (response.data?.success) {
                 setExpenseItems(response.data.data || []);
@@ -5586,12 +5862,17 @@ export const ExpenseModal = ({
             setShowBankSearch(false);
             setTransactionDate(toIsoDateOnly(editRecord.transaction_date || editRecord.expense_date));
             setRemark(editRecord.remark || '');
-            setLines([{
-                item_id: editRecord.item?.item_id || '',
-                amount: String(editRecord.amount ?? ''),
-            }]);
+            const editLines = Array.isArray(editRecord.items) && editRecord.items.length > 0
+                ? editRecord.items.map((line) => ({
+                    item_id: line.item_id || line.item?.item_id || '',
+                    amount: String(line.amount ?? ''),
+                }))
+                : [{
+                    item_id: editRecord.item?.item_id || '',
+                    amount: String(editRecord.amount ?? ''),
+                }];
+            setLines(editLines);
             setLoading(false);
-            setOpenItemDropdownIndex(null);
             fetchExpenseItems();
             return;
         }
@@ -5601,7 +5882,6 @@ export const ExpenseModal = ({
         setRemark('');
         setLines([{ ...EMPTY_EXPENSE_LINE }]);
         setLoading(false);
-        setOpenItemDropdownIndex(null);
         fetchExpenseItems();
     }, [isOpen, bankDetails, bankId, fetchExpenseItems, isEditMode, editRecord]);
 
@@ -5665,17 +5945,19 @@ export const ExpenseModal = ({
 
         setLoading(true);
         const remarkText = String(remark || '').trim();
+        const payloadItems = validLines.map((line) => ({
+            item_id: line.item_id,
+            amount: parseDecimalValue(line.amount),
+        }));
 
         try {
             if (isEditMode) {
-                const line = validLines[0];
                 const response = await axios.put(
                     `${API_BASE_URL}/expense/entry/edit`,
                     {
                         expense_id: editRecord.expense_id,
-                        item_id: line.item_id,
+                        items: payloadItems,
                         remark: remarkText,
-                        amount: parseDecimalValue(line.amount),
                         transaction_date: transactionDate,
                         party_id: effectiveBank.bank_id,
                         party_type: 'bank',
@@ -5692,36 +5974,26 @@ export const ExpenseModal = ({
                 return;
             }
 
-            const responses = await Promise.all(
-                validLines.map((line) =>
-                    axios.post(
-                        `${API_BASE_URL}/expense/entry/create`,
-                        {
-                            item_id: line.item_id,
-                            remark: remarkText,
-                            amount: parseDecimalValue(line.amount),
-                            transaction_date: transactionDate,
-                            party_id: effectiveBank.bank_id,
-                            party_type: 'bank',
-                        },
-                        { headers: getHeaders() }
-                    )
-                )
+            const response = await axios.post(
+                `${API_BASE_URL}/expense/entry/create`,
+                {
+                    items: payloadItems,
+                    remark: remarkText,
+                    transaction_date: transactionDate,
+                    party_id: effectiveBank.bank_id,
+                    party_type: 'bank',
+                },
+                { headers: getHeaders() }
             );
 
-            const failed = responses.find((res) => !res.data?.success);
-            if (failed) {
-                toast.error(failed.data?.message || 'Failed to create expense entry');
+            if (!response.data?.success) {
+                toast.error(response.data?.message || 'Failed to create expense entry');
                 return;
             }
 
-            toast.success(
-                validLines.length === 1
-                    ? 'Expense entry created successfully'
-                    : `${validLines.length} expense entries created successfully`
-            );
+            toast.success(response.data.message || 'Expense entry created successfully');
             if (onSubmit) {
-                onSubmit('EXPENSE', responses.map((res) => res.data?.data).filter(Boolean));
+                onSubmit('EXPENSE', response.data.data);
             }
             onClose();
             if (!hasPresetBank) {
@@ -5925,14 +6197,16 @@ export const ExpenseModal = ({
                                     key={`expense-line-${index}`}
                                     className="grid grid-cols-[minmax(0,1fr)_76px_28px] gap-1.5 items-center min-w-0"
                                 >
-                                    <ExpenseItemSearchField
-                                        items={expenseItems}
-                                        selectedItemId={line.item_id}
-                                        onSelect={(itemId) => updateLine(index, 'item_id', itemId)}
-                                        isOpen={openItemDropdownIndex === index}
-                                        onOpen={() => setOpenItemDropdownIndex(index)}
-                                        onClose={() => setOpenItemDropdownIndex((prev) => (prev === index ? null : prev))}
-                                        fieldClass={expenseFieldClass}
+                                    <CustomSelect
+                                        options={expenseItems}
+                                        value={optionByValue(expenseItems, line.item_id, 'item_id')}
+                                        onChange={(opt) => updateLine(index, 'item_id', opt ? opt.item_id : '')}
+                                        getOptionLabel={getExpenseItemOptionLabel}
+                                        getOptionValue={(item) => item.item_id}
+                                        placeholder="Select expense item"
+                                        searchPlaceholder="Search expense item..."
+                                        noOptionsMessage="No items found"
+                                        isClearable={false}
                                     />
                                     <input
                                         type="text"
@@ -5944,14 +6218,7 @@ export const ExpenseModal = ({
                                     />
                                     <button
                                         type="button"
-                                        onClick={() => {
-                                            removeLine(index);
-                                            setOpenItemDropdownIndex((prev) => {
-                                                if (prev === index) return null;
-                                                if (prev != null && prev > index) return prev - 1;
-                                                return prev;
-                                            });
-                                        }}
+                                        onClick={() => removeLine(index)}
                                         disabled={lines.length <= 1 || isEditMode}
                                         className={`flex h-8 w-7 mx-auto items-center justify-center rounded-md text-slate-400 hover:bg-rose-50 hover:text-rose-600 disabled:opacity-30 disabled:hover:bg-transparent transition-colors ${isEditMode ? 'invisible' : ''}`}
                                         aria-label="Remove line"
@@ -6007,8 +6274,6 @@ export const JournalModal = ({
     const [loading, setLoading] = useState(false);
     const [presetFromParty, setPresetFromParty] = useState(null);
     const [loadingPresetFrom, setLoadingPresetFrom] = useState(false);
-    const [fromPartyType, setFromPartyType] = useState('client');
-    const [toPartyType, setToPartyType] = useState('client');
     const [transactionDate, setTransactionDate] = useState(new Date().toISOString().split('T')[0]);
     const [amount, setAmount] = useState('');
     const [description, setDescription] = useState('');
@@ -6025,8 +6290,18 @@ export const JournalModal = ({
     const shouldShowFromSelector = showFromSection && !hasPresetFromParam;
     const shouldShowToSelector = showToClient;
 
-    const fromPartyLookup = useJournalPartySearch(fromPartyType, Boolean(shouldShowFromSelector), excludeForFromLookup);
-    const toPartyLookup = useJournalPartySearch(toPartyType, Boolean(shouldShowToSelector), excludeForToLookup);
+    const fromPartyLookup = useTransactionPartySearch(JOURNAL_PARTY_SEARCH_TYPES, Boolean(shouldShowFromSelector), {
+        fetchOnFocusOnly: true,
+        excludeParty: excludeForFromLookup,
+    });
+    const toPartyLookup = useTransactionPartySearch(JOURNAL_PARTY_SEARCH_TYPES, Boolean(shouldShowToSelector), {
+        fetchOnFocusOnly: true,
+        excludeParty: excludeForToLookup,
+    });
+
+    const journalPartyRowKey = (party) => `${party.userType || 'client'}:${party.party_id || party.username || party.bank_id || ''}`;
+    const journalSearchPlaceholder = 'Search client, CA, agent, staff, capital, bank, or expense';
+    const journalSearchHint = 'Search client, CA, agent, staff, capital, bank, or expense.';
 
     useEffect(() => {
         if (!isOpen || !hasPresetFromParam) {
@@ -6038,7 +6313,7 @@ export const JournalModal = ({
         setLoadingPresetFrom(true);
         (async () => {
             try {
-                const match = await fetchPresetJournalParty(clientUsername, presetFromType);
+                const match = await fetchPresetTransactionParty(clientUsername, presetFromType, JOURNAL_PARTY_SEARCH_TYPES);
                 if (match && !cancelled) {
                     setPresetFromParty(match);
                 }
@@ -6056,22 +6331,16 @@ export const JournalModal = ({
     useEffect(() => {
         if (!isOpen) return;
         if (isEditMode) {
-            const fromType = editRecord.payment_from?.type || 'client';
-            const toType = editRecord.payment_to?.type || 'client';
-            setFromPartyType(fromType === 'agent' || fromType === 'ca' ? fromType : (fromType === 'staff' ? 'staff' : 'client'));
-            setToPartyType(toType === 'agent' || toType === 'ca' ? toType : (toType === 'staff' ? 'staff' : 'client'));
             setTransactionDate(toIsoDateOnly(editRecord.transaction_date));
             setAmount(String(editRecord.amount ?? ''));
             setDescription(editRecord.remark || '');
             setLoading(false);
             const fromParty = mapUserPartyToJournal(editRecord.payment_from);
             const toParty = mapUserPartyToJournal(editRecord.payment_to);
-            if (fromParty?.username && shouldShowFromSelector) fromPartyLookup.setSelectedParty(fromParty);
-            if (toParty?.username && shouldShowToSelector) toPartyLookup.setSelectedParty(toParty);
+            if (fromParty && shouldShowFromSelector) fromPartyLookup.setSelectedFirm(fromParty);
+            if (toParty && shouldShowToSelector) toPartyLookup.setSelectedFirm(toParty);
             return;
         }
-        setFromPartyType(hasPresetFromParam ? presetFromType : 'client');
-        setToPartyType('client');
         setExcludeForFromLookup(null);
         setExcludeForToLookup(null);
         setTransactionDate(new Date().toISOString().split('T')[0]);
@@ -6083,61 +6352,38 @@ export const JournalModal = ({
     }, [isOpen, isEditMode, editRecord]); // eslint-disable-line react-hooks/exhaustive-deps
 
     const effectiveFromParty = hasPresetFromParam
-        ? (presetFromParty || mapRowToJournalParty({
+        ? (presetFromParty || {
             username: clientUsername,
+            party_id: clientUsername,
             name: clientName || clientUsername,
-            email: '',
             balance: 0,
-            mobile: '',
-            pan_number: '',
-        }, presetFromType))
-        : fromPartyLookup.selectedParty;
+            userType: presetFromType,
+        })
+        : fromPartyLookup.selectedFirm;
 
-    const effectiveToParty = toPartyLookup.selectedParty;
-
-    useEffect(() => {
-        if (!effectiveFromParty?.username) {
-            setExcludeForToLookup(null);
-            return;
-        }
-        setExcludeForToLookup({
-            userType: effectiveFromParty.userType || fromPartyType,
-            username: effectiveFromParty.username,
-        });
-    }, [effectiveFromParty, fromPartyType]);
+    const effectiveToParty = toPartyLookup.selectedFirm;
 
     useEffect(() => {
-        if (!effectiveToParty?.username) {
-            setExcludeForFromLookup(null);
-            return;
-        }
-        setExcludeForFromLookup({
-            userType: effectiveToParty.userType || toPartyType,
-            username: effectiveToParty.username,
-        });
-    }, [effectiveToParty, toPartyType]);
+        setExcludeForToLookup(
+            effectiveFromParty && transactionPartyKey(effectiveFromParty) ? effectiveFromParty : null
+        );
+    }, [effectiveFromParty]);
 
-    const fromPartyKey = journalPartyKey(effectiveFromParty, hasPresetFromParam ? presetFromType : fromPartyType);
-    const toPartyKey = journalPartyKey(effectiveToParty, toPartyType);
+    useEffect(() => {
+        setExcludeForFromLookup(
+            effectiveToParty && transactionPartyKey(effectiveToParty) ? effectiveToParty : null
+        );
+    }, [effectiveToParty]);
+
+    const fromPartyKey = journalPartyKey(effectiveFromParty, hasPresetFromParam ? presetFromType : 'client');
+    const toPartyKey = journalPartyKey(effectiveToParty, 'client');
 
     const isJournalFormValid =
-        Boolean(effectiveFromParty) &&
-        Boolean(effectiveToParty) &&
-        fromPartyKey !== '' &&
-        toPartyKey !== '' &&
+        Boolean(fromPartyKey) &&
+        Boolean(toPartyKey) &&
         fromPartyKey !== toPartyKey &&
         parseDecimalValue(amount) > 0 &&
         !(hasPresetFromParam && loadingPresetFrom);
-
-    const handleFromPartyTypeChange = (type) => {
-        setFromPartyType(type);
-        fromPartyLookup.reset();
-    };
-
-    const handleToPartyTypeChange = (type) => {
-        setToPartyType(type);
-        toPartyLookup.reset();
-    };
 
     const submitJournal = useCallback(async () => {
         if (loading) return;
@@ -6167,20 +6413,26 @@ export const JournalModal = ({
         }
 
         const remarkText = String(description || '').trim();
-        const fromType = effectiveFromParty.userType || (hasPresetFromParam ? presetFromType : fromPartyType);
-        const toType = effectiveToParty.userType || toPartyType;
-        const fromLabel = JOURNAL_PARTY_TYPE_LABELS[fromType] || 'User';
-        const toLabel = JOURNAL_PARTY_TYPE_LABELS[toType] || 'User';
+        const fromResolved = resolveTransactionPartySelection(
+            effectiveFromParty,
+            hasPresetFromParam ? presetFromType : (effectiveFromParty?.userType || 'client')
+        );
+        const toResolved = resolveTransactionPartySelection(
+            effectiveToParty,
+            effectiveToParty?.userType || 'client'
+        );
+        const fromLabel = JOURNAL_PARTY_TYPE_LABELS[fromResolved.party_type] || 'User';
+        const toLabel = JOURNAL_PARTY_TYPE_LABELS[toResolved.party_type] || 'User';
 
         const payload = {
             amount: parsedAmount,
-            party1_id: resolveJournalPartyId(effectiveFromParty, fromType),
-            party2_id: resolveJournalPartyId(effectiveToParty, toType),
-            party1_type: fromType,
-            party2_type: toType,
+            party1_id: fromResolved.party_id,
+            party2_id: toResolved.party_id,
+            party1_type: fromResolved.party_type,
+            party2_type: toResolved.party_type,
             remark:
                 remarkText ||
-                `Journal transfer from ${fromLabel} ${effectiveFromParty.name || resolveJournalPartyId(effectiveFromParty, fromType)} to ${toLabel} ${effectiveToParty.name || resolveJournalPartyId(effectiveToParty, toType)}`,
+                `Journal transfer from ${fromLabel} ${effectiveFromParty.name || fromResolved.party_id} to ${toLabel} ${effectiveToParty.name || toResolved.party_id}`,
             transaction_date: transactionDate,
         };
 
@@ -6225,8 +6477,6 @@ export const JournalModal = ({
         description,
         hasPresetFromParam,
         presetFromType,
-        fromPartyType,
-        toPartyType,
         loadingPresetFrom,
         onSubmit,
         onClose,
@@ -6242,10 +6492,10 @@ export const JournalModal = ({
     const shouldShowJournalSummary =
         showSummary && Boolean(effectiveFromParty) && Boolean(effectiveToParty);
 
-    const fromPartyDisplayName = effectiveFromParty?.name || effectiveFromParty?.username || '—';
-    const toPartyDisplayName = effectiveToParty?.name || effectiveToParty?.username || '—';
-    const fromTypeLabel = JOURNAL_PARTY_TYPE_LABELS[effectiveFromParty?.userType || (hasPresetFromParam ? presetFromType : fromPartyType)] || partyLabel;
-    const toTypeLabel = JOURNAL_PARTY_TYPE_LABELS[effectiveToParty?.userType || toPartyType] || 'User';
+    const fromPartyDisplayName = effectiveFromParty?.name || effectiveFromParty?.username || effectiveFromParty?.party_id || '—';
+    const toPartyDisplayName = effectiveToParty?.name || effectiveToParty?.username || effectiveToParty?.party_id || '—';
+    const fromTypeLabel = JOURNAL_PARTY_TYPE_LABELS[effectiveFromParty?.userType || (hasPresetFromParam ? presetFromType : 'client')] || partyLabel;
+    const toTypeLabel = JOURNAL_PARTY_TYPE_LABELS[effectiveToParty?.userType || 'client'] || 'Party';
     const presetFromLabel = `From ${partyLabel || fromTypeLabel}`;
 
     return (
@@ -6281,19 +6531,22 @@ export const JournalModal = ({
         >
             <form id="journal-form" onSubmit={handleSubmit} noValidate className="space-y-3">
                 {shouldShowFromSelector && (
-                    <JournalPartySearchFields
+                    <FirmClientSearchFields
                         variant="receive"
-                        label="From user"
-                        partyType={fromPartyType}
-                        onPartyTypeChange={handleFromPartyTypeChange}
+                        label="From"
                         formatCurrency={formatCurrency}
                         compact
                         hideSearchHint
                         focusAccent="indigo"
+                        searchPlaceholder={journalSearchPlaceholder}
+                        searchHint={journalSearchHint}
+                        emptyMessage="No parties found"
+                        showPartyType
+                        getRowKey={journalPartyRowKey}
                         searchTerm={fromPartyLookup.searchTerm}
                         setSearchTerm={fromPartyLookup.setSearchTerm}
-                        parties={fromPartyLookup.parties}
-                        setParties={fromPartyLookup.setParties}
+                        firms={fromPartyLookup.firms}
+                        setFirms={fromPartyLookup.setFirms}
                         showDropdown={fromPartyLookup.showDropdown}
                         setShowDropdown={fromPartyLookup.setShowDropdown}
                         openDropdown={fromPartyLookup.openDropdown}
@@ -6303,18 +6556,17 @@ export const JournalModal = ({
                         handleListScroll={fromPartyLookup.handleListScroll}
                         clearSelection={fromPartyLookup.clearSelection}
                         onSearchFocus={fromPartyLookup.loadPartiesOnFocus}
-                        selectedParty={fromPartyLookup.selectedParty}
-                        setSelectedParty={fromPartyLookup.setSelectedParty}
+                        selectedFirm={fromPartyLookup.selectedFirm}
+                        setSelectedFirm={fromPartyLookup.setSelectedFirm}
                     />
                 )}
 
                 {showFromSection && hasPresetFromParam && effectiveFromParty && (
-                    <JournalPartySearchFields
+                    <FirmClientSearchFields
                         variant="receive"
                         label={presetFromLabel}
-                        lockedParty={effectiveFromParty}
+                        lockedFirm={effectiveFromParty}
                         readOnly
-                        showTypeToggle={false}
                         formatCurrency={formatCurrency}
                         compact
                         focusAccent="indigo"
@@ -6322,19 +6574,22 @@ export const JournalModal = ({
                 )}
 
                 {shouldShowToSelector && (
-                    <JournalPartySearchFields
+                    <FirmClientSearchFields
                         variant="payment"
-                        label="To user"
-                        partyType={toPartyType}
-                        onPartyTypeChange={handleToPartyTypeChange}
+                        label="To"
                         formatCurrency={formatCurrency}
                         compact
                         hideSearchHint
                         focusAccent="indigo"
+                        searchPlaceholder={journalSearchPlaceholder}
+                        searchHint={journalSearchHint}
+                        emptyMessage="No parties found"
+                        showPartyType
+                        getRowKey={journalPartyRowKey}
                         searchTerm={toPartyLookup.searchTerm}
                         setSearchTerm={toPartyLookup.setSearchTerm}
-                        parties={toPartyLookup.parties}
-                        setParties={toPartyLookup.setParties}
+                        firms={toPartyLookup.firms}
+                        setFirms={toPartyLookup.setFirms}
                         showDropdown={toPartyLookup.showDropdown}
                         setShowDropdown={toPartyLookup.setShowDropdown}
                         openDropdown={toPartyLookup.openDropdown}
@@ -6344,8 +6599,8 @@ export const JournalModal = ({
                         handleListScroll={toPartyLookup.handleListScroll}
                         clearSelection={toPartyLookup.clearSelection}
                         onSearchFocus={toPartyLookup.loadPartiesOnFocus}
-                        selectedParty={toPartyLookup.selectedParty}
-                        setSelectedParty={toPartyLookup.setSelectedParty}
+                        selectedFirm={toPartyLookup.selectedFirm}
+                        setSelectedFirm={toPartyLookup.setSelectedFirm}
                     />
                 )}
 
@@ -7060,6 +7315,7 @@ export const DiscountModal = ({
                                 formatCurrency={formatCurrency}
                                 variant="receive"
                                 readOnly
+                                partyType={hasPresetClient ? presetPartyType : (effectiveParty?.userType || selectedPartyType)}
                             />
                         )}
                     </div>

@@ -33,8 +33,15 @@ import { Header, Sidebar } from '../../components/header';
 import DateFilter from '../../components/DateFilter';
 import { DatePickerField } from '../../components/PortalDatePicker';
 import moment from 'moment';
-import SearchableSelect from '../../components/SearchableSelect'
-import SearchableSelectOptions from "../../components/SelectSearchableOptionsComponent";
+import CustomSelect from '../../components/CustomSelect';
+import {
+    CLIENT_LIST_QUERY_PARAMS,
+    createClientListLoadOptions,
+    getClientOptionLabel,
+    getClientOptionValue,
+    optionByValue,
+    renderClientListOption,
+} from '../../utils/customSelectHelpers';
 import getHeaders from "../../utils/get-headers";
 import API_BASE_URL from '../../utils/api-controller';
 
@@ -1460,24 +1467,23 @@ const ViewDSCRegister = () => {
                                         <label className="block text-xs font-semibold text-slate-700 mb-2">
                                             Select User <span className="text-rose-500">*</span>
                                         </label>
-                                        <SearchableSelect
-                                            endpoint="/client/list"
-                                            queryParams={{ page: 1, limit: 20 }}
-                                            searchParam="search"
-                                            valueKey="username"
-                                            labelMapping={{
-                                                primary: 'name',
-                                                secondary: (item) => `${item.user_type || ''} • ${item.mobile || ''} • ${item.email || ''}`
-                                            }}
-                                            onSelect={(item, value) => {
-                                                handleCreateChange('username', value);
+                                        <CustomSelect
+                                            loadOptions={createClientListLoadOptions(CLIENT_LIST_QUERY_PARAMS)}
+                                            value={createForm.selectedUser}
+                                            onChange={(item) => {
+                                                if (!item) {
+                                                    handleCreateChange('username', '');
+                                                    handleCreateChange('selectedUser', null);
+                                                    return;
+                                                }
+                                                handleCreateChange('username', item.username);
                                                 handleCreateChange('selectedUser', item);
                                             }}
+                                            getOptionLabel={getClientOptionLabel}
+                                            getOptionValue={getClientOptionValue}
+                                            renderOption={renderClientListOption}
                                             placeholder="Search user by name, type or mobile..."
-                                            dataExtractor={(response) => {
-                                                // Your API returns { success: true, data: [...] }
-                                                return response?.data || [];
-                                            }}
+                                            searchPlaceholder="Search user by name, type or mobile..."
                                         />
 
                                         {/* Show selected user info */}
@@ -1530,11 +1536,14 @@ const ViewDSCRegister = () => {
                                             <label className="block text-xs font-semibold text-slate-700 mb-2">
                                                 Company <span className="text-rose-500">*</span>
                                             </label>
-                                            <SearchableSelectOptions
+                                            <CustomSelect
                                                 options={companies}
-                                                value={createForm.company}
-                                                onChange={(val) => handleCreateChange("company", val)}
-                                                placeholder={companyLoading ? "Loading..." : "Select a Company"}
+                                                value={optionByValue(companies, createForm.company, 'value')}
+                                                onChange={(opt) => handleCreateChange('company', opt ? opt.value : '')}
+                                                getOptionLabel={(opt) => opt.name}
+                                                getOptionValue={(opt) => opt.value}
+                                                placeholder={companyLoading ? 'Loading...' : 'Select a Company'}
+                                                isClearable={false}
                                             />
 
                                             <input
@@ -1550,11 +1559,14 @@ const ViewDSCRegister = () => {
                                                 Type <span className="text-rose-500">*</span>
                                             </label>
 
-                                            <SearchableSelectOptions
+                                            <CustomSelect
                                                 options={types}
-                                                value={createForm.type}
-                                                onChange={(val) => handleCreateChange("type", val)}
-                                                placeholder={typeLoading ? "Loading..." : "Select a Type"}
+                                                value={optionByValue(types, createForm.type, 'value')}
+                                                onChange={(opt) => handleCreateChange('type', opt ? opt.value : '')}
+                                                getOptionLabel={(opt) => opt.name}
+                                                getOptionValue={(opt) => opt.value}
+                                                placeholder={typeLoading ? 'Loading...' : 'Select a Type'}
+                                                isClearable={false}
                                             />
 
                                             {/* Hidden input for required validation */}
@@ -1752,13 +1764,14 @@ const ViewDSCRegister = () => {
                                             <label className="block text-xs font-semibold text-slate-700 mb-2">
                                                 Company <span className="text-rose-500">*</span>
                                             </label>
-                                            <SearchableSelectOptions
+                                            <CustomSelect
                                                 options={companies}
-                                                value={editForm.company}
-                                                onChange={(val) => handleEditChange("company", val)}
-                                                placeholder={companyLoading ? "Loading..." : "Select a Company"}
-                                                labelKey="name"
-                                                valueKey="value"
+                                                value={optionByValue(companies, editForm.company, 'value')}
+                                                onChange={(opt) => handleEditChange('company', opt ? opt.value : '')}
+                                                getOptionLabel={(opt) => opt.name}
+                                                getOptionValue={(opt) => opt.value}
+                                                placeholder={companyLoading ? 'Loading...' : 'Select a Company'}
+                                                isClearable={false}
                                             />
 
                                             <input
@@ -1772,13 +1785,14 @@ const ViewDSCRegister = () => {
                                                 Type <span className="text-rose-500">*</span>
                                             </label>
 
-                                            <SearchableSelectOptions
+                                            <CustomSelect
                                                 options={types}
-                                                value={editForm.type}
-                                                onChange={(val) => handleEditChange("type", val)}
-                                                placeholder={typeLoading ? "Loading..." : "Select a Type"}
-                                                labelKey="name"   // your type API uses {name, value}
-                                                valueKey="value"
+                                                value={optionByValue(types, editForm.type, 'value')}
+                                                onChange={(opt) => handleEditChange('type', opt ? opt.value : '')}
+                                                getOptionLabel={(opt) => opt.name}
+                                                getOptionValue={(opt) => opt.value}
+                                                placeholder={typeLoading ? 'Loading...' : 'Select a Type'}
+                                                isClearable={false}
                                             />
 
                                             <input
