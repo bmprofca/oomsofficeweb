@@ -1108,12 +1108,12 @@ const InvoiceSettings = () => {
             {showPreviewModal && previewPdfUrl && selectedFormatSample && (
                 <div className="fixed inset-0 bg-black bg-opacity-95 z-50 flex flex-col">
                     {/* Modal Header */}
-                    <div className="bg-gradient-to-r from-indigo-600 to-indigo-700 text-white px-6 py-4 flex justify-between items-center shadow-lg">
+                    <div className="bg-gradient-to-r from-indigo-600 to-indigo-700 text-white px-6 py-2 flex justify-between items-center shadow-lg">
                         <div>
-                            <h2 className="text-xl font-bold capitalize">
+                            <h2 className="text-xl mb-0 font-bold capitalize">
                                 {formatDisplayNames[selectedFormatSample.format_id]} Format Preview
                             </h2>
-                            <p className="text-indigo-100 text-sm mt-1">
+                            <p className="text-indigo-100 text-sm mt-0">
                                 Previewing invoice format for {selectedFormatType} type
                             </p>
                         </div>
