@@ -83,7 +83,12 @@ const InvoiceSettings = () => {
     const formatDisplayNames = {
         'classic': 'Classic',
         'compact': 'Compact',
-        'minimal': 'Minimal'
+        'minimal': 'Minimal',
+        'premium_modern': 'Premium Modern',
+        'premium_elegant': 'Premium Elegant',
+        'premium_corporate': 'Premium Corporate',
+        'premium_creative': 'Premium Creative',
+        'premium_luxury': 'Premium Luxury'
     };
 
     useEffect(() => {
@@ -508,64 +513,94 @@ const InvoiceSettings = () => {
     );
 
     const FormatCard = ({ sample, isActive, onPreview, onActivate, activating }) => {
+        const displayName = formatDisplayNames[sample.format_id] || sample.format_id.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+        const isPremium = sample.format_id.startsWith('premium_');
+
         return (
             <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                whileHover={{ y: -4 }}
-                className={`bg-white rounded-xl border-2 transition-all duration-300 overflow-visible ${
-                    isActive 
-                        ? 'border-green-500 shadow-lg shadow-green-100' 
-                        : 'border-gray-200 hover:border-indigo-300 hover:shadow-md'
+                initial={{ opacity: 0, scale: 0.96, y: 12 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                whileHover={{ y: -5, scale: 1.015 }}
+                transition={{ duration: 0.18, ease: 'easeOut' }}
+                className={`relative bg-white rounded-2xl border transition-all duration-200 overflow-hidden flex flex-col ${
+                    isActive
+                        ? 'border-indigo-500 shadow-lg shadow-indigo-100/60 ring-1 ring-indigo-400'
+                        : isPremium
+                            ? 'border-amber-200 hover:border-amber-400 hover:shadow-lg hover:shadow-amber-50'
+                            : 'border-gray-200 hover:border-indigo-300 hover:shadow-md'
                 }`}
             >
-                <div className="p-6">
+                {/* Top accent bar */}
+                <div className={`h-1 w-full ${
+                    isActive ? 'bg-gradient-to-r from-indigo-500 to-violet-500' :
+                    isPremium ? 'bg-gradient-to-r from-amber-400 to-orange-400' :
+                    'bg-gradient-to-r from-gray-200 to-gray-300'
+                }`} />
+
+                <div className="p-5 flex-grow">
+                    {/* Icon + Badges row */}
                     <div className="flex items-start justify-between mb-4">
-                        <div className="flex items-center gap-3 flex-1 min-w-0">
-                            <div className={`w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0 ${
-                                isActive ? 'bg-green-100' : 'bg-indigo-100'
-                            }`}>
-                                <FiFileText className={`w-6 h-6 ${
-                                    isActive ? 'text-green-600' : 'text-indigo-600'
-                                }`} />
-                            </div>
-                            <div className="flex-1 min-w-0">
-                                <h3 className="text-lg font-bold text-gray-800 capitalize truncate">
-                                    {formatDisplayNames[sample.format_id] || sample.format_id}
-                                </h3>
-                                <p className="text-xs text-gray-500 mt-0.5 truncate">
-                                    Format ID: {sample.format_id}
-                                </p>
-                            </div>
+                        <div className={`w-12 h-12 rounded-xl flex items-center justify-center shadow-sm ${
+                            isActive ? 'bg-gradient-to-br from-indigo-100 to-indigo-200' :
+                            isPremium ? 'bg-gradient-to-br from-amber-50 to-orange-100' :
+                            'bg-gradient-to-br from-gray-100 to-gray-200'
+                        }`}>
+                            <FiFileText className={`w-6 h-6 ${
+                                isActive ? 'text-indigo-600' : isPremium ? 'text-amber-600' : 'text-gray-500'
+                            }`} />
                         </div>
-                        {isActive && (
-                            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-green-50 text-green-700 border border-green-200 flex-shrink-0 ml-2">
-                                <FiCheckCircle className="w-3 h-3" />
-                                Active
-                            </span>
-                        )}
+                        <div className="flex flex-col gap-1.5 items-end">
+                            {isActive && (
+                                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-indigo-50 text-indigo-700 border border-indigo-200">
+                                    <FiCheckCircle className="w-3 h-3" /> ACTIVE
+                                </span>
+                            )}
+                            {isPremium && (
+                                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-50 text-amber-700 border border-amber-200">
+                                    ★ PREMIUM
+                                </span>
+                            )}
+                        </div>
                     </div>
 
-                    <div className="space-y-3">
+                    {/* Title */}
+                    <h3 className={`text-base font-black tracking-tight leading-tight mb-1 ${
+                        isPremium && !isActive
+                            ? 'bg-clip-text text-transparent bg-gradient-to-r from-amber-600 to-orange-500'
+                            : isActive ? 'text-indigo-700' : 'text-gray-800'
+                    }`}>
+                        {displayName}
+                    </h3>
+                    <p className="text-xs text-gray-400 font-medium">{sample.format_id}</p>
+                </div>
+
+                {/* Action buttons */}
+                <div className="px-5 pb-5 pt-0 grid grid-cols-2 gap-2">
+                    <button
+                        onClick={() => onPreview(sample)}
+                        className="py-2 px-3 bg-gray-50 hover:bg-gray-100 text-gray-600 hover:text-gray-800 rounded-xl text-xs font-semibold transition-all duration-150 flex items-center justify-center gap-1.5 border border-gray-200 hover:border-gray-300"
+                    >
+                        <FiEye className="w-3.5 h-3.5" /> Preview
+                    </button>
+
+                    {!isActive ? (
                         <button
-                            onClick={() => onPreview(sample)}
-                            className="w-full py-2.5 px-4 bg-gray-50 hover:bg-gray-100 text-gray-700 rounded-lg text-sm font-medium transition-all duration-200 flex items-center justify-center gap-2 border border-gray-200"
+                            onClick={() => onActivate(sample.format_id)}
+                            disabled={activating}
+                            className={`py-2 px-3 rounded-xl text-xs font-bold transition-all duration-150 flex items-center justify-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed shadow-sm ${
+                                isPremium
+                                    ? 'bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white'
+                                    : 'bg-gray-900 hover:bg-black text-white'
+                            }`}
                         >
-                            <FiEye className="w-4 h-4" />
-                            Preview
+                            <FiCheck className="w-3.5 h-3.5" />
+                            {activating ? 'Wait...' : 'Activate'}
                         </button>
-                        
-                        {!isActive && (
-                            <button
-                                onClick={() => onActivate(sample.format_id)}
-                                disabled={activating}
-                                className="w-full py-2.5 px-4 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-sm font-medium transition-all duration-200 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-                            >
-                                <FiCheck className="w-4 h-4" />
-                                {activating ? 'Activating...' : 'Activate'}
-                            </button>
-                        )}
-                    </div>
+                    ) : (
+                        <div className="py-2 px-3 rounded-xl text-xs font-bold bg-indigo-50 text-indigo-400 border border-indigo-100 flex items-center justify-center gap-1.5 cursor-default">
+                            <FiCheckCircle className="w-3.5 h-3.5" /> Active
+                        </div>
+                    )}
                 </div>
             </motion.div>
         );
@@ -815,92 +850,82 @@ const InvoiceSettings = () => {
 
                         {/* Invoice Format Tab */}
                         {activeTab === 'format' && (
-                            <div className="bg-white rounded-lg shadow-sm border border-gray-200 flex flex-col h-full">
-                                <div className="border-b border-gray-200 px-6 py-4">
-                                    <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
+                            <div className="flex flex-col gap-6">
+                                {/* Hero Header */}
+                                <div className="relative bg-gradient-to-r from-indigo-600 via-indigo-700 to-violet-700 rounded-2xl overflow-hidden shadow-xl">
+                                    <div className="absolute inset-0 opacity-10" style={{backgroundImage: 'radial-gradient(circle at 20% 50%, white 1px, transparent 1px), radial-gradient(circle at 80% 20%, white 1px, transparent 1px)', backgroundSize: '40px 40px'}} />
+                                    <div className="relative px-6 py-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                                         <div>
-                                            <h5 className="text-xl font-bold text-gray-800 mb-1">
-                                                Invoice Format Management
-                                            </h5>
-                                            <p className="text-gray-500 text-xs">
-                                                Manage and activate different invoice formats for each invoice type
-                                            </p>
+                                            <div className="flex items-center gap-2 mb-1">
+                                                <div className="w-8 h-8 bg-white/20 rounded-lg flex items-center justify-center">
+                                                    <FiGrid className="w-4 h-4 text-white" />
+                                                </div>
+                                                <span className="text-indigo-200 text-xs font-semibold uppercase tracking-widest">Template Studio</span>
+                                            </div>
+                                            <h2 className="text-2xl font-black text-white">Invoice Format Manager</h2>
+                                            <p className="text-indigo-200 text-sm mt-1">Choose and preview PDF templates for each invoice type</p>
                                         </div>
-
-                                        <div className="w-full lg:w-72">
-                                            <label className="block text-sm font-medium text-gray-700 mb-2">
-                                                Invoice Type
-                                            </label>
+                                        <div className="w-full sm:w-64 flex-shrink-0">
+                                            <label className="block text-xs font-bold text-indigo-200 uppercase tracking-wide mb-1.5">Invoice Type</label>
                                             <select
                                                 value={selectedFormatType}
                                                 onChange={(e) => setSelectedFormatType(e.target.value)}
-                                                className="w-full px-4 py-2.5 border border-gray-300 rounded-lg bg-white text-gray-700 font-medium transition-all duration-200 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 shadow-sm text-sm"
+                                                className="w-full px-4 py-2.5 rounded-xl bg-white/10 backdrop-blur border border-white/20 text-white font-semibold text-sm focus:outline-none focus:ring-2 focus:ring-white/40 focus:bg-white/20 transition-all"
                                             >
-                                                {invoiceTypes.map(type => (
-                                                    <option key={type.value} value={type.value}>
-                                                        {type.label}
-                                                    </option>
+                                                {[
+                                                    { value: 'sale', label: 'Sale' },
+                                                    { value: 'purchase', label: 'Purchase' },
+                                                    { value: 'payment', label: 'Payment' },
+                                                    { value: 'receive', label: 'Receive' },
+                                                    { value: 'journal', label: 'Journal' },
+                                                    { value: 'contra', label: 'Contra' },
+                                                    { value: 'expense', label: 'Expense' },
+                                                ].map(t => (
+                                                    <option key={t.value} value={t.value} className="text-gray-800 bg-white">{t.label}</option>
                                                 ))}
                                             </select>
                                         </div>
                                     </div>
+                                    {formatData && (
+                                        <div className="px-6 pb-4 flex flex-wrap gap-2">
+                                            <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-white/10 border border-white/20 rounded-full text-xs text-white font-medium">
+                                                <span className="w-1.5 h-1.5 bg-green-400 rounded-full"></span>
+                                                Active: <strong className="ml-1 capitalize">{formatDisplayNames[formatData.active_format] || formatData.active_format}</strong>
+                                            </span>
+                                            <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-white/10 border border-white/20 rounded-full text-xs text-white font-medium">
+                                                {formatData.samples?.length || 0} templates available
+                                            </span>
+                                        </div>
+                                    )}
                                 </div>
 
-                                <div className="p-6">
+                                {/* Cards Grid */}
+                                <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
                                     {formatLoading ? (
-                                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                                            {[1, 2, 3].map((i) => (
-                                                <div key={i} className="animate-pulse">
-                                                    <div className="bg-gray-100 rounded-xl p-6">
-                                                        <div className="flex items-center gap-3 mb-4">
-                                                            <div className="w-12 h-12 bg-gray-200 rounded-xl"></div>
-                                                            <div className="flex-1">
-                                                                <div className="h-5 bg-gray-200 rounded w-24 mb-2"></div>
-                                                                <div className="h-3 bg-gray-200 rounded w-20"></div>
-                                                            </div>
-                                                        </div>
-                                                        <div className="space-y-3">
-                                                            <div className="h-10 bg-gray-200 rounded-lg"></div>
-                                                            <div className="h-10 bg-gray-200 rounded-lg"></div>
-                                                        </div>
-                                                    </div>
-                                                </div>
+                                        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+                                            {[1,2,3,4,5,6,7,8].map((i) => (
+                                                <div key={i} className="animate-pulse rounded-2xl bg-gray-100 h-44"></div>
                                             ))}
                                         </div>
                                     ) : formatData && formatData.samples ? (
-                                        <div>
-                                            <div className="mb-4 p-3 bg-blue-50 rounded-lg border border-blue-200">
-                                                <p className="text-sm text-blue-800">
-                                                    <strong>Branch ID:</strong> {formatData.branch_id || 'N/A'} | 
-                                                    <strong className="ml-3">Active Format:</strong> {formatDisplayNames[formatData.active_format] || formatData.active_format}
-                                                </p>
-                                            </div>
-                                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                                                {getSortedSamples().map((sample) => (
-                                                    <FormatCard
-                                                        key={sample.format_id}
-                                                        sample={sample}
-                                                        isActive={formatData.active_format === sample.format_id}
-                                                        onPreview={handlePreviewFormat}
-                                                        onActivate={handleActivateFormat}
-                                                        activating={activatingFormat}
-                                                    />
-                                                ))}
-                                            </div>
+                                        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+                                            {getSortedSamples().map((sample) => (
+                                                <FormatCard
+                                                    key={sample.format_id}
+                                                    sample={sample}
+                                                    isActive={formatData.active_format === sample.format_id}
+                                                    onPreview={handlePreviewFormat}
+                                                    onActivate={handleActivateFormat}
+                                                    activating={activatingFormat}
+                                                />
+                                            ))}
                                         </div>
                                     ) : (
-                                        <div className="flex flex-col items-center justify-center py-12">
-                                            <FiFileText className="w-16 h-16 text-gray-300 mb-4" />
-                                            <p className="text-gray-500 text-lg font-medium mb-2">
-                                                No formats found
-                                            </p>
-                                            <p className="text-gray-400 text-sm">
-                                                Could not load invoice formats for this type
-                                            </p>
-                                            <button
-                                                onClick={fetchFormatData}
-                                                className="mt-4 px-4 py-2 bg-indigo-600 text-white rounded-lg text-sm"
-                                            >
+                                        <div className="flex flex-col items-center justify-center py-16">
+                                            <FiFileText className="w-16 h-16 text-gray-200 mb-4" />
+                                            <p className="text-gray-500 text-lg font-semibold mb-1">No formats found</p>
+                                            <p className="text-gray-400 text-sm mb-4">Could not load invoice formats for this type</p>
+                                            <button onClick={fetchFormatData} className="px-5 py-2 bg-indigo-600 text-white rounded-xl text-sm font-semibold hover:bg-indigo-700 transition-colors">
                                                 Retry
                                             </button>
                                         </div>
@@ -1106,50 +1131,80 @@ const InvoiceSettings = () => {
 
             {/* Full Screen PDF Preview Modal */}
             {showPreviewModal && previewPdfUrl && selectedFormatSample && (
-                <div className="fixed inset-0 bg-black bg-opacity-95 z-50 flex flex-col">
-                    {/* Modal Header */}
-                    <div className="bg-gradient-to-r from-indigo-600 to-indigo-700 text-white px-6 py-2 flex justify-between items-center shadow-lg">
-                        <div>
-                            <h2 className="text-xl mb-0 font-bold capitalize">
-                                {formatDisplayNames[selectedFormatSample.format_id]} Format Preview
+                <div className="fixed inset-0 z-50 flex flex-col" style={{background: 'rgba(10,10,20,0.97)'}}>
+
+                    {/* Modal Header — always compact */}
+                    <div className="flex-shrink-0 bg-gradient-to-r from-indigo-700 to-violet-700 flex items-center justify-between px-4 sm:px-6 py-2 shadow-xl">
+                        <div className="min-w-0">
+                            <h2 className="text-base my-0 sm:text-lg font-extrabold text-white truncate capitalize leading-tight">
+                                {formatDisplayNames[selectedFormatSample.format_id] || selectedFormatSample.format_id} Preview
                             </h2>
-                            <p className="text-indigo-100 text-sm mt-0">
-                                Previewing invoice format for {selectedFormatType} type
+                            <p className="text-indigo-200 text-xs mt-0 hidden sm:block">
+                                {selectedFormatType} invoice template
                             </p>
                         </div>
-                        <div className="flex items-center gap-3">
+                        <div className="flex items-center gap-1 ml-4 flex-shrink-0">
                             <button
                                 onClick={handleDownloadPdf}
-                                className="text-white hover:text-indigo-200 transition-colors duration-200 p-2 rounded-lg hover:bg-indigo-500"
+                                className="text-white/80 hover:text-white hover:bg-white/10 transition-all p-2 rounded-lg"
                                 title="Download PDF"
                             >
                                 <FiDownload className="w-5 h-5" />
                             </button>
                             <button
                                 onClick={toggleFullscreen}
-                                className="text-white hover:text-indigo-200 transition-colors duration-200 p-2 rounded-lg hover:bg-indigo-500"
-                                title={isFullscreen ? "Exit Fullscreen" : "Fullscreen"}
+                                className="text-white/80 hover:text-white hover:bg-white/10 transition-all p-2 rounded-lg hidden sm:flex"
+                                title={isFullscreen ? 'Exit Fullscreen' : 'Fullscreen'}
                             >
                                 {isFullscreen ? <FiMinimize2 className="w-5 h-5" /> : <FiMaximize2 className="w-5 h-5" />}
                             </button>
                             <button
                                 onClick={closePreviewModal}
-                                className="text-white hover:text-indigo-200 transition-colors duration-200 p-2 rounded-lg hover:bg-indigo-500"
+                                className="text-white/80 hover:text-white hover:bg-white/10 transition-all p-2 rounded-lg"
                                 title="Close"
                             >
                                 <FiX className="w-6 h-6" />
                             </button>
                         </div>
                     </div>
-                    
-                    {/* PDF Viewer - Full Screen Content */}
-                    <div ref={previewContainerRef} className="flex-1 bg-gray-900 p-4">
-                        <iframe
-                            src={previewPdfUrl}
-                            className="w-full h-full rounded-lg shadow-2xl"
-                            title="PDF Preview"
-                            style={{ backgroundColor: '#fff' }}
-                        />
+
+                    {/* Content area */}
+                    <div ref={previewContainerRef} className="flex-1 flex flex-col sm:flex-row overflow-hidden">
+
+                        {/* Sidebar — hidden on mobile */}
+                        <div className="hidden sm:flex flex-col w-56 xl:w-64 flex-shrink-0 bg-gray-900/60 border-r border-white/5 p-4 gap-3 overflow-y-auto">
+                            <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-1">Template Info</p>
+                            <div className="bg-white/5 rounded-xl p-3 border border-white/10">
+                                <p className="text-xs text-gray-400 mb-0.5">Format</p>
+                                <p className="text-white font-bold text-sm capitalize">{formatDisplayNames[selectedFormatSample.format_id] || selectedFormatSample.format_id}</p>
+                            </div>
+                            <div className="bg-white/5 rounded-xl p-3 border border-white/10">
+                                <p className="text-xs text-gray-400 mb-0.5">Type</p>
+                                <p className="text-white font-bold text-sm capitalize">{selectedFormatType}</p>
+                            </div>
+                            <div className="bg-white/5 rounded-xl p-3 border border-white/10">
+                                <p className="text-xs text-gray-400 mb-0.5">ID</p>
+                                <p className="text-indigo-300 font-mono text-xs break-all">{selectedFormatSample.format_id}</p>
+                            </div>
+                            <div className="mt-auto space-y-2">
+                                <button
+                                    onClick={handleDownloadPdf}
+                                    className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-sm font-semibold transition-colors"
+                                >
+                                    <FiDownload className="w-4 h-4" /> Download
+                                </button>
+                            </div>
+                        </div>
+
+                        {/* PDF iframe — takes full remaining space, no overflow */}
+                        <div className="flex-1 min-w-0 flex flex-col bg-gray-800 p-2 sm:p-4 overflow-hidden">
+                            <iframe
+                                src={previewPdfUrl}
+                                className="w-full flex-1 rounded-xl shadow-2xl border border-white/10"
+                                title="PDF Preview"
+                                style={{ minHeight: 0, display: 'block', background: '#fff' }}
+                            />
+                        </div>
                     </div>
                 </div>
             )}
