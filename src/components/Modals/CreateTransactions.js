@@ -1020,6 +1020,36 @@ const TRANSACTION_PARTY_SEARCH_LIMIT = 10;
 const RECEIVE_PARTY_SEARCH_TYPES = ['client', 'ca', 'agent', 'staff', 'capital'];
 const PAYMENT_PARTY_SEARCH_TYPES = ['client', 'ca', 'agent', 'staff', 'capital', 'expense'];
 const JOURNAL_PARTY_SEARCH_TYPES = ['client', 'ca', 'agent', 'staff', 'capital', 'bank', 'expense'];
+const SALE_PARTY_SEARCH_TYPES = ['client', 'ca', 'staff', 'agent', 'bank', 'capital'];
+
+const normalizeLockedPartyType = (lockedPartyType, lockedSaleType) => {
+    if (lockedPartyType) return lockedPartyType;
+    if (lockedSaleType === 'bank') return 'bank';
+    if (lockedSaleType === 'user') return 'client';
+    return null;
+};
+
+const mapFixedPartyToSelection = (fixedParty, lockedPartyType) => {
+    const userType = normalizeLockedPartyType(fixedParty?.party_type || fixedParty?.userType, null)
+        || lockedPartyType
+        || 'client';
+    const partyId = String(fixedParty?.id || fixedParty?.party_id || fixedParty?.username || '').trim();
+    return {
+        party_id: partyId,
+        username: fixedParty?.username || partyId,
+        bank_id: userType === 'bank' ? partyId : fixedParty?.bank_id,
+        name: fixedParty?.name || partyId,
+        email: fixedParty?.email || '',
+        mobile: fixedParty?.contact || fixedParty?.mobile || '',
+        balance: fixedParty?.balance,
+        userType,
+        metaLine: fixedParty?.metaLine || '',
+        holder: fixedParty?.holder,
+        account_no: fixedParty?.account || fixedParty?.account_no,
+        ifsc: fixedParty?.ifsc,
+        branch: fixedParty?.branch,
+    };
+};
 
 const mapSearchPartyItemToTransactionOption = (item) => {
     if (!item?.party_type || !item?.party_id) return null;
@@ -3220,8 +3250,8 @@ export const PaymentModal = ({ isOpen, onClose, bankDetails, bankId, onSubmit, f
  * Sale invoice form — modal or inline.
  *
  * Party behaviour:
- * - Voucher-style: omit `lockedSaleType`, keep `hidePartySelector` false — user picks client vs bank and searches party.
- * - Ledger-style: set `lockedSaleType` ('user' | 'bank'), `hidePartySelector`, and `fixedParty` — party is implied; no search UI.
+ * - Voucher-style: omit `lockedPartyType`, keep `hidePartySelector` false — user searches party via /transaction/search-party.
+ * - Ledger-style: set `lockedPartyType`, `hidePartySelector`, and `fixedParty` — party is implied; no search UI.
  *
  * @typedef {Object} SaleFormFixedParty
  * @property {string|number} id — firm/client id or bank_id for API
@@ -3238,11 +3268,10 @@ export const PaymentModal = ({ isOpen, onClose, bankDetails, bankId, onSubmit, f
  * @param {(data: object) => void} [props.onSuccess]
  * @param {string} [props.initialPartyId] — seed party id when selector is shown
  * @param {'modal'|'inline'} [props.mode]
- * @param {'user'|'bank'} [props.defaultSaleType] — initial type when party type is not locked
- * @param {'user'|'bank'|null} [props.lockedSaleType] — lock client vs bank; hides type toggle by default
+ * @param {'client'|'ca'|'staff'|'agent'|'bank'|'capital'|null} [props.lockedPartyType] — lock party type when selector hidden
+ * @param {'user'|'bank'|null} [props.lockedSaleType] — deprecated alias for lockedPartyType
  * @param {boolean} [props.hidePartySelector] — hide search/dropdown; use `fixedParty` + id for submit
  * @param {SaleFormFixedParty|null} [props.fixedParty] — party row when selector hidden (name, id, username, …)
- * @param {boolean} [props.showSaleTypeToggle] — default: show only when `lockedSaleType` is null
  * @param {boolean} [props.showFixedPartyBanner] — when selector hidden, show summary card (default true)
  * @param {string} [props.fixedPartyBannerTitle] — e.g. "Client" / "Bank account"
  * @param {string} [props.partyBannerSubtitle] — extra line under name
@@ -3263,9 +3292,10 @@ export const SaleForm = ({
     mode = 'modal',
     defaultSaleType = 'user',
     lockedSaleType = null,
+    lockedPartyType: lockedPartyTypeProp = null,
     hidePartySelector = false,
     fixedParty = null,
-    showSaleTypeToggle,
+    showSaleTypeToggle: _showSaleTypeToggle,
     showFixedPartyBanner = true,
     fixedPartyBannerTitle,
     partyBannerSubtitle = '',
@@ -3280,10 +3310,19 @@ export const SaleForm = ({
     summary = null,
     formatCurrency: formatCurrencyProp = null,
 }) => {
-    const [saleType, setSaleType] = useState(lockedSaleType || defaultSaleType);
+    const lockedPartyType = normalizeLockedPartyType(lockedPartyTypeProp, lockedSaleType);
+    const shouldShowPartySelector = !hidePartySelector;
+    const partyLookup = useTransactionPartySearch(
+        SALE_PARTY_SEARCH_TYPES,
+        Boolean(shouldShowPartySelector && isOpen),
+        { fetchOnFocusOnly: true }
+    );
+    const lockedPartySelection = useMemo(
+        () => (hidePartySelector && fixedParty ? mapFixedPartyToSelection(fixedParty, lockedPartyType) : null),
+        [hidePartySelector, fixedParty, lockedPartyType]
+    );
+
     const [formData, setFormData] = useState({
-        party_id: initialPartyId || '',
-        party_type: defaultSaleType,
         payment_date: new Date().toISOString().split('T')[0],
         invoice_number: `INV-${Date.now().toString().slice(-6)}`,
         items: [{ service_id: '', description: '', price: '', amount: 0, remark: '' }],
@@ -3304,86 +3343,90 @@ export const SaleForm = ({
     });
 
     const [isSubmitting, setIsSubmitting] = useState(false);
-    const [showPartyDropdown, setShowPartyDropdown] = useState(false);
     const [sendEmail, setSendEmail] = useState(true);
     const [sendSms, setSendSms] = useState(true);
     const [sendWhatsApp, setSendWhatsApp] = useState(true);
-    const [saleBankPickerOpen, setSaleBankPickerOpen] = useState(true);
-    /** Full selected user row — survives clearing `userSearchTerm` / `userOptions` so preview + avatar stay correct */
-    const [selectedSaleUser, setSelectedSaleUser] = useState(null);
-    const [saleBankRow, setSaleBankRow] = useState(null);
     const [serviceOptions, setServiceOptions] = useState([]);
-    const [userOptions, setUserOptions] = useState([]);
-    const [bankOptions, setBankOptions] = useState([]);
     const [isLoadingServices, setIsLoadingServices] = useState(false);
-    const [isLoadingParties, setIsLoadingParties] = useState(false);
-    const [isLoadingBanks, setIsLoadingBanks] = useState(false);
-    const [userSearchTerm, setUserSearchTerm] = useState('');
-    const [userLoadingMore, setUserLoadingMore] = useState(false);
-    const userPageRef = useRef(1);
-    const userHasMoreRef = useRef(false);
-    const userLoadingMoreRef = useRef(false);
-    const userSearchTermRef = useRef('');
-    const userSearchRequestIdRef = useRef(0);
+    const [clientFirms, setClientFirms] = useState([]);
     const [selectedSaleFirmId, setSelectedSaleFirmId] = useState('');
-    const salePartySearchRef = useRef(null);
-    const partyDropdownActiveRef = useRef(false);
-
-    const closePartyDropdown = useCallback(() => {
-        partyDropdownActiveRef.current = false;
-        setShowPartyDropdown(false);
-    }, []);
-
-    useClickOutside(salePartySearchRef, closePartyDropdown, showPartyDropdown);
 
     const todayIso = useMemo(() => new Date().toISOString().split('T')[0], []);
 
-    const effectiveSaleType = lockedSaleType ?? saleType;
-    const typeToggleVisible = showSaleTypeToggle !== undefined ? showSaleTypeToggle : lockedSaleType == null;
     const bannerTitle = fixedPartyBannerTitle
-        ?? (effectiveSaleType === 'bank' ? 'Bank (sale from bank)' : 'Client (sale to client)');
+        ?? (lockedPartyType
+            ? `${getPartyTypeLabel({ userType: lockedPartyType }, lockedPartyType)} (sale)`
+            : 'Party');
 
-    useEffect(() => {
-        if (lockedSaleType) setSaleType(lockedSaleType);
-    }, [lockedSaleType]);
-
-    // Fetch services from API — only when modal opens
     useEffect(() => {
         if (isOpen) {
             fetchServices();
         }
     }, [isOpen]);
 
-    // Fetch banks when party search is shown and type is bank
     useEffect(() => {
-        if (effectiveSaleType !== 'bank') return;
-        if (hidePartySelector && lockedSaleType === 'bank') return;
-        fetchAllBanks();
-    }, [effectiveSaleType, hidePartySelector, lockedSaleType]);
+        if (!isOpen) return;
+        partyLookup.reset();
+        setClientFirms([]);
+        setSelectedSaleFirmId('');
+        setFormData({
+            payment_date: new Date().toISOString().split('T')[0],
+            invoice_number: `INV-${Date.now().toString().slice(-6)}`,
+            items: [{ service_id: '', description: '', price: '', amount: 0, remark: '' }],
+            subtotal: 0,
+            discount: '',
+            discount_type: 'percentage',
+            sgst_rate: appSettings.gst_applicable ? appSettings.default_gst_rate / 2 : 0,
+            cgst_rate: appSettings.gst_applicable ? appSettings.default_gst_rate / 2 : 0,
+            sgst_amount: 0,
+            cgst_amount: 0,
+            round_off: 0,
+            grand_total: 0,
+            notes: '',
+            remark: '',
+            tax_rate: appSettings.default_gst_rate,
+            additional_charge: '',
+            apply_round_off: false
+        });
+    }, [isOpen, initialPartyId, hidePartySelector, fixedParty?.id, fixedParty?.username, lockedPartyType]); // eslint-disable-line react-hooks/exhaustive-deps
 
-    // Fetch users — paginated client search (default list + debounced filter)
     useEffect(() => {
-        userSearchTermRef.current = userSearchTerm;
-    }, [userSearchTerm]);
-
-    useEffect(() => {
-        if (hidePartySelector && effectiveSaleType === 'user') return;
-        if (effectiveSaleType !== 'user') return;
-        if (formData.party_id) return;
-        partyDropdownActiveRef.current = true;
-        setIsLoadingParties(true);
-        setUserOptions([]);
-        const delayDebounce = setTimeout(() => {
-            userPageRef.current = 1;
-            fetchUsers(false);
-        }, SEARCH_DEBOUNCE_MS);
-        return () => clearTimeout(delayDebounce);
-    }, [effectiveSaleType, userSearchTerm, hidePartySelector, formData.party_id]);
+        const party = partyLookup.selectedFirm;
+        setSelectedSaleFirmId('');
+        if (!party || party.userType !== 'client') {
+            setClientFirms([]);
+            return undefined;
+        }
+        const username = String(party.username || party.party_id || '').trim();
+        if (!username) {
+            setClientFirms([]);
+            return undefined;
+        }
+        let cancelled = false;
+        (async () => {
+            try {
+                const response = await axios.get(`${API_BASE_URL}/client/details/firms/list`, {
+                    headers: getHeaders(),
+                    params: { username },
+                });
+                if (!cancelled && response.data?.success) {
+                    setClientFirms(response.data.data?.firms || []);
+                } else if (!cancelled) {
+                    setClientFirms([]);
+                }
+            } catch (error) {
+                if (!cancelled) setClientFirms([]);
+            }
+        })();
+        return () => {
+            cancelled = true;
+        };
+    }, [partyLookup.selectedFirm]);
 
     const fetchServices = async () => {
         setIsLoadingServices(true);
         try {
-            const response = await fetch(`${API_BASE_URL}/service/list?type=general&search=&page_no=1&limit=100`, {
+            const response = await fetch(`${API_BASE_URL}/service/list?type=general&search=&page_no=1&limit=100&added_only=true`, {
                 method: 'GET',
                 headers: getHeaders()
             });
@@ -3407,202 +3450,14 @@ export const SaleForm = ({
         }
     };
 
-    const fetchAllBanks = async () => {
-        setIsLoadingBanks(true);
-        try {
-            const response = await fetch(`${API_BASE_URL}/transaction/bank/list`, {
-                method: 'GET',
-                headers: getHeaders()
-            });
-            const data = await response.json();
-            console.log('Bank API Response:', data);
-
-            if (data.success && data.data) {
-                const formattedBanks = data.data.map(bank => ({
-                    id: bank.bank_id || bank.id,
-                    type: 'bank',
-                    name: getBankPrimaryLabel(bank),
-                    account: bank.account_number || bank.account_no || bank.account || 'N/A',
-                    holder: bank.account_holder || bank.holder_name || bank.holder || 'N/A',
-                    ifsc: bank.ifsc_code || bank.ifsc || 'N/A',
-                    branch: bank.branch_name || bank.branch || 'N/A',
-                    balance: bank.balance || bank.current_balance || 0
-                }));
-                setBankOptions(formattedBanks);
-                console.log('Formatted Banks:', formattedBanks);
-            } else {
-                console.error('Invalid bank data structure:', data);
-                setBankOptions([]);
-            }
-        } catch (error) {
-            console.error('Error fetching banks:', error);
-            setBankOptions([]);
-        } finally {
-            setIsLoadingBanks(false);
-        }
-    };
-
-    const fetchUsers = async (append = false) => {
-        const q = String(userSearchTermRef.current || '').trim();
-        const pageNum = append ? userPageRef.current + 1 : 1;
-        const requestId = ++userSearchRequestIdRef.current;
-        const isFirstPage = !append;
-
-        if (isFirstPage) {
-            userPageRef.current = 1;
-            setIsLoadingParties(true);
-        } else {
-            setUserLoadingMore(true);
-            userLoadingMoreRef.current = true;
-        }
-        try {
-            const { list, isLast } = await fetchClientSearchPage({ search: q, pageNo: pageNum });
-            if (requestId !== userSearchRequestIdRef.current) return;
-            const opts = list.map(mapClientToSalePartyOption);
-            if (append) {
-                userPageRef.current = pageNum;
-                setUserOptions((prev) => [...prev, ...opts]);
-            } else {
-                setUserOptions(opts);
-                if (partyDropdownActiveRef.current) {
-                    setShowPartyDropdown(true);
-                }
-            }
-            userHasMoreRef.current = !isLast;
-            setSelectedSaleUser((prev) => {
-                if (!prev) return prev;
-                const fresh = opts.find((o) => String(o.id) === String(prev.id));
-                return fresh ?? prev;
-            });
-        } catch (error) {
-            if (requestId !== userSearchRequestIdRef.current) return;
-            console.error('Error fetching users:', error);
-            if (!append) {
-                setUserOptions([]);
-                if (partyDropdownActiveRef.current) {
-                    setShowPartyDropdown(false);
-                }
-            }
-            userHasMoreRef.current = false;
-        } finally {
-            if (requestId !== userSearchRequestIdRef.current) return;
-            setIsLoadingParties(false);
-            setUserLoadingMore(false);
-            userLoadingMoreRef.current = false;
-        }
-    };
-
-    const loadUsersOnFocus = useCallback(() => {
-        partyDropdownActiveRef.current = true;
-        setShowPartyDropdown(true);
-        const q = String(userSearchTermRef.current || '').trim();
-        if (q === '' && userOptions.length === 0) {
-            userPageRef.current = 1;
-            setIsLoadingParties(true);
-            setUserOptions([]);
-            fetchUsers(false);
-        }
-    }, [userOptions.length]);
-
-    const handleUserListScroll = useCallback((e) => {
-        const el = e.currentTarget;
-        if (userLoadingMoreRef.current || !userHasMoreRef.current || isLoadingParties) return;
-        if (el.scrollTop + el.clientHeight >= el.scrollHeight - 40) {
-            fetchUsers(true);
-        }
-    }, [isLoadingParties]);
-
-    // Combined party options based on sale type
-    const partyOptions = useMemo(() => {
-        if (effectiveSaleType === 'user') {
-            return userOptions;
-        } else if (effectiveSaleType === 'bank') {
-            return bankOptions;
-        }
-        return [];
-    }, [effectiveSaleType, userOptions, bankOptions]);
-
-    // Reset form when modal opens or party context changes
-    useEffect(() => {
-        if (isOpen) {
-            const presetPartyId = hidePartySelector && fixedParty?.id != null && fixedParty.id !== ''
-                ? String(fixedParty.id)
-                : (initialPartyId ? String(initialPartyId) : '');
-            setFormData({
-                party_id: presetPartyId,
-                party_type: effectiveSaleType,
-                payment_date: new Date().toISOString().split('T')[0],
-                invoice_number: `INV-${Date.now().toString().slice(-6)}`,
-                items: [{ service_id: '', description: '', price: '', amount: 0, remark: '' }],
-                subtotal: 0,
-                discount: '',
-                discount_type: 'percentage',
-                sgst_rate: appSettings.gst_applicable ? appSettings.default_gst_rate / 2 : 0,
-                cgst_rate: appSettings.gst_applicable ? appSettings.default_gst_rate / 2 : 0,
-                sgst_amount: 0,
-                cgst_amount: 0,
-                round_off: 0,
-                grand_total: 0,
-                notes: '',
-                remark: '',
-                tax_rate: appSettings.default_gst_rate,
-                additional_charge: '',
-                apply_round_off: false
-            });
-            setUserSearchTerm('');
-            partyDropdownActiveRef.current = false;
-            setShowPartyDropdown(false);
-            setUserOptions([]);
-            setSelectedSaleUser(null);
-            setSelectedSaleFirmId('');
-            const hasParty = Boolean(presetPartyId);
-            setSaleBankPickerOpen(!hasParty);
-            setSaleBankRow(null);
-        }
-    }, [isOpen, initialPartyId, effectiveSaleType, hidePartySelector, fixedParty?.id, fixedParty?.username]);
-
-    const handleSaleTypeChange = (type) => {
-        if (lockedSaleType) return;
-        setSaleType(type);
-        setFormData(prev => ({ ...prev, party_id: '', party_type: type }));
-        setUserSearchTerm('');
-        setShowPartyDropdown(false);
-        setUserOptions([]);
-        setSelectedSaleUser(null);
-        setSelectedSaleFirmId('');
-        setSaleBankPickerOpen(true);
-        setSaleBankRow(null);
-        if (type === 'bank' && bankOptions.length === 0) {
-            fetchAllBanks();
-        }
-    };
-
     const getSelectedParty = () => {
-        if (hidePartySelector && fixedParty && fixedParty.id != null && fixedParty.id !== '') {
-            const id = String(fixedParty.id);
-            return {
-                ...fixedParty,
-                id,
-                type: effectiveSaleType === 'bank' ? 'bank' : 'user',
-                name: fixedParty.name || String(fixedParty.id),
-                username: fixedParty.username,
-                email: fixedParty.email,
-                contact: fixedParty.contact,
-                pan_no: fixedParty.pan_no ?? fixedParty.pan_number,
-                account: fixedParty.account,
-                holder: fixedParty.holder,
-            };
+        if (hidePartySelector && lockedPartySelection) {
+            return lockedPartySelection;
         }
-        if (effectiveSaleType === 'user' && selectedSaleUser && String(selectedSaleUser.id) === String(formData.party_id)) {
-            return selectedSaleUser;
-        }
-        return partyOptions.find(party => String(party.id) === String(formData.party_id));
+        return partyLookup.selectedFirm;
     };
 
-    const selectedSaleFirms = useMemo(() => {
-        const p = getSelectedParty();
-        return Array.isArray(p?.firms) ? p.firms : [];
-    }, [formData.party_id, partyOptions, selectedSaleUser, hidePartySelector, fixedParty, effectiveSaleType]);
+    const selectedSaleFirms = clientFirms;
 
     const saleFirmSelectOptions = useMemo(
         () =>
@@ -3618,24 +3473,6 @@ export const SaleForm = ({
         () => selectedSaleFirms.find((f) => String(f.firm_id) === String(selectedSaleFirmId)),
         [selectedSaleFirms, selectedSaleFirmId]
     );
-
-    /** Map sale `party` row to `ClientSearchAvatar` / Receive dropdown row shape */
-    const partyRowToSearchClient = (party) => ({
-        username: party.username,
-        name: party.name,
-        mobile: party.contact,
-        email: party.email,
-        pan_number: party.pan_no,
-        country_code: party.country_code,
-        balance: party.balance,
-        profile: party.profile,
-        profile_photo: party.profile_photo,
-        profile_image: party.profile_image,
-        photo_url: party.photo_url,
-        image: party.image,
-        avatar: party.avatar,
-        photo: party.photo,
-    });
 
     const addItem = () => {
         setFormData(prev => ({
@@ -3733,27 +3570,102 @@ export const SaleForm = ({
         [serviceOptions]
     );
 
-    const handlePartySelect = (partyId) => {
-        const id = String(partyId);
-        if (effectiveSaleType === 'user') {
-            const row = partyOptions.find((p) => String(p.id) === id);
-            setSelectedSaleUser(row ?? null);
-            setSelectedSaleFirmId('');
-        } else {
-            setSelectedSaleUser(null);
-            setSelectedSaleFirmId('');
+    const handleSubmit = async (e) => {
+        e.preventDefault();
+        if (isSubmitting) return;
+
+        const selectedParty = getSelectedParty();
+        const resolvedParty = resolveTransactionPartySelection(selectedParty);
+        if (!resolvedParty.party_id) return;
+
+        const hasValidItems = formData.items.some(
+            (item) => item.service_id && parseDecimalValue(item.price) > 0
+        );
+        if (!hasValidItems) {
+            alert('Please add at least one valid service item');
+            return;
         }
-        setFormData(prev => ({ ...prev, party_id: id }));
-        setShowPartyDropdown(false);
-        setUserSearchTerm('');
-        if (effectiveSaleType === 'bank') {
-            const row = bankOptions.find((b) => String(b.id) === id);
-            setSaleBankRow(row || null);
-            setSaleBankPickerOpen(false);
+
+        if (hidePartySelector && (!fixedParty || fixedParty.id == null || fixedParty.id === '')) {
+            alert('Sale form is misconfigured: hidePartySelector requires fixedParty with id.');
+            return;
+        }
+
+        setIsSubmitting(true);
+        try {
+            const basePayload = {
+                transaction_date: formData.payment_date,
+                remark: formData.notes || formData.remark,
+                tax_rate: formData.tax_rate,
+                items: formData.items
+                    .filter((item) => item.service_id && parseDecimalValue(item.price) > 0)
+                    .map((item) => ({
+                        service_id: item.service_id,
+                        fees: parseDecimalValue(item.price),
+                        remark: item.remark || item.description
+                    })),
+                additional_charge: parseDecimalValue(formData.additional_charge),
+                round_off: formData.apply_round_off,
+                party_id: resolvedParty.party_id,
+                party_type: resolvedParty.party_type,
+            };
+
+            const discountNum = parseDecimalValue(formData.discount);
+            if (discountNum > 0) {
+                basePayload.discount_type = formData.discount_type;
+                if (formData.discount_type === 'percentage') {
+                    basePayload.discount_perc_rate = discountNum;
+                } else {
+                    basePayload.discount_value = discountNum;
+                }
+            } else {
+                basePayload.discount_type = 'not applicable';
+            }
+
+            if (resolvedParty.party_type === 'client' && selectedSaleFirmId) {
+                basePayload.firm_id = selectedSaleFirmId;
+            }
+
+            const response = await fetch(`${API_BASE_URL}/sale/create`, {
+                method: 'POST',
+                headers: getHeaders(),
+                body: JSON.stringify(basePayload)
+            });
+
+            const data = await response.json();
+
+            if (data.success) {
+                const msg =
+                    typeof data.message === 'string' && data.message.trim()
+                        ? data.message.trim()
+                        : 'Invoice created successfully';
+                toast.success(msg);
+                const submissionData = {
+                    ...formData,
+                    party_type: resolvedParty.party_type,
+                    party_id: resolvedParty.party_id,
+                    selected_party: selectedParty,
+                    timestamp: new Date().toISOString(),
+                    company: appSettings.company_name,
+                    api_response: data,
+                    notifications: {
+                        email: sendEmail,
+                        sms: sendSms,
+                        whatsapp: sendWhatsApp
+                    }
+                };
+                onSuccess(submissionData);
+                if (mode === 'modal') onClose();
+            } else {
+                throw new Error(data.message || 'Failed to create sale');
+            }
+        } catch (error) {
+            console.error('Error submitting form:', error);
+            toast.error(error.message || 'Error creating sale. Please try again.');
+        } finally {
+            setIsSubmitting(false);
         }
     };
-
-    // Calculate totals with proper decimal handling
     useEffect(() => {
         let subtotal = 0;
         formData.items.forEach(item => {
@@ -3801,124 +3713,6 @@ export const SaleForm = ({
         }));
     }, [formData.items, formData.discount, formData.discount_type, formData.sgst_rate, formData.cgst_rate, formData.additional_charge, formData.apply_round_off]);
 
-    const handleSubmit = async (e) => {
-        e.preventDefault();
-        if (isSubmitting) return;
-
-        const partyIdOk = hidePartySelector && fixedParty?.id != null && fixedParty.id !== ''
-            ? true
-            : Boolean(formData.party_id);
-        if (!partyIdOk) return;
-
-        const hasValidItems = formData.items.some(
-            (item) => item.service_id && parseDecimalValue(item.price) > 0
-        );
-        if (!hasValidItems) {
-            alert('Please add at least one valid service item');
-            return;
-        }
-
-        if (hidePartySelector && (!fixedParty || fixedParty.id == null || fixedParty.id === '')) {
-            alert('Sale form is misconfigured: hidePartySelector requires fixedParty with id.');
-            return;
-        }
-
-        setIsSubmitting(true);
-        try {
-            const selectedParty = getSelectedParty();
-
-            const basePayload = {
-                transaction_date: formData.payment_date,
-                remark: formData.notes || formData.remark,
-                tax_rate: formData.tax_rate,
-                items: formData.items
-                    .filter((item) => item.service_id && parseDecimalValue(item.price) > 0)
-                    .map((item) => ({
-                        service_id: item.service_id,
-                        fees: parseDecimalValue(item.price),
-                        remark: item.remark || item.description
-                    })),
-                additional_charge: parseDecimalValue(formData.additional_charge),
-                round_off: formData.apply_round_off
-            };
-
-            const discountNum = parseDecimalValue(formData.discount);
-            if (discountNum > 0) {
-                basePayload.discount_type = formData.discount_type;
-                if (formData.discount_type === 'percentage') {
-                    basePayload.discount_perc_rate = discountNum;
-                } else {
-                    basePayload.discount_value = discountNum;
-                }
-            } else {
-                basePayload.discount_type = 'not applicable';
-            }
-
-            let endpoint = '';
-            let finalPayload = {};
-
-            if (effectiveSaleType === 'user') {
-                endpoint = `${API_BASE_URL}/sale/create/user`;
-                finalPayload = {
-                    ...basePayload,
-                    username: selectedParty?.username || selectedParty?.id,
-                    user_type: 'client',
-                };
-                if (selectedSaleFirmId) {
-                    finalPayload.firm_id = selectedSaleFirmId;
-                }
-            } else if (effectiveSaleType === 'bank') {
-                endpoint = `${API_BASE_URL}/sale/create/bank`;
-                finalPayload = {
-                    ...basePayload,
-                    bank_id: selectedParty?.id
-                };
-            }
-
-            console.log('Submitting to:', endpoint);
-            console.log('Payload:', finalPayload);
-
-            const response = await fetch(endpoint, {
-                method: 'POST',
-                headers: getHeaders(),
-                body: JSON.stringify(finalPayload)
-            });
-
-            const data = await response.json();
-
-            if (data.success) {
-                const msg =
-                    typeof data.message === 'string' && data.message.trim()
-                        ? data.message.trim()
-                        : 'Invoice created successfully';
-                toast.success(msg);
-                const submissionData = {
-                    ...formData,
-                    sale_type: effectiveSaleType,
-                    selected_party: selectedParty,
-                    timestamp: new Date().toISOString(),
-                    company: appSettings.company_name,
-                    api_response: data,
-                    notifications: {
-                        email: sendEmail,
-                        sms: sendSms,
-                        whatsapp: sendWhatsApp
-                    }
-                };
-                console.log('Form submitted successfully:', submissionData);
-                onSuccess(submissionData);
-                if (mode === 'modal') onClose();
-            } else {
-                throw new Error(data.message || `Failed to create ${effectiveSaleType} sale`);
-            }
-        } catch (error) {
-            console.error('Error submitting form:', error);
-            toast.error(error.message || `Error creating ${effectiveSaleType} sale. Please try again.`);
-        } finally {
-            setIsSubmitting(false);
-        }
-    };
-
     const formatSaleMoneyDefault = (amount) =>
         new Intl.NumberFormat('en-IN', {
             style: 'currency',
@@ -3938,52 +3732,15 @@ export const SaleForm = ({
     const isCompactModal = mode === 'modal';
     const saleFieldClass = getCompactFieldClass(isCompactModal ? 'indigo' : 'blue');
     const saleLabelClass = isCompactModal ? COMPACT_LABEL : 'block text-sm font-medium text-slate-700 mb-1';
-    const salePartyListOpen = showPartyDropdown && !formData.party_id;
-
     const partyReady = hidePartySelector && fixedParty?.id != null && fixedParty.id !== ''
         ? true
-        : Boolean(formData.party_id);
-
-    const bankCardFromSearchOrParty = () => {
-        if (saleBankRow && String(saleBankRow.bank_id ?? saleBankRow.id) === String(formData.party_id)) {
-            return saleBankRow;
-        }
-        const p = getSelectedParty();
-        if (!p || effectiveSaleType !== 'bank' || !formData.party_id) return null;
-        return {
-            bank: p.name,
-            holder: p.holder,
-            account_no: p.account,
-            ifsc: p.ifsc,
-            branch: p.branch,
-            balance: p.balance,
-        };
-    };
+        : Boolean(partyLookup.selectedFirm);
 
     const saleFormElement = (
         <>
             {aboveForm}
             <form id={saleFormId} onSubmit={handleSubmit} noValidate={isCompactModal} className={formClassMerged || undefined}>
                 <div className={isCompactModal ? 'space-y-3' : 'space-y-5 mb-6'}>
-                    {isCompactModal && typeToggleVisible && (
-                        <div className="flex rounded-md border border-slate-200 bg-white p-0.5 w-fit" role="group" aria-label="Invoice party type">
-                            <button
-                                type="button"
-                                onClick={() => handleSaleTypeChange('user')}
-                                className={`px-2.5 py-1 text-xs font-medium rounded transition-colors ${effectiveSaleType === 'user' ? 'bg-indigo-600 text-white shadow-sm' : 'text-slate-600 hover:bg-slate-50'}`}
-                            >
-                                Client
-                            </button>
-                            <button
-                                type="button"
-                                onClick={() => handleSaleTypeChange('bank')}
-                                className={`px-2.5 py-1 text-xs font-medium rounded transition-colors ${effectiveSaleType === 'bank' ? 'bg-indigo-600 text-white shadow-sm' : 'text-slate-600 hover:bg-slate-50'}`}
-                            >
-                                Bank
-                            </button>
-                        </div>
-                    )}
-
                     {isCompactModal && (
                         <div>
                             <label className={COMPACT_LABEL}>
@@ -4012,188 +3769,79 @@ export const SaleForm = ({
                         </div>
                     )}
 
-                    {!hidePartySelector && effectiveSaleType === 'user' && (
-                        <div className={isCompactModal ? 'space-y-1.5' : 'space-y-3'}>
-                            <label className={saleLabelClass}>
-                                Client <span className="text-red-500">*</span>
-                            </label>
-                            {!formData.party_id ? (
-                                <>
-                                    {!isCompactModal && (
-                                        <p className="text-xs text-slate-500 mb-1.5">
-                                            Search by name, mobile, email, or PAN.
-                                        </p>
-                                    )}
-                                    <div ref={salePartySearchRef}>
-                                        <div className={`rounded-md border bg-white overflow-hidden transition-all ${getComboboxOpenClass(salePartyListOpen, isCompactModal ? 'indigo' : 'blue')}`}>
-                                            <div className="flex items-center gap-2 px-2.5 py-1.5">
-                                                <FiSearch className="w-3.5 h-3.5 text-slate-400 shrink-0" aria-hidden />
-                                                <input
-                                                    type="text"
-                                                    value={userSearchTerm}
-                                                    onChange={(e) => {
-                                                        partyDropdownActiveRef.current = true;
-                                                        setUserSearchTerm(e.target.value);
-                                                        setShowPartyDropdown(true);
-                                                        setIsLoadingParties(true);
-                                                        setUserOptions([]);
-                                                    }}
-                                                    onFocus={() => {
-                                                        partyDropdownActiveRef.current = true;
-                                                        loadUsersOnFocus();
-                                                    }}
-                                                    placeholder="Name, mobile, email, or PAN"
-                                                    className="flex-1 min-w-0 border-0 bg-transparent text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-0 py-0.5"
-                                                    autoComplete="off"
-                                                />
-                                                {isLoadingParties && salePartyListOpen ? (
-                                                    <ComboboxSearchSpinner />
-                                                ) : (
-                                                    <FiChevronDown
-                                                        className={`w-3.5 h-3.5 text-slate-400 shrink-0 transition-transform duration-200 ${salePartyListOpen ? 'rotate-180' : ''}`}
-                                                        aria-hidden
-                                                    />
-                                                )}
-                                            </div>
-                                            {salePartyListOpen && (
-                                                <div
-                                                    className={`border-t border-slate-100 ${isCompactModal ? 'max-h-56' : 'max-h-60'} overflow-y-auto`}
-                                                    onScroll={handleUserListScroll}
-                                                >
-                                                    {isLoadingParties ? (
-                                                        <ClientSearchSkeletonRows rows={5} />
-                                                    ) : (
-                                                        <>
-                                                            {userOptions.map((party) => (
-                                                                <ClientSearchOptionRow
-                                                                    key={party.id}
-                                                                    client={{
-                                                                        name: party.name,
-                                                                        mobile: party.contact,
-                                                                        email: party.email,
-                                                                        pan_number: party.pan_no,
-                                                                        country_code: party.country_code,
-                                                                        balance: party.balance,
-                                                                        username: party.username,
-                                                                        profile: party.profile,
-                                                                        profile_photo: party.profile_photo,
-                                                                        image: party.image,
-                                                                    }}
-                                                                    formatBalance={formatPlainInrAmount}
-                                                                    itemHover={isCompactModal ? 'hover:bg-indigo-50' : 'hover:bg-blue-50'}
-                                                                    onSelect={() => handlePartySelect(party.id)}
-                                                                />
-                                                            ))}
-                                                            {userLoadingMore && <ClientSearchSkeletonRows rows={2} />}
-                                                        </>
-                                                    )}
-                                                    {!isLoadingParties && !userLoadingMore && userOptions.length === 0 && (
-                                                        <p className="px-2.5 py-3 text-xs text-center text-slate-500">No clients found</p>
-                                                    )}
-                                                </div>
-                                            )}
-                                        </div>
-                                    </div>
-                                </>
-                            ) : (
-                                <div className={isCompactModal ? 'space-y-2' : 'space-y-3'}>
-                                    <SaleClientPreviewCard
-                                        party={getSelectedParty()}
-                                        summary={summary}
-                                        formatMoney={formatMoney}
-                                        variant="sale"
-                                        onChangeClient={() => {
-                                            setFormData((prev) => ({ ...prev, party_id: '' }));
-                                            setSelectedSaleUser(null);
-                                            setSelectedSaleFirmId('');
-                                            setUserSearchTerm('');
-                                            setUserOptions([]);
-                                            setShowPartyDropdown(false);
-                                        }}
+                    {shouldShowPartySelector ? (
+                        <div className={isCompactModal ? 'space-y-2' : 'space-y-3'}>
+                            <FirmClientSearchFields
+                                variant="receive"
+                                label="Party"
+                                formatCurrency={formatMoney}
+                                compact={isCompactModal}
+                                hideSearchHint={isCompactModal}
+                                focusAccent={isCompactModal ? 'indigo' : 'blue'}
+                                searchPlaceholder="Search client, CA, staff, agent, bank, or capital"
+                                searchHint="Search client, CA, staff, agent, bank, or capital."
+                                emptyMessage="No parties found"
+                                showPartyType
+                                getRowKey={(party) => `${party.userType || 'client'}:${party.party_id || party.username || party.bank_id}`}
+                                searchTerm={partyLookup.searchTerm}
+                                setSearchTerm={partyLookup.setSearchTerm}
+                                firms={partyLookup.firms}
+                                setFirms={partyLookup.setFirms}
+                                showDropdown={partyLookup.showDropdown}
+                                setShowDropdown={partyLookup.setShowDropdown}
+                                openDropdown={partyLookup.openDropdown}
+                                dismissDropdown={partyLookup.dismissDropdown}
+                                searchLoading={partyLookup.searchLoading}
+                                loadingMore={partyLookup.loadingMore}
+                                handleListScroll={partyLookup.handleListScroll}
+                                clearSelection={partyLookup.clearSelection}
+                                onSearchFocus={partyLookup.loadPartiesOnFocus}
+                                selectedFirm={partyLookup.selectedFirm}
+                                setSelectedFirm={partyLookup.setSelectedFirm}
+                            />
+                            {partyLookup.selectedFirm?.userType === 'client' && selectedSaleFirms.length > 0 && (
+                                <div className={`rounded-md border border-slate-200 bg-white ${isCompactModal ? 'p-2.5' : 'p-3'}`}>
+                                    <CustomSelect
+                                        label="Firm (optional)"
+                                        options={saleFirmSelectOptions}
+                                        value={optionByValue(saleFirmSelectOptions, selectedSaleFirmId || null)}
+                                        onChange={(opt) => setSelectedSaleFirmId(opt ? String(opt.value) : '')}
+                                        getOptionLabel={(opt) => opt.label}
+                                        getOptionValue={(opt) => opt.value}
+                                        placeholder="Select firm for this sale"
+                                        searchPlaceholder="Search firm by name, PAN, file no, type"
+                                        noOptionsMessage="No firms available"
+                                        isClearable
                                     />
-                                    {selectedSaleFirms.length > 0 && (
-                                        <div className={`rounded-md border border-slate-200 bg-white ${isCompactModal ? 'p-2.5' : 'p-3'}`}>
-                                            <CustomSelect
-                                                label="Firm (optional)"
-                                                options={saleFirmSelectOptions}
-                                                value={optionByValue(saleFirmSelectOptions, selectedSaleFirmId || null)}
-                                                onChange={(opt) => setSelectedSaleFirmId(opt ? String(opt.value) : '')}
-                                                getOptionLabel={(opt) => opt.label}
-                                                getOptionValue={(opt) => opt.value}
-                                                placeholder="Select firm for this sale"
-                                                searchPlaceholder="Search firm by name, PAN, file no, type"
-                                                noOptionsMessage="No firms available"
-                                                isClearable
-                                            />
-                                            {selectedSaleFirm && !isCompactModal && (
-                                                <div className="mt-3 rounded-lg border border-slate-100 bg-slate-50 p-3 text-xs text-slate-700">
-                                                    <div className="font-semibold text-slate-800">{selectedSaleFirm.firm_name || '—'}</div>
-                                                    <div className="mt-1 grid grid-cols-1 gap-1 sm:grid-cols-2">
-                                                        <p><span className="text-slate-500">PAN:</span> <span className="font-mono">{selectedSaleFirm.pan_no || '—'}</span></p>
-                                                        <p><span className="text-slate-500">File No:</span> {selectedSaleFirm.file_no || '—'}</p>
-                                                        <p><span className="text-slate-500">Type:</span> {selectedSaleFirm.firm_type || '—'}</p>
-                                                        <p><span className="text-slate-500">GST:</span> {selectedSaleFirm.gst_no || '—'}</p>
-                                                    </div>
-                                                </div>
-                                            )}
+                                    {selectedSaleFirm && !isCompactModal && (
+                                        <div className="mt-3 rounded-lg border border-slate-100 bg-slate-50 p-3 text-xs text-slate-700">
+                                            <div className="font-semibold text-slate-800">{selectedSaleFirm.firm_name || '—'}</div>
+                                            <div className="mt-1 grid grid-cols-1 gap-1 sm:grid-cols-2">
+                                                <p><span className="text-slate-500">PAN:</span> <span className="font-mono">{selectedSaleFirm.pan_no || '—'}</span></p>
+                                                <p><span className="text-slate-500">File No:</span> {selectedSaleFirm.file_no || '—'}</p>
+                                                <p><span className="text-slate-500">Type:</span> {selectedSaleFirm.firm_type || '—'}</p>
+                                                <p><span className="text-slate-500">GST:</span> {selectedSaleFirm.gst_no || '—'}</p>
+                                            </div>
                                         </div>
                                     )}
                                 </div>
                             )}
                         </div>
-                    )}
-
-                    {!hidePartySelector && effectiveSaleType === 'bank' && (
-                        <div className={isCompactModal ? 'space-y-1.5' : 'space-y-2'}>
-                            <label className={isCompactModal ? COMPACT_LABEL : 'block text-sm font-medium text-slate-700 mb-1.5'}>
-                                Bank Account <span className="text-red-500">*</span>
-                            </label>
-                            {(!formData.party_id || saleBankPickerOpen) ? (
-                                <BankSearchDropdown
-                                    compact={isCompactModal}
-                                    focusAccent={isCompactModal ? 'indigo' : 'blue'}
-                                    onSelect={(bank) => {
-                                        setFormData((prev) => ({ ...prev, party_id: String(bank.bank_id) }));
-                                        setSaleBankRow(bank);
-                                        setSaleBankPickerOpen(false);
-                                    }}
-                                    selectedBankId={formData.party_id || undefined}
-                                />
-                            ) : (
-                                <SaleBankPreviewCard
-                                    bank={bankCardFromSearchOrParty()}
-                                    onChangeBank={() => setSaleBankPickerOpen(true)}
-                                    formatMoney={formatMoney}
-                                    variant="receive"
-                                />
-                            )}
-                        </div>
-                    )}
+                    ) : null}
 
                     {hidePartySelector && showFixedPartyBanner && fixedParty && (
                         <div>
-                            {effectiveSaleType === 'user' ? (
-                                <SaleClientPreviewCard
-                                    party={getSelectedParty()}
-                                    summary={summary}
-                                    formatMoney={formatMoney}
-                                    variant="sale"
-                                    readOnly
-                                />
-                            ) : (
-                                <SaleBankPreviewCard
-                                    bank={{
-                                        bank: fixedParty.name,
-                                        holder: fixedParty.holder || '—',
-                                        account_no: fixedParty.account || fixedParty.account_no || '—',
-                                        ifsc: fixedParty.ifsc || '—',
-                                        branch: fixedParty.branch || '—',
-                                        balance: fixedParty.balance ?? 0,
-                                    }}
-                                    formatMoney={formatMoney}
-                                    readOnly
-                                />
-                            )}
+                            <label className={saleLabelClass}>{bannerTitle}</label>
+                            <TransactionClientPreviewCard
+                                client={getSelectedParty()}
+                                formatCurrency={formatMoney}
+                                variant="receive"
+                                readOnly
+                                partyType={lockedPartyType || lockedPartySelection?.userType || ''}
+                            />
+                            {partyBannerSubtitle ? (
+                                <p className="mt-1 text-xs text-slate-500">{partyBannerSubtitle}</p>
+                            ) : null}
                         </div>
                     )}
 
@@ -4507,7 +4155,7 @@ export const SaleForm = ({
                         <div className="rounded-md bg-indigo-50 border border-indigo-100 px-3 py-2 space-y-1">
                             <p className="text-[11px] font-semibold uppercase tracking-wide text-indigo-700/80">Invoice</p>
                             <div className="flex items-center justify-between gap-2 text-xs">
-                                <span className="text-slate-600">{effectiveSaleType === 'user' ? 'Sale to' : 'Sale from'}</span>
+                                <span className="text-slate-600">Sale to</span>
                                 <span className="font-medium text-slate-800 truncate">{summaryName}</span>
                             </div>
                             <div className="flex items-center justify-between gap-2 text-xs sm:hidden">
@@ -4536,41 +4184,6 @@ export const SaleForm = ({
                         <p className="text-indigo-100 text-xs hidden sm:block">{appSettings.company_name}</p>
                     </div>
                 </div>
-
-                {typeToggleVisible && (
-                    <div className="flex items-center gap-2 bg-indigo-500/30 rounded-lg p-1">
-                        <button
-                            type="button"
-                            onClick={() => handleSaleTypeChange('user')}
-                            className={`px-3 py-1.5 text-sm font-medium rounded-md transition-all duration-200 ${effectiveSaleType === 'user'
-                                ? 'bg-white text-indigo-700 shadow-md'
-                                : 'text-indigo-100 hover:bg-indigo-500/50'
-                                }`}
-                        >
-                            <div className="flex items-center gap-2">
-                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                                </svg>
-                                <span>User/Client</span>
-                            </div>
-                        </button>
-                        <button
-                            type="button"
-                            onClick={() => handleSaleTypeChange('bank')}
-                            className={`px-3 py-1.5 text-sm font-medium rounded-md transition-all duration-200 ${effectiveSaleType === 'bank'
-                                ? 'bg-white text-indigo-700 shadow-md'
-                                : 'text-indigo-100 hover:bg-indigo-500/50'
-                                }`}
-                        >
-                            <div className="flex items-center gap-2">
-                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
-                                </svg>
-                                <span>Bank</span>
-                            </div>
-                        </button>
-                    </div>
-                )}
             </div>
 
             <div className="flex-1 overflow-y-auto p-4 sm:p-5 bg-gray-50">
@@ -4762,16 +4375,17 @@ export const SaleModal = ({
 }) => {
     const hasClient = Boolean(clientId || clientUsername);
     const hasBank = Boolean(bankId);
-    const lockedSaleType = hasClient ? 'user' : hasBank ? 'bank' : null;
-    const hidePartySelector = Boolean(lockedSaleType);
+    const lockedPartyType = hasClient ? 'client' : hasBank ? 'bank' : null;
+    const hidePartySelector = Boolean(lockedPartyType);
     const fixedParty = hasClient
         ? {
             id: clientId || clientUsername,
             username: clientUsername,
             name: clientName || clientUsername || String(clientId || clientUsername || ''),
+            party_type: 'client',
         }
         : hasBank
-            ? { id: bankId, name: bankName || 'Bank' }
+            ? { id: bankId, name: bankName || 'Bank', party_type: 'bank' }
             : null;
 
     return (
@@ -4781,10 +4395,9 @@ export const SaleModal = ({
             onSuccess={(data) => onSubmit && onSubmit('SALE', data)}
             initialPartyId={fixedParty ? String(fixedParty.id) : ''}
             mode="modal"
-            defaultSaleType={lockedSaleType || 'user'}
-            lockedSaleType={lockedSaleType}
+            lockedPartyType={lockedPartyType}
             hidePartySelector={hidePartySelector}
-            showFixedPartyBanner={!lockedSaleType}
+            showFixedPartyBanner={!lockedPartyType}
             fixedParty={fixedParty}
             modalTitle={
                 hasClient
@@ -4801,26 +4414,26 @@ export const SaleModal = ({
 
 /** Spread into `<SaleForm />` on a client ledger page (party known; no search UI). */
 export const saleFormLedgerClientProps = ({ clientId, clientUsername, clientName, partyBannerSubtitle = '' }) => ({
-    lockedSaleType: 'user',
+    lockedPartyType: 'client',
     hidePartySelector: true,
     fixedParty: {
         id: clientId || clientUsername,
         username: clientUsername,
         name: clientName || clientUsername || String(clientId || clientUsername || ''),
+        party_type: 'client',
     },
-    showSaleTypeToggle: false,
     ...(partyBannerSubtitle ? { partyBannerSubtitle } : {}),
 });
 
 /** Spread into `<SaleForm />` on a bank ledger page (bank known; no search UI). */
 export const saleFormLedgerBankProps = ({ bankId, bankName, partyBannerSubtitle = '' }) => ({
-    lockedSaleType: 'bank',
+    lockedPartyType: 'bank',
     hidePartySelector: true,
     fixedParty: {
         id: bankId,
         name: bankName || 'Bank',
+        party_type: 'bank',
     },
-    showSaleTypeToggle: false,
     ...(partyBannerSubtitle ? { partyBannerSubtitle } : {}),
 });
 
@@ -4944,7 +4557,7 @@ export const PurchaseForm = ({
     const fetchServices = async () => {
         setIsLoadingServices(true);
         try {
-            const response = await fetch(`${API_BASE_URL}/service/list?type=general&search=&page_no=1&limit=100`, {
+            const response = await fetch(`${API_BASE_URL}/service/list?type=general&search=&page_no=1&limit=100&added_only=true`, {
                 method: 'GET',
                 headers: getHeaders()
             });

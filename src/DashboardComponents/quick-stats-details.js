@@ -1,7 +1,6 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useParams, useLocation, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { FiCheckCircle, FiCircle, FiSend, FiMail as FiMailIcon } from 'react-icons/fi';
 import {
     FiArrowLeft,
     FiRefreshCw,
@@ -14,42 +13,131 @@ import {
     FiEye,
     FiDownload,
     FiSearch,
-    FiChevronLeft,
-    FiChevronRight,
     FiUser,
     FiBriefcase,
     FiPhone,
     FiMail,
+    FiMail as FiMailIcon,
     FiCalendar as FiCalendarIcon,
     FiClock,
     FiX,
-    FiMenu,
-    FiUserPlus,
     FiLock,
     FiCheckSquare,
     FiFileText,
     FiBookOpen,
     FiClipboard,
-    FiFolder
+    FiFolder,
+    FiMoreVertical,
+    FiFilter,
+    FiSend
 } from 'react-icons/fi';
 import { Sidebar, Header } from '../components/header';
+import TablePagination from '../components/TablePagination';
 import getHeaders from '../utils/get-headers';
 import API_BASE_URL from '../utils/api-controller';
 import toast from 'react-hot-toast';
+
+const FirmsDetailsModal = ({ isOpen, onClose, firms, clientName }) => {
+    if (!isOpen || !firms || firms.length === 0) return null;
+
+    const formatFirmDate = (dateString) => {
+        if (!dateString) return 'N/A';
+        return new Date(dateString).toLocaleDateString('en-IN', {
+            day: '2-digit',
+            month: 'short',
+            year: 'numeric',
+        });
+    };
+
+    const formatAddress = (address) => {
+        if (!address) return 'N/A';
+        const parts = [
+            address.address_line_1,
+            address.address_line_2,
+            address.city,
+            address.state,
+            address.pincode,
+            address.country,
+        ].filter(Boolean);
+        return parts.join(', ') || 'N/A';
+    };
+
+    return (
+        <AnimatePresence>
+            {isOpen && (
+                <motion.div
+                    className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[100] p-4"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    onClick={onClose}
+                >
+                    <motion.div
+                        className="bg-white rounded-xl shadow-2xl w-full max-w-4xl mx-auto max-h-[90vh] overflow-hidden"
+                        initial={{ scale: 0.95, opacity: 0, y: 20 }}
+                        animate={{ scale: 1, opacity: 1, y: 0 }}
+                        exit={{ scale: 0.95, opacity: 0, y: 20 }}
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        <div className="bg-gradient-to-r from-blue-600 to-blue-700 text-white px-6 py-4 flex justify-between items-center">
+                            <div className="flex items-center gap-3">
+                                <div className="w-10 h-10 bg-white/20 rounded-lg flex items-center justify-center">
+                                    <FiBriefcase className="w-5 h-5" />
+                                </div>
+                                <div>
+                                    <h3 className="text-lg font-bold">Firms Details</h3>
+                                    <p className="text-blue-100 text-sm">{clientName}</p>
+                                </div>
+                            </div>
+                            <button onClick={onClose} className="text-white hover:text-blue-200 p-2 rounded-lg hover:bg-white/10">
+                                <FiX className="w-5 h-5" />
+                            </button>
+                        </div>
+                        <div className="p-6 overflow-y-auto max-h-[70vh] space-y-4">
+                            {firms.map((firm, index) => (
+                                <div key={firm.firm_id || index} className="border border-gray-200 rounded-xl p-4 bg-gray-50">
+                                    <div className="flex items-start gap-3">
+                                        <div className="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center flex-shrink-0">
+                                            <FiBriefcase className="w-5 h-5 text-white" />
+                                        </div>
+                                        <div className="min-w-0 flex-1">
+                                            <h4 className="font-bold text-gray-900">{firm.firm_name || 'Unnamed Firm'}</h4>
+                                            <p className="text-xs text-gray-500 mt-1">Created: {formatFirmDate(firm.create_date)}</p>
+                                            <div className="grid grid-cols-2 gap-2 mt-3 text-sm">
+                                                {firm.pan_no && <div><span className="text-gray-500">PAN:</span> {firm.pan_no}</div>}
+                                                {firm.gst_no && <div><span className="text-gray-500">GST:</span> {firm.gst_no}</div>}
+                                            </div>
+                                            {firm.address && (
+                                                <p className="text-sm text-gray-600 mt-2">{formatAddress(firm.address)}</p>
+                                            )}
+                                        </div>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                        <div className="px-6 py-3 border-t bg-gray-50 text-sm text-gray-600">
+                            Total: {firms.length} firm{firms.length !== 1 ? 's' : ''}
+                        </div>
+                    </motion.div>
+                </motion.div>
+            )}
+        </AnimatePresence>
+    );
+};
 
 const QuickStatsDetailsPage = () => {
     const { type } = useParams();
     const location = useLocation();
     const navigate = useNavigate();
     const locationState = location.state || {};
-    
+
     // Sidebar state
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
     const [isMinimized, setIsMinimized] = useState(() => {
         const saved = localStorage.getItem('sidebarMinimized');
         return saved ? JSON.parse(saved) : false;
     });
-    
+
     const [data, setData] = useState(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
@@ -61,14 +149,18 @@ const QuickStatsDetailsPage = () => {
         is_last_page: false
     });
     const [searchTerm, setSearchTerm] = useState('');
-    const [expandedRows, setExpandedRows] = useState(new Set());
-    const [openMenuId, setOpenMenuId] = useState(null);
-    const menuRef = useRef(null);
+    const [debouncedSearch, setDebouncedSearch] = useState('');
+    const [balanceAfterInput, setBalanceAfterInput] = useState('');
+    const [debouncedBalanceAfter, setDebouncedBalanceAfter] = useState(0);
+    const [showFilterDropdown, setShowFilterDropdown] = useState(false);
+    const [meta, setMeta] = useState({ debtor_count: 0, debtor_balance: 0, creditor_count: 0, creditor_balance: 0 });
+    const [activeRowDropdown, setActiveRowDropdown] = useState(null);
+    const [firmsModal, setFirmsModal] = useState({ open: false, firms: [], clientName: '' });
 
     // Multi-Select State
     const [selectedDebtors, setSelectedDebtors] = useState(new Set());
     const [selectAll, setSelectAll] = useState(false);
-    
+
     // Payment Reminder Modal State
     const [paymentReminderModal, setPaymentReminderModal] = useState({
         isOpen: false,
@@ -96,11 +188,12 @@ const QuickStatsDetailsPage = () => {
         };
     }, [mobileMenuOpen]);
 
-    // Close menu when clicking outside
+    // Close dropdown when clicking outside
     useEffect(() => {
         const handleClickOutside = (event) => {
-            if (menuRef.current && !menuRef.current.contains(event.target)) {
-                setOpenMenuId(null);
+            if (!event.target.closest('.dropdown-container')) {
+                setActiveRowDropdown(null);
+                setShowFilterDropdown(false);
             }
         };
         document.addEventListener('mousedown', handleClickOutside);
@@ -144,7 +237,7 @@ const QuickStatsDetailsPage = () => {
     };
 
     const getTypeParam = () => {
-        switch(type) {
+        switch (type) {
             case 'pending-billing': return 'pending_billing';
             case 'creditors': return 'creditors';
             case 'debtors': return 'debtors';
@@ -155,15 +248,38 @@ const QuickStatsDetailsPage = () => {
         }
     };
 
+    const isClientBalanceList = type === 'debtors' || type === 'creditors';
+
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            setDebouncedSearch(searchTerm.trim());
+        }, 400);
+        return () => clearTimeout(timer);
+    }, [searchTerm]);
+
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            const parsed = Math.max(0, Number(balanceAfterInput) || 0);
+            setDebouncedBalanceAfter(parsed);
+        }, 400);
+        return () => clearTimeout(timer);
+    }, [balanceAfterInput]);
+
     const fetchDetails = async (pageNo = 1, limit = 10) => {
         try {
             setLoading(true);
             setError(null);
-            
+
             const apiType = getTypeParam();
             const headers = getHeaders();
+            const searchQuery = isClientBalanceList && debouncedSearch
+                ? `&search=${encodeURIComponent(debouncedSearch)}`
+                : '';
+            const balanceQuery = type === 'debtors'
+                ? `&balance_after=${debouncedBalanceAfter || 0}`
+                : '';
             const response = await fetch(
-                `${API_BASE_URL}/report/dashboard/details?type=${apiType}&page_no=${pageNo}&limit=${limit}${searchTerm ? `&search=${encodeURIComponent(searchTerm)}` : ''}`,
+                `${API_BASE_URL}/report/dashboard/details?type=${apiType}&page_no=${pageNo}&limit=${limit}${searchQuery}${balanceQuery}`,
                 {
                     method: 'GET',
                     headers: {
@@ -184,6 +300,9 @@ const QuickStatsDetailsPage = () => {
                 if (result.data.pagination) {
                     setPagination(result.data.pagination);
                 }
+                if (result.data.meta) {
+                    setMeta(result.data.meta);
+                }
                 // Clear selections when data changes
                 setSelectedDebtors(new Set());
                 setSelectAll(false);
@@ -199,8 +318,17 @@ const QuickStatsDetailsPage = () => {
     };
 
     useEffect(() => {
-        fetchDetails();
-    }, [type, searchTerm]);
+        setSearchTerm('');
+        setDebouncedSearch('');
+        setBalanceAfterInput('');
+        setDebouncedBalanceAfter(0);
+        setMeta({ debtor_count: 0, debtor_balance: 0, creditor_count: 0, creditor_balance: 0 });
+        setPagination(prev => ({ ...prev, page_no: 1 }));
+    }, [type]);
+
+    useEffect(() => {
+        fetchDetails(1, pagination.limit);
+    }, [type, debouncedSearch, debouncedBalanceAfter]);
 
     const handlePageChange = (newPage) => {
         if (newPage >= 1 && newPage <= pagination.total_pages) {
@@ -208,33 +336,92 @@ const QuickStatsDetailsPage = () => {
         }
     };
 
+    const handleLimitChange = (newLimit) => {
+        const limit = Math.min(100, Math.max(1, Number(newLimit) || 10));
+        setPagination((prev) => ({ ...prev, limit, page_no: 1 }));
+        fetchDetails(1, limit);
+    };
+
+    const renderListPagination = () => (
+        pagination.total > 0 ? (
+            <TablePagination
+                page={pagination.page_no}
+                limit={pagination.limit}
+                total={pagination.total}
+                totalPages={pagination.total_pages}
+                isLastPage={pagination.is_last_page}
+                rowOptions={[10, 20, 50, 100]}
+                defaultRows={10}
+                onPageChange={handlePageChange}
+                onLimitChange={handleLimitChange}
+            />
+        ) : null
+    );
+
     const handleRefresh = () => {
         fetchDetails();
     };
 
     const handleClearSearch = () => {
         setSearchTerm('');
+        setDebouncedSearch('');
         setPagination(prev => ({ ...prev, page_no: 1 }));
     };
 
-    const toggleRowExpand = (rowId) => {
-        const newExpanded = new Set(expandedRows);
-        if (newExpanded.has(rowId)) {
-            newExpanded.delete(rowId);
-        } else {
-            newExpanded.add(rowId);
+    const handleClearFilters = () => {
+        setBalanceAfterInput('');
+        setDebouncedBalanceAfter(0);
+        setPagination(prev => ({ ...prev, page_no: 1 }));
+    };
+
+    const toggleRowDropdown = (username) => {
+        setActiveRowDropdown(activeRowDropdown === username ? null : username);
+    };
+
+    const getLastUpdatedFirm = (firms) => {
+        if (!firms || firms.length === 0) return null;
+        const sortedFirms = [...firms].sort((a, b) => {
+            const dateA = a.modify_date || a.create_date;
+            const dateB = b.modify_date || b.create_date;
+            return new Date(dateB) - new Date(dateA);
+        });
+        return sortedFirms[0];
+    };
+
+    const openFirmsModal = (firms, clientName) => {
+        setFirmsModal({ open: true, firms: firms || [], clientName: clientName || '' });
+    };
+
+    const closeFirmsModal = () => {
+        setFirmsModal({ open: false, firms: [], clientName: '' });
+    };
+
+    const renderFirmsCell = (item) => {
+        const lastFirm = getLastUpdatedFirm(item.firms);
+        const firmCount = item.firms?.length || 0;
+
+        if (firmCount === 0) {
+            return <div className="text-sm text-gray-500 italic">No firms</div>;
         }
-        setExpandedRows(newExpanded);
-    };
 
-    const toggleMenu = (menuId, event) => {
-        event.stopPropagation();
-        setOpenMenuId(openMenuId === menuId ? null : menuId);
-    };
-
-    const handleMenuAction = (username, path) => {
-        navigate(`/client/profile/${username}/${path}`);
-        setOpenMenuId(null);
+        return (
+            <div
+                className="cursor-pointer hover:bg-gray-100 transition-colors text-center p-2 rounded-lg"
+                onClick={() => openFirmsModal(item.firms, item.name)}
+            >
+                <div className="font-medium text-gray-800 text-sm mb-1 truncate">{lastFirm?.firm_name || 'N/A'}</div>
+                <div className="space-y-1">
+                    <div className="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-blue-50 text-blue-700 border border-blue-200">
+                        {firmCount} firm{firmCount !== 1 ? 's' : ''}
+                    </div>
+                    {firmCount > 1 && (
+                        <div className="text-xs text-blue-600 font-medium">
+                            +{firmCount - 1} more firm{firmCount - 1 > 1 ? 's' : ''}
+                        </div>
+                    )}
+                </div>
+            </div>
+        );
     };
 
     // Multi-Select Handlers
@@ -268,7 +455,7 @@ const QuickStatsDetailsPage = () => {
     const sendSinglePaymentReminder = async (username, name) => {
         setSendingReminder(true);
         const headers = getHeaders();
-        
+
         try {
             const response = await fetch(`${API_BASE_URL}/payment-reminder/payment-reminder/send`, {
                 method: 'POST',
@@ -307,7 +494,7 @@ const QuickStatsDetailsPage = () => {
         setSendingReminder(true);
         const headers = getHeaders();
         const usernames = debtorList.map(d => d.username);
-        
+
         try {
             const response = await fetch(`${API_BASE_URL}/payment-reminder/payment-reminder/bulk-send`, {
                 method: 'POST',
@@ -325,7 +512,7 @@ const QuickStatsDetailsPage = () => {
                 toast.success(`✅ Reminders sent! Sent: ${data.sent} | Skipped: ${data.skipped} | Failed: ${data.failed}`, {
                     duration: 5000
                 });
-                
+
                 // Show detailed results
                 if (data.skipped > 0) {
                     const skippedUsers = data.details
@@ -345,7 +532,7 @@ const QuickStatsDetailsPage = () => {
                         toast.error(`Failed: ${failedUsers}`, { duration: 5000 });
                     }
                 }
-                
+
                 // Clear selection after successful send
                 clearSelection();
             } else {
@@ -374,12 +561,12 @@ const QuickStatsDetailsPage = () => {
     const openBulkReminderModal = () => {
         const debtorsList = data?.list || [];
         const selectedDebtorsList = debtorsList.filter(item => selectedDebtors.has(item.username));
-        
+
         if (selectedDebtorsList.length === 0) {
             toast.error('Please select at least one debtor');
             return;
         }
-        
+
         setPaymentReminderModal({
             isOpen: true,
             type: 'bulk',
@@ -391,6 +578,11 @@ const QuickStatsDetailsPage = () => {
 
     const closeReminderModal = () => {
         setPaymentReminderModal({ isOpen: false, type: 'single', username: null, name: null, debtorList: [] });
+    };
+
+    const handleMenuAction = (username, path) => {
+        navigate(`/client/profile/${username}/${path}`);
+        setActiveRowDropdown(null);
     };
 
     const getMenuItems = () => [
@@ -405,7 +597,7 @@ const QuickStatsDetailsPage = () => {
     ];
 
     const getPageTitle = () => {
-        switch(type) {
+        switch (type) {
             case 'pending-billing': return 'Pending Billing';
             case 'creditors': return 'Creditors List';
             case 'debtors': return 'Debtors List';
@@ -417,7 +609,7 @@ const QuickStatsDetailsPage = () => {
     };
 
     const getPageDescription = () => {
-        switch(type) {
+        switch (type) {
             case 'pending-billing': return 'List of all pending billing invoices';
             case 'creditors': return 'List of all creditors with outstanding balances';
             case 'debtors': return 'List of all debtors with receivable balances';
@@ -429,7 +621,7 @@ const QuickStatsDetailsPage = () => {
     };
 
     const getIcon = () => {
-        switch(type) {
+        switch (type) {
             case 'pending-billing': return <FiShoppingBag className="w-6 h-6" />;
             case 'creditors': return <FiUsers className="w-6 h-6" />;
             case 'debtors': return <FiDollarSign className="w-6 h-6" />;
@@ -441,7 +633,7 @@ const QuickStatsDetailsPage = () => {
     };
 
     const getGradient = () => {
-        switch(type) {
+        switch (type) {
             case 'pending-billing': return 'from-indigo-500 to-purple-600';
             case 'creditors': return 'from-cyan-500 to-blue-600';
             case 'debtors': return 'from-red-500 to-pink-600';
@@ -452,114 +644,161 @@ const QuickStatsDetailsPage = () => {
         }
     };
 
-    const renderDebtorsTable = () => {
-        const list = data?.list || [];
-        
-        if (list.length === 0) {
-            return (
-                <div className="text-center py-12">
-                    <div className="inline-flex items-center justify-center w-16 h-16 bg-gray-100 rounded-full mb-4">
-                        <FiDollarSign className="w-8 h-8 text-gray-400" />
-                    </div>
-                    <p className="text-gray-500 font-medium">No debtors found</p>
-                </div>
-            );
-        }
+    const debtorColumns = [
+        { id: 'name', label: 'Client Details', flex: '1.5' },
+        { id: 'mobile', label: 'Mobile', flex: '1' },
+        { id: 'firms', label: 'Firms', flex: '1.2' },
+        { id: 'balance', label: 'Balance', flex: '1' },
+        { id: 'last_payment', label: 'Last Payment', flex: '1.2' },
+        { id: 'actions', label: 'Actions', flex: '0.8' },
+    ];
 
+    const creditorColumns = [
+        { id: 'name', label: 'Client Details', flex: '1.5' },
+        { id: 'mobile', label: 'Mobile', flex: '1' },
+        { id: 'firms', label: 'Firms', flex: '1.2' },
+        { id: 'balance', label: 'Balance', flex: '1' },
+        { id: 'actions', label: 'Actions', flex: '0.8' },
+    ];
+
+    const renderRowActionMenu = (item, showReminder = false) => {
         const menuItems = getMenuItems();
+        return (
+            <div className="relative dropdown-container flex justify-center">
+                <motion.button
+                    onClick={() => toggleRowDropdown(item.username)}
+                    className="w-8 h-8 flex items-center justify-center rounded bg-gray-100 hover:bg-gray-200 transition-colors border border-gray-300"
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
+                >
+                    <FiMoreVertical className="w-4 h-4 text-gray-700" />
+                </motion.button>
+                <AnimatePresence>
+                    {activeRowDropdown === item.username && (
+                        <motion.div
+                            className="absolute right-0 mt-1 w-56 bg-white rounded-lg shadow-xl border border-gray-200 z-50 overflow-hidden"
+                            initial={{ opacity: 0, y: -8, scale: 0.96 }}
+                            animate={{ opacity: 1, y: 0, scale: 1 }}
+                            exit={{ opacity: 0, y: -8, scale: 0.96 }}
+                            transition={{ duration: 0.15 }}
+                        >
+                            <div className="py-1">
+                                {showReminder && (
+                                    <>
+                                        <button
+                                            onClick={() => {
+                                                setActiveRowDropdown(null);
+                                                openSingleReminderModal(item.username, item.name);
+                                            }}
+                                            className="flex items-center w-full px-4 py-2 text-sm text-purple-600 hover:bg-purple-50 transition-colors"
+                                        >
+                                            <FiMailIcon className="mr-3 text-purple-600 w-4 h-4" />
+                                            Payment Reminder
+                                        </button>
+                                        <div className="border-t my-1" />
+                                    </>
+                                )}
+                                <button
+                                    onClick={() => {
+                                        setActiveRowDropdown(null);
+                                        navigate(`/client/profile/${item.username}`);
+                                    }}
+                                    className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 transition-colors"
+                                >
+                                    <FiEye className="mr-3 text-blue-600 w-4 h-4" />
+                                    View Details
+                                </button>
+                                {menuItems.map((menuItem, idx) => (
+                                    <button
+                                        key={idx}
+                                        onClick={() => handleMenuAction(item.username, menuItem.path)}
+                                        className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                                    >
+                                        <span className="mr-3 text-gray-500">{menuItem.icon}</span>
+                                        {menuItem.label}
+                                    </button>
+                                ))}
+                            </div>
+                        </motion.div>
+                    )}
+                </AnimatePresence>
+            </div>
+        );
+    };
 
-        // Mobile Debtor Card Component
-        const MobileDebtorCard = ({ item, index }) => {
+    const renderBalanceListTable = (variant = 'debtors') => {
+        const isDebtor = variant === 'debtors';
+        const columns = isDebtor ? debtorColumns : creditorColumns;
+        const listLabel = isDebtor ? 'Debtors' : 'Creditors';
+        const emptyMessage = isDebtor ? 'No debtors found' : 'No creditors found';
+        const tableMinWidth = isDebtor ? '1100px' : '960px';
+        const metaCount = isDebtor ? (meta.debtor_count || pagination.total) : (meta.creditor_count || pagination.total);
+        const balanceBadgeClass = isDebtor
+            ? 'bg-green-50 text-green-700 border-green-200'
+            : 'bg-red-50 text-red-700 border-red-200';
+        const list = data?.list || [];
+
+        const SkeletonRow = () => (
+            <div className="flex items-center border-b border-gray-100 animate-pulse p-3">
+                <div className="w-12 flex-shrink-0"><div className="h-4 bg-gray-200 rounded w-8" /></div>
+                <div className="w-12 flex-shrink-0 border-l border-gray-100 p-3"><div className="h-4 bg-gray-200 rounded w-4 mx-auto" /></div>
+                {columns.map((col) => (
+                    <div key={col.id} className="flex-1 p-3 border-l border-gray-100" style={{ flex: col.flex }}>
+                        <div className="h-3 bg-gray-200 rounded w-3/4 mx-auto" />
+                    </div>
+                ))}
+            </div>
+        );
+
+        const MobileListCard = ({ item, index }) => {
             const isSelected = selectedDebtors.has(item.username);
-            
             return (
                 <motion.div
-                    className={`bg-white border border-gray-200 rounded-xl p-4 mb-3 md:hidden ${isSelected ? 'ring-2 ring-purple-500 bg-purple-50/10' : ''}`}
+                    className={`bg-white border border-gray-200 rounded-lg p-3 mb-2 md:hidden ${isSelected ? 'ring-2 ring-blue-200' : ''}`}
                     initial={{ opacity: 0, y: 5 }}
                     animate={{ opacity: 1, y: 0 }}
                 >
-                    <div className="flex items-start justify-between mb-3">
+                    <div className="flex items-start justify-between mb-2">
                         <div className="flex items-center gap-2">
                             <label className="relative inline-flex items-center cursor-pointer">
-                                <input
-                                    type="checkbox"
-                                    className="sr-only peer"
-                                    checked={isSelected}
-                                    onChange={() => handleSelectDebtor(item.username)}
-                                />
-                                <div className={`w-8 h-4 ${isSelected ? 'bg-purple-600' : 'bg-gray-300'} peer-focus:outline-none rounded-full peer after:content-[''] after:absolute after:top-[1px] after:left-[1px] after:bg-white after:rounded-full after:h-3 after:w-3 after:transition-all ${isSelected ? 'after:translate-x-full' : ''}`}></div>
+                                <input type="checkbox" className="sr-only peer" checked={isSelected} onChange={() => handleSelectDebtor(item.username)} />
+                                <div className={`w-8 h-4 ${isSelected ? 'bg-blue-600' : 'bg-gray-300'} rounded-full peer after:content-[''] after:absolute after:top-[1px] after:left-[1px] after:bg-white after:rounded-full after:h-3 after:w-3 after:transition-all ${isSelected ? 'after:translate-x-full' : ''}`} />
                             </label>
-                            <span className="font-bold text-gray-800 text-xs">{index + 1}</span>
-                            <div className="w-8 h-8 bg-purple-50 text-purple-600 rounded-lg flex items-center justify-center">
-                                <FiUser className="w-4 h-4" />
+                            <div className="font-bold text-gray-800 text-sm w-4">{index + 1}</div>
+                            <div className="w-7 h-7 bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg flex items-center justify-center">
+                                <FiUser className="w-3.5 h-3.5 text-white" />
                             </div>
                             <div>
-                                <p className="font-semibold text-gray-800 text-xs truncate max-w-[120px]">{item.name}</p>
-                                <p className="text-[10px] text-gray-400">@{item.username}</p>
+                                <div className="font-semibold text-gray-800 text-sm">{item.name || 'N/A'}</div>
+                                <div className="text-xs text-gray-500">{item.guardian_name || 'N/A'}</div>
                             </div>
                         </div>
-                        <button
-                            onClick={() => toggleRowExpand(item.username || index)}
-                            className="p-1 hover:bg-gray-100 rounded transition-colors text-gray-500"
-                        >
-                            {expandedRows.has(item.username || index) ? (
-                                <FiChevronRight className="w-4 h-4 transform rotate-90" />
-                            ) : (
-                                <FiChevronRight className="w-4 h-4" />
-                            )}
-                        </button>
+                        {renderRowActionMenu(item, isDebtor)}
                     </div>
-
-                    <div className="grid grid-cols-2 gap-3 text-xs mt-2 border-t border-gray-100 pt-3">
-                        <div>
-                            <span className="text-gray-400 block text-[10px] uppercase font-semibold tracking-wider">Firm</span>
-                            <span className="text-gray-700 font-medium truncate block mt-0.5">{item.firm?.firm_name || 'Individual'}</span>
+                    <div className="space-y-2 text-sm">
+                        <div className="flex items-center gap-2 text-gray-700">
+                            <FiPhone className="w-3 h-3 text-gray-400" />
+                            <span>{item.mobile || 'N/A'}</span>
                         </div>
-                        <div>
-                            <span className="text-gray-400 block text-[10px] uppercase font-semibold tracking-wider">Balance</span>
-                            <span className="text-green-600 font-bold block mt-0.5">{formatCurrency(Math.abs(item.balance))} ({item.balance_type})</span>
-                        </div>
-                    </div>
-
-                    <div className="flex items-center justify-between gap-2 mt-4 pt-3 border-t border-gray-100">
-                        <button
-                            onClick={() => openSingleReminderModal(item.username, item.name)}
-                            disabled={sendingReminder}
-                            className="flex-1 inline-flex items-center justify-center gap-1.5 py-1.5 bg-purple-50 text-purple-700 border border-purple-100 rounded-lg hover:bg-purple-100 transition-colors text-xs font-semibold disabled:opacity-50"
-                        >
-                            <FiMailIcon className="w-3.5 h-3.5" />
-                            Reminder
-                        </button>
-                        
-                        <div className="relative flex-1">
+                        <div className="flex items-center gap-2 text-gray-700">
+                            <FiBriefcase className="w-3 h-3 text-gray-400" />
                             <button
-                                onClick={(e) => toggleMenu(item.username || index, e)}
-                                className="w-full inline-flex items-center justify-center gap-1.5 py-1.5 bg-gray-50 text-gray-700 border border-gray-200 rounded-lg hover:bg-gray-100 transition-colors text-xs font-semibold"
+                                type="button"
+                                className="text-left text-blue-600 hover:underline"
+                                onClick={() => openFirmsModal(item.firms, item.name)}
                             >
-                                <FiMenu className="w-3.5 h-3.5" />
-                                Menu
+                                {(item.firms?.length || 0) > 0
+                                    ? `${getLastUpdatedFirm(item.firms)?.firm_name || 'Firm'}${item.firms.length > 1 ? ` (+${item.firms.length - 1})` : ''}`
+                                    : 'No firms'}
                             </button>
-                            <AnimatePresence>
-                                {openMenuId === (item.username || index) && (
-                                    <motion.div
-                                        initial={{ opacity: 0, scale: 0.95, y: -10 }}
-                                        animate={{ opacity: 1, scale: 1, y: 0 }}
-                                        exit={{ opacity: 0, scale: 0.95, y: -10 }}
-                                        className="absolute right-0 bottom-full mb-2 w-48 bg-white rounded-lg shadow-xl border border-gray-200 z-50 py-1"
-                                    >
-                                        {menuItems.map((menuItem, idx) => (
-                                            <button
-                                                key={idx}
-                                                onClick={() => handleMenuAction(item.username, menuItem.path)}
-                                                className="w-full px-4 py-2.5 text-left text-xs text-gray-700 hover:bg-gray-100 transition-colors flex items-center gap-3 font-medium"
-                                            >
-                                                {menuItem.icon}
-                                                {menuItem.label}
-                                            </button>
-                                        ))}
-                                    </motion.div>
-                                )}
-                            </AnimatePresence>
+                        </div>
+                        <div className="flex items-center justify-between">
+                            <span className={`font-semibold ${isDebtor ? 'text-green-600' : 'text-red-600'}`}>
+                                {formatCurrency(Math.abs(item.balance))}
+                            </span>
+                            {isDebtor && (
+                                <span className="text-xs text-gray-500">{item.last_transaction?.period || 'No payment'}</span>
+                            )}
                         </div>
                     </div>
                 </motion.div>
@@ -567,234 +806,299 @@ const QuickStatsDetailsPage = () => {
         };
 
         return (
-            <div className="flex-1 flex flex-col overflow-hidden border border-gray-200 bg-white rounded-xl shadow-xs">
-                {/* Mobile Cards (shown on mobile, hidden on desktop) */}
-                <div className="md:hidden p-3 bg-gray-50/50">
-                    {list.map((item, index) => (
-                        <MobileDebtorCard key={item.username || index} item={item} index={index} />
-                    ))}
+            <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
+                <div className="md:hidden border-b border-gray-200 bg-white px-3 py-2 sticky top-0 z-10">
+                    <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                            <input type="checkbox" checked={selectAll} onChange={handleSelectAll} className="w-4 h-4 text-blue-600 rounded border-gray-400" />
+                            <span className="font-semibold text-gray-800 text-sm">{listLabel}</span>
+                        </div>
+                        <span className="text-xs text-gray-600">{formatNumber(metaCount)} {listLabel.toLowerCase()}</span>
+                    </div>
                 </div>
 
-                {/* Desktop Grid-based Table (hidden on mobile, shown on desktop) */}
-                <div className="hidden md:block overflow-x-auto custom-scroll">
-                    <div className="min-w-[1000px] flex flex-col bg-white">
-                        
-                        {/* Table Header */}
-                        <div className="border-b border-gray-200 bg-gradient-to-r from-gray-50 to-white sticky top-0 z-10 flex items-center bg-white">
-                            {/* Checkbox */}
-                            <div className="w-12 p-3 flex-shrink-0 flex justify-start">
-                                <label className="relative inline-flex items-center cursor-pointer">
-                                    <input
-                                        type="checkbox"
-                                        className="sr-only peer"
-                                        checked={selectAll}
-                                        onChange={handleSelectAll}
-                                    />
-                                    <div className={`w-8 h-4 ${selectAll ? 'bg-purple-600' : 'bg-gray-300'} peer-focus:outline-none rounded-full peer after:content-[''] after:absolute after:top-[1px] after:left-[1px] after:bg-white after:rounded-full after:h-3 after:w-3 after:transition-all ${selectAll ? 'after:translate-x-full' : ''}`}></div>
-                                </label>
-                            </div>
-
-                            {/* Expand Chevron Column Header Placeholder */}
-                            <div className="w-12 p-3 flex-shrink-0 border-l border-gray-100 text-left"></div>
-
-                            {/* SL No Header */}
-                            <div className="w-12 p-3 font-bold text-gray-700 text-[11px] uppercase tracking-wide flex-shrink-0 text-left border-l border-gray-100">
-                                SL
-                            </div>
-
-                            {/* Dynamic Column Headers */}
-                            <div className="flex-[1.5] p-3 font-bold text-gray-700 text-[11px] uppercase tracking-wide text-left border-l border-gray-100">
-                                Name
-                            </div>
-                            <div className="flex-[1.5] p-3 font-bold text-gray-700 text-[11px] uppercase tracking-wide text-left border-l border-gray-100">
-                                Firm Details
-                            </div>
-                            <div className="flex-[1] p-3 font-bold text-gray-700 text-[11px] uppercase tracking-wide text-left border-l border-gray-100">
-                                Balance
-                            </div>
-                            <div className="flex-[1.2] p-3 font-bold text-gray-700 text-[11px] uppercase tracking-wide text-left border-l border-gray-100">
-                                Last Transaction
-                            </div>
-                            <div className="flex-[1.2] p-3 font-bold text-gray-700 text-[11px] uppercase tracking-wide text-center border-l border-gray-100">
-                                Actions
+                <div className="flex-1 min-h-0 overflow-auto">
+                    {loading ? (
+                        <div style={{ minWidth: tableMinWidth }}>
+                            {Array.from({ length: 6 }).map((_, index) => <SkeletonRow key={index} />)}
+                        </div>
+                    ) : error ? (
+                        <div className="flex items-center justify-center py-12 text-gray-500 px-4">
+                            <div className="text-center">
+                                <FiAlertCircle className="w-10 h-10 text-red-400 mx-auto mb-3" />
+                                <p className="text-gray-700 font-medium">{error}</p>
+                                <button onClick={() => fetchDetails()} className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-lg text-sm">Retry</button>
                             </div>
                         </div>
+                    ) : list.length === 0 ? (
+                        <div className="flex items-center justify-center py-12 text-gray-500 px-4">
+                            <div className="text-center">
+                                <div className="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-3">
+                                    <FiUser className="w-6 h-6 text-gray-400" />
+                                </div>
+                                <p className="text-gray-500 font-medium text-sm">{emptyMessage}</p>
+                                <p className="text-gray-400 text-xs mt-1">Try adjusting your search{isDebtor ? ' or filters' : ''}</p>
+                            </div>
+                        </div>
+                    ) : (
+                        <>
+                            <div className="md:hidden px-3 py-1">
+                                {list.map((item, index) => (
+                                    <MobileListCard key={item.username || index} item={item} index={index} />
+                                ))}
+                            </div>
 
-                        {/* Table Body */}
-                        <div className="divide-y divide-gray-100">
-                            {list.map((item, index) => {
-                                const isSelected = selectedDebtors.has(item.username);
-                                const isExpanded = expandedRows.has(item.username || index);
+                            <div className="hidden md:block" style={{ minWidth: tableMinWidth }}>
+                                <div className="border-b border-gray-200 bg-gradient-to-r from-gray-50 to-white sticky top-0 z-10">
+                                    <div className="flex items-center bg-white">
+                                        <div className="w-12 p-3 flex-shrink-0 flex justify-center">
+                                            <label className="relative inline-flex items-center cursor-pointer">
+                                                <input type="checkbox" className="sr-only peer" checked={selectAll} onChange={handleSelectAll} />
+                                                <div className={`w-8 h-4 ${selectAll ? 'bg-blue-600' : 'bg-gray-300'} rounded-full peer after:content-[''] after:absolute after:top-[1px] after:left-[1px] after:bg-white after:rounded-full after:h-3 after:w-3 after:transition-all ${selectAll ? 'after:translate-x-full' : ''}`} />
+                                            </label>
+                                        </div>
+                                        <div className="w-12 p-3 font-bold text-gray-700 text-xs flex-shrink-0 text-center border-l border-gray-100">SL No</div>
+                                        {columns.map((column) => (
+                                            <div
+                                                key={column.id}
+                                                className="p-3 font-semibold text-gray-700 text-xs flex-shrink-0 text-center border-l border-gray-100"
+                                                style={{ flex: column.flex, minWidth: column.id === 'name' ? '180px' : column.id === 'firms' ? '160px' : '120px' }}
+                                            >
+                                                <div className="truncate">{column.label}</div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
 
-                                return (
-                                    <React.Fragment key={item.username || index}>
+                                {list.map((item, index) => {
+                                    const isSelected = selectedDebtors.has(item.username);
+                                    return (
                                         <motion.div
-                                            className={`flex items-center hover:bg-gray-50 transition-colors group bg-white ${
-                                                isSelected ? 'bg-purple-50/30' : ''
-                                            }`}
+                                            key={item.username || index}
+                                            className={`flex items-center border-b border-gray-100 hover:bg-gray-50 transition-colors bg-white ${isSelected ? 'bg-blue-50/40' : ''}`}
                                             initial={{ opacity: 0, y: 5 }}
                                             animate={{ opacity: 1, y: 0 }}
                                             transition={{ delay: index * 0.02 }}
                                         >
-                                            {/* Checkbox */}
-                                            <div className="w-12 p-3 flex-shrink-0 flex justify-start">
+                                            <div className="w-12 p-3 flex-shrink-0 flex justify-center">
                                                 <label className="relative inline-flex items-center cursor-pointer">
-                                                    <input
-                                                        type="checkbox"
-                                                        className="sr-only peer"
-                                                        checked={isSelected}
-                                                        onChange={() => handleSelectDebtor(item.username)}
-                                                    />
-                                                    <div className={`w-8 h-4 ${isSelected ? 'bg-purple-600' : 'bg-gray-300'} peer-focus:outline-none rounded-full peer after:content-[''] after:absolute after:top-[1px] after:left-[1px] after:bg-white after:rounded-full after:h-3 after:w-3 after:transition-all ${isSelected ? 'after:translate-x-full' : ''}`}></div>
+                                                    <input type="checkbox" className="sr-only peer" checked={isSelected} onChange={() => handleSelectDebtor(item.username)} />
+                                                    <div className={`w-8 h-4 ${isSelected ? 'bg-blue-600' : 'bg-gray-300'} rounded-full peer after:content-[''] after:absolute after:top-[1px] after:left-[1px] after:bg-white after:rounded-full after:h-3 after:w-3 after:transition-all ${isSelected ? 'after:translate-x-full' : ''}`} />
                                                 </label>
                                             </div>
-
-                                            {/* Expand Button */}
-                                            <div className="w-12 p-3 flex-shrink-0 flex justify-center border-l border-gray-100">
-                                                <button
-                                                    onClick={() => toggleRowExpand(item.username || index)}
-                                                    className="p-1 hover:bg-gray-100 rounded transition-colors text-gray-500"
-                                                >
-                                                    {isExpanded ? (
-                                                        <FiChevronRight className="w-4 h-4 transform rotate-90 transition-transform duration-200" />
-                                                    ) : (
-                                                        <FiChevronRight className="w-4 h-4 transition-transform duration-200" />
-                                                    )}
-                                                </button>
+                                            <div className="w-12 p-3 flex-shrink-0 text-center border-l border-gray-100">
+                                                <span className="font-bold text-gray-800 text-xs">{((pagination.page_no - 1) * pagination.limit) + index + 1}</span>
                                             </div>
-
-                                            {/* SL No */}
-                                            <div className="w-12 p-3 flex-shrink-0 text-left border-l border-gray-100">
-                                                <span className="font-bold text-gray-800 text-[11px]">{index + 1}</span>
+                                            <div className="p-3 min-w-0 border-l border-gray-100 flex-shrink-0" style={{ flex: '1.5', minWidth: '180px' }}>
+                                                <div className="flex items-center gap-3">
+                                                    <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg flex items-center justify-center shadow-sm flex-shrink-0">
+                                                        <FiUser className="w-4 h-4 text-white" />
+                                                    </div>
+                                                    <div className="min-w-0 flex-1 text-left cursor-pointer hover:text-blue-600" onClick={() => navigate(`/client/profile/${item.username}`)}>
+                                                        <div className="font-semibold text-gray-800 text-sm truncate">{item.name || 'N/A'}</div>
+                                                        <div className="text-xs text-gray-500 truncate">{item.guardian_name || 'N/A'}</div>
+                                                    </div>
+                                                </div>
                                             </div>
-
-                                            {/* Name */}
-                                            <div className="flex-[1.5] p-3 text-left border-l border-gray-100 min-w-0">
-                                                <div className="text-xs font-semibold text-gray-800 truncate">{item.name}</div>
-                                                <div className="text-[10px] text-gray-400 truncate mt-0.5">{item.email || 'No email'}</div>
+                                            <div className="p-3 min-w-0 text-center border-l border-gray-100 flex-shrink-0" style={{ flex: '1', minWidth: '120px' }}>
+                                                <div className="flex items-center justify-center text-gray-700 font-medium text-sm gap-2">
+                                                    <FiPhone className="w-4 h-4 text-gray-400 flex-shrink-0" />
+                                                    <span className="truncate">{item.mobile || 'N/A'}</span>
+                                                </div>
                                             </div>
-
-                                            {/* Firm Details */}
-                                            <div className="flex-[1.5] p-3 text-left border-l border-gray-100 min-w-0">
-                                                <div className="text-xs text-gray-700 font-medium truncate">{item.firm?.firm_name || 'Individual'}</div>
-                                                {item.firm?.gst_no && (
-                                                    <div className="text-[10px] text-gray-400 mt-0.5 truncate">GST: {item.firm.gst_no}</div>
-                                                )}
+                                            <div className="p-3 min-w-0 border-l border-gray-100 flex-shrink-0" style={{ flex: '1.2', minWidth: '160px' }}>
+                                                {renderFirmsCell(item)}
                                             </div>
-
-                                            {/* Balance */}
-                                            <div className="flex-[1] p-3 text-left border-l border-gray-100 min-w-0">
-                                                <span className="text-xs font-bold text-green-600">
+                                            <div className="p-3 min-w-0 text-center border-l border-gray-100 flex-shrink-0" style={{ flex: '1', minWidth: '120px' }}>
+                                                <div className={`inline-flex items-center px-3 py-1 rounded text-sm font-semibold border ${balanceBadgeClass}`}>
                                                     {formatCurrency(Math.abs(item.balance))}
-                                                </span>
-                                                <div className="text-[10px] text-gray-400 mt-0.5 capitalize">{item.balance_type}</div>
+                                                </div>
                                             </div>
-
-                                            {/* Last Transaction */}
-                                            <div className="flex-[1.2] p-3 text-left border-l border-gray-100 min-w-0">
-                                                {item.last_transaction ? (
-                                                    <>
-                                                        <div className="text-xs text-gray-700 font-medium">{formatDate(item.last_transaction.date)}</div>
-                                                        <div className="text-[10px] text-gray-400 mt-0.5">{item.last_transaction.period}</div>
-                                                    </>
-                                                ) : (
-                                                    <span className="text-xs text-gray-400">No transactions</span>
-                                                )}
+                                            {isDebtor && (
+                                                <div className="p-3 min-w-0 text-center border-l border-gray-100 flex-shrink-0" style={{ flex: '1.2', minWidth: '140px' }}>
+                                                    <div className="text-sm text-gray-700 font-medium">{item.last_transaction?.date ? formatDate(item.last_transaction.date) : 'N/A'}</div>
+                                                    <div className="text-xs text-gray-500">{item.last_transaction?.period || 'No payment'}</div>
+                                                </div>
+                                            )}
+                                            <div className="p-3 min-w-0 border-l border-gray-100 flex-shrink-0" style={{ flex: '0.8', minWidth: '72px' }}>
+                                                {renderRowActionMenu(item, isDebtor)}
                                             </div>
+                                        </motion.div>
+                                    );
+                                })}
+                            </div>
+                        </>
+                    )}
+                </div>
 
-                                            {/* Action Buttons */}
-                                            <div className="flex-[1.2] p-3 text-center border-l border-gray-100 relative min-w-0 flex items-center justify-center gap-2">
-                                                <button
-                                                    onClick={() => openSingleReminderModal(item.username, item.name)}
-                                                    disabled={sendingReminder}
-                                                    className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-purple-50 text-purple-700 border border-purple-100 hover:bg-purple-100 transition-colors text-[11px] font-semibold rounded-lg disabled:opacity-50"
-                                                >
-                                                    {sendingReminder && paymentReminderModal.type === 'single' && paymentReminderModal.username === item.username ? (
-                                                        <div className="animate-spin rounded-full h-3 w-3 border-2 border-purple-600 border-t-transparent"></div>
-                                                    ) : (
-                                                        <FiMailIcon className="w-3.5 h-3.5" />
-                                                    )}
-                                                    Reminder
-                                                </button>
-                                                
-                                                <div className="relative">
-                                                    <button
-                                                        onClick={(e) => toggleMenu(item.username || index, e)}
-                                                        className="inline-flex items-center gap-1 px-2.5 py-1 bg-gray-50 text-gray-700 border border-gray-200 hover:bg-gray-100 transition-colors text-[11px] font-semibold rounded-lg"
+                {!loading && !error && pagination.total > 0 && renderListPagination()}
+            </div>
+        );
+    };
+
+    const renderBalanceListPage = (variant) => {
+        const isDebtor = variant === 'debtors';
+        const pageTitle = isDebtor ? 'Debtors List' : 'Creditors List';
+        const pageDescription = isDebtor
+            ? 'Clients with outstanding receivable balances'
+            : 'Clients with outstanding payable balances';
+        const searchPlaceholder = isDebtor ? 'Search debtors...' : 'Search creditors...';
+        const countLabel = isDebtor ? 'Debtors' : 'Creditors';
+        const countValue = isDebtor ? (meta.debtor_count || 0) : (meta.creditor_count || 0);
+        const balanceValue = isDebtor ? (meta.debtor_balance || 0) : (meta.creditor_balance || 0);
+        const countBadgeClass = isDebtor ? 'bg-blue-50 text-blue-700 border-blue-100' : 'bg-cyan-50 text-cyan-700 border-cyan-100';
+        const balanceBadgeClass = isDebtor ? 'bg-green-50 text-green-700 border-green-100' : 'bg-red-50 text-red-700 border-red-100';
+
+        return (
+            <div className="min-h-screen bg-gray-50">
+                <Header
+                    mobileMenuOpen={mobileMenuOpen}
+                    setMobileMenuOpen={setMobileMenuOpen}
+                    isMinimized={isMinimized}
+                    setIsMinimized={setIsMinimized}
+                />
+                <Sidebar
+                    mobileMenuOpen={mobileMenuOpen}
+                    setMobileMenuOpen={setMobileMenuOpen}
+                    isMinimized={isMinimized}
+                    setIsMinimized={setIsMinimized}
+                />
+
+                <div className={`pt-16 transition-all duration-300 ease-in-out min-w-0 ${isMinimized ? 'md:pl-20' : 'md:pl-[260px]'}`}>
+                    <div className="h-full flex flex-col min-w-0">
+                        <motion.div
+                            className="bg-white rounded-lg shadow-sm border border-gray-200 flex flex-col min-h-0 mx-2 sm:mx-4 md:mx-8 my-3 md:my-4 overflow-hidden"
+                            initial={{ opacity: 0, y: 20 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ duration: 0.3 }}
+                        >
+                            <div className="border-b border-gray-200 px-3 md:px-4 py-3 bg-gradient-to-r from-gray-50 to-white">
+                                <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-2 md:gap-3">
+                                    <div className="w-full md:w-auto">
+                                        <h5 className="text-base md:text-lg font-bold text-gray-800 mb-0.5">{pageTitle}</h5>
+                                        <p className="text-gray-500 text-xs">{pageDescription}</p>
+                                        <div className="mt-2 flex flex-wrap gap-2">
+                                            <span className={`inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-semibold border ${countBadgeClass}`}>
+                                                {countLabel}: {formatNumber(countValue)}
+                                            </span>
+                                            <span className={`inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-semibold border ${balanceBadgeClass}`}>
+                                                Total Balance: {formatCurrency(balanceValue)}
+                                            </span>
+                                        </div>
+                                    </div>
+
+                                    <div className="flex flex-col md:flex-row items-stretch md:items-center gap-2 w-full lg:w-auto">
+                                        <div className="flex-1 md:flex-none md:min-w-[220px] lg:min-w-[260px]">
+                                            <div className="relative">
+                                                <FiSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                                                <input
+                                                    type="text"
+                                                    placeholder={searchPlaceholder}
+                                                    value={searchTerm}
+                                                    onChange={(e) => {
+                                                        setSearchTerm(e.target.value);
+                                                        setPagination(prev => ({ ...prev, page_no: 1 }));
+                                                    }}
+                                                    className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg text-gray-700 text-sm bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                                />
+                                            </div>
+                                        </div>
+
+                                        <div className="flex items-center gap-2">
+                                            {isDebtor && (
+                                                <div className="dropdown-container relative">
+                                                    <motion.button
+                                                        onClick={() => setShowFilterDropdown(!showFilterDropdown)}
+                                                        className="px-3 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 text-gray-700 font-medium flex items-center gap-2 shadow-sm text-sm"
+                                                        whileHover={{ scale: 1.05 }}
+                                                        whileTap={{ scale: 0.95 }}
                                                     >
-                                                        <FiMenu className="w-3.5 h-3.5" />
-                                                        Menu
-                                                    </button>
+                                                        <FiFilter className="w-4 h-4" />
+                                                        <span className="hidden sm:inline">Filter</span>
+                                                    </motion.button>
                                                     <AnimatePresence>
-                                                        {openMenuId === (item.username || index) && (
+                                                        {showFilterDropdown && (
                                                             <motion.div
-                                                                initial={{ opacity: 0, scale: 0.95, y: -10 }}
-                                                                animate={{ opacity: 1, scale: 1, y: 0 }}
-                                                                exit={{ opacity: 0, scale: 0.95, y: -10 }}
-                                                                className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-xl border border-gray-200 z-50 py-1"
+                                                                className="absolute right-0 mt-2 w-64 max-w-[calc(100vw-1.5rem)] bg-white rounded-lg shadow-xl border border-gray-200 z-[60] p-3"
+                                                                initial={{ opacity: 0, y: -8, scale: 0.96 }}
+                                                                animate={{ opacity: 1, y: 0, scale: 1 }}
+                                                                exit={{ opacity: 0, y: -8, scale: 0.96 }}
                                                             >
-                                                                {menuItems.map((menuItem, idx) => (
-                                                                    <button
-                                                                        key={idx}
-                                                                        onClick={() => handleMenuAction(item.username, menuItem.path)}
-                                                                        className="w-full px-4 py-2.5 text-left text-xs text-gray-700 hover:bg-gray-100 transition-colors flex items-center gap-3 font-medium"
-                                                                    >
-                                                                        {menuItem.icon}
-                                                                        {menuItem.label}
-                                                                    </button>
-                                                                ))}
+                                                                <label className="block text-xs font-semibold text-gray-600 mb-1">
+                                                                    Minimum Balance (₹)
+                                                                </label>
+                                                                <input
+                                                                    type="number"
+                                                                    min="0"
+                                                                    step="1"
+                                                                    placeholder="0 = all debtors"
+                                                                    value={balanceAfterInput}
+                                                                    onChange={(e) => {
+                                                                        setBalanceAfterInput(e.target.value);
+                                                                        setPagination(prev => ({ ...prev, page_no: 1 }));
+                                                                    }}
+                                                                    className="w-full px-2 py-1.5 border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-sm"
+                                                                />
+                                                                <p className="text-[11px] text-gray-500 mt-1">Show debtors with balance equal to or above this amount.</p>
+                                                                <div className="flex justify-between gap-2 mt-3">
+                                                                    <button onClick={handleClearFilters} className="w-full px-2 py-1.5 text-xs border border-gray-300 rounded hover:bg-gray-100">Reset</button>
+                                                                    <button onClick={() => setShowFilterDropdown(false)} className="w-full px-2 py-1.5 text-xs bg-blue-600 text-white rounded hover:bg-blue-700">Apply</button>
+                                                                </div>
                                                             </motion.div>
                                                         )}
                                                     </AnimatePresence>
                                                 </div>
-                                            </div>
-                                        </motion.div>
-
-                                        {/* Expanded Details Panel */}
-                                        <AnimatePresence>
-                                            {isExpanded && (
-                                                <motion.div
-                                                    initial={{ opacity: 0, height: 0 }}
-                                                    animate={{ opacity: 1, height: 'auto' }}
-                                                    exit={{ opacity: 0, height: 0 }}
-                                                    className="bg-gray-50/50 border-b border-gray-150 p-4 border-l-4 border-l-purple-500"
-                                                >
-                                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                                        <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-xs">
-                                                            <h4 className="font-bold text-gray-800 text-xs mb-3 uppercase tracking-wider flex items-center gap-1.5">
-                                                                <FiBriefcase className="w-3.5 h-3.5 text-indigo-500" /> Firm Details
-                                                            </h4>
-                                                            <div className="space-y-1.5 text-xs text-gray-600">
-                                                                <p><span className="text-gray-400 font-medium">Firm Name:</span> {item.firm?.firm_name || 'N/A'}</p>
-                                                                <p><span className="text-gray-400 font-medium">PAN No:</span> {item.firm?.pan_no || 'N/A'}</p>
-                                                                <p><span className="text-gray-400 font-medium">GST No:</span> {item.firm?.gst_no || 'N/A'}</p>
-                                                            </div>
-                                                        </div>
-                                                        <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-xs">
-                                                            <h4 className="font-bold text-gray-800 text-xs mb-3 uppercase tracking-wider flex items-center gap-1.5">
-                                                                <FiUser className="w-3.5 h-3.5 text-indigo-500" /> Contact Details
-                                                            </h4>
-                                                            <div className="space-y-1.5 text-xs text-gray-600">
-                                                                <p><span className="text-gray-400 font-medium">Guardian Name:</span> {item.guardian_name || 'N/A'}</p>
-                                                                <p><span className="text-gray-400 font-medium">Care Of:</span> {item.care_of || 'N/A'}</p>
-                                                                <p><span className="text-gray-400 font-medium">Country Code:</span> {item.country_code || 'N/A'}</p>
-                                                            </div>
-                                                        </div>
-                                                    </div>
-                                                </motion.div>
                                             )}
-                                        </AnimatePresence>
-                                    </React.Fragment>
-                                );
-                            })}
-                        </div>
+
+                                            {isDebtor && selectedDebtors.size > 0 && (
+                                                <motion.button
+                                                    onClick={openBulkReminderModal}
+                                                    className="px-3 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg text-sm font-medium flex items-center gap-2"
+                                                    whileHover={{ scale: 1.05 }}
+                                                    whileTap={{ scale: 0.95 }}
+                                                >
+                                                    <FiMailIcon className="w-4 h-4" />
+                                                    <span className="hidden sm:inline">Reminder ({selectedDebtors.size})</span>
+                                                </motion.button>
+                                            )}
+
+                                            <motion.button
+                                                onClick={handleRefresh}
+                                                disabled={loading}
+                                                className="w-9 h-9 flex items-center justify-center rounded-full bg-white border border-gray-300 hover:bg-gray-100 transition shadow-sm disabled:opacity-50"
+                                                whileHover={{ scale: 1.08 }}
+                                                whileTap={{ scale: 0.95 }}
+                                            >
+                                                <FiRefreshCw className={`w-4 h-4 text-gray-700 ${loading ? 'animate-spin' : ''}`} />
+                                            </motion.button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="flex-1 flex flex-col overflow-hidden min-h-0 min-w-0">
+                                {renderBalanceListTable(variant)}
+                            </div>
+                        </motion.div>
                     </div>
                 </div>
+
+                {isDebtor && <PaymentReminderConfirmationModal />}
+                <FirmsDetailsModal
+                    isOpen={firmsModal.open}
+                    onClose={closeFirmsModal}
+                    firms={firmsModal.firms}
+                    clientName={firmsModal.clientName}
+                />
             </div>
         );
     };
 
     const renderContent = () => {
+        if (type === 'debtors' || type === 'creditors') {
+            return null;
+        }
+
         if (loading) {
             return (
                 <div className="flex justify-center items-center h-64">
@@ -822,9 +1126,7 @@ const QuickStatsDetailsPage = () => {
             );
         }
 
-        switch(type) {
-            case 'debtors':
-                return renderDebtorsTable();
+        switch (type) {
             default:
                 return <div className="text-center py-8 text-gray-500">No data available</div>;
         }
@@ -894,7 +1196,7 @@ const QuickStatsDetailsPage = () => {
                                 <div className={`w-16 h-16 ${isBulk ? 'bg-blue-100' : 'bg-purple-100'} rounded-full flex items-center justify-center mx-auto mb-4`}>
                                     {isBulk ? <FiUsers className="w-8 h-8 text-blue-600" /> : <FiMailIcon className="w-8 h-8 text-purple-600" />}
                                 </div>
-                                
+
                                 {isBulk ? (
                                     <>
                                         <h4 className="text-lg font-semibold text-gray-800 mb-2">
@@ -988,6 +1290,10 @@ const QuickStatsDetailsPage = () => {
         );
     };
 
+    if (type === 'debtors' || type === 'creditors') {
+        return renderBalanceListPage(type);
+    }
+
     return (
         <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
             <Header
@@ -1013,7 +1319,7 @@ const QuickStatsDetailsPage = () => {
                         >
                             <FiArrowLeft className="w-4 h-4" /> Back to Dashboard
                         </button>
-                        
+
                         <div className="bg-white rounded-2xl shadow-xl p-6">
                             <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
                                 <div>
@@ -1041,11 +1347,11 @@ const QuickStatsDetailsPage = () => {
                                         </div>
                                     )}
                                 </div>
-                                
+
                                 <div className="flex items-center gap-3">
                                     {/* Bulk Payment Reminder Button */}
                                     {selectedDebtors.size > 0 && (
-                                        <motion.button 
+                                        <motion.button
                                             onClick={openBulkReminderModal}
                                             className="px-4 py-2 bg-gradient-to-r from-purple-600 to-purple-700 text-white rounded-lg flex items-center gap-2 text-sm font-medium hover:from-purple-700 hover:to-purple-800 shadow-md"
                                             whileHover={{ scale: 1.05 }}
@@ -1055,8 +1361,8 @@ const QuickStatsDetailsPage = () => {
                                             Send Reminder ({selectedDebtors.size})
                                         </motion.button>
                                     )}
-                                    
-                                    <motion.button 
+
+                                    <motion.button
                                         onClick={handleRefresh}
                                         disabled={loading}
                                         className="p-3 bg-white border border-gray-200 rounded-xl hover:shadow-lg transition-all duration-300 disabled:opacity-50"
@@ -1070,91 +1376,68 @@ const QuickStatsDetailsPage = () => {
                         </div>
                     </div>
 
-                    {/* Search Bar */}
-                    <div className="bg-white rounded-2xl shadow-xl p-6 mb-6">
-                        <div className="flex gap-4">
-                            <div className="flex-1">
-                                <div className="relative">
-                                    <FiSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
-                                    <input
-                                        type="text"
-                                        placeholder="Search by name, mobile, firm name..."
-                                        value={searchTerm}
-                                        onChange={(e) => {
-                                            setSearchTerm(e.target.value);
-                                            setPagination(prev => ({ ...prev, page_no: 1 }));
-                                        }}
-                                        className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
-                                    />
+                    {/* Search Bar (debtors / creditors) */}
+                    {isClientBalanceList && (
+                        <div className="bg-white rounded-2xl shadow-xl p-6 mb-6">
+                            <div className="flex gap-4">
+                                <div className="flex-1">
+                                    <div className="relative">
+                                        <FiSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+                                        <input
+                                            type="text"
+                                            placeholder="Search by name, mobile, firm name..."
+                                            value={searchTerm}
+                                            onChange={(e) => {
+                                                setSearchTerm(e.target.value);
+                                                setPagination(prev => ({ ...prev, page_no: 1 }));
+                                            }}
+                                            className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
+                                        />
+                                    </div>
                                 </div>
+                                {searchTerm && (
+                                    <button
+                                        onClick={handleClearSearch}
+                                        className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors flex items-center gap-2"
+                                    >
+                                        <FiX className="w-4 h-4" /> Clear
+                                    </button>
+                                )}
+                                {selectedDebtors.size > 0 && (
+                                    <button
+                                        onClick={clearSelection}
+                                        className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors flex items-center gap-2"
+                                    >
+                                        <FiX className="w-4 h-4" /> Clear Selection
+                                    </button>
+                                )}
                             </div>
-                            {searchTerm && (
-                                <button
-                                    onClick={handleClearSearch}
-                                    className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors flex items-center gap-2"
-                                >
-                                    <FiX className="w-4 h-4" /> Clear
-                                </button>
-                            )}
+
+                            {/* Selection Summary */}
                             {selectedDebtors.size > 0 && (
-                                <button
-                                    onClick={clearSelection}
-                                    className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors flex items-center gap-2"
-                                >
-                                    <FiX className="w-4 h-4" /> Clear Selection
-                                </button>
+                                <div className="mt-4 p-3 bg-purple-50 rounded-lg border border-purple-200 flex justify-between items-center">
+                                    <div className="flex items-center gap-2">
+                                        <FiUsers className="w-4 h-4 text-purple-600" />
+                                        <span className="text-sm text-purple-800">
+                                            {selectedDebtors.size} debtor(s) selected
+                                        </span>
+                                    </div>
+                                    <button
+                                        onClick={openBulkReminderModal}
+                                        className="px-3 py-1.5 bg-purple-600 text-white rounded-lg text-xs font-medium hover:bg-purple-700 transition-colors flex items-center gap-1"
+                                    >
+                                        <FiMailIcon className="w-3 h-3" />
+                                        Send Reminder
+                                    </button>
+                                </div>
                             )}
                         </div>
-                        
-                        {/* Selection Summary */}
-                        {selectedDebtors.size > 0 && (
-                            <div className="mt-4 p-3 bg-purple-50 rounded-lg border border-purple-200 flex justify-between items-center">
-                                <div className="flex items-center gap-2">
-                                    <FiUsers className="w-4 h-4 text-purple-600" />
-                                    <span className="text-sm text-purple-800">
-                                        {selectedDebtors.size} debtor(s) selected
-                                    </span>
-                                </div>
-                                <button
-                                    onClick={openBulkReminderModal}
-                                    className="px-3 py-1.5 bg-purple-600 text-white rounded-lg text-xs font-medium hover:bg-purple-700 transition-colors flex items-center gap-1"
-                                >
-                                    <FiMailIcon className="w-3 h-3" />
-                                    Send Reminder
-                                </button>
-                            </div>
-                        )}
-                    </div>
+                    )}
 
                     {/* Main Content */}
                     <div className="bg-white rounded-2xl shadow-xl overflow-hidden">
                         {renderContent()}
                     </div>
-
-                    {/* Pagination */}
-                    {!loading && !error && pagination.total_pages > 1 && (
-                        <div className="mt-6 flex justify-center items-center gap-2">
-                            <button
-                                onClick={() => handlePageChange(pagination.page_no - 1)}
-                                disabled={pagination.page_no === 1}
-                                className="px-4 py-2 border border-gray-300 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 transition-colors flex items-center gap-2"
-                            >
-                                <FiChevronLeft className="w-4 h-4" />
-                                Previous
-                            </button>
-                            <span className="px-4 py-2 text-gray-700">
-                                Page {pagination.page_no} of {pagination.total_pages}
-                            </span>
-                            <button
-                                onClick={() => handlePageChange(pagination.page_no + 1)}
-                                disabled={pagination.is_last_page}
-                                className="px-4 py-2 border border-gray-300 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 transition-colors flex items-center gap-2"
-                            >
-                                Next
-                                <FiChevronRight className="w-4 h-4" />
-                            </button>
-                        </div>
-                    )}
                 </div>
             </div>
 
