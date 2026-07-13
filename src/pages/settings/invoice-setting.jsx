@@ -80,6 +80,7 @@ const InvoiceSettings = () => {
     const [activatingFormat, setActivatingFormat] = useState(false);
     const [formatLoading, setFormatLoading] = useState(false);
     const [isFullscreen, setIsFullscreen] = useState(false);
+    const [downloadingPdf, setDownloadingPdf] = useState(false);
     const previewContainerRef = useRef(null);
 
     // Custom PDF viewer state (replaces native browser PDF plugin controls)
@@ -308,15 +309,47 @@ const InvoiceSettings = () => {
         }
     };
 
-    const handleDownloadPdf = () => {
-        if (previewPdfUrl) {
+    // Forces a real file download instead of opening/navigating to the PDF.
+    // The `download` attribute on an <a> tag is ignored by browsers for
+    // cross-origin URLs, so we fetch the PDF ourselves and download it from
+    // an in-memory (same-origin) blob URL instead.
+    const handleDownloadPdf = async () => {
+        if (!previewPdfUrl || !selectedFormatSample) return;
+
+        setDownloadingPdf(true);
+        try {
+            // If it's already a blob/data URL (base64 fallback case), skip re-fetching it.
+            const isAlreadyLocal = previewPdfUrl.startsWith('blob:') || previewPdfUrl.startsWith('data:');
+            let blobUrl = previewPdfUrl;
+            let shouldRevoke = false;
+
+            if (!isAlreadyLocal) {
+                const response = await fetch(previewPdfUrl);
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                const blob = await response.blob();
+                blobUrl = URL.createObjectURL(blob);
+                shouldRevoke = true;
+            }
+
             const link = document.createElement('a');
-            link.href = previewPdfUrl;
+            link.href = blobUrl;
             link.download = `${selectedFormatSample.format_id}_${selectedFormatType}_format.pdf`;
             document.body.appendChild(link);
             link.click();
             document.body.removeChild(link);
+
+            if (shouldRevoke) {
+                setTimeout(() => URL.revokeObjectURL(blobUrl), 1000);
+            }
+
             toast.success('Download started');
+        } catch (error) {
+            console.error('PDF download error:', error);
+            toast.error('Failed to download PDF. It may be blocked by CORS — try again or contact support.');
+        } finally {
+            setDownloadingPdf(false);
         }
     };
 
@@ -1229,10 +1262,11 @@ const FormatCard = ({ sample, isActive, onPreview, onActivate, activating }) => 
                         <div className="flex items-center gap-3">
                             <button
                                 onClick={handleDownloadPdf}
-                                className="text-white hover:text-indigo-200 transition-colors duration-200 p-2 rounded-lg hover:bg-indigo-500"
+                                disabled={downloadingPdf}
+                                className="text-white hover:text-indigo-200 transition-colors duration-200 p-2 rounded-lg hover:bg-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed"
                                 title="Download PDF"
                             >
-                                <FiDownload className="w-5 h-5" />
+                                <FiDownload className={`w-5 h-5 ${downloadingPdf ? 'animate-pulse' : ''}`} />
                             </button>
                             <button
                                 onClick={toggleFullscreen}
