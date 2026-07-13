@@ -14,6 +14,7 @@ import {
 } from 'react-icons/fi';
 import API_BASE_URL from '../utils/api-controller';
 import { fetchWhatsappChannel } from './broadcast/whatsapp/whatsappChannelStore';
+import { saveUserSessionToStorage } from '../utils/user-profile-storage';
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const MOBILE_REGEX = /^\d{10}$/;
@@ -197,13 +198,11 @@ const Register = () => {
     };
 
     const handleCompleteLogin = (result) => {
-        localStorage.setItem('user_token', result.token);
-        localStorage.setItem('user_username', result.username);
-        localStorage.setItem('user_email', result.profile?.email || formData.email || formData.mobile);
-        localStorage.setItem('user_name', result.profile?.name || formData.name.trim());
-        localStorage.setItem('user_is_new', result.is_new_user ? 'true' : 'false');
-        if (result.branches) localStorage.setItem('user_branches', JSON.stringify(result.branches));
-        if (result.expire_date) localStorage.setItem('token_expire', result.expire_date);
+        saveUserSessionToStorage(result, {
+            name: formData.name.trim(),
+            email: formData.email.trim() || undefined,
+            mobile: formData.mobile.trim() || undefined,
+        });
 
         setLoginSuccess(true);
         fetchWhatsappChannel().catch(() => { });

@@ -1,11 +1,12 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Outlet, useNavigate } from 'react-router-dom';
 import {
   FiMenu, FiBriefcase, FiChevronDown, FiCreditCard,
   FiPlus, FiBell, FiUser, FiSettings, FiHelpCircle,
   FiLogOut, FiPieChart, FiMessageSquare, FiUsers, FiRepeat,
-  FiMail, FiZap, FiCpu, FiLock, FiChevronRight, FiX, FiHome, FiBarChart2
+  FiMail, FiZap, FiCpu, FiLock, FiChevronRight, FiX, FiHome, FiBarChart2, FiSearch, FiPhone
 } from 'react-icons/fi';
 import { NavLink, useLocation } from 'react-router-dom';
 import getHeaders from '../utils/get-headers';
@@ -17,6 +18,8 @@ import { toast } from 'react-hot-toast';
 import CreateBranch from './Modals/CreateBranch';
 import SwitchBranchModal from './Modals/SwitchBranchModal';
 import { useSubscription, resetSubscriptionCache } from '../hooks/useSubscription';
+import { loadUserProfileFromStorage } from '../utils/user-profile-storage';
+import { applyBranchToSession, getStoredBranchRoleLabel } from '../services/branchSetupService';
 
 // ==========================================
 // 1. Constants & Styles (Modern Indigo Theme)
@@ -351,19 +354,31 @@ const NavItem = ({ item, isMobile, isMinimized, isHovered, currentPath, openSubm
 // ==========================================
 export const Header = ({ mobileMenuOpen, setMobileMenuOpen, isMinimized, setIsMinimized }) => {
   const [profileDropdownOpen, setProfileDropdownOpen] = useState(false);
+  const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [switchProjectModalOpen, setSwitchProjectModalOpen] = useState(false);
   const [branchSetupOpen, setBranchSetupOpen] = useState(false);
   const [selectedCompany, setSelectedCompany] = useState(null);
   const [selectedProjectName, setSelectedProjectName] = useState('Select Branch');
-  const [userProfile, setUserProfile] = useState({ name: 'User', email: '' });
+  const [userProfile, setUserProfile] = useState({ name: 'User', mobile: '', roleLabel: 'Member' });
+  const profileTriggerRef = useRef(null);
+  const profilePanelRef = useRef(null);
+  const notificationsTriggerRef = useRef(null);
+  const notificationsPanelRef = useRef(null);
+  const [profilePanelStyle, setProfilePanelStyle] = useState({ top: 0, right: 0 });
 
   const navigate = useNavigate();
   const [walletBalance, setWalletBalance] = useState(0);
 
+  const iconButtonClass =
+    'inline-flex h-8 w-8 items-center justify-center rounded-lg text-slate-500 transition-colors hover:bg-slate-100 hover:text-indigo-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/30';
+
   useEffect(() => {
-    const name = localStorage.getItem('user_name') || localStorage.getItem('user_username') || 'User';
-    const email = localStorage.getItem('user_email') || '';
-    setUserProfile({ name, email });
+    const storedProfile = loadUserProfileFromStorage();
+    setUserProfile({
+      name: storedProfile.name || localStorage.getItem('user_name') || 'User',
+      mobile: storedProfile.mobile || localStorage.getItem('user_mobile') || '',
+      roleLabel: getStoredBranchRoleLabel(),
+    });
 
     const activeBranchName = localStorage.getItem('branch_name');
     if (activeBranchName) {
@@ -395,7 +410,16 @@ export const Header = ({ mobileMenuOpen, setMobileMenuOpen, isMinimized, setIsMi
     if (setIsMinimized) setIsMinimized(!isMinimized);
   };
 
+  const handleMenuClick = () => {
+    if (window.innerWidth >= 768) {
+      toggleSidebar();
+      return;
+    }
+    setMobileMenuOpen(true);
+  };
+
   const handleLogout = () => {
+    setProfileDropdownOpen(false);
     localStorage.removeItem('user_token');
     localStorage.removeItem('user_username');
     localStorage.removeItem('user_email');
@@ -404,6 +428,9 @@ export const Header = ({ mobileMenuOpen, setMobileMenuOpen, isMinimized, setIsMi
     localStorage.removeItem('branch_id');
     localStorage.removeItem('branch_name');
     localStorage.removeItem('branch_owned');
+    localStorage.removeItem('branch_role');
+    localStorage.removeItem('user_mobile');
+    localStorage.removeItem('user_profile');
     localStorage.removeItem('userData');
     navigate('/login');
   };
@@ -413,9 +440,11 @@ export const Header = ({ mobileMenuOpen, setMobileMenuOpen, isMinimized, setIsMi
     setSelectedCompany(company);
     setSelectedProjectName(company.name);
     try {
-      localStorage.setItem('branch_id', company.branch_id);
-      localStorage.setItem('branch_name', company.name);
-      localStorage.setItem('branch_owned', company.owned ? 'true' : 'false');
+      applyBranchToSession(company);
+      setUserProfile((prev) => ({
+        ...prev,
+        roleLabel: getStoredBranchRoleLabel(),
+      }));
       resetSubscriptionCache();
       window.location.reload();
     } catch (error) {
@@ -423,7 +452,6 @@ export const Header = ({ mobileMenuOpen, setMobileMenuOpen, isMinimized, setIsMi
     }
   };
 
-  // Get user initials for avatar
   const getUserInitials = () => {
     if (userProfile.name) {
       const names = userProfile.name.trim().split(' ');
@@ -436,86 +464,292 @@ export const Header = ({ mobileMenuOpen, setMobileMenuOpen, isMinimized, setIsMi
   };
 
   const profileItems = [
-    { title: 'My Profile', icon: <FiUser size={16} />, path: '/my-profile' },
-    { title: 'Settings', icon: <FiSettings size={16} />, path: '#' },
-    { title: 'Help & Support', icon: <FiHelpCircle size={16} />, path: '#' },
+    { title: 'My Profile', icon: FiUser, path: '/my-profile' },
+    { title: 'Settings', icon: FiSettings, path: '/settings' },
+    { title: 'Help & Support', icon: FiHelpCircle, path: '/settings' },
   ];
+
+  const branchLabel = selectedProjectName || selectedCompany?.name || 'Select Branch';
+
+  const updateProfilePanelPosition = useCallback(() => {
+    if (!profileTriggerRef.current) return;
+    const rect = profileTriggerRef.current.getBoundingClientRect();
+    setProfilePanelStyle({
+      top: rect.bottom + 8,
+      right: Math.max(12, window.innerWidth - rect.right),
+    });
+  }, []);
+
+  useEffect(() => {
+    if (!profileDropdownOpen) return undefined;
+
+    updateProfilePanelPosition();
+    window.addEventListener('resize', updateProfilePanelPosition);
+    window.addEventListener('scroll', updateProfilePanelPosition, true);
+
+    return () => {
+      window.removeEventListener('resize', updateProfilePanelPosition);
+      window.removeEventListener('scroll', updateProfilePanelPosition, true);
+    };
+  }, [profileDropdownOpen, updateProfilePanelPosition]);
+
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      const clickedProfileTrigger = profileTriggerRef.current?.contains(event.target);
+      const clickedProfilePanel = profilePanelRef.current?.contains(event.target);
+      const clickedNotificationsTrigger = notificationsTriggerRef.current?.contains(event.target);
+      const clickedNotificationsPanel = notificationsPanelRef.current?.contains(event.target);
+
+      if (profileDropdownOpen && !clickedProfileTrigger && !clickedProfilePanel) {
+        setProfileDropdownOpen(false);
+      }
+
+      if (notificationsOpen && !clickedNotificationsTrigger && !clickedNotificationsPanel) {
+        setNotificationsOpen(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [profileDropdownOpen, notificationsOpen]);
+
+  const renderAvatar = (size = 'sm') => {
+    const sizeClass = size === 'lg' ? 'h-8 w-8 text-[11px]' : 'h-7 w-7 text-[10px]';
+    return (
+      <div
+        className={`${sizeClass} flex items-center justify-center rounded-full bg-gradient-to-br from-indigo-500 to-indigo-700 font-semibold text-white shadow-sm ring-2 ring-white`}
+      >
+        {getUserInitials()}
+      </div>
+    );
+  };
 
   return (
     <>
-      <header className="fixed top-0 inset-x-0 z-50 h-16 border-b border-indigo-100 bg-white/90 backdrop-blur-md transition-all duration-200">
-        <div className="flex h-full items-center justify-between px-4 sm:px-6">
-          {/* Left */}
-          <div className="flex items-center gap-4">
+      <header className="fixed inset-x-0 top-0 z-50 border-b border-slate-200/70 bg-white/95 shadow-[0_1px_2px_rgba(15,23,42,0.04)] backdrop-blur-md supports-[backdrop-filter]:bg-white/85">
+        <div className="flex h-16 items-center justify-between gap-3 px-4 sm:px-5 lg:px-6">
+          {/* Left: menu + brand */}
+          <div className="flex min-w-0 items-center gap-2.5">
             <button
-              className="text-slate-500 hover:bg-indigo-50 hover:text-indigo-600 p-2 rounded-md transition-colors focus:outline-none"
-              onClick={window.innerWidth >= 768 ? toggleSidebar : () => setMobileMenuOpen(true)}
+              type="button"
+              className={iconButtonClass}
+              onClick={handleMenuClick}
+              aria-label="Toggle navigation"
             >
-              <FiMenu size={22} />
+              <FiMenu className="h-4 w-4" />
             </button>
-            <div className="flex items-center gap-2 cursor-pointer" onClick={() => navigate('/')}>
-              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-600 text-white font-bold text-lg shadow-md shadow-indigo-200">W</div>
-              <span className="text-xl font-bold tracking-tight text-slate-800 hidden sm:block font-sans">OOMS</span>
-            </div>
+
+            <button
+              type="button"
+              onClick={() => navigate('/dashboard')}
+              className="group flex h-8 items-center gap-2 rounded-lg px-1 transition-colors hover:bg-slate-50"
+            >
+              <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-gradient-to-br from-indigo-600 to-indigo-700 text-xs font-bold text-white shadow-sm ring-1 ring-indigo-500/20">
+                O
+              </div>
+              <span className="hidden text-sm font-bold tracking-tight text-slate-900 sm:block">OOMS</span>
+            </button>
           </div>
 
-          {/* Right */}
-          <div className="flex items-center gap-3 md:gap-5">
+          {/* Center: search (desktop) */}
+          <div className="relative hidden max-w-md flex-1 lg:block">
+            <FiSearch className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
+            <input
+              type="text"
+              placeholder="Search clients, tasks, modules..."
+              className="h-8 w-full rounded-lg border border-slate-200/80 bg-slate-50/90 pl-9 pr-12 text-sm text-slate-700 placeholder:text-slate-400 transition-all focus:border-indigo-300 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/10"
+            />
+            <kbd className="pointer-events-none absolute right-2.5 top-1/2 hidden -translate-y-1/2 rounded border border-slate-200 bg-white px-1 py-px text-[10px] font-medium text-slate-400 xl:inline-block">
+              /
+            </kbd>
+          </div>
+
+          {/* Right: branch, wallet, actions */}
+          <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
             <button
+              type="button"
               onClick={() => setSwitchProjectModalOpen(true)}
-              className="hidden md:flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 hover:border-indigo-300 hover:text-indigo-600 hover:shadow-sm transition-all duration-200 group"
+              className="hidden h-8 max-w-[160px] items-center gap-1.5 rounded-lg border border-slate-200/80 bg-white px-2 text-xs font-medium text-slate-700 transition-all hover:border-indigo-200 hover:bg-indigo-50/40 hover:text-indigo-700 md:inline-flex"
             >
-              <FiHome size={16} className="text-slate-400 group-hover:text-indigo-500 transition-colors" />
-              <span className="max-w-[120px] truncate">{selectedProjectName || selectedCompany?.name || 'Select Branch'}</span>
-              <FiChevronDown size={14} className="text-slate-400" />
+              <FiHome className="h-3.5 w-3.5 shrink-0 text-indigo-500" />
+              <span className="truncate">{branchLabel}</span>
+              <FiChevronDown className="h-3 w-3 shrink-0 text-slate-400" />
             </button>
 
-            <div className="hidden sm:flex items-center gap-2 rounded-full border border-slate-200 bg-white p-1 pr-3 shadow-sm hover:border-indigo-200 transition-colors cursor-default">
-              <div className="flex h-7 w-7 items-center justify-center rounded-full bg-indigo-50 text-indigo-600">
-                <FiCreditCard size={14} />
-              </div>
-              <div className="flex flex-col leading-none">
-                <span className="text-sm font-bold text-slate-700 font-mono">₹{Number(walletBalance).toFixed(2)}</span>
-              </div>
-              <button onClick={() => navigate('/wallet-recharge')} className="ml-2 flex h-5 w-5 items-center justify-center rounded-full bg-indigo-600 text-white hover:bg-indigo-700 hover:scale-105 transition-all shadow-md shadow-indigo-200">
-                <FiPlus size={12} />
-              </button>
-            </div>
+            <button
+              type="button"
+              onClick={() => navigate('/wallet-recharge')}
+              className="hidden h-8 items-center gap-1.5 rounded-lg border border-slate-200/80 bg-white px-2 text-xs transition-all hover:border-indigo-200 hover:shadow-sm sm:inline-flex"
+              title="Wallet balance"
+            >
+              <FiCreditCard className="h-3.5 w-3.5 shrink-0 text-emerald-600" />
+              <span className="font-semibold text-slate-800 font-mono">
+                ₹{Number(walletBalance).toFixed(2)}
+              </span>
+              <span className="flex h-5 w-5 items-center justify-center rounded-full bg-indigo-600 text-white">
+                <FiPlus className="h-3 w-3" />
+              </span>
+            </button>
 
-            <div className="h-6 w-px bg-slate-200 hidden sm:block"></div>
-
-            <button className="relative p-1.5 text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 rounded-full transition-all">
-              <FiBell size={20} />
-              <span className="absolute top-1 right-1 h-2 w-2 rounded-full bg-red-500 border-2 border-white"></span>
+            <button type="button" className={`${iconButtonClass} lg:hidden`} aria-label="Search">
+              <FiSearch className="h-4 w-4" />
             </button>
 
             <div className="relative">
-              <button className="flex items-center gap-2 focus:outline-none ring-offset-2 focus:ring-2 focus:ring-indigo-100 rounded-full transition-all" onClick={() => setProfileDropdownOpen(!profileDropdownOpen)}>
-                <div className="flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-tr from-indigo-500 to-purple-600 text-white font-medium text-sm shadow-md shadow-indigo-200 border-2 border-white">{getUserInitials()}</div>
+              <button
+                ref={notificationsTriggerRef}
+                type="button"
+                className={`${iconButtonClass} relative`}
+                aria-label="Notifications"
+                aria-expanded={notificationsOpen}
+                onClick={() => {
+                  setNotificationsOpen((open) => !open);
+                  setProfileDropdownOpen(false);
+                }}
+              >
+                <FiBell className="h-4 w-4" />
+                <span className="absolute right-1.5 top-1.5 h-1.5 w-1.5 rounded-full bg-rose-500 ring-2 ring-white" />
               </button>
 
-              {profileDropdownOpen && (
-                <>
-                  <div className="fixed inset-0 z-40" onClick={() => setProfileDropdownOpen(false)}></div>
-                  <div className="absolute right-0 mt-3 w-56 origin-top-right rounded-xl border border-slate-100 bg-white p-1 shadow-xl ring-1 ring-black ring-opacity-5 z-50 animate-in fade-in zoom-in-95 duration-100">
-                    <div className="px-3 py-2 border-b border-slate-100 mb-1">
-                      <p className="text-sm font-semibold text-slate-900">{userProfile.name || 'User'}</p>
-                      <p className="text-xs text-slate-500 truncate">{userProfile.email || ''}</p>
+              {notificationsOpen ? (
+                <div
+                  ref={notificationsPanelRef}
+                  className="absolute right-0 top-[calc(100%+10px)] z-50 w-80 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[0_20px_50px_-20px_rgba(15,23,42,0.35)]"
+                >
+                  <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3">
+                    <div>
+                      <p className="text-sm font-semibold text-slate-900">Notifications</p>
+                      <p className="text-xs text-slate-500">Important updates and alerts</p>
                     </div>
-                    <button className="md:hidden flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm text-slate-600 hover:bg-indigo-50 hover:text-indigo-600 transition-colors" onClick={() => { setProfileDropdownOpen(false); setSwitchProjectModalOpen(true); }}>
-                      <FiHome size={16} /> Switch Branch
-                    </button>
-                    {profileItems.map((item, index) => (
-                      <NavLink key={index} to={item.path} className="flex items-center gap-2 rounded-md px-3 py-2 text-sm text-slate-600 hover:bg-indigo-50 hover:text-indigo-600 transition-colors no-underline hover:no-underline" onClick={() => setProfileDropdownOpen(false)}>
-                        {item.icon} {item.title}
-                      </NavLink>
-                    ))}
-                    <div className="my-1 h-px bg-slate-100"></div>
-                    <button onClick={handleLogout} className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors">
-                      <FiLogOut size={16} /> Logout
-                    </button>
+                    <span className="rounded-full bg-indigo-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-indigo-600">
+                      Live
+                    </span>
                   </div>
-                </>
+                  <div className="px-4 py-8 text-center">
+                    <div className="mx-auto mb-3 flex h-11 w-11 items-center justify-center rounded-full bg-slate-100 text-slate-400">
+                      <FiBell className="h-5 w-5" />
+                    </div>
+                    <p className="text-sm font-medium text-slate-700">You&apos;re all caught up</p>
+                    <p className="mt-1 text-xs text-slate-500">No new notifications right now.</p>
+                  </div>
+                </div>
+              ) : null}
+            </div>
+
+            <div className="hidden h-5 w-px bg-slate-200 sm:block" />
+
+            <div className="relative">
+              <button
+                ref={profileTriggerRef}
+                type="button"
+                className={`flex h-8 max-w-[180px] items-center gap-1.5 rounded-lg border pl-1 pr-2 transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/30 ${profileDropdownOpen
+                  ? 'border-indigo-200 bg-indigo-50/60'
+                  : 'border-slate-200/80 bg-white hover:border-slate-300 hover:bg-slate-50'
+                  }`}
+                aria-expanded={profileDropdownOpen}
+                aria-haspopup="true"
+                onClick={() => {
+                  setProfileDropdownOpen((open) => !open);
+                  setNotificationsOpen(false);
+                }}
+              >
+                {renderAvatar('sm')}
+                <span className="hidden truncate text-xs font-medium text-slate-800 md:block">
+                  {userProfile.name || 'User'}
+                </span>
+                <FiChevronDown
+                  className={`hidden h-3 w-3 shrink-0 text-slate-400 transition-transform md:block ${profileDropdownOpen ? 'rotate-180' : ''
+                    }`}
+                />
+              </button>
+
+              {profileDropdownOpen && createPortal(
+                <>
+                  <div
+                    className="fixed inset-0 z-[9998]"
+                    aria-hidden="true"
+                    onMouseDown={() => setProfileDropdownOpen(false)}
+                  />
+                  <div
+                    ref={profilePanelRef}
+                    className="fixed z-[9999] w-72 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[0_20px_50px_-20px_rgba(15,23,42,0.35)]"
+                    style={{
+                      top: profilePanelStyle.top,
+                      right: profilePanelStyle.right,
+                    }}
+                    role="menu"
+                  >
+                    <div className="border-b border-slate-100 bg-gradient-to-br from-indigo-50/50 to-white px-3 py-2">
+                      <div className="flex items-center gap-2.5">
+                        {renderAvatar('lg')}
+                        <div className="flex min-w-0 flex-1 flex-col justify-center gap-0.5">
+                          <p className="truncate text-sm font-semibold leading-none text-slate-900">
+                            {userProfile.name || 'User'}
+                          </p>
+                          <span className="w-fit rounded border border-indigo-200 bg-indigo-50 px-1.5 py-px text-[10px] font-semibold uppercase leading-none tracking-wide text-indigo-700">
+                            {userProfile.roleLabel || 'Member'}
+                          </span>
+                          {userProfile.mobile ? (
+                            <p className="flex items-center gap-1 truncate text-xs leading-none text-slate-500">
+                              <FiPhone className="h-3 w-3 shrink-0 text-slate-400" />
+                              {userProfile.mobile}
+                            </p>
+                          ) : (
+                            <p className="text-xs leading-none text-slate-400">Mobile not available</p>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="p-2">
+                      <button
+                        type="button"
+                        className="mb-1 flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-slate-600 transition-colors hover:bg-indigo-50 hover:text-indigo-700 md:hidden"
+                        onClick={() => {
+                          setProfileDropdownOpen(false);
+                          setSwitchProjectModalOpen(true);
+                        }}
+                      >
+                        <FiHome className="h-4 w-4 shrink-0 text-slate-400" />
+                        Switch Branch
+                      </button>
+
+                      {profileItems.map((item) => {
+                        const Icon = item.icon;
+                        return (
+                          <NavLink
+                            key={item.title}
+                            to={item.path}
+                            role="menuitem"
+                            onClick={() => setProfileDropdownOpen(false)}
+                            className={({ isActive }) =>
+                              `flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition-colors no-underline hover:no-underline ${isActive
+                                ? 'bg-indigo-50 font-medium text-indigo-700'
+                                : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
+                              }`
+                            }
+                          >
+                            <Icon className="h-4 w-4 shrink-0 text-slate-400" />
+                            {item.title}
+                          </NavLink>
+                        );
+                      })}
+                    </div>
+
+                    <div className="border-t border-slate-100 p-2">
+                      <button
+                        type="button"
+                        role="menuitem"
+                        onClick={handleLogout}
+                        className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-rose-600 transition-colors hover:bg-rose-50"
+                      >
+                        <FiLogOut className="h-4 w-4 shrink-0" />
+                        Sign out
+                      </button>
+                    </div>
+                  </div>
+                </>,
+                document.body
               )}
             </div>
           </div>
@@ -536,29 +770,11 @@ export const Header = ({ mobileMenuOpen, setMobileMenuOpen, isMinimized, setIsMi
         isOpen={branchSetupOpen}
         onClose={() => setBranchSetupOpen(false)}
         onSuccess={(newBranch) => {
-          try {
-            const branchesJson = localStorage.getItem('user_branches');
-            let branches = [];
-            if (branchesJson) {
-              branches = JSON.parse(branchesJson);
-            }
-            const branchObj = {
-              branch_id: newBranch.branch_id,
-              name: newBranch.branch_name || newBranch.name,
-              owned: true,
-            };
-            if (!branches.some((b) => b.branch_id === branchObj.branch_id)) {
-              branches.push(branchObj);
-            }
-            localStorage.setItem('user_branches', JSON.stringify(branches));
-          } catch (e) {
-            console.error('Failed to update user_branches in localStorage:', e);
-          }
-
           handleSelectCompany({
             branch_id: newBranch.branch_id,
             name: newBranch.branch_name || newBranch.name,
             owned: true,
+            role: 'admin',
           });
           setBranchSetupOpen(false);
         }}

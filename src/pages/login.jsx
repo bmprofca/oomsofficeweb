@@ -17,6 +17,10 @@ import {
 import { GoogleLogin } from '@react-oauth/google';
 import { fetchWhatsappChannel } from './broadcast/whatsapp/whatsappChannelStore';
 import API_BASE_URL from '../utils/api-controller';
+import {
+    saveUserSessionToStorage,
+} from '../utils/user-profile-storage';
+import { applyBranchToSession } from '../services/branchSetupService';
 
 const Login = () => {
     const navigate = useNavigate();
@@ -184,11 +188,6 @@ const Login = () => {
             const result = await response.json();
             if (!response.ok || !result.success) throw new Error(result.message || 'Authentication failed');
             console.log('Google auth successful:', result);
-            localStorage.setItem('user_token', result.token);
-            localStorage.setItem('user_username', result.username);
-            localStorage.setItem('user_email', result.profile.email);
-            localStorage.setItem('user_name', result.profile.name);
-            localStorage.setItem('user_is_new', result.is_new_user ? 'true' : 'false');
             setLoginResponse(result);
             if (result.branches && result.branches.length > 0) {
                 setBranches(result.branches);
@@ -207,18 +206,17 @@ const Login = () => {
     };
 
     const handleCompleteLogin = (result, branchId) => {
-        localStorage.setItem('user_token', result.token);
-        localStorage.setItem('user_username', result.username);
-        localStorage.setItem('user_email', result.profile?.email || formData.login_id);
-        localStorage.setItem('user_name', result.profile?.name || result.username);
-        if (result.branches) localStorage.setItem('user_branches', JSON.stringify(result.branches));
-        if (result.expire_date) localStorage.setItem('token_expire', result.expire_date);
+        saveUserSessionToStorage(result, {
+            email: formData.login_id?.includes('@') ? formData.login_id : '',
+            mobile: /^\d{10}$/.test(String(formData.login_id || '').replace(/\D/g, '').slice(-10))
+                ? String(formData.login_id).replace(/\D/g, '').slice(-10)
+                : '',
+        });
+
         if (branchId) {
-            localStorage.setItem('branch_id', branchId);
-            const selectedBranchInfo = result.branches?.find(b => b.branch_id === branchId);
+            const selectedBranchInfo = result.branches?.find((b) => b.branch_id === branchId);
             if (selectedBranchInfo) {
-                localStorage.setItem('branch_name', selectedBranchInfo.name);
-                localStorage.setItem('branch_owned', selectedBranchInfo.owned ? 'true' : 'false');
+                applyBranchToSession(selectedBranchInfo);
             }
         }
         setLoginSuccess(true);

@@ -13,10 +13,66 @@ export function getAuthHeaders({ skipBranch = false } = {}) {
     return headers;
 }
 
+export function resolveBranchRole(branch) {
+    if (!branch) return 'staff';
+    if (branch.role) return branch.role;
+    return branch.owned ? 'admin' : 'staff';
+}
+
+export function formatBranchRoleLabel(branchOrRole) {
+    const role = typeof branchOrRole === 'string'
+        ? branchOrRole
+        : resolveBranchRole(branchOrRole);
+    const owned = typeof branchOrRole === 'object' && branchOrRole
+        ? !!branchOrRole.owned
+        : role === 'admin';
+
+    if (owned || role === 'admin') return 'Owner';
+    if (role === 'staff') return 'Staff';
+    return 'Member';
+}
+
+export function syncBranchRoleToStorage(branch) {
+    const role = resolveBranchRole(branch);
+    localStorage.setItem('branch_role', role);
+    return role;
+}
+
+export function getStoredBranchRoleLabel() {
+    const branchId = localStorage.getItem('branch_id');
+    if (!branchId) return 'Member';
+
+    try {
+        const branchesJson = localStorage.getItem('user_branches');
+        const branches = branchesJson ? JSON.parse(branchesJson) : [];
+        const activeBranch = Array.isArray(branches)
+            ? branches.find((branch) => String(branch.branch_id) === String(branchId))
+            : null;
+
+        if (activeBranch) {
+            syncBranchRoleToStorage(activeBranch);
+            return formatBranchRoleLabel(activeBranch);
+        }
+    } catch (error) {
+        console.error('Failed to resolve branch role from storage:', error);
+    }
+
+    const storedRole = localStorage.getItem('branch_role');
+    if (storedRole) {
+        return formatBranchRoleLabel(storedRole);
+    }
+
+    const owned = localStorage.getItem('branch_owned') === 'true';
+    const fallbackRole = owned ? 'admin' : 'staff';
+    localStorage.setItem('branch_role', fallbackRole);
+    return formatBranchRoleLabel(fallbackRole);
+}
+
 export function applyBranchToSession(branch) {
     if (!branch?.branch_id) return;
 
     const name = branch.name || branch.branch_name;
+    const role = syncBranchRoleToStorage(branch);
     localStorage.setItem('branch_id', branch.branch_id);
     localStorage.setItem('branch_name', name || '');
     localStorage.setItem('branch_code', branch.branch_id);
@@ -29,8 +85,12 @@ export function applyBranchToSession(branch) {
             branch_id: branch.branch_id,
             name,
             owned: !!branch.owned,
+            role,
         };
-        if (!branches.some((item) => item.branch_id === entry.branch_id)) {
+        const existingIndex = branches.findIndex((item) => item.branch_id === entry.branch_id);
+        if (existingIndex >= 0) {
+            branches[existingIndex] = { ...branches[existingIndex], ...entry };
+        } else {
             branches.push(entry);
         }
         localStorage.setItem('user_branches', JSON.stringify(branches));

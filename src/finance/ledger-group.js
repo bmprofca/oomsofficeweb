@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Sidebar, Header } from '../components/menus';
+import { Sidebar, Header } from '../components/header';
 import {
     FiPlus,
     FiEdit,
@@ -9,8 +9,8 @@ import {
 } from 'react-icons/fi';
 
 const LedgerGroup = () => {
-    const [sidebarOpen, setSidebarOpen] = useState(false);
-    const [activePage, setActivePage] = useState('finance');
+    const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+    const [isMinimized, setIsMinimized] = useState(false);
     const [showAddModal, setShowAddModal] = useState(false);
     const [showEditModal, setShowEditModal] = useState(false);
     const [showDeleteModal, setShowDeleteModal] = useState(false);
@@ -207,23 +207,23 @@ const LedgerGroup = () => {
     };
 
     return (
-        <div className="flex h-screen bg-slate-50">
-            <Sidebar
-                activePage={activePage}
-                setActivePage={setActivePage}
-                sidebarOpen={sidebarOpen}
-                setSidebarOpen={setSidebarOpen}
+        <div className="min-h-screen bg-slate-50 overflow-hidden">
+            <Header
+                mobileMenuOpen={mobileMenuOpen}
+                setMobileMenuOpen={setMobileMenuOpen}
+                isMinimized={isMinimized}
+                setIsMinimized={setIsMinimized}
             />
 
-            <div className="flex-1 flex flex-col overflow-hidden">
-                <Header
-                    setSidebarOpen={setSidebarOpen}
-                    activePage={activePage}
-                    title="Ledger Groups"
-                    subtitle="Manage accounting ledger groups and categories"
-                />
+            <Sidebar
+                mobileMenuOpen={mobileMenuOpen}
+                setMobileMenuOpen={setMobileMenuOpen}
+                isMinimized={isMinimized}
+                setIsMinimized={setIsMinimized}
+            />
 
-                <main className="flex-1 overflow-y-auto p-3">
+            <div className={`pt-16 transition-all duration-300 ease-in-out h-screen overflow-hidden ${isMinimized ? 'md:pl-20' : 'md:pl-[260px]'}`}>
+                <div className="h-full overflow-y-auto p-3">
                     <div className="max-w-7xl mx-auto">
                         {/* Main Card */}
                         <div className="bg-white rounded-md shadow-sm border border-slate-200">
@@ -301,7 +301,7 @@ const LedgerGroup = () => {
                             </div>
                         </div>
                     </div>
-                </main>
+                </div>
             </div>
 
             {/* Add Ledger Group Modal */}
