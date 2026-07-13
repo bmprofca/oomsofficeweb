@@ -13,6 +13,7 @@ import axios from 'axios';
 import { SubscriptionProtectedRoute } from './components/SubscriptionProtectedRoute';
 import BranchRequiredRoute from './components/BranchRequiredRoute';
 import RouteLoadingFallback from './app/RouteLoadingFallback';
+import { handleUnauthorizedResponse } from './utils/auth-session';
 import {
   Login,
   PageNotFound,
@@ -126,7 +127,9 @@ const redirectToSubscription = (upgrade = false) => {
 axios.interceptors.response.use(
   (response) => response,
   (error) => {
-    if (error.response && error.response.status === 403) {
+    if (error.response?.status === 401) {
+      handleUnauthorizedResponse();
+    } else if (error.response && error.response.status === 403) {
       const errCode = error.response.data?.code;
       if (errCode === 'SUBSCRIPTION_REQUIRED') {
         redirectToSubscription(false);
@@ -143,7 +146,9 @@ const originalFetch = window.fetch.bind(window);
 window.fetch = async function (...args) {
   try {
     const response = await originalFetch(...args);
-    if (response.status === 403) {
+    if (response.status === 401) {
+      handleUnauthorizedResponse();
+    } else if (response.status === 403) {
       try {
         const clone = response.clone();
         const data = await clone.json();

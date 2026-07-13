@@ -36,6 +36,7 @@ const Login = () => {
     const [loginSuccess, setLoginSuccess] = useState(false);
     const [activeSocialLogin, setActiveSocialLogin] = useState(null);
     const [isValidEmail, setIsValidEmail] = useState(true);
+    const [otpDestination, setOtpDestination] = useState('');
     const [otpDigits, setOtpDigits] = useState(['', '', '', '', '', '']);
     const [countdown, setCountdown] = useState(30);
 
@@ -61,6 +62,17 @@ const Login = () => {
         }
         return () => clearInterval(timer);
     }, [phase, countdown]);
+
+    const normalizeLoginMobile = (value) => String(value || '').replace(/\D/g, '').slice(-10);
+
+    const buildLoginPayload = () => {
+        const loginId = String(formData.login_id || '').trim();
+        if (loginId.includes('@')) {
+            return { login_id: loginId, country_code: '+91' };
+        }
+        const mobile = normalizeLoginMobile(loginId);
+        return { mobile, country_code: '+91', login_id: mobile };
+    };
 
     const validateLoginId = (val) => {
         if (!val) return true;
@@ -126,14 +138,15 @@ const Login = () => {
             const response = await fetch(`${API_BASE_URL}/auth/login/send-otp`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ login_id: formData.login_id })
+                body: JSON.stringify(buildLoginPayload())
             });
             const result = await response.json();
             if (result.success) {
                 setPhase(2);
                 setCountdown(30);
                 setOtpExpireTime(result.expire);
-                toast.success(result.message || 'OTP sent successfully');
+                setOtpDestination(result.mobile_masked || '');
+                toast.success(result.message || 'OTP sent to your registered mobile number');
             } else {
                 toast.error(result.message || 'Error sending OTP');
             }
@@ -153,7 +166,7 @@ const Login = () => {
             const response = await fetch(`${API_BASE_URL}/auth/login/verify-otp`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ login_id: formData.login_id, otp: formData.otp })
+                body: JSON.stringify({ ...buildLoginPayload(), otp: formData.otp })
             });
             const result = await response.json();
             if (result.success) {
@@ -206,11 +219,12 @@ const Login = () => {
     };
 
     const handleCompleteLogin = (result, branchId) => {
+        const profileMobile = result.profile?.mobile || normalizeLoginMobile(formData.login_id);
+        const profileEmail = result.profile?.email || (formData.login_id?.includes('@') ? formData.login_id : '');
+
         saveUserSessionToStorage(result, {
-            email: formData.login_id?.includes('@') ? formData.login_id : '',
-            mobile: /^\d{10}$/.test(String(formData.login_id || '').replace(/\D/g, '').slice(-10))
-                ? String(formData.login_id).replace(/\D/g, '').slice(-10)
-                : '',
+            email: profileEmail,
+            mobile: profileMobile,
         });
 
         if (branchId) {
@@ -248,11 +262,12 @@ const Login = () => {
             const response = await fetch(`${API_BASE_URL}/auth/login/send-otp`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ login_id: formData.login_id })
+                body: JSON.stringify(buildLoginPayload())
             });
             const result = await response.json();
             if (result.success) {
                 setOtpExpireTime(result.expire);
+                setOtpDestination(result.mobile_masked || otpDestination);
                 setOtpDigits(['', '', '', '', '', '']);
                 setFormData(prev => ({ ...prev, otp: '' }));
                 setCountdown(30);
@@ -455,7 +470,7 @@ const Login = () => {
                                                         ? 'border-slate-200 focus:border-indigo-500 focus:bg-white focus:ring-4 focus:ring-indigo-500/10'
                                                         : 'border-red-300 focus:border-red-500 focus:ring-4 focus:ring-red-500/10'
                                                     }`}
-                                                placeholder="Enter your mobile number or email"
+                                                placeholder="10-digit mobile or email"
                                                 required
                                             />
                                             <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400">
@@ -486,7 +501,11 @@ const Login = () => {
                         {phase === 2 && !showBranchSelection && !loginSuccess && (
                             <div className="animate-fade-in space-y-4">
                                 <div className="text-center bg-slate-50 border border-slate-100 p-3 rounded-xl text-xs text-slate-500 font-semibold mb-4">
-                                    We sent a 6-digit code to <span className="text-slate-800 font-bold">{formData.login_id}</span>
+                                    {otpDestination ? (
+                                        <>We sent a 6-digit code to your registered mobile <span className="text-slate-800 font-bold">{otpDestination}</span></>
+                                    ) : (
+                                        <>We sent a 6-digit code to your registered mobile number</>
+                                    )}
                                 </div>
 
                                 <div className="space-y-4">
@@ -515,6 +534,7 @@ const Login = () => {
                                                 setPhase(1);
                                                 setOtpDigits(['', '', '', '', '', '']);
                                                 setFormData(prev => ({ ...prev, otp: '' }));
+                                                setOtpDestination('');
                                             }}
                                             className="hover:text-slate-700 flex items-center gap-1 transition-colors"
                                         >

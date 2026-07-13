@@ -59,18 +59,14 @@ const Register = () => {
         const normalizedMobile = normalizeMobile(mobile);
         const errors = { email: '', mobile: '' };
 
-        if (!trimmedEmail && !normalizedMobile) {
-            const message = 'Email or mobile number is required.';
-            if (showToast) toast.error(message);
-            return { ok: false, errors, message };
+        if (!normalizedMobile) {
+            errors.mobile = 'Mobile number is required.';
+        } else if (!MOBILE_REGEX.test(normalizedMobile)) {
+            errors.mobile = 'Mobile number must be 10 digits.';
         }
 
         if (trimmedEmail && !EMAIL_REGEX.test(trimmedEmail)) {
             errors.email = 'Enter a valid email address.';
-        }
-
-        if (normalizedMobile && !MOBILE_REGEX.test(normalizedMobile)) {
-            errors.mobile = 'Mobile number must be 10 digits.';
         }
 
         if (errors.email || errors.mobile) {
@@ -82,7 +78,7 @@ const Register = () => {
         return {
             ok: true,
             errors,
-            email: trimmedEmail,
+            email: trimmedEmail || null,
             mobile: normalizedMobile,
         };
     };
@@ -151,7 +147,8 @@ const Register = () => {
     const buildPayload = () => ({
         name: formData.name.trim(),
         email: formData.email.trim() || undefined,
-        mobile: formData.mobile.trim() || undefined,
+        mobile: normalizeMobile(formData.mobile),
+        country_code: '+91',
     });
 
     const handleDetailsSubmit = async (e) => {
@@ -183,9 +180,9 @@ const Register = () => {
             const result = await response.json();
 
             if (result.success) {
-                setOtpChannel(result.channel || (validation.mobile ? 'mobile' : 'email'));
+                setOtpChannel('mobile');
                 setStep(2);
-                toast.success(result.message || 'OTP sent successfully');
+                toast.success(result.message || 'OTP sent to your mobile number');
             } else {
                 toast.error(result.message || 'Failed to send OTP');
             }
@@ -275,8 +272,8 @@ const Register = () => {
             const result = await response.json();
 
             if (result.success) {
-                setOtpChannel(result.channel || otpChannel);
-                toast.success(result.message || 'OTP resent successfully');
+                setOtpChannel('mobile');
+                toast.success(result.message || 'OTP resent to your mobile number');
             } else {
                 toast.error(result.message || 'Failed to resend OTP');
             }
@@ -296,9 +293,7 @@ const Register = () => {
     const isStep1Empty = !formData.name.trim() || !contactValidation.ok;
     const isStep2Empty = formData.otp.length !== 6;
 
-    const otpDestination = otpChannel === 'email'
-        ? formData.email
-        : `+91 ${normalizeMobile(formData.mobile)}`;
+    const otpDestination = `+91 ${normalizeMobile(formData.mobile)}`;
 
     return (
         <div className="ooms-root h-screen h-[100dvh] overflow-hidden bg-[#f3f6fc] flex items-center justify-center p-4 sm:p-6 font-sans page-container">
@@ -327,7 +322,7 @@ const Register = () => {
                             </span>
                         </h1>
                         <p className="text-slate-400 text-xs mt-3 leading-relaxed font-normal">
-                            Register with your email or mobile, verify with OTP, and sign in to manage your workspace.
+                            Register with your mobile number, verify with OTP, and sign in to manage your workspace.
                         </p>
 
                         <div className="mt-6 space-y-4">
@@ -404,7 +399,7 @@ const Register = () => {
                             </h2>
                             <p className="text-xs text-slate-450 mt-1">
                                 {step === 1
-                                    ? 'Email or mobile is required — provide at least one'
+                                    ? 'Mobile number is required. Email is optional.'
                                     : `Code sent to ${otpDestination}`}
                             </p>
 
@@ -438,7 +433,7 @@ const Register = () => {
 
                                     <div className="space-y-1.5">
                                         <label className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">
-                                            Email Address <span className="text-slate-300 font-semibold normal-case">(optional if mobile provided)</span>
+                                            Email Address <span className="text-slate-300 font-semibold normal-case">(optional)</span>
                                         </label>
                                         <div className="relative group">
                                             <input
@@ -460,7 +455,7 @@ const Register = () => {
 
                                     <div className="space-y-1.5">
                                         <label className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">
-                                            Mobile Number <span className="text-slate-300 font-semibold normal-case">(optional if email provided)</span>
+                                            Mobile Number <span className="text-red-400 font-semibold normal-case">(required)</span>
                                         </label>
                                         <div className="relative group">
                                             <input
@@ -472,6 +467,7 @@ const Register = () => {
                                                 placeholder="e.g. 9876543210"
                                                 inputMode="numeric"
                                                 maxLength={10}
+                                                required
                                             />
                                             <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400">
                                                 <FiPhone size={13} />
