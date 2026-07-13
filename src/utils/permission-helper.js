@@ -7,6 +7,43 @@ import API_BASE_URL from './api-controller';
 let inFlightPromise = null;
 let lastFetchTime = 0;
 
+export function getUserPermissionCacheKey(username, branchId) {
+    return `user_permissions_${username}_${branchId}`;
+}
+
+export function clearUserPermissionCache(username, branchId) {
+    const resolvedUsername = username
+        || localStorage.getItem('user_username')
+        || localStorage.getItem('username')
+        || '';
+    const resolvedBranchId = branchId || localStorage.getItem('branch_id') || '';
+
+    if (!resolvedUsername || !resolvedBranchId) return;
+
+    const cacheKey = getUserPermissionCacheKey(resolvedUsername, resolvedBranchId);
+    localStorage.removeItem(cacheKey);
+    localStorage.removeItem(`${cacheKey}_timestamp`);
+    lastFetchTime = 0;
+}
+
+function resolvePermissionsFromUserPermissionsResponse(payload) {
+    if (!payload?.success) return null;
+
+    if (Array.isArray(payload.permissions)) {
+        return payload.permissions;
+    }
+
+    if (Array.isArray(payload.data?.permissions)) {
+        return payload.data.permissions;
+    }
+
+    if (Array.isArray(payload.data?.custom_permissions)) {
+        return payload.data.custom_permissions;
+    }
+
+    return null;
+}
+
 /**
  * Utility to fetch and cache user permissions.
  * @param {boolean} force - Force cache bypass and fetch from API
@@ -70,15 +107,10 @@ export const fetchUserPermissions = async (force = false) => {
                         { headers }
                     );
 
-                    if (res.data?.success) {
-                        const responseData = res.data.data || res.data;
-                        if (responseData.permissions && Array.isArray(responseData.permissions)) {
-                            allowedPermissions = responseData.permissions;
-                            resolved = true;
-                        } else if (responseData.custom_permissions && Array.isArray(responseData.custom_permissions)) {
-                            allowedPermissions = responseData.custom_permissions;
-                            resolved = true;
-                        }
+                    const resolvedPermissions = resolvePermissionsFromUserPermissionsResponse(res.data);
+                    if (resolvedPermissions) {
+                        allowedPermissions = resolvedPermissions;
+                        resolved = true;
                     }
                 } catch (err) {
                     console.warn('Batch user-permissions endpoint not available, will check individual permissions...', err);

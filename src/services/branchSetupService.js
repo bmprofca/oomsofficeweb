@@ -1,4 +1,5 @@
 import API_BASE_URL from '../utils/api-controller';
+import { clearUserPermissionCache } from '../utils/permission-helper';
 
 export function getAuthHeaders({ skipBranch = false } = {}) {
     const headers = { 'Content-Type': 'application/json' };
@@ -71,12 +72,18 @@ export function getStoredBranchRoleLabel() {
 export function applyBranchToSession(branch) {
     if (!branch?.branch_id) return;
 
+    const previousBranchId = localStorage.getItem('branch_id') || '';
     const name = branch.name || branch.branch_name;
     const role = syncBranchRoleToStorage(branch);
     localStorage.setItem('branch_id', branch.branch_id);
     localStorage.setItem('branch_name', name || '');
     localStorage.setItem('branch_code', branch.branch_id);
     localStorage.setItem('branch_owned', branch.owned ? 'true' : 'false');
+
+    if (String(previousBranchId) !== String(branch.branch_id)) {
+        clearUserPermissionCache(null, previousBranchId);
+        clearUserPermissionCache(null, branch.branch_id);
+    }
 
     try {
         const branchesJson = localStorage.getItem('user_branches');

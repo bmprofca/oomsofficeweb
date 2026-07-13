@@ -21,6 +21,7 @@ import {
     saveUserSessionToStorage,
 } from '../utils/user-profile-storage';
 import { applyBranchToSession } from '../services/branchSetupService';
+import { clearUserPermissionCache } from '../utils/permission-helper';
 
 const Login = () => {
     const navigate = useNavigate();
@@ -226,6 +227,8 @@ const Login = () => {
             email: profileEmail,
             mobile: profileMobile,
         });
+
+        clearUserPermissionCache(result.username, branchId || null);
 
         if (branchId) {
             const selectedBranchInfo = result.branches?.find((b) => b.branch_id === branchId);

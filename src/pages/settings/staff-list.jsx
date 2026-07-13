@@ -1,37 +1,109 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import {
     FiUsers,
     FiPlus,
     FiEye,
     FiShield,
-    FiEdit,
     FiSearch,
-    FiFilter,
-    FiTrash2,
-    FiMail,
-    FiDownload,
-    FiPrinter,
-    FiX,
     FiUser,
     FiPhone,
-    FiUserCheck,
-    FiUserX,
-    FiChevronLeft,
-    FiChevronRight,
     FiMenu
 } from 'react-icons/fi';
 import { PiExportBold } from "react-icons/pi";
 import { PiFilePdfDuotone, PiMicrosoftExcelLogoDuotone } from "react-icons/pi";
 import { AiOutlineMail } from "react-icons/ai";
 import { FaWhatsapp } from "react-icons/fa6";
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import axios from 'axios';
 import { toast } from 'react-hot-toast';
 import { Header, Sidebar } from '../../components/header';
-import DeleteConfirmationModal from '../../components/delete-confirmation';
+import Modal from '../../components/common/Modal';
+import TablePagination from '../../components/TablePagination';
 import getHeaders from '../../utils/get-headers';
 import API_BASE_URL from '../../utils/api-controller';
+import { clearUserPermissionCache, fetchUserPermissions } from '../../utils/permission-helper';
+
+const ACTIONS_MENU_WIDTH = 192;
+const ACTIONS_MENU_HEIGHT = 120;
+
+function useDebouncedValue(value, delay = 300) {
+    const [debounced, setDebounced] = useState(value);
+    useEffect(() => {
+        const timer = setTimeout(() => setDebounced(value), delay);
+        return () => clearTimeout(timer);
+    }, [value, delay]);
+    return debounced;
+}
+
+const AnimatedCheckbox = ({ checked, indeterminate = false, onChange, ariaLabel, disabled = false }) => {
+    const inputRef = useRef(null);
+
+    useEffect(() => {
+        if (inputRef.current) {
+            inputRef.current.indeterminate = indeterminate;
+        }
+    }, [indeterminate, checked]);
+
+    const isActive = checked || indeterminate;
+
+    return (
+        <label className={`relative inline-flex items-center group ${disabled ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'}`}>
+            <input
+                ref={inputRef}
+                type="checkbox"
+                className="sr-only"
+                checked={checked}
+                onChange={onChange}
+                aria-label={ariaLabel}
+                disabled={disabled}
+            />
+            <motion.span
+                className={`flex items-center justify-center w-[18px] h-[18px] rounded-[4px] border-2 transition-colors duration-200 ${
+                    isActive
+                        ? 'bg-indigo-600 border-indigo-600 shadow-sm shadow-indigo-200'
+                        : 'bg-white border-gray-300 group-hover:border-indigo-400'
+                }`}
+                animate={{ scale: isActive ? [1, 1.12, 1] : 1 }}
+                transition={{ duration: 0.18 }}
+                whileTap={disabled ? {} : { scale: 0.92 }}
+            >
+                <AnimatePresence initial={false} mode="wait">
+                    {indeterminate ? (
+                        <motion.span
+                            key="dash"
+                            className="block w-2 h-0.5 bg-white rounded-full"
+                            initial={{ opacity: 0, scaleX: 0.4 }}
+                            animate={{ opacity: 1, scaleX: 1 }}
+                            exit={{ opacity: 0, scaleX: 0.4 }}
+                            transition={{ duration: 0.12 }}
+                        />
+                    ) : checked ? (
+                        <motion.svg
+                            key="check"
+                            viewBox="0 0 12 12"
+                            className="w-3 h-3 text-white"
+                            initial={{ opacity: 0, scale: 0.5 }}
+                            animate={{ opacity: 1, scale: 1 }}
+                            exit={{ opacity: 0, scale: 0.5 }}
+                            transition={{ duration: 0.15 }}
+                        >
+                            <path
+                                d="M2.5 6l2.2 2.2 4.8-4.8"
+                                fill="none"
+                                stroke="currentColor"
+                                strokeWidth="1.8"
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                            />
+                        </motion.svg>
+                    ) : null}
+                </AnimatePresence>
+            </motion.span>
+        </label>
+    );
+};
 
 const StaffList = () => {
     const navigate = useNavigate();
@@ -42,17 +114,17 @@ const StaffList = () => {
     });
     const [loading, setLoading] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
+    const debouncedSearch = useDebouncedValue(searchQuery, 300);
     const [selectedStatus, setSelectedStatus] = useState('');
     const [selectedPermission, setSelectedPermission] = useState('');
     const [selectedStaff, setSelectedStaff] = useState(new Set());
-    const [selectAll, setSelectAll] = useState(false);
+    const [bulkPermissionRole, setBulkPermissionRole] = useState('');
+    const [bulkAssigning, setBulkAssigning] = useState(false);
     const [showExportDropdown, setShowExportDropdown] = useState(false);
     const [exportModal, setExportModal] = useState({ open: false, type: '', data: null });
     const [showCreateModal, setShowCreateModal] = useState(false);
     const [showPermissionModal, setShowPermissionModal] = useState(false);
-    const [deleteModal, setDeleteModal] = useState(false);
-    const [selectedStaffMember, setSelectedStaffMember] = useState(null);
-    
+    const [selectedStaffMember, setSelectedStaffMember] = useState(null);    
     // Dynamic permissions & staff
     const [staffData, setStaffData] = useState([]);
     const [roles, setRoles] = useState([]);
@@ -63,16 +135,15 @@ const StaffList = () => {
     const [selectedRole, setSelectedRole] = useState('');
     const [customPermissions, setCustomPermissions] = useState([]);
     const [activeRowDropdown, setActiveRowDropdown] = useState(null);
+    const [dropdownPos, setDropdownPos] = useState({ top: 0, left: undefined, right: 0, bottom: undefined });
+    const actionAnchorRef = useRef(null);
     const [expandedCategories, setExpandedCategories] = useState({});
-
     // Pagination states
     const [currentPage, setCurrentPage] = useState(1);
     const [itemsPerPage, setItemsPerPage] = useState(10);
     const [totalItems, setTotalItems] = useState(0);
     const [totalPages, setTotalPages] = useState(1);
-    const [pageJumpInput, setPageJumpInput] = useState('');
     const [tableLoading, setTableLoading] = useState(false);
-
     const [newStaff, setNewStaff] = useState({
         name: '',
         guardian_name: '',
@@ -255,22 +326,24 @@ const StaffList = () => {
         });
     };
 
-    const fetchStaffData = async (search = '', page = 1, limit = 10, isInitial = false) => {
-        if (isInitial) {
-            setLoading(true);
-        } else {
-            setTableLoading(true);
-        }
+    const fetchStaffData = useCallback(async () => {
+        setTableLoading(true);
         const headers = getHeaders();
         if (!headers) {
-            setLoading(false);
             setTableLoading(false);
             return;
         }
         try {
-            const encodedSearch = encodeURIComponent(search.trim());
+            const params = new URLSearchParams({
+                search: debouncedSearch.trim(),
+                page: String(currentPage),
+                limit: String(itemsPerPage),
+            });
+            if (selectedStatus) params.set('status', selectedStatus);
+            if (selectedPermission) params.set('permission_role_id', selectedPermission);
+
             const res = await axios.get(
-                `${API_BASE_URL}/settings/staff/list?search=${encodedSearch}&page=${page}&limit=${limit}`,
+                `${API_BASE_URL}/settings/staff/list?${params.toString()}`,
                 { headers }
             );
             if (res.data?.success && res.data.data) {
@@ -278,7 +351,7 @@ const StaffList = () => {
                 const meta = res.data.meta || {};
                 const total = meta.total ?? 0;
                 setTotalItems(total);
-                setTotalPages(Math.max(1, meta.total_pages ?? Math.ceil(total / limit)));
+                setTotalPages(Math.max(1, meta.total_pages ?? Math.ceil(total / itemsPerPage)));
             } else {
                 setStaffData([]);
                 setTotalItems(0);
@@ -290,33 +363,28 @@ const StaffList = () => {
             setTotalItems(0);
             setTotalPages(1);
         } finally {
-            setLoading(false);
             setTableLoading(false);
         }
-    };
+    }, [debouncedSearch, currentPage, itemsPerPage, selectedStatus, selectedPermission]);
 
-    const isSearchEffectMount = useRef(true);
-    const isPageEffectMount = useRef(true);
+    const skipSearchPageReset = useRef(true);
 
     useEffect(() => {
-        fetchStaffData('', 1, itemsPerPage, true);
+        if (skipSearchPageReset.current) {
+            skipSearchPageReset.current = false;
+            return;
+        }
+        setCurrentPage(1);
+    }, [debouncedSearch]);
+
+    useEffect(() => {
+        fetchStaffData();
+    }, [fetchStaffData]);
+
+    useEffect(() => {
         fetchRoles();
         fetchPermissionOptions();
     }, []);
-
-    useEffect(() => {
-        if (isPageEffectMount.current) { isPageEffectMount.current = false; return; }
-        fetchStaffData(searchQuery, currentPage, itemsPerPage);
-    }, [currentPage, itemsPerPage]);
-
-    useEffect(() => {
-        if (isSearchEffectMount.current) { isSearchEffectMount.current = false; return; }
-        const t = setTimeout(() => {
-            setCurrentPage(1);
-            fetchStaffData(searchQuery, 1, itemsPerPage);
-        }, 400);
-        return () => clearTimeout(t);
-    }, [searchQuery]);
 
     // Persist sidebar minimized state
     useEffect(() => {
@@ -335,14 +403,18 @@ const StaffList = () => {
         };
     }, [mobileMenuOpen]);
 
-    // Close dropdown when clicking outside
+    // Close export dropdown when clicking outside
     useEffect(() => {
         const handleClickOutside = (event) => {
             if (!event.target.closest('.dropdown-container')) {
                 setShowExportDropdown(false);
             }
-            if (!event.target.closest('.action-dropdown-container')) {
+            if (
+                !event.target.closest('[data-staff-actions-menu]') &&
+                !event.target.closest('[data-staff-actions-trigger]')
+            ) {
                 setActiveRowDropdown(null);
+                actionAnchorRef.current = null;
             }
         };
 
@@ -352,62 +424,113 @@ const StaffList = () => {
         };
     }, []);
 
-    // Filter staff based on status & permission dropdowns locally
-    const filteredStaff = staffData.filter(staff => {
-        const matchesStatus = selectedStatus === '' || 
-            (selectedStatus === 'active' && staff.is_active) ||
-            (selectedStatus === 'inactive' && !staff.is_active);
+    const updateDropdownPosition = useCallback((anchorEl) => {
+        if (!anchorEl) return;
+        const rect = anchorEl.getBoundingClientRect();
+        const margin = 8;
+        const spaceBelow = window.innerHeight - rect.bottom;
+        const spaceAbove = rect.top;
+        const openUpward = spaceBelow < ACTIONS_MENU_HEIGHT + margin && spaceAbove > spaceBelow;
 
-        const matchesPermission = selectedPermission === '' || 
-            (staff.permission_role_id && (
-                String(staff.permission_role_id).toLowerCase() === String(selectedPermission).toLowerCase() ||
-                (() => {
-                    const selectedRoleObj = roles.find(r => String(r.permission_role_id).toLowerCase() === String(selectedPermission).toLowerCase());
-                    if (!selectedRoleObj) return false;
-                    return String(staff.permission_role_id).toLowerCase() === String(selectedRoleObj.permission_role_id).toLowerCase() ||
-                           String(staff.permission_role_id).toLowerCase() === String(selectedRoleObj.name).toLowerCase();
-                })()
-            ));
+        let top;
+        let bottom;
+        if (openUpward) {
+            top = undefined;
+            bottom = Math.max(margin, window.innerHeight - rect.top + 4);
+        } else {
+            top = Math.min(rect.bottom + 4, window.innerHeight - ACTIONS_MENU_HEIGHT - margin);
+            bottom = undefined;
+        }
 
-        return matchesStatus && matchesPermission;
-    });
+        const right = Math.max(
+            margin,
+            Math.min(window.innerWidth - rect.right, window.innerWidth - ACTIONS_MENU_WIDTH - margin)
+        );
+
+        setDropdownPos({
+            top,
+            bottom,
+            right,
+            left: undefined,
+        });
+    }, []);
+
+    const openActionsFromButton = useCallback((e, username) => {
+        e.stopPropagation();
+        if (activeRowDropdown === username) {
+            setActiveRowDropdown(null);
+            actionAnchorRef.current = null;
+            return;
+        }
+        actionAnchorRef.current = e.currentTarget;
+        updateDropdownPosition(e.currentTarget);
+        setActiveRowDropdown(username);
+    }, [activeRowDropdown, updateDropdownPosition]);
+
+    // Staff list is server-filtered via API
+    const activeStaffForMenu = useMemo(
+        () => staffData.find((staff) => staff.username === activeRowDropdown) || null,
+        [staffData, activeRowDropdown]
+    );
+
+    useEffect(() => {
+        if (!activeRowDropdown) return undefined;
+
+        const handleScrollOrResize = () => {
+            if (actionAnchorRef.current) {
+                updateDropdownPosition(actionAnchorRef.current);
+            }
+        };
+
+        window.addEventListener('scroll', handleScrollOrResize, true);
+        window.addEventListener('resize', handleScrollOrResize);
+        return () => {
+            window.removeEventListener('scroll', handleScrollOrResize, true);
+            window.removeEventListener('resize', handleScrollOrResize);
+        };
+    }, [activeRowDropdown, updateDropdownPosition]);
+
+    const pageUsernames = useMemo(() => staffData.map((s) => s.username), [staffData]);
+    const isAllPageSelected = pageUsernames.length > 0 && pageUsernames.every((u) => selectedStaff.has(u));
+    const isSomePageSelected = pageUsernames.some((u) => selectedStaff.has(u)) && !isAllPageSelected;
 
     // Handle staff selection
-    const handleStaffSelect = (staffId) => {
-        const newSelected = new Set(selectedStaff);
-        if (newSelected.has(staffId)) {
-            newSelected.delete(staffId);
-        } else {
-            newSelected.add(staffId);
-        }
-        setSelectedStaff(newSelected);
+    const handleStaffSelect = (username) => {
+        setSelectedStaff((prev) => {
+            const next = new Set(prev);
+            if (next.has(username)) {
+                next.delete(username);
+            } else {
+                next.add(username);
+            }
+            return next;
+        });
     };
 
-    // Handle select all
+    // Handle select all on current page
     const handleSelectAll = () => {
-        if (selectAll) {
-            setSelectedStaff(new Set());
-        } else {
-            const allStaffIds = new Set(filteredStaff.map(staff => staff.id));
-            setSelectedStaff(allStaffIds);
-        }
-        setSelectAll(!selectAll);
+        setSelectedStaff((prev) => {
+            const next = new Set(prev);
+            if (isAllPageSelected) {
+                pageUsernames.forEach((u) => next.delete(u));
+            } else {
+                pageUsernames.forEach((u) => next.add(u));
+            }
+            return next;
+        });
     };
 
     const handlePageChange = (newPage) => {
         const page = Math.max(1, Math.min(totalPages, Math.floor(newPage)));
         if (page >= 1 && page <= totalPages) {
             setCurrentPage(page);
-            setPageJumpInput('');
         }
     };
 
-    const handlePageJump = (e) => {
-        e.preventDefault();
-        const page = parseInt(pageJumpInput, 10);
-        if (!isNaN(page)) handlePageChange(page);
+    const handleLimitChange = (newLimit) => {
+        setItemsPerPage(newLimit);
+        setCurrentPage(1);
     };
-
     // Handle status change
     const handleStatusChange = async (username, currentStatus) => {
         setTableLoading(true);
@@ -453,16 +576,28 @@ const StaffList = () => {
                 { headers }
             );
             if (res.data?.success) {
-                const responseData = res.data.data || res.data;
-                const roleId = responseData.permission_role_id || '';
+                const roleId = res.data.permission_role_id
+                    || res.data.data?.permission_role_id
+                    || '';
                 setSelectedRole(roleId);
-                
-                let custom = [];
-                if (responseData.custom_permissions) {
-                    custom = responseData.custom_permissions;
-                } else if (responseData.permissions) {
+
+                const mergedPermissions = Array.isArray(res.data.permissions)
+                    ? res.data.permissions
+                    : Array.isArray(res.data.data?.permissions)
+                        ? res.data.data.permissions
+                        : [];
+                const customFromApi = Array.isArray(res.data.data?.custom_permissions)
+                    ? res.data.data.custom_permissions
+                    : Array.isArray(res.data.custom_permissions)
+                        ? res.data.custom_permissions
+                        : [];
+
+                let custom = customFromApi;
+                if (!custom.length && mergedPermissions.length) {
                     const inherited = getRolePermissions(roleId);
-                    custom = responseData.permissions.filter(p => !inherited.includes(p) && p !== 'office_assistance_access');
+                    custom = mergedPermissions.filter(
+                        (permission) => !inherited.includes(permission) && permission !== 'office_assistance_access'
+                    );
                 }
                 setCustomPermissions(custom);
             } else {
@@ -495,8 +630,13 @@ const StaffList = () => {
             );
             if (res.data?.success) {
                 toast.success('Permissions assigned successfully');
+                const currentUsername = localStorage.getItem('user_username') || localStorage.getItem('username') || '';
+                if (selectedStaffMember?.username === currentUsername) {
+                    clearUserPermissionCache(currentUsername, localStorage.getItem('branch_id'));
+                    await fetchUserPermissions(true);
+                }
                 setShowPermissionModal(false);
-                fetchStaffData(searchQuery, currentPage, itemsPerPage);
+                fetchStaffData();
             } else {
                 toast.error(res.data?.message || 'Failed to assign permissions');
             }
@@ -505,6 +645,48 @@ const StaffList = () => {
             toast.error(err.response?.data?.message || 'Failed to assign permissions');
         } finally {
             setLoading(false);
+        }
+    };
+
+    const handleBulkAssignPermissions = async () => {
+        if (!bulkPermissionRole) {
+            toast.error('Please select a permission role');
+            return;
+        }
+        const usernames = Array.from(selectedStaff);
+        if (!usernames.length) return;
+
+        setBulkAssigning(true);
+        try {
+            const headers = getHeaders();
+            const res = await axios.post(
+                `${API_BASE_URL}/settings/permissions/assign/bulk`,
+                {
+                    usernames,
+                    permission_role_id: bulkPermissionRole,
+                    custom_permissions: [],
+                },
+                { headers }
+            );
+            if (res.data?.success) {
+                const updatedCount = res.data.data?.updated_count ?? usernames.length;
+                toast.success(res.data.message || `Updated ${updatedCount} staff member(s)`);
+                const currentUsername = localStorage.getItem('user_username') || localStorage.getItem('username') || '';
+                if (currentUsername && usernames.includes(currentUsername)) {
+                    clearUserPermissionCache(currentUsername, localStorage.getItem('branch_id'));
+                    await fetchUserPermissions(true);
+                }
+                setSelectedStaff(new Set());
+                setBulkPermissionRole('');
+                fetchStaffData();
+            } else {
+                toast.error(res.data?.message || 'Failed to update permissions');
+            }
+        } catch (err) {
+            console.error('Error bulk assigning permissions:', err);
+            toast.error(err.response?.data?.message || 'Failed to update permissions');
+        } finally {
+            setBulkAssigning(false);
         }
     };
 
@@ -557,13 +739,6 @@ const StaffList = () => {
         }, 1000);
     };
 
-    // Handle delete staff (locally mocked since no API available)
-    const handleDeleteStaff = (staffId) => {
-        setStaffData(prev => prev.filter(staff => staff.id !== staffId));
-        setDeleteModal(false);
-        toast.success('Staff member deleted successfully');
-    };
-
     // Handle export
     const handleExport = (type, data = null) => {
         setExportModal({ open: true, type, data });
@@ -574,38 +749,36 @@ const StaffList = () => {
     };
 
     // Skeleton loader component
+    const tableCellPad = isMinimized ? 'p-4' : 'px-2 py-3 sm:px-3 sm:py-3.5';
+
     const SkeletonRow = () => (
         <tr className="animate-pulse">
-            <td className="p-4">
+            <td className={tableCellPad}>
+                <div className="w-[18px] h-[18px] bg-gray-200 rounded" />
+            </td>
+            <td className={tableCellPad}>
                 <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 bg-gray-200 rounded-lg"></div>
+                    <div className="w-8 h-8 bg-gray-200 rounded-lg" />
                     <div className="space-y-2">
-                        <div className="h-3 bg-gray-200 rounded w-32"></div>
-                        <div className="h-2 bg-gray-200 rounded w-24"></div>
+                        <div className="h-3 bg-gray-200 rounded w-32" />
+                        <div className="h-2 bg-gray-200 rounded w-24" />
                     </div>
                 </div>
             </td>
-            <td className="p-4">
+            <td className={tableCellPad}>
                 <div className="space-y-2">
-                    <div className="h-3 bg-gray-200 rounded w-32"></div>
-                    <div className="h-3 bg-gray-200 rounded w-24"></div>
+                    <div className="h-3 bg-gray-200 rounded w-32" />
+                    <div className="h-3 bg-gray-200 rounded w-24" />
                 </div>
             </td>
-            <td className="p-4">
-                <div className="h-3 bg-gray-200 rounded w-32"></div>
+            <td className={tableCellPad}>
+                <div className="h-8 bg-gray-200 rounded w-28" />
             </td>
-            <td className="p-4">
-                <div className="h-8 bg-gray-200 rounded w-20"></div>
+            <td className={tableCellPad}>
+                <div className="h-6 bg-gray-200 rounded w-11" />
             </td>
-            <td className="p-4">
-                <div className="h-6 bg-gray-200 rounded w-11"></div>
-            </td>
-            <td className="p-4">
-                <div className="flex gap-2">
-                    <div className="w-8 h-8 bg-gray-200 rounded"></div>
-                    <div className="w-8 h-8 bg-gray-200 rounded"></div>
-                    <div className="w-8 h-8 bg-gray-200 rounded"></div>
-                </div>
+            <td className={tableCellPad}>
+                <div className="mx-auto h-8 w-8 bg-gray-200 rounded" />
             </td>
         </tr>
     );
@@ -627,119 +800,126 @@ const StaffList = () => {
 
             {/* Main content */}
             <div className={`pt-16 transition-all duration-300 ease-in-out ${isMinimized ? 'md:pl-20' : 'md:pl-[260px]'}`}>
-                <div className="max-w-full mx-auto px-4 sm:px-6 md:px-8 py-6">
+                <div className={`max-w-full mx-auto py-4 sm:py-6 ${isMinimized ? 'px-4 sm:px-6 md:px-8' : 'px-3 sm:px-4 lg:px-6'}`}>
                     <div className="h-full flex flex-col">
                         {/* Main Card - Full height with scrolling */}
-                        <div className="bg-white rounded-lg shadow-sm border border-gray-200 flex flex-col h-full">
+                        <div className="bg-white rounded-xl shadow-sm border border-gray-200 flex flex-col h-full overflow-hidden">
                             {/* Card Header */}
-                            <div className="border-b border-gray-200 px-6 py-4">
-                                <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
-                                    <div>
-                                        <h5 className="text-xl font-bold text-gray-800 mb-1">
-                                            Staff Management
-                                        </h5>
-                                        <p className="text-gray-500 text-xs">
-                                            {filteredStaff.length} of {staffData.length} staff members shown
-                                        </p>
+                            <div className={`border-b border-gray-200 py-3 sm:py-4 ${isMinimized ? 'px-4 sm:px-6' : 'px-3 sm:px-4 lg:px-5'}`}>
+                                <div className="flex flex-col gap-3">
+                                    <div className="flex flex-wrap items-start justify-between gap-2 sm:gap-3">
+                                        <div className="min-w-0 flex-1">
+                                            <h5 className={`font-bold text-gray-800 mb-0.5 truncate ${isMinimized ? 'text-xl' : 'text-lg sm:text-xl'}`}>
+                                                Staff Management
+                                            </h5>
+                                            <p className="text-gray-500 text-xs">
+                                                {totalItems} staff member{totalItems === 1 ? '' : 's'} total
+                                            </p>
+                                        </div>
+                                        <motion.button
+                                            onClick={() => setShowCreateModal(true)}
+                                            className="shrink-0 px-3 sm:px-4 py-2 sm:py-2.5 bg-green-600 hover:bg-green-700 text-white rounded-lg text-xs sm:text-sm font-medium transition-all duration-200 flex items-center gap-1.5 sm:gap-2 shadow-sm"
+                                            whileHover={{ scale: 1.02 }}
+                                            whileTap={{ scale: 0.98 }}
+                                        >
+                                            <FiPlus className="w-4 h-4" />
+                                            <span className="hidden min-[400px]:inline">Add Staff</span>
+                                            <span className="min-[400px]:hidden">Add</span>
+                                        </motion.button>
                                     </div>
 
-                                    <div className="flex flex-col lg:flex-row gap-3 w-full lg:w-auto">
-                                        {/* Search Input */}
-                                        <div className="flex-1 relative min-w-[300px]">
-                                            <FiSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-                                            <input
-                                                type="text"
-                                                placeholder="Search by name, mobile, email, or designation..."
-                                                value={searchQuery}
-                                                onChange={(e) => setSearchQuery(e.target.value)}
-                                                className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg text-gray-700 font-medium transition-all duration-200 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 shadow-sm text-sm"
-                                            />
-                                        </div>
+                                    <div className="relative w-full min-w-0">
+                                        <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4 pointer-events-none" />
+                                        <input
+                                            type="text"
+                                            placeholder={isMinimized ? 'Search by name, mobile, email...' : 'Search staff...'}
+                                            value={searchQuery}
+                                            onChange={(e) => setSearchQuery(e.target.value)}
+                                            className="w-full min-w-0 pl-9 pr-3 py-2 sm:py-2.5 border border-gray-300 rounded-lg text-gray-700 font-medium transition-all duration-200 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 shadow-sm text-sm"
+                                        />
+                                    </div>
 
-                                        <div className="flex gap-2">
-                                            {/* Permission Filter */}
-                                            <select
-                                                value={selectedPermission}
-                                                onChange={(e) => setSelectedPermission(e.target.value)}
-                                                className="px-4 py-2.5 border border-gray-300 rounded-lg bg-white text-gray-700 font-medium transition-all duration-200 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 shadow-sm text-sm"
+                                    <div className="flex flex-wrap items-center gap-2">
+                                        <select
+                                            value={selectedPermission}
+                                            onChange={(e) => {
+                                                setCurrentPage(1);
+                                                setSelectedPermission(e.target.value);
+                                            }}
+                                            className="min-w-0 flex-1 basis-[calc(50%-0.25rem)] sm:basis-auto sm:flex-none sm:min-w-[8.5rem] max-w-full px-2.5 sm:px-3 py-2 sm:py-2.5 border border-gray-300 rounded-lg bg-white text-gray-700 font-medium transition-all duration-200 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 shadow-sm text-xs sm:text-sm truncate"
+                                        >
+                                            <option value="">All Permissions</option>
+                                            {roles.map(role => (
+                                                <option key={role.permission_role_id} value={role.permission_role_id}>
+                                                    {role.name}
+                                                </option>
+                                            ))}
+                                        </select>
+
+                                        <select
+                                            value={selectedStatus}
+                                            onChange={(e) => {
+                                                setCurrentPage(1);
+                                                setSelectedStatus(e.target.value);
+                                            }}
+                                            className="min-w-0 flex-1 basis-[calc(50%-0.25rem)] sm:basis-auto sm:flex-none sm:min-w-[7rem] max-w-full px-2.5 sm:px-3 py-2 sm:py-2.5 border border-gray-300 rounded-lg bg-white text-gray-700 font-medium transition-all duration-200 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 shadow-sm text-xs sm:text-sm"
+                                        >
+                                            <option value="">All Status</option>
+                                            {statusOptions.map(status => (
+                                                <option key={status.value} value={status.value}>
+                                                    {status.name}
+                                                </option>
+                                            ))}
+                                        </select>
+
+                                        <div className="dropdown-container relative shrink-0">
+                                            <button
+                                                type="button"
+                                                onClick={() => setShowExportDropdown(!showExportDropdown)}
+                                                className="px-2.5 sm:px-3 py-2 sm:py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs sm:text-sm font-medium transition-all duration-200 flex items-center gap-1.5 sm:gap-2 shadow-sm whitespace-nowrap"
                                             >
-                                                <option value="">All Permissions</option>
-                                                {roles.map(role => (
-                                                    <option key={role.permission_role_id} value={role.permission_role_id}>
-                                                        {role.name}
-                                                    </option>
-                                                ))}
-                                            </select>
+                                                <PiExportBold className="w-4 h-4 shrink-0" />
+                                                <span className="hidden sm:inline">Export</span>
+                                            </button>
 
-                                            {/* Status Filter */}
-                                            <select
-                                                value={selectedStatus}
-                                                onChange={(e) => setSelectedStatus(e.target.value)}
-                                                className="px-4 py-2.5 border border-gray-300 rounded-lg bg-white text-gray-700 font-medium transition-all duration-200 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 shadow-sm text-sm"
-                                            >
-                                                <option value="">All Status</option>
-                                                {statusOptions.map(status => (
-                                                    <option key={status.value} value={status.value}>
-                                                        {status.name}
-                                                    </option>
-                                                ))}
-                                            </select>
-
-                                            {/* Export Dropdown */}
-                                            <div className="dropdown-container relative">
-                                                <button
-                                                    onClick={() => setShowExportDropdown(!showExportDropdown)}
-                                                    className="px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-sm font-medium transition-all duration-200 flex items-center gap-2 shadow-sm"
-                                                >
-                                                    <PiExportBold className="w-4 h-4" />
-                                                    Export
-                                                </button>
-
-                                                {showExportDropdown && (
-                                                    <div className="absolute right-0 mt-2 w-56 bg-white rounded-lg shadow-xl border border-gray-200 z-50 overflow-hidden">
-                                                        <div className="py-1">
-                                                            <button
-                                                                onClick={() => handleExport('pdf')}
-                                                                className="flex items-center w-full px-4 py-3 text-sm text-gray-700 hover:bg-indigo-50 transition-colors"
-                                                            >
-                                                                <PiFilePdfDuotone className="w-4 h-4 mr-3 text-red-500" />
-                                                                Export as PDF
-                                                            </button>
-                                                            <button
-                                                                onClick={() => handleExport('excel')}
-                                                                className="flex items-center w-full px-4 py-3 text-sm text-gray-700 hover:bg-indigo-50 transition-colors"
-                                                            >
-                                                                <PiMicrosoftExcelLogoDuotone className="w-4 h-4 mr-3 text-green-500" />
-                                                                Export as Excel
-                                                            </button>
-                                                            <button
-                                                                onClick={() => handleExport('whatsapp')}
-                                                                className="flex items-center w-full px-4 py-3 text-sm text-gray-700 hover:bg-indigo-50 transition-colors"
-                                                            >
-                                                                <FaWhatsapp className="w-4 h-4 mr-3 text-green-500" />
-                                                                Share via WhatsApp
-                                                            </button>
-                                                            <button
-                                                                onClick={() => handleExport('email')}
-                                                                className="flex items-center w-full px-4 py-3 text-sm text-gray-700 hover:bg-indigo-50 transition-colors"
-                                                            >
-                                                                <AiOutlineMail className="w-4 h-4 mr-3 text-blue-500" />
-                                                                Share via Email
-                                                            </button>
-                                                        </div>
+                                            {showExportDropdown && (
+                                                <div className="absolute right-0 mt-2 w-52 sm:w-56 bg-white rounded-lg shadow-xl border border-gray-200 z-50 overflow-hidden">
+                                                    <div className="py-1">
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => handleExport('pdf')}
+                                                            className="flex items-center w-full px-3 sm:px-4 py-2.5 sm:py-3 text-sm text-gray-700 hover:bg-indigo-50 transition-colors"
+                                                        >
+                                                            <PiFilePdfDuotone className="w-4 h-4 mr-2 sm:mr-3 text-red-500 shrink-0" />
+                                                            Export as PDF
+                                                        </button>
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => handleExport('excel')}
+                                                            className="flex items-center w-full px-3 sm:px-4 py-2.5 sm:py-3 text-sm text-gray-700 hover:bg-indigo-50 transition-colors"
+                                                        >
+                                                            <PiMicrosoftExcelLogoDuotone className="w-4 h-4 mr-2 sm:mr-3 text-green-500 shrink-0" />
+                                                            Export as Excel
+                                                        </button>
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => handleExport('whatsapp')}
+                                                            className="flex items-center w-full px-3 sm:px-4 py-2.5 sm:py-3 text-sm text-gray-700 hover:bg-indigo-50 transition-colors"
+                                                        >
+                                                            <FaWhatsapp className="w-4 h-4 mr-2 sm:mr-3 text-green-500 shrink-0" />
+                                                            Share via WhatsApp
+                                                        </button>
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => handleExport('email')}
+                                                            className="flex items-center w-full px-3 sm:px-4 py-2.5 sm:py-3 text-sm text-gray-700 hover:bg-indigo-50 transition-colors"
+                                                        >
+                                                            <AiOutlineMail className="w-4 h-4 mr-2 sm:mr-3 text-blue-500 shrink-0" />
+                                                            Share via Email
+                                                        </button>
                                                     </div>
-                                                )}
-                                            </div>
-
-                                            <motion.button
-                                                onClick={() => setShowCreateModal(true)}
-                                                className="px-4 py-2.5 bg-green-600 hover:bg-green-700 text-white rounded-lg text-sm font-medium transition-all duration-200 flex items-center gap-2 shadow-sm"
-                                                whileHover={{ scale: 1.02 }}
-                                                whileTap={{ scale: 0.98 }}
-                                            >
-                                                <FiPlus className="w-4 h-4" />
-                                                Add Staff
-                                            </motion.button>
+                                                </div>
+                                            )}
                                         </div>
                                     </div>
                                 </div>
@@ -750,28 +930,28 @@ const StaffList = () => {
                                 <table className="w-full">
                                     <thead className="bg-gradient-to-r from-gray-50 to-gray-100 border-b border-gray-200">
                                         <tr>
-                                            <th className="w-12 p-4">
-                                                <input
-                                                    type="checkbox"
-                                                    checked={selectAll}
+                                            <th className={`w-10 sm:w-12 text-left ${isMinimized ? 'px-3 py-3' : 'px-2 py-2.5 sm:px-3 sm:py-3'}`}>
+                                                <AnimatedCheckbox
+                                                    checked={isAllPageSelected}
+                                                    indeterminate={isSomePageSelected}
                                                     onChange={handleSelectAll}
-                                                    className="w-4 h-4 text-indigo-600 rounded border-gray-400 focus:ring-indigo-500"
+                                                    ariaLabel="Select all staff on this page"
+                                                    disabled={tableLoading || staffData.length === 0}
                                                 />
                                             </th>
-                                            <th className="text-left p-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Staff</th>
-                                            <th className="text-left p-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Contact</th>
-                                            <th className="text-left p-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Permission</th>
-                                            <th className="text-left p-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Status</th>
-                                            <th className="text-center p-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Actions</th>
+                                            <th className={`text-left text-[10px] sm:text-xs font-bold text-gray-500 uppercase tracking-wide whitespace-nowrap ${isMinimized ? 'px-3 py-3' : 'px-2 py-2.5 sm:px-3 sm:py-3'}`}>Staff</th>
+                                            <th className={`text-left text-[10px] sm:text-xs font-bold text-gray-500 uppercase tracking-wide whitespace-nowrap ${isMinimized ? 'px-3 py-3' : 'px-2 py-2.5 sm:px-3 sm:py-3'}`}>Contact</th>
+                                            <th className={`text-left text-[10px] sm:text-xs font-bold text-gray-500 uppercase tracking-wide whitespace-nowrap min-w-[7rem] ${isMinimized ? 'px-3 py-3' : 'px-2 py-2.5 sm:px-3 sm:py-3'}`}>Permission</th>
+                                            <th className={`text-left text-[10px] sm:text-xs font-bold text-gray-500 uppercase tracking-wide whitespace-nowrap ${isMinimized ? 'px-3 py-3' : 'px-2 py-2.5 sm:px-3 sm:py-3'}`}>Status</th>
+                                            <th className={`text-center text-[10px] sm:text-xs font-bold text-gray-500 uppercase tracking-wide whitespace-nowrap ${isMinimized ? 'px-3 py-3' : 'px-2 py-2.5 sm:px-3 sm:py-3'}`}>Actions</th>
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y divide-gray-100">
-                                        {loading ? (
-                                            // Skeleton Loaders
-                                            Array.from({ length: 5 }).map((_, index) => (
+                                        {tableLoading ? (
+                                            Array.from({ length: itemsPerPage > 5 ? 5 : itemsPerPage }).map((_, index) => (
                                                 <SkeletonRow key={index} />
                                             ))
-                                        ) : filteredStaff.length === 0 ? (
+                                        ) : staffData.length === 0 ? (
                                             <tr>
                                                 <td colSpan="6" className="p-8 text-center">
                                                     <div className="flex flex-col items-center justify-center py-8">
@@ -789,18 +969,17 @@ const StaffList = () => {
                                                 </td>
                                             </tr>
                                         ) : (
-                                            filteredStaff.map((staff) => (
+                                            staffData.map((staff) => (
                                                 <tr key={staff.username || staff.id} className="hover:bg-gray-50 transition-colors">
-                                                    <td className="p-4">
-                                                        <input
-                                                            type="checkbox"
+                                                    <td className={tableCellPad}>
+                                                        <AnimatedCheckbox
                                                             checked={selectedStaff.has(staff.username)}
                                                             onChange={() => handleStaffSelect(staff.username)}
-                                                            className="w-4 h-4 text-indigo-600 rounded border-gray-400 focus:ring-indigo-500"
+                                                            ariaLabel={`Select ${staff.name}`}
                                                         />
                                                     </td>
-                                                    <td className="p-4">
-                                                        <div className="flex items-center gap-3">
+                                                    <td className={tableCellPad}>
+                                                        <div className="flex items-center gap-2 sm:gap-3 min-w-[10rem]">
                                                             <div className="w-8 h-8 bg-gradient-to-br from-indigo-500 to-indigo-600 rounded-lg flex items-center justify-center shadow-sm">
                                                                 <FiUser className="w-4 h-4 text-white" />
                                                             </div>
@@ -817,8 +996,8 @@ const StaffList = () => {
                                                             </div>
                                                         </div>
                                                     </td>
-                                                    <td className="p-4">
-                                                        <div className="space-y-1">
+                                                    <td className={tableCellPad}>
+                                                        <div className="space-y-1 min-w-[8rem]">
                                                             <div className="flex items-center gap-2 text-gray-800 text-sm font-medium">
                                                                 <FiPhone className="w-3 h-3 text-gray-400" />
                                                                 {staff.mobile}
@@ -828,7 +1007,7 @@ const StaffList = () => {
                                                             </div>
                                                         </div>
                                                     </td>
-                                                    <td className="p-4 max-w-[240px]">
+                                                    <td className={`${tableCellPad} max-w-[12rem] sm:max-w-[14rem] lg:max-w-[16rem]`}>
                                                         {(() => {
                                                              const roleObj = roles.find(r => 
                                                                  (r.permission_role_id && staff.permission_role_id && String(r.permission_role_id).toLowerCase() === String(staff.permission_role_id).toLowerCase()) ||
@@ -887,10 +1066,10 @@ const StaffList = () => {
                                                             );
                                                         })()}
                                                     </td>
-                                                    <td className="p-4">
+                                                    <td className={tableCellPad}>
                                                         <button
                                                             onClick={() => handleStatusChange(staff.username, !staff.is_active)}
-                                                            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                                                            className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors ${
                                                                 staff.is_active 
                                                                     ? 'bg-green-500' 
                                                                     : 'bg-gray-300'
@@ -905,155 +1084,74 @@ const StaffList = () => {
                                                             />
                                                         </button>
                                                     </td>
-                                                    <td className="p-4 relative">
-                                                        <div className="flex justify-center items-center action-dropdown-container">
+                                                    <td className={tableCellPad}>
+                                                        <div className="flex justify-center items-center">
                                                             <button
-                                                                onClick={() => setActiveRowDropdown(activeRowDropdown === staff.username ? null : staff.username)}
+                                                                type="button"
+                                                                data-staff-actions-trigger
+                                                                onClick={(e) => openActionsFromButton(e, staff.username)}
                                                                 className="p-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
                                                                 title="Actions"
+                                                                aria-label="Staff actions"
                                                             >
                                                                 <FiMenu className="w-4 h-4" />
                                                             </button>
-                                                            {activeRowDropdown === staff.username && (
-                                                                <div className={`absolute right-4 w-48 bg-white rounded-lg shadow-xl border border-gray-200 z-50 overflow-hidden py-1 text-left ${
-                                                                    filteredStaff.indexOf(staff) >= filteredStaff.length - 2 && filteredStaff.length > 2
-                                                                        ? 'bottom-full mb-1'
-                                                                        : 'top-full mt-1'
-                                                                }`}>
-                                                                    <button
-                                                                        onClick={() => {
-                                                                            setActiveRowDropdown(null);
-                                                                            navigate(`/view-stuff-profile?username=${staff.username}`);
-                                                                        }}
-                                                                        className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-indigo-50 transition-colors"
-                                                                    >
-                                                                        <FiEye className="w-4 h-4 mr-2 text-indigo-600" />
-                                                                        View Profile
-                                                                    </button>
-                                                                    <button
-                                                                        onClick={() => {
-                                                                            setActiveRowDropdown(null);
-                                                                            openPermissionModal(staff);
-                                                                        }}
-                                                                        className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-indigo-50 transition-colors"
-                                                                    >
-                                                                        <FiShield className="w-4 h-4 mr-2 text-green-600" />
-                                                                        Change Permission
-                                                                    </button>
-                                                                    <button
-                                                                        onClick={() => {
-                                                                            setActiveRowDropdown(null);
-                                                                            setSelectedStaffMember(staff);
-                                                                            setDeleteModal(true);
-                                                                        }}
-                                                                        className="flex items-center w-full px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors"
-                                                                    >
-                                                                        <FiTrash2 className="w-4 h-4 mr-2 text-red-600" />
-                                                                        Delete Staff
-                                                                    </button>
-                                                                </div>
-                                                            )}
                                                         </div>
-                                                    </td>
-                                                </tr>
+                                                    </td>                                                </tr>
                                             ))
                                         )}
                                     </tbody>
                                 </table>
                             </div>
 
-                            {/* Table Footer */}
-                            <div className="border-t border-gray-200 bg-gradient-to-r from-gray-50 to-gray-100">
-                                <div className="p-4">
-                                     <div className="flex flex-col md:flex-row items-center justify-between gap-4">
-                                         <div className="flex items-center gap-4">
-                                             <span className="font-semibold text-gray-800 text-sm">
-                                                 Showing {filteredStaff.length} of {totalItems} staff members
-                                             </span>
-                                             <select
-                                                 value={itemsPerPage}
-                                                 onChange={(e) => {
-                                                     setItemsPerPage(Number(e.target.value));
-                                                     setCurrentPage(1);
-                                                 }}
-                                                 className="px-3 py-1.5 border border-gray-300 rounded-lg text-xs bg-white text-gray-700 focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 shadow-sm font-medium"
-                                             >
-                                                 {[5, 10, 20, 50, 100].map(opt => (
-                                                     <option key={opt} value={opt}>{opt} per page</option>
-                                                 ))}
-                                             </select>
-                                         </div>
-                                         
-                                         <div className="flex gap-3 items-center flex-wrap justify-center">
-                                             <div className="text-sm text-gray-600 mr-2">
-                                                 {selectedStaff.size} staff selected
-                                             </div>
-                                             
-                                             {/* Pagination controls */}
-                                             <div className="flex items-center bg-white border border-gray-300 rounded-lg p-0.5 shadow-sm">
-                                                 <button
-                                                     type="button"
-                                                     onClick={() => handlePageChange(currentPage - 1)}
-                                                     disabled={currentPage === 1}
-                                                     className="p-2 text-gray-600 hover:bg-gray-100 disabled:opacity-50 rounded-l-md transition-colors"
-                                                 >
-                                                     <FiChevronLeft className="w-4 h-4" />
-                                                 </button>
-                                                 <span className="px-4 text-xs font-semibold text-gray-700">
-                                                     Page {currentPage} of {totalPages}
-                                                 </span>
-                                                 <button
-                                                     type="button"
-                                                     onClick={() => handlePageChange(currentPage + 1)}
-                                                     disabled={currentPage === totalPages}
-                                                     className="p-2 text-gray-600 hover:bg-gray-100 disabled:opacity-50 rounded-r-md transition-colors"
-                                                 >
-                                                     <FiChevronRight className="w-4 h-4" />
-                                                 </button>
-                                             </div>
-
-                                             <form onSubmit={handlePageJump} className="flex items-center gap-1.5">
-                                                 <input
-                                                     type="number"
-                                                     min="1"
-                                                     max={totalPages}
-                                                     value={pageJumpInput}
-                                                     onChange={(e) => setPageJumpInput(e.target.value)}
-                                                     placeholder="Go to"
-                                                     className="w-16 px-2.5 py-1.5 border border-gray-300 rounded-lg text-xs text-center focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 shadow-sm"
-                                                 />
-                                                 <button type="submit" className="hidden" />
-                                             </form>
-                                         </div>
-                                     </div>
-                                </div>
-                            </div>
+                            <TablePagination
+                                page={currentPage}
+                                limit={itemsPerPage}
+                                total={totalItems}
+                                totalPages={totalPages}
+                                rowOptions={[5, 10, 20, 50, 100]}
+                                defaultRows={10}
+                                onPageChange={handlePageChange}
+                                onLimitChange={handleLimitChange}
+                            />
                         </div>
                     </div>
                 </div>
             </div>
 
-            {/* Create Staff Modal */}
-            {showCreateModal && (
-                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-                    <div className="bg-white rounded-lg shadow-xl w-full max-w-4xl max-h-[90vh] overflow-hidden transform transition-all duration-300">
-                        <div className="bg-gradient-to-r from-indigo-600 to-indigo-700 text-white px-6 py-4 flex justify-between items-center">
-                            <div>
-                                <h2 className="text-xl font-bold">Create New Staff</h2>
-                                <p className="text-indigo-100 text-sm mt-1">Add a new staff member to the system</p>
-                            </div>
-                            <button
-                                onClick={() => setShowCreateModal(false)}
-                                className="text-white hover:text-indigo-200 transition-colors duration-200 p-1 rounded-lg hover:bg-indigo-500"
-                            >
-                                <FiX className="w-6 h-6" />
-                            </button>
-                        </div>
-                        
-                        <form onSubmit={handleCreateStaff}>
-                            <div className="p-6 overflow-y-auto max-h-[60vh]">
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    <div>
+            <Modal
+                isOpen={showCreateModal}
+                onClose={() => setShowCreateModal(false)}
+                title="Create New Staff"
+                subtitle="Add a new staff member to the system"
+                size="xl"
+                bodyClassName="p-6"
+                footer={
+                    <div className="flex justify-end gap-3">
+                        <motion.button
+                            type="button"
+                            onClick={() => setShowCreateModal(false)}
+                            className="px-6 py-2.5 text-sm font-medium border border-gray-300 rounded-lg hover:bg-gray-200 transition-all duration-200 text-gray-700"
+                            whileHover={{ scale: 1.02 }}
+                            whileTap={{ scale: 0.98 }}
+                        >
+                            Cancel
+                        </motion.button>
+                        <motion.button
+                            type="submit"
+                            form="create-staff-form"
+                            disabled={loading}
+                            className="px-6 py-2.5 text-sm font-medium bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-all duration-200 shadow-sm disabled:opacity-50"
+                            whileHover={{ scale: 1.02 }}
+                            whileTap={{ scale: 0.98 }}
+                        >
+                            {loading ? 'Creating...' : 'Create Staff'}
+                        </motion.button>
+                    </div>
+                }
+            >
+                <form id="create-staff-form" onSubmit={handleCreateStaff}>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">                                    <div>
                                         <label className="block text-sm font-medium text-gray-700 mb-2">
                                             Full Name
                                         </label>
@@ -1141,70 +1239,49 @@ const StaffList = () => {
                                             ))}
                                         </select>
                                     </div>
-                                </div>
-                            </div>
-                            <div className="border-t px-6 py-4 bg-gray-50 flex justify-end gap-3">
-                                <motion.button
-                                    type="button"
-                                    onClick={() => setShowCreateModal(false)}
-                                    className="px-6 py-3 text-sm font-medium border border-gray-300 rounded-lg hover:bg-gray-200 transition-all duration-200 hover:shadow-sm text-gray-700"
-                                    whileHover={{ scale: 1.02 }}
-                                    whileTap={{ scale: 0.98 }}
-                                >
-                                    Cancel
-                                </motion.button>
-                                <motion.button
-                                    type="submit"
-                                    disabled={loading}
-                                    className="px-6 py-3 text-sm font-medium bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-all duration-200 hover:shadow-md shadow-sm disabled:opacity-50"
-                                    whileHover={{ scale: 1.02 }}
-                                    whileTap={{ scale: 0.98 }}
-                                >
-                                    {loading ? 'Creating...' : 'Create Staff'}
-                                </motion.button>
-                            </div>
-                        </form>
                     </div>
-                </div>
-            )}
-
-            {/* Permission Modal */}
-            {showPermissionModal && selectedStaffMember && (
-                <div className="fixed inset-0 z-50 flex items-start justify-center overflow-hidden overscroll-none p-3 sm:p-4 pointer-events-none">
-                    {/* Backdrop */}
-                    <div 
-                        className="absolute inset-0 bg-black/50 backdrop-blur-sm pointer-events-auto"
-                        onClick={() => setShowPermissionModal(false)}
-                    />
-                    
-                    {/* Modal Panel */}
-                    <div className="relative z-[1] pointer-events-auto bg-white rounded-2xl shadow-2xl w-full max-w-5xl my-2 sm:my-4 max-h-[calc(100vh-1.5rem)] sm:max-h-[calc(100vh-2rem)] overflow-hidden flex flex-col">
-                        <div className="bg-gradient-to-r from-indigo-600 to-indigo-700 text-white px-5 py-3.5 flex justify-between items-center shrink-0">
-                            <div>
-                                <h2 className="text-xl font-bold">Change Permission: {selectedStaffMember.name}</h2>
-                                <p className="text-indigo-100 text-sm mt-1">Assign role and manage custom permission overrides</p>
-                            </div>
-                            <button
+                </form>
+            </Modal>
+            <Modal
+                isOpen={showPermissionModal && !!selectedStaffMember}
+                onClose={() => setShowPermissionModal(false)}
+                title={`Change Permission: ${selectedStaffMember?.name || ''}`}
+                subtitle="Assign role and manage custom permission overrides"
+                size="2xl"
+                bodyClassName="px-5 py-4"
+                footer={
+                    !modalLoading ? (
+                        <div className="flex justify-end gap-3">
+                            <motion.button
                                 type="button"
                                 onClick={() => setShowPermissionModal(false)}
-                                className="text-white hover:text-indigo-200 transition-colors duration-200 p-1 rounded-lg hover:bg-indigo-500"
+                                className="px-6 py-2.5 text-sm font-medium border border-gray-300 rounded-lg hover:bg-gray-200 transition-all duration-200 text-gray-700"
+                                whileHover={{ scale: 1.02 }}
+                                whileTap={{ scale: 0.98 }}
                             >
-                                <FiX className="w-6 h-6" />
-                            </button>
+                                Cancel
+                            </motion.button>
+                            <motion.button
+                                type="submit"
+                                form="staff-permission-form"
+                                disabled={loading}
+                                className="px-6 py-2.5 text-sm font-medium bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-all duration-200 shadow-sm disabled:opacity-50"
+                                whileHover={{ scale: 1.02 }}
+                                whileTap={{ scale: 0.98 }}
+                            >
+                                {loading ? 'Saving...' : 'Save Permissions'}
+                            </motion.button>
                         </div>
-                        
-                        {modalLoading ? (
-                            <div className="p-12 flex flex-col items-center justify-center space-y-4 flex-1">
-                                <div className="w-12 h-12 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin"></div>
-                                <p className="text-gray-500 font-medium">Loading user permissions...</p>
-                            </div>
-                        ) : (
-                            <form onSubmit={handleAssignPermissions} className="flex flex-col flex-1 overflow-hidden">
-                                <div 
-                                    className="px-5 py-4 flex-1 min-h-0 overflow-y-auto overscroll-y-contain [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden space-y-6"
-                                    style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
-                                >
-                                    {/* Role Dropdown */}
+                    ) : null
+                }
+            >
+                {modalLoading ? (
+                    <div className="flex flex-col items-center justify-center space-y-4 py-12">
+                        <div className="w-12 h-12 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin" />
+                        <p className="text-gray-500 font-medium">Loading user permissions...</p>
+                    </div>
+                ) : (
+                    <form id="staff-permission-form" onSubmit={handleAssignPermissions} className="space-y-6">                                    {/* Role Dropdown */}
                                     <div className="bg-indigo-50 border border-indigo-200 rounded-xl p-4">
                                         <label className="block text-sm font-bold text-indigo-900 mb-2">
                                             Assign Role
@@ -1393,68 +1470,129 @@ const StaffList = () => {
                                             })}
                                         </div>
                                     </div>
-                                </div>
-                                <div className="border-t px-5 py-3 bg-gray-50 flex justify-end gap-3 shrink-0">
-                                    <motion.button
-                                        type="button"
-                                        onClick={() => setShowPermissionModal(false)}
-                                        className="px-6 py-2.5 text-sm font-medium border border-gray-300 rounded-lg hover:bg-gray-200 transition-all duration-200 text-gray-700"
-                                        whileHover={{ scale: 1.02 }}
-                                        whileTap={{ scale: 0.98 }}
-                                    >
-                                        Cancel
-                                    </motion.button>
-                                    <motion.button
-                                        type="submit"
-                                        disabled={loading}
-                                        className="px-6 py-2.5 text-sm font-medium bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-all duration-200 hover:shadow-md shadow-sm disabled:opacity-50"
-                                        whileHover={{ scale: 1.02 }}
-                                        whileTap={{ scale: 0.98 }}
-                                    >
-                                        {loading ? 'Saving...' : 'Save Permissions'}
-                                    </motion.button>
-                                </div>
-                            </form>
-                        )}
+                    </form>
+                )}
+            </Modal>
+
+            <Modal
+                isOpen={exportModal.open}
+                onClose={() => setExportModal({ open: false, type: '', data: null })}
+                title={`Exporting ${exportModal.type ? exportModal.type.toUpperCase() : ''}`}
+                subtitle={`Your ${exportModal.type || 'file'} export is being processed...`}
+                size="sm"
+                bodyClassName="p-6"
+            >
+                <div className="text-center">
+                    <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                        <PiExportBold className="w-8 h-8 text-green-600" />
+                    </div>
+                    <div className="flex justify-center space-x-3">
+                        <div className="w-2 h-2 bg-indigo-600 rounded-full animate-bounce" />
+                        <div className="w-2 h-2 bg-indigo-600 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }} />
+                        <div className="w-2 h-2 bg-indigo-600 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }} />
                     </div>
                 </div>
-            )}
+            </Modal>
 
-            {/* Export Confirmation Modal */}
-            {exportModal.open && (
-                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-                    <div className="bg-white rounded-lg p-6 max-w-sm w-full mx-auto transform transition-all duration-300">
-                        <div className="text-center">
-                            <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                                <PiExportBold className="w-8 h-8 text-green-600" />
+            <AnimatePresence>
+                {selectedStaff.size > 0 && (
+                    <motion.div
+                        initial={{ opacity: 0, y: 24, scale: 0.96 }}
+                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                        exit={{ opacity: 0, y: 24, scale: 0.96 }}
+                        transition={{ duration: 0.2 }}
+                        className="fixed bottom-6 right-6 z-[10030] w-[min(100vw-2rem,22rem)] rounded-2xl border border-indigo-200 bg-white p-4 shadow-2xl shadow-indigo-200/40"
+                    >
+                        <div className="flex items-start justify-between gap-3 mb-3">
+                            <div>
+                                <p className="text-sm font-bold text-gray-900">
+                                    {selectedStaff.size} staff selected
+                                </p>
+                                <p className="text-xs text-gray-500 mt-0.5">
+                                    Apply a permission role to all selected staff
+                                </p>
                             </div>
-                            <h3 className="text-lg font-semibold text-gray-800 mb-2">
-                                Exporting {exportModal.type.toUpperCase()}
-                            </h3>
-                            <p className="text-gray-600 mb-6">
-                                Your {exportModal.type} export is being processed...
-                            </p>
-                            <div className="flex justify-center space-x-3">
-                                <div className="w-2 h-2 bg-indigo-600 rounded-full animate-bounce"></div>
-                                <div className="w-2 h-2 bg-indigo-600 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
-                                <div className="w-2 h-2 bg-indigo-600 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
-                            </div>
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    setSelectedStaff(new Set());
+                                    setBulkPermissionRole('');
+                                }}
+                                className="text-xs font-medium text-gray-500 hover:text-gray-800"
+                            >
+                                Clear
+                            </button>
                         </div>
-                    </div>
-                </div>
-            )}
+                        <select
+                            value={bulkPermissionRole}
+                            onChange={(e) => setBulkPermissionRole(e.target.value)}
+                            className="w-full mb-3 px-3 py-2.5 border border-gray-300 rounded-lg bg-white text-sm text-gray-700 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                        >
+                            <option value="">Select permission role</option>
+                            {roles.map((role) => (
+                                <option key={role.permission_role_id} value={role.permission_role_id}>
+                                    {role.name}{role.is_global ? ' (Global)' : ''}
+                                </option>
+                            ))}
+                        </select>
+                        <motion.button
+                            type="button"
+                            onClick={handleBulkAssignPermissions}
+                            disabled={bulkAssigning || !bulkPermissionRole}
+                            className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 disabled:bg-indigo-300 text-white rounded-lg text-sm font-semibold transition-colors"
+                            whileTap={{ scale: 0.98 }}
+                        >
+                            <FiShield className="w-4 h-4" />
+                            {bulkAssigning ? 'Updating...' : 'Change Permission'}
+                        </motion.button>
+                    </motion.div>
+                )}
+            </AnimatePresence>
 
-            {deleteModal && selectedStaffMember && (
-                <DeleteConfirmationModal
-                    title={`Delete ${selectedStaffMember.name}`}
-                    message={`Are you sure you want to delete ${selectedStaffMember.name}? This action cannot be undone.`}
-                    onConfirm={(res) => {
-                        if (res.confirmed) {
-                            handleDeleteStaff(selectedStaffMember.id);
-                        }
-                        setDeleteModal(false);
-                    }}
-                />
+            {activeRowDropdown && activeStaffForMenu && createPortal(
+                <AnimatePresence>
+                    <motion.div
+                        initial={{ opacity: 0, y: 4 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: 4 }}
+                        data-staff-actions-menu
+                        className="fixed z-[99999] w-48 overflow-hidden rounded-lg border border-slate-200 bg-white py-1 shadow-xl"
+                        style={{
+                            top: dropdownPos.top,
+                            bottom: dropdownPos.bottom,
+                            right: dropdownPos.right,
+                            left: dropdownPos.left,
+                            minWidth: ACTIONS_MENU_WIDTH,
+                        }}
+                        onMouseDown={(e) => e.stopPropagation()}
+                    >
+                        <button
+                            type="button"
+                            onClick={() => {
+                                setActiveRowDropdown(null);
+                                actionAnchorRef.current = null;
+                                navigate(`/view-stuff-profile?username=${activeStaffForMenu.username}`);
+                            }}
+                            className="flex w-full items-center px-4 py-2 text-sm text-gray-700 transition-colors hover:bg-indigo-50"
+                        >
+                            <FiEye className="w-4 h-4 mr-2 text-indigo-600" />
+                            View Profile
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => {
+                                setActiveRowDropdown(null);
+                                actionAnchorRef.current = null;
+                                openPermissionModal(activeStaffForMenu);
+                            }}
+                            className="flex w-full items-center px-4 py-2 text-sm text-gray-700 transition-colors hover:bg-indigo-50"
+                        >
+                            <FiShield className="w-4 h-4 mr-2 text-green-600" />
+                            Change Permission
+                        </button>
+                    </motion.div>
+                </AnimatePresence>,
+                document.body
             )}
         </div>
     );
