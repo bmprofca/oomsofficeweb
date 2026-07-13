@@ -18,10 +18,30 @@ import {
     FiMaximize2,
     FiMinimize2,
     FiDownload,
+    FiChevronLeft,
+    FiChevronRight,
+    FiZoomIn,
+    FiZoomOut,
 } from 'react-icons/fi';
 import { motion } from 'framer-motion';
 import { toast } from 'react-hot-toast';
 import { Header, Sidebar } from '../../components/header';
+import { Document, Page, pdfjs } from 'react-pdf';
+import 'react-pdf/dist/Page/AnnotationLayer.css';
+import 'react-pdf/dist/Page/TextLayer.css';
+
+// Point react-pdf at a matching pdf.js worker build.
+// webpack 5 (react-scripts 5+) understands `new URL(..., import.meta.url)` natively
+// and turns it into a properly-hashed asset URL at build time — this guarantees the
+// worker file always matches the exact pdfjs-dist version that's actually installed,
+// so we never hit a CDN/version-mismatch 404 again.
+// NOTE: if you're on react-scripts < 5 / webpack 4, `import.meta.url` is not supported.
+// In that case, swap this line for the CDN fallback instead:
+//   pdfjs.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjs.version}/pdf.worker.min.mjs`;
+pdfjs.GlobalWorkerOptions.workerSrc = new URL(
+    'pdfjs-dist/build/pdf.worker.min.mjs',
+    import.meta.url
+).toString();
 
 const InvoiceSettings = () => {
     const navigate = useNavigate();
@@ -61,6 +81,12 @@ const InvoiceSettings = () => {
     const [isFullscreen, setIsFullscreen] = useState(false);
     const previewContainerRef = useRef(null);
 
+    // Custom PDF viewer state (replaces native browser PDF plugin controls)
+    const [numPages, setNumPages] = useState(null);
+    const [pageNumber, setPageNumber] = useState(1);
+    const [zoom, setZoom] = useState(1.0);
+    const [pdfLoadError, setPdfLoadError] = useState(false);
+
     // Invoice type options
     const invoiceTypes = [
         { value: 'opening balance', label: 'Opening Balance' },
@@ -81,9 +107,9 @@ const InvoiceSettings = () => {
     ];
 
     const formatDisplayNames = {
-        'classic': 'Classic',
-        'compact': 'Compact',
-        'minimal': 'Minimal'
+        classic: 'Classic',
+        compact: 'Compact',
+        minimal: 'Minimal',
     };
 
     useEffect(() => {
@@ -104,12 +130,14 @@ const InvoiceSettings = () => {
     useEffect(() => {
         fetchInvoicePrefixData();
         fetchFormatData();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
     useEffect(() => {
         if (activeTab === 'format') {
             fetchFormatData();
         }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [selectedFormatType]);
 
     const fetchInvoicePrefixData = async () => {
@@ -131,11 +159,11 @@ const InvoiceSettings = () => {
                 headers,
                 signal: ac.signal,
             });
-            
+
             if (!response.ok) {
                 throw new Error(`HTTP ${response.status}: ${response.statusText}`);
             }
-            
+
             const json = await response.json();
 
             if (json.success && Array.isArray(json.data)) {
@@ -167,17 +195,17 @@ const InvoiceSettings = () => {
                 method: 'GET',
                 headers,
             });
-            
+
             if (!response.ok) {
                 throw new Error(`HTTP ${response.status}: ${response.statusText}`);
             }
-            
+
             // Check if response is JSON
             const contentType = response.headers.get('content-type');
             if (!contentType || !contentType.includes('application/json')) {
                 throw new Error('Server returned non-JSON response. Please check if the endpoint is correct.');
             }
-            
+
             const json = await response.json();
 
             if (json.success) {
@@ -215,17 +243,17 @@ const InvoiceSettings = () => {
                     type: selectedFormatType,
                 }),
             });
-            
+
             if (!response.ok) {
                 throw new Error(`HTTP ${response.status}: ${response.statusText}`);
             }
-            
+
             // Check if response is JSON
             const contentType = response.headers.get('content-type');
             if (!contentType || !contentType.includes('application/json')) {
                 throw new Error('Server returned non-JSON response. Please check if the update-format endpoint is correct.');
             }
-            
+
             const json = await response.json();
 
             if (!json.success) {
@@ -262,12 +290,17 @@ const InvoiceSettings = () => {
                 const url = URL.createObjectURL(blob);
                 setPreviewPdfUrl(url);
             } else {
-                throw new Error("No PDF URL or data provided");
+                throw new Error('No PDF URL or data provided');
             }
-            
+
             setSelectedFormatSample(sample);
             setShowPreviewModal(true);
             setIsFullscreen(false);
+            // Reset the custom viewer state for the new document
+            setNumPages(null);
+            setPageNumber(1);
+            setZoom(1.0);
+            setPdfLoadError(false);
         } catch (error) {
             console.error('PDF preview error:', error);
             toast.error('Failed to load PDF preview. The file may be corrupted.');
@@ -312,11 +345,11 @@ const InvoiceSettings = () => {
         const handleFullscreenChange = () => {
             setIsFullscreen(!!document.fullscreenElement);
         };
-        
+
         document.addEventListener('fullscreenchange', handleFullscreenChange);
         document.addEventListener('webkitfullscreenchange', handleFullscreenChange);
         document.addEventListener('msfullscreenchange', handleFullscreenChange);
-        
+
         return () => {
             document.removeEventListener('fullscreenchange', handleFullscreenChange);
             document.removeEventListener('webkitfullscreenchange', handleFullscreenChange);
@@ -332,10 +365,38 @@ const InvoiceSettings = () => {
         setSelectedFormatSample(null);
         setShowPreviewModal(false);
         setIsFullscreen(false);
+        setNumPages(null);
+        setPageNumber(1);
+        setZoom(1.0);
+        setPdfLoadError(false);
     };
 
-    const filteredInvoices = invoicePrefixData.filter(invoice => {
-        const matchesSearch = searchQuery === '' ||
+    // Keyboard navigation for the custom viewer (left/right arrows to page, +/- to zoom)
+    useEffect(() => {
+        if (!showPreviewModal) return;
+
+        const handleKeyDown = (e) => {
+            if (e.key === 'ArrowLeft') {
+                setPageNumber((p) => Math.max(1, p - 1));
+            } else if (e.key === 'ArrowRight') {
+                setPageNumber((p) => Math.min(numPages || p, p + 1));
+            } else if (e.key === '+' || e.key === '=') {
+                setZoom((z) => Math.min(2.5, +(z + 0.1).toFixed(2)));
+            } else if (e.key === '-') {
+                setZoom((z) => Math.max(0.5, +(z - 0.1).toFixed(2)));
+            } else if (e.key === 'Escape' && !isFullscreen) {
+                closePreviewModal();
+            }
+        };
+
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [showPreviewModal, numPages, isFullscreen]);
+
+    const filteredInvoices = invoicePrefixData.filter((invoice) => {
+        const matchesSearch =
+            searchQuery === '' ||
             invoice.type.toLowerCase().includes(searchQuery.toLowerCase()) ||
             invoice.prefix.toLowerCase().includes(searchQuery.toLowerCase());
 
@@ -362,9 +423,9 @@ const InvoiceSettings = () => {
     };
 
     const handleInputChange = (field, value) => {
-        setFormData(prev => ({
+        setFormData((prev) => ({
             ...prev,
-            [field]: value
+            [field]: value,
         }));
     };
 
@@ -473,14 +534,14 @@ const InvoiceSettings = () => {
     const getTypeColor = (type) => {
         const colors = {
             'opening balance': 'from-teal-500 to-teal-600',
-            'receive': 'from-purple-500 to-purple-600',
-            'payment': 'from-orange-500 to-orange-600',
-            'journal': 'from-indigo-500 to-indigo-600',
-            'contra': 'from-pink-500 to-pink-600',
-            'sale': 'from-green-500 to-green-600',
-            'purchase': 'from-blue-500 to-blue-600',
-            'discount': 'from-violet-500 to-violet-600',
-            'expense': 'from-red-500 to-red-600',
+            receive: 'from-purple-500 to-purple-600',
+            payment: 'from-orange-500 to-orange-600',
+            journal: 'from-indigo-500 to-indigo-600',
+            contra: 'from-pink-500 to-pink-600',
+            sale: 'from-green-500 to-green-600',
+            purchase: 'from-blue-500 to-blue-600',
+            discount: 'from-violet-500 to-violet-600',
+            expense: 'from-red-500 to-red-600',
             'loan create': 'from-yellow-500 to-yellow-600',
             'loan repayment': 'from-lime-500 to-lime-600',
             'loan opening balance': 'from-emerald-500 to-emerald-600',
@@ -493,17 +554,27 @@ const InvoiceSettings = () => {
 
     const SkeletonRow = () => (
         <tr className="animate-pulse">
-            <td className="p-4"><div className="h-3 bg-gray-200 rounded w-6"></div></td>
+            <td className="p-4">
+                <div className="h-3 bg-gray-200 rounded w-6"></div>
+            </td>
             <td className="p-4">
                 <div className="flex items-center gap-3">
                     <div className="w-8 h-8 bg-gray-200 rounded-lg flex-shrink-0"></div>
                     <div className="h-5 bg-gray-200 rounded-full w-20"></div>
                 </div>
             </td>
-            <td className="p-4"><div className="h-7 bg-gray-200 rounded-lg w-32"></div></td>
-            <td className="p-4"><div className="h-6 bg-gray-200 rounded-full w-10 mx-auto"></div></td>
-            <td className="p-4"><div className="h-3 bg-gray-200 rounded w-44"></div></td>
-            <td className="p-4"><div className="h-6 bg-gray-200 rounded-full w-16 mx-auto"></div></td>
+            <td className="p-4">
+                <div className="h-7 bg-gray-200 rounded-lg w-32"></div>
+            </td>
+            <td className="p-4">
+                <div className="h-6 bg-gray-200 rounded-full w-10 mx-auto"></div>
+            </td>
+            <td className="p-4">
+                <div className="h-3 bg-gray-200 rounded w-44"></div>
+            </td>
+            <td className="p-4">
+                <div className="h-6 bg-gray-200 rounded-full w-16 mx-auto"></div>
+            </td>
             <td className="p-4">
                 <div className="flex justify-center">
                     <div className="w-8 h-8 bg-gray-200 rounded"></div>
@@ -512,69 +583,114 @@ const InvoiceSettings = () => {
         </tr>
     );
 
-    const FormatCard = ({ sample, isActive, onPreview, onActivate, activating }) => {
-        return (
-            <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                whileHover={{ y: -4 }}
-                className={`bg-white rounded-xl border-2 transition-all duration-300 overflow-visible ${
-                    isActive 
-                        ? 'border-green-500 shadow-lg shadow-green-100' 
-                        : 'border-gray-200 hover:border-indigo-300 hover:shadow-md'
-                }`}
-            >
-                <div className="p-6">
-                    <div className="flex items-start justify-between mb-4">
-                        <div className="flex items-center gap-3 flex-1 min-w-0">
-                            <div className={`w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0 ${
-                                isActive ? 'bg-green-100' : 'bg-indigo-100'
-                            }`}>
-                                <FiFileText className={`w-6 h-6 ${
-                                    isActive ? 'text-green-600' : 'text-indigo-600'
-                                }`} />
-                            </div>
-                            <div className="flex-1 min-w-0">
-                                <h3 className="text-lg font-bold text-gray-800 capitalize truncate">
-                                    {formatDisplayNames[sample.format_id] || sample.format_id}
-                                </h3>
-                                <p className="text-xs text-gray-500 mt-0.5 truncate">
-                                    Format ID: {sample.format_id}
-                                </p>
-                            </div>
-                        </div>
-                        {isActive && (
-                            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-green-50 text-green-700 border border-green-200 flex-shrink-0 ml-2">
-                                <FiCheckCircle className="w-3 h-3" />
-                                Active
-                            </span>
-                        )}
-                    </div>
+const FormatCard = ({ sample, isActive, onPreview, onActivate, activating }) => {
+    const [thumbError, setThumbError] = useState(false);
+    const [thumbLoaded, setThumbLoaded] = useState(false);
 
-                    <div className="space-y-3">
-                        <button
-                            onClick={() => onPreview(sample)}
-                            className="w-full py-2.5 px-4 bg-gray-50 hover:bg-gray-100 text-gray-700 rounded-lg text-sm font-medium transition-all duration-200 flex items-center justify-center gap-2 border border-gray-200"
+    return (
+        <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            whileHover={{ y: -4 }}
+            className={`bg-white rounded-xl border-2 transition-all duration-300 overflow-visible ${
+                isActive ? 'border-green-500 shadow-lg shadow-green-100' : 'border-gray-200 hover:border-indigo-300 hover:shadow-md'
+            }`}
+        >
+            <div className="p-6">
+                <div className="flex items-start justify-between mb-4">
+                    <div className="flex items-center gap-3 flex-1 min-w-0">
+                        <div
+                            className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${
+                                isActive ? 'bg-green-100' : 'bg-indigo-100'
+                            }`}
                         >
-                            <FiEye className="w-4 h-4" />
-                            Preview
-                        </button>
-                        
-                        {!isActive && (
-                            <button
-                                onClick={() => onActivate(sample.format_id)}
-                                disabled={activating}
-                                className="w-full py-2.5 px-4 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-sm font-medium transition-all duration-200 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-                            >
-                                <FiCheck className="w-4 h-4" />
-                                {activating ? 'Activating...' : 'Activate'}
-                            </button>
-                        )}
+                            <FiFileText className={`w-6 h-6 ${isActive ? 'text-green-600' : 'text-indigo-600'}`} />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                            <h3 className="text-lg my-0 font-bold text-gray-800 capitalize truncate">
+                                {formatDisplayNames[sample.format_id] || sample.format_id}
+                            </h3>
+                            <p className="text-xs my-0 text-gray-500 truncate">Format ID: {sample.format_id}</p>
+                        </div>
                     </div>
+                    {isActive && (
+                        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-green-50 text-green-700 border border-green-200 flex-shrink-0 ml-2">
+                            <FiCheckCircle className="w-3 h-3" />
+                            Active
+                        </span>
+                    )}
                 </div>
-            </motion.div>
-        );
-    };
+
+                {/* --- NEW: PDF thumbnail preview --- */}
+                <div
+                    onClick={() => onPreview(sample)}
+                    className="relative mb-4 rounded-lg border border-gray-200 bg-gray-50 overflow-hidden cursor-pointer group"
+                    style={{ height: '200px' }}
+                >
+                    {sample.url ? (
+                        !thumbError ? (
+                            <>
+                                {!thumbLoaded && (
+                                    <div className="absolute inset-0 flex items-center justify-center bg-gray-100 animate-pulse">
+                                        <FiFileText className="w-8 h-8 text-gray-300" />
+                                    </div>
+                                )}
+                                <Document
+                                    file={sample.url}
+                                    loading={null}
+                                    onLoadSuccess={() => setThumbLoaded(true)}
+                                    onLoadError={() => setThumbError(true)}
+                                    className="flex justify-center items-start h-full overflow-hidden"
+                                >
+                                    <Page
+                                        pageNumber={1}
+                                        width={260}
+                                        renderTextLayer={false}
+                                        renderAnnotationLayer={false}
+                                        className="shadow-sm"
+                                    />
+                                </Document>
+                                <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors flex items-center justify-center">
+                                    <FiEye className="w-6 h-6 text-white opacity-0 group-hover:opacity-90 transition-opacity" />
+                                </div>
+                            </>
+                        ) : (
+                            <div className="absolute inset-0 flex flex-col items-center justify-center text-gray-400">
+                                <FiFileText className="w-8 h-8 mb-1" />
+                                <span className="text-xs">Preview unavailable</span>
+                            </div>
+                        )
+                    ) : (
+                        <div className="absolute inset-0 flex items-center justify-center text-gray-300">
+                            <FiFileText className="w-10 h-10" />
+                        </div>
+                    )}
+                </div>
+
+                <div className="space-y-2">
+                    <button
+                        onClick={() => onPreview(sample)}
+                        className="w-full py-2.5 px-4 bg-gray-50 hover:bg-gray-100 text-gray-700 rounded-lg text-sm font-medium transition-all duration-200 flex items-center justify-center gap-2 border border-gray-200"
+                    >
+                        <FiEye className="w-4 h-4" />
+                        Preview
+                    </button>
+
+                    {!isActive && (
+                        <button
+                            onClick={() => onActivate(sample.format_id)}
+                            disabled={activating}
+                            className="w-full py-2.5 px-4 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-sm font-medium transition-all duration-200 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                            <FiCheck className="w-4 h-4" />
+                            {activating ? 'Activating...' : 'Activate'}
+                        </button>
+                    )}
+                </div>
+            </div>
+        </motion.div>
+    );
+};
 
     // Sort samples to show active format first
     const getSortedSamples = () => {
@@ -645,9 +761,7 @@ const InvoiceSettings = () => {
                                 <div className="border-b border-gray-200 px-6 py-4">
                                     <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
                                         <div>
-                                            <h5 className="text-xl font-bold text-gray-800 mb-1">
-                                                Invoice Prefix Management
-                                            </h5>
+                                            <h5 className="text-xl font-bold text-gray-800 mb-1">Invoice Prefix Management</h5>
                                             <p className="text-gray-500 text-xs">
                                                 {filteredInvoices.length} of {invoicePrefixData.length} invoice prefixes shown
                                             </p>
@@ -672,7 +786,7 @@ const InvoiceSettings = () => {
                                                     className="px-4 py-2.5 border border-gray-300 rounded-lg bg-white text-gray-700 font-medium transition-all duration-200 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 shadow-sm text-sm"
                                                 >
                                                     <option value="">All Types</option>
-                                                    {invoiceTypes.map(type => (
+                                                    {invoiceTypes.map((type) => (
                                                         <option key={type.value} value={type.value}>
                                                             {type.label}
                                                         </option>
@@ -708,9 +822,7 @@ const InvoiceSettings = () => {
                                         </thead>
                                         <tbody className="divide-y divide-gray-100">
                                             {loading ? (
-                                                Array.from({ length: 5 }).map((_, index) => (
-                                                    <SkeletonRow key={index} />
-                                                ))
+                                                Array.from({ length: 5 }).map((_, index) => <SkeletonRow key={index} />)
                                             ) : filteredInvoices.length === 0 ? (
                                                 <tr>
                                                     <td colSpan="7" className="p-8 text-center">
@@ -720,9 +832,7 @@ const InvoiceSettings = () => {
                                                                 {listError ? 'Failed to load prefixes' : 'No invoice prefixes found'}
                                                             </p>
                                                             <p className="text-gray-400 text-sm mb-6">
-                                                                {listError
-                                                                    ? listError
-                                                                    : 'Try adjusting your search or add a new prefix'}
+                                                                {listError ? listError : 'Try adjusting your search or add a new prefix'}
                                                             </p>
                                                             {listError ? (
                                                                 <button
@@ -747,13 +857,20 @@ const InvoiceSettings = () => {
                                                 filteredInvoices.map((invoice, index) => {
                                                     const active = isActive(invoice.issue_date, invoice.expire_date);
                                                     return (
-                                                        <tr key={invoice.id} className={`transition-colors ${active ? 'hover:bg-gray-50' : 'bg-gray-50/60 hover:bg-gray-100/60 opacity-80'}`}>
-                                                            <td className="p-4 text-sm text-gray-600 font-medium">
-                                                                {index + 1}
-                                                            </td>
+                                                        <tr
+                                                            key={invoice.id}
+                                                            className={`transition-colors ${
+                                                                active ? 'hover:bg-gray-50' : 'bg-gray-50/60 hover:bg-gray-100/60 opacity-80'
+                                                            }`}
+                                                        >
+                                                            <td className="p-4 text-sm text-gray-600 font-medium">{index + 1}</td>
                                                             <td className="p-4">
                                                                 <div className="flex items-center gap-3">
-                                                                    <div className={`w-8 h-8 bg-gradient-to-br ${getTypeColor(invoice.type)} rounded-lg flex items-center justify-center shadow-sm`}>
+                                                                    <div
+                                                                        className={`w-8 h-8 bg-gradient-to-br ${getTypeColor(
+                                                                            invoice.type
+                                                                        )} rounded-lg flex items-center justify-center shadow-sm`}
+                                                                    >
                                                                         <FiFileText className="w-4 h-4 text-white" />
                                                                     </div>
                                                                     <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-indigo-100 text-indigo-800 capitalize">
@@ -824,24 +941,20 @@ const InvoiceSettings = () => {
                                 <div className="border-b border-gray-200 px-6 py-4">
                                     <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
                                         <div>
-                                            <h5 className="text-xl font-bold text-gray-800 mb-1">
-                                                Invoice Format Management
-                                            </h5>
+                                            <h5 className="text-xl font-bold text-gray-800 mb-1">Invoice Format Management</h5>
                                             <p className="text-gray-500 text-xs">
                                                 Manage and activate different invoice formats for each invoice type
                                             </p>
                                         </div>
 
                                         <div className="w-full lg:w-72">
-                                            <label className="block text-sm font-medium text-gray-700 mb-2">
-                                                Invoice Type
-                                            </label>
+                                            <label className="block text-sm font-medium text-gray-700 mb-2">Invoice Type</label>
                                             <select
                                                 value={selectedFormatType}
                                                 onChange={(e) => setSelectedFormatType(e.target.value)}
                                                 className="w-full px-4 py-2.5 border border-gray-300 rounded-lg bg-white text-gray-700 font-medium transition-all duration-200 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 shadow-sm text-sm"
                                             >
-                                                {invoiceTypes.map(type => (
+                                                {invoiceTypes.map((type) => (
                                                     <option key={type.value} value={type.value}>
                                                         {type.label}
                                                     </option>
@@ -876,11 +989,12 @@ const InvoiceSettings = () => {
                                         <div>
                                             <div className="mb-4 p-3 bg-blue-50 rounded-lg border border-blue-200">
                                                 <p className="text-sm text-blue-800">
-                                                    <strong>Branch ID:</strong> {formatData.branch_id || 'N/A'} | 
-                                                    <strong className="ml-3">Active Format:</strong> {formatDisplayNames[formatData.active_format] || formatData.active_format}
+                                                    <strong>Branch ID:</strong> {formatData.branch_id || 'N/A'} |
+                                                    <strong className="ml-3">Active Format:</strong>{' '}
+                                                    {formatDisplayNames[formatData.active_format] || formatData.active_format}
                                                 </p>
                                             </div>
-                                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                                            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
                                                 {getSortedSamples().map((sample) => (
                                                     <FormatCard
                                                         key={sample.format_id}
@@ -896,12 +1010,8 @@ const InvoiceSettings = () => {
                                     ) : (
                                         <div className="flex flex-col items-center justify-center py-12">
                                             <FiFileText className="w-16 h-16 text-gray-300 mb-4" />
-                                            <p className="text-gray-500 text-lg font-medium mb-2">
-                                                No formats found
-                                            </p>
-                                            <p className="text-gray-400 text-sm">
-                                                Could not load invoice formats for this type
-                                            </p>
+                                            <p className="text-gray-500 text-lg font-medium mb-2">No formats found</p>
+                                            <p className="text-gray-400 text-sm">Could not load invoice formats for this type</p>
                                             <button
                                                 onClick={fetchFormatData}
                                                 className="mt-4 px-4 py-2 bg-indigo-600 text-white rounded-lg text-sm"
@@ -939,9 +1049,7 @@ const InvoiceSettings = () => {
                                 <div className="space-y-4">
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                         <div>
-                                            <label className="block text-sm font-medium text-gray-700 mb-2">
-                                                Invoice Type
-                                            </label>
+                                            <label className="block text-sm font-medium text-gray-700 mb-2">Invoice Type</label>
                                             <select
                                                 value={formData.type}
                                                 onChange={(e) => handleInputChange('type', e.target.value)}
@@ -949,7 +1057,7 @@ const InvoiceSettings = () => {
                                                 required
                                             >
                                                 <option value="">Select Invoice Type</option>
-                                                {invoiceTypes.map(type => (
+                                                {invoiceTypes.map((type) => (
                                                     <option key={type.value} value={type.value}>
                                                         {type.label}
                                                     </option>
@@ -957,9 +1065,7 @@ const InvoiceSettings = () => {
                                             </select>
                                         </div>
                                         <div>
-                                            <label className="block text-sm font-medium text-gray-700 mb-2">
-                                                Prefix
-                                            </label>
+                                            <label className="block text-sm font-medium text-gray-700 mb-2">Prefix</label>
                                             <input
                                                 type="text"
                                                 value={formData.prefix}
@@ -1000,9 +1106,7 @@ const InvoiceSettings = () => {
                                     </div>
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                         <div>
-                                            <label className="block text-sm font-medium text-gray-700 mb-2">
-                                                Starting Number
-                                            </label>
+                                            <label className="block text-sm font-medium text-gray-700 mb-2">Starting Number</label>
                                             <input
                                                 type="number"
                                                 min="1"
@@ -1011,9 +1115,7 @@ const InvoiceSettings = () => {
                                                 className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all duration-200"
                                                 placeholder="1"
                                             />
-                                            <p className="mt-1 text-xs text-gray-500">
-                                                This will be the next invoice number to be used.
-                                            </p>
+                                            <p className="mt-1 text-xs text-gray-500">This will be the next invoice number to be used.</p>
                                         </div>
                                     </div>
                                 </div>
@@ -1072,9 +1174,7 @@ const InvoiceSettings = () => {
                             </div>
 
                             <div>
-                                <label className="block text-sm font-medium text-slate-700 mb-2">
-                                    Confirmation Text
-                                </label>
+                                <label className="block text-sm font-medium text-slate-700 mb-2">Confirmation Text</label>
                                 <input
                                     type="text"
                                     value={deleteConfirmText}
@@ -1109,7 +1209,7 @@ const InvoiceSettings = () => {
                 </div>
             )}
 
-            {/* Full Screen PDF Preview Modal */}
+            {/* Full Screen PDF Preview Modal — custom pdf.js-powered viewer, no native browser plugin UI */}
             {showPreviewModal && previewPdfUrl && selectedFormatSample && (
                 <div className="fixed inset-0 bg-black bg-opacity-95 z-50 flex flex-col">
                     {/* Modal Header */}
@@ -1118,9 +1218,7 @@ const InvoiceSettings = () => {
                             <h2 className="text-lg my-0 font-bold capitalize">
                                 {formatDisplayNames[selectedFormatSample.format_id]} Format Preview
                             </h2>
-                            <p className="text-indigo-100 text-xs my-0">
-                                Previewing invoice format for {selectedFormatType} type
-                            </p>
+                            <p className="text-indigo-100 text-xs my-0">Previewing invoice format for {selectedFormatType} type</p>
                         </div>
                         <div className="flex items-center gap-3">
                             <button
@@ -1133,7 +1231,7 @@ const InvoiceSettings = () => {
                             <button
                                 onClick={toggleFullscreen}
                                 className="text-white hover:text-indigo-200 transition-colors duration-200 p-2 rounded-lg hover:bg-indigo-500"
-                                title={isFullscreen ? "Exit Fullscreen" : "Fullscreen"}
+                                title={isFullscreen ? 'Exit Fullscreen' : 'Fullscreen'}
                             >
                                 {isFullscreen ? <FiMinimize2 className="w-5 h-5" /> : <FiMaximize2 className="w-5 h-5" />}
                             </button>
@@ -1146,15 +1244,90 @@ const InvoiceSettings = () => {
                             </button>
                         </div>
                     </div>
-                    
-                    {/* PDF Viewer - Full Screen Content */}
-                    <div ref={previewContainerRef} className="flex-1 bg-gray-900 p-2">
-                        <iframe
-                            src={previewPdfUrl}
-                            className="w-full h-full rounded-lg shadow-2xl"
-                            title="PDF Preview"
-                            style={{ backgroundColor: '#fff' }}
-                        />
+
+                    {/* Custom viewer container */}
+                    <div ref={previewContainerRef} className="flex-1 bg-gray-900 flex flex-col overflow-hidden">
+                        {/* Custom toolbar (replaces the native browser PDF plugin toolbar) */}
+                        <div className="flex items-center justify-center gap-3 bg-gray-800 border-b border-gray-700 py-2 px-4">
+                            <button
+                                onClick={() => setPageNumber((p) => Math.max(1, p - 1))}
+                                disabled={pageNumber <= 1}
+                                className="p-2 text-white bg-gray-700 rounded-lg hover:bg-gray-600 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                                title="Previous page"
+                            >
+                                <FiChevronLeft className="w-4 h-4" />
+                            </button>
+
+                            <span className="text-sm text-gray-200 min-w-[90px] text-center select-none">
+                                Page {pageNumber} of {numPages || '—'}
+                            </span>
+
+                            <button
+                                onClick={() => setPageNumber((p) => Math.min(numPages || p, p + 1))}
+                                disabled={pageNumber >= (numPages || 1)}
+                                className="p-2 text-white bg-gray-700 rounded-lg hover:bg-gray-600 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                                title="Next page"
+                            >
+                                <FiChevronRight className="w-4 h-4" />
+                            </button>
+
+                            <div className="w-px h-6 bg-gray-600 mx-2" />
+
+                            <button
+                                onClick={() => setZoom((z) => Math.max(0.5, +(z - 0.1).toFixed(2)))}
+                                className="p-2 text-white bg-gray-700 rounded-lg hover:bg-gray-600 transition-colors"
+                                title="Zoom out"
+                            >
+                                <FiZoomOut className="w-4 h-4" />
+                            </button>
+
+                            <span className="text-sm text-gray-200 w-12 text-center select-none">{Math.round(zoom * 100)}%</span>
+
+                            <button
+                                onClick={() => setZoom((z) => Math.min(2.5, +(z + 0.1).toFixed(2)))}
+                                className="p-2 text-white bg-gray-700 rounded-lg hover:bg-gray-600 transition-colors"
+                                title="Zoom in"
+                            >
+                                <FiZoomIn className="w-4 h-4" />
+                            </button>
+                        </div>
+
+                        {/* Rendered page(s) */}
+                        <div className="flex-1 overflow-auto flex justify-center p-4">
+                            {pdfLoadError ? (
+                                <div className="text-center text-gray-300 mt-16">
+                                    <p className="text-sm mb-3">Could not render the PDF preview.</p>
+                                    <button
+                                        onClick={handleDownloadPdf}
+                                        className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-sm"
+                                    >
+                                        Download instead
+                                    </button>
+                                </div>
+                            ) : (
+                                <Document
+                                    file={previewPdfUrl}
+                                    onLoadSuccess={({ numPages: loadedPages }) => {
+                                        setNumPages(loadedPages);
+                                        setPageNumber(1);
+                                    }}
+                                    onLoadError={(error) => {
+                                        console.error('PDF render error:', error);
+                                        setPdfLoadError(true);
+                                        toast.error('Failed to render PDF preview.');
+                                    }}
+                                    loading={<p className="text-gray-300 text-sm mt-16">Loading preview...</p>}
+                                >
+                                    <Page
+                                        pageNumber={pageNumber}
+                                        scale={zoom}
+                                        className="shadow-2xl"
+                                        renderTextLayer={false}
+                                        renderAnnotationLayer={false}
+                                    />
+                                </Document>
+                            )}
+                        </div>
                     </div>
                 </div>
             )}
