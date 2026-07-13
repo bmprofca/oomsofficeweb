@@ -327,23 +327,23 @@ const SalesOverviewWidget = () => {
     if (loading) {
         return (
             <WidgetWrapper widgetId="sales-overview" title="Sales Overview" className="col-span-full" theme={theme}>
-                <div className="p-8 md:p-12">
+                <div className="p-4 md:p-6">
                     <div className="animate-pulse">
-                        <div className="flex items-center gap-4 mb-6">
-                            <div className="w-14 h-14 bg-gray-200 rounded-xl"></div>
+                        <div className="flex items-center gap-3 mb-4">
+                            <div className="w-10 h-10 bg-gray-200 rounded-lg"></div>
                             <div className="flex-1">
                                 <div className="h-6 bg-gray-200 rounded w-48 mb-2"></div>
                                 <div className="h-4 bg-gray-200 rounded w-64"></div>
                             </div>
                         </div>
-                        <div className="mb-8">
+                        <div className="mb-4">
                             <div className="h-4 bg-gray-200 rounded w-32 mb-2"></div>
-                            <div className="h-10 bg-gray-200 rounded w-64 mb-2"></div>
+                            <div className="h-8 bg-gray-200 rounded w-56 mb-2"></div>
                             <div className="h-4 bg-gray-200 rounded w-40"></div>
                         </div>
-                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
                             {[1, 2, 3, 4].map(i => (
-                                <div key={i} className="h-24 bg-gray-100 rounded-xl"></div>
+                                <div key={i} className="h-16 bg-gray-100 rounded-lg"></div>
                             ))}
                         </div>
                         <div className="flex gap-3">
@@ -360,7 +360,7 @@ const SalesOverviewWidget = () => {
     if (error) {
         return (
             <WidgetWrapper widgetId="sales-overview" title="Sales Overview" className="col-span-full" theme={theme}>
-                <div className="p-8 md:p-12 text-center">
+                <div className="p-4 md:p-6 text-center">
                     <div className="inline-flex items-center justify-center w-16 h-16 bg-red-100 rounded-full mb-4">
                         <FiAlertCircle className="w-8 h-8 text-red-500" />
                     </div>
@@ -405,16 +405,16 @@ const SalesOverviewWidget = () => {
             <WidgetWrapper widgetId="sales-overview" title="Sales Overview" className="col-span-full" theme={theme}>
                 <div className="relative overflow-hidden">
                     <div className={`absolute inset-0 bg-gradient-to-br ${theme.bgGradient}`} />
-                    <div className={`absolute top-0 right-0 w-64 h-64 bg-gradient-to-br ${theme.gradient} opacity-10 rounded-full -translate-y-32 translate-x-32`} />
-                    <div className={`absolute bottom-0 left-0 w-96 h-96 bg-gradient-to-tr ${theme.gradient} opacity-5 rounded-full -translate-x-48 translate-y-48`} />
+                    <div className={`absolute top-0 right-0 w-48 h-48 bg-gradient-to-br ${theme.gradient} opacity-10 rounded-full -translate-y-24 translate-x-24`} />
+                    <div className={`absolute bottom-0 left-0 w-72 h-72 bg-gradient-to-tr ${theme.gradient} opacity-5 rounded-full -translate-x-36 translate-y-36`} />
 
-                    <div className="relative p-8 md:p-12">
-                        <div className="flex flex-col lg:flex-row items-center justify-between gap-8">
+                    <div className="relative p-4 md:p-6">
+                        <div className="flex flex-col lg:flex-row items-center justify-between gap-4">
                             <div className="flex-1">
-                                <div className="flex items-center gap-4 mb-6">
+                                <div className="flex items-center gap-3 mb-3">
                                     <div className="relative">
-                                        <div className={`p-3 bg-gradient-to-br ${theme.gradient} rounded-xl shadow-lg`}>
-                                            <FiTrendingUp className="w-8 h-8 text-white" />
+                                        <div className={`p-2 bg-gradient-to-br ${theme.gradient} rounded-lg shadow-md`}>
+                                            <FiTrendingUp className="w-6 h-6 text-white" />
                                         </div>
                                         <div className="absolute -top-2 -right-2">
                                             <span className="animate-ping absolute inline-flex h-4 w-4 rounded-full bg-green-400 opacity-75"></span>
@@ -423,19 +423,19 @@ const SalesOverviewWidget = () => {
                                     </div>
                                     <div>
                                         <div className="flex items-center gap-2">
-                                            <h3 className="text-2xl md:text-3xl font-bold text-gray-800">
+                                            <h3 className="text-xl md:text-2xl font-bold text-gray-800">
                                                 Congratulations!
                                             </h3>
                                         </div>
-                                        <p className="text-gray-600 mt-2">Outstanding performance this fiscal year!</p>
+                                        <p className="text-gray-600 mt-1 text-sm">Outstanding performance this fiscal year!</p>
                                     </div>
                                 </div>
 
-                                <div className="mb-8">
-                                    <p className="text-gray-500 mb-2">FY {stats.financial_year} Total Sales</p>
+                                <div className="mb-4">
+                                    <p className="text-gray-500 mb-1 text-sm">FY {stats.financial_year} Total Sales</p>
                                     {check('finance_balance_view') ? (
-                                        <div className="flex items-end gap-4 flex-wrap">
-                                            <div className={`text-4xl md:text-5xl font-bold bg-gradient-to-r ${theme.gradient} bg-clip-text text-transparent`}>
+                                        <div className="flex items-end gap-3 flex-wrap">
+                                            <div className={`text-2xl md:text-3xl font-bold bg-gradient-to-r ${theme.gradient} bg-clip-text text-transparent`}>
                                                 {formatCurrency(stats.total_sale)}
                                             </div>
                                             <div className={`flex items-center gap-2 px-3 py-1 bg-gradient-to-r ${theme.badgeGradient} rounded-full ${getTrendColor(stats.growth_rate)}`}>
@@ -446,58 +446,58 @@ const SalesOverviewWidget = () => {
                                             </div>
                                         </div>
                                     ) : (
-                                        <div className="text-2xl font-semibold text-gray-400 italic">
+                                        <div className="text-xl font-semibold text-gray-400 italic">
                                             ₹ ••••• (No Permission)
                                         </div>
                                     )}
                                     {check('finance_balance_view') && (
-                                        <p className="text-gray-500 mt-3">Achieved {achievementPercentage}% of annual target</p>
+                                        <p className="text-gray-500 mt-2 text-sm">Achieved {achievementPercentage}% of annual target</p>
                                     )}
                                 </div>
 
-                                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-                                    <div className="bg-white/50 backdrop-blur-sm p-4 rounded-xl border border-gray-100 hover:shadow-md transition-shadow">
-                                        <div className="text-sm text-gray-600">Growth Rate</div>
-                                        <div className={`text-xl font-bold ${getTrendColor(stats.growth_rate)}`}>
+                                <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+                                    <div className="bg-white/50 backdrop-blur-sm p-3 rounded-lg border border-gray-100 hover:shadow-sm transition-shadow">
+                                        <div className="text-xs text-gray-600">Growth Rate</div>
+                                        <div className={`text-lg font-bold ${getTrendColor(stats.growth_rate)}`}>
                                             {stats.growth_rate > 0 ? '+' : ''}{stats.growth_rate.toFixed(1)}%
                                         </div>
                                     </div>
                                     {check('finance_balance_view') && (
-                                        <div className="bg-white/50 backdrop-blur-sm p-4 rounded-xl border border-gray-100 hover:shadow-md transition-shadow">
-                                            <div className="text-sm text-gray-600">Net Profit</div>
-                                            <div className={`text-xl font-bold ${theme.statsColors[0]}`}>{formatCurrency(stats.net_profit)}</div>
+                                        <div className="bg-white/50 backdrop-blur-sm p-3 rounded-lg border border-gray-100 hover:shadow-sm transition-shadow">
+                                            <div className="text-xs text-gray-600">Net Profit</div>
+                                            <div className={`text-lg font-bold ${theme.statsColors[0]}`}>{formatCurrency(stats.net_profit)}</div>
                                         </div>
                                     )}
-                                    <div className="bg-white/50 backdrop-blur-sm p-4 rounded-xl border border-gray-100 hover:shadow-md transition-shadow">
-                                        <div className="text-sm text-gray-600">Active Clients</div>
-                                        <div className={`text-xl font-bold ${theme.statsColors[1]}`}>{stats.active_client}</div>
+                                    <div className="bg-white/50 backdrop-blur-sm p-3 rounded-lg border border-gray-100 hover:shadow-sm transition-shadow">
+                                        <div className="text-xs text-gray-600">Active Clients</div>
+                                        <div className={`text-lg font-bold ${theme.statsColors[1]}`}>{stats.active_client}</div>
                                     </div>
-                                    <div className="bg-white/50 backdrop-blur-sm p-4 rounded-xl border border-gray-100 hover:shadow-md transition-shadow">
-                                        <div className="text-sm text-gray-600">Task Completion</div>
-                                        <div className={`text-xl font-bold ${theme.statsColors[2]}`}>
+                                    <div className="bg-white/50 backdrop-blur-sm p-3 rounded-lg border border-gray-100 hover:shadow-sm transition-shadow">
+                                        <div className="text-xs text-gray-600">Task Completion</div>
+                                        <div className={`text-lg font-bold ${theme.statsColors[2]}`}>
                                             {stats.task_complete_today}/{stats.total_tasks}
                                         </div>
                                         <div className="text-xs text-gray-500">{formatPercentage(stats.task_completion_rate)}</div>
                                     </div>
                                 </div>
 
-                                <div className="flex flex-wrap gap-3">
+                                <div className="flex flex-wrap gap-2">
                                     {check('finance_balance_view') && (
                                         <motion.button
-                                            className={`px-6 py-3 bg-gradient-to-r ${theme.buttonGradient} text-white rounded-xl hover:shadow-xl transition-all duration-300 hover:scale-105`}
+                                            className={`px-4 py-2 bg-gradient-to-r ${theme.buttonGradient} text-white rounded-lg hover:shadow-md transition-all duration-200 text-sm`}
                                             whileHover={{ scale: 1.05 }}
                                             whileTap={{ scale: 0.95 }}
                                             onClick={() => window.location.href = '/reports/sales'}
                                         >
                                             <div className="flex items-center gap-2">
-                                                <FiBarChart2 className="w-5 h-5" />
+                                                <FiBarChart2 className="w-4 h-4" />
                                                 View Sales Report
                                             </div>
                                         </motion.button>
                                     )}
                                     {check('finance_balance_view') && (
                                         <motion.button
-                                            className="px-6 py-3 bg-white text-gray-700 rounded-xl border border-gray-200 hover:bg-gray-50 transition-all duration-300 hover:shadow-lg hover:scale-105"
+                                            className="px-4 py-2 bg-white text-gray-700 rounded-lg border border-gray-200 hover:bg-gray-50 transition-all duration-200 text-sm"
                                             whileHover={{ scale: 1.05 }}
                                             whileTap={{ scale: 0.95 }}
                                             onClick={() => {
@@ -505,7 +505,7 @@ const SalesOverviewWidget = () => {
                                             }}
                                         >
                                             <div className="flex items-center gap-2">
-                                                <FiDownload className="w-5 h-5" />
+                                                <FiDownload className="w-4 h-4" />
                                                 Export Data
                                             </div>
                                         </motion.button>
@@ -516,7 +516,7 @@ const SalesOverviewWidget = () => {
                             {check('finance_balance_view') && (
                                 <div className="lg:w-1/3">
                                     <div className="relative">
-                                        <div className="w-64 h-64 mx-auto relative">
+                                        <div className="w-48 h-48 mx-auto relative">
                                             <svg className="w-full h-full" viewBox="0 0 100 100">
                                                 <circle cx="50" cy="50" r="45" fill="none" stroke="#e5e7eb" strokeWidth="4" />
                                                 <motion.circle
@@ -537,16 +537,16 @@ const SalesOverviewWidget = () => {
 
                                             <div className="absolute inset-0 flex items-center justify-center">
                                                 <div className="text-center">
-                                                    <div className={`text-4xl font-bold ${theme.statsColors[0]}`}>{achievementPercentage}%</div>
-                                                    <div className="text-gray-600 text-sm">Target Achieved</div>
+                                                    <div className={`text-3xl font-bold ${theme.statsColors[0]}`}>{achievementPercentage}%</div>
+                                                    <div className="text-gray-600 text-xs">Target Achieved</div>
                                                 </div>
                                             </div>
                                         </div>
 
-                                        <div className={`absolute -top-4 -right-4 w-16 h-16 bg-gradient-to-br ${theme.gradient} rounded-full flex items-center justify-center shadow-lg`}>
-                                            <FiAward className="w-8 h-8 text-white" />
+                                        <div className={`absolute -top-3 -right-3 w-12 h-12 bg-gradient-to-br ${theme.gradient} rounded-full flex items-center justify-center shadow-md`}>
+                                            <FiAward className="w-6 h-6 text-white" />
                                         </div>
-                                        <div className={`absolute -bottom-4 -left-4 w-12 h-12 bg-gradient-to-br ${theme.gradient} rounded-full flex items-center justify-center shadow-lg`}>
+                                        <div className={`absolute -bottom-3 -left-3 w-10 h-10 bg-gradient-to-br ${theme.gradient} rounded-full flex items-center justify-center shadow-md`}>
                                             <FiTrendingUp className="w-6 h-6 text-white" />
                                         </div>
                                     </div>

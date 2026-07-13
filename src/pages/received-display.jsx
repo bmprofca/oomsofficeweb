@@ -607,6 +607,36 @@ const ViewReceived = () => {
     const [isLastPage, setIsLastPage] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
     const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
+    const searchDebounceRef = useRef(null);
+
+    const scheduleSearchUpdate = useCallback((value) => {
+        const trimmed = String(value ?? '').trim();
+        setSearchTerm(value ?? '');
+        if (searchDebounceRef.current) {
+            clearTimeout(searchDebounceRef.current);
+        }
+        searchDebounceRef.current = setTimeout(() => {
+            setDebouncedSearchTerm(trimmed);
+            setCurrentPage(1);
+        }, 300);
+    }, []);
+
+    const flushSearchUpdate = useCallback((value) => {
+        if (searchDebounceRef.current) {
+            clearTimeout(searchDebounceRef.current);
+            searchDebounceRef.current = null;
+        }
+        const trimmed = String(value ?? '').trim();
+        setSearchTerm(value ?? '');
+        setDebouncedSearchTerm(trimmed);
+        setCurrentPage(1);
+    }, []);
+
+    const handleDateRangeChange = useCallback((range) => {
+        setFromDate(range?.start || '');
+        setToDate(range?.end || '');
+        setCurrentPage(1);
+    }, []);
 
     // Persist sidebar minimized state
     useEffect(() => {
@@ -626,13 +656,16 @@ const ViewReceived = () => {
     }, [mobileMenuOpen]);
 
     useEffect(() => {
-        const timer = setTimeout(() => setDebouncedSearchTerm(searchTerm.trim()), 500);
-        return () => clearTimeout(timer);
-    }, [searchTerm]);
+        return () => {
+            if (searchDebounceRef.current) {
+                clearTimeout(searchDebounceRef.current);
+            }
+        };
+    }, []);
 
     useEffect(() => {
         setCurrentPage(1);
-    }, [debouncedSearchTerm, fromDate, toDate, itemsPerPage]);
+    }, [itemsPerPage]);
 
     // Format currency
     const formatCurrency = (amount) => {
@@ -1096,7 +1129,14 @@ const ViewReceived = () => {
                                             type="text"
                                             placeholder="Search invoice, remark…"
                                             value={searchTerm}
-                                            onChange={(e) => setSearchTerm(e.target.value)}
+                                            onChange={(e) => scheduleSearchUpdate(e.target.value)}
+                                            onKeyUp={(e) => {
+                                                if (e.key === 'Enter') {
+                                                    flushSearchUpdate(e.currentTarget.value);
+                                                    return;
+                                                }
+                                                scheduleSearchUpdate(e.currentTarget.value);
+                                            }}
                                             className="h-9 w-full rounded-lg border border-slate-300 bg-white pl-9 pr-3 text-sm transition-all focus:border-transparent focus:outline-none focus:ring-2 focus:ring-blue-500"
                                         />
                                     </div>
@@ -1104,10 +1144,7 @@ const ViewReceived = () => {
                                     <div className="w-full min-w-0 sm:w-56">
                                         <DateRangePickerField
                                             value={{ start: fromDate, end: toDate }}
-                                            onChange={(range) => {
-                                                setFromDate(range?.start || '');
-                                                setToDate(range?.end || '');
-                                            }}
+                                            onChange={handleDateRangeChange}
                                             placeholder="Select date range"
                                             mode="range"
                                             initialTab="quick"

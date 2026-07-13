@@ -175,8 +175,8 @@ const TaskSummary = ({ onRefresh: externalRefresh, onCreateTask }) => {
     };
 
     return (
-        <div className="p-6">
-            <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6 mb-6">
+        <div className="p-4">
+            <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3 mb-3">
                 <div className="flex items-center gap-3">
                     <div className="p-3 bg-gradient-to-br from-orange-100 to-amber-100 rounded-xl">
                         <FiCalendar className="w-6 h-6 text-orange-600" />
@@ -334,7 +334,7 @@ const TaskSummary = ({ onRefresh: externalRefresh, onCreateTask }) => {
                     
                     <motion.button 
                         onClick={onCreateTask}
-                        className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-xl hover:shadow-xl transition-all duration-300 hover:scale-105"
+                        className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-lg hover:shadow-md transition-all duration-200 text-sm"
                         whileHover={{ scale: 1.05 }}
                         whileTap={{ scale: 0.95 }}
                     >
@@ -350,7 +350,7 @@ const TaskSummary = ({ onRefresh: externalRefresh, onCreateTask }) => {
                 </div>
             ) : (
                 <>
-                    <div className="overflow-x-auto rounded-2xl border border-gray-100">
+                    <div className="overflow-x-auto rounded-xl border border-gray-100">
                         <table className="w-full min-w-[800px]">
                             <thead className="bg-gradient-to-r from-gray-50 to-gray-100">
                                 <tr>

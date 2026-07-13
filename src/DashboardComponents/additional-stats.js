@@ -119,7 +119,7 @@ const StatCard = ({ card, stats, isCustomizing, onDragStart, onDragOver, onDrop,
             )}
 
             <motion.div 
-                className="relative overflow-hidden rounded-2xl shadow-lg hover:shadow-2xl transition-all duration-300"
+                className="relative overflow-hidden rounded-xl shadow-md hover:shadow-lg transition-shadow duration-300"
                 style={{ background: card.gradient }}
                 whileHover={{ 
                     scale: isCustomizing ? 1 : 1.03,
@@ -127,13 +127,13 @@ const StatCard = ({ card, stats, isCustomizing, onDragStart, onDragOver, onDrop,
                 }}
                 whileTap={{ scale: 0.98 }}
             >
-                <div className="p-6">
+                <div className="p-4">
                     <div className="flex items-start justify-between mb-4">
                         <div className="flex-1">
                             <div className="text-white/80 text-sm font-medium mb-1">
                                 {card.title}
                             </div>
-                            <div className={`text-2xl font-bold text-white mb-2 ${blurEnabled ? 'blur-sm' : ''}`}>
+                            <div className={`text-xl font-bold text-white mb-1 ${blurEnabled ? 'blur-sm' : ''}`}>
                                 {card.isCurrency ? formatCurrency(value) : formatNumber(value)}
                             </div>
                         </div>
@@ -179,10 +179,10 @@ const AdditionalMetricsCard = ({ title, icon: Icon, children, gradient }) => (
 // Loading Skeleton
 const LoadingSkeleton = () => (
     <div className="space-y-6">
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
             {[...Array(8)].map((_, i) => (
                 <div key={i} className="rounded-2xl bg-gray-100 animate-pulse">
-                    <div className="p-6">
+                    <div className="p-4">
                         <div className="flex items-start justify-between mb-4">
                             <div className="flex-1">
                                 <div className="h-4 bg-gray-200 rounded w-24 mb-2"></div>
@@ -195,7 +195,7 @@ const LoadingSkeleton = () => (
                 </div>
             ))}
         </div>
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
             {[...Array(4)].map((_, i) => (
                 <div key={i} className="rounded-2xl bg-gray-100 animate-pulse h-64"></div>
             ))}
@@ -440,7 +440,7 @@ const AdditionalStatsComponent = ({
     }
 
     return (
-        <div className="p-6 space-y-6">
+        <div className="p-4 space-y-4">
             {/* Header */}
             <div className="flex items-center justify-between flex-wrap gap-4">
                 <div className="flex items-center gap-3">
@@ -476,7 +476,7 @@ const AdditionalStatsComponent = ({
             </div>
 
             {/* Main Stats Cards */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
                 {cards
                     .filter(card => card.id !== 'net-profit' || check('finance_balance_view'))
                     .map((card) => (
@@ -510,7 +510,7 @@ const AdditionalStatsComponent = ({
                         <h3 className="text-lg font-bold text-gray-800">Additional Insights</h3>
                     </div>
 
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
                         {/* Task Metrics */}
                         <AdditionalMetricsCard 
                             title="Task Analytics" 
@@ -520,13 +520,13 @@ const AdditionalStatsComponent = ({
                             <div className="space-y-3">
                                 <div className="flex justify-between items-center pb-2 border-b">
                                     <span className="text-gray-600">Pending Tasks</span>
-                                    <span className="text-2xl font-bold text-orange-600">
+                                    <span className="text-xl font-bold text-orange-600">
                                         {formatNumber(additionalMetrics.pending_tasks)}
                                     </span>
                                 </div>
                                 <div className="flex justify-between items-center pb-2 border-b">
                                     <span className="text-gray-600">Overdue Tasks</span>
-                                    <span className="text-2xl font-bold text-red-600">
+                                    <span className="text-xl font-bold text-red-600">
                                         {formatNumber(additionalMetrics.overdue_tasks)}
                                     </span>
                                 </div>
@@ -556,13 +556,13 @@ const AdditionalStatsComponent = ({
                                 <div className="space-y-3">
                                     <div className="flex justify-between items-center pb-2 border-b">
                                         <span className="text-gray-600">Today's Income</span>
-                                        <span className="text-2xl font-bold text-green-600">
+                                        <span className="text-xl font-bold text-green-600">
                                             {formatCurrency(additionalMetrics.total_income_today)}
                                         </span>
                                     </div>
                                     <div className="flex justify-between items-center pb-2 border-b">
                                         <span className="text-gray-600">Today's Expense</span>
-                                        <span className="text-2xl font-bold text-red-600">
+                                        <span className="text-xl font-bold text-red-600">
                                             {formatCurrency(additionalMetrics.total_expense_today)}
                                         </span>
                                     </div>

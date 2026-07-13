@@ -120,14 +120,14 @@ const TopClients = ({ refreshTrigger = 0 }) => {
     }, [dateRange, refreshTrigger]);
 
     return (
-        <div className="p-8">
-            <div className="flex items-center justify-between mb-6">
-                <div className="flex items-center gap-3">
-                    <div className="p-3 bg-gradient-to-br from-amber-100 to-orange-100 rounded-xl">
-                        <FiAward className="w-6 h-6 text-amber-600" />
+        <div className="p-4">
+            <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-2">
+                    <div className="p-2 bg-gradient-to-br from-amber-100 to-orange-100 rounded-lg">
+                        <FiAward className="w-5 h-5 text-amber-600" />
                     </div>
                     <div>
-                        <h3 className="text-xl font-bold text-gray-800">
+                        <h3 className="text-base font-semibold text-gray-800">
                             Top 10 Clients by Sales
                         </h3>
                         {summary && (
@@ -257,7 +257,7 @@ const TopClients = ({ refreshTrigger = 0 }) => {
                     <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
                 </div>
             ) : (
-                <div className="overflow-hidden rounded-2xl border border-gray-100">
+                <div className="overflow-hidden rounded-xl border border-gray-100">
                     <table className="w-full">
                         <thead className="bg-gradient-to-r from-gray-50 to-gray-100">
                             <tr>

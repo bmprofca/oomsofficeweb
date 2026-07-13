@@ -272,13 +272,13 @@ const QuickStats = ({
                 )}
 
                 <motion.div 
-                    className={`relative overflow-hidden rounded-xl shadow-md hover:shadow-lg transition-all duration-300 h-full`}
-                    style={{ background: card.gradient }}
-                    whileHover={{ 
-                        scale: isCustomizing ? 1 : 1.01,
-                        y: isCustomizing ? 0 : -1,
-                        transition: { duration: 0.2 }
-                    }}
+                    className="relative overflow-hidden rounded-xl shadow-md hover:shadow-lg transition-all duration-300 h-full"
+                style={{ background: card.gradient }}
+                whileHover={{ 
+                    scale: isCustomizing ? 1 : 1.005,
+                    y: isCustomizing ? 0 : 0,
+                    transition: { duration: 0.2 }
+                }}
                     whileTap={{ scale: 0.98 }}
                 >
                     <div className="p-3">
@@ -469,11 +469,11 @@ const QuickStats = ({
 
     return (
         <div className="w-full relative">
-            <div className="flex items-center gap-2 mb-4 flex-wrap">
+            <div className="flex items-center gap-2 mb-3 flex-wrap">
                 <div className="p-2 bg-gradient-to-br from-blue-100 to-cyan-100 rounded-lg flex-shrink-0">
                     <FiTrendingUp className="w-4 h-4 text-blue-600" />
                 </div>
-                <h3 className="text-base font-bold text-gray-800">Quick Stats</h3>
+                <h3 className="text-sm font-semibold text-gray-800">Quick Stats</h3>
                 {!isCustomizing && (
                     <div className="flex items-center gap-1 ml-auto">
                         <button
