@@ -1,4 +1,11 @@
-import React, { useState, useEffect, useCallback, useMemo } from "react";
+import React, {
+  useState,
+  useEffect,
+  useCallback,
+  useMemo,
+  useRef,
+} from "react";
+import { createPortal } from "react-dom";
 import { Sidebar, Header } from "../components/header";
 import {
   FiTrendingUp,
@@ -20,9 +27,7 @@ import {
   FiArrowUpRight,
   FiAward,
   FiGrid,
-  FiSave,
   FiTrash2,
-  FiX,
   FiCheck,
   FiMove,
   FiLayout,
@@ -39,14 +44,15 @@ import {
   FiMenu,
   FiChevronUp,
   FiChevronDown,
-  FiMinimize2,
-  FiMaximize2,
-  FiArrowUp,
-  FiArrowDown,
   FiHome,
   FiLock,
 } from "react-icons/fi";
-import { motion } from "framer-motion";
+import {
+  motion,
+  AnimatePresence,
+  Reorder,
+  useDragControls,
+} from "framer-motion";
 import TaskSummary from "../DashboardComponents/task-summary";
 import getHeaders from "../utils/get-headers";
 import API_BASE_URL from "../utils/api-controller";
@@ -306,194 +312,365 @@ const getDefaultAdditionalStatsCards = () => [
   },
 ];
 
+const unlockBodyScroll = () => {
+  document.body.style.removeProperty("overflow");
+  document.documentElement.style.removeProperty("overflow");
+};
+
+const lockBodyScroll = () => {
+  document.body.style.overflow = "hidden";
+  document.documentElement.style.overflow = "hidden";
+};
+
+const WIDGET_META = {
+  "sales-overview": {
+    description:
+      "Annual sales total, growth trend, and achievement progress for the current financial year.",
+    iconBg: "from-indigo-500 to-purple-600",
+    ring: "ring-indigo-100",
+    badge: "bg-indigo-100 text-indigo-700",
+  },
+  "quick-stats": {
+    description:
+      "At-a-glance counts for billing, creditors, debtors, payments, and today's birthdays.",
+    iconBg: "from-sky-500 to-blue-600",
+    ring: "ring-sky-100",
+    badge: "bg-sky-100 text-sky-700",
+  },
+  "task-summary": {
+    description:
+      "Task pipeline breakdown — overdue, due today, in progress, and completed items.",
+    iconBg: "from-amber-500 to-orange-600",
+    ring: "ring-amber-100",
+    badge: "bg-amber-100 text-amber-700",
+  },
+  "service-wise-sales": {
+    description:
+      "Sales distribution by service type with share percentages for the selected period.",
+    iconBg: "from-violet-500 to-purple-600",
+    ring: "ring-violet-100",
+    badge: "bg-violet-100 text-violet-700",
+  },
+  "staff-wise-sales": {
+    description:
+      "Staff contribution to sales — compare performance across team members.",
+    iconBg: "from-teal-500 to-emerald-600",
+    ring: "ring-teal-100",
+    badge: "bg-teal-100 text-teal-700",
+  },
+  "top-clients": {
+    description:
+      "Top clients ranked by sales volume with period filters and firm details.",
+    iconBg: "from-rose-500 to-pink-600",
+    ring: "ring-rose-100",
+    badge: "bg-rose-100 text-rose-700",
+  },
+  "additional-stats": {
+    description:
+      "Extended metrics — client counts, task stats, and other operational KPIs.",
+    iconBg: "from-cyan-500 to-blue-600",
+    ring: "ring-cyan-100",
+    badge: "bg-cyan-100 text-cyan-700",
+  },
+  "performance-metrics": {
+    description:
+      "Team productivity score and client satisfaction indicators over time.",
+    iconBg: "from-fuchsia-500 to-purple-600",
+    ring: "ring-fuchsia-100",
+    badge: "bg-fuchsia-100 text-fuchsia-700",
+  },
+  "revenue-trend": {
+    description:
+      "Quarterly revenue growth chart with period-over-period comparison.",
+    iconBg: "from-green-500 to-emerald-600",
+    ring: "ring-green-100",
+    badge: "bg-green-100 text-green-700",
+  },
+  "client-acquisition": {
+    description:
+      "New client intake vs retention — track acquisition goals and active base.",
+    iconBg: "from-blue-500 to-cyan-600",
+    ring: "ring-blue-100",
+    badge: "bg-blue-100 text-blue-700",
+  },
+  "goal-progress": {
+    description:
+      "Monthly sales and client acquisition targets with completion percentage.",
+    iconBg: "from-purple-500 to-violet-600",
+    ring: "ring-purple-100",
+    badge: "bg-purple-100 text-purple-700",
+  },
+};
+
+const getWidgetMeta = (widget) =>
+  WIDGET_META[widget.id] || {
+    description: widget.description || "Custom dashboard widget.",
+    iconBg: "from-gray-400 to-gray-500",
+    ring: "ring-gray-100",
+    badge: "bg-gray-100 text-gray-600",
+  };
+
+const SortableWidgetRow = React.memo(function SortableWidgetRow({
+  widget,
+  isHidden = false,
+  sidebarWidgets,
+  onToggleVisibility,
+  onAddWidget,
+  onDragEnd,
+}) {
+  const controls = useDragControls();
+  const WidgetIcon = widget.icon || FiGrid;
+  const meta = getWidgetMeta(widget);
+
+  const rowContent = (
+    <>
+      {!isHidden && (
+        <div
+          className="pt-1 text-gray-300 hover:text-indigo-500 transition-colors cursor-grab active:cursor-grabbing touch-none"
+          onPointerDown={(e) => controls.start(e)}
+        >
+          <FiMove className="w-4 h-4" />
+        </div>
+      )}
+
+      <div
+        className={`p-2 rounded-lg bg-gradient-to-br ${meta.iconBg} shadow-sm flex-shrink-0`}
+      >
+        <WidgetIcon className="w-4 h-4 text-white" />
+      </div>
+
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-2 flex-wrap">
+          <div
+            className={`font-medium text-sm truncate ${
+              isHidden ? "text-gray-600" : "text-gray-800"
+            }`}
+          >
+            {widget.title}
+          </div>
+          <span
+            className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium capitalize ${meta.badge}`}
+          >
+            {widget.category}
+          </span>
+        </div>
+        <p className="text-[11px] text-gray-500 mt-0.5 leading-snug line-clamp-2">
+          {meta.description}
+        </p>
+      </div>
+
+      <motion.button
+        type="button"
+        whileTap={{ scale: 0.9 }}
+        onPointerDown={(e) => e.stopPropagation()}
+        onClick={(e) => {
+          e.stopPropagation();
+          if (isHidden) {
+            if (sidebarWidgets.find((w) => w.id === widget.id)) {
+              onToggleVisibility(widget.id);
+            } else {
+              onAddWidget(widget.id);
+            }
+          } else {
+            onToggleVisibility(widget.id);
+          }
+        }}
+        className={`p-2 rounded-lg flex-shrink-0 transition-colors ${
+          isHidden
+            ? "bg-indigo-600 hover:bg-indigo-700 text-white"
+            : "bg-rose-50 hover:bg-rose-100 text-rose-500 hover:text-rose-600"
+        }`}
+        title={isHidden ? "Show widget" : "Hide widget"}
+      >
+        {isHidden ? (
+          <FiEye className="w-4 h-4" />
+        ) : (
+          <FiEyeOff className="w-4 h-4" />
+        )}
+      </motion.button>
+    </>
+  );
+
+  if (isHidden) {
+    return (
+      <motion.div
+        layout
+        initial={{ opacity: 0, x: -12, height: 0 }}
+        animate={{ opacity: 1, x: 0, height: "auto" }}
+        exit={{ opacity: 0, x: -12, height: 0 }}
+        transition={{ duration: 0.22, ease: "easeOut" }}
+        className="flex items-start gap-2.5 p-2.5 rounded-xl border bg-gray-50/80 border-gray-100"
+      >
+        {rowContent}
+      </motion.div>
+    );
+  }
+
+  return (
+    <Reorder.Item
+      value={widget}
+      dragListener={false}
+      dragControls={controls}
+      onDragEnd={onDragEnd}
+      className={`group flex items-start gap-2.5 p-2.5 rounded-xl border bg-white border-gray-200 hover:shadow-md ${meta.ring} hover:ring-2 list-none`}
+      whileDrag={{
+        scale: 1.02,
+        boxShadow: "0 12px 28px rgba(99, 102, 241, 0.18)",
+        zIndex: 50,
+      }}
+      transition={{ layout: { type: "spring", stiffness: 420, damping: 32 } }}
+    >
+      {rowContent}
+    </Reorder.Item>
+  );
+});
+
 const CustomizationSidebar = React.memo(function CustomizationSidebar({
-  minimized,
-  onToggleMinimized,
   onReset,
-  onSave,
   visibleWidgets,
   hiddenWidgets,
   sidebarWidgets,
-  onMoveUp,
-  onMoveDown,
+  onCommitOrder,
   onToggleVisibility,
   onAddWidget,
 }) {
+  const [orderedItems, setOrderedItems] = useState(visibleWidgets);
+  const orderedRef = useRef(visibleWidgets);
+  const isDraggingRef = useRef(false);
+
+  useEffect(() => {
+    if (!isDraggingRef.current) {
+      setOrderedItems(visibleWidgets);
+      orderedRef.current = visibleWidgets;
+    }
+  }, [visibleWidgets]);
+
+  const handleReorder = useCallback((newOrder) => {
+    isDraggingRef.current = true;
+    orderedRef.current = newOrder;
+    setOrderedItems(newOrder);
+  }, []);
+
+  const handleDragEnd = useCallback(() => {
+    isDraggingRef.current = false;
+    onCommitOrder(orderedRef.current);
+  }, [onCommitOrder]);
+
+  const stopScrollPropagation = (e) => {
+    e.stopPropagation();
+  };
+
   return (
     <div
-      className="fixed left-0 top-16 h-[calc(100vh-4rem)] z-40 bg-white shadow-2xl border-r border-gray-200 transition-transform duration-300 ease-out"
-      style={{
-        width: "380px",
-        transform: minimized ? "translateX(-380px)" : "translateX(0)",
-      }}
+      className="h-full flex flex-col bg-white"
+      onWheel={stopScrollPropagation}
+      onTouchMove={stopScrollPropagation}
     >
-      <button
-        type="button"
-        onClick={onToggleMinimized}
-        className="absolute -right-3 top-4 bg-white border border-gray-200 rounded-full p-1.5 shadow-lg hover:shadow-xl transition-all duration-200 z-50"
-      >
-        {minimized ? (
-          <FiMaximize2 className="w-3.5 h-3.5 text-indigo-600" />
-        ) : (
-          <FiMinimize2 className="w-3.5 h-3.5 text-indigo-600" />
-        )}
-      </button>
-
-      <div className="bg-gradient-to-r from-indigo-600 to-purple-600 px-3 py-2">
+      <div className="bg-gradient-to-r from-indigo-600 via-purple-600 to-violet-600 px-3 py-2.5 flex-shrink-0">
         <div className="flex items-center justify-between gap-2">
-          <h3 className="text-white font-semibold text-sm">
-            Customize Dashboard
-          </h3>
-          <div className="flex items-center gap-1.5">
-            <button
-              type="button"
-              onClick={onReset}
-              className="px-2 py-1 bg-white/20 hover:bg-white/30 text-white rounded-md transition-colors flex items-center gap-1 text-xs"
-            >
-              <FiRefreshCw className="w-3 h-3" />
-              Reset
-            </button>
-            <button
-              type="button"
-              onClick={onSave}
-              className="px-2 py-1 bg-white text-indigo-600 hover:bg-gray-50 rounded-md transition-colors flex items-center gap-1 text-xs font-medium"
-            >
-              <FiSave className="w-3 h-3" />
-              Save
-            </button>
+          <div className="flex items-center gap-2 min-w-0">
+            <div className="p-1.5 bg-white/20 rounded-lg">
+              <FiLayout className="w-4 h-4 text-white" />
+            </div>
+            <div className="min-w-0">
+              <h3 className="text-white font-semibold text-sm leading-tight">
+                Customize Dashboard
+              </h3>
+              <p className="text-indigo-100 text-[10px] leading-tight truncate">
+                Drag to reorder · tap eye to show/hide
+              </p>
+            </div>
           </div>
+          <button
+            type="button"
+            onClick={onReset}
+            className="px-2 py-1 bg-white/15 hover:bg-white/25 text-white rounded-md transition-colors flex items-center gap-1 text-xs flex-shrink-0"
+          >
+            <FiRefreshCw className="w-3 h-3" />
+            Reset
+          </button>
         </div>
       </div>
 
-      <div className="h-[calc(100%-40px)] overflow-y-auto p-3 space-y-4">
+      <div
+        className="flex-1 overflow-y-auto overscroll-contain p-3 space-y-4"
+        onWheel={stopScrollPropagation}
+        onTouchMove={stopScrollPropagation}
+      >
         <div>
           <h4 className="text-xs font-semibold text-gray-800 mb-2 flex items-center gap-1.5">
-            <FiGrid className="w-3.5 h-3.5 text-indigo-600" />
+            <span className="p-1 rounded-md bg-indigo-100">
+              <FiGrid className="w-3 h-3 text-indigo-600" />
+            </span>
             Active Widgets
-            <span className="text-xs font-normal text-gray-500 ml-1">
-              ({visibleWidgets.length})
+            <span className="text-xs font-normal text-gray-400">
+              ({orderedItems.length})
             </span>
           </h4>
-          <div className="space-y-2">
-            {visibleWidgets.map((widget, index) => {
-              const WidgetIcon = widget.icon || FiGrid;
-              return (
-                <div
+          {orderedItems.length === 0 ? (
+            <div className="text-center py-6 text-gray-500 rounded-xl border border-dashed border-gray-200 bg-gray-50/50">
+              <FiGrid className="w-7 h-7 mx-auto mb-2 text-gray-300" />
+              <p className="text-sm font-medium">No active widgets</p>
+              <p className="text-xs text-gray-400 mt-1">
+                Show widgets from the hidden section below
+              </p>
+            </div>
+          ) : (
+            <Reorder.Group
+              axis="y"
+              values={orderedItems}
+              onReorder={handleReorder}
+              className="space-y-2"
+            >
+              {orderedItems.map((widget) => (
+                <SortableWidgetRow
                   key={widget.id}
-                  className="group flex items-center gap-2 p-2 bg-gradient-to-r from-gray-50 to-white rounded-lg border border-gray-200 hover:shadow-sm transition-shadow"
-                >
-                  <div className="p-1.5 bg-gradient-to-br from-indigo-100 to-purple-100 rounded-lg">
-                    <WidgetIcon className="w-3.5 h-3.5 text-indigo-600" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="font-medium text-gray-800 text-sm truncate">
-                      {widget.title}
-                    </div>
-                    <div className="text-xs text-gray-500 capitalize">
-                      {widget.category}
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-1">
-                    <button
-                      type="button"
-                      onClick={() => onMoveUp(index)}
-                      disabled={index === 0}
-                      className={`p-1 rounded transition-colors ${
-                        index === 0
-                          ? "text-gray-300 cursor-not-allowed"
-                          : "text-gray-600 hover:bg-gray-100 hover:text-indigo-600"
-                      }`}
-                      title="Move up"
-                    >
-                      <FiArrowUp className="w-3.5 h-3.5" />
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => onMoveDown(index)}
-                      disabled={index === visibleWidgets.length - 1}
-                      className={`p-1 rounded transition-colors ${
-                        index === visibleWidgets.length - 1
-                          ? "text-gray-300 cursor-not-allowed"
-                          : "text-gray-600 hover:bg-gray-100 hover:text-indigo-600"
-                      }`}
-                      title="Move down"
-                    >
-                      <FiArrowDown className="w-3.5 h-3.5" />
-                    </button>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => onToggleVisibility(widget.id)}
-                    className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
-                    title="Hide widget"
-                  >
-                    <FiEyeOff className="w-3.5 h-3.5" />
-                  </button>
-                </div>
-              );
-            })}
-            {visibleWidgets.length === 0 && (
-              <div className="text-center py-6 text-gray-500">
-                <FiGrid className="w-7 h-7 mx-auto mb-2 text-gray-300" />
-                <p className="text-sm">No active widgets</p>
-              </div>
-            )}
-          </div>
+                  widget={widget}
+                  sidebarWidgets={sidebarWidgets}
+                  onToggleVisibility={onToggleVisibility}
+                  onAddWidget={onAddWidget}
+                  onDragEnd={handleDragEnd}
+                />
+              ))}
+            </Reorder.Group>
+          )}
         </div>
 
-        {hiddenWidgets.length > 0 && (
-          <div>
-            <h4 className="text-xs font-semibold text-gray-800 mb-2 flex items-center gap-1.5">
-              <FiEyeOff className="w-3.5 h-3.5 text-gray-500" />
-              Hidden Widgets
-              <span className="text-xs font-normal text-gray-500 ml-1">
-                ({hiddenWidgets.length})
-              </span>
-            </h4>
-            <div className="space-y-2">
-              {hiddenWidgets.map((widget) => {
-                const WidgetIcon = widget.icon || FiGrid;
-                return (
-                  <div
-                    key={widget.id}
-                    className="flex items-center gap-2 p-2 bg-gray-50 rounded-lg border border-gray-100 opacity-75 hover:opacity-100 transition-opacity"
-                  >
-                    <div className="p-1.5 bg-gray-200 rounded-lg">
-                      <WidgetIcon className="w-3.5 h-3.5 text-gray-500" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="font-medium text-gray-600 text-sm truncate">
-                        {widget.title}
-                      </div>
-                      {widget.description && (
-                        <div className="text-xs text-gray-400 truncate">
-                          {widget.description}
-                        </div>
-                      )}
-                      <div className="text-xs text-gray-400 capitalize mt-0.5">
-                        {widget.category}
-                      </div>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        if (sidebarWidgets.find((w) => w.id === widget.id)) {
-                          onToggleVisibility(widget.id);
-                        } else {
-                          onAddWidget(widget.id);
-                        }
-                      }}
-                      className="p-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition-colors"
-                      title="Show widget"
-                    >
-                      <FiEye className="w-3.5 h-3.5" />
-                    </button>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        )}
+        <AnimatePresence initial={false}>
+          {hiddenWidgets.length > 0 && (
+            <motion.div
+              key="hidden-section"
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: "auto" }}
+              exit={{ opacity: 0, height: 0 }}
+              transition={{ duration: 0.2 }}
+            >
+              <h4 className="text-xs font-semibold text-gray-800 mb-2 flex items-center gap-1.5">
+                <span className="p-1 rounded-md bg-gray-100">
+                  <FiEyeOff className="w-3 h-3 text-gray-500" />
+                </span>
+                Hidden Widgets
+                <span className="text-xs font-normal text-gray-400">
+                  ({hiddenWidgets.length})
+                </span>
+              </h4>
+              <div className="space-y-2">
+                <AnimatePresence initial={false} mode="popLayout">
+                  {hiddenWidgets.map((widget) => (
+                    <SortableWidgetRow
+                      key={widget.id}
+                      widget={widget}
+                      isHidden
+                      sidebarWidgets={sidebarWidgets}
+                      onToggleVisibility={onToggleVisibility}
+                      onAddWidget={onAddWidget}
+                    />
+                  ))}
+                </AnimatePresence>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
     </div>
   );
@@ -523,15 +700,6 @@ const Dashboard = () => {
 
   // Customization state
   const [isCustomizing, setIsCustomizing] = useState(false);
-  const [customizationPanelMinimized, setCustomizationPanelMinimized] =
-    useState(false);
-
-  // Working copy for customization (sidebar only — main dashboard stays frozen)
-  const [workingWidgets, setWorkingWidgets] = useState(null);
-  const [workingQuickStatsCards, setWorkingQuickStatsCards] = useState(null);
-  const [workingAdditionalStatsCards, setWorkingAdditionalStatsCards] =
-    useState(null);
-  const [customizeSnapshot, setCustomizeSnapshot] = useState(null);
 
   // Dashboard Widgets with version control and migration
   const [widgets, setWidgets] = useState(() => {
@@ -696,15 +864,6 @@ const Dashboard = () => {
     }
   }, [branchValidated, navigate]);
 
-  // Main dashboard uses frozen snapshot during customize to prevent flicker
-  const mainWidgets = customizeSnapshot?.widgets ?? widgets;
-  const mainQuickStatsCards =
-    customizeSnapshot?.quickStatsCards ?? quickStatsCards;
-  const mainAdditionalStatsCards =
-    customizeSnapshot?.additionalStatsCards ?? additionalStatsCards;
-  const sidebarWidgets =
-    isCustomizing && workingWidgets ? workingWidgets : widgets;
-
   // Map widget ID to its corresponding permission check key
   const widgetPermissionMap = useMemo(
     () => ({
@@ -739,32 +898,27 @@ const Dashboard = () => {
     [check, widgetPermissionMap],
   );
 
-  const mainVisibleWidgets = useMemo(
-    () => filterWidgetsByPermission(mainWidgets),
-    [mainWidgets, filterWidgetsByPermission],
+  const visibleWidgets = useMemo(
+    () => filterWidgetsByPermission(widgets),
+    [widgets, filterWidgetsByPermission],
   );
 
-  const sidebarVisibleWidgets = useMemo(
-    () => filterWidgetsByPermission(sidebarWidgets),
-    [sidebarWidgets, filterWidgetsByPermission],
-  );
-
-  const sidebarHiddenWidgets = useMemo(
+  const hiddenWidgets = useMemo(
     () => [
-      ...sidebarWidgets.filter(
+      ...widgets.filter(
         (w) =>
           !w.visible &&
           (widgetPermissionMap[w.id] ? check(widgetPermissionMap[w.id]) : true),
       ),
       ...availableWidgets.filter(
         (aw) =>
-          !sidebarWidgets.find((w) => w.id === aw.id) &&
+          !widgets.find((w) => w.id === aw.id) &&
           (widgetPermissionMap[aw.id]
             ? check(widgetPermissionMap[aw.id])
             : true),
       ),
     ],
-    [sidebarWidgets, availableWidgets, check, widgetPermissionMap],
+    [widgets, availableWidgets, check, widgetPermissionMap],
   );
 
   // Persist sidebar minimized state
@@ -772,32 +926,30 @@ const Dashboard = () => {
     localStorage.setItem("sidebarMinimized", JSON.stringify(isMinimized));
   }, [isMinimized]);
 
-  // Save layout to localStorage only when not customizing
+  // Persist layout to localStorage (realtime)
   useEffect(() => {
-    if (!isCustomizing) {
-      localStorage.setItem("dashboardLayout", JSON.stringify(widgets));
-      localStorage.setItem("dashboardVersion", DASHBOARD_VERSION);
-      localStorage.setItem("quickStatsCards", JSON.stringify(quickStatsCards));
-      localStorage.setItem("quickStatsVersion", QUICK_STATS_VERSION);
-      localStorage.setItem(
-        "additionalStatsCards",
-        JSON.stringify(additionalStatsCards),
-      );
-      localStorage.setItem("additionalStatsVersion", ADDITIONAL_STATS_VERSION);
-    }
-  }, [widgets, quickStatsCards, additionalStatsCards, isCustomizing]);
+    localStorage.setItem("dashboardLayout", JSON.stringify(widgets));
+    localStorage.setItem("dashboardVersion", DASHBOARD_VERSION);
+    localStorage.setItem("quickStatsCards", JSON.stringify(quickStatsCards));
+    localStorage.setItem("quickStatsVersion", QUICK_STATS_VERSION);
+    localStorage.setItem(
+      "additionalStatsCards",
+      JSON.stringify(additionalStatsCards),
+    );
+    localStorage.setItem("additionalStatsVersion", ADDITIONAL_STATS_VERSION);
+  }, [widgets, quickStatsCards, additionalStatsCards]);
 
-  // Lock body scroll when mobile sidebar is open
+  // Lock page scroll while customize panel or mobile menu is open
   useEffect(() => {
-    if (mobileMenuOpen) {
-      document.body.style.overflow = "hidden";
+    if (isCustomizing || mobileMenuOpen) {
+      lockBodyScroll();
     } else {
-      document.body.style.overflow = "auto";
+      unlockBodyScroll();
     }
     return () => {
-      document.body.style.overflow = "auto";
+      unlockBodyScroll();
     };
-  }, [mobileMenuOpen]);
+  }, [isCustomizing, mobileMenuOpen]);
 
   // Load initial data - Modified to check for branch
   useEffect(() => {
@@ -882,174 +1034,77 @@ const Dashboard = () => {
     return new Intl.NumberFormat("en-IN").format(number);
   };
 
-  // Arrow-based movement - only updates working copy (sidebar only)
-  const moveWidgetUp = useCallback(
-    (index) => {
-      if (!isCustomizing || index === 0) return;
+  const commitVisibleWidgetOrder = useCallback((orderedVisible) => {
+    setWidgets((prev) => {
+      const hidden = prev.filter((w) => !w.visible);
+      const byId = new Map(prev.map((w) => [w.id, w]));
+      return [
+        ...orderedVisible.map((w, idx) => ({
+          ...(byId.get(w.id) || w),
+          order: idx,
+        })),
+        ...hidden.map((w, idx) => ({
+          ...w,
+          order: orderedVisible.length + idx,
+        })),
+      ];
+    });
+  }, []);
 
-      setWorkingWidgets((prevWidgets) => {
-        if (!prevWidgets) return prevWidgets;
-        const newWidgets = [...prevWidgets];
-        const visibleWidgetsList = newWidgets.filter((w) => w.visible);
-        const hiddenWidgetsList = newWidgets.filter((w) => !w.visible);
-
-        // Swap positions
-        [visibleWidgetsList[index], visibleWidgetsList[index - 1]] = [
-          visibleWidgetsList[index - 1],
-          visibleWidgetsList[index],
-        ];
-
-        // Update orders
-        return [
-          ...visibleWidgetsList.map((w, idx) => ({ ...w, order: idx })),
-          ...hiddenWidgetsList.map((w, idx) => ({
-            ...w,
-            order: visibleWidgetsList.length + idx,
-          })),
-        ];
-      });
-    },
-    [isCustomizing],
-  );
-
-  const moveWidgetDown = useCallback(
-    (index) => {
-      if (!isCustomizing || index === sidebarVisibleWidgets.length - 1) return;
-
-      setWorkingWidgets((prevWidgets) => {
-        if (!prevWidgets) return prevWidgets;
-        const newWidgets = [...prevWidgets];
-        const visibleWidgetsList = newWidgets.filter((w) => w.visible);
-        const hiddenWidgetsList = newWidgets.filter((w) => !w.visible);
-
-        // Swap positions
-        [visibleWidgetsList[index], visibleWidgetsList[index + 1]] = [
-          visibleWidgetsList[index + 1],
-          visibleWidgetsList[index],
-        ];
-
-        // Update orders
-        return [
-          ...visibleWidgetsList.map((w, idx) => ({ ...w, order: idx })),
-          ...hiddenWidgetsList.map((w, idx) => ({
-            ...w,
-            order: visibleWidgetsList.length + idx,
-          })),
-        ];
-      });
-    },
-    [isCustomizing, sidebarVisibleWidgets.length],
-  );
-
-  // Widget management functions (only on working copy)
-  const toggleWidgetVisibility = useCallback(
-    (widgetId) => {
-      if (!isCustomizing) return;
-      setWorkingWidgets((items) =>
-        items.map((item) =>
-          item.id === widgetId ? { ...item, visible: !item.visible } : item,
-        ),
-      );
-    },
-    [isCustomizing],
-  );
+  const toggleWidgetVisibility = useCallback((widgetId) => {
+    setWidgets((items) =>
+      items.map((item) =>
+        item.id === widgetId ? { ...item, visible: !item.visible } : item,
+      ),
+    );
+  }, []);
 
   const addWidget = useCallback(
     (widgetId) => {
-      if (!isCustomizing) return;
-
       const widgetToAdd = availableWidgets.find((w) => w.id === widgetId);
-      if (widgetToAdd && !sidebarWidgets.find((w) => w.id === widgetId)) {
-        const visibleCount = sidebarWidgets.filter((w) => w.visible).length;
+      if (widgetToAdd && !widgets.find((w) => w.id === widgetId)) {
+        const visibleCount = widgets.filter((w) => w.visible).length;
         const newWidget = {
           ...widgetToAdd,
           visible: true,
           order: visibleCount,
         };
-        setWorkingWidgets((prev) => [...prev, newWidget]);
+        setWidgets((prev) => [...prev, newWidget]);
       }
     },
-    [isCustomizing, sidebarWidgets, availableWidgets],
+    [widgets, availableWidgets],
   );
 
   const startCustomization = useCallback(() => {
-    setCustomizeSnapshot({
-      widgets: JSON.parse(JSON.stringify(widgets)),
-      quickStatsCards: JSON.parse(JSON.stringify(quickStatsCards)),
-      additionalStatsCards: JSON.parse(JSON.stringify(additionalStatsCards)),
-    });
-    setWorkingWidgets(JSON.parse(JSON.stringify(widgets)));
-    setWorkingQuickStatsCards(JSON.parse(JSON.stringify(quickStatsCards)));
-    setWorkingAdditionalStatsCards(
-      JSON.parse(JSON.stringify(additionalStatsCards)),
-    );
     setIsCustomizing(true);
-  }, [widgets, quickStatsCards, additionalStatsCards]);
+  }, []);
 
   const resetLayout = useCallback(() => {
-    if (!isCustomizing) return;
-    const defaultLayout = getDefaultWidgets();
-    const defaultQuickStats = getDefaultQuickStatsCards();
-    const defaultAdditionalStats = getDefaultAdditionalStatsCards();
+    setWidgets(getDefaultWidgets());
+    setQuickStatsCards(getDefaultQuickStatsCards());
+    setAdditionalStatsCards(getDefaultAdditionalStatsCards());
+  }, []);
 
-    setWorkingWidgets(defaultLayout);
-    setWorkingQuickStatsCards(defaultQuickStats);
-    setWorkingAdditionalStatsCards(defaultAdditionalStats);
-  }, [isCustomizing]);
-
-  const saveLayout = useCallback(() => {
-    if (workingWidgets) {
-      // Apply changes to main state - ONLY ONE RE-RENDER HERE
-      setWidgets(workingWidgets);
-      setQuickStatsCards(workingQuickStatsCards || quickStatsCards);
-      setAdditionalStatsCards(
-        workingAdditionalStatsCards || additionalStatsCards,
-      );
-    }
+  const closeCustomization = useCallback(() => {
     setIsCustomizing(false);
-    setCustomizationPanelMinimized(false);
-    setCustomizeSnapshot(null);
-    setWorkingWidgets(null);
-    setWorkingQuickStatsCards(null);
-    setWorkingAdditionalStatsCards(null);
-  }, [
-    workingWidgets,
-    workingQuickStatsCards,
-    workingAdditionalStatsCards,
-    quickStatsCards,
-    additionalStatsCards,
-  ]);
-
-  const cancelCustomization = useCallback(() => {
-    setIsCustomizing(false);
-    setCustomizationPanelMinimized(false);
-    setCustomizeSnapshot(null);
-    setWorkingWidgets(null);
-    setWorkingQuickStatsCards(null);
-    setWorkingAdditionalStatsCards(null);
+    unlockBodyScroll();
   }, []);
 
   // Widget Wrapper — static shell (no enter animation) to avoid flicker on parent re-renders
-  const WidgetWrapper = React.memo(
-    ({ widgetId, children, className = "" }) => {
-      const widget = mainWidgets.find((w) => w.id === widgetId);
-      if (!widget || !widget.visible) return null;
+  const WidgetWrapper = React.memo(({ widgetId, children, className = "" }) => {
+    const widget = widgets.find((w) => w.id === widgetId);
+    if (!widget || !widget.visible) return null;
 
-      return (
-        <div className={`relative ${className}`}>
-          <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-            {children}
-          </div>
+    return (
+      <div className={`relative ${className}`}>
+        <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+          {children}
         </div>
-      );
-    },
-  );
+      </div>
+    );
+  });
 
   WidgetWrapper.displayName = "WidgetWrapper";
-
-  const toggleCustomizationMinimized = useCallback(() => {
-    setCustomizationPanelMinimized((prev) => !prev);
-  }, []);
 
   // Quick Stats Widget
   const QuickStatsWidget = React.memo(() => (
@@ -1068,7 +1123,7 @@ const Dashboard = () => {
               navigate(path);
             }
           }}
-          quickStatsCards={mainQuickStatsCards}
+          quickStatsCards={quickStatsCards}
           setQuickStatsCards={setQuickStatsCards}
           onRefresh={fetchDashboardData}
         />
@@ -1125,7 +1180,7 @@ const Dashboard = () => {
         formatNumber={formatNumber}
         blurEnabled={blurEnabled}
         onNavigate={(link) => navigate(link)}
-        additionalStatsCards={mainAdditionalStatsCards}
+        additionalStatsCards={additionalStatsCards}
         setAdditionalStatsCards={setAdditionalStatsCards}
       />
     </WidgetWrapper>
@@ -1199,7 +1254,9 @@ const Dashboard = () => {
           <div className="p-1.5 bg-gradient-to-br from-green-100 to-emerald-100 rounded-lg">
             <FiTrendingUp className="w-4 h-4 text-green-600" />
           </div>
-          <h3 className="text-base font-semibold text-gray-800">Revenue Trend</h3>
+          <h3 className="text-base font-semibold text-gray-800">
+            Revenue Trend
+          </h3>
         </div>
         <div className="bg-gradient-to-br from-green-50 to-emerald-50 rounded-lg p-4 border border-green-100">
           <div className="text-center">
@@ -1291,7 +1348,9 @@ const Dashboard = () => {
           <div className="p-1.5 bg-gradient-to-br from-purple-100 to-violet-100 rounded-lg">
             <FiTarget className="w-4 h-4 text-purple-600" />
           </div>
-          <h3 className="text-base font-semibold text-gray-800">Goal Progress</h3>
+          <h3 className="text-base font-semibold text-gray-800">
+            Goal Progress
+          </h3>
         </div>
         <div className="space-y-3">
           <div className="bg-gradient-to-br from-purple-50 to-violet-50 p-3 rounded-lg border border-purple-100">
@@ -1369,7 +1428,7 @@ const Dashboard = () => {
             <div className="flex justify-end mb-3">
               <motion.button
                 onClick={() =>
-                  isCustomizing ? cancelCustomization() : startCustomization()
+                  isCustomizing ? closeCustomization() : startCustomization()
                 }
                 className={`p-2 rounded-lg shadow-sm transition-all duration-200 border ${
                   isCustomizing
@@ -1378,7 +1437,9 @@ const Dashboard = () => {
                 }`}
                 whileHover={{ scale: 1.02 }}
                 whileTap={{ scale: 0.98 }}
-                title={isCustomizing ? "Cancel customization" : "Customize dashboard"}
+                title={
+                  isCustomizing ? "Cancel customization" : "Customize dashboard"
+                }
               >
                 <FiLayout className="w-4 h-4" />
               </motion.button>
@@ -1407,13 +1468,13 @@ const Dashboard = () => {
                   Please contact your administrator to request access.
                 </div>
               </motion.div>
-            ) : mainVisibleWidgets.length === 0 ? (
+            ) : visibleWidgets.length === 0 ? (
               <div className="text-center py-8 text-gray-500 bg-white/50 backdrop-blur-sm rounded-xl border border-dashed border-gray-200">
                 No widgets visible. Use the customize button at the top right to
                 customize your dashboard layout.
               </div>
             ) : (
-              mainVisibleWidgets.map((widget) => {
+              visibleWidgets.map((widget) => {
                 switch (widget.component) {
                   case "SalesOverview":
                     return <SalesOverviewWidgetComponent key={widget.id} />;
@@ -1446,27 +1507,45 @@ const Dashboard = () => {
         </div>
       </div>
 
-      {isCustomizing && (
-        <>
-          <div
-            className="fixed inset-0 bg-black/30 z-30"
-            onClick={cancelCustomization}
-            aria-hidden="true"
-          />
-          <CustomizationSidebar
-            minimized={customizationPanelMinimized}
-            onToggleMinimized={toggleCustomizationMinimized}
-            onReset={resetLayout}
-            onSave={saveLayout}
-            visibleWidgets={sidebarVisibleWidgets}
-            hiddenWidgets={sidebarHiddenWidgets}
-            sidebarWidgets={sidebarWidgets}
-            onMoveUp={moveWidgetUp}
-            onMoveDown={moveWidgetDown}
-            onToggleVisibility={toggleWidgetVisibility}
-            onAddWidget={addWidget}
-          />
-        </>
+      {createPortal(
+        <AnimatePresence>
+          {isCustomizing && (
+            <>
+              <motion.div
+                key="customize-overlay"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0, pointerEvents: "none" }}
+                transition={{ duration: 0.2 }}
+                className="fixed inset-0 bg-black/30 z-[9998] cursor-pointer"
+                onMouseDown={closeCustomization}
+                aria-hidden="true"
+              />
+              <motion.div
+                key="customize-panel"
+                initial={{ x: -380 }}
+                animate={{ x: 0 }}
+                exit={{ x: -380 }}
+                transition={{ type: "spring", stiffness: 380, damping: 36 }}
+                className="fixed left-0 top-16 h-[calc(100vh-4rem)] z-[9999] w-[380px] shadow-2xl border-r border-gray-200 overflow-hidden bg-white"
+                onMouseDown={(e) => e.stopPropagation()}
+                onWheel={(e) => e.stopPropagation()}
+                onTouchMove={(e) => e.stopPropagation()}
+              >
+                <CustomizationSidebar
+                  onReset={resetLayout}
+                  visibleWidgets={visibleWidgets}
+                  hiddenWidgets={hiddenWidgets}
+                  sidebarWidgets={widgets}
+                  onCommitOrder={commitVisibleWidgetOrder}
+                  onToggleVisibility={toggleWidgetVisibility}
+                  onAddWidget={addWidget}
+                />
+              </motion.div>
+            </>
+          )}
+        </AnimatePresence>,
+        document.body,
       )}
 
       <OmiFloatingBot />
