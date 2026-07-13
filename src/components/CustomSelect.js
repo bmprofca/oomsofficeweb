@@ -240,6 +240,16 @@ const defaultGetOptionLabel = (opt) => opt?.label ?? '';
 const defaultGetOptionValue = (opt) => opt?.value;
 const defaultIsOptionDisabled = (opt) => Boolean(opt?.isDisabled);
 
+const normalizeLoadOptionsResult = (result) => {
+    if (Array.isArray(result)) {
+        return { options: result, hasMore: false };
+    }
+    return {
+        options: Array.isArray(result?.options) ? result.options : [],
+        hasMore: Boolean(result?.hasMore),
+    };
+};
+
 const MENU_MAX_HEIGHT = 240;
 const MENU_MIN_HEIGHT = 96;
 const MENU_GAP = 4;
@@ -296,6 +306,9 @@ export default function CustomSelect({
     const [fetchError, setFetchError] = useState(null);
     const [highlightedIndex, setHighlightedIndex] = useState(-1);
     const [hasLoadedDefault, setHasLoadedDefault] = useState(false);
+    const [asyncPage, setAsyncPage] = useState(1);
+    const [hasMoreOptions, setHasMoreOptions] = useState(false);
+    const [isLoadingMore, setIsLoadingMore] = useState(false);
     const [isControlHovered, setIsControlHovered] = useState(false);
     const [isClearHovered, setIsClearHovered] = useState(false);
     const [hoveredOptionIndex, setHoveredOptionIndex] = useState(-1);
@@ -500,6 +513,8 @@ export default function CustomSelect({
 
             if (!defaultOptions && !hasLoadedDefault && query.length === 0) {
                 setAsyncOptions([]);
+                setHasMoreOptions(false);
+                setAsyncPage(1);
                 setIsLoading(false);
                 return;
             }
@@ -510,6 +525,8 @@ export default function CustomSelect({
                     setFetchError(null);
                 } else {
                     setAsyncOptions([]);
+                    setHasMoreOptions(false);
+                    setAsyncPage(1);
                     setIsLoading(false);
                     return;
                 }
@@ -519,11 +536,14 @@ export default function CustomSelect({
             }
 
             try {
-                const results = await loadOptions(query);
+                const results = await loadOptions(query, 1);
                 if (cancelled) {
                     return;
                 }
-                setAsyncOptions(Array.isArray(results) ? results : []);
+                const { options, hasMore } = normalizeLoadOptionsResult(results);
+                setAsyncOptions(options);
+                setHasMoreOptions(hasMore);
+                setAsyncPage(1);
                 setFetchError(null);
                 if (query.length === 0) {
                     setHasLoadedDefault(true);
@@ -533,6 +553,8 @@ export default function CustomSelect({
                     return;
                 }
                 setAsyncOptions([]);
+                setHasMoreOptions(false);
+                setAsyncPage(1);
                 setFetchError(
                     err?.message || 'Failed to load options'
                 );
@@ -558,9 +580,77 @@ export default function CustomSelect({
         minSearchLength,
     ]);
 
+    const loadMoreAsyncOptions = useCallback(async () => {
+        if (!isApiMode || !hasMoreOptions || isLoading || isLoadingMore) {
+            return;
+        }
+
+        const query = debouncedQuery.trim();
+        if (
+            query.length < minSearchLength &&
+            !(defaultOptions && query.length === 0)
+        ) {
+            return;
+        }
+
+        setIsLoadingMore(true);
+        try {
+            const nextPage = asyncPage + 1;
+            const results = await loadOptions(query, nextPage);
+            const { options, hasMore } = normalizeLoadOptionsResult(results);
+            setAsyncOptions((prev) => {
+                const seen = new Set(prev.map((item) => String(getOptionValue(item))));
+                const merged = [...prev];
+                options.forEach((option) => {
+                    const key = String(getOptionValue(option));
+                    if (!seen.has(key)) {
+                        seen.add(key);
+                        merged.push(option);
+                    }
+                });
+                return merged;
+            });
+            setHasMoreOptions(hasMore);
+            setAsyncPage(nextPage);
+        } catch (err) {
+            setFetchError(err?.message || 'Failed to load more options');
+        } finally {
+            setIsLoadingMore(false);
+        }
+    }, [
+        asyncPage,
+        debouncedQuery,
+        defaultOptions,
+        getOptionValue,
+        hasMoreOptions,
+        isApiMode,
+        isLoading,
+        isLoadingMore,
+        loadOptions,
+        minSearchLength,
+    ]);
+
+    const handleOptionsScroll = useCallback(
+        (event) => {
+            if (!isApiMode || !hasMoreOptions || isLoading || isLoadingMore) {
+                return;
+            }
+            const target = event.currentTarget;
+            const remaining =
+                target.scrollHeight - target.scrollTop - target.clientHeight;
+            if (remaining <= 32) {
+                loadMoreAsyncOptions();
+            }
+        },
+        [hasMoreOptions, isApiMode, isLoading, isLoadingMore, loadMoreAsyncOptions]
+    );
+
     useEffect(() => {
         if (!isOpen) {
             setHasLoadedDefault(false);
+            setAsyncPage(1);
+            setHasMoreOptions(false);
+            setIsLoadingMore(false);
         }
     }, [isOpen]);
 
@@ -783,6 +873,7 @@ export default function CustomSelect({
                     }}
                     role="listbox"
                     aria-multiselectable={isMulti}
+                    onScroll={isApiMode ? handleOptionsScroll : undefined}
                 >
                     {visibleOptions.map((option) => {
                         const optionValue = getOptionValue(option);
@@ -839,6 +930,9 @@ export default function CustomSelect({
                             </button>
                         );
                     })}
+                    {isApiMode && isLoadingMore ? (
+                        <div style={baseStyles.message}>{loadingMessage}</div>
+                    ) : null}
                 </div>
             )}
         </div>

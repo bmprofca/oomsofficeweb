@@ -292,6 +292,54 @@ const normalizePagination = (pagination = {}, fallback = {}) => ({
   has_more: Boolean(pagination.has_more ?? fallback.has_more),
 });
 
+const fetchAllPaginated = async (fetchPage, { limit = 100, maxPages = 20 } = {}) => {
+  const all = [];
+  let page = 1;
+
+  for (;;) {
+    if (page > maxPages) break;
+    const result = await fetchPage({ page, limit });
+    if (!result?.success) break;
+
+    const rows = Array.isArray(result.data) ? result.data : [];
+    if (rows.length === 0) break;
+
+    all.push(...rows);
+
+    const pag = result.pagination || result.meta || {};
+    const totalPages = Number(pag.total_pages);
+    const isLast =
+      pag.is_last_page === true ||
+      pag.is_last_page === 1 ||
+      pag.has_more === false ||
+      (Number.isFinite(totalPages) && totalPages > 0 && page >= totalPages) ||
+      rows.length < limit;
+
+    if (isLast) break;
+    page += 1;
+  }
+
+  return all;
+};
+
+const mapStaffOption = (item) => ({
+  username: item.username,
+  name: item.profile?.name || item.name || item.username,
+  mobile: item.profile?.mobile || item.mobile || '',
+  department: item.designation || '',
+});
+
+const mapMemberOption = (item) => ({
+  username: item.username,
+  name: item.name || item.profile?.name || item.username,
+  mobile: item.mobile || item.profile?.mobile || '',
+});
+
+const isAssignableMember = (item) => {
+  if (item?.is_accepted != null) return Boolean(item.is_accepted && item.status);
+  return item?.status == null ? true : Boolean(item.status);
+};
+
 export const fetchComplianceTaskList = async ({
   page_no = 1,
   limit = 20,
@@ -393,48 +441,179 @@ export const changeComplianceTaskStatus = async (payload) => {
   return response.data;
 };
 
-export const fetchComplianceServices = async ({ search = '', page_no = 1, limit = 100 } = {}) => {
+export const fetchComplianceServices = async ({
+  search = '',
+  page_no = 1,
+  limit = 100,
+  added_only = true,
+  fetchAll = true,
+} = {}) => {
   const headers = withHeaders();
-  const response = await axios.get(`${API_BASE_URL}/service/list`, {
-    headers,
-    params: { type: 'compliance', search, page_no, limit },
-  });
-  return response.data;
+
+  const fetchPage = async ({ page, limit: pageLimit }) => {
+    const response = await axios.get(`${API_BASE_URL}/service/list`, {
+      headers,
+      params: {
+        type: 'compliance',
+        search,
+        page_no: page,
+        limit: pageLimit,
+        ...(added_only ? { added_only: 'true' } : {}),
+      },
+    });
+    return response.data;
+  };
+
+  if (!fetchAll) {
+    return fetchPage({ page: page_no, limit });
+  }
+
+  const data = await fetchAllPaginated(fetchPage, { limit });
+  return {
+    success: true,
+    data,
+    pagination: {
+      page_no: 1,
+      limit: data.length,
+      total: data.length,
+      total_pages: 1,
+      has_more: false,
+    },
+  };
 };
 
-export const fetchFirmOptions = async ({ search = '', page_no = 1, limit = 20, username = '' } = {}) => {
+export const fetchFirmOptions = async ({
+  search = '',
+  page_no = 1,
+  limit = 100,
+  username = '',
+  fetchAll = false,
+} = {}) => {
   const headers = withHeaders();
-  const params = { search, page_no, limit };
-  if (username) params.username = username;
-  const response = await axios.get(`${API_BASE_URL}/firm/list`, { headers, params });
-  return response.data;
+  const fetchPage = async ({ page, limit: pageLimit }) => {
+    const response = await axios.get(`${API_BASE_URL}/firm/list`, {
+      headers,
+      params: { search, page_no: page, limit: pageLimit, ...(username ? { username } : {}) },
+    });
+    return response.data;
+  };
+
+  if (!fetchAll) {
+    return fetchPage({ page: page_no, limit });
+  }
+
+  const data = await fetchAllPaginated(fetchPage, { limit });
+  return {
+    success: true,
+    data,
+    pagination: {
+      page_no: 1,
+      limit: data.length,
+      total: data.length,
+      total_pages: 1,
+      has_more: false,
+    },
+  };
 };
 
-export const fetchStaffOptions = async ({ search = '', page = 1, limit = 20 } = {}) => {
-  const headers = withHeaders();
-  const response = await axios.get(`${API_BASE_URL}/settings/staff/list`, {
-    headers,
-    params: { search, page, limit },
-  });
-  return response.data;
+export const formatFirmSelectLabel = (firm = {}) => {
+  const name = firm.firm_name || firm.name || firm.firm_id || '—';
+  const pan = firm.pan_no || firm.client?.pan_number || '';
+  return pan ? `${name} - ${pan}` : name;
 };
 
-export const fetchCaOptions = async ({ search = '', page = 1, limit = 20 } = {}) => {
-  const headers = withHeaders();
-  const response = await axios.get(`${API_BASE_URL}/ca/list`, {
-    headers,
-    params: { search, page, limit },
+export const mapFirmSelectOption = (firm = {}) => ({
+  value: firm.firm_id || firm.value,
+  label: firm.label || formatFirmSelectLabel(firm),
+  firm_name: firm.firm_name || firm.name,
+  pan_no: firm.pan_no || firm.client?.pan_number || '',
+});
+
+export const searchFirmSelectOptions = async ({
+  search = '',
+  page_no = 1,
+  limit = 30,
+  username = '',
+} = {}) => {
+  const response = await fetchFirmOptions({
+    search,
+    page_no,
+    limit,
+    username,
+    fetchAll: false,
   });
-  return response.data;
+
+  if (!response?.success) {
+    throw new Error(response?.message || 'Failed to load firms');
+  }
+
+  const pagination = response.pagination || {};
+  const options = (response.data || []).map(mapFirmSelectOption);
+
+  return {
+    options,
+    hasMore: pagination.is_last_page === false,
+  };
 };
 
-export const fetchAgentOptions = async ({ search = '', page = 1, limit = 20 } = {}) => {
+export const fetchStaffOptions = async ({ search = '', page = 1, limit = 100, fetchAll = false } = {}) => {
   const headers = withHeaders();
-  const response = await axios.get(`${API_BASE_URL}/agent/list`, {
-    headers,
-    params: { search, page, limit },
-  });
-  return response.data;
+  const fetchPage = async ({ page: pageNo, limit: pageLimit }) => {
+    const response = await axios.get(`${API_BASE_URL}/settings/staff/list`, {
+      headers,
+      params: { search, page: pageNo, limit: pageLimit, status: 'active' },
+    });
+    return response.data;
+  };
+
+  const rows = fetchAll
+    ? await fetchAllPaginated(fetchPage, { limit })
+    : (await fetchPage({ page, limit })).data || [];
+
+  return {
+    success: true,
+    data: rows.filter(isAssignableMember).map(mapStaffOption),
+  };
+};
+
+export const fetchCaOptions = async ({ search = '', page = 1, limit = 100, fetchAll = false } = {}) => {
+  const headers = withHeaders();
+  const fetchPage = async ({ page: pageNo, limit: pageLimit }) => {
+    const response = await axios.get(`${API_BASE_URL}/ca/list`, {
+      headers,
+      params: { search, page: pageNo, limit: pageLimit },
+    });
+    return response.data;
+  };
+
+  const rows = fetchAll
+    ? await fetchAllPaginated(fetchPage, { limit })
+    : (await fetchPage({ page, limit })).data || [];
+
+  return {
+    success: true,
+    data: rows.filter(isAssignableMember).map(mapMemberOption),
+  };
+};
+
+export const fetchAgentOptions = async ({ search = '', page = 1, limit = 100, fetchAll = false } = {}) => {
+  const headers = withHeaders();
+  const fetchPage = async ({ page: pageNo, limit: pageLimit }) => {
+    const response = await axios.get(`${API_BASE_URL}/agent/list`, {
+      headers,
+      params: { search, page: pageNo, limit: pageLimit },
+    });
+    return response.data;
+  };
+
+  const rows = fetchAll
+    ? await fetchAllPaginated(fetchPage, { limit })
+    : (await fetchPage({ page, limit })).data || [];
+
+  return {
+    success: true,
+    data: rows.filter(isAssignableMember).map(mapMemberOption),
+  };
 };
 
 export const addServiceToBranch = async (payload) => {

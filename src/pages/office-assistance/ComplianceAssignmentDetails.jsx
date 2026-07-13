@@ -96,7 +96,7 @@ const getPeriodDueDate = (period, assignment = null) => {
         const mIdx = MONTHS.indexOf(pName);
         let dueYear = mIdx === 8 ? endYear : (mIdx > 8 ? endYear : startYear);
         const MONTH_NAMES = ['May', 'June', 'July', 'August', 'September', 'October', 'November', 'December', 'January', 'February', 'March', 'April'];
-        const dueDay = (period.service_id === 'GSTR-1' || (assignment && /gstr-1/i.test(assignment.service_name || ''))) ? 11 : 20;
+        const dueDay = (period.service_id === 'gstr-1' || period.service_id === 'gstr-1-regular-monthly' || (assignment && /gstr-1/i.test(assignment.service_name || ''))) ? 11 : 20;
         return `${dueDay} ${MONTH_NAMES[mIdx]} ${dueYear}`;
     }
 
@@ -195,12 +195,9 @@ const formatCurrency = (amount) => {
 
 const getRequiredFieldsForService = (service) => {
     if (!service) return [];
-    if (service.required_fields && Array.isArray(service.required_fields) && service.required_fields.length > 0) {
-        return service.required_fields;
-    }
     const name = (service.name || '').toLowerCase();
     const svcId = (service.service_id || '').toLowerCase();
-    if (name.includes('professional tax') || name.includes('ptax') || svcId.includes('ptax')) {
+    if (name.includes('professional tax') || name.includes('ptax') || svcId.includes('ptax') || svcId.includes('professional-tax')) {
         return [
             { key: 'ptax_reg_no', label: 'Professional Tax Reg No', type: 'text' },
             { key: 'ptax_password', label: 'Password', type: 'password' }
@@ -284,10 +281,7 @@ const CredentialsCard = ({ schema, credentials }) => {
 const ClientFilingCredentials = ({ assignment }) => {
     const credentials = assignment.custom_fields || {};
 
-    let schema = assignment.required_fields || [];
-    if (schema.length === 0) {
-        schema = getRequiredFieldsForService(assignment);
-    }
+    let schema = getRequiredFieldsForService(assignment);
     if (schema.length === 0 && Object.keys(credentials).length > 0) {
         schema = Object.keys(credentials).map(key => {
             const label = key.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
@@ -470,10 +464,7 @@ const ComplianceAssignmentDetails = () => {
     const hasCredentials = useMemo(() => {
         if (!assignment) return false;
         const credentials = assignment.custom_fields || {};
-        let schema = assignment.required_fields || [];
-        if (schema.length === 0) {
-            schema = getRequiredFieldsForService(assignment);
-        }
+        let schema = getRequiredFieldsForService(assignment);
         return schema.length > 0 || Object.keys(credentials).length > 0;
     }, [assignment]);
 
@@ -1099,10 +1090,7 @@ const ComplianceAssignmentDetails = () => {
             <AnimatePresence>
                 {showCredentialsModal && assignment && (() => {
                     const credentials = assignment.custom_fields || {};
-                    let schema = assignment.required_fields || [];
-                    if (schema.length === 0) {
-                        schema = getRequiredFieldsForService(assignment);
-                    }
+                    let schema = getRequiredFieldsForService(assignment);
                     if (schema.length === 0 && Object.keys(credentials).length > 0) {
                         schema = Object.keys(credentials).map(key => {
                             const label = key.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());

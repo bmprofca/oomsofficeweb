@@ -65,8 +65,6 @@ import TopClients from "../DashboardComponents/TopClients";
 import { useNavigate } from "react-router-dom";
 import { useTaskCreate } from "../context/TaskCreateProvider";
 import SalesOverviewWidget from "../DashboardComponents/SalesOverviewWidget";
-import OmiFloatingBot from "../components/OmiFloatingBot";
-
 // Version constants for localStorage migration
 const DASHBOARD_VERSION = "5";
 const QUICK_STATS_VERSION = "2";
@@ -1132,7 +1130,7 @@ const Dashboard = () => {
   ));
 
   const TaskSummaryWidget = React.memo(() => (
-    <WidgetWrapper widgetId="task-summary">
+    <WidgetWrapper widgetId="task-summary" className="min-w-0">
       <TaskSummary
         taskStats={taskStats}
         onRefresh={() => fetchDashboardData()}
@@ -1547,8 +1545,6 @@ const Dashboard = () => {
         </AnimatePresence>,
         document.body,
       )}
-
-      <OmiFloatingBot />
 
       <style jsx>{`
         @keyframes float {

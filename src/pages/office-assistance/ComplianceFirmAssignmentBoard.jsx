@@ -13,6 +13,7 @@ import {
 import { toast } from 'react-hot-toast';
 import axios from 'axios';
 import TablePagination from '../../components/TablePagination';
+import CustomSelect from '../../components/CustomSelect';
 import getHeaders from '../../utils/get-headers';
 import API_BASE_URL from '../../utils/api-controller';
 import {
@@ -22,6 +23,7 @@ import {
   extractApiError,
   fetchComplianceFirms,
   fetchComplianceServices,
+  formatFirmSelectLabel,
   getCurrentComplianceYear,
   normalizeAssignees,
 } from '../../services/complianceService';
@@ -55,9 +57,22 @@ export const ComplianceFirmAssignmentBoard = ({
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [deleteLoading, setDeleteLoading] = useState(false);
 
-  const branchServices = useMemo(
-    () => services.filter((item) => item.is_added === 1 || item.is_added === true || item.is_added === '1'),
-    [services],
+  const branchServices = useMemo(() => services, [services]);
+
+  const serviceFilterOptions = useMemo(
+    () => [
+      { value: '', label: 'All services' },
+      ...branchServices.map((service) => ({
+        value: service.service_id,
+        label: service.service_name || service.name || service.service_id,
+      })),
+    ],
+    [branchServices],
+  );
+
+  const selectedServiceFilter = useMemo(
+    () => serviceFilterOptions.find((option) => option.value === serviceId) || serviceFilterOptions[0],
+    [serviceFilterOptions, serviceId],
   );
 
   const yearOptions = useMemo(() => {
@@ -132,7 +147,11 @@ export const ComplianceFirmAssignmentBoard = ({
         setClientFirmOptions(
           firmsData.map((firm) => ({
             value: firm.firm_id,
-            label: firm.firm_name || firm.name || String(firm.firm_id),
+            label: formatFirmSelectLabel({
+              firm_id: firm.firm_id,
+              firm_name: firm.firm_name || firm.name,
+              pan_no: firm.pan_no || firm.pan_number,
+            }),
           })),
         );
       } catch {
@@ -162,6 +181,7 @@ export const ComplianceFirmAssignmentBoard = ({
           fees: form.fees,
           tax_rate: form.tax_rate,
           due_date: form.due_date,
+          visibility_offset: form.visibility_offset,
           staffs: form.staffs,
           ca: form.ca,
           agent: form.agent,
@@ -177,6 +197,7 @@ export const ComplianceFirmAssignmentBoard = ({
           fees: form.fees,
           tax_rate: form.tax_rate,
           due_date: form.due_date,
+          visibility_offset: form.visibility_offset,
           staffs: form.staffs,
           ca: form.ca,
           agent: form.agent,
@@ -261,21 +282,17 @@ export const ComplianceFirmAssignmentBoard = ({
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3">
             <div>
               <label className="block text-xs font-medium text-gray-500 mb-1">Service</label>
-              <select
-                value={serviceId}
-                onChange={(e) => {
-                  setServiceId(e.target.value);
+              <CustomSelect
+                options={serviceFilterOptions}
+                value={selectedServiceFilter}
+                onChange={(option) => {
+                  setServiceId(option?.value || '');
                   setPagination((prev) => ({ ...prev, page: 1 }));
                 }}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
-              >
-                <option value="">All services</option>
-                {branchServices.map((service) => (
-                  <option key={service.service_id} value={service.service_id}>
-                    {service.service_name || service.service_id}
-                  </option>
-                ))}
-              </select>
+                placeholder="All services"
+                isSearchable
+                isClearable={false}
+              />
             </div>
 
             <form onSubmit={handleSearch} className="md:col-span-2 xl:col-span-2 flex items-end gap-2">

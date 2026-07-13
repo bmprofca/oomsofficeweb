@@ -18,12 +18,9 @@ import { checkPermissionSync } from '../utils/permission-helper';
 /* ─── Helpers ────────────────────────────────────────────────────── */
 const getRequiredFieldsForService = (service) => {
     if (!service) return [];
-    if (service.required_fields && Array.isArray(service.required_fields) && service.required_fields.length > 0) {
-        return service.required_fields;
-    }
     const name = (service.name || '').toLowerCase();
     const svcId = (service.service_id || '').toLowerCase();
-    if (name.includes('professional tax') || name.includes('ptax') || svcId.includes('ptax')) {
+    if (name.includes('professional tax') || name.includes('ptax') || svcId.includes('ptax') || svcId.includes('professional-tax')) {
         return [
             { key: 'ptax_reg_no', label: 'Professional Tax Reg No', type: 'text' },
             { key: 'ptax_password', label: 'Password', type: 'password' }
@@ -107,10 +104,7 @@ const CredentialsCard = ({ schema, credentials }) => {
 const ClientFilingCredentials = ({ assignment }) => {
     const credentials = assignment.custom_fields || {};
 
-    let schema = assignment.required_fields || [];
-    if (schema.length === 0) {
-        schema = getRequiredFieldsForService(assignment);
-    }
+    let schema = getRequiredFieldsForService(assignment);
     if (schema.length === 0 && Object.keys(credentials).length > 0) {
         schema = Object.keys(credentials).map(key => {
             const label = key.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
@@ -247,7 +241,7 @@ const getPeriodDueDate = (period) => {
         const year = mIdx < 9 ? startYear : endYear;
         let dueYear = mIdx === 8 ? endYear : (mIdx > 8 ? endYear : startYear);
         const MONTH_NAMES = ['May', 'June', 'July', 'August', 'September', 'October', 'November', 'December', 'January', 'February', 'March', 'April'];
-        const dueDay = (period.service_id === 'GSTR-1' || /gstr-1/i.test(period.service_name || '')) ? 11 : 20;
+        const dueDay = (period.service_id === 'gstr-1' || period.service_id === 'gstr-1-regular-monthly' || /gstr-1/i.test(period.service_name || '')) ? 11 : 20;
         return `${dueDay} ${MONTH_NAMES[mIdx]} ${dueYear}`;
     }
 
@@ -895,7 +889,7 @@ const ComplianceTab = ({ clientUsername }) => {
             if (editForm.financial_year) payload.financial_year = editForm.financial_year;
             if (editForm.custom_fields) payload.custom_fields = editForm.custom_fields;
             const svc = globalServices.find(s => String(s.service_id) === String(editAssignment.service_id));
-            const isGstr1 = editAssignment.service_id === 'GSTR-1' || (svc?.name && /gstr-1/i.test(svc.name));
+            const isGstr1 = editAssignment.service_id === 'gstr-1' || editAssignment.service_id === 'gstr-1-regular-monthly' || (svc?.name && /gstr-1/i.test(svc.name));
             const editFreq = isGstr1 ? 'monthly' : (svc?.frequency?.toLowerCase() || editAssignment.frequency?.toLowerCase() || '');
             if (editFreq === 'monthly') {
                 payload.pay_from_month = editForm.pay_from_month || '';
@@ -1153,7 +1147,7 @@ const ComplianceTab = ({ clientUsername }) => {
 
         setSubmittingAssign(true);
         try {
-            const isGstr1 = assignForm.service_id === 'GSTR-1' || (selectedService?.name && /gstr-1/i.test(selectedService.name));
+            const isGstr1 = assignForm.service_id === 'gstr-1' || assignForm.service_id === 'gstr-1-regular-monthly' || (selectedService?.name && /gstr-1/i.test(selectedService.name));
             const effectiveFreq = isGstr1 ? 'monthly' : selectedService?.frequency?.toLowerCase();
 
             const payload = {
@@ -2498,7 +2492,7 @@ const ComplianceTab = ({ clientUsername }) => {
                                     {/* pay_from_month (for monthly frequency only) */}
                                     {(() => {
                                         const selectedService = globalServices.find(s => s.service_id === assignForm.service_id);
-                                        const isGstr1 = assignForm.service_id === 'GSTR-1' || (selectedService?.name && /gstr-1/i.test(selectedService.name));
+                                        const isGstr1 = assignForm.service_id === 'gstr-1' || assignForm.service_id === 'gstr-1-regular-monthly' || (selectedService?.name && /gstr-1/i.test(selectedService.name));
                                         const effectiveFreq = isGstr1 ? 'monthly' : selectedService?.frequency?.toLowerCase();
                                         return effectiveFreq === 'monthly' && (
                                             <div className="space-y-1">
@@ -2520,7 +2514,7 @@ const ComplianceTab = ({ clientUsername }) => {
                                     {/* quarters (for quarterly frequency only) */}
                                     {(() => {
                                         const selectedService = globalServices.find(s => s.service_id === assignForm.service_id);
-                                        const isGstr1 = assignForm.service_id === 'GSTR-1' || (selectedService?.name && /gstr-1/i.test(selectedService.name));
+                                        const isGstr1 = assignForm.service_id === 'gstr-1' || assignForm.service_id === 'gstr-1-regular-monthly' || (selectedService?.name && /gstr-1/i.test(selectedService.name));
                                         const effectiveFreq = isGstr1 ? 'monthly' : selectedService?.frequency?.toLowerCase();
                                         return effectiveFreq === 'quarterly' && (
                                             <div className="space-y-2">
@@ -3042,7 +3036,7 @@ const ComplianceTab = ({ clientUsername }) => {
             <AnimatePresence>
                 {showEditModal && editAssignment && (() => {
                     const svc = globalServices.find(s => String(s.service_id) === String(editAssignment.service_id));
-                    const isGstr1 = editAssignment.service_id === 'GSTR-1' || (svc?.name && /gstr-1/i.test(svc.name));
+                    const isGstr1 = editAssignment.service_id === 'gstr-1' || editAssignment.service_id === 'gstr-1-regular-monthly' || (svc?.name && /gstr-1/i.test(svc.name));
                     const editFreq = isGstr1 ? 'monthly' : (svc?.frequency?.toLowerCase() || editAssignment.frequency?.toLowerCase() || '');
 
                     return (
@@ -3724,10 +3718,7 @@ const ComplianceTab = ({ clientUsername }) => {
                                     style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
                                 >
                                     {(() => {
-                                        let schema = credentialsAssignment.required_fields || [];
-                                        if (schema.length === 0) {
-                                            schema = getRequiredFieldsForService(credentialsAssignment);
-                                        }
+                                        let schema = getRequiredFieldsForService(credentialsAssignment);
                                         if (schema.length === 0) {
                                             schema = Object.keys(credentialsForm).map(key => {
                                                 const label = key.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());

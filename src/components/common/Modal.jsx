@@ -25,6 +25,7 @@ const Modal = ({
     size = 'md',
     className = '',
     bodyClassName = '',
+    compactHeader = false,
     zIndexClass = 'z-[10050]',
 }) => {
     useEffect(() => {
@@ -73,9 +74,9 @@ const Modal = ({
                         className={`relative z-[1] pointer-events-auto my-2 sm:my-4 flex w-full ${SIZE_CLASS[size] || SIZE_CLASS.md} max-h-[min(calc(100vh-1.5rem),100dvh)] sm:max-h-[min(calc(100vh-2rem),100dvh)] flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl ${className}`.trim()}
                         onClick={(e) => e.stopPropagation()}
                     >
-                        <div className="flex shrink-0 items-center justify-between gap-3 border-b border-indigo-100 bg-gradient-to-r from-indigo-600 to-indigo-700 px-5 py-3.5 text-white">
+                        <div className={`flex shrink-0 items-center justify-between gap-3 border-b border-indigo-100 bg-gradient-to-r from-indigo-600 to-indigo-700 px-5 text-white ${compactHeader ? 'py-2' : 'py-3.5'}`}>
                             <div className="min-w-0">
-                                <h2 id="app-modal-title" className="truncate text-lg font-semibold">
+                                <h2 id="app-modal-title" className={`truncate font-semibold ${compactHeader ? 'text-base' : 'text-lg'}`}>
                                     {title}
                                 </h2>
                                 {subtitle ? (
