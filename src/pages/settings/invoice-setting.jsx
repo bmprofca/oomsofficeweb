@@ -22,6 +22,7 @@ import {
     FiChevronRight,
     FiZoomIn,
     FiZoomOut,
+    FiArrowLeft,
 } from 'react-icons/fi';
 import { motion } from 'framer-motion';
 import { toast } from 'react-hot-toast';
@@ -1214,11 +1215,16 @@ const FormatCard = ({ sample, isActive, onPreview, onActivate, activating }) => 
                 <div className="fixed inset-0 bg-black bg-opacity-95 z-50 flex flex-col">
                     {/* Modal Header */}
                     <div className="bg-gradient-to-r from-indigo-600 to-indigo-700 text-white px-6 py-2 flex justify-between items-center shadow-lg">
-                        <div>
-                            <h2 className="text-lg my-0 font-bold capitalize">
-                                {formatDisplayNames[selectedFormatSample.format_id]} Format Preview
-                            </h2>
-                            <p className="text-indigo-100 text-xs my-0">Previewing invoice format for {selectedFormatType} type</p>
+                        <div className="flex items-center gap-3">
+                            <FiArrowLeft size={20} onClick={closePreviewModal} cursor="pointer" />
+
+                            <div>
+                                <h2 className="text-lg my-0 font-bold capitalize">
+                                    {formatDisplayNames[selectedFormatSample.format_id]} Format Preview
+                                </h2>
+                                <p className="text-indigo-100 text-xs my-0">Previewing invoice format for {selectedFormatType} type</p>
+                            </div>
+
                         </div>
                         <div className="flex items-center gap-3">
                             <button
