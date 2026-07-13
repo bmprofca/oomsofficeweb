@@ -244,22 +244,27 @@ const InvoiceSettings = () => {
 
     const handlePreviewFormat = (sample) => {
         try {
-            // Clean base64 string (remove any whitespace or newlines)
-            let base64Data = sample.data;
-            if (base64Data.includes(',')) {
-                base64Data = base64Data.split(',')[1];
+            if (sample.url) {
+                setPreviewPdfUrl(sample.url);
+            } else if (sample.data) {
+                // Fallback for old base64 format (if any)
+                let base64Data = sample.data;
+                if (base64Data.includes(',')) {
+                    base64Data = base64Data.split(',')[1];
+                }
+                base64Data = base64Data.replace(/\s/g, '');
+                const binaryString = atob(base64Data);
+                const bytes = new Uint8Array(binaryString.length);
+                for (let i = 0; i < binaryString.length; i++) {
+                    bytes[i] = binaryString.charCodeAt(i);
+                }
+                const blob = new Blob([bytes], { type: 'application/pdf' });
+                const url = URL.createObjectURL(blob);
+                setPreviewPdfUrl(url);
+            } else {
+                throw new Error("No PDF URL or data provided");
             }
-            base64Data = base64Data.replace(/\s/g, '');
             
-            // Decode base64 to binary
-            const binaryString = atob(base64Data);
-            const bytes = new Uint8Array(binaryString.length);
-            for (let i = 0; i < binaryString.length; i++) {
-                bytes[i] = binaryString.charCodeAt(i);
-            }
-            const blob = new Blob([bytes], { type: 'application/pdf' });
-            const url = URL.createObjectURL(blob);
-            setPreviewPdfUrl(url);
             setSelectedFormatSample(sample);
             setShowPreviewModal(true);
             setIsFullscreen(false);
