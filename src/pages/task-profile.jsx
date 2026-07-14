@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { useNavigate, useParams, Link } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { Sidebar, Header } from '../components/header';
 import {
     FiClipboard,
@@ -13,9 +13,6 @@ import {
     FiCalendar,
     FiUser,
     FiBriefcase,
-    FiHome,
-    FiChevronRight,
-    FiList
 } from 'react-icons/fi';
 import API_BASE_URL from "../utils/api-controller";
 import getHeaders from "../utils/get-headers";
@@ -159,11 +156,6 @@ const TaskProfile = () => {
         navigate(`/task/profile/${task_id}/${tabId}`);
     };
 
-    // Handle navigation to task view
-    const handleNavigateToTaskView = () => {
-        navigate('/task/view');
-    };
-
     // Render content based on active tab
     const renderTabContent = () => {
         switch (tab) {
@@ -279,36 +271,6 @@ const TaskProfile = () => {
             {/* Main content */}
             <div className={`pt-16 transition-all duration-300 ease-in-out ${isMinimized ? 'md:pl-20' : 'md:pl-[260px]'}`}>
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 md:px-8 py-6">
-                    {/* Breadcrumbs */}
-                    <motion.div 
-                        className="mb-4"
-                        initial={{ opacity: 0, x: -20 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        transition={{ duration: 0.3 }}
-                    >
-                        <nav className="flex items-center text-sm text-gray-600">
-                            <Link 
-                                to="/" 
-                                className="flex items-center gap-1 hover:text-blue-600 transition-colors"
-                            >
-                                <FiHome className="w-4 h-4" />
-                                <span>Dashboard</span>
-                            </Link>
-                            <FiChevronRight className="w-4 h-4 mx-2 text-gray-400" />
-                            <button
-                                onClick={handleNavigateToTaskView}
-                                className="flex items-center gap-1 hover:text-blue-600 transition-colors"
-                            >
-                                <FiList className="w-4 h-4" />
-                                <span>Tasks</span>
-                            </button>
-                            <FiChevronRight className="w-4 h-4 mx-2 text-gray-400" />
-                            <span className="text-gray-900 font-medium truncate max-w-xs">
-                                {taskData.service?.name || 'Task Details'}
-                            </span>
-                        </nav>
-                    </motion.div>
-
                     {/* Loading State */}
                     {loading && (
                         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-8 flex flex-col items-center justify-center">

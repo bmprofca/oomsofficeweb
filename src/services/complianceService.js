@@ -119,6 +119,17 @@ export const getDefaultEffectiveFromFields = (frequency, date = new Date()) => {
   };
 };
 
+/** Current compliance period label for filters (empty for yearly). */
+export const getCurrentCompliancePeriod = (frequency, date = new Date()) => {
+  const normalized = normalizeFrequency(frequency);
+  if (normalized === 'yearly') return '';
+  const fields = getDefaultEffectiveFromFields(frequency, date);
+  if (normalized === 'quarterly' || normalized === 'half-yearly') {
+    return fields.period || '';
+  }
+  return fields.month || '';
+};
+
 export const buildEffectiveFrom = (frequency, fields = {}) => {
   const normalized = normalizeFrequency(frequency);
 
@@ -361,6 +372,38 @@ export const fetchComplianceTaskList = async ({
   return {
     ...response.data,
     data: Array.isArray(response.data?.data) ? response.data.data : [],
+    query_payload: response.data?.query_payload ?? null,
+    pagination: normalizePagination(response.data?.pagination, { page: page_no, limit }),
+  };
+};
+
+export const fetchComplianceYetNotStarted = async ({
+  page_no = 1,
+  limit = 20,
+  service_id = '',
+  compliance_year = '',
+  compliance_period = '',
+  firm_id = '',
+  username = '',
+  search = '',
+} = {}) => {
+  const headers = withHeaders();
+  const params = { page_no, limit };
+  if (service_id) params.service_id = service_id;
+  if (compliance_year) params.compliance_year = compliance_year;
+  if (compliance_period) params.compliance_period = compliance_period;
+  if (firm_id) params.firm_id = firm_id;
+  if (username) params.username = username;
+  if (search?.trim()) params.search = search.trim();
+
+  const response = await axios.get(`${API_BASE_URL}/compliance/yet-not-started`, {
+    headers,
+    params,
+  });
+  return {
+    ...response.data,
+    data: Array.isArray(response.data?.data) ? response.data.data : [],
+    total: Number(response.data?.total ?? response.data?.pagination?.total) || 0,
     query_payload: response.data?.query_payload ?? null,
     pagination: normalizePagination(response.data?.pagination, { page: page_no, limit }),
   };

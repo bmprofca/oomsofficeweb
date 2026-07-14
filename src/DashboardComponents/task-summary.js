@@ -6,7 +6,7 @@ import getHeaders from "../utils/get-headers";
 import API_BASE_URL from "../utils/api-controller";
 import CustomSelect from '../components/CustomSelect';
 
-const YetNotStartedCell = ({ value }) => {
+const YetNotStartedCell = ({ value, serviceId, navigate }) => {
     if (value === false) {
         return (
             <span className="inline-flex items-center justify-center w-8 h-8 text-gray-400 text-[10px] font-semibold uppercase">
@@ -16,10 +16,29 @@ const YetNotStartedCell = ({ value }) => {
     }
 
     const count = Number(value) || 0;
+    if (count <= 0) {
+        return (
+            <span className="inline-flex items-center justify-center w-8 h-8 rounded-full text-xs font-bold text-gray-400">
+                {count}
+            </span>
+        );
+    }
+
     return (
-        <span className={`inline-flex items-center justify-center w-8 h-8 rounded-full text-xs font-bold ${count > 0 ? 'bg-gradient-to-br from-slate-500 to-slate-700 text-white shadow-sm' : 'text-gray-400'}`}>
+        <motion.span
+            className="inline-flex items-center justify-center w-8 h-8 rounded-full text-xs font-bold bg-gradient-to-br from-slate-500 to-slate-700 text-white shadow-sm hover:shadow-md transition-shadow duration-200 cursor-pointer"
+            whileHover={{ scale: 1.08 }}
+            whileTap={{ scale: 0.95 }}
+            onClick={(e) => {
+                e.stopPropagation();
+                const params = new URLSearchParams();
+                if (serviceId) params.set('service_id', serviceId);
+                navigate(`/task/compliance/yet-not-started?${params.toString()}`);
+            }}
+            title="View yet not started compliance"
+        >
             {count}
-        </span>
+        </motion.span>
     );
 };
 
@@ -32,7 +51,7 @@ const TaskStatusBadge = ({ count, color, category, serviceId, navigate }) => (
                 whileTap={{ scale: 0.95 }}
                 onClick={(e) => {
                     e.stopPropagation();
-                    navigate(`/task/detailed?category=${category}&service_id=${serviceId}`);
+                    navigate(`/task/detailed/${String(category).toLowerCase()}?service_id=${serviceId}`);
                 }}
             >
                 {count}
@@ -98,39 +117,37 @@ const fetchBranchServicesFromApi = async (type = '', signal) => {
 
 const TaskSummaryTableSkeleton = () => (
     <div className="rounded-lg border border-gray-100 overflow-hidden min-w-0">
-        <div className="max-h-[360px] overflow-hidden">
-            <table className="w-full table-fixed">
-                <thead className="bg-gradient-to-r from-gray-50 to-gray-100">
-                    <tr>
-                        <th className="px-2 py-2.5 text-center text-xs font-semibold text-gray-500 uppercase">#</th>
-                        <th className="px-2 py-2.5 text-left text-xs font-semibold text-gray-500 uppercase">Service</th>
+        <table className="w-full table-fixed">
+            <thead className="bg-gradient-to-r from-gray-50 to-gray-100">
+                <tr>
+                    <th className="px-2 py-2.5 text-center text-xs font-semibold text-gray-500 uppercase">#</th>
+                    <th className="px-2 py-2.5 text-left text-xs font-semibold text-gray-500 uppercase">Service</th>
+                    {STATUS_COLUMNS.map((status) => (
+                        <th key={status} className="px-1 py-2.5 text-center text-xs font-semibold text-gray-500 uppercase">
+                            {status}
+                        </th>
+                    ))}
+                </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-100 bg-white">
+                {Array.from({ length: SKELETON_ROW_COUNT }).map((_, index) => (
+                    <tr key={index} className="animate-pulse">
+                        <td className="px-2 py-3 text-center">
+                            <div className="h-3 bg-gray-200 rounded w-4 mx-auto" />
+                        </td>
+                        <td className="px-2 py-3">
+                            <div className="h-3.5 bg-gray-200 rounded w-3/4 mb-2" />
+                            <div className="h-3 bg-gray-200 rounded w-1/2" />
+                        </td>
                         {STATUS_COLUMNS.map((status) => (
-                            <th key={status} className="px-1 py-2.5 text-center text-xs font-semibold text-gray-500 uppercase">
-                                {status}
-                            </th>
+                            <td key={status} className="px-1 py-3 text-center">
+                                <div className="h-8 w-8 bg-gray-200 rounded-full mx-auto" />
+                            </td>
                         ))}
                     </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-100 bg-white">
-                    {Array.from({ length: SKELETON_ROW_COUNT }).map((_, index) => (
-                        <tr key={index} className="animate-pulse">
-                            <td className="px-2 py-3 text-center">
-                                <div className="h-3 bg-gray-200 rounded w-4 mx-auto" />
-                            </td>
-                            <td className="px-2 py-3">
-                                <div className="h-3.5 bg-gray-200 rounded w-3/4 mb-2" />
-                                <div className="h-3 bg-gray-200 rounded w-1/2" />
-                            </td>
-                            {STATUS_COLUMNS.map((status) => (
-                                <td key={status} className="px-1 py-3 text-center">
-                                    <div className="h-8 w-8 bg-gray-200 rounded-full mx-auto" />
-                                </td>
-                            ))}
-                        </tr>
-                    ))}
-                </tbody>
-            </table>
-        </div>
+                ))}
+            </tbody>
+        </table>
     </div>
 );
 
@@ -432,95 +449,97 @@ const TaskSummary = ({ onRefresh: externalRefresh, onCreateTask }) => {
                 <TaskSummaryTableSkeleton />
             ) : (
                 <div className="rounded-lg border border-gray-100 overflow-hidden min-w-0">
-                    <div className="max-h-[360px] overflow-y-auto overflow-x-hidden">
-                        <table className="w-full table-fixed">
-                            <colgroup>
-                                <col style={{ width: '6%' }} />
-                                <col style={{ width: '24%' }} />
+                    <table className="w-full table-fixed">
+                        <colgroup>
+                            <col style={{ width: '6%' }} />
+                            <col style={{ width: '24%' }} />
+                            {STATUS_COLUMNS.map((status) => (
+                                <col key={status} style={{ width: `${70 / STATUS_COLUMNS.length}%` }} />
+                            ))}
+                        </colgroup>
+                        <thead className="bg-gradient-to-r from-gray-50 to-gray-100">
+                            <tr>
+                                <th className="text-center px-1 py-2.5 font-semibold text-gray-700 text-xs uppercase tracking-wide">
+                                    #
+                                </th>
+                                <th
+                                    className="text-left px-2 py-2.5 font-semibold text-gray-700 text-xs uppercase tracking-wide cursor-pointer hover:text-indigo-600 transition-colors"
+                                    onClick={() => handleHeaderClick()}
+                                >
+                                    Service
+                                </th>
                                 {STATUS_COLUMNS.map((status) => (
-                                    <col key={status} style={{ width: `${70 / STATUS_COLUMNS.length}%` }} />
-                                ))}
-                            </colgroup>
-                            <thead className="sticky top-0 z-10 bg-gradient-to-r from-gray-50 to-gray-100 shadow-sm">
-                                <tr>
-                                    <th className="text-center px-1 py-2.5 font-semibold text-gray-700 text-xs uppercase tracking-wide">
-                                        #
-                                    </th>
                                     <th
-                                        className="text-left px-2 py-2.5 font-semibold text-gray-700 text-xs uppercase tracking-wide cursor-pointer hover:text-indigo-600 transition-colors"
-                                        onClick={() => handleHeaderClick()}
+                                        key={status}
+                                        className="text-center px-1 py-2.5 font-semibold text-gray-700 text-xs uppercase tracking-wide group relative cursor-pointer hover:text-indigo-600 transition-colors"
+                                        onClick={() => handleHeaderClick(status)}
                                     >
-                                        Service
+                                        {status}
+                                        {(categoryLegend[status] || (status === 'YNS' && categoryLegend.yet_no_started)) && (
+                                            <span className="absolute hidden group-hover:block bg-gray-900 text-white text-xs rounded px-2 py-1 bottom-full left-1/2 transform -translate-x-1/2 mb-1 whitespace-nowrap z-20">
+                                                {categoryLegend[status] || categoryLegend.yet_no_started}
+                                            </span>
+                                        )}
                                     </th>
-                                    {STATUS_COLUMNS.map((status) => (
-                                        <th
-                                            key={status}
-                                            className="text-center px-1 py-2.5 font-semibold text-gray-700 text-xs uppercase tracking-wide group relative cursor-pointer hover:text-indigo-600 transition-colors"
-                                            onClick={() => handleHeaderClick(status)}
-                                        >
-                                            {status}
-                                            {(categoryLegend[status] || (status === 'YNS' && categoryLegend.yet_no_started)) && (
-                                                <span className="absolute hidden group-hover:block bg-gray-900 text-white text-xs rounded px-2 py-1 bottom-full left-1/2 transform -translate-x-1/2 mb-1 whitespace-nowrap z-20">
-                                                    {categoryLegend[status] || categoryLegend.yet_no_started}
-                                                </span>
-                                            )}
-                                        </th>
-                                    ))}
+                                ))}
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-gray-100 bg-white">
+                            {taskStats.length === 0 ? (
+                                <tr>
+                                    <td colSpan={STATUS_COLUMNS.length + 2} className="text-center py-10 text-sm text-gray-500">
+                                        No tasks found
+                                    </td>
                                 </tr>
-                            </thead>
-                            <tbody className="divide-y divide-gray-100 bg-white">
-                                {taskStats.length === 0 ? (
-                                    <tr>
-                                        <td colSpan={STATUS_COLUMNS.length + 2} className="text-center py-10 text-sm text-gray-500">
-                                            No tasks found
-                                        </td>
-                                    </tr>
-                                ) : (
-                                    taskStats.map((service, index) => {
-                                        const isCompliance =
-                                            serviceTypeById.get(String(service.id)) === 'compliance' ||
-                                            String(service.service_type || '').toLowerCase() === 'compliance';
-                                        return (
-                                            <tr key={service.id} className="hover:bg-gray-50/50 transition-colors">
-                                                <td className="px-1 py-2.5 text-center text-sm text-gray-500 font-medium align-middle">
-                                                    {index + 1}
-                                                </td>
-                                                <td
-                                                    className="px-2 py-2.5 cursor-pointer hover:text-indigo-600 transition-colors align-top"
-                                                    onClick={() => navigateToTaskView(null, service.id)}
-                                                >
-                                                    <div className="font-semibold text-gray-800 text-sm break-words whitespace-normal leading-snug">
-                                                        {isCompliance && <span className="text-red-500 font-bold mr-1">(C)</span>}
-                                                        {service.name}
+                            ) : (
+                                taskStats.map((service, index) => {
+                                    const isCompliance =
+                                        serviceTypeById.get(String(service.id)) === 'compliance' ||
+                                        String(service.service_type || '').toLowerCase() === 'compliance';
+                                    return (
+                                        <tr key={service.id} className="hover:bg-gray-50/50 transition-colors">
+                                            <td className="px-1 py-2.5 text-center text-sm text-gray-500 font-medium align-middle">
+                                                {index + 1}
+                                            </td>
+                                            <td
+                                                className="px-2 py-2.5 cursor-pointer hover:text-indigo-600 transition-colors align-top"
+                                                onClick={() => navigateToTaskView(null, service.id)}
+                                            >
+                                                <div className="font-semibold text-gray-800 text-sm break-words whitespace-normal leading-snug">
+                                                    {isCompliance && <span className="text-red-500 font-bold mr-1">(C)</span>}
+                                                    {service.name}
+                                                </div>
+                                                {service.category && (
+                                                    <div className="text-xs text-gray-500 break-words whitespace-normal leading-snug mt-0.5">
+                                                        {service.category}
                                                     </div>
-                                                    {service.category && (
-                                                        <div className="text-xs text-gray-500 break-words whitespace-normal leading-snug mt-0.5">
-                                                            {service.category}
-                                                        </div>
+                                                )}
+                                            </td>
+                                            {STATUS_COLUMNS.map((status) => (
+                                                <td key={status} className="px-1 py-2.5 text-center align-middle">
+                                                    {status === 'YNS' ? (
+                                                        <YetNotStartedCell
+                                                            value={service.YNS}
+                                                            serviceId={service.id}
+                                                            navigate={navigate}
+                                                        />
+                                                    ) : (
+                                                        <TaskStatusBadge
+                                                            count={service[status]}
+                                                            color={statusConfig[status]}
+                                                            category={status}
+                                                            serviceId={service.id}
+                                                            navigate={navigate}
+                                                        />
                                                     )}
                                                 </td>
-                                                {STATUS_COLUMNS.map((status) => (
-                                                    <td key={status} className="px-1 py-2.5 text-center align-middle">
-                                                        {status === 'YNS' ? (
-                                                            <YetNotStartedCell value={service.YNS} />
-                                                        ) : (
-                                                            <TaskStatusBadge
-                                                                count={service[status]}
-                                                                color={statusConfig[status]}
-                                                                category={status}
-                                                                serviceId={service.id}
-                                                                navigate={navigate}
-                                                            />
-                                                        )}
-                                                    </td>
-                                                ))}
-                                            </tr>
-                                        );
-                                    })
-                                )}
-                            </tbody>
-                        </table>
-                    </div>
+                                            ))}
+                                        </tr>
+                                    );
+                                })
+                            )}
+                        </tbody>
+                    </table>
                 </div>
             )}
         </div>

@@ -90,6 +90,21 @@ export const PasswordGroupFirms = lazy(() => import('../pages/office-assistance/
 export const TransactionHistory = lazy(() => import('../finance/bank/transaction-history'));
 export const WalletRecharge = lazy(() => import('../pages/WalletRecharge'));
 export const TaskDetailedPage = lazy(() => import('../DashboardComponents/TaskDetailedPage'));
+export const TaskDetailedLegacyRedirect = lazy(() =>
+  import('../DashboardComponents/TaskDetailedPage').then((m) => ({
+    default: m.TaskDetailedLegacyRedirect,
+  })),
+);
+export const TaskDetailedOdPage = lazy(() => import('../pages/task-detailed/od'));
+export const TaskDetailedDtPage = lazy(() => import('../pages/task-detailed/dt'));
+export const TaskDetailedD7Page = lazy(() => import('../pages/task-detailed/d7'));
+export const TaskDetailedFtPage = lazy(() => import('../pages/task-detailed/ft'));
+export const TaskDetailedWipPage = lazy(() => import('../pages/task-detailed/wip'));
+export const TaskDetailedPfcPage = lazy(() => import('../pages/task-detailed/pfc'));
+export const TaskDetailedPfdPage = lazy(() => import('../pages/task-detailed/pfd'));
+export const TaskDetailedCplPage = lazy(() => import('../pages/task-detailed/cpl'));
+export const TaskDetailedCnlPage = lazy(() => import('../pages/task-detailed/cnl'));
+export const ComplianceYetNotStarted = lazy(() => import('../pages/task-compliance-yet-not-started'));
 export const RecurringTaskDetailedPage = lazy(() => import('../DashboardComponents/RecurringTaskDetailedPage'));
 export const ClientDetailPage = lazy(() => import('../DashboardComponents/ClientDetailPage'));
 export const TaskDashboardDetailPage = lazy(() => import('../DashboardComponents/TaskDashboardDetailPage'));

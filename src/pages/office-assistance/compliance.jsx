@@ -45,6 +45,7 @@ import API_BASE_URL from "../../utils/api-controller";
 import { formatMoney, FirmFormModal } from "./complianceShared";
 import AssignedStaffList from "../../components/Modals/AssignedStaffList";
 import TaskStatusChange from "../../components/Modals/TaskStatusChange";
+import StartWorkingModal from "../../components/Modals/StartWorkingModal";
 
 /** Task-table typography baseline — see context/typography.md & TaskTable.js */
 const TABLE_HEAD_ROW =
@@ -543,65 +544,6 @@ const getComplianceTaskLabel = (row) => {
   const serviceName = service.name || service.service_id || "";
   if (firmName && serviceName) return `${firmName} · ${serviceName}`;
   return firmName || serviceName || "Compliance task";
-};
-
-const StartWorkingModal = ({ row, loading, onConfirm, onCancel }) => {
-  if (!row) return null;
-  const firm = rowFirm(row);
-  const service = rowService(row);
-  const dates = rowDates(row);
-  const periodLabel = getPeriodLabel(row, null) || "—";
-
-  return (
-    <div className="fixed inset-0 z-[1100] flex items-center justify-center p-4">
-      <div
-        className="absolute inset-0 bg-black/50"
-        onClick={loading ? undefined : onCancel}
-      />
-      <div className="relative w-full max-w-md bg-white rounded-xl shadow-xl border border-gray-200 p-6">
-        <h3 className="text-base font-semibold text-gray-800 m-0">
-          Start this task?
-        </h3>
-        <p className="text-sm text-gray-600 mt-2 m-0">
-          This will create the compliance task and set its status to{" "}
-          <strong>in process</strong>.
-        </p>
-        <div className="mt-3 text-xs text-gray-500 space-y-1">
-          <p className="m-0">
-            <span className="font-medium text-gray-700">Firm:</span>{" "}
-            {firm.firm_name || firm.firm_id}
-          </p>
-          <p className="m-0">
-            <span className="font-medium text-gray-700">Service:</span>{" "}
-            {service.name || service.service_id}
-          </p>
-          <p className="m-0">
-            <span className="font-medium text-gray-700">Period:</span>{" "}
-            {periodLabel} · {dates.compliance_year || "—"}
-          </p>
-        </div>
-        <div className="flex justify-end gap-2 mt-6">
-          <button
-            type="button"
-            onClick={onCancel}
-            disabled={loading}
-            className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg disabled:opacity-50"
-          >
-            Cancel
-          </button>
-          <button
-            type="button"
-            onClick={onConfirm}
-            disabled={loading}
-            className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg disabled:opacity-50"
-          >
-            {loading ? <FiLoader className="w-4 h-4 animate-spin" /> : null}
-            Start
-          </button>
-        </div>
-      </div>
-    </div>
-  );
 };
 
 export const ComplianceTaskBoard = ({

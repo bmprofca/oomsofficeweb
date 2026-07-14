@@ -103,7 +103,17 @@ import {
   PasswordGroupFirms,
   TransactionHistory,
   WalletRecharge,
-  TaskDetailedPage,
+  TaskDetailedLegacyRedirect,
+  TaskDetailedOdPage,
+  TaskDetailedDtPage,
+  TaskDetailedD7Page,
+  TaskDetailedFtPage,
+  TaskDetailedWipPage,
+  TaskDetailedPfcPage,
+  TaskDetailedPfdPage,
+  TaskDetailedCplPage,
+  TaskDetailedCnlPage,
+  ComplianceYetNotStarted,
   RecurringTaskDetailedPage,
   ClientDetailPage,
   TaskDashboardDetailPage,
@@ -296,6 +306,64 @@ root.render(
               </ProtectedRoute>
             } />
 
+            <Route path="/task/compliance/yet-not-started" element={
+              <ProtectedRoute>
+                <ComplianceYetNotStarted />
+              </ProtectedRoute>
+            } />
+
+            <Route path="/task/detailed" element={
+              <ProtectedRoute>
+                <TaskDetailedLegacyRedirect />
+              </ProtectedRoute>
+            } />
+
+            <Route path="/task/detailed/od" element={
+              <ProtectedRoute>
+                <TaskDetailedOdPage />
+              </ProtectedRoute>
+            } />
+            <Route path="/task/detailed/dt" element={
+              <ProtectedRoute>
+                <TaskDetailedDtPage />
+              </ProtectedRoute>
+            } />
+            <Route path="/task/detailed/d7" element={
+              <ProtectedRoute>
+                <TaskDetailedD7Page />
+              </ProtectedRoute>
+            } />
+            <Route path="/task/detailed/ft" element={
+              <ProtectedRoute>
+                <TaskDetailedFtPage />
+              </ProtectedRoute>
+            } />
+            <Route path="/task/detailed/wip" element={
+              <ProtectedRoute>
+                <TaskDetailedWipPage />
+              </ProtectedRoute>
+            } />
+            <Route path="/task/detailed/pfc" element={
+              <ProtectedRoute>
+                <TaskDetailedPfcPage />
+              </ProtectedRoute>
+            } />
+            <Route path="/task/detailed/pfd" element={
+              <ProtectedRoute>
+                <TaskDetailedPfdPage />
+              </ProtectedRoute>
+            } />
+            <Route path="/task/detailed/cpl" element={
+              <ProtectedRoute>
+                <TaskDetailedCplPage />
+              </ProtectedRoute>
+            } />
+            <Route path="/task/detailed/cnl" element={
+              <ProtectedRoute>
+                <TaskDetailedCnlPage />
+              </ProtectedRoute>
+            } />
+
             <Route path="/task/:task_id" element={
               <ProtectedRoute>
                 <TaskProfile />
@@ -305,12 +373,6 @@ root.render(
             <Route path="/task/profile/:task_id/:tab" element={
               <ProtectedRoute>
                 <TaskProfile />
-              </ProtectedRoute>
-            } />
-
-            <Route path="/task/detailed" element={
-              <ProtectedRoute>
-                <TaskDetailedPage />
               </ProtectedRoute>
             } />
 

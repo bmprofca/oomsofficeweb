@@ -1,8 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
 import {
   FiEdit2,
-  FiHome,
   FiLayers,
   FiLoader,
   FiPlus,
@@ -233,24 +231,6 @@ export const ComplianceFirmAssignmentBoard = ({
     <>
       <div className={cardShellClass}>
         <div className="border-b border-gray-200 px-3 md:px-4 py-3 bg-gradient-to-r from-gray-50 to-white">
-          {!embedded ? (
-            <nav className="flex items-center text-xs text-gray-500 mb-2 flex-wrap gap-y-1">
-              <Link to="/" className="flex items-center gap-1 hover:text-indigo-600 transition-colors">
-                <FiHome className="w-3.5 h-3.5" />
-                <span>Dashboard</span>
-              </Link>
-              <span className="mx-1.5 text-gray-300">/</span>
-              <Link
-                to="/staff/office-assistance/services"
-                className="hover:text-indigo-600 transition-colors"
-              >
-                Branch Services
-              </Link>
-              <span className="mx-1.5 text-gray-300">/</span>
-              <span className="text-gray-700 font-medium">Firm Assignment</span>
-            </nav>
-          ) : null}
-
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
             <div className="flex items-center gap-2.5 min-w-0">
               <div className="w-9 h-9 rounded-lg bg-teal-100 flex items-center justify-center shrink-0">

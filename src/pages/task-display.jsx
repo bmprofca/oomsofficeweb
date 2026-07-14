@@ -753,21 +753,35 @@ const TaskDisplay = () => {
 
     const fetchServices = async () => {
         try {
-            const headers = await getHeaders();
-            const response = await fetch(`${API_BASE_URL}/service/list?search=`, {
-                method: 'GET',
-                headers
-            });
+            const headers = getHeaders();
+            if (!headers) return;
 
-            if (!response.ok) throw new Error('Failed to fetch services');
+            const collected = [];
+            let page = 1;
+            let hasMore = true;
 
-            const responseData = await response.json();
-            if (responseData.success && responseData.data && Array.isArray(responseData.data)) {
-                setServiceOptions(responseData.data.map(service => ({
-                    value: service.service_id,
-                    name: service.name
-                })));
+            while (hasMore) {
+                const response = await fetch(
+                    `${API_BASE_URL}/service/list?search=&page_no=${page}&limit=100&added_only=true`,
+                    { method: 'GET', headers },
+                );
+
+                if (!response.ok) throw new Error('Failed to fetch services');
+
+                const responseData = await response.json();
+                if (!responseData.success || !Array.isArray(responseData.data)) break;
+
+                collected.push(...responseData.data);
+                hasMore = responseData.pagination?.is_last_page === false;
+                page += 1;
             }
+
+            setServiceOptions(
+                collected.map((service) => ({
+                    value: service.service_id,
+                    name: service.name,
+                })),
+            );
         } catch (error) {
             console.error('Error fetching services:', error);
         }
