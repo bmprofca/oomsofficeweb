@@ -17,6 +17,8 @@ import getHeaders from "../utils/get-headers";
 import API_BASE_URL from "../utils/api-controller";
 import { uploadOneSaasFile } from '../utils/onesaas-upload';
 import { toast, Toaster } from 'react-hot-toast';
+import CustomSelect from '../components/CustomSelect';
+import { optionByValue } from '../utils/customSelectHelpers';
 
 // Professional Toast Configuration - No Icons
 const toastConfig = {
@@ -779,40 +781,48 @@ const DocumentEntry = ({ index, document, onUpdate, onRemove, showRemove, tab, d
         {/* Month Field (for GST) */}
         {tab === 'gst' && (
           <div>
-            <select
-              className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              value={document.month || ''}
-              onChange={(e) => handleChange('month', e.target.value)}
-              disabled={uploadLoading}
-            >
-              <option value="">Select Month</option>
-              {months.map(month => (
-                <option key={month} value={month.split(' ')[0].toLowerCase()}>{month}</option>
-              ))}
-            </select>
+            <CustomSelect
+              options={months.map((month) => ({
+                value: month.split(' ')[0].toLowerCase(),
+                label: month,
+              }))}
+              value={optionByValue(
+                months.map((month) => ({
+                  value: month.split(' ')[0].toLowerCase(),
+                  label: month,
+                })),
+                document.month || '',
+              )}
+              onChange={(opt) => handleChange('month', opt?.value || '')}
+              placeholder="Select Month"
+              searchPlaceholder="Search month..."
+              isDisabled={uploadLoading}
+              isClearable={false}
+            />
           </div>
         )}
 
         {/* Type Field */}
         {(tab === 'income-tax' || tab === 'gst' || tab === 'mca') && (
           <div>
-            <select
-              className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              value={document.type || ''}
-              onChange={(e) => handleChange('type', e.target.value)}
-              disabled={uploadLoading || loadingTypes}
-            >
-              <option value="">Select Type</option>
-              {loadingTypes ? (
-                <option disabled>Loading...</option>
-              ) : (
-                currentTabTypes.map(type => (
-                  <option key={type.value} value={type.value}>
-                    {type.name}
-                  </option>
-                ))
+            <CustomSelect
+              options={currentTabTypes.map((type) => ({
+                value: type.value,
+                label: type.name,
+              }))}
+              value={optionByValue(
+                currentTabTypes.map((type) => ({
+                  value: type.value,
+                  label: type.name,
+                })),
+                document.type || '',
               )}
-            </select>
+              onChange={(opt) => handleChange('type', opt?.value || '')}
+              placeholder={loadingTypes ? 'Loading...' : 'Select Type'}
+              searchPlaceholder="Search type..."
+              isDisabled={uploadLoading || loadingTypes}
+              isClearable={false}
+            />
           </div>
         )}
 
@@ -1013,21 +1023,24 @@ const UploadModal = ({ onClose, tab, firms, loadingFirms, assessmentYears, finan
               <label className="block text-xs font-medium text-slate-500 uppercase tracking-wider mb-1">
                 Select Firm <span className="text-red-500">*</span>
               </label>
-              <select
-                className="w-full px-3 py-2 bg-white border border-gray-300 rounded-lg focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-sm"
-                value={selectedFirm}
-                onChange={(e) => setSelectedFirm(e.target.value)}
-                disabled={uploadLoading || loadingFirms}
-              >
-                <option value="">Choose a firm</option>
-                {firms.map(firm => {
-                  const firmId = firm.firm_id || firm.id;
-                  const firmName = firm.firm_name || firm.name;
-                  return (
-                    <option key={firmId} value={firmId}>{firmName}</option>
-                  );
-                })}
-              </select>
+              <CustomSelect
+                options={firms.map((firm) => ({
+                  value: firm.firm_id || firm.id,
+                  label: firm.firm_name || firm.name,
+                }))}
+                value={optionByValue(
+                  firms.map((firm) => ({
+                    value: firm.firm_id || firm.id,
+                    label: firm.firm_name || firm.name,
+                  })),
+                  selectedFirm,
+                )}
+                onChange={(opt) => setSelectedFirm(opt?.value || '')}
+                placeholder={loadingFirms ? 'Loading firms...' : 'Choose a firm'}
+                searchPlaceholder="Search firm..."
+                isDisabled={uploadLoading || loadingFirms}
+                isClearable={false}
+              />
             </div>
             <div className="flex items-center space-x-2 text-sm text-slate-600">
               <FiHardDrive className="w-4 h-4" />
@@ -1069,16 +1082,14 @@ const UploadModal = ({ onClose, tab, firms, loadingFirms, assessmentYears, finan
                   {(tab === 'income-tax' || tab === 'gst' || tab === 'mca') && (
                     <div>
                       <label className="block text-xs text-slate-500 mb-1">Document Type *</label>
-                      <select
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
-                        value={doc.type}
-                        onChange={(e) => updateDocument(index, { ...doc, type: e.target.value })}
-                      >
-                        <option value="">Select type</option>
-                        {getCurrentTabTypes().map(type => (
-                          <option key={type.value} value={type.value}>{type.name}</option>
-                        ))}
-                      </select>
+                      <CustomSelect
+                        options={getCurrentTabTypes().map((type) => ({ value: type.value, label: type.name }))}
+                        value={optionByValue(getCurrentTabTypes().map((type) => ({ value: type.value, label: type.name })), doc.type)}
+                        onChange={(opt) => updateDocument(index, { ...doc, type: opt?.value || '' })}
+                        placeholder="Select type"
+                        searchPlaceholder="Search type..."
+                        isClearable={false}
+                      />
                     </div>
                   )}
 
@@ -1086,16 +1097,14 @@ const UploadModal = ({ onClose, tab, firms, loadingFirms, assessmentYears, finan
                   {(tab === 'income-tax' || tab === 'gst' || tab === 'mca') && (
                     <div>
                       <label className="block text-xs text-slate-500 mb-1">{getYearLabel()} *</label>
-                      <select
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
-                        value={doc.year}
-                        onChange={(e) => updateDocument(index, { ...doc, year: e.target.value })}
-                      >
-                        <option value="">Select year</option>
-                        {getYearOptions().map(year => (
-                          <option key={year} value={year}>{year}</option>
-                        ))}
-                      </select>
+                      <CustomSelect
+                        options={getYearOptions().map((year) => ({ value: year, label: year }))}
+                        value={optionByValue(getYearOptions().map((year) => ({ value: year, label: year })), doc.year)}
+                        onChange={(opt) => updateDocument(index, { ...doc, year: opt?.value || '' })}
+                        placeholder="Select year"
+                        searchPlaceholder="Search year..."
+                        isClearable={false}
+                      />
                     </div>
                   )}
 
@@ -1103,18 +1112,14 @@ const UploadModal = ({ onClose, tab, firms, loadingFirms, assessmentYears, finan
                   {tab === 'gst' && (
                     <div>
                       <label className="block text-xs text-slate-500 mb-1">Month *</label>
-                      <select
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
-                        value={doc.month}
-                        onChange={(e) => updateDocument(index, { ...doc, month: e.target.value })}
-                      >
-                        <option value="">Select month</option>
-                        {months.map(month => (
-                          <option key={month} value={month.split(' ')[0].toLowerCase()}>
-                            {month}
-                          </option>
-                        ))}
-                      </select>
+                      <CustomSelect
+                        options={months.map((month) => ({ value: month.split(' ')[0].toLowerCase(), label: month }))}
+                        value={optionByValue(months.map((month) => ({ value: month.split(' ')[0].toLowerCase(), label: month })), doc.month)}
+                        onChange={(opt) => updateDocument(index, { ...doc, month: opt?.value || '' })}
+                        placeholder="Select month"
+                        searchPlaceholder="Search month..."
+                        isClearable={false}
+                      />
                     </div>
                   )}
 
@@ -1133,16 +1138,14 @@ const UploadModal = ({ onClose, tab, firms, loadingFirms, assessmentYears, finan
                       </div>
                       <div>
                         <label className="block text-xs text-slate-500 mb-1">Category *</label>
-                        <select
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
-                          value={doc.category}
-                          onChange={(e) => updateDocument(index, { ...doc, category: e.target.value })}
-                        >
-                          <option value="">Select category</option>
-                          {categories.map(cat => (
-                            <option key={cat.category_id} value={cat.name}>{cat.name}</option>
-                          ))}
-                        </select>
+                        <CustomSelect
+                          options={categories.map((cat) => ({ value: cat.name, label: cat.name }))}
+                          value={optionByValue(categories.map((cat) => ({ value: cat.name, label: cat.name })), doc.category)}
+                          onChange={(opt) => updateDocument(index, { ...doc, category: opt?.value || '' })}
+                          placeholder="Select category"
+                          searchPlaceholder="Search category..."
+                          isClearable={false}
+                        />
                       </div>
                     </>
                   )}
@@ -2430,126 +2433,120 @@ const DocumentsTab = ({ clientUsername }) => {
       {(activeTab !== 'general' || (activeTab === 'general' && showGeneralSubTab === 'documents')) && (
         <div className="p-6 border-b border-gray-200 bg-gray-50/50">
           <div className="flex flex-wrap gap-4 items-center">
-            <div className="flex items-center gap-2 bg-white px-4 py-2 rounded-xl border border-gray-200 shadow-sm">
-              <FiUsers className="w-5 h-5 text-slate-400" />
-              <select
-                value={selectedFirm}
-                onChange={(e) => setSelectedFirm(e.target.value)}
-                className="bg-transparent border-none focus:ring-0 text-sm font-medium"
-                disabled={loadingFirms}
-              >
-                <option value="all">All Firms</option>
-                {loadingFirms ? (
-                  <option disabled>Loading...</option>
-                ) : (
-                  firms.map(firm => {
-                    const firmId = firm.firm_id || firm.id;
-                    const firmName = firm.firm_name || firm.name;
-                    return (
-                      <option key={firmId} value={firmId}>
-                        {firmName}
-                      </option>
-                    );
-                  })
-                )}
-              </select>
+            <div className="min-w-[220px]">
+              <CustomSelect
+                options={[
+                  { value: 'all', label: 'All Firms' },
+                  ...firms.map((firm) => ({
+                    value: firm.firm_id || firm.id,
+                    label: firm.firm_name || firm.name,
+                  })),
+                ]}
+                value={optionByValue([
+                  { value: 'all', label: 'All Firms' },
+                  ...firms.map((firm) => ({
+                    value: firm.firm_id || firm.id,
+                    label: firm.firm_name || firm.name,
+                  })),
+                ], selectedFirm)}
+                onChange={(opt) => setSelectedFirm(opt?.value || 'all')}
+                searchPlaceholder="Search firm..."
+                isDisabled={loadingFirms}
+                isClearable={false}
+              />
             </div>
 
             {(activeTab === 'income-tax' || activeTab === 'gst' || activeTab === 'mca') && (
-              <div className="flex items-center gap-2 bg-white px-4 py-2 rounded-xl border border-gray-200 shadow-sm">
-                <FiCalendar className="w-5 h-5 text-slate-400" />
-                <select
-                  value={selectedYear}
-                  onChange={(e) => setSelectedYear(e.target.value)}
-                  className="bg-transparent border-none focus:ring-0 text-sm font-medium"
-                  disabled={loadingYears}
-                >
-                  <option value="all">{getYearLabel()}</option>
-                  {loadingYears ? (
-                    <option disabled>Loading...</option>
-                  ) : (
-                    getYearOptions().map(year => (
-                      <option key={year} value={year}>{year}</option>
-                    ))
-                  )}
-                </select>
+              <div className="min-w-[190px]">
+                <CustomSelect
+                  options={[
+                    { value: 'all', label: getYearLabel() },
+                    ...getYearOptions().map((year) => ({ value: year, label: year })),
+                  ]}
+                  value={optionByValue([
+                    { value: 'all', label: getYearLabel() },
+                    ...getYearOptions().map((year) => ({ value: year, label: year })),
+                  ], selectedYear)}
+                  onChange={(opt) => setSelectedYear(opt?.value || 'all')}
+                  searchPlaceholder="Search year..."
+                  isDisabled={loadingYears}
+                  isClearable={false}
+                />
               </div>
             )}
 
             {(activeTab === 'income-tax' || activeTab === 'gst' || activeTab === 'mca') && (
-              <div className="flex items-center gap-2 bg-white px-4 py-2 rounded-xl border border-gray-200 shadow-sm">
-                <FiFileText className="w-5 h-5 text-slate-400" />
-                <select
-                  value={selectedType}
-                  onChange={(e) => setSelectedType(e.target.value)}
-                  className="bg-transparent border-none focus:ring-0 text-sm font-medium"
-                  disabled={loadingTypes}
-                >
-                  <option value="all">All Types</option>
-                  {loadingTypes ? (
-                    <option disabled>Loading...</option>
-                  ) : (
-                    getCurrentTabTypes().map(type => (
-                      <option key={type.value} value={type.value}>
-                        {type.name}
-                      </option>
-                    ))
-                  )}
-                </select>
+              <div className="min-w-[220px]">
+                <CustomSelect
+                  options={[
+                    { value: 'all', label: 'All Types' },
+                    ...getCurrentTabTypes().map((type) => ({ value: type.value, label: type.name })),
+                  ]}
+                  value={optionByValue([
+                    { value: 'all', label: 'All Types' },
+                    ...getCurrentTabTypes().map((type) => ({ value: type.value, label: type.name })),
+                  ], selectedType)}
+                  onChange={(opt) => setSelectedType(opt?.value || 'all')}
+                  searchPlaceholder="Search type..."
+                  isDisabled={loadingTypes}
+                  isClearable={false}
+                />
               </div>
             )}
 
             {activeTab === 'gst' && (
-              <div className="flex items-center gap-2 bg-white px-4 py-2 rounded-xl border border-gray-200 shadow-sm">
-                <FiCalendar className="w-5 h-5 text-slate-400" />
-                <select
-                  value={selectedMonth}
-                  onChange={(e) => setSelectedMonth(e.target.value)}
-                  className="bg-transparent border-none focus:ring-0 text-sm font-medium"
-                >
-                  <option value="all">All Months</option>
-                  {months.map(month => (
-                    <option key={month} value={month}>{month}</option>
-                  ))}
-                </select>
+              <div className="min-w-[180px]">
+                <CustomSelect
+                  options={[
+                    { value: 'all', label: 'All Months' },
+                    ...months.map((month) => ({ value: month, label: month })),
+                  ]}
+                  value={optionByValue([
+                    { value: 'all', label: 'All Months' },
+                    ...months.map((month) => ({ value: month, label: month })),
+                  ], selectedMonth)}
+                  onChange={(opt) => setSelectedMonth(opt?.value || 'all')}
+                  searchPlaceholder="Search month..."
+                  isClearable={false}
+                />
               </div>
             )}
 
             {activeTab === 'task' && (
-              <div className="flex items-center gap-2 bg-white px-4 py-2 rounded-xl border border-gray-200 shadow-sm">
-                <FiBriefcase className="w-5 h-5 text-slate-400" />
-                <select
-                  value={selectedService}
-                  onChange={(e) => setSelectedService(e.target.value)}
-                  className="bg-transparent border-none focus:ring-0 text-sm font-medium"
-                >
-                  <option value="all">All Services</option>
-                  {serviceTypes.map(service => (
-                    <option key={service} value={service}>{service}</option>
-                  ))}
-                </select>
+              <div className="min-w-[220px]">
+                <CustomSelect
+                  options={[
+                    { value: 'all', label: 'All Services' },
+                    ...serviceTypes.map((service) => ({ value: service, label: service })),
+                  ]}
+                  value={optionByValue([
+                    { value: 'all', label: 'All Services' },
+                    ...serviceTypes.map((service) => ({ value: service, label: service })),
+                  ], selectedService)}
+                  onChange={(opt) => setSelectedService(opt?.value || 'all')}
+                  searchPlaceholder="Search service..."
+                  isClearable={false}
+                />
               </div>
             )}
 
             {activeTab === 'general' && showGeneralSubTab === 'documents' && (
               <>
-                <div className="flex items-center gap-2 bg-white px-4 py-2 rounded-xl border border-gray-200 shadow-sm">
-                  <FiGrid className="w-5 h-5 text-slate-400" />
-                  <select
-                    value={selectedCategory}
-                    onChange={(e) => setSelectedCategory(e.target.value)}
-                    className="bg-transparent border-none focus:ring-0 text-sm font-medium"
-                    disabled={loadingCategories}
-                  >
-                    <option value="all">All Categories</option>
-                    {loadingCategories ? (
-                      <option disabled>Loading...</option>
-                    ) : (
-                      categories.map(cat => (
-                        <option key={cat.category_id} value={cat.name}>{cat.name}</option>
-                      ))
-                    )}
-                  </select>
+                <div className="min-w-[220px]">
+                  <CustomSelect
+                    options={[
+                      { value: 'all', label: 'All Categories' },
+                      ...categories.map((cat) => ({ value: cat.name, label: cat.name })),
+                    ]}
+                    value={optionByValue([
+                      { value: 'all', label: 'All Categories' },
+                      ...categories.map((cat) => ({ value: cat.name, label: cat.name })),
+                    ], selectedCategory)}
+                    onChange={(opt) => setSelectedCategory(opt?.value || 'all')}
+                    searchPlaceholder="Search category..."
+                    isDisabled={loadingCategories}
+                    isClearable={false}
+                  />
                 </div>
                 <div className="flex-1 relative min-w-[200px]">
                   <FiSearch className="absolute left-4 top-1/2 transform -translate-y-1/2 text-slate-400 w-5 h-5" />

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { AnimatePresence, motion } from 'framer-motion';
 import {
@@ -9,6 +9,8 @@ import {
     FiUser,
     FiClock,
 } from 'react-icons/fi';
+import CustomSelect from '../CustomSelect';
+import { optionByValue } from '../../utils/customSelectHelpers';
 
 const SCROLL_BODY =
     'min-h-0 flex-1 overflow-y-auto overscroll-y-contain px-5 py-4 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden';
@@ -18,12 +20,29 @@ const INPUT_CLS =
 
 const LABEL_CLS = 'mb-1.5 block text-sm font-semibold text-slate-700';
 
-const BUSINESS_TYPES = [
-    { value: 'proprietorship', label: 'Proprietorship' },
-    { value: 'partnership', label: 'Partnership' },
-    { value: 'llp', label: 'LLP' },
-    { value: 'private_limited', label: 'Private Limited' },
-    { value: 'public_limited', label: 'Public Limited' },
+const DEFAULT_BUSINESS_TYPES = [
+    { value: 'individual', label: 'Individual' },
+    { value: 'partnership firm', label: 'Partnership Firm' },
+    { value: 'limited liability partnership', label: 'Limited Liability Partnership (LLP)' },
+    { value: 'one person company', label: 'One Person Company (OPC)' },
+    { value: 'private limited company', label: 'Private Limited Company' },
+    { value: 'public limited company', label: 'Public Limited Company' },
+    { value: 'section 8 company', label: 'Section 8 Company' },
+    { value: 'hindu undivided family', label: 'Hindu Undivided Family (HUF)' },
+    { value: 'trust', label: 'Trust' },
+    { value: 'society', label: 'Society' },
+    { value: 'cooperative society', label: 'Cooperative Society' },
+    { value: 'producer company', label: 'Producer Company' },
+    { value: 'government department', label: 'Government Department' },
+    { value: 'public sector undertaking', label: 'Public Sector Undertaking (PSU)' },
+    { value: 'statutory corporation', label: 'Statutory Corporation' },
+    { value: 'local authority', label: 'Local Authority' },
+    { value: 'foreign company', label: 'Foreign Company' },
+    { value: 'branch office', label: 'Branch Office' },
+    { value: 'liaison office', label: 'Liaison Office' },
+    { value: 'joint venture', label: 'Joint Venture (JV)' },
+    { value: 'artificial judicial person', label: 'Artificial Judicial Person' },
+    { value: 'other', label: 'Other' },
 ];
 
 /** Viewport-safe modal shell — see context/modal.md */
@@ -130,28 +149,51 @@ export function FormInput({ label, required, ...props }) {
     );
 }
 
-export function FormSelect({ label, required, options = [], placeholder, ...props }) {
+export function FormSelect({
+    label,
+    required,
+    options = [],
+    placeholder = 'Select...',
+    value = '',
+    onChange,
+    disabled = false,
+    isClearable = false,
+}) {
+    const normalizedOptions = useMemo(
+        () =>
+            (options || []).map((opt) =>
+                typeof opt === 'string' ? { value: opt, label: opt } : opt
+            ),
+        [options]
+    );
+
     return (
         <FormField label={label} required={required}>
-            <select className={INPUT_CLS} {...props}>
-                {placeholder && <option value="">{placeholder}</option>}
-                {options.map((opt) =>
-                    typeof opt === 'string' ? (
-                        <option key={opt} value={opt}>
-                            {opt}
-                        </option>
-                    ) : (
-                        <option key={opt.value} value={opt.value}>
-                            {opt.label}
-                        </option>
-                    )
-                )}
-            </select>
+            <CustomSelect
+                options={normalizedOptions}
+                value={optionByValue(normalizedOptions, value)}
+                onChange={(opt) => {
+                    if (typeof onChange === 'function') {
+                        onChange({ target: { value: opt?.value || '' } });
+                    }
+                }}
+                placeholder={placeholder}
+                searchPlaceholder="Search..."
+                isDisabled={disabled}
+                isClearable={isClearable}
+            />
         </FormField>
     );
 }
 
-export function FirmFormFields({ formData, setFormData, stateOptions, districtOptions, statesLoading }) {
+export function FirmFormFields({
+    formData,
+    setFormData,
+    stateOptions,
+    districtOptions,
+    statesLoading,
+    businessTypeOptions = DEFAULT_BUSINESS_TYPES,
+}) {
     const update = (field, value) => setFormData((prev) => ({ ...prev, [field]: value }));
 
     return (
@@ -170,7 +212,7 @@ export function FirmFormFields({ formData, setFormData, stateOptions, districtOp
                         required
                         value={formData.type}
                         onChange={(e) => update('type', e.target.value)}
-                        options={BUSINESS_TYPES}
+                        options={businessTypeOptions}
                     />
                 </div>
             </ModalSection>

@@ -121,7 +121,6 @@ import {
   ServiceWiseSales,
   StaffSalesDetails,
   TopClientsViewAll,
-  TaskDetailsPage,
   BulkImportPage,
 } from './app/lazyRoutes';
 
@@ -936,7 +935,7 @@ root.render(
 
             <Route path="/staff/team-report-details" element={
               <ProtectedRoute>
-                <TaskDetailsPage />
+                <TaskDetailedLegacyRedirect />
               </ProtectedRoute>
             } />
 

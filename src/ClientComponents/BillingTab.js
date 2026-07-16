@@ -24,6 +24,8 @@ import TablePagination from '../components/TablePagination';
 import AppDialog from '../components/AppDialog';
 import EmailSelectionModal from '../components/email-selection';
 import MobileSelectionModal from '../components/mobile-selection';
+import CustomSelect from '../components/CustomSelect';
+import { optionByValue } from '../utils/customSelectHelpers';
 
 const BILL_LIST = '/billing/list';
 const BILLING_GENERATE_BILLABLE = '/billing/generate/billable';
@@ -494,17 +496,18 @@ const BillingTab = ({ clientUsername: clientUsernameProp } = {}) => {
                         className="w-full px-4 py-2 text-sm border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-white outline-none transition-all"
                     />
                 </div>
-                <select
-                    value={statusFilter}
-                    onChange={(e) => setStatusFilter(e.target.value)}
-                    className="px-4 py-2 text-sm border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-white min-w-[160px] outline-none"
-                >
-                    {STATUS_OPTIONS.map((opt) => (
-                        <option key={opt.value || 'all'} value={opt.value}>
-                            {opt.label}
-                        </option>
-                    ))}
-                </select>
+                <div className="min-w-[160px]">
+                    <CustomSelect
+                        options={STATUS_OPTIONS}
+                        value={optionByValue(STATUS_OPTIONS, statusFilter)}
+                        onChange={(opt) => setStatusFilter(opt?.value || '')}
+                        getOptionLabel={(opt) => opt.label}
+                        getOptionValue={(opt) => opt.value}
+                        placeholder="All status"
+                        searchPlaceholder="Search status..."
+                        isClearable={false}
+                    />
+                </div>
             </div>
 
             {error && !loading && (

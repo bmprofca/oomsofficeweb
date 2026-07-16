@@ -25,6 +25,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Header, Sidebar } from '../components/header';
 import getHeaders from '../utils/get-headers';
 import API_BASE_URL from '../utils/api-controller';
+import { taskDetailedPath } from '../DashboardComponents/TaskDetailedPage';
 
 const StaffReport = () => {
     const navigate = useNavigate();
@@ -59,13 +60,14 @@ const StaffReport = () => {
             mobile: item.staff?.mobile || '',
             email: item.staff?.email || '',
             designation: item.staff?.designation || '',
-            OD: item.due_date_breakdown?.overdue ?? 0,
-            DT: item.due_date_breakdown?.due_today ?? 0,
-            D7: item.due_date_breakdown?.due_within_7_days ?? 0,
-            FT: item.due_date_breakdown?.future ?? 0,
-            WIP: item.status_breakdown?.in_process ?? 0,
-            PFC: item.status_breakdown?.pending_from_client ?? 0,
-            PFD: item.status_breakdown?.pending_from_department ?? 0
+            care_of: item.staff?.care_of || '',
+            OD: item.counts?.OD ?? item.due_date_breakdown?.overdue ?? 0,
+            DT: item.counts?.DT ?? item.due_date_breakdown?.due_today ?? 0,
+            D7: item.counts?.D7 ?? item.due_date_breakdown?.due_within_7_days ?? 0,
+            FT: item.counts?.FT ?? item.due_date_breakdown?.future ?? 0,
+            WIP: item.counts?.WIP ?? item.status_breakdown?.in_process ?? 0,
+            PFC: item.counts?.PFC ?? item.status_breakdown?.pending_from_client ?? 0,
+            PFD: item.counts?.PFD ?? item.status_breakdown?.pending_from_department ?? 0
         }));
     };
 
@@ -76,7 +78,7 @@ const StaffReport = () => {
 
         try {
             const headers = await getHeaders();
-            const url = `${API_BASE_URL}/report/team-report`;
+            const url = `${API_BASE_URL}/task/staff-pending-summary`;
 
             const params = new URLSearchParams();
             if (staffUsername && staffUsername !== 'all') params.append('staff_username', staffUsername);
@@ -173,7 +175,12 @@ const StaffReport = () => {
 
     const openTaskDetails = (category, staff) => {
         if (staff[category] === 0) return;
-        navigate(`/staff/team-report-details?staff_username=${staff.username}&category=${category}`);
+        navigate(
+            taskDetailedPath(category, {
+                staffUsername: staff.username,
+                serviceId: selectedService || '',
+            })
+        );
     };
 
     const handleClearFilters = () => {
@@ -361,13 +368,13 @@ const StaffReport = () => {
                         <div className="bg-white rounded-lg p-4 border-l-4 border-red-500 shadow-sm">
                             <p className="text-slate-500 text-xs font-medium uppercase tracking-wider">Overdue</p>
                             <h3 className="text-2xl font-bold text-slate-800 mt-1">
-                                {globalSummary?.global_due_date_breakdown?.overdue ?? filteredTaskData.reduce((sum, s) => sum + s.OD, 0)}
+                                {globalSummary?.counts?.OD ?? globalSummary?.global_due_date_breakdown?.overdue ?? filteredTaskData.reduce((sum, s) => sum + s.OD, 0)}
                             </h3>
                         </div>
                         <div className="bg-white rounded-lg p-4 border-l-4 border-purple-500 shadow-sm">
                             <p className="text-slate-500 text-xs font-medium uppercase tracking-wider">In Progress</p>
                             <h3 className="text-2xl font-bold text-slate-800 mt-1">
-                                {globalSummary?.global_status_breakdown?.in_process ?? filteredTaskData.reduce((sum, s) => sum + s.WIP, 0)}
+                                {globalSummary?.counts?.WIP ?? globalSummary?.global_status_breakdown?.in_process ?? filteredTaskData.reduce((sum, s) => sum + s.WIP, 0)}
                             </h3>
                         </div>
                     </div>
@@ -481,9 +488,11 @@ const StaffReport = () => {
         </div>
         <div>
             <div className="font-medium text-slate-800 text-sm hover:text-blue-600">{staff.name}</div>
-            {staff.designation && (
+            {staff.care_of ? (
+                <div className="text-violet-600 text-xs mt-0.5">C/O: {String(staff.care_of).toUpperCase()}</div>
+            ) : staff.designation ? (
                 <div className="text-slate-400 text-xs">{staff.designation}</div>
-            )}
+            ) : null}
         </div>
     </div>
 </td>

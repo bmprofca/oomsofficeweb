@@ -24,6 +24,8 @@ import getHeaders from '../utils/get-headers';
 import useDebouncedValue from '../hooks/useDebouncedValue';
 import TablePagination from '../components/TablePagination';
 import QuotationApproveModal from '../components/Modals/QuotationApproveModal';
+import CustomSelect from '../components/CustomSelect';
+import { optionByValue } from '../utils/customSelectHelpers';
 
 const STATUS_OPTIONS = [
     { value: '', label: 'All status' },
@@ -1475,30 +1477,39 @@ const QuotationTab = ({ clientUsername }) => {
                             />
                         </div>
 
-                    <select
-                            value={status}
-                            onChange={(e) => setStatus(e.target.value)}
-                            className="h-10 w-full rounded-lg border border-slate-200 px-3 text-sm md:w-[9.5rem] lg:w-[10rem] focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/30"
-                        >
-                            {STATUS_OPTIONS.map((opt) => (
-                                <option key={opt.value || 'all'} value={opt.value}>
-                                    {opt.label}
-                                </option>
-                            ))}
-                    </select>
+                        <div className="w-full md:w-[9.5rem] lg:w-[10rem]">
+                            <CustomSelect
+                                options={STATUS_OPTIONS}
+                                value={optionByValue(STATUS_OPTIONS, status)}
+                                onChange={(opt) => setStatus(opt?.value || '')}
+                                getOptionLabel={(opt) => opt.label}
+                                getOptionValue={(opt) => opt.value}
+                                placeholder="All status"
+                                searchPlaceholder="Search status..."
+                                isClearable={false}
+                            />
+                        </div>
 
-                        <select
-                            value={firmIdFilter}
-                            onChange={(e) => setFirmIdFilter(e.target.value)}
-                            className="h-10 w-full rounded-lg border border-slate-200 px-3 text-sm md:w-[12rem] lg:w-[13rem] focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/30"
-                        >
-                            <option value="">{firmsLoading ? 'Loading firms...' : 'All firms'}</option>
-                            {firms.map((firm) => (
-                                <option key={firm.firm_id} value={firm.firm_id}>
-                                    {firm.firm_name || 'Unnamed firm'}
-                                </option>
-                            ))}
-                        </select>
+                        <div className="w-full md:w-[12rem] lg:w-[13rem]">
+                            <CustomSelect
+                                options={firms.map((firm) => ({
+                                    value: firm.firm_id,
+                                    label: firm.firm_name || 'Unnamed firm',
+                                }))}
+                                value={optionByValue(
+                                    firms.map((firm) => ({
+                                        value: firm.firm_id,
+                                        label: firm.firm_name || 'Unnamed firm',
+                                    })),
+                                    firmIdFilter,
+                                )}
+                                onChange={(opt) => setFirmIdFilter(opt?.value || '')}
+                                placeholder={firmsLoading ? 'Loading firms...' : 'All firms'}
+                                searchPlaceholder="Search firm..."
+                                isClearable={false}
+                                isDisabled={firmsLoading}
+                            />
+                        </div>
 
                         <button
                             type="button"

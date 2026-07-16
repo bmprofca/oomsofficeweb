@@ -139,6 +139,12 @@ const ALL_SERVICE_OPTION = {
   name: 'All Services',
 };
 
+const ALL_STAFF_OPTION = {
+  value: '',
+  label: 'All Staff',
+  name: 'All Staff',
+};
+
 const STATUS_OPTIONS = [
   { value: 'in process', name: 'In Process', label: 'In Process' },
   { value: 'pending from client', name: 'Pending From Client', label: 'Pending From Client' },
@@ -342,11 +348,19 @@ const mapReportTaskToDisplayTask = (row) => {
   };
 };
 
-export const taskDetailedPath = (category, serviceId = '') => {
+export const taskDetailedPath = (category, options = {}) => {
+  const {
+    serviceId = '',
+    staffUsername = '',
+  } = typeof options === 'string' ? { serviceId: options } : options;
+
   const code = normalizeCategory(category).toLowerCase();
   const params = new URLSearchParams();
-  if (serviceId && serviceId !== 'null' && serviceId !== 'undefined') {
+  if (serviceId && serviceId !== 'null' && serviceId !== 'undefined' && serviceId !== 'all') {
     params.set('service_id', serviceId);
+  }
+  if (staffUsername && staffUsername !== 'null' && staffUsername !== 'undefined' && staffUsername !== 'all') {
+    params.set('staff_username', staffUsername);
   }
   const query = params.toString();
   return `/task/detailed/${code}${query ? `?${query}` : ''}`;
@@ -357,12 +371,13 @@ export const TaskDetailedLegacyRedirect = () => {
   const [searchParams] = useSearchParams();
   const category = normalizeCategory(searchParams.get('category'));
   const serviceId = searchParams.get('service_id') || '';
+  const staffUsername = searchParams.get('staff_username') || '';
 
   if (!TASK_DETAIL_CATEGORIES.includes(category)) {
     return <Navigate to="/" replace />;
   }
 
-  return <Navigate to={taskDetailedPath(category, serviceId)} replace />;
+  return <Navigate to={taskDetailedPath(category, { serviceId, staffUsername })} replace />;
 };
 
 const TaskDetailedPage = ({ category: categoryProp } = {}) => {
@@ -373,6 +388,7 @@ const TaskDetailedPage = ({ category: categoryProp } = {}) => {
 
   const category = normalizeCategory(categoryProp || params.category);
   const serviceId = searchParams.get('service_id') || '';
+  const staffUsername = searchParams.get('staff_username') || '';
 
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [isMinimized, setIsMinimized] = useState(() => {
@@ -384,6 +400,8 @@ const TaskDetailedPage = ({ category: categoryProp } = {}) => {
   const [loading, setLoading] = useState(false);
   const [serviceOptions, setServiceOptions] = useState([ALL_SERVICE_OPTION]);
   const [servicesLoading, setServicesLoading] = useState(false);
+  const [staffOptions, setStaffOptions] = useState([ALL_STAFF_OPTION]);
+  const [staffLoading, setStaffLoading] = useState(false);
   const [pagination, setPagination] = useState({
     page_no: 1,
     limit: 20,
@@ -528,15 +546,37 @@ const TaskDetailedPage = ({ category: categoryProp } = {}) => {
     );
   }, [serviceId, serviceOptions]);
 
-  const handleServiceChange = (option) => {
-    const nextId = option?.value ? String(option.value) : '';
+  const selectedStaff = useMemo(() => {
+    if (!staffUsername || staffUsername === 'null' || staffUsername === 'undefined') {
+      return ALL_STAFF_OPTION;
+    }
+    return (
+      optionByValue(staffOptions, staffUsername) || {
+        value: staffUsername,
+        label: staffUsername,
+        name: staffUsername,
+      }
+    );
+  }, [staffUsername, staffOptions]);
+
+  const updateSearchParam = (key, value) => {
     const nextParams = new URLSearchParams(searchParams);
-    if (nextId) {
-      nextParams.set('service_id', nextId);
+    if (value) {
+      nextParams.set(key, value);
     } else {
-      nextParams.delete('service_id');
+      nextParams.delete(key);
     }
     setSearchParams(nextParams, { replace: true });
+  };
+
+  const handleServiceChange = (option) => {
+    const nextId = option?.value ? String(option.value) : '';
+    updateSearchParam('service_id', nextId);
+  };
+
+  const handleStaffChange = (option) => {
+    const nextUsername = option?.value ? String(option.value) : '';
+    updateSearchParam('staff_username', nextUsername);
   };
 
   useEffect(() => {
@@ -568,7 +608,64 @@ const TaskDetailedPage = ({ category: categoryProp } = {}) => {
       }
     };
 
+    const loadStaff = async () => {
+      setStaffLoading(true);
+      try {
+        const headers = getHeaders();
+        if (!headers) return;
+        const collected = [];
+        let page = 1;
+        let hasMore = true;
+
+        while (hasMore && page <= 10) {
+          const response = await fetch(
+            `${API_BASE_URL}/settings/staff/list?search=&page=${page}&limit=100`,
+            { headers }
+          );
+          const data = await response.json();
+          if (!data.success) break;
+          const rows = data.data || data.staff || [];
+          collected.push(...rows);
+          hasMore = data.pagination?.is_last_page === false || data.pagination?.has_more === true;
+          if (!data.pagination) hasMore = rows.length >= 100;
+          page += 1;
+        }
+
+        if (cancelled) return;
+
+        const mapped = collected
+          .map((staff) => {
+            const username = staff.username || staff.staff_username || staff.value;
+            if (!username) return null;
+            const name = staff.name || staff.profile?.name || username;
+            return {
+              value: username,
+              label: name,
+              name,
+            };
+          })
+          .filter(Boolean);
+
+        const unique = [];
+        const seen = new Set();
+        for (const opt of mapped) {
+          if (seen.has(opt.value)) continue;
+          seen.add(opt.value);
+          unique.push(opt);
+        }
+
+        setStaffOptions([ALL_STAFF_OPTION, ...unique]);
+      } catch (error) {
+        if (!cancelled) {
+          console.error('Failed to load staff:', error);
+        }
+      } finally {
+        if (!cancelled) setStaffLoading(false);
+      }
+    };
+
     loadServices();
+    loadStaff();
     return () => {
       cancelled = true;
     };
@@ -586,6 +683,9 @@ const TaskDetailedPage = ({ category: categoryProp } = {}) => {
       });
       if (serviceId && serviceId !== 'null' && serviceId !== 'undefined') {
         paramsObj.set('service_id', serviceId);
+      }
+      if (staffUsername && staffUsername !== 'null' && staffUsername !== 'undefined') {
+        paramsObj.set('staff_username', staffUsername);
       }
       if (debouncedSearch.trim()) {
         paramsObj.set('search', debouncedSearch.trim());
@@ -625,7 +725,7 @@ const TaskDetailedPage = ({ category: categoryProp } = {}) => {
     } finally {
       setLoading(false);
     }
-  }, [category, serviceId, pagination.page_no, pagination.limit, debouncedSearch, statusFilter]);
+  }, [category, serviceId, staffUsername, pagination.page_no, pagination.limit, debouncedSearch, statusFilter]);
 
   useEffect(() => {
     fetchDetailedTasks();
@@ -633,7 +733,7 @@ const TaskDetailedPage = ({ category: categoryProp } = {}) => {
 
   useEffect(() => {
     setPagination((prev) => (prev.page_no === 1 ? prev : { ...prev, page_no: 1 }));
-  }, [category, serviceId, debouncedSearch, statusFilter]);
+  }, [category, serviceId, staffUsername, debouncedSearch, statusFilter]);
 
   const handleTaskSelect = (taskId) => {
     setSelectedTasks((prev) => {
@@ -742,12 +842,12 @@ const TaskDetailedPage = ({ category: categoryProp } = {}) => {
           prev.map((task) =>
             task.task_id === taskId
               ? {
-                  ...task,
-                  in_user:
-                    action === 'in'
-                      ? responseData.data?.in_user ?? task.in_user
-                      : null,
-                }
+                ...task,
+                in_user:
+                  action === 'in'
+                    ? responseData.data?.in_user ?? task.in_user
+                    : null,
+              }
               : task,
           ),
         );
@@ -907,9 +1007,8 @@ const TaskDetailedPage = ({ category: categoryProp } = {}) => {
         if (!label) return <span className="text-gray-400 text-sm">-</span>;
         return (
           <span
-            className={`text-sm font-semibold ${
-              isOverdue ? 'text-red-600' : daysLeft <= 7 ? 'text-orange-600' : 'text-green-600'
-            }`}
+            className={`text-sm font-semibold ${isOverdue ? 'text-red-600' : daysLeft <= 7 ? 'text-orange-600' : 'text-green-600'
+              }`}
           >
             {label}
           </span>
@@ -1031,15 +1130,24 @@ const TaskDetailedPage = ({ category: categoryProp } = {}) => {
       />
 
       <div
-        className={`pt-16 transition-all duration-300 ${
-          isMinimized ? 'md:pl-20' : 'md:pl-[260px]'
-        }`}
+        className={`pt-16 transition-all duration-300 ${isMinimized ? 'md:pl-20' : 'md:pl-[260px]'
+          }`}
       >
         <div className="mx-2 sm:mx-4 md:mx-6 my-3 space-y-3">
           {/* Compact page header */}
           <div className="rounded-xl border border-gray-200 bg-white shadow-sm">
             <div className="px-3 py-2.5 sm:px-4 flex flex-col gap-2.5 sm:flex-row sm:items-center sm:justify-between">
               <div className="flex items-center gap-3 min-w-0">
+                {staffUsername ? (
+                  <button
+                    type="button"
+                    onClick={() => navigate('/staff/team-report')}
+                    className="inline-flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
+                    title="Back to Team Report"
+                  >
+                    <FiArrowLeft className="h-4 w-4" />
+                  </button>
+                ) : null}
                 <div
                   className={`w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0 ${meta.iconWrap}`}
                 >
@@ -1055,6 +1163,11 @@ const TaskDetailedPage = ({ category: categoryProp } = {}) => {
                     >
                       {category}
                     </span>
+                    {selectedStaff?.value ? (
+                      <span className="inline-flex items-center rounded border border-indigo-200 bg-indigo-50 px-1.5 py-0.5 text-[10px] font-semibold text-indigo-700">
+                        {selectedStaff.label}
+                      </span>
+                    ) : null}
                   </div>
                   <p className="text-xs text-slate-500 mt-0.5 mb-0 truncate">{meta.description}</p>
                 </div>
@@ -1073,8 +1186,8 @@ const TaskDetailedPage = ({ category: categoryProp } = {}) => {
 
           {/* Filters + table */}
           <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 gap-2.5 p-3 border-b border-gray-100 bg-gradient-to-r from-slate-50 to-white">
-              <div className="lg:col-span-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-12 gap-2.5 p-3 border-b border-gray-100 bg-gradient-to-r from-slate-50 to-white">
+              <div className="xl:col-span-3">
                 <label className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-slate-500 mb-1">
                   <FiBriefcase className="w-3 h-3" />
                   Service
@@ -1089,7 +1202,22 @@ const TaskDetailedPage = ({ category: categoryProp } = {}) => {
                   isDisabled={servicesLoading}
                 />
               </div>
-              <div className="lg:col-span-3">
+              <div className="xl:col-span-3">
+                <label className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-slate-500 mb-1">
+                  <FiUsers className="w-3 h-3" />
+                  Staff
+                </label>
+                <CustomSelect
+                  options={staffOptions}
+                  value={selectedStaff}
+                  onChange={handleStaffChange}
+                  placeholder={staffLoading ? 'Loading staff…' : 'All Staff'}
+                  isClearable
+                  isSearchable
+                  isDisabled={staffLoading}
+                />
+              </div>
+              <div className="xl:col-span-2">
                 <label className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-slate-500 mb-1">
                   <FiCheckCircle className="w-3 h-3" />
                   Status
@@ -1103,7 +1231,7 @@ const TaskDetailedPage = ({ category: categoryProp } = {}) => {
                   isSearchable={false}
                 />
               </div>
-              <div className="sm:col-span-2 lg:col-span-5">
+              <div className="sm:col-span-2 xl:col-span-4">
                 <label className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-slate-500 mb-1">
                   <FiSearch className="w-3 h-3" />
                   Search
@@ -1143,7 +1271,7 @@ const TaskDetailedPage = ({ category: categoryProp } = {}) => {
                 handleStatusChange={handleStatusChange}
                 openStatusModal={openStatusModal}
                 openUsersModal={openUsersModal}
-                openClientDetailsModal={() => {}}
+                openClientDetailsModal={() => { }}
                 handleEditTask={handleEditTask}
                 navigate={navigate}
                 formatDate={formatDate}
@@ -1225,11 +1353,10 @@ const TaskDetailedPage = ({ category: categoryProp } = {}) => {
                   <>
                     {inOutState.badge ? (
                       <div
-                        className={`px-4 py-2 text-xs font-medium border-b ${
-                          inOutState.mode === 'self'
+                        className={`px-4 py-2 text-xs font-medium border-b ${inOutState.mode === 'self'
                             ? 'bg-emerald-50 text-emerald-800 border-emerald-100'
                             : 'bg-amber-50 text-amber-800 border-amber-100'
-                        }`}
+                          }`}
                       >
                         {inOutState.badge}
                       </div>

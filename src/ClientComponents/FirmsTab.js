@@ -13,6 +13,10 @@ import {
     ModalFooterActions,
 } from '../components/Modals/FirmModalParts';
 
+const DEFAULT_FIRM_TYPES = [
+    { value: 'individual', label: 'Individual' },
+];
+
 const getApiErrorMessage = (error, fallback = 'Something went wrong') => {
     if (error?.response?.data?.message) return String(error.response.data.message);
     if (error?.response) {
@@ -40,10 +44,11 @@ const FirmsTab = ({ clientUsername }) => {
     const [loading, setLoading] = useState(false);
     const [savingFirm, setSavingFirm] = useState(false);
     const [statesAndDistricts, setStatesAndDistricts] = useState([]);
+    const [businessTypeOptions, setBusinessTypeOptions] = useState(DEFAULT_FIRM_TYPES);
     const [statesLoading, setStatesLoading] = useState(true);
     const [newFirm, setNewFirm] = useState({
         name: '',
-        type: 'proprietorship',
+        type: 'individual',
         pan: '',
         gst: '',
         file_no: '',
@@ -59,7 +64,7 @@ const FirmsTab = ({ clientUsername }) => {
     });
     const [editFirmData, setEditFirmData] = useState({
         name: '',
-        type: 'proprietorship',
+        type: 'individual',
         pan: '',
         gst: '',
         file_no: '',
@@ -172,22 +177,28 @@ const FirmsTab = ({ clientUsername }) => {
 
     useEffect(() => {
         let mounted = true;
-        const fetchStatesAndDistricts = async () => {
+        const fetchFormMeta = async () => {
             setStatesLoading(true);
             try {
                 const headers = getHeaders();
                 if (!headers) return;
-                const response = await axios.get(`${API_BASE_URL}/utils/states-and-districts`, { headers });
-                if (mounted && response.data?.success && Array.isArray(response.data.data)) {
-                    setStatesAndDistricts(response.data.data);
+                const [stateResponse, typeResponse] = await Promise.all([
+                    axios.get(`${API_BASE_URL}/utils/states-and-districts`, { headers }),
+                    axios.get(`${API_BASE_URL}/utils/firm-types`, { headers }),
+                ]);
+                if (mounted && stateResponse.data?.success && Array.isArray(stateResponse.data.data)) {
+                    setStatesAndDistricts(stateResponse.data.data);
+                }
+                if (mounted && typeResponse.data?.success && Array.isArray(typeResponse.data.data)) {
+                    setBusinessTypeOptions(typeResponse.data.data);
                 }
             } catch (error) {
-                console.error('Error fetching states and districts:', error);
+                console.error('Error fetching firm form metadata:', error);
             } finally {
                 if (mounted) setStatesLoading(false);
             }
         };
-        fetchStatesAndDistricts();
+        fetchFormMeta();
         return () => { mounted = false; };
     }, []);
 
@@ -240,7 +251,7 @@ const FirmsTab = ({ clientUsername }) => {
                 // Reset form
                 setNewFirm({
                     name: '',
-                    type: 'proprietorship',
+                    type: 'individual',
                     pan: '',
                     gst: '',
                     file_no: '',
@@ -485,9 +496,6 @@ const FirmsTab = ({ clientUsername }) => {
                 </div>
                 <div className="flex flex-col sm:flex-row gap-3 w-full lg:w-auto">
                     <div className="relative w-full sm:w-[18rem]">
-                        <div className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2">
-                            <FiSearch className="h-4 w-4 text-slate-400" />
-                        </div>
                         <input
                             type="text"
                             placeholder="Search by name or PAN..."
@@ -702,6 +710,7 @@ const FirmsTab = ({ clientUsername }) => {
                     stateOptions={stateOptions}
                     districtOptions={addDistrictOptions}
                     statesLoading={statesLoading}
+                    businessTypeOptions={businessTypeOptions}
                 />
             </FirmModalShell>
 
@@ -730,6 +739,7 @@ const FirmsTab = ({ clientUsername }) => {
                     stateOptions={stateOptions}
                     districtOptions={editDistrictOptions}
                     statesLoading={statesLoading}
+                    businessTypeOptions={businessTypeOptions}
                 />
             </FirmModalShell>
 

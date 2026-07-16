@@ -14,6 +14,8 @@ import getHeaders from '../utils/get-headers';
 import API_BASE_URL from '../utils/api-controller';
 import AssignedStaffList from '../components/Modals/AssignedStaffList';
 import { checkPermissionSync } from '../utils/permission-helper';
+import CustomSelect from '../components/CustomSelect';
+import { optionByValue } from '../utils/customSelectHelpers';
 
 /* ─── Helpers ────────────────────────────────────────────────────── */
 const getRequiredFieldsForService = (service) => {
@@ -2141,43 +2143,66 @@ const ComplianceTab = ({ clientUsername }) => {
                                 {/* Service Filter */}
                                 <div className="flex items-center gap-1.5 text-xs text-slate-500 font-medium">
                                     <span>Service:</span>
-                                    <select
-                                        value={selectedServiceFilter}
-                                        onChange={(e) => {
-                                            setSelectedServiceFilter(e.target.value);
-                                            setSelectedAssignmentId(null);
-                                        }}
-                                        className="px-2 py-1.5 text-xs text-slate-700 border border-slate-200 rounded-lg bg-white focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none font-medium"
-                                    >
-                                        <option value="">All Services</option>
-                                        {(() => {
-                                            const uniqueServices = [];
-                                            complianceData.active.forEach(assign => {
-                                                if (assign.service_id && !uniqueServices.some(s => s.service_id === assign.service_id)) {
-                                                    uniqueServices.push({ service_id: assign.service_id, name: assign.service_name });
-                                                }
-                                            });
-                                            return uniqueServices.map(s => (
-                                                <option key={s.service_id} value={s.service_id}>{s.name}</option>
-                                            ));
-                                        })()}
-                                    </select>
+                                    <div className="min-w-[180px]">
+                                        <CustomSelect
+                                            options={[
+                                                { value: '', label: 'All Services' },
+                                                ...(() => {
+                                                    const uniqueServices = [];
+                                                    complianceData.active.forEach(assign => {
+                                                        if (assign.service_id && !uniqueServices.some(s => s.service_id === assign.service_id)) {
+                                                            uniqueServices.push({ value: assign.service_id, label: assign.service_name });
+                                                        }
+                                                    });
+                                                    return uniqueServices;
+                                                })(),
+                                            ]}
+                                            value={optionByValue([
+                                                { value: '', label: 'All Services' },
+                                                ...(() => {
+                                                    const uniqueServices = [];
+                                                    complianceData.active.forEach(assign => {
+                                                        if (assign.service_id && !uniqueServices.some(s => s.service_id === assign.service_id)) {
+                                                            uniqueServices.push({ value: assign.service_id, label: assign.service_name });
+                                                        }
+                                                    });
+                                                    return uniqueServices;
+                                                })(),
+                                            ], selectedServiceFilter)}
+                                            onChange={(opt) => {
+                                                setSelectedServiceFilter(opt?.value || '');
+                                                setSelectedAssignmentId(null);
+                                            }}
+                                            searchPlaceholder="Search service..."
+                                            isClearable={false}
+                                        />
+                                    </div>
                                 </div>
 
                                 {/* Filing Status Selector */}
                                 <div className="flex items-center gap-1.5 text-xs text-slate-500 font-medium">
                                     <span>Filing Status:</span>
-                                    <select
-                                        value={selectedFilingStatus}
-                                        onChange={(e) => setSelectedFilingStatus(e.target.value)}
-                                        className="px-2 py-1.5 text-xs text-slate-700 border border-slate-200 rounded-lg bg-white focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none font-medium"
-                                    >
-                                        <option value="">All Status</option>
-                                        <option value="Pending">Pending</option>
-                                        <option value="Sale">Sale (Filed)</option>
-                                        <option value="Cancel">Cancel</option>
-                                        <option value="N/A">N/A</option>
-                                    </select>
+                                    <div className="min-w-[170px]">
+                                        <CustomSelect
+                                            options={[
+                                                { value: '', label: 'All Status' },
+                                                { value: 'Pending', label: 'Pending' },
+                                                { value: 'Sale', label: 'Sale (Filed)' },
+                                                { value: 'Cancel', label: 'Cancel' },
+                                                { value: 'N/A', label: 'N/A' },
+                                            ]}
+                                            value={optionByValue([
+                                                { value: '', label: 'All Status' },
+                                                { value: 'Pending', label: 'Pending' },
+                                                { value: 'Sale', label: 'Sale (Filed)' },
+                                                { value: 'Cancel', label: 'Cancel' },
+                                                { value: 'N/A', label: 'N/A' },
+                                            ], selectedFilingStatus)}
+                                            onChange={(opt) => setSelectedFilingStatus(opt?.value || '')}
+                                            searchPlaceholder="Search status..."
+                                            isClearable={false}
+                                        />
+                                    </div>
                                 </div>
                             </div>
 
@@ -2392,17 +2417,23 @@ const ComplianceTab = ({ clientUsername }) => {
                                     {assignForm.targetType === 'single' && (
                                         <div className="space-y-1">
                                             <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Client Firm *</label>
-                                            <select
-                                                value={assignForm.firm_id}
-                                                onChange={(e) => setAssignForm(prev => ({ ...prev, firm_id: e.target.value }))}
-                                                className="w-full px-3 py-2.5 text-xs text-slate-700 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none bg-white"
-                                                required
-                                            >
-                                                <option value="">Select one of client's firms…</option>
-                                                {clientFirms.map(f => (
-                                                    <option key={f.firm_id} value={f.firm_id}>{f.firm_name} (PAN: {f.pan_no || '—'})</option>
-                                                ))}
-                                            </select>
+                                            <CustomSelect
+                                                options={clientFirms.map((f) => ({
+                                                    value: f.firm_id,
+                                                    label: `${f.firm_name} (PAN: ${f.pan_no || '—'})`,
+                                                }))}
+                                                value={optionByValue(
+                                                    clientFirms.map((f) => ({
+                                                        value: f.firm_id,
+                                                        label: `${f.firm_name} (PAN: ${f.pan_no || '—'})`,
+                                                    })),
+                                                    assignForm.firm_id,
+                                                )}
+                                                onChange={(opt) => setAssignForm(prev => ({ ...prev, firm_id: opt?.value || '' }))}
+                                                placeholder="Select one of client's firms..."
+                                                searchPlaceholder="Search firm..."
+                                                isClearable={false}
+                                            />
                                         </div>
                                     )}
 
@@ -2440,10 +2471,20 @@ const ComplianceTab = ({ clientUsername }) => {
                                     {/* Compliance Service Select */}
                                     <div className="space-y-1">
                                         <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Compliance Task *</label>
-                                        <select
-                                            value={assignForm.service_id}
-                                            onChange={(e) => {
-                                                const svcId = e.target.value;
+                                        <CustomSelect
+                                            options={globalServices.map((s) => ({
+                                                value: s.service_id,
+                                                label: `${s.name} (${s.frequency}) ${checkPermissionSync('recurring_task_fees_view') ? `(₹${formatCurrency(s.default_amount)})` : '(₹----)'}`,
+                                            }))}
+                                            value={optionByValue(
+                                                globalServices.map((s) => ({
+                                                    value: s.service_id,
+                                                    label: `${s.name} (${s.frequency}) ${checkPermissionSync('recurring_task_fees_view') ? `(₹${formatCurrency(s.default_amount)})` : '(₹----)'}`,
+                                                })),
+                                                assignForm.service_id,
+                                            )}
+                                            onChange={(opt) => {
+                                                const svcId = opt?.value || '';
                                                 const matched = globalServices.find(s => s.service_id === svcId);
                                                 setAssignForm(prev => ({
                                                     ...prev,
@@ -2452,16 +2493,10 @@ const ComplianceTab = ({ clientUsername }) => {
                                                     custom_fields: {}
                                                 }));
                                             }}
-                                            className="w-full px-3 py-2.5 text-xs text-slate-700 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none bg-white"
-                                            required
-                                        >
-                                            <option value="">Select compliance task template…</option>
-                                            {globalServices.map(s => (
-                                                <option key={s.id} value={s.service_id}>
-                                                    {s.name} ({s.frequency}) {checkPermissionSync('recurring_task_fees_view') ? `(₹${formatCurrency(s.default_amount)})` : '(₹----)'}
-                                                </option>
-                                            ))}
-                                        </select>
+                                            placeholder="Select compliance task template..."
+                                            searchPlaceholder="Search task..."
+                                            isClearable={false}
+                                        />
                                         {assignForm.service_id && (() => {
                                             const matched = globalServices.find(s => s.service_id === assignForm.service_id);
                                             if (!matched) return null;
@@ -2497,16 +2532,19 @@ const ComplianceTab = ({ clientUsername }) => {
                                         return effectiveFreq === 'monthly' && (
                                             <div className="space-y-1">
                                                 <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Start Generating From Month (Optional)</label>
-                                                <select
-                                                    value={assignForm.pay_from_month}
-                                                    onChange={(e) => setAssignForm(prev => ({ ...prev, pay_from_month: e.target.value }))}
-                                                    className="w-full px-3 py-2.5 text-xs text-slate-700 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none bg-white"
-                                                >
-                                                    <option value="">Default (April)</option>
-                                                    {['April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December', 'January', 'February', 'March'].map(m => (
-                                                        <option key={m} value={m}>{m}</option>
-                                                    ))}
-                                                </select>
+                                                <CustomSelect
+                                                    options={[
+                                                        { value: '', label: 'Default (April)' },
+                                                        ...['April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December', 'January', 'February', 'March'].map((m) => ({ value: m, label: m })),
+                                                    ]}
+                                                    value={optionByValue([
+                                                        { value: '', label: 'Default (April)' },
+                                                        ...['April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December', 'January', 'February', 'March'].map((m) => ({ value: m, label: m })),
+                                                    ], assignForm.pay_from_month)}
+                                                    onChange={(opt) => setAssignForm(prev => ({ ...prev, pay_from_month: opt?.value || '' }))}
+                                                    searchPlaceholder="Search month..."
+                                                    isClearable={false}
+                                                />
                                             </div>
                                         );
                                     })()}
@@ -2551,23 +2589,22 @@ const ComplianceTab = ({ clientUsername }) => {
                                     {/* Financial Year */}
                                     <div className="space-y-1">
                                         <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Financial Year *</label>
-                                        <select
-                                            value={assignForm.financial_year}
-                                            onChange={(e) => setAssignForm(prev => ({ ...prev, financial_year: e.target.value }))}
-                                            className="w-full px-3 py-2.5 text-xs text-slate-700 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none bg-white"
-                                        >
-                                            <option value="2020-2021">2020-2021</option>
-                                            <option value="2021-2022">2021-2022</option>
-                                            <option value="2022-2023">2022-2023</option>
-                                            <option value="2023-2024">2023-2024</option>
-                                            <option value="2024-2025">2024-2025</option>
-                                            <option value="2025-2026">2025-2026</option>
-                                            <option value="2026-2027">2026-2027</option>
-                                            <option value="2027-2028">2027-2028</option>
-                                            <option value="2028-2029">2028-2029</option>
-                                            <option value="2029-2030">2029-2030</option>
-                                            <option value="2030-2031">2030-2031</option>
-                                        </select>
+                                        <CustomSelect
+                                            options={['2020-2021', '2021-2022', '2022-2023', '2023-2024', '2024-2025', '2025-2026', '2026-2027', '2027-2028', '2028-2029', '2029-2030', '2030-2031'].map((year) => ({
+                                                value: year,
+                                                label: year,
+                                            }))}
+                                            value={optionByValue(
+                                                ['2020-2021', '2021-2022', '2022-2023', '2023-2024', '2024-2025', '2025-2026', '2026-2027', '2027-2028', '2028-2029', '2029-2030', '2030-2031'].map((year) => ({
+                                                    value: year,
+                                                    label: year,
+                                                })),
+                                                assignForm.financial_year,
+                                            )}
+                                            onChange={(opt) => setAssignForm(prev => ({ ...prev, financial_year: opt?.value || '' }))}
+                                            searchPlaceholder="Search financial year..."
+                                            isClearable={false}
+                                        />
                                     </div>
 
                                     {/* Dynamic Required Credentials Inputs */}
@@ -2895,18 +2932,26 @@ const ComplianceTab = ({ clientUsername }) => {
                                         {/* Select Status */}
                                         <div className="space-y-1.5">
                                             <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Select Status *</label>
-                                            <select
-                                                value={statusForm.status}
-                                                disabled={!isUpdatePermitted}
-                                                onChange={(e) => setStatusForm(prev => ({ ...prev, status: e.target.value }))}
-                                                className="w-full px-3 py-2.5 text-xs text-slate-750 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none bg-white disabled:opacity-60 disabled:cursor-not-allowed font-semibold"
-                                            >
-                                                <option value="Pending From The Department">Pending (Dept)</option>
-                                                <option value="Pending From Client">Pending (Client)</option>
-                                                <option value="Complete">Complete</option>
-                                                <option value="Cancel">Cancel</option>
-                                                <option value="N/A">N/A</option>
-                                            </select>
+                                            <CustomSelect
+                                                options={[
+                                                    { value: 'Pending From The Department', label: 'Pending (Dept)' },
+                                                    { value: 'Pending From Client', label: 'Pending (Client)' },
+                                                    { value: 'Complete', label: 'Complete' },
+                                                    { value: 'Cancel', label: 'Cancel' },
+                                                    { value: 'N/A', label: 'N/A' },
+                                                ]}
+                                                value={optionByValue([
+                                                    { value: 'Pending From The Department', label: 'Pending (Dept)' },
+                                                    { value: 'Pending From Client', label: 'Pending (Client)' },
+                                                    { value: 'Complete', label: 'Complete' },
+                                                    { value: 'Cancel', label: 'Cancel' },
+                                                    { value: 'N/A', label: 'N/A' },
+                                                ], statusForm.status)}
+                                                onChange={(opt) => setStatusForm(prev => ({ ...prev, status: opt?.value || 'Pending From The Department' }))}
+                                                isDisabled={!isUpdatePermitted}
+                                                searchPlaceholder="Search status..."
+                                                isClearable={false}
+                                            />
                                         </div>
 
                                         {/* Amount Field */}
@@ -3095,40 +3140,41 @@ const ComplianceTab = ({ clientUsername }) => {
                                         {/* Financial Year */}
                                         <div className="space-y-1">
                                             <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Financial Year *</label>
-                                            <select
-                                                value={editForm.financial_year}
-                                                onChange={(e) => setEditForm(prev => ({ ...prev, financial_year: e.target.value }))}
-                                                className="w-full px-3 py-2.5 text-xs text-slate-700 border border-slate-200 rounded-xl focus:ring-2 focus:ring-violet-500 focus:border-transparent outline-none bg-white font-medium"
-                                                required
-                                            >
-                                                <option value="2020-2021">2020-2021</option>
-                                                <option value="2021-2022">2021-2022</option>
-                                                <option value="2022-2023">2022-2023</option>
-                                                <option value="2023-2024">2023-2024</option>
-                                                <option value="2024-2025">2024-2025</option>
-                                                <option value="2025-2026">2025-2026</option>
-                                                <option value="2026-2027">2026-2027</option>
-                                                <option value="2027-2028">2027-2028</option>
-                                                <option value="2028-2029">2028-2029</option>
-                                                <option value="2029-2030">2029-2030</option>
-                                                <option value="2030-2031">2030-2031</option>
-                                            </select>
+                                            <CustomSelect
+                                                options={['2020-2021', '2021-2022', '2022-2023', '2023-2024', '2024-2025', '2025-2026', '2026-2027', '2027-2028', '2028-2029', '2029-2030', '2030-2031'].map((year) => ({
+                                                    value: year,
+                                                    label: year,
+                                                }))}
+                                                value={optionByValue(
+                                                    ['2020-2021', '2021-2022', '2022-2023', '2023-2024', '2024-2025', '2025-2026', '2026-2027', '2027-2028', '2028-2029', '2029-2030', '2030-2031'].map((year) => ({
+                                                        value: year,
+                                                        label: year,
+                                                    })),
+                                                    editForm.financial_year,
+                                                )}
+                                                onChange={(opt) => setEditForm(prev => ({ ...prev, financial_year: opt?.value || '' }))}
+                                                searchPlaceholder="Search financial year..."
+                                                isClearable={false}
+                                            />
                                         </div>
 
                                         {/* Pay From Month (monthly only) */}
                                         {editFreq === 'monthly' && (
                                             <div className="space-y-1">
                                                 <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Start Generating From Month (Optional)</label>
-                                                <select
-                                                    value={editForm.pay_from_month}
-                                                    onChange={(e) => setEditForm(prev => ({ ...prev, pay_from_month: e.target.value }))}
-                                                    className="w-full px-3 py-2.5 text-xs text-slate-700 border border-slate-200 rounded-xl focus:ring-2 focus:ring-violet-500 focus:border-transparent outline-none bg-white"
-                                                >
-                                                    <option value="">Default (April)</option>
-                                                    {['April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December', 'January', 'February', 'March'].map(m => (
-                                                        <option key={m} value={m}>{m}</option>
-                                                    ))}
-                                                </select>
+                                                <CustomSelect
+                                                    options={[
+                                                        { value: '', label: 'Default (April)' },
+                                                        ...['April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December', 'January', 'February', 'March'].map((m) => ({ value: m, label: m })),
+                                                    ]}
+                                                    value={optionByValue([
+                                                        { value: '', label: 'Default (April)' },
+                                                        ...['April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December', 'January', 'February', 'March'].map((m) => ({ value: m, label: m })),
+                                                    ], editForm.pay_from_month)}
+                                                    onChange={(opt) => setEditForm(prev => ({ ...prev, pay_from_month: opt?.value || '' }))}
+                                                    searchPlaceholder="Search month..."
+                                                    isClearable={false}
+                                                />
                                             </div>
                                         )}
 
@@ -3374,15 +3420,21 @@ const ComplianceTab = ({ clientUsername }) => {
                                         {/* Status */}
                                         <div className="space-y-1">
                                             <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Assignment Status</label>
-                                            <select
-                                                value={editForm.status}
-                                                onChange={(e) => setEditForm(prev => ({ ...prev, status: e.target.value }))}
-                                                className="w-full px-3 py-2.5 text-xs text-slate-700 border border-slate-200 rounded-xl focus:ring-2 focus:ring-violet-500 focus:border-transparent outline-none bg-white"
-                                            >
-                                                <option value="active">Active</option>
-                                                <option value="inactive">Inactive</option>
-                                                <option value="paused">Paused</option>
-                                            </select>
+                                            <CustomSelect
+                                                options={[
+                                                    { value: 'active', label: 'Active' },
+                                                    { value: 'inactive', label: 'Inactive' },
+                                                    { value: 'paused', label: 'Paused' },
+                                                ]}
+                                                value={optionByValue([
+                                                    { value: 'active', label: 'Active' },
+                                                    { value: 'inactive', label: 'Inactive' },
+                                                    { value: 'paused', label: 'Paused' },
+                                                ], editForm.status)}
+                                                onChange={(opt) => setEditForm(prev => ({ ...prev, status: opt?.value || 'active' }))}
+                                                searchPlaceholder="Search status..."
+                                                isClearable={false}
+                                            />
                                         </div>
                                     </div>
 

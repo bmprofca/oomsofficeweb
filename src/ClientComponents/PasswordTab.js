@@ -29,6 +29,8 @@ import { passwordGroupService } from '../services/passwordGroupService';
 import useDebouncedValue from '../hooks/useDebouncedValue';
 import TablePagination from '../components/TablePagination';
 import { ViewportTooltip } from '../components/ViewportTooltip';
+import CustomSelect from '../components/CustomSelect';
+import { optionByValue } from '../utils/customSelectHelpers';
 
 const formatTypeLabel = (value) => {
     if (!value) return 'N/A';
@@ -1467,14 +1469,22 @@ const PasswordTab = ({ clientUsername }) => {
                                 </div>
                                 <div>
                                 <label className="block text-xs font-semibold text-slate-600 mb-1">Status</label>
-                                <select
-                                    value={editForm.status}
-                                    onChange={(e) => setEditForm({ ...editForm, status: e.target.value })}
-                                    className="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm"
-                                >
-                                    <option value="active">Active</option>
-                                    <option value="inactive">Inactive</option>
-                                </select>
+                                <CustomSelect
+                                    options={[
+                                        { value: 'active', label: 'Active' },
+                                        { value: 'inactive', label: 'Inactive' },
+                                    ]}
+                                    value={optionByValue(
+                                        [
+                                            { value: 'active', label: 'Active' },
+                                            { value: 'inactive', label: 'Inactive' },
+                                        ],
+                                        editForm.status,
+                                    )}
+                                    onChange={(opt) => setEditForm({ ...editForm, status: opt?.value || 'active' })}
+                                    isClearable={false}
+                                    searchPlaceholder="Search status..."
+                                />
                                 </div>
                             </div>
                             <div className="px-5 py-3 border-t border-slate-200 bg-slate-50/50 flex justify-end gap-3 shrink-0">

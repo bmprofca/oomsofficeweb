@@ -86,6 +86,7 @@ const getStatusColorClass = (status) => {
 
 const TABLE_TD = "p-3 min-w-0 text-left align-middle border-l border-gray-100";
 const TABLE_TD_FIRST = "p-3 min-w-0 text-left align-middle";
+const TABLE_MIN_WIDTH = "min-w-[1100px]";
 const COLUMN_STACK =
   "flex flex-col items-start justify-start gap-2 w-full min-w-0";
 const SUB_CELL = "w-full";
@@ -1191,8 +1192,8 @@ export const ComplianceTaskBoard = ({
         </div>
 
         <div className="flex-1 flex flex-col overflow-hidden">
-          <div className="overflow-x-hidden flex-1">
-            <table className="w-full table-auto">
+          <div className="flex-1 overflow-x-auto overflow-y-hidden">
+            <table className={`w-full table-auto ${TABLE_MIN_WIDTH}`}>
               <thead>
                 <tr className={TABLE_HEAD_ROW}>
                   <th className={TABLE_TH_FIRST}>#</th>
