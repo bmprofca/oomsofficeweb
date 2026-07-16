@@ -58,7 +58,6 @@ const EditTaskModal = ({ isOpen, onClose, taskData, onTaskUpdated }) => {
         firm_id: '',
         service_id: '',
         fees: '',
-        tax_rate: '18',
         has_ca: false,
         has_agent: false,
         due_date: '',
@@ -155,7 +154,6 @@ const EditTaskModal = ({ isOpen, onClose, taskData, onTaskUpdated }) => {
             service_id: task.service?.service_id || task.service_id || '',
             service_category: task.service?.category_id || task.service_category || '',
             fees: task.service?.fees || task.charges?.fees || task.fees || '',
-            tax_rate: task.charges?.tax_rate || task.tax_rate || '18',
             has_ca: task.has_ca || false,
             has_agent: task.has_agent || false,
             due_date: task.dates?.due_date || task.due_date || '',
@@ -332,7 +330,6 @@ const EditTaskModal = ({ isOpen, onClose, taskData, onTaskUpdated }) => {
                 firm_id: formData.firm_id,
                 service_id: formData.service_id,
                 fees: parseFloat(formData.fees) || 0,
-                tax_rate: parseFloat(formData.tax_rate) || 18,
                 ca: {
                     has_ca: formData.has_ca || false
                 },
@@ -483,8 +480,8 @@ const EditTaskModal = ({ isOpen, onClose, taskData, onTaskUpdated }) => {
                                                 />
                                             </div>
 
-                                            {/* Fees and Tax Rate */}
-                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                            {/* Fees — GST computed server-side */}
+                                            <div className="grid grid-cols-1 gap-4">
                                                 <div className="space-y-2">
                                                     <label className="block text-sm font-medium text-gray-700">
                                                         Fees (₹) <span className="text-red-500">*</span>
@@ -500,22 +497,7 @@ const EditTaskModal = ({ isOpen, onClose, taskData, onTaskUpdated }) => {
                                                             placeholder="Enter amount"
                                                         />
                                                     </div>
-                                                </div>
-                                                <div className="space-y-2">
-                                                    <label className="block text-sm font-medium text-gray-700">
-                                                        Tax Rate (%) <span className="text-red-500">*</span>
-                                                    </label>
-                                                    <div className="relative">
-                                                        <FiDollarSign className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 text-base" />
-                                                        <input
-                                                            type="number"
-                                                            name="tax_rate"
-                                                            value={formData.tax_rate}
-                                                            onChange={handleInputChange}
-                                                            className="w-full pl-12 pr-3 py-3 text-sm border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-white outline-none"
-                                                            placeholder="Enter tax rate"
-                                                        />
-                                                    </div>
+                                                    <p className="text-xs text-gray-500">GST is applied automatically when applicable for this branch.</p>
                                                 </div>
                                             </div>
 

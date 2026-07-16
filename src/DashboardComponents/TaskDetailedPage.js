@@ -1354,8 +1354,8 @@ const TaskDetailedPage = ({ category: categoryProp } = {}) => {
                     {inOutState.badge ? (
                       <div
                         className={`px-4 py-2 text-xs font-medium border-b ${inOutState.mode === 'self'
-                            ? 'bg-emerald-50 text-emerald-800 border-emerald-100'
-                            : 'bg-amber-50 text-amber-800 border-amber-100'
+                          ? 'bg-emerald-50 text-emerald-800 border-emerald-100'
+                          : 'bg-amber-50 text-amber-800 border-amber-100'
                           }`}
                       >
                         {inOutState.badge}

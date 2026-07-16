@@ -3596,7 +3596,7 @@ export const SaleForm = ({
             const basePayload = {
                 transaction_date: formData.payment_date,
                 remark: formData.notes || formData.remark,
-                tax_rate: formData.tax_rate,
+                // tax_rate omitted — server computes from branch GST settings
                 items: formData.items
                     .filter((item) => item.service_id && parseDecimalValue(item.price) > 0)
                     .map((item) => ({
@@ -4795,7 +4795,7 @@ export const PurchaseForm = ({
             const basePayload = {
                 transaction_date: formData.transaction_date,
                 remark: formData.remark || undefined,
-                tax_rate: parseDecimalValue(formData.tax_rate),
+                // tax_rate omitted — server computes from branch GST settings
                 items: formData.items
                     .filter((item) => item.service_id && parseDecimalValue(item.fees) > 0)
                     .map((item) => ({
@@ -5081,16 +5081,10 @@ export const PurchaseForm = ({
                         />
                     </div>
                     <div>
-                        <label className={purchaseLabelClass}>
-                            Tax Rate (%) <span className="text-red-500">*</span>
-                        </label>
-                        <input
-                            type="text"
-                            inputMode="decimal"
-                            value={String(formData.tax_rate ?? '')}
-                            onChange={(e) => setFormData((prev) => ({ ...prev, tax_rate: sanitizeDecimalInput(e.target.value, 2) }))}
-                            className={isCompactModal ? purchaseFieldClass : 'w-full px-4 py-3 border-2 border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500'}
-                        />
+                        <label className={purchaseLabelClass}>GST</label>
+                        <p className={`${isCompactModal ? purchaseFieldClass : 'w-full px-4 py-3 border-2 border-slate-200 rounded-lg bg-slate-50 text-sm text-slate-600'}`}>
+                            Applied automatically by the server when GST is enabled for this branch.
+                        </p>
                     </div>
                 </div>
             </div>

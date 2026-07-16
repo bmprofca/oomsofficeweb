@@ -664,7 +664,6 @@ export const FirmFormModal = ({
   const handleSubmit = (event) => {
     event.preventDefault();
     const fees = Number(form.fees);
-    const tax_rate = Number(form.tax_rate);
     const due_date = Number(form.due_date);
     const visibility_offset = Number(form.visibility_offset);
 
@@ -675,10 +674,6 @@ export const FirmFormModal = ({
 
     if (!Number.isFinite(fees) || fees < 0) {
       toast.error('Enter a valid fees amount');
-      return;
-    }
-    if (!Number.isFinite(tax_rate) || tax_rate < 0) {
-      toast.error('Enter a valid tax rate');
       return;
     }
     if (!Number.isInteger(due_date) || due_date < 1 || due_date > 31) {
@@ -704,7 +699,6 @@ export const FirmFormModal = ({
     onSubmit({
       ...form,
       fees,
-      tax_rate,
       due_date,
       visibility_offset,
       effective_from,
@@ -839,17 +833,6 @@ export const FirmFormModal = ({
                     />
                   </div>
                 </div>
-
-                <CustomSelect
-                  label="Tax rate (%)"
-                  required
-                  options={taxRateOptions}
-                  value={selectedTaxRateOption}
-                  onChange={(option) => setForm((prev) => ({ ...prev, tax_rate: option?.value || '18' }))}
-                  isDisabled={saving}
-                  isClearable={false}
-                  isSearchable={false}
-                />
 
                 <div>
                   <label className={labelClass}>

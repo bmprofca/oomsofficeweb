@@ -1332,17 +1332,16 @@ const QuotationTab = ({ clientUsername }) => {
 
         const serviceId = String(createForm.service_id || '').trim();
         const fees = Number(createForm.fees);
-        const taxRate = Number(createForm.tax_rate);
 
-        if (!serviceId || !Number.isFinite(fees) || fees < 0 || !Number.isFinite(taxRate) || taxRate < 0) {
-            toast.error('Please fill service, fees and tax rate');
+        if (!serviceId || !Number.isFinite(fees) || fees < 0) {
+            toast.error('Please fill service and fees');
             return;
         }
 
         const payload = {
             username: effectiveUsername,
             firm_id: resolvedFirmId,
-            items: [{ service_id: serviceId, fees, tax_rate: taxRate }],
+            items: [{ service_id: serviceId, fees }],
         };
 
         const headers = getHeaders();
@@ -1404,11 +1403,11 @@ const QuotationTab = ({ clientUsername }) => {
             .map((item) => ({
                 service_id: String(item.service_id || '').trim(),
                 fees: Number(item.fees),
-                tax_rate: Number(item.tax_rate),
+                tax_rate: Number(item.tax_rate) || 0,
             }))
-            .filter((item) => item.service_id && Number.isFinite(item.fees) && item.fees >= 0 && Number.isFinite(item.tax_rate) && item.tax_rate >= 0);
+            .filter((item) => item.service_id && Number.isFinite(item.fees) && item.fees >= 0);
         if (!cleanedItems.length || cleanedItems.length !== editForm.items.length) {
-            toast.error('Please fill all item rows with valid service, fees and tax rate');
+            toast.error('Please fill all item rows with valid service and fees');
             return;
         }
 

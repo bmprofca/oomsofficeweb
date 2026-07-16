@@ -252,11 +252,9 @@ const ActionMenu = ({ items }) => {
 
 /* ─── fee form ──────────────────────────────────────────────────── */
 const FeeForm = ({ form, onChange, loading, showDueDate = false }) => {
-    const gstValue = calcGST(form.fees, form.gst_rate);
-    const total = ((parseFloat(form.fees) || 0) + parseFloat(gstValue)).toFixed(2);
     return (
         <div className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 gap-4">
                 <div>
                     <label className="block text-xs font-semibold text-gray-600 mb-1.5">Fees (₹) *</label>
                     <div className="relative">
@@ -277,32 +275,11 @@ const FeeForm = ({ form, onChange, loading, showDueDate = false }) => {
                         />
                     </div>
                 </div>
-                <div>
-                    <label className="block text-xs font-semibold text-gray-600 mb-1.5">GST Rate *</label>
-                    <CustomSelect
-                        options={GST_RATE_OPTIONS}
-                        value={optionByValue(GST_RATE_OPTIONS, form.gst_rate !== null && form.gst_rate !== '' ? Number(form.gst_rate) : null)}
-                        onChange={(opt) => onChange('gst_rate', opt ? opt.value : null)}
-                        getOptionLabel={(opt) => opt.label}
-                        getOptionValue={(opt) => opt.value}
-                        placeholder="Select rate…"
-                        isDisabled={loading}
-                        isClearable={false}
-                    />
-                </div>
             </div>
 
-            {/* Live preview */}
-            <div className="grid grid-cols-2 gap-4">
-                <div className="bg-gray-50 border border-gray-200 rounded-lg px-3 py-2.5">
-                    <p className="text-[10px] font-semibold text-gray-500 uppercase tracking-wide mb-0.5">GST Value</p>
-                    <p className="text-sm font-semibold text-gray-800">₹ {fmt(gstValue)}</p>
-                </div>
-                <div className="bg-indigo-50 border border-indigo-200 rounded-lg px-3 py-2.5">
-                    <p className="text-[10px] font-semibold text-indigo-500 uppercase tracking-wide mb-0.5">Total</p>
-                    <p className="text-sm font-semibold text-indigo-700">₹ {fmt(total)}</p>
-                </div>
-            </div>
+            <p className="text-xs text-gray-500">
+                GST is applied automatically by the server when this branch is GST-applicable.
+            </p>
 
             {showDueDate ? (
                 <div>
@@ -721,7 +698,6 @@ const Services = () => {
         setEditTarget(svc);
         setEditForm({
             fees: String(svc.fees ?? ''),
-            gst_rate: svc.gst_rate !== undefined && svc.gst_rate !== null ? Number(svc.gst_rate) : null,
             remark: getServiceRemark(svc),
             due_date: svc.due_date != null ? String(svc.due_date) : '',
         });
@@ -730,18 +706,15 @@ const Services = () => {
     const handleEdit = async () => {
         const isCompliance = isComplianceService(editTarget);
         const fees = parseFloat(editForm.fees);
-        const gst_rate = editForm.gst_rate;
 
         if (editForm.fees !== '' && (isNaN(fees) || fees < 0)) {
             toast.error('Enter a valid fees amount');
             return;
         }
-        if (gst_rate === null) { toast.error('Select a GST rate'); return; }
 
         const payload = {
             service_id: editTarget.service_id,
             ...(editForm.fees !== '' ? { fees } : {}),
-            gst_rate: Number(gst_rate),
         };
 
         if (isCompliance) {
@@ -797,7 +770,6 @@ const Services = () => {
         setAddTarget(svc);
         setAddForm({
             fees: '',
-            gst_rate: 18,
             due_date: isCompliance && svc.default_due_date != null ? String(svc.default_due_date) : '',
             remark: '',
         });
@@ -806,18 +778,15 @@ const Services = () => {
     const handleAdd = async () => {
         const isCompliance = isComplianceService(addTarget);
         const fees = parseFloat(addForm.fees);
-        const gst_rate = addForm.gst_rate;
 
         if (addForm.fees !== '' && (isNaN(fees) || fees < 0)) {
             toast.error('Enter a valid fees amount');
             return;
         }
-        if (gst_rate === null) { toast.error('Select a GST rate'); return; }
 
         const payload = {
             service_id: addTarget.service_id,
             ...(addForm.fees !== '' ? { fees } : {}),
-            gst_rate: Number(gst_rate),
         };
 
         if (isCompliance) {
@@ -855,7 +824,6 @@ const Services = () => {
     );
     const isAddFormValid =
         !!addTarget &&
-        addForm.gst_rate !== null &&
         feesValid &&
         dueDateValid;
 
