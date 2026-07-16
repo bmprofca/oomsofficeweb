@@ -71,7 +71,7 @@ export const Settings = lazy(() => import('../pages/settings'));
 export const StaffList = lazy(() => import('../pages/settings/staff-list'));
 export const PermissionList = lazy(() => import('../pages/settings/permission'));
 export const InvoiceSettings = lazy(() => import('../pages/settings/invoice-setting'));
-export const AppSettings = lazy(() => import('../pages/settings/app-setting'));
+export const BranchSettings = lazy(() => import('../pages/settings/branch-setting'));
 export const DefaultDaterange = lazy(() => import('../pages/settings/daterange-setting'));
 export const GoogleAuthentication = lazy(() => import('../pages/settings/google-auth'));
 export const GatewayConfig = lazy(() => import('../pages/settings/gateway-setting'));

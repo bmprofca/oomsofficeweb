@@ -85,7 +85,7 @@ import {
   StaffList,
   PermissionList,
   InvoiceSettings,
-  AppSettings,
+  BranchSettings,
   DefaultDaterange,
   GoogleAuthentication,
   GatewayConfig,
@@ -808,9 +808,9 @@ root.render(
               </ProtectedRoute>
             } />
 
-            <Route path="/settings/app-setting" element={
+            <Route path="/settings/branch-setting" element={
               <ProtectedRoute>
-                <AppSettings />
+                <BranchSettings />
               </ProtectedRoute>
             } />
 

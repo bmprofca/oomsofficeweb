@@ -31,7 +31,6 @@ const BranchSetupModal = ({ isOpen, onBranchCreated, onClose, invitationToken })
         email_1: '',
         email_2: '',
         gst: '',
-        gst_rate: 0,
         pan: '',
         invoice_address: '',
         is_head_office: true
@@ -332,7 +331,6 @@ const BranchSetupModal = ({ isOpen, onBranchCreated, onClose, invitationToken })
             invoice_address: formData.invoice_address || null,
             pan: formData.pan || null,
             gst: formData.gst || null,
-            gst_rate: parseFloat(formData.gst_rate) || 0,
             mobile_1: formData.mobile_1,
             mobile_2: formData.mobile_2 || null,
             email_1: formData.email_1 || null,
@@ -824,34 +822,18 @@ const BranchSetupModal = ({ isOpen, onBranchCreated, onClose, invitationToken })
                             </div>
                         </div>
 
-                        <div className="grid grid-cols-2 gap-3">
-                            <div>
-                                <label className="block text-xs font-medium text-gray-700 mb-1">
-                                    GST Number
-                                </label>
-                                <input
-                                    type="text"
-                                    name="gst"
-                                    value={formData.gst}
-                                    onChange={handleChange}
-                                    className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded-lg"
-                                    placeholder="GSTIN"
-                                />
-                            </div>
-                            <div>
-                                <label className="block text-xs font-medium text-gray-700 mb-1">
-                                    GST Rate (%)
-                                </label>
-                                <input
-                                    type="number"
-                                    step="0.01"
-                                    name="gst_rate"
-                                    value={formData.gst_rate}
-                                    onChange={handleChange}
-                                    className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded-lg"
-                                    placeholder="GST percentage"
-                                />
-                            </div>
+                        <div>
+                            <label className="block text-xs font-medium text-gray-700 mb-1">
+                                GST Number
+                            </label>
+                            <input
+                                type="text"
+                                name="gst"
+                                value={formData.gst}
+                                onChange={handleChange}
+                                className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded-lg"
+                                placeholder="GSTIN"
+                            />
                         </div>
 
                         <div>

@@ -73,10 +73,10 @@ const Settings = () => {
             permission: ["setting_view_edit", "finance_entry"]
         },
         {
-            title: "App Settings",
-            description: "Configure your application",
+            title: "Branch Settings",
+            description: "Configure your branch details",
             icon: <FiSettings className="w-5 h-5 text-orange-600" />,
-            link: "/settings/app-setting",
+            link: "/settings/branch-setting",
             color: "bg-orange-100",
             show: userData.isHeadBranch,
             permission: "setting_view_edit"

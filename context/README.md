@@ -15,7 +15,8 @@ This folder contains modular context notes extracted from `context.md`.
 - `ui-patterns.md` - Reusable UX patterns (dialogs, dropdowns, skeletons)
 - `billing-view.md` - Billing page behavior and API contracts
 - `ledger-tab.md` - Ledger tab behaviors and opening balance flow
-- `settings-app.md` - App settings page contracts and upload flow
+- `settings-branch.md` - Branch settings page (route, tabs, APIs, PAN/GST lock, B2 logo/sign)
+- `state-district-select.md` - State/district picker via CustomSelect
 - `task-components.md` - Notes/SubTask/Staff/Details tab reference
 - `datepicker.md` - PortalDatePicker / DateRangePickerField behavior and props
 - `modal.md` - Viewport-safe modal pattern and details modals

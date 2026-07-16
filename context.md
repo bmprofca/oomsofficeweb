@@ -54,9 +54,9 @@ src/
 │   ├── lead.js                 # Lead management
 │   ├── broadcast.js            # Broadcast messages
 │   ├── office-assistance.js    # Office assistance
-│   ├── settings.js             # Settings hub / routing
+│   ├── settings.jsx            # Settings hub / routing
 │   └── settings/
-│       ├── app-setting.js      # Branch app settings (tabs: details, logo, signature, invoice address)
+│       ├── branch-setting.jsx  # Branch settings (tabs: details, logo, signature, invoice address)
 │       └── invoice-setting.js    # Invoice prefix settings (example of `getHeaders` + `fetch`)
 │
 ├── components/                 # Shared/reusable components
@@ -337,23 +337,28 @@ Fixed bar at bottom of screen when items are selected (Pending tab only). Slides
 
 ---
 
-## `app-setting.js` — Branch / App Settings (`src/pages/settings/app-setting.js`)
+## `branch-setting.jsx` — Branch Settings (`src/pages/settings/branch-setting.jsx`)
 
-Single settings screen with **tabbed sections**: **Details**, **Logo**, **Signature**, **Invoice**. Uses `Header` + `Sidebar`, same sidebar padding pattern as other pages. User feedback uses **`react-hot-toast`** (not `window.alert`).
+**Route:** `/settings/branch-setting` (legacy App settings removed; no `/settings/app-setting` redirect).
+
+Single settings screen with **tabbed sections**: **Details**, **Logo**, **Signature**, **Invoice**. Uses `Header` + `Sidebar`. Feedback via **`react-hot-toast`**. Typography/density follows `context/typography.md` (`gray-*`, compact cards). Save bars are **not** sticky.
+
+See full notes: **`context/settings-branch.md`**.
 
 ### Data load
 
-- **`GET /settings/branch/details`** — no query params. Headers from `getHeaders()`.
-- Response `data` includes `basic`, `image`, `invoice`. A helper **`applyBranchDetailsData(data)`** maps this into local form state and updates logo/sign URLs and PAN/GST verification flags.
+- **`GET /settings/branch/details`** — headers from `getHeaders()`.
+- Response `data` includes `basic`, `image`, `invoice`. **`applyBranchDetailsData(data)`** maps form state, logo/sign URLs, and PAN/GST verification flags.
 
 ### Details tab — update branch profile
 
-- **`PUT /settings/branch/update`**
-- JSON body shape (country always **`"India"`** in payload; country is **not** shown as a field on the UI):
+- **`PUT /settings/branch/details`**
+- JSON body (country always **`"India"`**):
 
 ```json
 {
   "name": "...",
+  "legal_name": "...",
   "address": {
     "address_line_1": "...",
     "address_line_2": "...",
@@ -365,61 +370,53 @@ Single settings screen with **tabbed sections**: **Details**, **Logo**, **Signat
   "mobile": { "mobile_1": "...", "mobile_2": "..." },
   "email": { "email_1": "...", "email_2": "..." },
   "pan": { "pan": "..." },
-  "gst": { "gst": "...", "gst_rate": "18.00" }
+  "gst": { "gst": "..." }
 }
 ```
 
-- `gst_rate` is sent with two decimal places (`Number(select).toFixed(2)`). The UI uses a **select** with **0%, 5%, 18%, 40%** only.
-- **PAN / GST verification** labels read `basic.pan.is_pan_verified` and `basic.gst.is_gst_verified` (display only).
-- Submit uses local **`detailsSaving`** so the main page skeleton `loading` is not tied to this action.
+- **`legal_name`** is editable and always sent.
+- **PAN / GST:** if verified (`basic.pan.is_pan_verified` / `basic.gst.is_gst_verified`), fields are disabled and **`pan` / `gst` are omitted** from the payload (server also locks).
+- No branch-level **`gst_rate`** on this form / `branch_list`.
+- Submit uses **`detailsSaving`** (not full-page skeleton).
 
 ### State & district fields
 
-- Reusable component: **`src/components/state-district-select.js`** (`StateDistrictSelect`).
-- **`GET /utils/states-and-districts`** — no params; **must** send **`getHeaders()`** (same auth as other authenticated routes).
-- Response: `{ success, data: [ { name, districts: string[] } ] }`. State dropdown is **before** district; changing state clears district.
+- **`StateDistrictSelect`** → **`CustomSelect`** (searchable). See `context/state-district-select.md`.
+- **`GET /utils/states-and-districts`** with **`getHeaders()`**. Changing state clears district.
 
 ### Logo & Signature tabs — upload flow
 
-Matches the pattern in **`DocumentsTab.js`** for generic file upload:
-
-1. User picks or **drag-drops** a file; frontend checks **`file.type.startsWith('image/')`**.
-2. **Immediate upload**: **`POST /upload`** with **`FormData`** (`file` field), **`axios`**, headers from **`getHeaders()`**, `Content-Type: multipart/form-data`. Public URL from `response.data.data.url` or `response.data.url`.
-3. URL is stored locally (`logoPublicUrl` / `signPublicUrl`) with preview via object URL; toast indicates upload done.
-4. **Submit** only calls the branch endpoints with that URL (no second file upload on submit):
-   - **`POST /settings/branch/logo`** — body `{ "logo": "<public-url>" }`
-   - **`POST /settings/branch/sign`** — body `{ "sign": "<public-url>" }`
-5. Success response updates displayed logo/sign URL from `data.logo` / `data.sign`. Per-tab busy state: **`logoUploading`** / **`signUploading`**.
+1. User picks or drag-drops an image (`file.type.startsWith('image/')`).
+2. Pre-upload via **`uploadOneSaasFileUrl`** (`utils/onesaas-upload.js`) → public URL + preview.
+3. Submit stores URL only:
+   - **`POST /settings/branch/logo`** — `{ "logo": "<url>" }`
+   - **`POST /settings/branch/sign`** — `{ "sign": "<url>" }`
+4. Server persists to B2 as `{branch_id}.{ext}` under branch logo/sign folders; display via media proxy.
 
 ### Invoice tab
 
-- **`POST /settings/branch/invoice-address`** — body `{ "address": "<string>" }`, headers from `getHeaders()` + JSON content type.
-- On success, sync textarea from `data.address` when present (including `null` → empty string). Submit uses **`invoiceSaving`**.
-
-### Tab UI
-
-- Tabs are a **segmented control** (gradient container, icon + label, active pill style), not plain bordered buttons.
+- **`POST /settings/branch/invoice-address`** — `{ "address": "<string>" }`. Sync from `data.address` on success. Uses **`invoiceSaving`**.
 
 ### Skeleton loading
 
-- Initial **`GET /settings/branch/details`** still drives full-page **`loading`** + skeleton (unchanged pattern for first paint).
+- Initial **`GET /settings/branch/details`** drives full-page **`loading`** + skeleton.
 
 ---
 
 ## `state-district-select.js` — Shared state / district picker
 
 - **File:** `src/components/state-district-select.js`
-- **Props:** `selectedState`, `selectedDistrict`, `onStateChange`, `onDistrictChange`, optional `stateLabel`, `districtLabel`, `required`, `selectClassName`.
-- Fetches once on mount from **`GET ${API_BASE_URL}/utils/states-and-districts`** with **`getHeaders()`**.
-- If headers are missing, fetch fails gracefully (logged); dropdowns stay empty until auth is fixed.
-- Use anywhere a form needs India state + district selection.
+- Uses **`CustomSelect`** (not native `<select>`).
+- **Props:** `selectedState`, `selectedDistrict`, `onStateChange`, `onDistrictChange`, optional `stateLabel`, `districtLabel`, `required`.
+- Fetches once from **`GET ${API_BASE_URL}/utils/states-and-districts`** with **`getHeaders()`**.
+- See **`context/state-district-select.md`**.
 
 ---
 
 ## `DocumentsTab.js` — File upload reference
 
 - Generic upload: **`POST ${API_BASE_URL}/upload`** with `FormData.append('file', file)`, **`axios`**, and `getHeaders()`. Success URL: `response.data.data?.url || response.data.url`.
-- **`app-setting.js`** logo/signature pre-upload reuses this contract.
+- Branch settings logo/signature pre-upload uses **`uploadOneSaasFileUrl`** instead (OneSaaS upload host); submit still posts the resulting URL to `/settings/branch/logo` or `/sign`.
 
 ---
 

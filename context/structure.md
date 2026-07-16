@@ -11,7 +11,7 @@
 
 - `pages/client-profile.js`
 - `pages/billing-view.js`
-- `pages/settings/app-setting.js`
+- `pages/settings/branch-setting.jsx`
 - `pages/office-assistance/*`
 
 ## Finance register screens
@@ -28,6 +28,7 @@ See `finance-registers.md` for shared layout, table, and modal conventions.
 
 - `components/header.js`
 - `components/DateFilter.js`
-- `components/state-district-select.js`
+- `components/state-district-select.js` (CustomSelect-based)
+- `components/CustomSelect.js`
 - `components/PasswordGroupFirms.js`
 

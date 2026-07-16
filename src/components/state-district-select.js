@@ -1,6 +1,7 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import API_BASE_URL from '../utils/api-controller';
 import getHeaders from '../utils/get-headers';
+import CustomSelect from './CustomSelect';
 
 const StateDistrictSelect = ({
     selectedState = '',
@@ -10,7 +11,6 @@ const StateDistrictSelect = ({
     stateLabel = 'State',
     districtLabel = 'District',
     required = true,
-    selectClassName = 'w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none',
 }) => {
     const [stateOptions, setStateOptions] = useState([]);
     const [districtOptions, setDistrictOptions] = useState([]);
@@ -50,51 +50,71 @@ const StateDistrictSelect = ({
         }
     };
 
-    return (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                    {stateLabel}
-                </label>
-                <select
-                    value={selectedState}
-                    onChange={(e) => onStateChange?.(e.target.value)}
-                    className={selectClassName}
-                    required={required}
-                >
-                    <option value="">Select State</option>
-                    {stateOptions.map((stateItem) => (
-                        <option key={stateItem.name} value={stateItem.name}>
-                            {stateItem.name}
-                        </option>
-                    ))}
-                </select>
-            </div>
+    const stateSelectOptions = useMemo(
+        () =>
+            stateOptions.map((stateItem) => ({
+                value: stateItem.name,
+                label: stateItem.name,
+            })),
+        [stateOptions],
+    );
 
-            <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                    {districtLabel}
-                </label>
-                <select
-                    value={selectedDistrict}
-                    onChange={(e) => onDistrictChange?.(e.target.value)}
-                    className={selectClassName}
-                    disabled={!selectedState}
-                    required={required}
-                >
-                    <option value="">
-                        {selectedState ? 'Select District' : 'Select state first'}
-                    </option>
-                    {districtOptions.map((district) => (
-                        <option key={district} value={district}>
-                            {district}
-                        </option>
-                    ))}
-                    {selectedDistrict && !districtOptions.includes(selectedDistrict) && (
-                        <option value={selectedDistrict}>{selectedDistrict}</option>
-                    )}
-                </select>
-            </div>
+    const districtSelectOptions = useMemo(() => {
+        const options = districtOptions.map((district) => ({
+            value: district,
+            label: district,
+        }));
+        if (
+            selectedDistrict &&
+            !districtOptions.includes(selectedDistrict)
+        ) {
+            options.unshift({
+                value: selectedDistrict,
+                label: selectedDistrict,
+            });
+        }
+        return options;
+    }, [districtOptions, selectedDistrict]);
+
+    const stateValue =
+        stateSelectOptions.find((opt) => opt.value === selectedState) || null;
+    const districtValue =
+        districtSelectOptions.find((opt) => opt.value === selectedDistrict) ||
+        null;
+
+    return (
+        <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+            <CustomSelect
+                label={stateLabel}
+                required={required}
+                options={stateSelectOptions}
+                value={stateValue}
+                onChange={(opt) => {
+                    onStateChange?.(opt?.value || '');
+                    if (!opt?.value || opt.value !== selectedState) {
+                        onDistrictChange?.('');
+                    }
+                }}
+                placeholder="Select State"
+                searchPlaceholder="Search state..."
+                isClearable={!required}
+                isSearchable
+            />
+
+            <CustomSelect
+                label={districtLabel}
+                required={required}
+                options={districtSelectOptions}
+                value={districtValue}
+                onChange={(opt) => onDistrictChange?.(opt?.value || '')}
+                placeholder={
+                    selectedState ? 'Select District' : 'Select state first'
+                }
+                searchPlaceholder="Search district..."
+                isDisabled={!selectedState}
+                isClearable={!required}
+                isSearchable
+            />
         </div>
     );
 };
