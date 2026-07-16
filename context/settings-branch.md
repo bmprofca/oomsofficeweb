@@ -11,7 +11,7 @@ Renamed from legacy **App settings** (`app-setting`). There is no `/settings/app
 
 ## Tabs
 
-Segmented control (icon + label): **Details**, **Logo**, **Signature**, **Invoice**.
+Segmented control (icon + label): **Details**, **Logo**, **Signature**, **Invoice**, **GST Config**.
 
 Follow typography / card density from `typography.md`:
 
@@ -22,18 +22,21 @@ Follow typography / card density from `typography.md`:
 - Micro badges: `text-[10px]`
 - Use **`gray-*`** only (do not mix `slate-*`)
 - Card shell: `rounded-lg border border-gray-200 shadow-sm`, header `px-3 py-2.5 md:px-4`
+- Primary actions / active tabs: **indigo** (`bg-indigo-600`), not dark gray-900
 
-Save bars on Details / Invoice are **normal** (not sticky).
+Save bars on Details / Invoice / GST Config are **normal** (not sticky).
+
+Shell inset: follow [`layout.md`](./layout.md) — `md:pl-[260px]` / `md:pl-20` via `contentInset`.
 
 ---
 
 ## Data load
 
 - **`GET /settings/branch/details`** — headers from `getHeaders()`
-- Response `data`: `basic`, `image`, `invoice`
-- Mapper: **`applyBranchDetailsData(data)`** → form state, logo/sign URLs, `panVerified` / `gstVerified`
+- Response `data`: `basic`, `image`, `invoice`, **`gst_config`**
+- Mapper: **`applyBranchDetailsData(data)`** → form state, logo/sign URLs, `panVerified` / `gstVerified`, GST applicable + date
 
-Initial load uses full-page **`loading`** + skeleton. Per-action flags: `detailsSaving`, `logoUploading`, `signUploading`, `invoiceSaving`.
+Initial load uses full-page **`loading`** + skeleton. Per-action flags: `detailsSaving`, `logoUploading`, `signUploading`, `invoiceSaving`, `gstSaving`.
 
 ---
 
@@ -68,7 +71,8 @@ Initial load uses full-page **`loading`** + skeleton. Per-action flags: `details
   - Inputs are `readOnly` + `disabled`
   - Client **omits** `pan` / `gst` from the PUT body
   - Server also rejects/ignores changes when verified
-- Branch-level **`gst_rate`** is **removed** (no longer on `branch_list` / this form). Service-level GST rate is unrelated.
+- Branch-level **tax rate %** is **not** edited here (env `TAX_RATE` on server). See [`gst-change.md`](./gst-change.md).
+- Branch **GSTIN** (`basic.gst.gst`) is identity only — not the GST applicable switch.
 
 ### Selects
 
@@ -100,22 +104,51 @@ When an icon sits inside an input (email, pincode), use a dedicated class with *
 
 ---
 
+## GST Config tab
+
+Controls branch GST policy (not GSTIN). Pair with [`gst-change.md`](./gst-change.md).
+
+- **`PUT /settings/branch/gst-config`**
+
+```json
+{
+  "gst_applicable": "0" | "1",
+  "gst_applicable_after": "YYYY-MM-DD" | null
+}
+```
+
+### Rules
+
+- Checkbox → `gst_applicable` `"1"` / `"0"`.
+- Date via **`DatePickerField`** (`PortalDatePicker`) — required when applicable is on.
+- When GST is turned **off**, client sends `gst_applicable_after: null`; server stores **NULL**.
+- Rate % is **not** editable here (server `TAX_RATE` env).
+- Also loadable from `GET /settings/branch/details` → `data.gst_config`.
+
+Also supported on `PUT /branch/:branch_id` with the same two fields (admin branch API).
+
+---
+
 ## Shared dependencies
 
 | Piece | Path |
 |-------|------|
 | State / district | `src/components/state-district-select.js` |
 | Searchable select | `src/components/CustomSelect.js` |
+| Date picker | `src/components/PortalDatePicker.js` |
 | Pre-upload helper | `src/utils/onesaas-upload.js` |
 | Auth headers | `src/utils/get-headers.js` |
 | API base | `src/utils/api-controller.js` |
 | Toasts | `react-hot-toast` |
+| Layout shell | [`layout.md`](./layout.md) |
+| GST product rules | [`gst-change.md`](./gst-change.md) |
 
 ---
 
 ## Server touchpoints (related)
 
-- `SERVER/routes/settings.js` — branch details GET/PUT, logo, sign, invoice address; aliases may include `/branch/details`, `/branch/update`
-- `SERVER/routes/branch.js` — branch CRUD (`legal_name`, PAN/GST lock; no `branch_list.gst_rate`)
+- `SERVER/routes/settings.js` — branch details GET/PUT, logo, sign, invoice address, **`PUT /branch/gst-config`**
+- `SERVER/routes/branch.js` — branch CRUD + `gst_applicable` / `gst_applicable_after` on GET/PUT
 - `SERVER/helpers/b2Storage.js` / `mediaUrl.js` — branch logo/sign keys and proxy URLs
-- Migration: drop `branch_list.gst_rate`
+- `SERVER/context/gst-change.md` — GST calculation rules
+- Migration: drop per-row tax rate columns (see server GST context); keep `branch_list.gst_applicable*`

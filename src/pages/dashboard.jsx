@@ -1417,11 +1417,11 @@ const Dashboard = () => {
         setIsMinimized={setIsMinimized}
       />
 
-      {/* Main content - FULL WIDTH */}
+      {/* Main content - FULL WIDTH (match task-display sidebar inset) */}
       <div
-        className={`pt-16 transition-all duration-300 ease-in-out w-full ${isMinimized ? "md:pl-20" : "md:pl-72"}`}
+        className={`pt-16 transition-all duration-300 ease-in-out ${isMinimized ? "md:pl-20" : "md:pl-[260px]"}`}
       >
-        <div className="w-full px-3 sm:px-4 lg:px-6 py-3">
+        <div className="h-full flex flex-col mx-2 sm:mx-4 md:mx-8 my-3 md:my-4">
           {hasAnyDashboardPermission && (
             <div className="flex justify-end mb-3">
               <motion.button

@@ -15,6 +15,7 @@ import {
   FiSave,
   FiInfo,
   FiHash,
+  FiPercent,
 } from "react-icons/fi";
 import { toast } from "react-hot-toast";
 import { Header, Sidebar } from "../../components/header";
@@ -22,12 +23,14 @@ import StateDistrictSelect from "../../components/state-district-select";
 import API_BASE_URL from "../../utils/api-controller";
 import getHeaders from "../../utils/get-headers";
 import { uploadOneSaasFileUrl } from "../../utils/onesaas-upload";
+import { DatePickerField } from "../../components/PortalDatePicker";
 
 const TABS = [
   { id: "details", label: "Details", icon: FiBriefcase, tone: "indigo" },
   { id: "logo", label: "Logo", icon: FiImage, tone: "violet" },
   { id: "signature", label: "Signature", icon: FiEdit3, tone: "sky" },
   { id: "invoice", label: "Invoice", icon: FiFileText, tone: "emerald" },
+  { id: "gst", label: "GST Config", icon: FiPercent, tone: "amber" },
 ];
 
 const TONE = {
@@ -66,6 +69,9 @@ const TONE = {
   amber: {
     soft: "bg-amber-50 text-amber-600",
     ring: "ring-amber-100",
+    activeTab: "bg-amber-600 text-white",
+    border: "border-amber-100",
+    drop: "border-amber-400 bg-amber-50",
   },
   gray: {
     soft: "bg-gray-100 text-gray-600",
@@ -200,6 +206,11 @@ const BranchSettings = () => {
     address: "",
   });
 
+  const [gstConfig, setGstConfig] = useState({
+    gst_applicable: false,
+    gst_applicable_after: "",
+  });
+
   const [logoFile, setLogoFile] = useState(null);
   const [signFile, setSignFile] = useState(null);
   const [logoUrl, setLogoUrl] = useState("");
@@ -215,6 +226,7 @@ const BranchSettings = () => {
   const [activeTab, setActiveTab] = useState("details");
   const [detailsSaving, setDetailsSaving] = useState(false);
   const [invoiceSaving, setInvoiceSaving] = useState(false);
+  const [gstSaving, setGstSaving] = useState(false);
   const [logoUploading, setLogoUploading] = useState(false);
   const [signUploading, setSignUploading] = useState(false);
   const [logoPublicUrl, setLogoPublicUrl] = useState("");
@@ -278,6 +290,21 @@ const BranchSettings = () => {
       address: invoice?.address || prev.address,
     }));
 
+    const gstCfg = data?.gst_config || {};
+    const afterRaw = gstCfg?.gst_applicable_after;
+    const afterDate =
+      afterRaw == null || afterRaw === ""
+        ? ""
+        : String(afterRaw).slice(0, 10);
+
+    setGstConfig({
+      gst_applicable:
+        gstCfg?.gst_applicable === "1" ||
+        gstCfg?.gst_applicable === 1 ||
+        gstCfg?.gst_applicable === true,
+      gst_applicable_after: afterDate,
+    });
+
     setLogoUrl(image?.logo || "");
     setSignUrl(image?.sign || "");
     setLogoPublicUrl("");
@@ -338,6 +365,75 @@ const BranchSettings = () => {
       ...prev,
       [field]: value,
     }));
+  };
+
+  const handleGstConfigChange = (field, value) => {
+    setGstConfig((prev) => {
+      if (field === "gst_applicable" && !value) {
+        return {
+          ...prev,
+          gst_applicable: false,
+          gst_applicable_after: "",
+        };
+      }
+      return {
+        ...prev,
+        [field]: value,
+      };
+    });
+  };
+
+  const handleGstConfigSubmit = async (e) => {
+    e.preventDefault();
+    const headers = getHeaders();
+    if (!headers) {
+      toast.error("Missing authentication. Please sign in again.");
+      return;
+    }
+
+    if (gstConfig.gst_applicable && !gstConfig.gst_applicable_after) {
+      toast.error("Please select the GST applicable-from date.");
+      return;
+    }
+
+    setGstSaving(true);
+    try {
+      const response = await fetch(`${API_BASE_URL}/settings/branch/gst-config`, {
+        method: "PUT",
+        headers: {
+          ...headers,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          gst_applicable: gstConfig.gst_applicable ? "1" : "0",
+          gst_applicable_after: gstConfig.gst_applicable
+            ? gstConfig.gst_applicable_after || null
+            : null,
+        }),
+      });
+
+      const json = await response.json();
+      if (!response.ok || !json?.success) {
+        throw new Error(json?.message || `Update failed (${response.status})`);
+      }
+
+      const saved = json?.data || {};
+      setGstConfig({
+        gst_applicable:
+          saved.gst_applicable === "1" ||
+          saved.gst_applicable === 1 ||
+          saved.gst_applicable === true,
+        gst_applicable_after: saved.gst_applicable_after
+          ? String(saved.gst_applicable_after).slice(0, 10)
+          : "",
+      });
+      toast.success(json?.message || "GST config updated successfully!");
+    } catch (error) {
+      console.error("GST config update error:", error);
+      toast.error(error?.message || "Failed to update GST config");
+    } finally {
+      setGstSaving(false);
+    }
   };
 
   const handleLogoFileChange = (e) => {
@@ -1243,6 +1339,77 @@ const BranchSettings = () => {
                 icon={FiSave}
               >
                 {invoiceSaving ? "Saving..." : "Save invoice address"}
+              </PrimaryButton>
+            </div>
+          </SectionCard>
+        </form>
+      )}
+
+      {activeTab === "gst" && (
+        <form onSubmit={handleGstConfigSubmit} className="space-y-3">
+          <SectionCard
+            icon={FiPercent}
+            tone="amber"
+            title="GST applicability"
+            hint="Controls whether this branch charges GST on tasks, sales, and invoices."
+          >
+            <Tip>
+              GST rate comes from the server configuration. When applicable, tax
+              starts from the date below (inclusive) based on each document&apos;s
+              date.
+            </Tip>
+
+            <label className="flex cursor-pointer items-start gap-3 rounded-lg border border-gray-200 bg-gray-50 px-3 py-3 transition hover:border-amber-200 hover:bg-amber-50/40">
+              <input
+                type="checkbox"
+                checked={Boolean(gstConfig.gst_applicable)}
+                onChange={(e) =>
+                  handleGstConfigChange("gst_applicable", e.target.checked)
+                }
+                className="mt-0.5 h-4 w-4 rounded border-gray-300 text-amber-600 focus:ring-amber-500"
+              />
+              <span className="min-w-0">
+                <span className="block text-sm font-semibold text-gray-800">
+                  GST applicable for this branch
+                </span>
+                <span className="mt-0.5 block text-xs text-gray-500">
+                  When enabled, fees and invoices include GST from the applicable
+                  date onward.
+                </span>
+              </span>
+            </label>
+
+            <Field
+              label="Applicable after"
+              required={Boolean(gstConfig.gst_applicable)}
+              hint="First day GST may apply. Documents dated on or after this date can include tax."
+            >
+              <div
+                className={`max-w-xs ${
+                  gstConfig.gst_applicable
+                    ? ""
+                    : "pointer-events-none opacity-50"
+                }`}
+              >
+                <DatePickerField
+                  value={gstConfig.gst_applicable_after || ""}
+                  onChange={(value) =>
+                    handleGstConfigChange("gst_applicable_after", value || "")
+                  }
+                  placeholder="Select applicable date"
+                  mode="single"
+                  initialTab="single"
+                  hideTabs
+                  showResetButton={false}
+                  quickOptionKeys={["td", "yd"]}
+                  buttonClassName="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700 outline-none hover:border-gray-300 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500"
+                />
+              </div>
+            </Field>
+
+            <div className="flex justify-end border-t border-gray-100 pt-3">
+              <PrimaryButton type="submit" disabled={gstSaving} icon={FiSave}>
+                {gstSaving ? "Saving..." : "Save GST config"}
               </PrimaryButton>
             </div>
           </SectionCard>

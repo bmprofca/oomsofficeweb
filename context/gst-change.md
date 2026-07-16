@@ -25,7 +25,7 @@ UI displays tax_rate / tax_value / total FROM THE RESPONSE
 1. **No tax-rate inputs** — no text fields, selects, or required “Tax Rate (%)” / “GST Rate” controls for branch operations.
 2. **No tax-rate in payloads** — never send `tax_rate`, `gst_rate`, or `tax_perc` on create/update (task, service, quotation, compliance, sale, etc.).
 3. **Display-only** — render `tax_rate`, `tax_value`, `gst_rate`, `gst_value`, `total` when the API includes them.
-4. **No branch GST admin UI** — do not add screens to toggle `gst_applicable` / `gst_applicable_after` unless product explicitly asks later; those are ops/DB concerns.
+4. **Branch GST config UI** — Branch Settings → **GST Config** toggles `gst_applicable` / `gst_applicable_after` via `PUT /settings/branch/gst-config`. Do not invent a second settings surface for the same flags.
 5. **GSTIN ≠ GST rate** — firm/branch GST number fields (`gst`, `gst_no`) stay as identity/tax ID inputs. Do not confuse them with rate %.
 
 ---
@@ -141,6 +141,7 @@ When adding a money form or editing an existing one:
 
 | Area | Path |
 |------|------|
+| Branch GST config | `src/pages/settings/branch-setting.jsx` (GST Config tab) |
 | Task details | `src/TaskComponent/DetailsTab.js` |
 | Task edit modal | `src/TaskComponent/EdittaskModal.js` |
 | Services | `src/pages/office-assistance/services.jsx` |
