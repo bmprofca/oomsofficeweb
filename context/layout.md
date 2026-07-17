@@ -138,6 +138,7 @@ Header is fixed at `h-16` → content always needs `pt-16`.
 - `src/pages/task-display.jsx`
 - `src/pages/settings/branch-setting.jsx` (`contentInset` helper)
 - `src/pages/dashboard.jsx` (aligned to this pattern)
+- `src/pages/billing-view.jsx`
 - Most list pages under `src/pages/*-display.jsx`
 
 When fixing a page that “doesn’t use full width,” first compare its main `className` inset to this doc — that is almost always the bug.

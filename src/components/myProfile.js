@@ -709,11 +709,10 @@ export default function MyProfile() {
                           key={tab.id}
                           type="button"
                           onClick={() => setActiveTab(tab.id)}
-                          className={`mb-1 flex w-full items-center gap-3 rounded-lg px-4 py-3 text-sm font-medium transition ${
-                            active
-                              ? "bg-indigo-600 text-white"
-                              : "text-gray-700 hover:bg-indigo-50 hover:text-indigo-700"
-                          }`}
+                          className={`mb-1 flex w-full items-center gap-3 rounded-lg px-4 py-3 text-sm font-medium transition ${active
+                            ? "bg-indigo-600 text-white"
+                            : "text-gray-700 hover:bg-indigo-50 hover:text-indigo-700"
+                            }`}
                         >
                           <Icon className="h-4 w-4" />
                           {tab.label}
@@ -808,7 +807,7 @@ export default function MyProfile() {
                                 value={
                                   profile.gender
                                     ? profile.gender.charAt(0).toUpperCase() +
-                                      profile.gender.slice(1)
+                                    profile.gender.slice(1)
                                     : ""
                                 }
                               />
@@ -1071,9 +1070,8 @@ export default function MyProfile() {
                   <p className="mt-1 text-sm text-gray-500">
                     {otpSending
                       ? "Sending OTP…"
-                      : `Enter the 6-digit code sent to your ${otpChannelLabel}${
-                          otpDestination ? ` (${otpDestination})` : ""
-                        }`}
+                      : `Enter the 6-digit code sent to your ${otpChannelLabel}${otpDestination ? ` (${otpDestination})` : ""
+                      }`}
                   </p>
                 </div>
                 <button
