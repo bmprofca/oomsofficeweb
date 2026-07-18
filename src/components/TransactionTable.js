@@ -169,7 +169,7 @@ export default function TransactionTable({
                         <th className="text-left p-4 font-semibold text-slate-600">Date</th>
                         <th className="text-left p-4 font-semibold text-slate-600">Particulars</th>
                         <th className="text-left p-4 font-semibold text-slate-600">Type</th>
-                        <th className="text-left p-4 font-semibold text-slate-600">Voucher No</th>
+                        <th className="text-left p-4 font-semibold text-slate-600">Voucher</th>
                         <th className="text-right p-4 font-semibold text-slate-600">Debit</th>
                         <th className="text-right p-4 font-semibold text-slate-600">Credit</th>
                         <th className="text-right p-4 font-semibold text-slate-600">Balance</th>

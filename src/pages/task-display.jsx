@@ -62,6 +62,21 @@ const statusOptions = [
 ];
 const DEFAULT_SELECTED_STATUSES = ['in process', 'pending from client', 'pending from department'];
 
+// Persist list view state (filters + pagination) so navigating to task/client
+// details and coming back restores the same page and filters.
+const TASK_LIST_STATE_KEY = 'taskListViewState';
+
+const loadSavedTaskListState = () => {
+    try {
+        const raw = sessionStorage.getItem(TASK_LIST_STATE_KEY);
+        if (!raw) return null;
+        const parsed = JSON.parse(raw);
+        return parsed && typeof parsed === 'object' ? parsed : null;
+    } catch {
+        return null;
+    }
+};
+
 const STAFF_TABLE_META_FIELD_IDS = new Set(['staff_ca', 'staff_agent']);
 
 const availableFields = [
@@ -540,21 +555,29 @@ const TaskDisplay = () => {
     const [isMobile, setIsMobile] = useState(false);
     const [statusModal, setStatusModal] = useState({ open: false, taskId: null, taskName: '', currentStatus: '' });
     const [usersModal, setUsersModal] = useState({ open: false, users: [], taskName: '' });
-    const [showFilterRow, setShowFilterRow] = useState(false);
+    const [showFilterRow, setShowFilterRow] = useState(
+        () => Boolean(loadSavedTaskListState()?.showFilterRow)
+    );
     const [clientModal, setClientModal] = useState({ open: false, clientData: null, loading: false });
     const [bulkStatusModalOpen, setBulkStatusModalOpen] = useState(false);
     const [editModal, setEditModal] = useState({ open: false, taskData: null });
     const [tasks, setTasks] = useState([]);
     const [serviceOptions, setServiceOptions] = useState([]);
-    const [filters, setFilters] = useState({
+    const savedListStateRef = useRef(loadSavedTaskListState());
+    const [filters, setFilters] = useState(() => ({
         search: '',
         username: '',
         firm_id: '',
         service_id: '',
         status: DEFAULT_SELECTED_STATUSES,
-        service_ids: []
-    });
-    const [pagination, setPagination] = useState({ page_no: 1, limit: 20, total: 0 });
+        service_ids: [],
+        ...(savedListStateRef.current?.filters || {})
+    }));
+    const [pagination, setPagination] = useState(() => ({
+        page_no: Math.max(1, Number(savedListStateRef.current?.pagination?.page_no) || 1),
+        limit: Math.max(1, Number(savedListStateRef.current?.pagination?.limit) || 20),
+        total: 0
+    }));
     const taskListAbortRef = useRef(null);
     const skipNextAutoFetchRef = useRef(false);
     const rowMenuButtonRefs = useRef({});
@@ -714,11 +737,34 @@ const TaskDisplay = () => {
         fetchServices();
     }, []);
 
+    // Reset to page 1 when filters change — but not on mount, otherwise the
+    // page number restored from sessionStorage would be lost.
+    const filtersMountedRef = useRef(false);
     useEffect(() => {
+        if (!filtersMountedRef.current) {
+            filtersMountedRef.current = true;
+            return;
+        }
         if (pagination.page_no !== 1) {
             setPagination(prev => ({ ...prev, page_no: 1 }));
         }
     }, [filters.search, filters.username, filters.firm_id, filters.service_id, filters.status, filters.service_ids]);
+
+    // Keep the saved list view state in sync so back-navigation restores it
+    useEffect(() => {
+        try {
+            sessionStorage.setItem(
+                TASK_LIST_STATE_KEY,
+                JSON.stringify({
+                    filters,
+                    pagination: { page_no: pagination.page_no, limit: pagination.limit },
+                    showFilterRow
+                })
+            );
+        } catch {
+            // Storage unavailable (private mode/quota) — state simply won't persist
+        }
+    }, [filters, pagination.page_no, pagination.limit, showFilterRow]);
 
     useEffect(() => {
         if (skipNextAutoFetchRef.current) {

@@ -29,9 +29,16 @@ import TransactionTable, {
 } from '../components/TransactionTable';
 
 
-const ClientLedger = () => {
-    const { username } = useParams();
+const ClientLedger = ({
+    username: usernameProp,
+    clientUsername,
+    clientId,
+    clientName: clientNameProp,
+}) => {
+    const params = useParams();
     const navigate = useNavigate();
+    // Prefer explicit props (task profile, etc.) then route param (client profile)
+    const username = usernameProp || clientUsername || clientId || params.username;
 
     const [clientProfile, setClientProfile] = useState(null);
     const [transactions, setTransactions] = useState([]);
@@ -495,12 +502,14 @@ const ClientLedger = () => {
                 <div className="flex flex-wrap items-start justify-between gap-4">
                     <div className="min-w-0">
                         <h2 className="text-base sm:text-lg font-bold text-slate-800">Client Ledger</h2>
-                        {clientProfile && (
+                        {clientProfile ? (
                             <p className="text-sm text-slate-500 mt-1 truncate">
                                 {clientProfile.name} &middot; {clientProfile.email}
                                 {clientProfile.mobile && ` · +${clientProfile.country_code || '91'} ${clientProfile.mobile}`}
                             </p>
-                        )}
+                        ) : clientNameProp ? (
+                            <p className="text-sm text-slate-500 mt-1 truncate">{clientNameProp}</p>
+                        ) : null}
                     </div>
 
                     <div className="flex flex-wrap items-center justify-end gap-2">

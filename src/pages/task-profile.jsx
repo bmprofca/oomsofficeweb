@@ -9,11 +9,11 @@ import {
   FiClock,
   FiCheckSquare,
   FiFile,
-  FiDollarSign,
   FiCalendar,
   FiUser,
   FiBriefcase,
 } from "react-icons/fi";
+import { TbCurrencyRupee } from "react-icons/tb";
 import API_BASE_URL from "../utils/api-controller";
 import getHeaders from "../utils/get-headers";
 import axios from "axios";
@@ -151,7 +151,7 @@ const TaskProfile = () => {
     { id: "timelog", name: "Timelog", icon: FiClock },
     { id: "subtask", name: "Subtask", icon: FiCheckSquare },
     { id: "documents", name: "Documents", icon: FiFile },
-    { id: "ledger", name: "Ledger", icon: FiDollarSign },
+    { id: "ledger", name: "Ledger", icon: TbCurrencyRupee },
   ];
 
   // Handle tab navigation

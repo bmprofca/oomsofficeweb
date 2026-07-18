@@ -1,12 +1,13 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { createPortal } from 'react-dom';
+import { Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
     FiEdit, FiX, FiClipboard, FiLoader,
     FiUser, FiUsers, FiBriefcase,
     FiCalendar, FiSave,
     FiUserCheck, FiFileText, FiAlertCircle,
-    FiLock, FiMail, FiPhone, FiHash, FiClock,
+    FiLock, FiMail, FiPhone, FiHash, FiClock, FiEye,
 } from 'react-icons/fi';
 import { TbCurrencyRupee } from 'react-icons/tb';
 import API_BASE_URL from "../utils/api-controller";
@@ -18,6 +19,10 @@ import { checkPermissionSync } from '../utils/permission-helper';
 import CustomSelect from '../components/CustomSelect';
 import { optionByValue } from '../utils/customSelectHelpers';
 import {
+    FirmModalShell,
+    FirmViewDetails,
+} from '../components/Modals/FirmModalParts';
+import {
     searchFirmSelectOptions,
     fetchCaOptions,
     fetchAgentOptions,
@@ -25,6 +30,73 @@ import {
 
 const BILLING_GENERATE_BILLABLE = '/billing/generate/billable';
 const BILLING_GENERATE_NONBILLABLE = '/billing/generate/nonbillable';
+
+const PROFILE_LINK_CLASS =
+    'font-semibold text-indigo-600 no-underline transition-colors hover:text-indigo-800 hover:no-underline';
+
+const mapFirmForView = (firm) => {
+    if (!firm) return null;
+    return {
+        ...firm,
+        firm_id: firm.firm_id,
+        firm_name: firm.firm_name,
+        firm_type: firm.firm_type,
+        status:
+            typeof firm.status === 'boolean'
+                ? firm.status
+                : firm.status == '1' || firm.status === true,
+        username: firm.username,
+        pan: firm.pan || firm.pan_no || '',
+        gst: firm.gst || firm.gst_no || '',
+        file_no: firm.file_no || '',
+        tan: firm.tan || firm.tan_no || '',
+        cin: firm.cin || firm.cin_no || '',
+        vat: firm.vat || firm.vat_no || '',
+        address: firm.address || {
+            address_line_1: '',
+            address_line_2: '',
+            city: '',
+            state: '',
+            pincode: '',
+            country: '',
+        },
+        create_by: firm.create_by || {},
+        modify_by: firm.modify_by || {},
+        create_date: firm.create_date,
+        modify_date: firm.modify_date,
+    };
+};
+
+const formatFirmViewDate = (dateString) => {
+    if (!dateString) return 'N/A';
+    try {
+        return new Date(dateString).toLocaleDateString('en-IN', {
+            year: 'numeric',
+            month: 'short',
+            day: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit',
+        });
+    } catch {
+        return dateString;
+    }
+};
+
+const StaffProfileName = ({ user, fallback = '—' }) => {
+    const name = user?.name || fallback;
+    const username = user?.username;
+    if (!username || !user?.name) {
+        return <span className="text-sm font-semibold text-gray-800">{name}</span>;
+    }
+    return (
+        <Link
+            to={`/staff/view/profile/task?username=${encodeURIComponent(username)}`}
+            className={`mt-1 inline-block text-sm ${PROFILE_LINK_CLASS}`}
+        >
+            {name}
+        </Link>
+    );
+};
 
 const formatDate = (dateString) => {
     if (!dateString) return '—';
@@ -141,6 +213,9 @@ const DetailsTab = ({ taskData: initialData, task_id, onTaskUpdated }) => {
     const [statusModalOpen, setStatusModalOpen] = useState(false);
 
     const [services, setServices] = useState([]);
+    const [showFirmViewModal, setShowFirmViewModal] = useState(false);
+    const [viewFirm, setViewFirm] = useState(null);
+    const [firmViewLoading, setFirmViewLoading] = useState(false);
 
     const loadFirmOptions = useCallback(async (search, page = 1) => {
         return searchFirmSelectOptions({
@@ -203,6 +278,60 @@ const DetailsTab = ({ taskData: initialData, task_id, onTaskUpdated }) => {
             toast.error(err.message || 'Failed to update status');
         } finally {
             setIsChangingStatus(false);
+        }
+    };
+
+    const openFirmViewModal = async () => {
+        const firmId = taskData.firm?.firm_id;
+        if (!firmId) {
+            toast.error('Firm details not available');
+            return;
+        }
+
+        // Prefer firm payload already returned by task details (full firm object)
+        const mappedFromTask = mapFirmForView(taskData.firm);
+        if (
+            mappedFromTask?.pan ||
+            mappedFromTask?.gst ||
+            mappedFromTask?.address?.address_line_1 ||
+            mappedFromTask?.firm_type
+        ) {
+            setViewFirm(mappedFromTask);
+            setShowFirmViewModal(true);
+            return;
+        }
+
+        const clientUsername = taskData.client?.username;
+        if (!clientUsername) {
+            toast.error('Client username missing — cannot load firm details');
+            return;
+        }
+
+        setFirmViewLoading(true);
+        setShowFirmViewModal(true);
+        try {
+            const headers = getHeaders();
+            if (!headers) throw new Error('Missing authentication');
+            const response = await fetch(
+                `${API_BASE_URL}/client/details/firms/list?username=${encodeURIComponent(clientUsername)}`,
+                { headers },
+            );
+            const json = await response.json().catch(() => ({}));
+            if (!response.ok || !json.success) {
+                throw new Error(json.message || 'Failed to load firm details');
+            }
+            const firm = (json.data?.firms || []).find((f) => f.firm_id === firmId);
+            if (!firm) {
+                throw new Error('Firm not found');
+            }
+            setViewFirm(mapFirmForView(firm));
+        } catch (err) {
+            console.error(err);
+            toast.error(err.message || 'Failed to load firm details');
+            setShowFirmViewModal(false);
+            setViewFirm(null);
+        } finally {
+            setFirmViewLoading(false);
         }
     };
 
@@ -412,6 +541,7 @@ const DetailsTab = ({ taskData: initialData, task_id, onTaskUpdated }) => {
                 : { label: 'Billing Pending', className: 'bg-amber-100 text-amber-700' };
 
     const clientName = taskData.client?.profile?.name || taskData.client?.name || '—';
+    const clientUsername = taskData.client?.username || '';
     const clientMobile = taskData.client?.profile?.mobile || '—';
     const clientEmail = taskData.client?.profile?.email || '—';
 
@@ -526,7 +656,19 @@ const DetailsTab = ({ taskData: initialData, task_id, onTaskUpdated }) => {
                                     <span className="font-semibold text-gray-800">{taskData.service?.name || '—'}</span>
                                 </MetaField>
                                 <MetaField label="Firm">
-                                    <span className="font-semibold text-gray-800">{taskData.firm?.firm_name || '—'}</span>
+                                    {taskData.firm?.firm_id && taskData.firm?.firm_name ? (
+                                        <button
+                                            type="button"
+                                            onClick={openFirmViewModal}
+                                            className={`text-left ${PROFILE_LINK_CLASS}`}
+                                        >
+                                            {taskData.firm.firm_name}
+                                        </button>
+                                    ) : (
+                                        <span className="font-semibold text-gray-800">
+                                            {taskData.firm?.firm_name || '—'}
+                                        </span>
+                                    )}
                                 </MetaField>
                                 <MetaField label="Compliance">
                                     <span className={`text-xs font-medium ${taskData.is_recurring ? 'text-green-600' : 'text-gray-400'}`}>
@@ -597,7 +739,16 @@ const DetailsTab = ({ taskData: initialData, task_id, onTaskUpdated }) => {
                                     </span>
                                 </div>
                                 <div className="min-w-0 flex-1">
-                                    <p className="text-sm font-semibold text-gray-800">{clientName}</p>
+                                    {clientUsername && clientName !== '—' ? (
+                                        <Link
+                                            to={`/client/profile/${encodeURIComponent(clientUsername)}`}
+                                            className={`text-sm ${PROFILE_LINK_CLASS}`}
+                                        >
+                                            {clientName}
+                                        </Link>
+                                    ) : (
+                                        <p className="text-sm font-semibold text-gray-800">{clientName}</p>
+                                    )}
                                     <ContactLine icon={FiPhone} value={clientMobile} />
                                     <ContactLine icon={FiMail} value={clientEmail} />
                                 </div>
@@ -651,18 +802,24 @@ const DetailsTab = ({ taskData: initialData, task_id, onTaskUpdated }) => {
                     </div>
 
                     <SectionBlock icon={FiClock} title="Audit">
-                        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
                             <div className="rounded-lg border border-gray-100 bg-gray-50 px-3 py-2.5">
                                 <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-500">Created By</p>
-                                <p className="mt-1 text-sm font-semibold text-gray-800">{taskData.create_by?.name || '—'}</p>
+                                <StaffProfileName user={taskData.create_by} />
                                 <ContactLine icon={FiPhone} value={taskData.create_by?.mobile} />
                                 <ContactLine icon={FiMail} value={taskData.create_by?.email} />
                             </div>
                             <div className="rounded-lg border border-gray-100 bg-gray-50 px-3 py-2.5">
                                 <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-500">Modified By</p>
-                                <p className="mt-1 text-sm font-semibold text-gray-800">{taskData.modify_by?.name || '—'}</p>
+                                <StaffProfileName user={taskData.modify_by} />
                                 <ContactLine icon={FiPhone} value={taskData.modify_by?.mobile} />
                                 <ContactLine icon={FiMail} value={taskData.modify_by?.email} />
+                            </div>
+                            <div className="rounded-lg border border-gray-100 bg-gray-50 px-3 py-2.5">
+                                <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-500">Completed By</p>
+                                <StaffProfileName user={taskData.complete_by} />
+                                <ContactLine icon={FiPhone} value={taskData.complete_by?.mobile} />
+                                <ContactLine icon={FiMail} value={taskData.complete_by?.email} />
                             </div>
                         </div>
                     </SectionBlock>
@@ -1216,6 +1373,42 @@ const DetailsTab = ({ taskData: initialData, task_id, onTaskUpdated }) => {
                     name: statusOption.label,
                 }))}
             />
+
+            <FirmModalShell
+                open={showFirmViewModal}
+                onClose={() => {
+                    setShowFirmViewModal(false);
+                    setViewFirm(null);
+                }}
+                maxWidth="max-w-5xl"
+                headerClass="bg-gradient-to-r from-slate-700 via-slate-800 to-slate-900"
+                icon={FiEye}
+                title="Firm details"
+                subtitle={viewFirm?.firm_name || 'View firm information'}
+                footer={
+                    <div className="flex justify-end">
+                        <button
+                            type="button"
+                            onClick={() => {
+                                setShowFirmViewModal(false);
+                                setViewFirm(null);
+                            }}
+                            className="rounded-xl border border-slate-200 bg-white px-5 py-2.5 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50"
+                        >
+                            Close
+                        </button>
+                    </div>
+                }
+            >
+                {firmViewLoading ? (
+                    <div className="flex items-center justify-center gap-2 py-12 text-sm text-slate-500">
+                        <FiLoader className="h-4 w-4 animate-spin" />
+                        Loading firm details…
+                    </div>
+                ) : viewFirm ? (
+                    <FirmViewDetails firm={viewFirm} formatDate={formatFirmViewDate} />
+                ) : null}
+            </FirmModalShell>
         </>
     );
 };

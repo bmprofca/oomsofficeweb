@@ -1,15 +1,16 @@
-import React from 'react';
-import { FiCornerUpLeft, FiPhone, FiPlay } from 'react-icons/fi';
-import { WhatsAppFormattedText } from './oneChattingChatUtils';
+import React from "react";
+import { FiCornerUpLeft, FiPhone, FiPlay } from "react-icons/fi";
+import { WhatsAppFormattedText } from "./oneChattingChatUtils";
 
-const PREVIEW_WIDTH_CLASS = 'w-full max-w-[330px]';
-const HEADER_MEDIA_CLASS = 'relative w-full h-[180px] shrink-0 overflow-hidden rounded-t-md bg-[#dfe5e7]';
+const PREVIEW_WIDTH_CLASS = "w-full max-w-[330px]";
+const HEADER_MEDIA_CLASS =
+  "relative w-full h-[180px] shrink-0 overflow-hidden rounded-t-md bg-[#dfe5e7]";
 
 const TemplateActionButton = ({ button }) => {
   const baseClass =
-    'flex items-center justify-center gap-2 w-full px-3 py-2.5 text-sm font-medium text-[#008069] border-t border-gray-200 hover:bg-gray-50 transition-colors';
+    "flex items-center justify-center gap-2 w-full px-3 py-2.5 text-sm font-medium text-[#008069] border-t border-gray-200 hover:bg-gray-50 transition-colors";
 
-  if (button.type === 'PHONE_NUMBER' && button.phone_number) {
+  if (button.type === "PHONE_NUMBER" && button.phone_number) {
     return (
       <a
         href={`tel:${button.phone_number}`}
@@ -22,8 +23,8 @@ const TemplateActionButton = ({ button }) => {
     );
   }
 
-  if (button.type === 'URL' && button.url) {
-    const href = button.url.startsWith('http')
+  if (button.type === "URL" && button.url) {
+    const href = button.url.startsWith("http")
       ? button.url
       : `https://${button.url}`;
 
@@ -51,11 +52,11 @@ const TemplateActionButton = ({ button }) => {
 const TemplateHeaderMedia = ({ header, templateName, onOpenHeaderMedia }) => {
   if (!header?.mediaUrl) return null;
 
-  if (header.format === 'IMAGE') {
+  if (header.format === "IMAGE") {
     const image = (
       <img
         src={header.mediaUrl}
-        alt={templateName || 'Template header'}
+        alt={templateName || "Template header"}
         className="w-full h-full object-cover"
         referrerPolicy="no-referrer"
       />
@@ -68,7 +69,7 @@ const TemplateHeaderMedia = ({ header, templateName, onOpenHeaderMedia }) => {
     return (
       <button
         type="button"
-        onClick={() => onOpenHeaderMedia(header.mediaUrl, 'image')}
+        onClick={() => onOpenHeaderMedia(header.mediaUrl, "image")}
         className={`block ${HEADER_MEDIA_CLASS} text-left focus:outline-none focus:ring-2 focus:ring-green-400/50`}
       >
         {image}
@@ -76,7 +77,7 @@ const TemplateHeaderMedia = ({ header, templateName, onOpenHeaderMedia }) => {
     );
   }
 
-  if (header.format === 'VIDEO') {
+  if (header.format === "VIDEO") {
     return (
       <div className={HEADER_MEDIA_CLASS}>
         <video
@@ -92,13 +93,15 @@ const TemplateHeaderMedia = ({ header, templateName, onOpenHeaderMedia }) => {
     );
   }
 
-  if (header.format === 'DOCUMENT') {
+  if (header.format === "DOCUMENT") {
     return (
       <div className="px-3 pt-3">
         <div className="flex items-center gap-2 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2">
-          <span className="text-[10px] font-bold uppercase text-red-600">DOC</span>
+          <span className="text-[10px] font-bold uppercase text-red-600">
+            DOC
+          </span>
           <span className="text-sm text-gray-800 truncate">
-            {header.fileName || 'Document'}
+            {header.fileName || "Document"}
           </span>
         </div>
       </div>
@@ -111,13 +114,15 @@ const TemplateHeaderMedia = ({ header, templateName, onOpenHeaderMedia }) => {
 const OneChattingTemplatePreview = ({
   content,
   onOpenHeaderMedia,
-  className = '',
+  className = "",
 }) => {
   if (!content) return null;
 
   const { header, bodyText, footerText, buttons, templateName } = content;
-  const linkClassName = 'text-[#027eb5] hover:underline';
-  const hasHeaderMedia = ['IMAGE', 'VIDEO', 'DOCUMENT'].includes(header?.format);
+  const linkClassName = "text-[#027eb5] hover:underline";
+  const hasHeaderMedia = ["IMAGE", "VIDEO", "DOCUMENT"].includes(
+    header?.format,
+  );
 
   return (
     <div
@@ -131,7 +136,7 @@ const OneChattingTemplatePreview = ({
         />
       ) : null}
 
-      {header?.format === 'TEXT' && header.text ? (
+      {header?.format === "TEXT" && header.text ? (
         <p className="text-sm font-semibold text-gray-900 px-3 pt-3 pb-1 m-0">
           {header.text}
         </p>
@@ -140,11 +145,11 @@ const OneChattingTemplatePreview = ({
       {bodyText ? (
         <div
           className={`px-3 ${
-            header?.format === 'TEXT'
-              ? 'pt-1 pb-2'
+            header?.format === "TEXT"
+              ? "pt-1 pb-2"
               : hasHeaderMedia
-                ? 'py-2'
-                : 'pt-3 pb-2'
+                ? "py-2"
+                : "pt-3 pb-2"
           }`}
         >
           <WhatsAppFormattedText

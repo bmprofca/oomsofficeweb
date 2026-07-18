@@ -1,4 +1,10 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { createPortal } from "react-dom";
 import { Link } from "react-router-dom";
 import { toast } from "react-hot-toast";
@@ -429,8 +435,7 @@ const OneChattingTemplates = () => {
       selectedMappingTemplate.template,
     );
     const missingField = placeholders.find(
-      (field) =>
-        field.required && !mappingVariableValues[field.key]?.trim(),
+      (field) => field.required && !mappingVariableValues[field.key]?.trim(),
     );
     if (missingField) {
       toast.error(`Please fill in ${missingField.label}`);
@@ -972,18 +977,34 @@ const OneChattingTemplates = () => {
     </>
   );
 
-  if (!check('broadcast_config_edit')) {
+  if (!check("broadcast_config_edit")) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50">
-        <Header mobileMenuOpen={mobileMenuOpen} setMobileMenuOpen={setMobileMenuOpen} isMinimized={isMinimized} setIsMinimized={setIsMinimized} />
-        <Sidebar mobileMenuOpen={mobileMenuOpen} setMobileMenuOpen={setMobileMenuOpen} isMinimized={isMinimized} setIsMinimized={setIsMinimized} />
-        <div className={`pt-16 flex items-center justify-center transition-all duration-300 h-[calc(100vh-4rem)] ${isMinimized ? 'md:pl-20' : 'md:pl-[260px]'}`}>
+        <Header
+          mobileMenuOpen={mobileMenuOpen}
+          setMobileMenuOpen={setMobileMenuOpen}
+          isMinimized={isMinimized}
+          setIsMinimized={setIsMinimized}
+        />
+        <Sidebar
+          mobileMenuOpen={mobileMenuOpen}
+          setMobileMenuOpen={setMobileMenuOpen}
+          isMinimized={isMinimized}
+          setIsMinimized={setIsMinimized}
+        />
+        <div
+          className={`pt-16 flex items-center justify-center transition-all duration-300 h-[calc(100vh-4rem)] ${isMinimized ? "md:pl-20" : "md:pl-[260px]"}`}
+        >
           <div className="text-center p-8 bg-white rounded-2xl border border-slate-200 shadow-sm max-w-sm w-full mx-4">
             <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-4">
               <FiLock className="w-8 h-8 text-slate-400" />
             </div>
-            <h3 className="text-lg font-bold text-slate-800 mb-2">Access Denied</h3>
-            <p className="text-slate-500 text-sm">You do not have permission to view this page.</p>
+            <h3 className="text-lg font-bold text-slate-800 mb-2">
+              Access Denied
+            </h3>
+            <p className="text-slate-500 text-sm">
+              You do not have permission to view this page.
+            </p>
           </div>
         </div>
       </div>
@@ -1179,7 +1200,10 @@ const OneChattingTemplates = () => {
                           key={template.template_id}
                           type="button"
                           onClick={() =>
-                            selectMappingTemplate(template, setMappingItem.component)
+                            selectMappingTemplate(
+                              template,
+                              setMappingItem.component,
+                            )
                           }
                           className="w-full text-left px-3 py-3 rounded-lg border border-gray-200 hover:border-green-300 hover:bg-green-50 transition-colors"
                         >
