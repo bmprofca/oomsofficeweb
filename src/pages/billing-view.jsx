@@ -168,10 +168,9 @@ const normalizeBillingRow = (raw) => {
   const dates = raw.dates || {};
   const firm = raw.firm || {};
   const service = raw.service || {};
-  const modifyBy = raw.modify_by || {};
+  const completeBy = raw.complete_by || {};
   const createBy = raw.create_by || {};
   const staffs = Array.isArray(raw.staffs) ? raw.staffs : [];
-  const primaryStaff = staffs[0];
 
   return {
     id: raw.task_id,
@@ -204,16 +203,9 @@ const normalizeBillingRow = (raw) => {
     due_date: dates.due_date,
     bill_status: mapBillingStatusToBillType(raw.billing_status),
     task_status: raw.status,
-    completer_name: modifyBy.name || primaryStaff?.name || createBy.name || "—",
-    completer_username:
-      modifyBy.username || primaryStaff?.username || createBy.username || "",
-    completer_mobile:
-      modifyBy.mobile || primaryStaff?.mobile || createBy.mobile || "",
-    completer_user_type: modifyBy.username
-      ? "staff"
-      : primaryStaff
-        ? "staff"
-        : "user",
+    completer_name: completeBy.name || "—",
+    completer_username: completeBy.username || "",
+    completer_mobile: completeBy.mobile || "",
     is_recurring: Boolean(raw.is_recurring),
     recurring_type: raw.recurring_type || "",
     staffs,
@@ -225,8 +217,6 @@ const normalizeBillingRow = (raw) => {
     billing_status_label: raw.billing_status || "",
     create_by_name: createBy.name || "",
     create_by_username: createBy.username || "",
-    modify_by_name: modifyBy.name || "",
-    modify_by_username: modifyBy.username || "",
     ca: raw.ca || null,
     agent: raw.agent || null,
     _raw: raw,
@@ -596,8 +586,10 @@ const BillingDetailsModal = ({ item, onClose }) => {
                 {item.create_by_name ? (
                   <DetailField label="Created by">{item.create_by_name}</DetailField>
                 ) : null}
-                {item.modify_by_name ? (
-                  <DetailField label="Modified by">{item.modify_by_name}</DetailField>
+                {item.completer_name && item.completer_name !== "—" ? (
+                  <DetailField label="Completed by">
+                    {item.completer_name}
+                  </DetailField>
                 ) : null}
               </dl>
             </section>
