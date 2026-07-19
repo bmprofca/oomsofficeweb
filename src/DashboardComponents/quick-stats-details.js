@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { useParams, useLocation, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -21,21 +22,150 @@ import {
     FiCalendar as FiCalendarIcon,
     FiClock,
     FiX,
-    FiLock,
     FiCheckSquare,
     FiFileText,
-    FiBookOpen,
-    FiClipboard,
-    FiFolder,
     FiMoreVertical,
     FiFilter,
-    FiSend
+    FiBell,
+    FiFile,
+    FiArchive,
+    FiMessageSquare,
 } from 'react-icons/fi';
 import { Sidebar, Header } from '../components/header';
 import TablePagination from '../components/TablePagination';
+import ClientPaymentReminderModal from '../components/Modals/ClientPaymentReminderModal';
 import getHeaders from '../utils/get-headers';
 import API_BASE_URL from '../utils/api-controller';
 import toast from 'react-hot-toast';
+
+const AnimatedCheckbox = ({
+    checked,
+    indeterminate = false,
+    onChange,
+    ariaLabel,
+    disabled = false,
+}) => {
+    const inputRef = useRef(null);
+
+    useEffect(() => {
+        if (inputRef.current) {
+            inputRef.current.indeterminate = indeterminate;
+        }
+    }, [indeterminate, checked]);
+
+    const isActive = checked || indeterminate;
+
+    return (
+        <label
+            className={`relative inline-flex items-center group ${disabled ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'}`}
+        >
+            <input
+                ref={inputRef}
+                type="checkbox"
+                className="sr-only"
+                checked={checked}
+                onChange={onChange}
+                aria-label={ariaLabel}
+                disabled={disabled}
+            />
+            <motion.span
+                className={`flex h-[18px] w-[18px] items-center justify-center rounded-[4px] border-2 transition-colors duration-200 ${isActive
+                        ? 'border-indigo-600 bg-indigo-600 shadow-sm shadow-indigo-200'
+                        : 'border-gray-300 bg-white group-hover:border-indigo-400'
+                    }`}
+                animate={{ scale: isActive ? [1, 1.12, 1] : 1 }}
+                transition={{ duration: 0.18 }}
+                whileTap={disabled ? {} : { scale: 0.92 }}
+            >
+                <AnimatePresence initial={false} mode="wait">
+                    {indeterminate ? (
+                        <motion.span
+                            key="dash"
+                            className="block h-0.5 w-2 rounded-full bg-white"
+                            initial={{ opacity: 0, scaleX: 0.4 }}
+                            animate={{ opacity: 1, scaleX: 1 }}
+                            exit={{ opacity: 0, scaleX: 0.4 }}
+                            transition={{ duration: 0.12 }}
+                        />
+                    ) : checked ? (
+                        <motion.svg
+                            key="check"
+                            viewBox="0 0 12 12"
+                            className="h-3 w-3 text-white"
+                            initial={{ opacity: 0, scale: 0.5 }}
+                            animate={{ opacity: 1, scale: 1 }}
+                            exit={{ opacity: 0, scale: 0.5 }}
+                            transition={{ duration: 0.15 }}
+                        >
+                            <path
+                                d="M2.5 6l2.2 2.2 4.8-4.8"
+                                fill="none"
+                                stroke="currentColor"
+                                strokeWidth="1.8"
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                            />
+                        </motion.svg>
+                    ) : null}
+                </AnimatePresence>
+            </motion.span>
+        </label>
+    );
+};
+
+const DebtorActionMenuItems = ({ client, onClose, navigate }) => {
+    const username = client?.username;
+    const go = (tab) => {
+        onClose?.();
+        if (!username) return;
+        navigate(
+            tab
+                ? `/client/profile/${encodeURIComponent(username)}/${tab}`
+                : `/client/profile/${encodeURIComponent(username)}`
+        );
+    };
+
+    const itemClass =
+        'flex w-full items-center px-4 py-2 text-sm text-gray-700 transition-colors hover:bg-gray-50';
+
+    return (
+        <div className="py-1">
+            <button type="button" onClick={() => go()} className={itemClass}>
+                <FiEye className="mr-3 h-4 w-4 text-blue-600" />
+                View Details
+            </button>
+            <button type="button" onClick={() => go('task')} className={itemClass}>
+                <FiCheckSquare className="mr-3 h-4 w-4 text-indigo-600" />
+                Tasks
+            </button>
+            <button type="button" onClick={() => go('billing')} className={itemClass}>
+                <FiFileText className="mr-3 h-4 w-4 text-emerald-600" />
+                Billing
+            </button>
+            <button type="button" onClick={() => go('notes')} className={itemClass}>
+                <FiFile className="mr-3 h-4 w-4 text-amber-600" />
+                Notes
+            </button>
+            <button type="button" onClick={() => go('documents')} className={itemClass}>
+                <FiArchive className="mr-3 h-4 w-4 text-violet-600" />
+                Documents
+            </button>
+
+            <div className="my-1 border-t border-gray-100" />
+
+            <button
+                type="button"
+                onClick={() => {
+                    onClose?.();
+                }}
+                className={itemClass}
+            >
+                <FiMessageSquare className="mr-3 h-4 w-4 text-purple-600" />
+                Send Message
+            </button>
+        </div>
+    );
+};
 
 const FirmsDetailsModal = ({ isOpen, onClose, firms, clientName }) => {
     if (!isOpen || !firms || firms.length === 0) return null;
@@ -155,6 +285,12 @@ const QuickStatsDetailsPage = () => {
     const [showFilterDropdown, setShowFilterDropdown] = useState(false);
     const [meta, setMeta] = useState({ debtor_count: 0, debtor_balance: 0, creditor_count: 0, creditor_balance: 0 });
     const [activeRowDropdown, setActiveRowDropdown] = useState(null);
+    const [dropdownPos, setDropdownPos] = useState({
+        top: undefined,
+        bottom: undefined,
+        right: 0,
+        openUpward: false,
+    });
     const [firmsModal, setFirmsModal] = useState({ open: false, firms: [], clientName: '' });
 
     // Multi-Select State
@@ -162,14 +298,10 @@ const QuickStatsDetailsPage = () => {
     const [selectAll, setSelectAll] = useState(false);
 
     // Payment Reminder Modal State
-    const [paymentReminderModal, setPaymentReminderModal] = useState({
-        isOpen: false,
-        type: 'single', // 'single' or 'bulk'
-        username: null,
-        name: null,
-        debtorList: []
+    const [clientPaymentReminder, setClientPaymentReminder] = useState({
+        open: false,
+        clients: [],
     });
-    const [sendingReminder, setSendingReminder] = useState(false);
 
     // Persist sidebar minimized state
     useEffect(() => {
@@ -374,8 +506,26 @@ const QuickStatsDetailsPage = () => {
         setPagination(prev => ({ ...prev, page_no: 1 }));
     };
 
-    const toggleRowDropdown = (username) => {
-        setActiveRowDropdown(activeRowDropdown === username ? null : username);
+    const toggleRowDropdown = (username, e) => {
+        if (activeRowDropdown === username) {
+            setActiveRowDropdown(null);
+            return;
+        }
+
+        const rect = e?.currentTarget?.getBoundingClientRect?.();
+        if (rect) {
+            const estimatedHeight = 260;
+            const spaceBelow = window.innerHeight - rect.bottom;
+            const openUpward = spaceBelow < estimatedHeight + 8;
+            setDropdownPos({
+                top: openUpward ? undefined : rect.bottom + 4,
+                bottom: openUpward ? window.innerHeight - rect.top + 4 : undefined,
+                right: window.innerWidth - rect.right,
+                openUpward,
+            });
+        }
+
+        setActiveRowDropdown(username);
     };
 
     const getLastUpdatedFirm = (firms) => {
@@ -451,150 +601,31 @@ const QuickStatsDetailsPage = () => {
         setSelectAll(false);
     };
 
-    // Send Single Payment Reminder
-    const sendSinglePaymentReminder = async (username, name) => {
-        setSendingReminder(true);
-        const headers = getHeaders();
-
-        try {
-            const response = await fetch(`${API_BASE_URL}/payment-reminder/payment-reminder/send`, {
-                method: 'POST',
-                headers: {
-                    ...headers,
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({ username })
-            });
-
-            const result = await response.json();
-
-            if (result.success) {
-                if (result.data.reminder_sent) {
-                    toast.success(`✅ Payment reminder sent to ${name || username}`);
-                } else {
-                    toast(`ℹ️ ${name || username} has no debit balance. Reminder not sent.`, {
-                        icon: 'ℹ️',
-                        duration: 4000
-                    });
-                }
-            } else {
-                toast.error(result.message || 'Failed to send reminder');
-            }
-        } catch (error) {
-            console.error('Error sending reminder:', error);
-            toast.error(error.message || 'Failed to send payment reminder');
-        } finally {
-            setSendingReminder(false);
-            setPaymentReminderModal({ isOpen: false, type: 'single', username: null, name: null, debtorList: [] });
-        }
+    const openClientPaymentReminderModal = (client) => {
+        if (!client || Number(client.balance) <= 0) return;
+        setClientPaymentReminder({ open: true, clients: [client] });
     };
 
-    // Send Bulk Payment Reminders
-    const sendBulkPaymentReminders = async (debtorList) => {
-        setSendingReminder(true);
-        const headers = getHeaders();
-        const usernames = debtorList.map(d => d.username);
-
-        try {
-            const response = await fetch(`${API_BASE_URL}/payment-reminder/payment-reminder/bulk-send`, {
-                method: 'POST',
-                headers: {
-                    ...headers,
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({ usernames })
-            });
-
-            const result = await response.json();
-
-            if (result.success) {
-                const data = result.data;
-                toast.success(`✅ Reminders sent! Sent: ${data.sent} | Skipped: ${data.skipped} | Failed: ${data.failed}`, {
-                    duration: 5000
-                });
-
-                // Show detailed results
-                if (data.skipped > 0) {
-                    const skippedUsers = data.details
-                        .filter(d => d.status === 'skipped')
-                        .map(d => d.username)
-                        .join(', ');
-                    if (skippedUsers) {
-                        toast(`Skipped (no debit): ${skippedUsers}`, { icon: 'ℹ️', duration: 5000 });
-                    }
-                }
-                if (data.failed > 0) {
-                    const failedUsers = data.details
-                        .filter(d => d.status === 'failed')
-                        .map(d => d.username)
-                        .join(', ');
-                    if (failedUsers) {
-                        toast.error(`Failed: ${failedUsers}`, { duration: 5000 });
-                    }
-                }
-
-                // Clear selection after successful send
-                clearSelection();
-            } else {
-                toast.error(result.message || 'Failed to send reminders');
-            }
-        } catch (error) {
-            console.error('Error sending bulk reminders:', error);
-            toast.error(error.message || 'Failed to send payment reminders');
-        } finally {
-            setSendingReminder(false);
-            setPaymentReminderModal({ isOpen: false, type: 'single', username: null, name: null, debtorList: [] });
-        }
-    };
-
-    // Open Modal Functions
-    const openSingleReminderModal = (username, name) => {
-        setPaymentReminderModal({
-            isOpen: true,
-            type: 'single',
-            username,
-            name,
-            debtorList: []
-        });
+    const closeClientPaymentReminderModal = () => {
+        setClientPaymentReminder({ open: false, clients: [] });
     };
 
     const openBulkReminderModal = () => {
         const debtorsList = data?.list || [];
-        const selectedDebtorsList = debtorsList.filter(item => selectedDebtors.has(item.username));
+        const selectedDebtorsList = debtorsList.filter(
+            item => selectedDebtors.has(item.username) && Number(item.balance) > 0
+        );
 
         if (selectedDebtorsList.length === 0) {
-            toast.error('Please select at least one debtor');
+            toast.error('Select at least one debtor with a positive balance');
             return;
         }
 
-        setPaymentReminderModal({
-            isOpen: true,
-            type: 'bulk',
-            username: null,
-            name: null,
-            debtorList: selectedDebtorsList
+        setClientPaymentReminder({
+            open: true,
+            clients: selectedDebtorsList,
         });
     };
-
-    const closeReminderModal = () => {
-        setPaymentReminderModal({ isOpen: false, type: 'single', username: null, name: null, debtorList: [] });
-    };
-
-    const handleMenuAction = (username, path) => {
-        navigate(`/client/profile/${username}/${path}`);
-        setActiveRowDropdown(null);
-    };
-
-    const getMenuItems = () => [
-        { icon: <FiUser className="w-4 h-4" />, label: 'Profile', path: 'basic-details' },
-        { icon: <FiBriefcase className="w-4 h-4" />, label: 'Firms', path: 'firms' },
-        { icon: <FiLock className="w-4 h-4" />, label: 'Password', path: 'password' },
-        { icon: <FiCheckSquare className="w-4 h-4" />, label: 'Tasks', path: 'task' },
-        { icon: <FiFileText className="w-4 h-4" />, label: 'Billing', path: 'billing' },
-        { icon: <FiBookOpen className="w-4 h-4" />, label: 'Ledger', path: 'ledger' },
-        { icon: <FiClipboard className="w-4 h-4" />, label: 'Notes', path: 'notes' },
-        { icon: <FiFolder className="w-4 h-4" />, label: 'Documents', path: 'documents' }
-    ];
 
     const getPageTitle = () => {
         switch (type) {
@@ -661,67 +692,21 @@ const QuickStatsDetailsPage = () => {
         { id: 'actions', label: 'Actions', flex: '0.8' },
     ];
 
-    const renderRowActionMenu = (item, showReminder = false) => {
-        const menuItems = getMenuItems();
+    const renderRowActionMenu = (item) => {
         return (
             <div className="relative dropdown-container flex justify-center">
                 <motion.button
-                    onClick={() => toggleRowDropdown(item.username)}
+                    type="button"
+                    onClick={(e) => {
+                        e.stopPropagation();
+                        toggleRowDropdown(item.username, e);
+                    }}
                     className="w-8 h-8 flex items-center justify-center rounded bg-gray-100 hover:bg-gray-200 transition-colors border border-gray-300"
                     whileHover={{ scale: 1.05 }}
                     whileTap={{ scale: 0.95 }}
                 >
                     <FiMoreVertical className="w-4 h-4 text-gray-700" />
                 </motion.button>
-                <AnimatePresence>
-                    {activeRowDropdown === item.username && (
-                        <motion.div
-                            className="absolute right-0 mt-1 w-56 bg-white rounded-lg shadow-xl border border-gray-200 z-50 overflow-hidden"
-                            initial={{ opacity: 0, y: -8, scale: 0.96 }}
-                            animate={{ opacity: 1, y: 0, scale: 1 }}
-                            exit={{ opacity: 0, y: -8, scale: 0.96 }}
-                            transition={{ duration: 0.15 }}
-                        >
-                            <div className="py-1">
-                                {showReminder && (
-                                    <>
-                                        <button
-                                            onClick={() => {
-                                                setActiveRowDropdown(null);
-                                                openSingleReminderModal(item.username, item.name);
-                                            }}
-                                            className="flex items-center w-full px-4 py-2 text-sm text-purple-600 hover:bg-purple-50 transition-colors"
-                                        >
-                                            <FiMailIcon className="mr-3 text-purple-600 w-4 h-4" />
-                                            Payment Reminder
-                                        </button>
-                                        <div className="border-t my-1" />
-                                    </>
-                                )}
-                                <button
-                                    onClick={() => {
-                                        setActiveRowDropdown(null);
-                                        navigate(`/client/profile/${item.username}`);
-                                    }}
-                                    className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 transition-colors"
-                                >
-                                    <FiEye className="mr-3 text-blue-600 w-4 h-4" />
-                                    View Details
-                                </button>
-                                {menuItems.map((menuItem, idx) => (
-                                    <button
-                                        key={idx}
-                                        onClick={() => handleMenuAction(item.username, menuItem.path)}
-                                        className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
-                                    >
-                                        <span className="mr-3 text-gray-500">{menuItem.icon}</span>
-                                        {menuItem.label}
-                                    </button>
-                                ))}
-                            </div>
-                        </motion.div>
-                    )}
-                </AnimatePresence>
             </div>
         );
     };
@@ -760,10 +745,11 @@ const QuickStatsDetailsPage = () => {
                 >
                     <div className="flex items-start justify-between mb-2">
                         <div className="flex items-center gap-2">
-                            <label className="relative inline-flex items-center cursor-pointer">
-                                <input type="checkbox" className="sr-only peer" checked={isSelected} onChange={() => handleSelectDebtor(item.username)} />
-                                <div className={`w-8 h-4 ${isSelected ? 'bg-blue-600' : 'bg-gray-300'} rounded-full peer after:content-[''] after:absolute after:top-[1px] after:left-[1px] after:bg-white after:rounded-full after:h-3 after:w-3 after:transition-all ${isSelected ? 'after:translate-x-full' : ''}`} />
-                            </label>
+                            <AnimatedCheckbox
+                                checked={isSelected}
+                                onChange={() => handleSelectDebtor(item.username)}
+                                ariaLabel={`Select ${item.name || item.username}`}
+                            />
                             <div className="font-bold text-gray-800 text-sm w-4">{index + 1}</div>
                             <div className="w-7 h-7 bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg flex items-center justify-center">
                                 <FiUser className="w-3.5 h-3.5 text-white" />
@@ -773,7 +759,7 @@ const QuickStatsDetailsPage = () => {
                                 <div className="text-xs text-gray-500">{item.guardian_name || 'N/A'}</div>
                             </div>
                         </div>
-                        {renderRowActionMenu(item, isDebtor)}
+                        {renderRowActionMenu(item)}
                     </div>
                     <div className="space-y-2 text-sm">
                         <div className="flex items-center gap-2 text-gray-700">
@@ -793,9 +779,31 @@ const QuickStatsDetailsPage = () => {
                             </button>
                         </div>
                         <div className="flex items-center justify-between">
-                            <span className={`font-semibold ${isDebtor ? 'text-green-600' : 'text-red-600'}`}>
-                                {formatCurrency(Math.abs(item.balance))}
-                            </span>
+                            <div className="flex items-center gap-1">
+                                <button
+                                    type="button"
+                                    onClick={() =>
+                                        navigate(
+                                            `/client/profile/${encodeURIComponent(item.username)}/ledger`
+                                        )
+                                    }
+                                    className={`font-semibold transition-colors hover:opacity-80 ${isDebtor ? 'text-green-600' : 'text-red-600'}`}
+                                    title="View ledger"
+                                >
+                                    {formatCurrency(isDebtor ? Math.abs(item.balance) : item.balance)}
+                                </button>
+                                {isDebtor && Number(item.balance) > 0 && (
+                                    <button
+                                        type="button"
+                                        onClick={() => openClientPaymentReminderModal(item)}
+                                        className="inline-flex h-7 w-7 items-center justify-center rounded-lg bg-gradient-to-br from-violet-500 to-fuchsia-600 text-white shadow-sm shadow-violet-200 transition hover:brightness-110"
+                                        title="Send payment reminder"
+                                        aria-label={`Send payment reminder to ${item.name || item.username}`}
+                                    >
+                                        <FiBell className="h-3.5 w-3.5" />
+                                    </button>
+                                )}
+                            </div>
                             {isDebtor && (
                                 <span className="text-xs text-gray-500">{item.last_transaction?.period || 'No payment'}</span>
                             )}
@@ -810,7 +818,15 @@ const QuickStatsDetailsPage = () => {
                 <div className="md:hidden border-b border-gray-200 bg-white px-3 py-2 sticky top-0 z-10">
                     <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
-                            <input type="checkbox" checked={selectAll} onChange={handleSelectAll} className="w-4 h-4 text-blue-600 rounded border-gray-400" />
+                            <AnimatedCheckbox
+                                checked={selectAll}
+                                indeterminate={
+                                    selectedDebtors.size > 0 &&
+                                    selectedDebtors.size < list.length
+                                }
+                                onChange={handleSelectAll}
+                                ariaLabel={`Select all ${listLabel.toLowerCase()}`}
+                            />
                             <span className="font-semibold text-gray-800 text-sm">{listLabel}</span>
                         </div>
                         <span className="text-xs text-gray-600">{formatNumber(metaCount)} {listLabel.toLowerCase()}</span>
@@ -852,12 +868,17 @@ const QuickStatsDetailsPage = () => {
                                 <div className="border-b border-gray-200 bg-gradient-to-r from-gray-50 to-white sticky top-0 z-10">
                                     <div className="flex items-center bg-white">
                                         <div className="w-12 p-3 flex-shrink-0 flex justify-center">
-                                            <label className="relative inline-flex items-center cursor-pointer">
-                                                <input type="checkbox" className="sr-only peer" checked={selectAll} onChange={handleSelectAll} />
-                                                <div className={`w-8 h-4 ${selectAll ? 'bg-blue-600' : 'bg-gray-300'} rounded-full peer after:content-[''] after:absolute after:top-[1px] after:left-[1px] after:bg-white after:rounded-full after:h-3 after:w-3 after:transition-all ${selectAll ? 'after:translate-x-full' : ''}`} />
-                                            </label>
+                                            <AnimatedCheckbox
+                                                checked={selectAll}
+                                                indeterminate={
+                                                    selectedDebtors.size > 0 &&
+                                                    selectedDebtors.size < list.length
+                                                }
+                                                onChange={handleSelectAll}
+                                                ariaLabel={`Select all ${listLabel.toLowerCase()}`}
+                                            />
                                         </div>
-                                        <div className="w-12 p-3 font-bold text-gray-700 text-xs flex-shrink-0 text-center border-l border-gray-100">SL No</div>
+                                        <div className="w-12 p-3 font-bold text-gray-700 text-xs flex-shrink-0 text-center border-l border-gray-100">#</div>
                                         {columns.map((column) => (
                                             <div
                                                 key={column.id}
@@ -881,10 +902,11 @@ const QuickStatsDetailsPage = () => {
                                             transition={{ delay: index * 0.02 }}
                                         >
                                             <div className="w-12 p-3 flex-shrink-0 flex justify-center">
-                                                <label className="relative inline-flex items-center cursor-pointer">
-                                                    <input type="checkbox" className="sr-only peer" checked={isSelected} onChange={() => handleSelectDebtor(item.username)} />
-                                                    <div className={`w-8 h-4 ${isSelected ? 'bg-blue-600' : 'bg-gray-300'} rounded-full peer after:content-[''] after:absolute after:top-[1px] after:left-[1px] after:bg-white after:rounded-full after:h-3 after:w-3 after:transition-all ${isSelected ? 'after:translate-x-full' : ''}`} />
-                                                </label>
+                                                <AnimatedCheckbox
+                                                    checked={isSelected}
+                                                    onChange={() => handleSelectDebtor(item.username)}
+                                                    ariaLabel={`Select ${item.name || item.username}`}
+                                                />
                                             </div>
                                             <div className="w-12 p-3 flex-shrink-0 text-center border-l border-gray-100">
                                                 <span className="font-bold text-gray-800 text-xs">{((pagination.page_no - 1) * pagination.limit) + index + 1}</span>
@@ -910,8 +932,30 @@ const QuickStatsDetailsPage = () => {
                                                 {renderFirmsCell(item)}
                                             </div>
                                             <div className="p-3 min-w-0 text-center border-l border-gray-100 flex-shrink-0" style={{ flex: '1', minWidth: '120px' }}>
-                                                <div className={`inline-flex items-center px-3 py-1 rounded text-sm font-semibold border ${balanceBadgeClass}`}>
-                                                    {formatCurrency(Math.abs(item.balance))}
+                                                <div className="inline-flex items-center justify-center gap-1">
+                                                    <button
+                                                        type="button"
+                                                        onClick={() =>
+                                                            navigate(
+                                                                `/client/profile/${encodeURIComponent(item.username)}/ledger`
+                                                            )
+                                                        }
+                                                        className={`inline-flex items-center px-3 py-1 rounded text-sm font-semibold border transition-colors hover:opacity-90 ${balanceBadgeClass}`}
+                                                        title="View ledger"
+                                                    >
+                                                        {formatCurrency(isDebtor ? Math.abs(item.balance) : item.balance)}
+                                                    </button>
+                                                    {isDebtor && Number(item.balance) > 0 && (
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => openClientPaymentReminderModal(item)}
+                                                            className="inline-flex h-7 w-7 items-center justify-center rounded-lg bg-gradient-to-br from-violet-500 to-fuchsia-600 text-white shadow-sm shadow-violet-200 transition hover:-translate-y-0.5 hover:shadow-md"
+                                                            title="Send payment reminder"
+                                                            aria-label={`Send payment reminder to ${item.name || item.username}`}
+                                                        >
+                                                            <FiBell className="h-3.5 w-3.5" />
+                                                        </button>
+                                                    )}
                                                 </div>
                                             </div>
                                             {isDebtor && (
@@ -921,7 +965,7 @@ const QuickStatsDetailsPage = () => {
                                                 </div>
                                             )}
                                             <div className="p-3 min-w-0 border-l border-gray-100 flex-shrink-0" style={{ flex: '0.8', minWidth: '72px' }}>
-                                                {renderRowActionMenu(item, isDebtor)}
+                                                {renderRowActionMenu(item)}
                                             </div>
                                         </motion.div>
                                     );
@@ -1083,7 +1127,48 @@ const QuickStatsDetailsPage = () => {
                     </div>
                 </div>
 
-                {isDebtor && <PaymentReminderConfirmationModal />}
+                <ClientPaymentReminderModal
+                    isOpen={clientPaymentReminder.open}
+                    onClose={closeClientPaymentReminderModal}
+                    onSuccess={clearSelection}
+                    clients={clientPaymentReminder.clients}
+                />
+                {activeRowDropdown !== null &&
+                    createPortal(
+                        (() => {
+                            const list = data?.list || [];
+                            const activeClient = list.find(
+                                (item) => item.username === activeRowDropdown
+                            );
+                            if (!activeClient) return null;
+                            return (
+                                <motion.div
+                                    initial={{
+                                        opacity: 0,
+                                        scale: 0.95,
+                                        y: dropdownPos.openUpward ? 6 : -6,
+                                    }}
+                                    animate={{ opacity: 1, scale: 1, y: 0 }}
+                                    transition={{ duration: 0.12 }}
+                                    className="dropdown-container fixed bg-white rounded-xl shadow-2xl border border-gray-200 overflow-hidden"
+                                    style={{
+                                        top: dropdownPos.top,
+                                        bottom: dropdownPos.bottom,
+                                        right: dropdownPos.right,
+                                        width: '224px',
+                                        zIndex: 9999,
+                                    }}
+                                >
+                                    <DebtorActionMenuItems
+                                        client={activeClient}
+                                        navigate={navigate}
+                                        onClose={() => setActiveRowDropdown(null)}
+                                    />
+                                </motion.div>
+                            );
+                        })(),
+                        document.body
+                    )}
                 <FirmsDetailsModal
                     isOpen={firmsModal.open}
                     onClose={closeFirmsModal}
@@ -1130,164 +1215,6 @@ const QuickStatsDetailsPage = () => {
             default:
                 return <div className="text-center py-8 text-gray-500">No data available</div>;
         }
-    };
-
-    // Payment Reminder Confirmation Modal
-    const PaymentReminderConfirmationModal = () => {
-        if (!paymentReminderModal.isOpen) return null;
-
-        const isBulk = paymentReminderModal.type === 'bulk';
-        const debtorCount = paymentReminderModal.debtorList.length;
-        const totalAmount = isBulk ? paymentReminderModal.debtorList.reduce((sum, d) => sum + Math.abs(d.balance || 0), 0) : 0;
-
-        const handleSend = () => {
-            if (isBulk) {
-                sendBulkPaymentReminders(paymentReminderModal.debtorList);
-            } else {
-                sendSinglePaymentReminder(paymentReminderModal.username, paymentReminderModal.name);
-            }
-        };
-
-        return (
-            <AnimatePresence>
-                <motion.div
-                    className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[200] p-4"
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    exit={{ opacity: 0 }}
-                    onClick={closeReminderModal}
-                >
-                    <motion.div
-                        className="bg-white rounded-xl shadow-2xl w-full max-w-md mx-auto overflow-hidden"
-                        initial={{ scale: 0.95, opacity: 0, y: 20 }}
-                        animate={{ scale: 1, opacity: 1, y: 0 }}
-                        exit={{ scale: 0.95, opacity: 0, y: 20 }}
-                        transition={{ duration: 0.2 }}
-                        onClick={(e) => e.stopPropagation()}
-                    >
-                        <div className="bg-gradient-to-r from-purple-600 to-purple-700 text-white px-6 py-4">
-                            <div className="flex items-center justify-between">
-                                <div className="flex items-center gap-3">
-                                    <div className="w-10 h-10 bg-white/20 rounded-lg flex items-center justify-center">
-                                        {isBulk ? <FiUsers className="w-5 h-5" /> : <FiMailIcon className="w-5 h-5" />}
-                                    </div>
-                                    <div>
-                                        <h3 className="text-lg font-bold">
-                                            {isBulk ? 'Bulk Payment Reminder' : 'Payment Reminder'}
-                                        </h3>
-                                        <p className="text-purple-100 text-sm">
-                                            {isBulk ? `Send to ${debtorCount} debtor(s)` : 'Send reminder to debtor'}
-                                        </p>
-                                    </div>
-                                </div>
-                                <motion.button
-                                    onClick={closeReminderModal}
-                                    className="text-white hover:text-purple-200 transition-colors p-2 rounded-lg hover:bg-white/10"
-                                    whileHover={{ scale: 1.1 }}
-                                    whileTap={{ scale: 0.9 }}
-                                >
-                                    <FiX className="w-5 h-5" />
-                                </motion.button>
-                            </div>
-                        </div>
-
-                        <div className="p-6">
-                            <div className="text-center mb-6">
-                                <div className={`w-16 h-16 ${isBulk ? 'bg-blue-100' : 'bg-purple-100'} rounded-full flex items-center justify-center mx-auto mb-4`}>
-                                    {isBulk ? <FiUsers className="w-8 h-8 text-blue-600" /> : <FiMailIcon className="w-8 h-8 text-purple-600" />}
-                                </div>
-
-                                {isBulk ? (
-                                    <>
-                                        <h4 className="text-lg font-semibold text-gray-800 mb-2">
-                                            Send to {debtorCount} Debtor(s)
-                                        </h4>
-                                        <div className="max-h-48 overflow-y-auto mb-4 border rounded-lg">
-                                            {paymentReminderModal.debtorList.map((debtor, idx) => (
-                                                <div key={idx} className="flex justify-between items-center p-2 border-b last:border-b-0">
-                                                    <div>
-                                                        <p className="font-medium text-gray-800 text-sm">{debtor.name}</p>
-                                                        <p className="text-xs text-gray-500">@{debtor.username}</p>
-                                                    </div>
-                                                    <p className="text-sm font-semibold text-green-600">
-                                                        {formatCurrency(Math.abs(debtor.balance))}
-                                                    </p>
-                                                </div>
-                                            ))}
-                                        </div>
-                                        <div className="bg-gray-50 rounded-lg p-3 mb-4">
-                                            <div className="flex justify-between items-center">
-                                                <span className="text-sm text-gray-600">Total Outstanding:</span>
-                                                <span className="text-lg font-bold text-green-600">{formatCurrency(totalAmount)}</span>
-                                            </div>
-                                        </div>
-                                    </>
-                                ) : (
-                                    <>
-                                        <h4 className="text-lg font-semibold text-gray-800 mb-2">
-                                            Send Payment Reminder
-                                        </h4>
-                                        <p className="text-gray-600 text-sm">
-                                            Are you sure you want to send a payment reminder to:
-                                        </p>
-                                        <p className="font-semibold text-purple-600 mt-2">
-                                            {paymentReminderModal.name || paymentReminderModal.username}
-                                        </p>
-                                        <p className="text-xs text-gray-500 mt-1">
-                                            @{paymentReminderModal.username}
-                                        </p>
-                                    </>
-                                )}
-                            </div>
-
-                            <div className="bg-amber-50 rounded-lg p-3 mb-6 border border-amber-200">
-                                <div className="flex items-start gap-2">
-                                    <FiAlertCircle className="w-4 h-4 text-amber-600 mt-0.5 flex-shrink-0" />
-                                    <div className="text-xs text-amber-800">
-                                        <p className="font-medium mb-1">Note:</p>
-                                        <ul className="list-disc list-inside space-y-1">
-                                            <li>Reminder will only be sent if the client has a debit balance</li>
-                                            <li>The email will contain their outstanding amount</li>
-                                            <li>Check logs in payment reminder section for status</li>
-                                        </ul>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div className="flex gap-3">
-                                <motion.button
-                                    onClick={closeReminderModal}
-                                    className="flex-1 px-4 py-2.5 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-100 font-medium text-sm"
-                                    whileHover={{ scale: 1.02 }}
-                                    whileTap={{ scale: 0.98 }}
-                                >
-                                    Cancel
-                                </motion.button>
-                                <motion.button
-                                    onClick={handleSend}
-                                    disabled={sendingReminder}
-                                    className="flex-1 px-4 py-2.5 bg-gradient-to-r from-purple-600 to-purple-700 text-white rounded-lg font-medium text-sm flex items-center justify-center gap-2 hover:from-purple-700 hover:to-purple-800 disabled:opacity-50"
-                                    whileHover={{ scale: 1.02 }}
-                                    whileTap={{ scale: 0.98 }}
-                                >
-                                    {sendingReminder ? (
-                                        <>
-                                            <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
-                                            Sending...
-                                        </>
-                                    ) : (
-                                        <>
-                                            <FiSend className="w-4 h-4" />
-                                            {isBulk ? `Send to ${debtorCount} Debtor(s)` : 'Send Reminder'}
-                                        </>
-                                    )}
-                                </motion.button>
-                            </div>
-                        </div>
-                    </motion.div>
-                </motion.div>
-            </AnimatePresence>
-        );
     };
 
     if (type === 'debtors' || type === 'creditors') {
@@ -1441,8 +1368,6 @@ const QuickStatsDetailsPage = () => {
                 </div>
             </div>
 
-            {/* Payment Reminder Confirmation Modal */}
-            <PaymentReminderConfirmationModal />
         </div>
     );
 };

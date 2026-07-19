@@ -1,13 +1,13 @@
 import React, { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "react-hot-toast";
-import {
-  FiUser,
-  FiMail,
-  FiPhone,
-  FiMapPin,
-  FiEdit2,
-  FiSave,
+import { 
+  FiUser, 
+  FiMail, 
+  FiPhone, 
+  FiMapPin, 
+  FiEdit2, 
+  FiSave, 
   FiX,
   FiCamera,
   FiRefreshCw,
@@ -476,13 +476,13 @@ export default function MyProfile() {
       event.target.value = "";
       return;
     }
-
+    
     const headers = getAccountHeaders();
     if (!headers) {
       toast.error("Missing authentication. Please sign in again.");
       return;
     }
-
+    
     setImageUploading(true);
     try {
       const publicUrl = await uploadOneSaasFileUrl(file);
@@ -589,9 +589,9 @@ export default function MyProfile() {
             <ProfileSkeleton />
           ) : (
             <>
-              <motion.div
+          <motion.div
                 initial={{ opacity: 0, y: -12 }}
-                animate={{ opacity: 1, y: 0 }}
+            animate={{ opacity: 1, y: 0 }}
                 className="mb-6 overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm"
               >
                 <div className="flex flex-col gap-6 p-6 md:flex-row md:items-center md:p-8">
@@ -623,60 +623,60 @@ export default function MyProfile() {
                       className="hidden"
                       onChange={handleImagePick}
                     />
-                  </div>
+                </div>
 
                   <div className="min-w-0 flex-1">
                     <h1 className="truncate text-2xl font-bold text-gray-900">
                       {display.name || "My Profile"}
                     </h1>
                     <div className="mt-3 space-y-2 text-sm text-gray-600">
-                      <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2">
                         <FiMail className="h-4 w-4 shrink-0 text-gray-400" />
                         <span className="truncate">{display.email || "—"}</span>
-                      </div>
+                        </div>
                       <div className="flex items-center gap-2">
                         <FiPhone className="h-4 w-4 shrink-0 text-gray-400" />
                         <span>{display.mobile || "—"}</span>
-                      </div>
+                        </div>
                       <div className="flex items-center gap-2">
                         <FiMapPin className="h-4 w-4 shrink-0 text-gray-400" />
                         <span className="truncate">{locationLabel(display)}</span>
-                      </div>
                     </div>
+                  </div>
                     {imageUploading ? (
                       <p className="mt-2 text-xs text-indigo-600">
                         Uploading photo…
                       </p>
                     ) : null}
-                  </div>
-
+                    </div>
+                    
                   <div className="w-full shrink-0 md:w-auto">
-                    <AnimatePresence mode="wait">
-                      {!isEditing ? (
-                        <motion.button
-                          key="edit"
+                  <AnimatePresence mode="wait">
+                    {!isEditing ? (
+                      <motion.button
+                        key="edit"
                           type="button"
-                          initial={{ opacity: 0 }}
-                          animate={{ opacity: 1 }}
-                          exit={{ opacity: 0 }}
-                          onClick={handleEdit}
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        onClick={handleEdit}
                           className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-indigo-600 px-5 py-2.5 text-sm font-medium text-white hover:bg-indigo-700 md:w-auto"
-                        >
+                      >
                           <FiEdit2 className="h-4 w-4" />
                           Edit profile
-                        </motion.button>
-                      ) : (
-                        <motion.div
-                          key="actions"
-                          initial={{ opacity: 0 }}
-                          animate={{ opacity: 1 }}
-                          exit={{ opacity: 0 }}
-                          className="flex gap-2"
-                        >
+                      </motion.button>
+                    ) : (
+                      <motion.div
+                        key="actions"
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        className="flex gap-2"
+                      >
                           <button
                             type="button"
                             disabled={saving}
-                            onClick={handleSave}
+                          onClick={handleSave}
                             className="inline-flex flex-1 items-center justify-center gap-2 rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-60 md:flex-none"
                           >
                             <FiSave className="h-4 w-4" />
@@ -685,18 +685,18 @@ export default function MyProfile() {
                           <button
                             type="button"
                             disabled={saving}
-                            onClick={handleCancel}
+                          onClick={handleCancel}
                             className="inline-flex flex-1 items-center justify-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 md:flex-none"
-                          >
+                        >
                             <FiX className="h-4 w-4" />
-                            Cancel
+                          Cancel
                           </button>
-                        </motion.div>
-                      )}
-                    </AnimatePresence>
-                  </div>
-                </div>
-              </motion.div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+              </div>
+            </div>
+          </motion.div>
 
               <div className="grid grid-cols-1 gap-6 lg:grid-cols-4">
                 <div className="lg:col-span-1">
@@ -706,9 +706,9 @@ export default function MyProfile() {
                       const active = activeTab === tab.id;
                       return (
                         <button
-                          key={tab.id}
+                    key={tab.id}
                           type="button"
-                          onClick={() => setActiveTab(tab.id)}
+                    onClick={() => setActiveTab(tab.id)}
                           className={`mb-1 flex w-full items-center gap-3 rounded-lg px-4 py-3 text-sm font-medium transition ${active
                             ? "bg-indigo-600 text-white"
                             : "text-gray-700 hover:bg-indigo-50 hover:text-indigo-700"
@@ -719,22 +719,22 @@ export default function MyProfile() {
                         </button>
                       );
                     })}
-                  </div>
+              </div>
                 </div>
 
-                <div className="lg:col-span-3">
+            <div className="lg:col-span-3">
                   <div className="rounded-lg border border-gray-200 bg-white p-6 shadow-sm md:p-8">
                     {activeTab === "personal" && (
                       <div className="space-y-5">
-                        <div>
+                      <div>
                           <h2 className="text-lg font-bold text-gray-900">
                             Personal information
                           </h2>
                           <p className="mt-0.5 text-sm text-gray-500">
                             Details stored on your account profile
                           </p>
-                        </div>
-
+                      </div>
+                      
                         <div className="grid gap-4 md:grid-cols-2">
                           <Field label="Full name" required>
                             {isEditing ? (
@@ -769,7 +769,7 @@ export default function MyProfile() {
                           </Field>
 
                           <Field label="Mobile">
-                            {isEditing ? (
+                        {isEditing ? (
                               <input
                                 type="text"
                                 value={draft.mobile}
@@ -782,8 +782,8 @@ export default function MyProfile() {
                                 className={inputClass}
                                 placeholder="10-digit mobile"
                                 maxLength={10}
-                              />
-                            ) : (
+                          />
+                        ) : (
                               <ReadOnlyValue value={profile.mobile} />
                             )}
                           </Field>
@@ -892,21 +892,21 @@ export default function MyProfile() {
                               <ReadOnlyValue value={profile.guardian_name} />
                             )}
                           </Field>
-                        </div>
                       </div>
-                    )}
+                    </div>
+                  )}
 
                     {activeTab === "address" && (
                       <div className="space-y-5">
-                        <div>
+                      <div>
                           <h2 className="text-lg font-bold text-gray-900">
                             Address
                           </h2>
                           <p className="mt-0.5 text-sm text-gray-500">
                             Postal address linked to your profile
                           </p>
-                        </div>
-
+                      </div>
+                      
                         <div className="space-y-4">
                           <Field label="Address line 1">
                             {isEditing ? (
@@ -996,8 +996,8 @@ export default function MyProfile() {
                                   value={profile.city || profile.district}
                                 />
                               </Field>
-                            </div>
-                          )}
+                    </div>
+                  )}
 
                           <div className="grid gap-4 md:grid-cols-2">
                             <Field label="Pincode">
@@ -1034,12 +1034,12 @@ export default function MyProfile() {
                                 />
                               )}
                             </Field>
-                          </div>
-                        </div>
                       </div>
-                    )}
-                  </div>
-                </div>
+                      </div>
+                    </div>
+                  )}
+            </div>
+          </div>
               </div>
             </>
           )}
@@ -1074,21 +1074,21 @@ export default function MyProfile() {
                       }`}
                   </p>
                 </div>
-                <button
+                  <button
                   type="button"
                   onClick={closeOtpModal}
                   className="rounded-lg p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
                 >
                   <FiX className="h-5 w-5" />
-                </button>
+                  </button>
               </div>
-
+              
               <div className="grid grid-cols-6 gap-2">
                 {otpDigits.map((digit, index) => (
-                  <input
-                    key={index}
+                    <input
+                      key={index}
                     ref={otpRefs.current[index]}
-                    type="text"
+                      type="text"
                     value={digit}
                     onChange={(e) => handleOtpChange(index, e.target.value)}
                     onKeyDown={(e) => handleOtpKeyDown(index, e)}
@@ -1096,12 +1096,12 @@ export default function MyProfile() {
                     className="w-full rounded-lg border border-gray-300 bg-white py-2.5 text-center text-lg font-bold text-gray-800 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500"
                     maxLength={1}
                     inputMode="numeric"
-                  />
-                ))}
-              </div>
-
+                    />
+                  ))}
+                </div>
+                
               <div className="mt-4 flex items-center justify-between text-xs text-gray-500">
-                <button
+                  <button
                   type="button"
                   disabled={otpSending}
                   onClick={() => sendContactOtp(otpModal.field)}
@@ -1111,9 +1111,9 @@ export default function MyProfile() {
                     className={`h-3.5 w-3.5 ${otpSending ? "animate-spin" : ""}`}
                   />
                   Resend OTP
-                </button>
+                  </button>
               </div>
-
+              
               <div className="mt-6 flex gap-2">
                 <button
                   type="button"
@@ -1123,15 +1123,15 @@ export default function MyProfile() {
                 >
                   {otpVerifying || saving ? "Verifying…" : "Verify & save"}
                 </button>
-                <button
-                  type="button"
+        <button
+          type="button"
                   disabled={otpVerifying || saving}
                   onClick={closeOtpModal}
                   className="rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50"
-                >
+        >
                   Cancel
-                </button>
-              </div>
+        </button>
+      </div>
             </motion.div>
           </motion.div>
         ) : null}

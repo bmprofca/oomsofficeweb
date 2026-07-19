@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
+import { createPortal } from "react-dom";
 // Force rebuild cache
 import { Sidebar, Header } from "../components/header";
 import { useNavigate } from "react-router-dom";
@@ -18,7 +19,6 @@ import {
   FiTrash2,
   FiClock,
   FiMoreVertical,
-  FiInfo,
   FiEdit,
   FiEye,
   FiSettings,
@@ -45,21 +45,22 @@ import {
   FiCheckSquare,
   FiFile,
   FiArchive,
+  FiBell,
 } from "react-icons/fi";
 import { PiExportBold } from "react-icons/pi";
 import { PiFilePdfDuotone, PiMicrosoftExcelLogoDuotone } from "react-icons/pi";
 import { AiOutlineMail } from "react-icons/ai";
-import { FaWhatsapp } from "react-icons/fa6";
 import { FaFileCsv } from "react-icons/fa";
 import DeleteConfirmationModal from "../components/delete-confirmation";
 import { motion, AnimatePresence } from "framer-motion";
 import axios from "axios";
 import API_BASE_URL from "../utils/api-controller";
 import getHeaders from "../utils/get-headers";
-import Pagination from "../components/paging-nation-component";
+import TablePagination from "../components/TablePagination";
 import ExportModal from "../ClientComponents/ExportModal";
 import toast from "react-hot-toast";
 import { useUserPermissions } from "../utils/permission-helper";
+import ClientPaymentReminderModal from "../components/Modals/ClientPaymentReminderModal";
 
 // Import DnD Kit
 import {
@@ -243,315 +244,6 @@ const ClientActionMenuItems = ({
         </button>
       )}
     </div>
-  );
-};
-
-// ==================== PAYMENT REMINDER MODAL COMPONENT ====================
-const PaymentReminderModal = ({
-  isOpen,
-  onClose,
-  selectedClients,
-  clientsData,
-}) => {
-  const [loading, setLoading] = useState(false);
-  const [results, setResults] = useState(null);
-  const [selectedClientUsernames, setSelectedClientUsernames] = useState([]);
-  const [selectedClientsList, setSelectedClientsList] = useState([]);
-
-  useEffect(() => {
-    if (isOpen && selectedClients.size > 0) {
-      // Get client details from selected clients
-      const clients = Array.from(selectedClients)
-        .map((clientId) => {
-          const client = clientsData.find((c) => c._id === clientId);
-          return client;
-        })
-        .filter(Boolean);
-
-      setSelectedClientsList(clients);
-
-      // Get usernames from selected clients
-      const usernames = clients
-        .map((client) => client?.username)
-        .filter(Boolean);
-      setSelectedClientUsernames(usernames);
-    }
-  }, [isOpen, selectedClients, clientsData]);
-
-  const handleSendReminders = async () => {
-    if (selectedClientUsernames.length === 0) {
-      toast.error("No clients selected");
-      return;
-    }
-
-    setLoading(true);
-    setResults(null);
-
-    const headers = getHeaders();
-
-    try {
-      const response = await axios.post(
-        `${API_BASE_URL}/payment-reminder/payment-reminder/bulk-send`,
-        { usernames: selectedClientUsernames },
-        { headers },
-      );
-
-      if (response.data.success) {
-        setResults(response.data.data);
-
-        const result = response.data.data;
-        if (result.sent > 0) {
-          toast.success(
-            `✅ ${result.sent} payment reminder(s) sent successfully!`,
-          );
-        }
-        if (result.skipped > 0) {
-          toast(`ℹ️ ${result.skipped} client(s) skipped (no debit balance)`, {
-            icon: "ℹ️",
-          });
-        }
-        if (result.failed > 0) {
-          toast.error(`❌ ${result.failed} client(s) failed`);
-        }
-      } else {
-        toast.error(response.data.message || "Failed to send reminders");
-      }
-    } catch (error) {
-      console.error("Error sending reminders:", error);
-      toast.error(
-        error.response?.data?.message || "Failed to send payment reminders",
-      );
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleClose = () => {
-    setResults(null);
-    setSelectedClientsList([]);
-    setSelectedClientUsernames([]);
-    onClose();
-  };
-
-  if (!isOpen) return null;
-
-  return (
-    <AnimatePresence>
-      {isOpen && (
-        <motion.div
-          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[200] p-4"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          onClick={handleClose}
-        >
-          <motion.div
-            className="bg-white rounded-xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-hidden flex flex-col"
-            initial={{ scale: 0.95, opacity: 0, y: 20 }}
-            animate={{ scale: 1, opacity: 1, y: 0 }}
-            exit={{ scale: 0.95, opacity: 0, y: 20 }}
-            transition={{ duration: 0.2 }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            {/* Header */}
-            <div className="bg-gradient-to-r from-purple-600 to-purple-700 text-white px-6 py-4 flex justify-between items-center shrink-0">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-white/20 rounded-lg flex items-center justify-center">
-                  <FiMail className="w-5 h-5" />
-                </div>
-                <div>
-                  <h2 className="text-lg font-bold">Payment Reminder</h2>
-                  <p className="text-purple-100 text-sm">
-                    Send payment reminders to selected clients
-                  </p>
-                </div>
-              </div>
-              <motion.button
-                onClick={handleClose}
-                className="text-white hover:text-purple-200 transition-colors p-2 rounded-lg hover:bg-white/10"
-                whileHover={{ scale: 1.1 }}
-                whileTap={{ scale: 0.9 }}
-              >
-                <FiX className="w-5 h-5" />
-              </motion.button>
-            </div>
-
-            {/* Content */}
-            <div className="flex-1 overflow-y-auto p-6">
-              {/* Selected Clients Summary */}
-              <div className="mb-6 bg-gradient-to-r from-gray-50 to-white rounded-xl p-4 border border-gray-200">
-                <h3 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
-                  <FiUsers className="w-4 h-4 text-purple-600" />
-                  Selected Clients ({selectedClientsList.length})
-                </h3>
-
-                {selectedClientsList.length > 0 ? (
-                  <div className="space-y-2 max-h-48 overflow-y-auto">
-                    {selectedClientsList.map((client, index) => (
-                      <div
-                        key={client._id}
-                        className="flex items-center justify-between p-2 bg-white rounded-lg border border-gray-100"
-                      >
-                        <div className="flex items-center gap-2">
-                          <div className="w-6 h-6 bg-purple-100 rounded-full flex items-center justify-center">
-                            <span className="text-xs font-bold text-purple-600">
-                              {index + 1}
-                            </span>
-                          </div>
-                          <div>
-                            <div className="font-medium text-gray-800 text-sm">
-                              {client.name || "N/A"}
-                            </div>
-                            <div className="text-xs text-gray-500">
-                              @{client.username}
-                            </div>
-                          </div>
-                        </div>
-                        <div className="text-xs text-gray-400">
-                          {client.mobile || "No mobile"}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="text-center py-6 text-gray-400">
-                    <FiUser className="w-8 h-8 mx-auto mb-2 opacity-50" />
-                    <p className="text-sm">No clients selected</p>
-                  </div>
-                )}
-              </div>
-
-              {/* Results Section */}
-              {results && (
-                <div className="mb-6 bg-gradient-to-r from-gray-50 to-white rounded-xl p-4 border border-gray-200">
-                  <h3 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
-                    <FiCheckCircle className="w-4 h-4 text-green-600" />
-                    Send Results
-                  </h3>
-                  <div className="grid grid-cols-3 gap-3 mb-4">
-                    <div className="bg-green-50 rounded-lg p-3 text-center border border-green-200">
-                      <div className="text-2xl font-bold text-green-600">
-                        {results.sent}
-                      </div>
-                      <div className="text-xs text-green-700">Sent</div>
-                    </div>
-                    <div className="bg-yellow-50 rounded-lg p-3 text-center border border-yellow-200">
-                      <div className="text-2xl font-bold text-yellow-600">
-                        {results.skipped}
-                      </div>
-                      <div className="text-xs text-yellow-700">Skipped</div>
-                    </div>
-                    <div className="bg-red-50 rounded-lg p-3 text-center border border-red-200">
-                      <div className="text-2xl font-bold text-red-600">
-                        {results.failed}
-                      </div>
-                      <div className="text-xs text-red-700">Failed</div>
-                    </div>
-                  </div>
-
-                  {results.details && results.details.length > 0 && (
-                    <div className="space-y-1 max-h-32 overflow-y-auto">
-                      {results.details.slice(0, 5).map((detail, idx) => (
-                        <div
-                          key={idx}
-                          className="text-xs p-1 rounded flex justify-between"
-                        >
-                          <span className="font-mono">{detail.username}</span>
-                          <span
-                            className={`font-medium ${
-                              detail.status === "sent"
-                                ? "text-green-600"
-                                : detail.status === "skipped"
-                                  ? "text-yellow-600"
-                                  : "text-red-600"
-                            }`}
-                          >
-                            {detail.status}
-                            {detail.reason && ` (${detail.reason})`}
-                          </span>
-                        </div>
-                      ))}
-                      {results.details.length > 5 && (
-                        <div className="text-xs text-gray-400 text-center pt-1">
-                          +{results.details.length - 5} more...
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {/* Info Note */}
-              <div className="bg-blue-50 rounded-lg p-3 border border-blue-200">
-                <div className="flex items-start gap-2">
-                  <FiInfo className="w-4 h-4 text-blue-600 mt-0.5 flex-shrink-0" />
-                  <div className="text-xs text-blue-800">
-                    <p className="font-medium mb-1">Note:</p>
-                    <ul className="list-disc list-inside space-y-1">
-                      <li>
-                        Reminders are only sent to clients with debit balance
-                      </li>
-                      <li>
-                        Each client receives an email with their outstanding
-                        amount
-                      </li>
-                      <li>
-                        You can check logs in the payment reminder section
-                      </li>
-                    </ul>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Footer */}
-            <div className="border-t px-6 py-4 bg-gray-50 shrink-0">
-              <div className="flex flex-col sm:flex-row gap-3">
-                <motion.button
-                  onClick={handleClose}
-                  className="flex-1 px-4 py-2.5 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-100 font-medium text-sm"
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
-                >
-                  Cancel
-                </motion.button>
-                <motion.button
-                  onClick={handleSendReminders}
-                  disabled={loading || selectedClientUsernames.length === 0}
-                  className={`flex-1 px-4 py-2.5 bg-gradient-to-r from-purple-600 to-purple-700 text-white rounded-lg font-medium text-sm flex items-center justify-center gap-2 ${
-                    loading || selectedClientUsernames.length === 0
-                      ? "opacity-50 cursor-not-allowed"
-                      : "hover:from-purple-700 hover:to-purple-800"
-                  }`}
-                  whileHover={
-                    loading || selectedClientUsernames.length === 0
-                      ? {}
-                      : { scale: 1.02 }
-                  }
-                  whileTap={
-                    loading || selectedClientUsernames.length === 0
-                      ? {}
-                      : { scale: 0.98 }
-                  }
-                >
-                  {loading ? (
-                    <>
-                      <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
-                      Sending...
-                    </>
-                  ) : (
-                    <>
-                      <FiMail className="w-4 h-4" />
-                      Send Reminders ({selectedClientUsernames.length})
-                    </>
-                  )}
-                </motion.button>
-              </div>
-            </div>
-          </motion.div>
-        </motion.div>
-      )}
-    </AnimatePresence>
   );
 };
 
@@ -1147,7 +839,7 @@ const ClientTable = ({
   navigate,
   handleExport,
   showFirmsModal,
-  openPaymentReminderModal, // Add this prop
+  openClientPaymentReminderModal,
   onDeleteClient,
 }) => {
   const { check } = useUserPermissions();
@@ -1230,9 +922,12 @@ const ClientTable = ({
               ) : null}
             </div>
           </div>
-          <div className="relative">
+          <div className="relative dropdown-container">
             <motion.button
-              onClick={() => toggleRowDropdown(client._id)}
+              onClick={(e) => {
+                e.stopPropagation();
+                toggleRowDropdown(client._id, e);
+              }}
               className="w-7 h-7 flex items-center justify-center rounded-full bg-gray-100 hover:bg-gray-200"
               whileHover={{ scale: 1.1 }}
               whileTap={{ scale: 0.95 }}
@@ -1243,25 +938,6 @@ const ClientTable = ({
                 <div className="w-1 h-1 rounded-full bg-gray-600"></div>
               </div>
             </motion.button>
-
-            <AnimatePresence>
-              {activeRowDropdown === client._id && (
-                <motion.div
-                  className="absolute right-0 top-full mt-1 w-56 bg-white rounded-lg shadow-xl border border-gray-200 z-50 overflow-hidden"
-                  initial={{ opacity: 0, y: -8, scale: 0.96 }}
-                  animate={{ opacity: 1, y: 0, scale: 1 }}
-                  exit={{ opacity: 0, y: -8, scale: 0.96 }}
-                >
-                  <ClientActionMenuItems
-                    client={client}
-                    navigate={navigate}
-                    check={check}
-                    onClose={() => setActiveRowDropdown(null)}
-                    onDelete={onDeleteClient}
-                  />
-                </motion.div>
-              )}
-            </AnimatePresence>
           </div>
         </div>
 
@@ -1283,11 +959,22 @@ const ClientTable = ({
                 title="View ledger"
               >
                 {check("task_fees_view") ? (
-                  `₹${Math.abs(client.balance || 0).toLocaleString()}`
+                  `${Number(client.balance || 0) < 0 ? "-" : ""}₹${Math.abs(client.balance || 0).toLocaleString()}`
                 ) : (
                   <span className="blur-[3.5px] select-none">₹99,999</span>
                 )}
               </button>
+              {Number(client.balance) > 0 && (
+                <button
+                  type="button"
+                  onClick={() => openClientPaymentReminderModal(client)}
+                  className="inline-flex h-7 w-7 items-center justify-center rounded-lg bg-gradient-to-br from-violet-500 to-fuchsia-600 text-white shadow-sm shadow-violet-200 transition hover:brightness-110"
+                  title="Send payment reminder"
+                  aria-label={`Send payment reminder to ${client.name || client.username}`}
+                >
+                  <FiBell className="h-3.5 w-3.5" />
+                </button>
+              )}
             </div>
           </div>
 
@@ -1315,7 +1002,8 @@ const ClientTable = ({
             <AnimatedCheckbox
               checked={selectAll}
               indeterminate={
-                selectedClients.size > 0 && selectedClients.size < clients.length
+                selectedClients.size > 0 &&
+                selectedClients.size < clients.length
               }
               onChange={handleSelectAll}
               ariaLabel="Select all clients"
@@ -1323,7 +1011,7 @@ const ClientTable = ({
           </div>
 
           <div className="w-12 p-3 font-bold text-gray-700 text-xs flex-shrink-0 text-center border-l border-gray-100">
-            SL No
+            #
           </div>
 
           {columnConfig.map((column) => (
@@ -1355,7 +1043,8 @@ const ClientTable = ({
             <AnimatedCheckbox
               checked={selectAll}
               indeterminate={
-                selectedClients.size > 0 && selectedClients.size < clients.length
+                selectedClients.size > 0 &&
+                selectedClients.size < clients.length
               }
               onChange={handleSelectAll}
               ariaLabel="Select all clients"
@@ -1453,7 +1142,7 @@ const ClientTable = ({
                             : "name",
                           openStatusModal,
                           showFirmsModal,
-                          openPaymentReminderModal,
+                          openClientPaymentReminderModal,
                         )}
                       </div>
                     </div>
@@ -1487,6 +1176,7 @@ const ClientCards = ({
   navigate,
   handleExport,
   showFirmsModal,
+  openClientPaymentReminderModal,
   onDeleteClient,
 }) => {
   const { check } = useUserPermissions();
@@ -1507,7 +1197,8 @@ const ClientCards = ({
     if (!check("task_fees_view")) {
       return <span className="blur-[3.5px] select-none">₹99,999</span>;
     }
-    return `₹${Math.abs(balance || 0).toLocaleString()}`;
+    const amount = Number(balance || 0);
+    return `${amount < 0 ? "-" : ""}₹${Math.abs(amount).toLocaleString()}`;
   };
 
   const getLastUpdatedFirm = (firms) => {
@@ -1610,11 +1301,12 @@ const ClientCards = ({
                       </p>
                     </div>
                     <div className="flex flex-col items-end gap-1">
-                      <div className="relative">
+                      <div className="relative dropdown-container">
                         <motion.button
-                          onClick={() =>
-                            toggleRowDropdown(`card-${client._id}`)
-                          }
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            toggleRowDropdown(client._id, e);
+                          }}
                           className="w-6 h-6 flex flex-col items-center justify-center rounded-full bg-gray-100 hover:bg-gray-200 transition-colors space-y-0.5"
                           whileHover={{ scale: 1.1 }}
                           whileTap={{ scale: 0.95 }}
@@ -1623,25 +1315,6 @@ const ClientCards = ({
                           <div className="w-1 h-1 rounded-full bg-gray-600"></div>
                           <div className="w-1 h-1 rounded-full bg-gray-600"></div>
                         </motion.button>
-
-                        <AnimatePresence>
-                          {activeRowDropdown === `card-${client._id}` && (
-                            <motion.div
-                              className="absolute right-0 top-full mt-1 w-56 bg-white rounded-lg shadow-xl border border-gray-200 z-50 overflow-hidden"
-                              initial={{ opacity: 0, y: -8, scale: 0.96 }}
-                              animate={{ opacity: 1, y: 0, scale: 1 }}
-                              exit={{ opacity: 0, y: -8, scale: 0.96 }}
-                            >
-                              <ClientActionMenuItems
-                                client={client}
-                                navigate={navigate}
-                                check={check}
-                                onClose={() => setActiveRowDropdown(null)}
-                                onDelete={onDeleteClient}
-                              />
-                            </motion.div>
-                          )}
-                        </AnimatePresence>
                       </div>
                     </div>
                   </div>
@@ -1667,6 +1340,19 @@ const ClientCards = ({
                         >
                           {formatBalance(client.balance)}
                         </button>
+                        {Number(client.balance) > 0 && (
+                          <button
+                            type="button"
+                            onClick={() =>
+                              openClientPaymentReminderModal(client)
+                            }
+                            className="inline-flex h-7 w-7 items-center justify-center rounded-lg bg-gradient-to-br from-violet-500 to-fuchsia-600 text-white shadow-sm shadow-violet-200 transition hover:brightness-110"
+                            title="Send payment reminder"
+                            aria-label={`Send payment reminder to ${client.name || client.username}`}
+                          >
+                            <FiBell className="h-3.5 w-3.5" />
+                          </button>
+                        )}
                       </div>
                     </div>
 
@@ -1754,9 +1440,10 @@ const ViewClients = () => {
     clientName: "",
   });
 
-  // Payment Reminder Modal State
-  const [paymentReminderModalOpen, setPaymentReminderModalOpen] =
-    useState(false);
+  const [clientPaymentReminder, setClientPaymentReminder] = useState({
+    open: false,
+    clients: [],
+  });
 
   // Export Modal State
   const [exportModalOpen, setExportModalOpen] = useState(false);
@@ -1767,10 +1454,16 @@ const ViewClients = () => {
   const [clients, setClients] = useState([]);
   const [pagination, setPagination] = useState({
     page: 1,
-    limit: 10,
+    limit: 20,
     total: 0,
     total_pages: 1,
     is_last_page: true,
+  });
+  const [dropdownPos, setDropdownPos] = useState({
+    top: undefined,
+    bottom: undefined,
+    right: 0,
+    openUpward: false,
   });
 
   const sensors = useSensors(
@@ -1786,7 +1479,7 @@ const ViewClients = () => {
 
   // Fetch clients with API pagination
   const fetchClients = useCallback(
-    async (page = 1, limit = 10) => {
+    async (page = 1, limit = 20) => {
       const headers = getHeaders();
       if (!headers) {
         setFetchError(
@@ -1876,10 +1569,7 @@ const ViewClients = () => {
                 client.guardian ||
                 "N/A",
               pan_number:
-                client.pan_number ||
-                client.pan ||
-                client.pan_no ||
-                "",
+                client.pan_number || client.pan || client.pan_no || "",
               mobile:
                 client.mobile || client.phone || client.contact_number || "N/A",
               status:
@@ -1962,10 +1652,6 @@ const ViewClients = () => {
   const handleLimitChange = (newLimit) => {
     setPagination((prev) => ({ ...prev, limit: newLimit, page: 1 }));
     fetchClients(1, newLimit);
-  };
-
-  const handleCustomPageChange = (pageNum) => {
-    handlePageChange(pageNum);
   };
 
   const availableFields = [
@@ -2185,7 +1871,8 @@ const ViewClients = () => {
     if (!check("task_fees_view")) {
       return <span className="blur-[3.5px] select-none">₹99,999</span>;
     }
-    return `₹${Math.abs(balance || 0).toLocaleString()}`;
+    const amount = Number(balance || 0);
+    return `${amount < 0 ? "-" : ""}₹${Math.abs(amount).toLocaleString()}`;
   };
 
   const handleStatusChange = (clientId, newStatus) => {
@@ -2229,19 +1916,46 @@ const ViewClients = () => {
   };
 
   const openPaymentReminderModal = () => {
-    if (selectedClients.size === 0) {
-      toast.error("Please select at least one client first");
+    const eligibleClients = clients.filter(
+      (client) =>
+        selectedClients.has(client._id) && Number(client.balance) > 0,
+    );
+    if (eligibleClients.length === 0) {
+      toast.error("Select at least one client with a positive balance");
       return;
     }
-    setPaymentReminderModalOpen(true);
+    setClientPaymentReminder({ open: true, clients: eligibleClients });
   };
 
-  const closePaymentReminderModal = () => {
-    setPaymentReminderModalOpen(false);
+  const openClientPaymentReminderModal = (client) => {
+    if (!client || Number(client.balance) <= 0) return;
+    setClientPaymentReminder({ open: true, clients: [client] });
   };
 
-  const toggleRowDropdown = (clientId) => {
-    setActiveRowDropdown(activeRowDropdown === clientId ? null : clientId);
+  const closeClientPaymentReminderModal = () => {
+    setClientPaymentReminder({ open: false, clients: [] });
+  };
+
+  const toggleRowDropdown = (clientId, e) => {
+    if (activeRowDropdown === clientId) {
+      setActiveRowDropdown(null);
+      return;
+    }
+
+    const rect = e?.currentTarget?.getBoundingClientRect?.();
+    if (rect) {
+      const estimatedHeight = 280;
+      const spaceBelow = window.innerHeight - rect.bottom;
+      const openUpward = spaceBelow < estimatedHeight + 8;
+      setDropdownPos({
+        top: openUpward ? undefined : rect.bottom + 4,
+        bottom: openUpward ? window.innerHeight - rect.top + 4 : undefined,
+        right: window.innerWidth - rect.right,
+        openUpward,
+      });
+    }
+
+    setActiveRowDropdown(clientId);
   };
 
   useEffect(() => {
@@ -2303,7 +2017,7 @@ const ViewClients = () => {
     fieldId,
     openStatusModal,
     showFirmsModal,
-    openPaymentReminderModal,
+    openClientPaymentReminderModal,
   ) => {
     switch (fieldId) {
       case "name":
@@ -2356,6 +2070,17 @@ const ViewClients = () => {
             >
               {formatBalance(client.balance)}
             </button>
+            {Number(client.balance) > 0 && (
+              <button
+                type="button"
+                onClick={() => openClientPaymentReminderModal(client)}
+                className="ml-1 inline-flex h-7 w-7 items-center justify-center rounded-lg bg-gradient-to-br from-violet-500 to-fuchsia-600 text-white shadow-sm shadow-violet-200 transition hover:-translate-y-0.5 hover:shadow-md"
+                title="Send payment reminder"
+                aria-label={`Send payment reminder to ${client.name || client.username}`}
+              >
+                <FiBell className="h-3.5 w-3.5" />
+              </button>
+            )}
           </div>
         );
       case "firms":
@@ -2403,7 +2128,10 @@ const ViewClients = () => {
         return (
           <div className="relative dropdown-container flex justify-center">
             <motion.button
-              onClick={() => toggleRowDropdown(client._id)}
+              onClick={(e) => {
+                e.stopPropagation();
+                toggleRowDropdown(client._id, e);
+              }}
               className="w-8 h-8 flex items-center justify-center rounded
                            bg-gray-100 hover:bg-gray-200 transition-colors border border-gray-300"
               whileHover={{ scale: 1.05 }}
@@ -2411,27 +2139,6 @@ const ViewClients = () => {
             >
               <FiMoreVertical className="w-4 h-4 text-gray-700" />
             </motion.button>
-
-            <AnimatePresence>
-              {activeRowDropdown === client._id && (
-                <motion.div
-                  className="absolute right-0 mt-1 w-56 bg-white rounded-lg
-                                   shadow-xl border border-gray-200 z-50 overflow-hidden"
-                  initial={{ opacity: 0, y: -8, scale: 0.96 }}
-                  animate={{ opacity: 1, y: 0, scale: 1 }}
-                  exit={{ opacity: 0, y: -8, scale: 0.96 }}
-                  transition={{ duration: 0.15 }}
-                >
-                  <ClientActionMenuItems
-                    client={client}
-                    navigate={navigate}
-                    check={check}
-                    onClose={() => setActiveRowDropdown(null)}
-                    onDelete={() => SetDeleteModal(true)}
-                  />
-                </motion.div>
-              )}
-            </AnimatePresence>
           </div>
         );
       default:
@@ -3125,7 +2832,7 @@ const ViewClients = () => {
       >
         <div className="h-full flex flex-col">
           <motion.div
-            className="bg-white rounded-lg shadow-sm border border-gray-200 flex flex-col h-full mx-2 sm:mx-4 md:mx-8 my-3 md:my-4"
+            className="mx-2 my-3 flex h-full flex-col overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm sm:mx-4 md:mx-8 md:my-4"
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.3 }}
@@ -3387,7 +3094,9 @@ const ViewClients = () => {
                   navigate={navigate}
                   handleExport={handleExport}
                   showFirmsModal={openFirmsModal}
-                  openPaymentReminderModal={openPaymentReminderModal}
+                  openClientPaymentReminderModal={
+                    openClientPaymentReminderModal
+                  }
                   onDeleteClient={() => SetDeleteModal(true)}
                 />
               ) : (
@@ -3411,20 +3120,30 @@ const ViewClients = () => {
                   navigate={navigate}
                   handleExport={handleExport}
                   showFirmsModal={openFirmsModal}
+                  openClientPaymentReminderModal={
+                    openClientPaymentReminderModal
+                  }
                   onDeleteClient={() => SetDeleteModal(true)}
                 />
               )}
             </div>
 
-            <Pagination
-              pagination={pagination}
+            <TablePagination
+              page={pagination.page}
+              limit={pagination.limit}
+              total={pagination.total}
+              totalPages={Math.max(
+                1,
+                pagination.total_pages ||
+                  Math.ceil((pagination.total || 0) / (pagination.limit || 20)),
+              )}
+              isLastPage={pagination.is_last_page}
+              rowOptions={[5, 10, 20, 50, 100]}
+              defaultRows={20}
               onPageChange={handlePageChange}
               onLimitChange={handleLimitChange}
-              loading={loading}
-              onCustomPageChange={handleCustomPageChange}
-              showPageInfo={true}
-              showLimitSelector={true}
-              showCustomPageInput={true}
+              showJump
+              showFirstLast
             />
           </motion.div>
         </div>
@@ -3480,13 +3199,58 @@ const ViewClients = () => {
         )}
       </AnimatePresence>
 
+      {/* Portal: Row action dropdown — outside overflow so it isn't clipped */}
+      {activeRowDropdown !== null &&
+        createPortal(
+          (() => {
+            const activeClient = clients.find(
+              (client) => client._id === activeRowDropdown,
+            );
+            if (!activeClient) return null;
+            return (
+              <motion.div
+                initial={{
+                  opacity: 0,
+                  scale: 0.95,
+                  y: dropdownPos.openUpward ? 6 : -6,
+                }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                transition={{ duration: 0.12 }}
+                className="dropdown-container fixed bg-white rounded-xl shadow-2xl border border-gray-200 overflow-hidden"
+                style={{
+                  top: dropdownPos.top,
+                  bottom: dropdownPos.bottom,
+                  right: dropdownPos.right,
+                  width: "224px",
+                  zIndex: 9999,
+                }}
+              >
+                <ClientActionMenuItems
+                  client={activeClient}
+                  navigate={navigate}
+                  check={check}
+                  onClose={() => setActiveRowDropdown(null)}
+                  onDelete={() => {
+                    setActiveRowDropdown(null);
+                    SetDeleteModal(true);
+                  }}
+                />
+              </motion.div>
+            );
+          })(),
+          document.body,
+        )}
+
       {/* Modals */}
       <SettingsModal />
-      <PaymentReminderModal
-        isOpen={paymentReminderModalOpen}
-        onClose={closePaymentReminderModal}
-        selectedClients={selectedClients}
-        clientsData={clients}
+      <ClientPaymentReminderModal
+        isOpen={clientPaymentReminder.open}
+        onClose={closeClientPaymentReminderModal}
+        onSuccess={() => {
+          setSelectedClients(new Set());
+          setSelectAll(false);
+        }}
+        clients={clientPaymentReminder.clients}
       />
       <StatusChangeModal
         isOpen={statusModal.open}

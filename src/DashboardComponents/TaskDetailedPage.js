@@ -21,6 +21,7 @@ import {
   FiSlash,
   FiTrash2,
   FiUser,
+  FiUserCheck,
   FiUsers,
 } from 'react-icons/fi';
 import { toast } from 'react-hot-toast';
@@ -1066,15 +1067,33 @@ const TaskDetailedPage = ({ category: categoryProp } = {}) => {
       }
       case 'status':
         return (
-          <button
-            type="button"
-            onClick={() => openStatus(task.task_id, task.status, task.service?.name || '')}
-            className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-medium ${getStatusStyle(
-              task.status,
-            )} hover:opacity-90`}
-          >
-            {getStatusText(task.status)}
-          </button>
+          <div className="flex flex-col items-start gap-1">
+            <button
+              type="button"
+              onClick={() => openStatus(task.task_id, task.status, task.service?.name || '')}
+              className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-medium ${getStatusStyle(
+                task.status,
+              )} hover:opacity-90`}
+            >
+              {getStatusText(task.status)}
+            </button>
+            {(() => {
+              const inOutState = getTaskInOutState(task);
+              if (!inOutState.badge) return null;
+              const isSelf = inOutState.mode === 'self';
+              return (
+                <span
+                  className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold ${isSelf
+                    ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                    : 'bg-amber-50 text-amber-700 border border-amber-200'
+                    }`}
+                >
+                  {isSelf ? <FiUserCheck className="w-3 h-3" /> : <FiClock className="w-3 h-3" />}
+                  {inOutState.badge}
+                </span>
+              );
+            })()}
+          </div>
         );
       case 'menu':
         return (
