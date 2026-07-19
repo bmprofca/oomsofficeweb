@@ -7,7 +7,7 @@ export const TASK_CREATE_SERVICE_LIST_PARAMS = {
 };
 
 export const STEPS = [
-    { n: 1, title: 'Firms & Groups', subtitle: 'Select clients' },
+    { n: 1, title: 'Clients', subtitle: 'Firms or groups' },
     { n: 2, title: 'Services', subtitle: 'Fees & due date' },
     { n: 3, title: 'Sub tasks', subtitle: 'Add sub tasks' },
     { n: 4, title: 'CA & Team', subtitle: 'Agent & employees' },
@@ -38,6 +38,13 @@ export function validateStep(step, form) {
                     valid: false,
                     field: 'firms',
                     message: 'Please select at least one firm or one group.',
+                };
+            }
+            if (form.firm_ids?.length && form.group_ids?.length) {
+                return {
+                    valid: false,
+                    field: 'firms',
+                    message: 'Select either firms or groups, not both.',
                 };
             }
             return { valid: true };

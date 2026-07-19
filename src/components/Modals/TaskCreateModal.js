@@ -74,7 +74,6 @@ export default function TaskCreateModal({
                         exit={{ opacity: 0 }}
                         transition={{ duration: 0.2 }}
                         className="absolute inset-0 bg-black/50 backdrop-blur-sm pointer-events-auto"
-                        onClick={onClose}
                         aria-hidden
                     />
                     <motion.div
@@ -85,7 +84,7 @@ export default function TaskCreateModal({
                         animate={{ opacity: 1 }}
                         exit={{ opacity: 0 }}
                         transition={{ duration: 0.2 }}
-                        className="relative z-[1] pointer-events-auto bg-white rounded-xl shadow-2xl border border-gray-200 w-full max-w-7xl h-[calc(100vh-1.5rem)] sm:h-[calc(100vh-2rem)] overflow-hidden flex flex-col"
+                        className="relative z-[1] pointer-events-auto bg-white rounded-xl shadow-2xl border border-gray-200 w-full max-w-[calc(100vw-1.5rem)] sm:max-w-[calc(100vw-2.5rem)] h-[calc(100vh-1.5rem)] sm:h-[calc(100vh-2rem)] overflow-hidden flex flex-col"
                         onClick={(e) => e.stopPropagation()}
                     >
                         <div className="shrink-0 px-4 py-2.5 border-b border-gray-100 bg-gradient-to-r from-slate-50 to-indigo-50/30">

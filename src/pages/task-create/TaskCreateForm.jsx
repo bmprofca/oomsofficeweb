@@ -154,6 +154,7 @@ const TaskCreateForm = forwardRef(function TaskCreateForm(
   const firmFetchIdRef = useRef(0);
 
   const [selectedGroupOptions, setSelectedGroupOptions] = useState([]);
+  const [selectionMode, setSelectionMode] = useState("firm"); // 'firm' | 'group'
   const [selectedService, setSelectedService] = useState(null);
   const [selectedCa, setSelectedCa] = useState(null);
   const [selectedAgent, setSelectedAgent] = useState(null);
@@ -251,6 +252,18 @@ const TaskCreateForm = forwardRef(function TaskCreateForm(
 
       const caUsername = pf.ca;
       const agentUsername = pf.agent;
+
+      const locks = buildLockedFields(pf);
+      const preferGroup =
+        (groupOpts.length > 0 && firmOpts.length === 0) ||
+        (locks.groups && !locks.firms);
+      if (preferGroup) {
+        setSelectionMode("group");
+        if (!locks.firms) firmOpts = [];
+      } else {
+        setSelectionMode("firm");
+        if (!locks.groups) groupOpts = [];
+      }
 
       setSelectedFirmOptions(firmOpts);
       setSelectedGroupOptions(groupOpts);
@@ -502,6 +515,26 @@ const TaskCreateForm = forwardRef(function TaskCreateForm(
     const next = selectedGroupOptions.filter((o) => o.value !== opt.value);
     setSelectedGroupOptions(next);
     setForm((p) => ({ ...p, group_ids: next.map((o) => o.value) }));
+  };
+
+  const handleSelectionModeChange = (mode) => {
+    if (mode !== "firm" && mode !== "group") return;
+    if (mode === selectionMode) return;
+    if (mode === "firm" && lockedFields.groups && !lockedFields.firms) return;
+    if (mode === "group" && lockedFields.firms && !lockedFields.groups) return;
+    if (lockedFields.firms && lockedFields.groups) return;
+
+    setSelectionMode(mode);
+    setFieldError(null);
+    if (mode === "firm") {
+      if (!lockedFields.groups) {
+        setSelectedGroupOptions([]);
+        setForm((p) => ({ ...p, group_ids: [] }));
+      }
+    } else if (!lockedFields.firms) {
+      setSelectedFirmOptions([]);
+      setForm((p) => ({ ...p, firm_ids: [] }));
+    }
   };
 
   const goToStep = (n) => {
@@ -758,8 +791,8 @@ const TaskCreateForm = forwardRef(function TaskCreateForm(
 
     setSubmitting(true);
     const payload = {
-      firms: form.firm_ids,
-      groups: form.group_ids,
+      firms: selectionMode === "firm" ? form.firm_ids : [],
+      groups: selectionMode === "group" ? form.group_ids : [],
       service: {
         service_id: form.service_id,
         fees: parseFloat(String(form.fees).trim()) || 0,
@@ -872,6 +905,8 @@ const TaskCreateForm = forwardRef(function TaskCreateForm(
     <>
       {step === 1 && (
         <ClientsStep
+          selectionMode={selectionMode}
+          onSelectionModeChange={handleSelectionModeChange}
           firmSearchQuery={firmSearchQuery}
           setFirmSearchQuery={setFirmSearchQuery}
           firmSearchLoading={firmSearchLoading}
@@ -888,7 +923,11 @@ const TaskCreateForm = forwardRef(function TaskCreateForm(
           selectedGroupOptions={selectedGroupOptions}
           addGroup={addGroup}
           removeGroup={removeGroup}
-          estimatedTaskCreateCount={selectedFirmCount + selectedGroupFirmCount}
+          estimatedTaskCreateCount={
+            selectionMode === "firm"
+              ? selectedFirmCount
+              : selectedGroupFirmCount
+          }
           selectedFirmCount={selectedFirmCount}
           selectedGroupCount={selectedGroupCount}
           selectedGroupFirmCount={selectedGroupFirmCount}
@@ -1163,7 +1202,7 @@ const TaskCreateForm = forwardRef(function TaskCreateForm(
           Create New Task
         </h1>
         <p className="text-gray-500 text-sm mt-1">
-          Complete the steps below to create a task for firms and groups
+          Complete the steps below to create a task for firms or groups
         </p>
       </div>
       <motion.div

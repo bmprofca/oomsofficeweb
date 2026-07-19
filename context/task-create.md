@@ -148,13 +148,22 @@ openTaskCreate({
 
 ## Wizard steps
 
-| Step | Title          | Required validation                          |
-| ---- | -------------- | -------------------------------------------- |
-| 1    | Firms & Groups | At least one firm **or** one group           |
-| 2    | Services       | Service, fees, due date; AY/FY if toggled on |
-| 3    | Sub tasks      | Optional                                     |
-| 4    | CA & Team      | CA, agent, employees optional                |
-| 5    | Notes          | Attachments, text notes, voice optional      |
+| Step | Title    | Required validation                                      |
+| ---- | -------- | -------------------------------------------------------- |
+| 1    | Clients  | **Either** firms **or** groups (UI switch; not both)     |
+| 2    | Services | Service, fees, due date; AY/FY if toggled on             |
+| 3    | Sub tasks | Optional                                                |
+| 4    | CA & Team | CA, agent, employees optional                           |
+| 5    | Notes    | Attachments, text notes, voice optional                  |
+
+### Step 1 — Firm / Group switch (frontend-only exclusivity)
+
+- Segmented control at top of `ClientsStep`: **Firm** (default) | **Group**
+- Only one picker is visible at a time
+- Switching modes clears the other selection (unless that side is prefill-locked)
+- Submit sends only the active mode arrays (`firms: []` or `groups: []`)
+- API still accepts both; frontend intentionally sends one side only
+- Prefill with groups only → opens in Group mode; client/firms prefill → Firm mode
 
 Step indicator in the header allows jumping **back** or to earlier completed steps. Forward jumps validate intermediate steps.
 
