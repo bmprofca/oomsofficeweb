@@ -56,6 +56,7 @@ export function FirmModalShell({
     subtitle,
     footer,
     children,
+    zClass = 'z-[100]',
 }) {
     if (typeof document === 'undefined') return null;
 
@@ -68,7 +69,7 @@ export function FirmModalShell({
                     animate={{ opacity: 1 }}
                     exit={{ opacity: 0 }}
                     transition={{ duration: 0.2 }}
-                    className="fixed inset-0 z-[100] flex items-start justify-center overflow-hidden overscroll-none p-3 sm:p-4 pointer-events-none"
+                    className={`fixed inset-0 ${zClass} flex items-start justify-center overflow-hidden overscroll-none p-3 sm:p-4 pointer-events-none`}
                 >
                     <button
                         type="button"
@@ -296,8 +297,8 @@ export function FirmFormFields({
                                 !formData.state
                                     ? 'Select state first'
                                     : statesLoading
-                                      ? 'Loading…'
-                                      : 'Select district'
+                                        ? 'Loading…'
+                                        : 'Select district'
                             }
                             disabled={!formData.state || statesLoading}
                             options={districtOptions}
@@ -340,9 +341,8 @@ export function FirmViewDetails({ firm, formatDate }) {
                     <div className="rounded-xl border border-slate-100 bg-white px-4 py-3 shadow-sm">
                         <p className="text-xs font-medium uppercase tracking-wide text-slate-500">Status</p>
                         <span
-                            className={`mt-2 inline-flex rounded-full px-3 py-1 text-xs font-semibold ${
-                                firm.status ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-100 text-slate-600'
-                            }`}
+                            className={`mt-2 inline-flex rounded-full px-3 py-1 text-xs font-semibold ${firm.status ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-100 text-slate-600'
+                                }`}
                         >
                             {firm.status ? 'Active' : 'Inactive'}
                         </span>

@@ -59,6 +59,7 @@ const ClientPaymentReminderModal = ({
   onSuccess,
   client,
   clients = [],
+  isAll = false,
 }) => {
   const [loadingAvailability, setLoadingAvailability] = useState(false);
   const [sending, setSending] = useState(false);
@@ -83,10 +84,10 @@ const ClientPaymentReminderModal = ({
     () => reminderClients.map((item) => String(item.username).trim()),
     [reminderClients],
   );
-  const recipientKey = usernames.join("|");
+  const recipientKey = isAll ? "all-clients" : usernames.join("|");
 
   useEffect(() => {
-    if (!isOpen || usernames.length === 0) return undefined;
+    if (!isOpen || (!isAll && usernames.length === 0)) return undefined;
     let cancelled = false;
 
     const loadAvailability = async () => {
@@ -143,7 +144,7 @@ const ClientPaymentReminderModal = ({
     return () => {
       cancelled = true;
     };
-  }, [isOpen, recipientKey, usernames.length]);
+  }, [isAll, isOpen, recipientKey, usernames.length]);
 
   useEffect(() => {
     if (!isOpen) return undefined;
@@ -171,14 +172,14 @@ const ClientPaymentReminderModal = ({
   };
 
   const handleSend = async () => {
-    if (usernames.length === 0 || selectedChannels.length === 0 || sending) return;
+    if ((!isAll && usernames.length === 0) || selectedChannels.length === 0 || sending) return;
     setSending(true);
     setSendResults(null);
     try {
       const response = await axios.post(
         `${API_BASE_URL}/client/payment-reminder`,
         {
-          usernames,
+          ...(isAll ? { is_all: true } : { usernames }),
           channels: selectedChannels,
         },
         { headers: getHeaders() },
@@ -272,7 +273,9 @@ const ClientPaymentReminderModal = ({
                     Choose delivery channels
                   </h3>
                   <p className="text-xs text-slate-500">
-                    {usernames.length} client{usernames.length === 1 ? "" : "s"} selected
+                    {isAll
+                      ? "All clients with a debit balance"
+                      : `${usernames.length} client${usernames.length === 1 ? "" : "s"} selected`}
                   </p>
                 </div>
                 {!loadingAvailability && (

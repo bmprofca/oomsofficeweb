@@ -4,7 +4,6 @@ import { checkPermissionSync } from '../utils/permission-helper';
 import {
     FiRepeat,
     FiUser,
-    FiDollarSign,
     FiFileText,
     FiShoppingBag,
     FiTruck,
@@ -14,6 +13,12 @@ import {
     FiCreditCard,
     FiMoreVertical,
 } from 'react-icons/fi';
+
+const InrIcon = ({ className = 'w-5 h-5' }) => (
+    <span className={`inline-flex items-center justify-center font-semibold leading-none ${className}`} aria-hidden>
+        ₹
+    </span>
+);
 
 /** Debit/credit/balance from API row (type-specific key e.g. payment, sale). */
 export function getTransactionAmounts(transaction) {
@@ -27,6 +32,18 @@ export function getTransactionAmounts(transaction) {
 }
 
 export function formatLedgerCurrency(amount) {
+    if (!checkPermissionSync('task_fees_view')) {
+        return '----';
+    }
+    const formatted = new Intl.NumberFormat('en-IN', {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+    }).format(Math.abs(amount || 0));
+    return `₹${formatted}`;
+}
+
+/** Plain INR amount (no symbol) for modals that already prefix ₹. */
+export function formatLedgerCurrencyPlain(amount) {
     if (!checkPermissionSync('task_fees_view')) {
         return '----';
     }
@@ -305,7 +322,7 @@ export default function TransactionTable({
 export function getLedgerTransactionTypeIcon(type) {
     switch (type) {
         case 'RECEIVE': return <FiUser className="w-5 h-5" />;
-        case 'PAYMENT': return <FiDollarSign className="w-5 h-5" />;
+        case 'PAYMENT': return <InrIcon className="w-5 h-5" />;
         case 'SALE': return <FiShoppingBag className="w-5 h-5" />;
         case 'PURCHASE': return <FiTruck className="w-5 h-5" />;
         case 'EXPENSE': return <FiFileText className="w-5 h-5" />;
@@ -317,7 +334,7 @@ export function getLedgerTransactionTypeIcon(type) {
 export function getLedgerPaymentModeIcon(mode) {
     switch (mode?.toLowerCase()) {
         case 'cash':
-            return <FiDollarSign className="w-4 h-4 text-green-600" />;
+            return <InrIcon className="w-4 h-4 text-green-600" />;
         case 'bank':
             return <FiHome className="w-4 h-4 text-blue-600" />;
         case 'cheque':
@@ -327,6 +344,6 @@ export function getLedgerPaymentModeIcon(mode) {
         case 'card':
             return <FiCreditCard className="w-4 h-4 text-orange-600" />;
         default:
-            return <FiDollarSign className="w-4 h-4 text-slate-600" />;
+            return <InrIcon className="w-4 h-4 text-slate-600" />;
     }
 }

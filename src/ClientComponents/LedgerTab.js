@@ -24,7 +24,7 @@ import { ViewTransactionModalManager } from '../components/Modals/ViewTransactio
 import TransactionTable, {
     getTransactionAmounts,
     formatLedgerCurrency,
-    formatLedgerDate,
+    formatLedgerCurrencyPlain,
     getLedgerTransactionTypeIcon,
 } from '../components/TransactionTable';
 
@@ -34,13 +34,13 @@ const ClientLedger = ({
     clientUsername,
     clientId,
     clientName: clientNameProp,
+    onProfileRefresh,
 }) => {
     const params = useParams();
     const navigate = useNavigate();
     // Prefer explicit props (task profile, etc.) then route param (client profile)
     const username = usernameProp || clientUsername || clientId || params.username;
 
-    const [clientProfile, setClientProfile] = useState(null);
     const [transactions, setTransactions] = useState([]);
     const [loading, setLoading] = useState(true);
     const [fetchingTransactions, setFetchingTransactions] = useState(false);
@@ -82,10 +82,9 @@ const ClientLedger = ({
         remark: ''
     });
 
-    // Fetch client profile and ledger transactions
+    // Fetch ledger transactions on mount / username change
     useEffect(() => {
         if (username) {
-            fetchClientProfile();
             fetchTransactions();
         } else {
             toast.error('Client username not found');
@@ -98,12 +97,12 @@ const ClientLedger = ({
         setCurrentPage(1);
     }, [fromDate, toDate, itemsPerPage]);
 
-    // Fetch transactions when page, limit, fromDate, toDate, or clientProfile (for party_id) changes
+    // Fetch transactions when page, limit, fromDate, or toDate changes
     useEffect(() => {
         if (username) {
             fetchTransactions();
         }
-    }, [currentPage, itemsPerPage, fromDate, toDate, clientProfile?.id]);
+    }, [currentPage, itemsPerPage, fromDate, toDate]);
 
     // Close action menu when clicking outside
     useEffect(() => {
@@ -208,27 +207,16 @@ const ClientLedger = ({
         };
     }, [showActionMenu, computeActionMenuPosition]);
 
-    // Fetch client profile details
-    const fetchClientProfile = async () => {
-        try {
-            const response = await axios.get(
-                `${API_BASE_URL}/client/profile/${username}`,
-                { headers: getHeaders() }
-            );
-
-            if (response.data.success) {
-                setClientProfile(response.data.data);
-            }
-        } catch (error) {
-            console.error('Error fetching client profile:', error);
-            toast.error('Failed to fetch client details');
+    const refreshProfileBalance = useCallback(() => {
+        if (typeof onProfileRefresh === 'function') {
+            onProfileRefresh();
         }
-    };
+    }, [onProfileRefresh]);
 
     // Fetch transactions for client ledger
     const fetchTransactions = async () => {
         setFetchingTransactions(true);
-        const partyId = clientProfile?.id ?? username;
+        const partyId = username;
         try {
             const response = await axios.get(
                 `${API_BASE_URL}/transaction/list?page_no=${currentPage}&limit=${itemsPerPage}&from_date=${fromDate}&to_date=${toDate}&party_type=client&party_id=${encodeURIComponent(partyId)}`,
@@ -286,12 +274,13 @@ const ClientLedger = ({
     // Handle refresh
     const handleRefresh = useCallback(() => {
         fetchTransactions();
+        refreshProfileBalance();
         toast.success('Data refreshed');
-    }, []);
+    }, [refreshProfileBalance]);
 
     // Fetch opening balance (get-opening-balance API)
     const fetchOpeningBalance = useCallback(async () => {
-        const partyId = clientProfile?.id ?? username;
+        const partyId = username;
         if (!partyId) return;
         setOpeningBalanceLoading(true);
         try {
@@ -324,7 +313,7 @@ const ClientLedger = ({
         } finally {
             setOpeningBalanceLoading(false);
         }
-    }, [username, clientProfile?.id]);
+    }, [username]);
 
     // Open opening balance modal
     const handleOpenOpeningBalanceModal = () => {
@@ -335,7 +324,7 @@ const ClientLedger = ({
     // Set/Update opening balance (set-opening-balance API)
     const handleSetOpeningBalance = async (e) => {
         e.preventDefault();
-        const partyId = clientProfile?.id ?? username;
+        const partyId = username;
         if (!partyId) {
             toast.error('Client not found');
             return;
@@ -363,6 +352,7 @@ const ClientLedger = ({
                 toast.success(res.data.message || 'Opening balance saved successfully');
                 setShowOpeningBalanceModal(false);
                 fetchTransactions();
+                refreshProfileBalance();
             } else {
                 toast.error(res.data.message || 'Failed to set opening balance');
             }
@@ -386,19 +376,12 @@ const ClientLedger = ({
         setShowTransactionModal(true);
         setShowAddMenu(false);
     };
-    // Handle create transaction
-    const handleCreateTransaction = async (type, formData) => {
-        try {
-            console.log('Creating transaction:', type, formData);
-            await new Promise(resolve => setTimeout(resolve, 1000));
-            toast.success(`${type} transaction created successfully`);
-            setShowTransactionModal(false);
-            setSelectedBank(null); // Clear selected bank on successful transaction
-            fetchTransactions();
-        } catch (error) {
-            console.error('Error creating transaction:', error);
-            toast.error(`Failed to create ${type} transaction`);
-        }
+    // After a transaction modal succeeds (API already done inside CreateTransactions)
+    const handleCreateTransaction = (type) => {
+        setShowTransactionModal(false);
+        setSelectedBank(null);
+        fetchTransactions();
+        refreshProfileBalance();
     };
 
     // Handle action click
@@ -489,7 +472,7 @@ const ClientLedger = ({
     );
 
     const formatCurrency = formatLedgerCurrency;
-    const formatDate = formatLedgerDate;
+    const formatCurrencyPlain = formatLedgerCurrencyPlain;
 
     return (
         <div className="w-full">
@@ -502,12 +485,7 @@ const ClientLedger = ({
                 <div className="flex flex-wrap items-start justify-between gap-4">
                     <div className="min-w-0">
                         <h2 className="text-base sm:text-lg font-bold text-slate-800">Client Ledger</h2>
-                        {clientProfile ? (
-                            <p className="text-sm text-slate-500 mt-1 truncate">
-                                {clientProfile.name} &middot; {clientProfile.email}
-                                {clientProfile.mobile && ` · +${clientProfile.country_code || '91'} ${clientProfile.mobile}`}
-                            </p>
-                        ) : clientNameProp ? (
+                        {clientNameProp ? (
                             <p className="text-sm text-slate-500 mt-1 truncate">{clientNameProp}</p>
                         ) : null}
                     </div>
@@ -659,7 +637,7 @@ const ClientLedger = ({
                     setShowTransactionModal(false);
                 }}
                 clientId={username}
-                clientName={clientProfile?.name}
+                clientName={clientNameProp}
                 bankDetails={selectedBank}
                 bankId={selectedBank?.bank_id}
                 bankPageClientLookup={false}
@@ -667,7 +645,7 @@ const ClientLedger = ({
                 showBank={true}
                 showSummary={!(transactionType === 'RECEIVE' || transactionType === 'PAYMENT')}
                 onSubmit={handleCreateTransaction}
-                formatCurrency={formatCurrency}
+                formatCurrency={formatCurrencyPlain}
                 summary={summary}
             />
 

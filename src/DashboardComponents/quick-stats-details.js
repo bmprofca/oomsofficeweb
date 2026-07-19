@@ -34,6 +34,7 @@ import {
 import { Sidebar, Header } from '../components/header';
 import TablePagination from '../components/TablePagination';
 import ClientPaymentReminderModal from '../components/Modals/ClientPaymentReminderModal';
+import FirmsDetailsModal from '../components/Modals/FirmsDetailsModal';
 import getHeaders from '../utils/get-headers';
 import API_BASE_URL from '../utils/api-controller';
 import toast from 'react-hot-toast';
@@ -70,8 +71,8 @@ const AnimatedCheckbox = ({
             />
             <motion.span
                 className={`flex h-[18px] w-[18px] items-center justify-center rounded-[4px] border-2 transition-colors duration-200 ${isActive
-                        ? 'border-indigo-600 bg-indigo-600 shadow-sm shadow-indigo-200'
-                        : 'border-gray-300 bg-white group-hover:border-indigo-400'
+                    ? 'border-indigo-600 bg-indigo-600 shadow-sm shadow-indigo-200'
+                    : 'border-gray-300 bg-white group-hover:border-indigo-400'
                     }`}
                 animate={{ scale: isActive ? [1, 1.12, 1] : 1 }}
                 transition={{ duration: 0.18 }}
@@ -167,94 +168,6 @@ const DebtorActionMenuItems = ({ client, onClose, navigate }) => {
     );
 };
 
-const FirmsDetailsModal = ({ isOpen, onClose, firms, clientName }) => {
-    if (!isOpen || !firms || firms.length === 0) return null;
-
-    const formatFirmDate = (dateString) => {
-        if (!dateString) return 'N/A';
-        return new Date(dateString).toLocaleDateString('en-IN', {
-            day: '2-digit',
-            month: 'short',
-            year: 'numeric',
-        });
-    };
-
-    const formatAddress = (address) => {
-        if (!address) return 'N/A';
-        const parts = [
-            address.address_line_1,
-            address.address_line_2,
-            address.city,
-            address.state,
-            address.pincode,
-            address.country,
-        ].filter(Boolean);
-        return parts.join(', ') || 'N/A';
-    };
-
-    return (
-        <AnimatePresence>
-            {isOpen && (
-                <motion.div
-                    className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[100] p-4"
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    exit={{ opacity: 0 }}
-                    onClick={onClose}
-                >
-                    <motion.div
-                        className="bg-white rounded-xl shadow-2xl w-full max-w-4xl mx-auto max-h-[90vh] overflow-hidden"
-                        initial={{ scale: 0.95, opacity: 0, y: 20 }}
-                        animate={{ scale: 1, opacity: 1, y: 0 }}
-                        exit={{ scale: 0.95, opacity: 0, y: 20 }}
-                        onClick={(e) => e.stopPropagation()}
-                    >
-                        <div className="bg-gradient-to-r from-blue-600 to-blue-700 text-white px-6 py-4 flex justify-between items-center">
-                            <div className="flex items-center gap-3">
-                                <div className="w-10 h-10 bg-white/20 rounded-lg flex items-center justify-center">
-                                    <FiBriefcase className="w-5 h-5" />
-                                </div>
-                                <div>
-                                    <h3 className="text-lg font-bold">Firms Details</h3>
-                                    <p className="text-blue-100 text-sm">{clientName}</p>
-                                </div>
-                            </div>
-                            <button onClick={onClose} className="text-white hover:text-blue-200 p-2 rounded-lg hover:bg-white/10">
-                                <FiX className="w-5 h-5" />
-                            </button>
-                        </div>
-                        <div className="p-6 overflow-y-auto max-h-[70vh] space-y-4">
-                            {firms.map((firm, index) => (
-                                <div key={firm.firm_id || index} className="border border-gray-200 rounded-xl p-4 bg-gray-50">
-                                    <div className="flex items-start gap-3">
-                                        <div className="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center flex-shrink-0">
-                                            <FiBriefcase className="w-5 h-5 text-white" />
-                                        </div>
-                                        <div className="min-w-0 flex-1">
-                                            <h4 className="font-bold text-gray-900">{firm.firm_name || 'Unnamed Firm'}</h4>
-                                            <p className="text-xs text-gray-500 mt-1">Created: {formatFirmDate(firm.create_date)}</p>
-                                            <div className="grid grid-cols-2 gap-2 mt-3 text-sm">
-                                                {firm.pan_no && <div><span className="text-gray-500">PAN:</span> {firm.pan_no}</div>}
-                                                {firm.gst_no && <div><span className="text-gray-500">GST:</span> {firm.gst_no}</div>}
-                                            </div>
-                                            {firm.address && (
-                                                <p className="text-sm text-gray-600 mt-2">{formatAddress(firm.address)}</p>
-                                            )}
-                                        </div>
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
-                        <div className="px-6 py-3 border-t bg-gray-50 text-sm text-gray-600">
-                            Total: {firms.length} firm{firms.length !== 1 ? 's' : ''}
-                        </div>
-                    </motion.div>
-                </motion.div>
-            )}
-        </AnimatePresence>
-    );
-};
-
 const QuickStatsDetailsPage = () => {
     const { type } = useParams();
     const location = useLocation();
@@ -296,11 +209,16 @@ const QuickStatsDetailsPage = () => {
     // Multi-Select State
     const [selectedDebtors, setSelectedDebtors] = useState(new Set());
     const [selectAll, setSelectAll] = useState(false);
+    const [selectAllAcrossPages, setSelectAllAcrossPages] = useState(false);
+    const selectedDebtorCount = selectAllAcrossPages
+        ? pagination.total
+        : selectedDebtors.size;
 
     // Payment Reminder Modal State
     const [clientPaymentReminder, setClientPaymentReminder] = useState({
         open: false,
         clients: [],
+        isAll: false,
     });
 
     // Persist sidebar minimized state
@@ -335,12 +253,17 @@ const QuickStatsDetailsPage = () => {
     // Update selectAll when selectedDebtors changes
     useEffect(() => {
         const debtorsList = data?.list || [];
-        if (debtorsList.length > 0 && selectedDebtors.size === debtorsList.length) {
+        if (selectAllAcrossPages) {
+            setSelectAll(true);
+        } else if (
+            debtorsList.length > 0 &&
+            debtorsList.every((item) => selectedDebtors.has(item.username))
+        ) {
             setSelectAll(true);
         } else {
             setSelectAll(false);
         }
-    }, [selectedDebtors, data]);
+    }, [selectedDebtors, selectAllAcrossPages, data]);
 
     const formatCurrency = (value) => {
         const amount = parseFloat(value) || 0;
@@ -576,7 +499,10 @@ const QuickStatsDetailsPage = () => {
 
     // Multi-Select Handlers
     const handleSelectDebtor = (username) => {
-        const newSelected = new Set(selectedDebtors);
+        const newSelected = selectAllAcrossPages
+            ? new Set((data?.list || []).map(item => item.username).filter(Boolean))
+            : new Set(selectedDebtors);
+        if (selectAllAcrossPages) setSelectAllAcrossPages(false);
         if (newSelected.has(username)) {
             newSelected.delete(username);
         } else {
@@ -593,24 +519,35 @@ const QuickStatsDetailsPage = () => {
             const allUsernames = debtorsList.map(item => item.username).filter(Boolean);
             setSelectedDebtors(new Set(allUsernames));
         }
+        setSelectAllAcrossPages(false);
         setSelectAll(!selectAll);
     };
 
     const clearSelection = () => {
         setSelectedDebtors(new Set());
         setSelectAll(false);
+        setSelectAllAcrossPages(false);
     };
 
     const openClientPaymentReminderModal = (client) => {
         if (!client || Number(client.balance) <= 0) return;
-        setClientPaymentReminder({ open: true, clients: [client] });
+        setClientPaymentReminder({ open: true, clients: [client], isAll: false });
     };
 
     const closeClientPaymentReminderModal = () => {
-        setClientPaymentReminder({ open: false, clients: [] });
+        setClientPaymentReminder({ open: false, clients: [], isAll: false });
     };
 
     const openBulkReminderModal = () => {
+        if (selectAllAcrossPages) {
+            setClientPaymentReminder({
+                open: true,
+                clients: [],
+                isAll: true,
+            });
+            return;
+        }
+
         const debtorsList = data?.list || [];
         const selectedDebtorsList = debtorsList.filter(
             item => selectedDebtors.has(item.username) && Number(item.balance) > 0
@@ -624,6 +561,7 @@ const QuickStatsDetailsPage = () => {
         setClientPaymentReminder({
             open: true,
             clients: selectedDebtorsList,
+            isAll: false,
         });
     };
 
@@ -736,7 +674,7 @@ const QuickStatsDetailsPage = () => {
         );
 
         const MobileListCard = ({ item, index }) => {
-            const isSelected = selectedDebtors.has(item.username);
+            const isSelected = selectAllAcrossPages || selectedDebtors.has(item.username);
             return (
                 <motion.div
                     className={`bg-white border border-gray-200 rounded-lg p-3 mb-2 md:hidden ${isSelected ? 'ring-2 ring-blue-200' : ''}`}
@@ -754,9 +692,14 @@ const QuickStatsDetailsPage = () => {
                             <div className="w-7 h-7 bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg flex items-center justify-center">
                                 <FiUser className="w-3.5 h-3.5 text-white" />
                             </div>
-                            <div>
-                                <div className="font-semibold text-gray-800 text-sm">{item.name || 'N/A'}</div>
-                                <div className="text-xs text-gray-500">{item.guardian_name || 'N/A'}</div>
+                            <div className="min-w-0">
+                                <div className="font-semibold text-gray-800 text-sm truncate">{item.name || 'N/A'}</div>
+                                <div className="text-xs text-gray-500 truncate leading-tight">{item.guardian_name || 'N/A'}</div>
+                                {item.pan_number ? (
+                                    <div className="text-xs text-gray-500 font-mono truncate leading-tight">
+                                        PAN: {item.pan_number}
+                                    </div>
+                                ) : null}
                             </div>
                         </div>
                         {renderRowActionMenu(item)}
@@ -821,6 +764,7 @@ const QuickStatsDetailsPage = () => {
                             <AnimatedCheckbox
                                 checked={selectAll}
                                 indeterminate={
+                                    !selectAllAcrossPages &&
                                     selectedDebtors.size > 0 &&
                                     selectedDebtors.size < list.length
                                 }
@@ -832,6 +776,34 @@ const QuickStatsDetailsPage = () => {
                         <span className="text-xs text-gray-600">{formatNumber(metaCount)} {listLabel.toLowerCase()}</span>
                     </div>
                 </div>
+
+                {isDebtor && selectAll && pagination.total > list.length && (
+                    <div className="border-b border-indigo-200 bg-indigo-50 px-3 py-2 text-center text-xs text-indigo-800">
+                        {selectAllAcrossPages ? (
+                            <>
+                                All {formatNumber(pagination.total)} debtors are selected.{" "}
+                                <button
+                                    type="button"
+                                    onClick={clearSelection}
+                                    className="font-semibold underline hover:text-indigo-950"
+                                >
+                                    Clear selection
+                                </button>
+                            </>
+                        ) : (
+                            <>
+                                All {formatNumber(list.length)} debtors on this page are selected.{" "}
+                                <button
+                                    type="button"
+                                    onClick={() => setSelectAllAcrossPages(true)}
+                                    className="font-semibold underline hover:text-indigo-950"
+                                >
+                                    Select all {formatNumber(pagination.total)} debtors
+                                </button>
+                            </>
+                        )}
+                    </div>
+                )}
 
                 <div className="flex-1 min-h-0 overflow-auto">
                     {loading ? (
@@ -871,6 +843,7 @@ const QuickStatsDetailsPage = () => {
                                             <AnimatedCheckbox
                                                 checked={selectAll}
                                                 indeterminate={
+                                                    !selectAllAcrossPages &&
                                                     selectedDebtors.size > 0 &&
                                                     selectedDebtors.size < list.length
                                                 }
@@ -892,7 +865,7 @@ const QuickStatsDetailsPage = () => {
                                 </div>
 
                                 {list.map((item, index) => {
-                                    const isSelected = selectedDebtors.has(item.username);
+                                    const isSelected = selectAllAcrossPages || selectedDebtors.has(item.username);
                                     return (
                                         <motion.div
                                             key={item.username || index}
@@ -918,7 +891,12 @@ const QuickStatsDetailsPage = () => {
                                                     </div>
                                                     <div className="min-w-0 flex-1 text-left cursor-pointer hover:text-blue-600" onClick={() => navigate(`/client/profile/${item.username}`)}>
                                                         <div className="font-semibold text-gray-800 text-sm truncate">{item.name || 'N/A'}</div>
-                                                        <div className="text-xs text-gray-500 truncate">{item.guardian_name || 'N/A'}</div>
+                                                        <div className="text-xs text-gray-500 truncate leading-tight">{item.guardian_name || 'N/A'}</div>
+                                                        {item.pan_number ? (
+                                                            <div className="text-xs text-gray-500 font-mono truncate leading-tight">
+                                                                PAN: {item.pan_number}
+                                                            </div>
+                                                        ) : null}
                                                     </div>
                                                 </div>
                                             </div>
@@ -1094,7 +1072,7 @@ const QuickStatsDetailsPage = () => {
                                                 </div>
                                             )}
 
-                                            {isDebtor && selectedDebtors.size > 0 && (
+                                            {isDebtor && selectedDebtorCount > 0 && (
                                                 <motion.button
                                                     onClick={openBulkReminderModal}
                                                     className="px-3 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg text-sm font-medium flex items-center gap-2"
@@ -1102,7 +1080,7 @@ const QuickStatsDetailsPage = () => {
                                                     whileTap={{ scale: 0.95 }}
                                                 >
                                                     <FiMailIcon className="w-4 h-4" />
-                                                    <span className="hidden sm:inline">Reminder ({selectedDebtors.size})</span>
+                                                    <span className="hidden sm:inline">Reminder ({selectedDebtorCount})</span>
                                                 </motion.button>
                                             )}
 
@@ -1132,6 +1110,7 @@ const QuickStatsDetailsPage = () => {
                     onClose={closeClientPaymentReminderModal}
                     onSuccess={clearSelection}
                     clients={clientPaymentReminder.clients}
+                    isAll={clientPaymentReminder.isAll}
                 />
                 {activeRowDropdown !== null &&
                     createPortal(
@@ -1277,7 +1256,7 @@ const QuickStatsDetailsPage = () => {
 
                                 <div className="flex items-center gap-3">
                                     {/* Bulk Payment Reminder Button */}
-                                    {selectedDebtors.size > 0 && (
+                                    {selectedDebtorCount > 0 && (
                                         <motion.button
                                             onClick={openBulkReminderModal}
                                             className="px-4 py-2 bg-gradient-to-r from-purple-600 to-purple-700 text-white rounded-lg flex items-center gap-2 text-sm font-medium hover:from-purple-700 hover:to-purple-800 shadow-md"
@@ -1285,7 +1264,7 @@ const QuickStatsDetailsPage = () => {
                                             whileTap={{ scale: 0.95 }}
                                         >
                                             <FiMailIcon className="w-4 h-4" />
-                                            Send Reminder ({selectedDebtors.size})
+                                            Send Reminder ({selectedDebtorCount})
                                         </motion.button>
                                     )}
 
@@ -1330,7 +1309,7 @@ const QuickStatsDetailsPage = () => {
                                         <FiX className="w-4 h-4" /> Clear
                                     </button>
                                 )}
-                                {selectedDebtors.size > 0 && (
+                                {selectedDebtorCount > 0 && (
                                     <button
                                         onClick={clearSelection}
                                         className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors flex items-center gap-2"
@@ -1341,12 +1320,12 @@ const QuickStatsDetailsPage = () => {
                             </div>
 
                             {/* Selection Summary */}
-                            {selectedDebtors.size > 0 && (
+                            {selectedDebtorCount > 0 && (
                                 <div className="mt-4 p-3 bg-purple-50 rounded-lg border border-purple-200 flex justify-between items-center">
                                     <div className="flex items-center gap-2">
                                         <FiUsers className="w-4 h-4 text-purple-600" />
                                         <span className="text-sm text-purple-800">
-                                            {selectedDebtors.size} debtor(s) selected
+                                            {selectedDebtorCount} debtor(s) selected
                                         </span>
                                     </div>
                                     <button

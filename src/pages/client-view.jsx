@@ -29,7 +29,6 @@ import {
   FiTrendingDown,
   FiMessageSquare,
   FiPrinter,
-  FiDownload,
   FiFilter,
   FiMoreHorizontal,
   FiArrowRight,
@@ -61,6 +60,7 @@ import ExportModal from "../ClientComponents/ExportModal";
 import toast from "react-hot-toast";
 import { useUserPermissions } from "../utils/permission-helper";
 import ClientPaymentReminderModal from "../components/Modals/ClientPaymentReminderModal";
+import FirmsDetailsModal from "../components/Modals/FirmsDetailsModal";
 
 // Import DnD Kit
 import {
@@ -394,351 +394,6 @@ const StatusChangeModal = ({
               >
                 Update
               </motion.button>
-            </div>
-          </motion.div>
-        </motion.div>
-      )}
-    </AnimatePresence>
-  );
-};
-
-// Firms Details Modal Component (keep your existing code)
-const FirmsDetailsModal = ({ isOpen, onClose, firms, clientName }) => {
-  const [expandedFirm, setExpandedFirm] = useState(null);
-
-  if (!isOpen || !firms || firms.length === 0) return null;
-
-  const formatDate = (dateString) => {
-    if (!dateString) return "N/A";
-    const date = new Date(dateString);
-    return date.toLocaleDateString("en-IN", {
-      day: "2-digit",
-      month: "short",
-      year: "numeric",
-    });
-  };
-
-  const formatAddress = (address) => {
-    if (!address) return "N/A";
-    const parts = [
-      address.address_line_1,
-      address.address_line_2,
-      address.city,
-      address.state,
-      address.pincode,
-      address.country,
-    ].filter(Boolean);
-    return parts.join(", ") || "N/A";
-  };
-
-  const toggleFirmDetails = (firmId) => {
-    setExpandedFirm(expandedFirm === firmId ? null : firmId);
-  };
-
-  return (
-    <AnimatePresence>
-      {isOpen && (
-        <motion.div
-          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[100] p-4"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          onClick={onClose}
-        >
-          <motion.div
-            className="bg-white rounded-xl shadow-2xl w-full max-w-4xl mx-auto max-h-[90vh] overflow-hidden"
-            initial={{ scale: 0.95, opacity: 0, y: 20 }}
-            animate={{ scale: 1, opacity: 1, y: 0 }}
-            exit={{ scale: 0.95, opacity: 0, y: 20 }}
-            transition={{ duration: 0.2 }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="bg-gradient-to-r from-blue-600 to-blue-700 text-white px-6 py-4">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-white/20 rounded-lg flex items-center justify-center">
-                    <FiBriefcase className="w-5 h-5" />
-                  </div>
-                  <div>
-                    <h3 className="text-lg font-bold">Firms Details</h3>
-                    <p className="text-blue-100 text-sm">{clientName}</p>
-                  </div>
-                </div>
-                <motion.button
-                  onClick={onClose}
-                  className="text-white hover:text-blue-200 transition-colors p-2 rounded-lg hover:bg-white/10"
-                  whileHover={{ scale: 1.1 }}
-                  whileTap={{ scale: 0.9 }}
-                >
-                  <FiX className="w-5 h-5" />
-                </motion.button>
-              </div>
-            </div>
-
-            <div className="p-6 overflow-y-auto max-h-[70vh]">
-              <div className="space-y-4">
-                {firms.map((firm, index) => (
-                  <motion.div
-                    key={firm.firm_id || index}
-                    className="bg-gradient-to-br from-gray-50 to-white border border-gray-200 rounded-xl overflow-hidden"
-                    initial={{ opacity: 0, x: -10 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    transition={{ delay: index * 0.05 }}
-                  >
-                    <div className="p-4 bg-white border-b border-gray-200">
-                      <div className="flex flex-col md:flex-row md:items-start justify-between mb-3 gap-4">
-                        <div className="flex-1">
-                          <div className="flex items-start gap-4">
-                            <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl flex items-center justify-center flex-shrink-0 shadow-md">
-                              <FiBriefcase className="w-6 h-6 text-white" />
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <h4 className="font-bold text-gray-900 text-lg mb-1">
-                                {firm.firm_name || "Unnamed Firm"}
-                              </h4>
-                              <div className="flex flex-wrap gap-2 mb-2">
-                                {firm.firm_type && (
-                                  <span className="inline-flex items-center px-3 py-1 bg-blue-50 text-blue-700 text-xs font-semibold rounded-full border border-blue-200">
-                                    {firm.firm_type}
-                                  </span>
-                                )}
-                                {firm.status && (
-                                  <span className="inline-flex items-center px-3 py-1 bg-green-50 text-green-700 text-xs font-semibold rounded-full border border-green-200">
-                                    Active
-                                  </span>
-                                )}
-                              </div>
-                              <div className="text-sm text-gray-600">
-                                <span className="font-medium">
-                                  Firm #{index + 1}
-                                </span>
-                                <span className="mx-2">•</span>
-                                <span>
-                                  Created: {formatDate(firm.create_date)}
-                                </span>
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                        <div className="flex flex-col items-start md:items-end gap-2">
-                          <motion.button
-                            onClick={() =>
-                              toggleFirmDetails(firm.firm_id || index)
-                            }
-                            className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors shadow-sm"
-                            whileHover={{ scale: 1.05 }}
-                            whileTap={{ scale: 0.95 }}
-                          >
-                            <FiEye className="w-4 h-4" />
-                            {expandedFirm === (firm.firm_id || index)
-                              ? "Hide Details"
-                              : "View Details"}
-                          </motion.button>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="p-4">
-                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                        {firm.pan_no && (
-                          <div className="bg-white p-3 rounded-lg border border-gray-200 shadow-sm">
-                            <div className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">
-                              PAN No
-                            </div>
-                            <div className="font-bold text-gray-900 text-sm truncate">
-                              {firm.pan_no}
-                            </div>
-                          </div>
-                        )}
-                        {firm.file_no && (
-                          <div className="bg-white p-3 rounded-lg border border-gray-200 shadow-sm">
-                            <div className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">
-                              File No
-                            </div>
-                            <div className="font-bold text-gray-900 text-sm truncate">
-                              {firm.file_no}
-                            </div>
-                          </div>
-                        )}
-                        {firm.gst_no && (
-                          <div className="bg-white p-3 rounded-lg border border-gray-200 shadow-sm">
-                            <div className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">
-                              GST No
-                            </div>
-                            <div className="font-bold text-gray-900 text-sm truncate">
-                              {firm.gst_no}
-                            </div>
-                          </div>
-                        )}
-                        {firm.registration_no && (
-                          <div className="bg-white p-3 rounded-lg border border-gray-200 shadow-sm">
-                            <div className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">
-                              Registration No
-                            </div>
-                            <div className="font-bold text-gray-900 text-sm truncate">
-                              {firm.registration_no}
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-
-                    <AnimatePresence>
-                      {expandedFirm === (firm.firm_id || index) && (
-                        <motion.div
-                          className="border-t border-gray-200 p-6 bg-gradient-to-b from-gray-50 to-white"
-                          initial={{ opacity: 0, height: 0 }}
-                          animate={{ opacity: 1, height: "auto" }}
-                          exit={{ opacity: 0, height: 0 }}
-                          transition={{ duration: 0.2 }}
-                        >
-                          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                            <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm">
-                              <h5 className="font-bold text-gray-800 text-sm mb-4 pb-2 border-b border-gray-100">
-                                Registration Details
-                              </h5>
-                              <div className="space-y-3">
-                                {firm.cin_no && (
-                                  <div className="flex justify-between items-center p-2 hover:bg-gray-50 rounded">
-                                    <span className="text-sm text-gray-600 font-medium">
-                                      CIN No:
-                                    </span>
-                                    <span className="font-semibold text-gray-900 text-sm">
-                                      {firm.cin_no}
-                                    </span>
-                                  </div>
-                                )}
-                                {firm.vat_no && (
-                                  <div className="flex justify-between items-center p-2 hover:bg-gray-50 rounded">
-                                    <span className="text-sm text-gray-600 font-medium">
-                                      VAT No:
-                                    </span>
-                                    <span className="font-semibold text-gray-900 text-sm">
-                                      {firm.vat_no}
-                                    </span>
-                                  </div>
-                                )}
-                                {firm.tan_no && (
-                                  <div className="flex justify-between items-center p-2 hover:bg-gray-50 rounded">
-                                    <span className="text-sm text-gray-600 font-medium">
-                                      TAN No:
-                                    </span>
-                                    <span className="font-semibold text-gray-900 text-sm">
-                                      {firm.tan_no}
-                                    </span>
-                                  </div>
-                                )}
-                              </div>
-                            </div>
-
-                            <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm">
-                              <h5 className="font-bold text-gray-800 text-sm mb-4 pb-2 border-b border-gray-100">
-                                Address
-                              </h5>
-                              <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
-                                <p className="text-sm text-gray-800 leading-relaxed">
-                                  {formatAddress(firm.address)}
-                                </p>
-                              </div>
-                            </div>
-
-                            <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm">
-                              <h5 className="font-bold text-gray-800 text-sm mb-4 pb-2 border-b border-gray-100">
-                                Created By
-                              </h5>
-                              {firm.create_by && (
-                                <div className="space-y-3">
-                                  <div className="flex justify-between items-center p-2 hover:bg-gray-50 rounded">
-                                    <span className="text-sm text-gray-600 font-medium">
-                                      Name:
-                                    </span>
-                                    <span className="font-semibold text-gray-900 text-sm">
-                                      {firm.create_by.name}
-                                    </span>
-                                  </div>
-                                  <div className="flex justify-between items-center p-2 hover:bg-gray-50 rounded">
-                                    <span className="text-sm text-gray-600 font-medium">
-                                      Email:
-                                    </span>
-                                    <span className="font-semibold text-gray-900 text-sm">
-                                      {firm.create_by.email}
-                                    </span>
-                                  </div>
-                                  <div className="flex justify-between items-center p-2 hover:bg-gray-50 rounded">
-                                    <span className="text-sm text-gray-600 font-medium">
-                                      Mobile:
-                                    </span>
-                                    <span className="font-semibold text-gray-900 text-sm">
-                                      {firm.create_by.mobile}
-                                    </span>
-                                  </div>
-                                  <div className="flex justify-between items-center p-2 hover:bg-gray-50 rounded">
-                                    <span className="text-sm text-gray-600 font-medium">
-                                      Created Date:
-                                    </span>
-                                    <span className="font-semibold text-gray-900 text-sm">
-                                      {formatDate(firm.create_date)}
-                                    </span>
-                                  </div>
-                                </div>
-                              )}
-                            </div>
-
-                            <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm">
-                              <h5 className="font-bold text-gray-800 text-sm mb-4 pb-2 border-b border-gray-100">
-                                Last Modified
-                              </h5>
-                              {firm.modify_by &&
-                              Object.keys(firm.modify_by).length > 0 ? (
-                                <div className="space-y-3">
-                                  <div className="flex justify-between items-center p-2 hover:bg-gray-50 rounded">
-                                    <span className="text-sm text-gray-600 font-medium">
-                                      By:
-                                    </span>
-                                    <span className="font-semibold text-gray-900 text-sm">
-                                      {firm.modify_by.name}
-                                    </span>
-                                  </div>
-                                  <div className="flex justify-between items-center p-2 hover:bg-gray-50 rounded">
-                                    <span className="text-sm text-gray-600 font-medium">
-                                      Date:
-                                    </span>
-                                    <span className="font-semibold text-gray-900 text-sm">
-                                      {formatDate(firm.modify_date)}
-                                    </span>
-                                  </div>
-                                </div>
-                              ) : (
-                                <div className="text-center py-6">
-                                  <div className="text-gray-400 text-sm italic">
-                                    Not modified yet
-                                  </div>
-                                </div>
-                              )}
-                            </div>
-                          </div>
-                        </motion.div>
-                      )}
-                    </AnimatePresence>
-                  </motion.div>
-                ))}
-              </div>
-            </div>
-
-            <div className="px-6 py-4 bg-gray-50 border-t border-gray-200 flex flex-col sm:flex-row justify-between items-center gap-3">
-              <div className="text-sm text-gray-600 font-medium">
-                Total: {firms.length} firm{firms.length !== 1 ? "s" : ""}
-              </div>
-              <div className="flex items-center gap-2">
-                <motion.button
-                  onClick={onClose}
-                  className="px-5 py-2.5 bg-gradient-to-r from-gray-200 to-gray-300 text-gray-800 text-sm font-medium rounded-lg hover:from-gray-300 hover:to-gray-400 transition-colors shadow-sm"
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
-                >
-                  Close
-                </motion.button>
-              </div>
             </div>
           </motion.div>
         </motion.div>
@@ -1414,6 +1069,7 @@ const ViewClients = () => {
   const [columnConfig, setColumnConfig] = useState([]);
   const [selectedClients, setSelectedClients] = useState(new Set());
   const [selectAll, setSelectAll] = useState(false);
+  const [selectAllAcrossPages, setSelectAllAcrossPages] = useState(false);
   const [activeRowDropdown, setActiveRowDropdown] = useState(null);
   const [showExportDropdown, setShowExportDropdown] = useState(false);
   const [exportModal, setExportModal] = useState({
@@ -1443,6 +1099,7 @@ const ViewClients = () => {
   const [clientPaymentReminder, setClientPaymentReminder] = useState({
     open: false,
     clients: [],
+    isAll: false,
   });
 
   // Export Modal State
@@ -1476,6 +1133,17 @@ const ViewClients = () => {
       coordinateGetter: sortableKeyboardCoordinates,
     }),
   );
+
+  useEffect(() => {
+    if (selectAllAcrossPages) {
+      setSelectAll(true);
+      return;
+    }
+    setSelectAll(
+      clients.length > 0 &&
+        clients.every((client) => selectedClients.has(client._id)),
+    );
+  }, [clients, selectedClients, selectAllAcrossPages]);
 
   // Fetch clients with API pagination
   const fetchClients = useCallback(
@@ -1843,7 +1511,10 @@ const ViewClients = () => {
   };
 
   const handleClientSelect = (clientId) => {
-    const newSelected = new Set(selectedClients);
+    const newSelected = selectAllAcrossPages
+      ? new Set(clients.map((client) => client._id))
+      : new Set(selectedClients);
+    if (selectAllAcrossPages) setSelectAllAcrossPages(false);
     if (newSelected.has(clientId)) {
       newSelected.delete(clientId);
     } else {
@@ -1864,6 +1535,7 @@ const ViewClients = () => {
       const allClientIds = new Set(clients.map((client) => client._id));
       setSelectedClients(allClientIds);
     }
+    setSelectAllAcrossPages(false);
     setSelectAll(!selectAll);
   };
 
@@ -1916,25 +1588,40 @@ const ViewClients = () => {
   };
 
   const openPaymentReminderModal = () => {
+    if (selectAllAcrossPages) {
+      setClientPaymentReminder({ open: true, clients: [], isAll: true });
+      return;
+    }
+
     const eligibleClients = clients.filter(
-      (client) =>
-        selectedClients.has(client._id) && Number(client.balance) > 0,
+      (client) => selectedClients.has(client._id) && Number(client.balance) > 0,
     );
     if (eligibleClients.length === 0) {
       toast.error("Select at least one client with a positive balance");
       return;
     }
-    setClientPaymentReminder({ open: true, clients: eligibleClients });
+    setClientPaymentReminder({
+      open: true,
+      clients: eligibleClients,
+      isAll: false,
+    });
   };
 
   const openClientPaymentReminderModal = (client) => {
     if (!client || Number(client.balance) <= 0) return;
-    setClientPaymentReminder({ open: true, clients: [client] });
+    setClientPaymentReminder({ open: true, clients: [client], isAll: false });
   };
 
   const closeClientPaymentReminderModal = () => {
-    setClientPaymentReminder({ open: false, clients: [] });
+    setClientPaymentReminder({ open: false, clients: [], isAll: false });
   };
+
+  const effectiveSelectedClients = selectAllAcrossPages
+    ? new Set(clients.map((client) => client._id))
+    : selectedClients;
+  const selectedClientCount = selectAllAcrossPages
+    ? pagination.total
+    : selectedClients.size;
 
   const toggleRowDropdown = (clientId, e) => {
     if (activeRowDropdown === clientId) {
@@ -3071,11 +2758,45 @@ const ViewClients = () => {
               </div>
             </div>
 
+            {selectAll && pagination.total > clients.length && (
+              <div className="border-b border-indigo-200 bg-indigo-50 px-3 py-2 text-center text-xs text-indigo-800">
+                {selectAllAcrossPages ? (
+                  <>
+                    All {pagination.total.toLocaleString()} clients are
+                    selected.{" "}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSelectedClients(new Set());
+                        setSelectAll(false);
+                        setSelectAllAcrossPages(false);
+                      }}
+                      className="font-semibold underline hover:text-indigo-950"
+                    >
+                      Clear selection
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    All {clients.length.toLocaleString()} clients on this page
+                    are selected.{" "}
+                    <button
+                      type="button"
+                      onClick={() => setSelectAllAcrossPages(true)}
+                      className="font-semibold underline hover:text-indigo-950"
+                    >
+                      Select all {pagination.total.toLocaleString()} clients
+                    </button>
+                  </>
+                )}
+              </div>
+            )}
+
             <div className="flex-1 flex flex-col overflow-hidden">
               {viewMode === "table" ? (
                 <ClientTable
                   clients={clients}
-                  selectedClients={selectedClients}
+                  selectedClients={effectiveSelectedClients}
                   handleClientSelect={handleClientSelect}
                   selectAll={selectAll}
                   handleSelectAll={handleSelectAll}
@@ -3102,7 +2823,7 @@ const ViewClients = () => {
               ) : (
                 <ClientCards
                   clients={clients}
-                  selectedClients={selectedClients}
+                  selectedClients={effectiveSelectedClients}
                   handleClientSelect={handleClientSelect}
                   columnConfig={columnConfig}
                   renderCellContent={renderCellContent}
@@ -3151,7 +2872,7 @@ const ViewClients = () => {
 
       {/* Floating Action Bar */}
       <AnimatePresence>
-        {selectedClients.size > 0 && (
+        {selectedClientCount > 0 && (
           <motion.div
             className="fixed bottom-4 right-4 md:bottom-6 md:right-6 z-50"
             initial={{ opacity: 0, y: 20 }}
@@ -3160,7 +2881,6 @@ const ViewClients = () => {
             transition={{ duration: 0.2 }}
           >
             <div className="flex flex-col md:flex-row items-center gap-2 md:gap-3">
-              {/* Payment Reminder Button - NEW */}
               <motion.button
                 onClick={openPaymentReminderModal}
                 className="px-3 py-2.5 bg-gradient-to-r from-purple-600 to-purple-700 text-white rounded-lg text-sm font-semibold hover:from-purple-700 hover:to-purple-800 flex items-center gap-2 shadow-xl"
@@ -3169,30 +2889,7 @@ const ViewClients = () => {
               >
                 <FiMail className="w-4 h-4" />
                 <span className="hidden sm:inline">Payment Reminder</span>
-                <span className="sm:hidden">({selectedClients.size})</span>
-              </motion.button>
-
-              {/* Send Message Button */}
-              <motion.button
-                className="px-3 py-2.5 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-lg text-sm font-semibold hover:from-blue-700 hover:to-blue-800 flex items-center gap-2 shadow-xl"
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-              >
-                <FiMessageSquare className="w-4 h-4" />
-                <span className="hidden sm:inline">Send Message</span>
-                <span className="sm:hidden">({selectedClients.size})</span>
-              </motion.button>
-
-              {/* Export Button */}
-              <motion.button
-                className="px-3 py-2.5 bg-gradient-to-r from-green-600 to-green-700 text-white rounded-lg text-sm font-semibold hover:from-green-700 hover:to-green-800 flex items-center gap-2 shadow-xl"
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-                onClick={() => handleExportClick()}
-              >
-                <FiDownload className="w-4 h-4" />
-                <span className="hidden sm:inline">Export</span>
-                <span className="sm:hidden">({selectedClients.size})</span>
+                <span className="sm:hidden">({selectedClientCount})</span>
               </motion.button>
             </div>
           </motion.div>
@@ -3249,8 +2946,10 @@ const ViewClients = () => {
         onSuccess={() => {
           setSelectedClients(new Set());
           setSelectAll(false);
+          setSelectAllAcrossPages(false);
         }}
         clients={clientPaymentReminder.clients}
+        isAll={clientPaymentReminder.isAll}
       />
       <StatusChangeModal
         isOpen={statusModal.open}

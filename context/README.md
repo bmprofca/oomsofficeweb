@@ -6,6 +6,9 @@ This folder contains modular context notes for agents. **Tag the relevant file(s
 
 | File | When to tag |
 |------|-------------|
+| [`client-profile.md`](./client-profile.md) | Client profile page shell, header balance, skeleton, DOB, ledger refresh |
+| [`payment-reminder.md`](./payment-reminder.md) | Payment reminder modal (list / debtors / profile) |
+| [`ledger-tab.md`](./ledger-tab.md) | Client ledger tab, opening balance, INR, profile balance sync |
 | [`layout.md`](./layout.md) | Page shell width, sidebar inset, Header `setIsMinimized` |
 | [`gst-change.md`](./gst-change.md) | GST rates, fees payloads, display-only tax |
 | [`settings-branch.md`](./settings-branch.md) | Branch Settings tabs (Details, Logo, Sign, Invoice, **GST Config**) |
@@ -22,7 +25,6 @@ This folder contains modular context notes for agents. **Tag the relevant file(s
 - `tabs.md` - Tab behavior and segmented-control patterns
 - `ui-patterns.md` - Reusable UX patterns (dialogs, dropdowns, skeletons)
 - `billing-view.md` - Billing page behavior and API contracts
-- `ledger-tab.md` - Ledger tab behaviors and opening balance flow
 - `state-district-select.md` - State/district picker via CustomSelect
 - `task-components.md` - Notes/SubTask/Staff/Details tab reference
 - `task-create.md` - Task create flow
@@ -34,6 +36,8 @@ This folder contains modular context notes for agents. **Tag the relevant file(s
 
 | Client | Server |
 |--------|--------|
+| `client-profile.md` / `ledger-tab.md` | `SERVER/context/client-balance.md` |
+| `payment-reminder.md` | `SERVER/context/payment-reminder.md` |
 | `gst-change.md` | `SERVER/context/gst-change.md` |
 | `account-profile.md` | `SERVER/context/account-profile.md` |
 | `settings-branch.md` | `SERVER/routes/settings.js` + GST / branch docs |

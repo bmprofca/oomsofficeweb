@@ -21,6 +21,7 @@ Reference implementations: `received-display.js`, `discount.js`, `bank-account.j
 ## Loading
 
 - Prefer skeleton rows/cards for list/table surfaces
+- Prefer **layout-matching** page skeletons (header + tabs + content bones) over spinners for full pages — see `client-profile.jsx` → `ClientProfilePageSkeleton`
 - Avoid blocking overlays unless truly necessary
 
 ## Sidebar layout consistency

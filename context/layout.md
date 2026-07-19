@@ -136,6 +136,7 @@ Header is fixed at `h-16` → content always needs `pt-16`.
 ## Reference pages (already correct)
 
 - `src/pages/task-display.jsx`
+- `src/pages/client-profile.jsx` (full-width; wrapper `w-full px-2 sm:px-4 md:px-8` — no `max-w-7xl`)
 - `src/pages/settings/branch-setting.jsx` (`contentInset` helper)
 - `src/pages/dashboard.jsx` (aligned to this pattern)
 - `src/pages/billing-view.jsx`
@@ -143,4 +144,4 @@ Header is fixed at `h-16` → content always needs `pt-16`.
 
 When fixing a page that “doesn’t use full width,” first compare its main `className` inset to this doc — that is almost always the bug.
 
-Also see: [`account-profile.md`](./account-profile.md) (My Profile must follow this shell).
+Also see: [`account-profile.md`](./account-profile.md) (My Profile must follow this shell), [`client-profile.md`](./client-profile.md) (client profile page).
