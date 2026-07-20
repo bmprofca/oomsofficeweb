@@ -1083,8 +1083,8 @@ const TaskTab = ({
                             {inOutState.badge ? (
                                 <span
                                     className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold ${inOutState.mode === 'self'
-                                            ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                                            : 'bg-amber-50 text-amber-700 border border-amber-200'
+                                        ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                                        : 'bg-amber-50 text-amber-700 border border-amber-200'
                                         }`}
                                 >
                                     {inOutState.mode === 'self'
