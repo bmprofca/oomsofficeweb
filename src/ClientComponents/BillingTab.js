@@ -108,7 +108,7 @@ const SkeletonPulse = ({ className = '' }) => (
     <div className={`animate-pulse rounded-md bg-gray-200/90 ${className}`} />
 );
 
-const BillingTab = ({ clientUsername: clientUsernameProp } = {}) => {
+const BillingTab = ({ clientUsername: clientUsernameProp, onProfileRefresh } = {}) => {
     const { check } = useUserPermissions();
     const clientUsername =
         clientUsernameProp != null && String(clientUsernameProp).trim() !== ''
@@ -335,6 +335,9 @@ const BillingTab = ({ clientUsername: clientUsernameProp } = {}) => {
                     if (response.ok && json.success) {
                         const inv = json.data?.invoice_no ? ` Invoice No: ${json.data.invoice_no}.` : '';
                         await fetchBillingList();
+                        if (typeof onProfileRefresh === 'function') {
+                            onProfileRefresh();
+                        }
                         return {
                             variant: 'success',
                             title: 'Bill Generated!',
@@ -413,7 +416,7 @@ const BillingTab = ({ clientUsername: clientUsernameProp } = {}) => {
                 message: 'No invoice ID found for this bill.',
                 confirmText: 'OK',
                 cancelText: null,
-                onConfirm: async () => {},
+                onConfirm: async () => { },
             });
             return;
         }
@@ -451,7 +454,7 @@ const BillingTab = ({ clientUsername: clientUsernameProp } = {}) => {
                 message: e.message || 'Failed to download invoice PDF.',
                 confirmText: 'OK',
                 cancelText: null,
-                onConfirm: async () => {},
+                onConfirm: async () => { },
             });
         } finally {
             setDownloadPdfLoading(null);

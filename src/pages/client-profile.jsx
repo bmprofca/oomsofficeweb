@@ -1789,7 +1789,12 @@ const ClientProfile = () => {
       password: <PasswordTab clientUsername={username} />,
       quotation: <QuotationTab clientUsername={username} />,
       task: <TaskTab clientUsername={username} />,
-      billing: <BillingTab clientUsername={username} />,
+      billing: (
+        <BillingTab
+          clientUsername={username}
+          onProfileRefresh={() => fetchClientData(username, { silent: true })}
+        />
+      ),
       ledger: (
         <LedgerTab
           clientUsername={username}
