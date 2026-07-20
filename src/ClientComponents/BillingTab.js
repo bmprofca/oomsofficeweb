@@ -117,7 +117,7 @@ const BillingTab = ({ clientUsername: clientUsernameProp, onProfileRefresh } = {
 
     const [searchTerm, setSearchTerm] = useState('');
     const debouncedSearch = useDebouncedValue(searchTerm, 400);
-    const [statusFilter, setStatusFilter] = useState('');
+    const [statusFilter, setStatusFilter] = useState('pending');
     const [billingRows, setBillingRows] = useState([]);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');

@@ -20,7 +20,7 @@ import {
   extractApiError,
   fetchComplianceServices,
   fetchComplianceYetNotStarted,
-  getCurrentCompliancePeriod,
+  getPreviousCompliancePeriod,
   getCurrentComplianceYear,
   normalizeAssignees,
   normalizeFrequency,
@@ -351,10 +351,14 @@ const ComplianceYetNotStarted = () => {
   );
 
   const resolveDefaultPeriodForService = useCallback((service) => {
-    if (!service) return "";
+    if (!service) return { period: "", year: null };
     const frequency = normalizeFrequency(service.frequency);
-    if (frequency === "yearly") return "";
-    return getCurrentCompliancePeriod(service.frequency);
+    if (frequency === "yearly") return { period: "", year: null };
+    const previous = getPreviousCompliancePeriod(service.frequency);
+    return {
+      period: previous.period || "",
+      year: previous.year || null,
+    };
   }, []);
 
   const yearSelectOptions = useMemo(
@@ -510,9 +514,12 @@ const ComplianceYetNotStarted = () => {
       return;
     }
 
-    const nextPeriod = resolveDefaultPeriodForService(service);
-    if (nextPeriod && nextPeriod !== compliancePeriod) {
-      setCompliancePeriod(nextPeriod);
+    const defaults = resolveDefaultPeriodForService(service);
+    if (defaults.period && defaults.period !== compliancePeriod) {
+      setCompliancePeriod(defaults.period);
+    }
+    if (defaults.year && defaults.year !== complianceYear) {
+      setComplianceYear(defaults.year);
     }
     setFiltersReady(true);
   }, [
@@ -520,6 +527,7 @@ const ComplianceYetNotStarted = () => {
     serviceId,
     services,
     compliancePeriod,
+    complianceYear,
     resolveDefaultPeriodForService,
   ]);
 
@@ -561,7 +569,11 @@ const ComplianceYetNotStarted = () => {
       const service = branchServices.find(
         (item) => String(item.service_id) === next,
       );
-      setCompliancePeriod(resolveDefaultPeriodForService(service));
+      const defaults = resolveDefaultPeriodForService(service);
+      setCompliancePeriod(defaults.period);
+      if (defaults.year) {
+        setComplianceYear(defaults.year);
+      }
     }
     setPagination((prev) => ({ ...prev, page: 1 }));
   };

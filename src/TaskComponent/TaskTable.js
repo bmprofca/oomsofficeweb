@@ -71,7 +71,7 @@ const AnimatedCheckbox = ({ checked, indeterminate = false, onChange, ariaLabel 
     );
 };
 
-const getGridTemplateColumns = (columnConfig) => {
+const getGridTemplateColumns = (columnConfig, { fitContainer = false } = {}) => {
     const dynamicCols = columnConfig.map((column) => {
         const hasMenu = column.items?.some((item) => item.id === 'menu');
         const hasStaffs = column.items?.some((item) => item.id === 'staffs');
@@ -80,6 +80,16 @@ const getGridTemplateColumns = (columnConfig) => {
             ['create_date', 'due_date', 'due_days', 'target_date'].includes(item.id)
         );
         const itemCount = column.items?.length || 1;
+
+        if (fitContainer) {
+            if (hasMenu) return '56px';
+            if (hasStaffs) return 'minmax(0, 0.95fr)';
+            if (hasStatus) return 'minmax(0, 0.95fr)';
+            if (hasDates) return 'minmax(0, 0.85fr)';
+            if (itemCount >= 3) return 'minmax(0, 1.45fr)';
+            if (itemCount === 2) return 'minmax(0, 1.15fr)';
+            return 'minmax(0, 1fr)';
+        }
 
         if (hasMenu) return '72px';
         if (hasStaffs) return 'minmax(150px, 1fr)';
@@ -120,10 +130,27 @@ const TaskTable = ({
     getDaysLeft,
     getStatusStyle,
     getStatusText,
-    onRowContextMenu
+    onRowContextMenu,
+    /** When false, rows appear in place (no staggered enter motion). */
+    animateRows = true,
+    /** Instant scroll offset applied on mount (browser-back restore). */
+    initialScrollTop = null,
+    /** Fit parent width without forcing a 960px min (avoids horizontal scroll in narrow tabs). */
+    fitContainer = false,
 }) => {
 
-    const getRowBackgroundClass = (task, isSelected = false) => {
+    const scrollContainerRef = React.useRef(null);
+
+    React.useLayoutEffect(() => {
+        if (initialScrollTop == null || !scrollContainerRef.current) return;
+        const el = scrollContainerRef.current;
+        const prevBehavior = el.style.scrollBehavior;
+        el.style.scrollBehavior = 'auto';
+        el.scrollTop = Number(initialScrollTop) || 0;
+        el.style.scrollBehavior = prevBehavior;
+    }, [initialScrollTop]);
+
+    const getRowBackgroundClass = (task, isSelected = false, index = 0) => {
         const inOutState = getTaskInOutState?.(task) || {};
         if (inOutState.mode === 'self') {
             return isSelected
@@ -135,12 +162,13 @@ const TaskTable = ({
                 ? 'bg-amber-600/25 hover:bg-amber-600/30'
                 : 'bg-amber-700/20 hover:bg-amber-700/25';
         }
+        const stripe = index % 2 === 1 ? 'bg-slate-50' : 'bg-white';
         return isSelected
-            ? 'bg-indigo-50/30 hover:bg-indigo-50/50'
-            : 'bg-white hover:bg-gray-50';
+            ? 'bg-indigo-50/50 hover:bg-indigo-50/70'
+            : `${stripe} hover:bg-slate-100/80`;
     };
 
-    const getCardShellClass = (task, isSelected = false) => {
+    const getCardShellClass = (task, isSelected = false, index = 0) => {
         const inOutState = getTaskInOutState?.(task) || {};
         if (inOutState.mode === 'self') {
             return `bg-emerald-700/20 border border-gray-200 ${isSelected ? 'ring-2 ring-emerald-600' : ''}`;
@@ -148,12 +176,13 @@ const TaskTable = ({
         if (inOutState.mode === 'other') {
             return `bg-amber-700/20 border border-gray-200 ${isSelected ? 'ring-2 ring-amber-600' : ''}`;
         }
-        return `bg-white border border-gray-200 ${isSelected ? 'ring-2 ring-indigo-500' : ''}`;
+        const stripe = index % 2 === 1 ? 'bg-slate-50' : 'bg-white';
+        return `${stripe} border border-gray-200 ${isSelected ? 'ring-2 ring-indigo-500' : ''}`;
     };
 
     const gridTemplateColumns = React.useMemo(
-        () => getGridTemplateColumns(columnConfig),
-        [columnConfig]
+        () => getGridTemplateColumns(columnConfig, { fitContainer }),
+        [columnConfig, fitContainer]
     );
 
     // Skeleton Row for loading state
@@ -187,9 +216,10 @@ const TaskTable = ({
 
         return (
             <motion.div
-                className={`border rounded-lg p-3 mb-2 md:hidden transition-colors ${getCardShellClass(task, isSelected)}`}
-                initial={{ opacity: 0, y: 5 }}
+                className={`border rounded-lg p-3 mb-2 md:hidden transition-colors ${getCardShellClass(task, isSelected, index)}`}
+                initial={animateRows ? { opacity: 0, y: 5 } : false}
                 animate={{ opacity: 1, y: 0 }}
+                transition={animateRows ? undefined : { duration: 0 }}
             >
                 <div className="flex items-start justify-between mb-2">
                     <div className="flex items-center gap-2">
@@ -425,9 +455,14 @@ const TaskTable = ({
             </div>
 
             {/* Body */}
-            <div className="flex-1 overflow-auto">
+            <div
+                id="task-table-scroll"
+                ref={scrollContainerRef}
+                className={`flex-1 ${fitContainer ? 'overflow-y-auto overflow-x-hidden' : 'overflow-auto'}`}
+                style={{ scrollBehavior: 'auto' }}
+            >
                 {loading ? (
-                    <div className="min-w-[960px]">
+                    <div className={fitContainer ? 'w-full min-w-0' : 'min-w-[960px]'}>
                         {Array.from({ length: 6 }).map((_, index) => (
                             <SkeletonRow key={index} />
                         ))}
@@ -452,7 +487,7 @@ const TaskTable = ({
                         </div>
 
                         {/* Desktop Table */}
-                        <div className="hidden md:block min-w-[960px]">
+                        <div className={`hidden md:block ${fitContainer ? 'w-full min-w-0' : 'min-w-[960px]'}`}>
                             <div
                                 className="sticky top-0 z-10 grid items-center border-b border-gray-200 bg-gradient-to-r from-gray-50 to-white"
                                 style={{ gridTemplateColumns }}
@@ -486,11 +521,15 @@ const TaskTable = ({
                                 return (
                                     <motion.div
                                         key={task.task_id}
-                                        className={`grid items-center border-b border-gray-100 transition-colors group ${getRowBackgroundClass(task, isSelected)}`}
+                                        className={`grid items-start border-b border-gray-100 transition-colors group ${getRowBackgroundClass(task, isSelected, index)}`}
                                         style={{ gridTemplateColumns }}
-                                        initial={{ opacity: 0, y: 5 }}
+                                        initial={animateRows ? { opacity: 0, y: 5 } : false}
                                         animate={{ opacity: 1, y: 0 }}
-                                        transition={{ delay: index * 0.03 }}
+                                        transition={
+                                            animateRows
+                                                ? { delay: index * 0.03 }
+                                                : { duration: 0 }
+                                        }
                                         onContextMenu={(e) => {
                                             if (e.target.closest('button, a, input, label, .task-row-action-trigger')) return;
                                             onRowContextMenu?.(e, task.task_id);

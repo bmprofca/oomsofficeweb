@@ -125,9 +125,19 @@ const TaskCards = ({
                                             
                                             <button 
                                                 onClick={() => navigate(`/task/${task.task_id}`)}
-                                                className="text-left font-bold text-gray-800 text-[12px] truncate hover:text-indigo-600  w-full"
+                                                className="inline-flex items-center gap-1 text-left font-bold text-gray-800 text-[12px] truncate hover:text-indigo-600 w-full min-w-0"
                                             >
-                                                {task.service?.name || task.service_name || '-'}
+                                                <span className="truncate">
+                                                    {task.service?.name || task.service_name || '-'}
+                                                </span>
+                                                {String(task.task_type || '').toLowerCase() === 'compliance' ? (
+                                                    <span
+                                                        className="inline-flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded bg-red-100 text-[9px] font-bold text-red-700"
+                                                        title="Compliance task"
+                                                    >
+                                                        C
+                                                    </span>
+                                                ) : null}
                                             </button>
                                             
                                             <p className="text-gray-500 text-[10px] font-medium truncate">
@@ -275,9 +285,15 @@ const TaskCards = ({
                                             <span>{task.client?.profile?.mobile || '-'}</span>
                                         </div>
 
-                                        {/* File No */}
-                                        <div className="text-[10px] text-gray-500 font-medium">
-                                            File: {task.file_no || '-'}
+                                        {/* PAN / File */}
+                                        <div className="text-[10px] font-medium tabular-nums">
+                                            <span className="text-indigo-700">
+                                              PAN: {task.firm?.pan_no || '—'}
+                                            </span>
+                                            <span className="mx-1 text-gray-300">•</span>
+                                            <span className="text-teal-700">
+                                              File: {task.firm?.file_no || '—'}
+                                            </span>
                                         </div>
 
                                         {/* Status & Working badge */}

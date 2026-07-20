@@ -2,11 +2,9 @@ import React, { useCallback, useEffect, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { useNavigate, useParams } from "react-router-dom";
 import {
-  FiChevronRight,
   FiCheckSquare,
   FiDollarSign,
   FiFileText,
-  FiHome,
   FiMail,
   FiMaximize2,
   FiMinimize2,
@@ -93,6 +91,147 @@ const formatDate = (dateString) => {
     month: "short",
     year: "numeric",
   });
+};
+
+const SkeletonBone = ({ className = "" }) => (
+  <div className={`animate-pulse bg-slate-200/90 ${className}`} />
+);
+
+/** Full-page skeleton matching CA profile header + tabs + profile tab layout. */
+const CAProfilePageSkeleton = ({ tabsMinimized = true, tabCount = 4 }) => {
+  const tabPlaceholders = Array.from({ length: tabCount }, (_, i) => i);
+
+  return (
+    <div aria-busy="true" aria-label="Loading CA profile">
+      <section
+        className="mb-4 px-3 py-2.5 sm:px-4 sm:py-3"
+        style={{
+          borderRadius: "1rem",
+          background:
+            "linear-gradient(145deg, #f8fafc 0%, #e8ecfe 38%, #f1edff 100%)",
+          border: "1px solid rgba(199, 210, 254, 0.95)",
+          boxShadow:
+            "0 1px 3px rgba(49, 46, 129, 0.08), 0 0 0 1px rgba(30, 27, 75, 0.045)",
+        }}
+      >
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-2.5">
+          <div className="flex min-w-0 items-center gap-3">
+            <SkeletonBone className="h-10 w-10 shrink-0 rounded-full sm:h-11 sm:w-11" />
+            <div className="min-w-0 flex-1 space-y-2">
+              <SkeletonBone className="h-2.5 w-28 rounded" />
+              <div className="flex flex-wrap items-center gap-2">
+                <SkeletonBone className="h-5 w-40 rounded sm:w-52" />
+                <SkeletonBone className="h-5 w-16 rounded-full" />
+              </div>
+            </div>
+          </div>
+          <div
+            className="flex w-full flex-col px-2 py-2 sm:w-auto sm:min-w-[6.5rem]"
+            style={{
+              borderRadius: "0.75rem",
+              border: "1px solid rgba(255, 255, 255, 0.9)",
+              backgroundColor: "rgba(255, 255, 255, 0.88)",
+            }}
+          >
+            <SkeletonBone className="mx-auto h-2.5 w-14 rounded sm:ml-auto sm:mr-0" />
+            <SkeletonBone className="mx-auto mt-1.5 h-5 w-24 rounded sm:ml-auto sm:mr-0" />
+          </div>
+        </div>
+
+        <div
+          className="mt-3 grid grid-cols-1 gap-2 pt-3 sm:grid-cols-2 lg:grid-cols-4"
+          style={{ borderTop: "1px solid rgba(199, 210, 254, 0.8)" }}
+        >
+          {[0, 1, 2, 3].map((i) => (
+            <div
+              key={`sum-sk-${i}`}
+              className="min-w-0 rounded-lg px-2.5 py-2"
+              style={{
+                background: "rgba(238, 242, 255, 0.72)",
+                border: "1px solid rgba(199, 210, 254, 0.9)",
+              }}
+            >
+              <SkeletonBone className="h-2.5 w-16 rounded" />
+              <SkeletonBone className="mt-2 h-3.5 w-full max-w-[9rem] rounded" />
+            </div>
+          ))}
+        </div>
+      </section>
+
+      <div className="mb-6 overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
+        <div className="flex items-center justify-between p-3">
+          {tabsMinimized ? (
+            <>
+              <div className="flex flex-1 flex-wrap items-center justify-center gap-1">
+                {tabPlaceholders.map((i) => (
+                  <div
+                    key={`tab-compact-sk-${i}`}
+                    className="flex min-w-[70px] flex-col items-center justify-center gap-1.5 rounded-lg border border-gray-200 p-2"
+                  >
+                    <SkeletonBone className="h-4 w-4 rounded" />
+                    <SkeletonBone className="h-2 w-10 rounded" />
+                  </div>
+                ))}
+              </div>
+              <SkeletonBone className="ml-1 h-8 w-8 shrink-0 rounded-lg" />
+            </>
+          ) : (
+            <>
+              <div className="grid flex-1 grid-cols-2 gap-2 sm:grid-cols-3">
+                {tabPlaceholders.map((i) => (
+                  <div
+                    key={`tab-grid-sk-${i}`}
+                    className="flex flex-col items-center justify-center gap-1.5 rounded-lg border border-gray-200 p-3"
+                  >
+                    <SkeletonBone className="h-4 w-4 rounded" />
+                    <SkeletonBone className="h-2.5 w-14 rounded" />
+                  </div>
+                ))}
+              </div>
+              <SkeletonBone className="ml-1 h-8 w-8 shrink-0 rounded-lg" />
+            </>
+          )}
+        </div>
+      </div>
+
+      <div className="rounded-2xl border border-slate-200 bg-white shadow-sm">
+        <div className="border-b border-slate-200 px-4 py-3">
+          <SkeletonBone className="h-4 w-32 rounded" />
+          <SkeletonBone className="mt-2 h-3 w-48 rounded" />
+        </div>
+        <div className="space-y-3 p-3.5">
+          {[0, 1].map((card) => (
+            <div
+              key={`content-card-sk-${card}`}
+              className="rounded-xl border border-slate-200 bg-white p-3.5"
+            >
+              <div className="mb-3 flex items-center justify-between gap-3">
+                <div className="flex items-center gap-2">
+                  <SkeletonBone className="h-8 w-8 rounded-lg" />
+                  <div className="space-y-1.5">
+                    <SkeletonBone className="h-3.5 w-28 rounded" />
+                    <SkeletonBone className="h-2.5 w-36 rounded" />
+                  </div>
+                </div>
+                <SkeletonBone className="h-7 w-16 rounded-md" />
+              </div>
+              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                {Array.from({ length: card === 0 ? 10 : 7 }, (_, i) => (
+                  <div
+                    key={`field-sk-${card}-${i}`}
+                    className="rounded-lg border border-slate-100 bg-slate-50 px-3 py-2"
+                  >
+                    <SkeletonBone className="h-3 w-24 rounded" />
+                    <SkeletonBone className="mt-2 h-3 w-full rounded" />
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
 };
 
 const CAProfile = () => {
@@ -272,8 +411,6 @@ const CAProfile = () => {
     return tabComponents[componentKey] || tabComponents.profile;
   };
 
-  const tabLabel = profileTabs.find((t) => t.id === tab)?.name || "Profile";
-
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-blue-50/30">
       <Header
@@ -292,19 +429,17 @@ const CAProfile = () => {
       <div
         className={`pt-16 transition-all duration-300 ease-in-out ${isMinimized ? "md:pl-20" : "md:pl-[260px]"}`}
       >
-        <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 md:px-8">
+        <div className="w-full px-2 sm:px-4 md:px-8 py-4 md:py-6">
           <motion.div
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.3 }}
           >
             {loading && (
-              <div className="mb-6 flex flex-col items-center justify-center rounded-xl border border-gray-200 bg-white p-8 shadow-md">
-                <div className="mb-4 h-12 w-12 animate-spin rounded-full border-4 border-blue-200 border-t-blue-600" />
-                <p className="font-medium text-gray-600">
-                  Loading CA profile...
-                </p>
-              </div>
+              <CAProfilePageSkeleton
+                tabsMinimized={tabsMinimized}
+                tabCount={profileTabs.length}
+              />
             )}
 
             {error && !loading && (
@@ -342,35 +477,6 @@ const CAProfile = () => {
 
             {!loading && !error && (
               <>
-                <nav
-                  className="mb-4 flex flex-wrap items-center gap-x-1 gap-y-1 text-xs text-slate-500 sm:text-sm"
-                  aria-label="Breadcrumb"
-                >
-                  <button
-                    type="button"
-                    onClick={() => navigate("/staff/office-assistance/ca-list")}
-                    className="inline-flex items-center gap-1 rounded-md px-1.5 py-1 font-medium text-slate-600 transition-colors hover:bg-slate-100 hover:text-slate-900"
-                  >
-                    <FiHome
-                      className="h-3.5 w-3.5 shrink-0 opacity-70"
-                      aria-hidden
-                    />
-                    Chartered Accountants
-                  </button>
-                  <FiChevronRight
-                    className="h-3.5 w-3.5 shrink-0 text-slate-300"
-                    aria-hidden
-                  />
-                  <span className="max-w-[12rem] truncate font-medium text-slate-800 sm:max-w-xs">
-                    {caData.name || "—"}
-                  </span>
-                  <FiChevronRight
-                    className="h-3.5 w-3.5 shrink-0 text-slate-300"
-                    aria-hidden
-                  />
-                  <span className="text-slate-600">{tabLabel}</span>
-                </nav>
-
                 <motion.section
                   className="mb-4 px-3 py-2.5 sm:px-4 sm:py-3"
                   style={{

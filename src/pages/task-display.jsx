@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useLayoutEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { Sidebar, Header } from '../components/header';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useNavigationType } from 'react-router-dom';
 import { useTaskCreate } from '../context/TaskCreateProvider';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -16,10 +16,16 @@ import {
     FiCreditCard, FiHome, FiMap, FiGlobe
 } from 'react-icons/fi';
 
-import { AiOutlineMail } from "react-icons/ai";
 import { FaWhatsapp, FaFileCsv } from "react-icons/fa6";
 import { PiFilePdfDuotone, PiMicrosoftExcelLogoDuotone } from "react-icons/pi";
 import toast from 'react-hot-toast';
+import {
+    loadListViewCache,
+    saveListViewCache,
+    isBrowserBackNav,
+    getScrollTopById,
+    enableManualScrollRestoration,
+} from '../utils/listViewCache';
 
 // Import components
 import TaskTable from '../TaskComponent/TaskTable';
@@ -62,20 +68,24 @@ const statusOptions = [
 ];
 const DEFAULT_SELECTED_STATUSES = ['in process', 'pending from client', 'pending from department'];
 
-// Persist list view state (filters + pagination) so navigating to task/client
-// details and coming back restores the same page and filters.
+// Persist list view state (filters + pagination + row data) so browser Back
+// restores the same page/UI without an immediate API reset.
 const TASK_LIST_STATE_KEY = 'taskListViewState';
+const TASK_LIST_SCROLL_ID = 'task-table-scroll';
 
-const loadSavedTaskListState = () => {
-    try {
-        const raw = sessionStorage.getItem(TASK_LIST_STATE_KEY);
-        if (!raw) return null;
-        const parsed = JSON.parse(raw);
-        return parsed && typeof parsed === 'object' ? parsed : null;
-    } catch {
-        return null;
-    }
-};
+const buildTaskListFingerprint = (filters = {}, pagination = {}) =>
+    JSON.stringify({
+        search: filters.search || '',
+        username: filters.username || '',
+        firm_id: filters.firm_id || '',
+        service_id: filters.service_id || '',
+        status: [...(filters.status || [])].map(String).sort(),
+        service_ids: [...(filters.service_ids || [])].map(String).sort(),
+        page_no: Number(pagination.page_no) || 1,
+        limit: Number(pagination.limit) || 20,
+    });
+
+const loadSavedTaskListState = () => loadListViewCache(TASK_LIST_STATE_KEY);
 
 const STAFF_TABLE_META_FIELD_IDS = new Set(['staff_ca', 'staff_agent']);
 
@@ -83,7 +93,7 @@ const availableFields = [
     { id: 'task_id', label: 'Task ID', type: 'text' },
     { id: 'client_name', label: 'Client Name', type: 'text' },
     { id: 'client_mobile', label: 'Client Mobile', type: 'text' },
-    { id: 'client_email', label: 'Client Email', type: 'text' },
+    { id: 'client_email', label: 'PAN / File', type: 'text' },
     { id: 'firm_name', label: 'Firm Name', type: 'text' },
     { id: 'service_name', label: 'Service Name', type: 'text' },
     { id: 'fees', label: 'Fees', type: 'currency' },
@@ -115,7 +125,7 @@ const defaultColumnConfig = [
         items: [
             { id: 'client_name', label: 'Client Name' },
             { id: 'client_mobile', label: 'Mobile' },
-            { id: 'client_email', label: 'Email' }
+            { id: 'client_email', label: 'PAN / File' }
         ],
         fixed: false
     },
@@ -535,51 +545,68 @@ const ClientDetailsModal = ({ isOpen, onClose, clientData, loading }) => {
 
 const TaskDisplay = () => {
     const { check } = useUserPermissions();
-    // State declarations
-    const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-    const [isMinimized, setIsMinimized] = useState(() => {
-        const saved = localStorage.getItem('sidebarMinimized');
-        return saved ? JSON.parse(saved) : false;
-    });
-    const [loading, setLoading] = useState(false);
-    const [settingsModalOpen, setSettingsModalOpen] = useState(false);
-    const [columnConfig, setColumnConfig] = useState([]);
-    const [selectedTasks, setSelectedTasks] = useState(new Set());
-    const [activeRowDropdown, setActiveRowDropdown] = useState(null);
-    const [exportModal, setExportModal] = useState({ open: false, type: '', data: null });
     const navigate = useNavigate();
+    const navigationType = useNavigationType();
     const { openTaskCreate } = useTaskCreate();
-    const [deleteModal, setDeleteModal] = useState(false);
-    const [showMoreMenu, setShowMoreMenu] = useState(false);
-    const [viewMode, setViewMode] = useState('table');
-    const [isMobile, setIsMobile] = useState(false);
-    const [statusModal, setStatusModal] = useState({ open: false, taskId: null, taskName: '', currentStatus: '' });
-    const [usersModal, setUsersModal] = useState({ open: false, users: [], taskName: '' });
-    const [showFilterRow, setShowFilterRow] = useState(
-        () => Boolean(loadSavedTaskListState()?.showFilterRow)
-    );
-    const [clientModal, setClientModal] = useState({ open: false, clientData: null, loading: false });
-    const [bulkStatusModalOpen, setBulkStatusModalOpen] = useState(false);
-    const [editModal, setEditModal] = useState({ open: false, taskData: null });
-    const [tasks, setTasks] = useState([]);
-    const [serviceOptions, setServiceOptions] = useState([]);
+
     const savedListStateRef = useRef(loadSavedTaskListState());
-    const [filters, setFilters] = useState(() => ({
+    const initialFilters = {
         search: '',
         username: '',
         firm_id: '',
         service_id: '',
         status: DEFAULT_SELECTED_STATUSES,
         service_ids: [],
-        ...(savedListStateRef.current?.filters || {})
-    }));
-    const [pagination, setPagination] = useState(() => ({
+        ...(savedListStateRef.current?.filters || {}),
+    };
+    const initialPagination = {
         page_no: Math.max(1, Number(savedListStateRef.current?.pagination?.page_no) || 1),
         limit: Math.max(1, Number(savedListStateRef.current?.pagination?.limit) || 20),
-        total: 0
-    }));
+        total: Math.max(0, Number(savedListStateRef.current?.pagination?.total) || 0),
+    };
+    const initialFingerprint = buildTaskListFingerprint(initialFilters, initialPagination);
+    const canRestoreList =
+        isBrowserBackNav(navigationType) &&
+        Array.isArray(savedListStateRef.current?.tasks) &&
+        savedListStateRef.current?.fingerprint === initialFingerprint;
+
+    // State declarations
+    const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+    const [isMinimized, setIsMinimized] = useState(() => {
+        const saved = localStorage.getItem('sidebarMinimized');
+        return saved ? JSON.parse(saved) : false;
+    });
+    const [loading, setLoading] = useState(!canRestoreList);
+    const [settingsModalOpen, setSettingsModalOpen] = useState(false);
+    const [columnConfig, setColumnConfig] = useState([]);
+    const [selectedTasks, setSelectedTasks] = useState(new Set());
+    const [activeRowDropdown, setActiveRowDropdown] = useState(null);
+    const [exportModal, setExportModal] = useState({ open: false, type: '', data: null });
+    const [deleteModal, setDeleteModal] = useState(false);
+    const [showMoreMenu, setShowMoreMenu] = useState(false);
+    const [viewMode, setViewMode] = useState(
+        () => savedListStateRef.current?.viewMode || 'table'
+    );
+    const [isMobile, setIsMobile] = useState(false);
+    const [statusModal, setStatusModal] = useState({ open: false, taskId: null, taskName: '', currentStatus: '' });
+    const [usersModal, setUsersModal] = useState({ open: false, users: [], taskName: '' });
+    const [showFilterRow, setShowFilterRow] = useState(
+        () => Boolean(savedListStateRef.current?.showFilterRow)
+    );
+    const [clientModal, setClientModal] = useState({ open: false, clientData: null, loading: false });
+    const [bulkStatusModalOpen, setBulkStatusModalOpen] = useState(false);
+    const [editModal, setEditModal] = useState({ open: false, taskData: null });
+    const [tasks, setTasks] = useState(() =>
+        canRestoreList ? savedListStateRef.current.tasks : []
+    );
+    const [serviceOptions, setServiceOptions] = useState([]);
+    const [filters, setFilters] = useState(() => initialFilters);
+    const [pagination, setPagination] = useState(() => initialPagination);
     const taskListAbortRef = useRef(null);
-    const skipNextAutoFetchRef = useRef(false);
+    const skipNextAutoFetchRef = useRef(canRestoreList);
+    const restoredScrollTop = canRestoreList
+        ? Number(savedListStateRef.current?.scrollTop) || 0
+        : null;
     const rowMenuButtonRefs = useRef({});
     const rowContextPositionRef = useRef(null);
     const rowDropdownRef = useRef(null);
@@ -752,19 +779,21 @@ const TaskDisplay = () => {
 
     // Keep the saved list view state in sync so back-navigation restores it
     useEffect(() => {
-        try {
-            sessionStorage.setItem(
-                TASK_LIST_STATE_KEY,
-                JSON.stringify({
-                    filters,
-                    pagination: { page_no: pagination.page_no, limit: pagination.limit },
-                    showFilterRow
-                })
-            );
-        } catch {
-            // Storage unavailable (private mode/quota) — state simply won't persist
-        }
-    }, [filters, pagination.page_no, pagination.limit, showFilterRow]);
+        saveListViewCache(TASK_LIST_STATE_KEY, {
+            filters,
+            pagination: {
+                page_no: pagination.page_no,
+                limit: pagination.limit,
+                total: pagination.total,
+            },
+            showFilterRow,
+            viewMode,
+            fingerprint: buildTaskListFingerprint(filters, pagination),
+            // Don't wipe cached rows while a fresh fetch is in flight
+            ...(loading ? {} : { tasks }),
+            scrollTop: getScrollTopById(TASK_LIST_SCROLL_ID),
+        });
+    }, [filters, pagination.page_no, pagination.limit, pagination.total, showFilterRow, viewMode, tasks, loading]);
 
     useEffect(() => {
         if (skipNextAutoFetchRef.current) {
@@ -773,6 +802,18 @@ const TaskDisplay = () => {
         }
         fetchTasks();
     }, [pagination.page_no, pagination.limit, filters.search, filters.username, filters.firm_id, filters.service_id, filters.status, filters.service_ids]);
+
+    // Disable browser auto scroll restoration on this page
+    useLayoutEffect(() => enableManualScrollRestoration(), []);
+
+    // Persist scroll position when leaving the page (e.g. open task details)
+    useEffect(() => {
+        return () => {
+            saveListViewCache(TASK_LIST_STATE_KEY, {
+                scrollTop: getScrollTopById(TASK_LIST_SCROLL_ID),
+            });
+        };
+    }, []);
 
     // ============================================
     // HELPER FUNCTIONS
@@ -869,10 +910,26 @@ const TaskDisplay = () => {
             const responseData = await response.json();
             if (responseData.success && responseData.data && Array.isArray(responseData.data)) {
                 setTasks(responseData.data);
-                setPagination(prev => ({
-                    ...prev,
-                    total: responseData.pagination?.total || responseData.data.length
-                }));
+                setPagination(prev => {
+                    const next = {
+                        ...prev,
+                        page_no: nextPageNo,
+                        limit: nextLimit,
+                        total: responseData.pagination?.total || responseData.data.length
+                    };
+                    saveListViewCache(TASK_LIST_STATE_KEY, {
+                        filters: nextFilters,
+                        pagination: {
+                            page_no: next.page_no,
+                            limit: next.limit,
+                            total: next.total,
+                        },
+                        fingerprint: buildTaskListFingerprint(nextFilters, next),
+                        tasks: responseData.data,
+                        scrollTop: getScrollTopById(TASK_LIST_SCROLL_ID),
+                    });
+                    return next;
+                });
             } else {
                 setTasks([]);
             }
@@ -1236,9 +1293,12 @@ const TaskDisplay = () => {
                         case 'client_mobile':
                             value = task.client?.profile?.mobile || task.client?.mobile || '';
                             break;
-                        case 'client_email':
-                            value = task.client?.profile?.email || task.client?.email || '';
+                        case 'client_email': {
+                            const pan = task.firm?.pan_no || '';
+                            const fileNo = task.firm?.file_no || '';
+                            value = `PAN: ${pan || '—'} • File: ${fileNo || '—'}`;
                             break;
+                        }
                         case 'firm_name':
                             value = task.firm?.firm_name || task.firm_name || '';
                             break;
@@ -1366,17 +1426,22 @@ const TaskDisplay = () => {
                         {safeGetString(mobileValue)}
                     </div>
                 );
-            case 'client_email':
-                const emailValue = task.client?.profile?.email || task.client?.email || '-';
-                const emailString = safeGetString(emailValue);
-                const truncatedEmail = emailString.length > 15 ? emailString.substring(0, 15) + '...' : emailString;
-
+            case 'client_email': {
+                const pan = safeGetString(task.firm?.pan_no, '—');
+                const fileNo = safeGetString(task.firm?.file_no, '—');
+                const label = `PAN: ${pan} • File: ${fileNo}`;
                 return (
-                    <div className="flex items-center gap-2 text-gray-700 font-medium text-sm">
-                        <FiMail className="w-3 h-3 text-gray-400" />
-                        <span title={emailString}>{truncatedEmail}</span>
+                    <div className="text-sm font-medium tabular-nums" title={label}>
+                        <span className="whitespace-nowrap text-indigo-700">
+                            PAN: {pan}
+                        </span>
+                        <span className="mx-1 text-gray-300">•</span>
+                        <span className="whitespace-nowrap text-teal-700">
+                            File: {fileNo}
+                        </span>
                     </div>
                 );
+            }
             case 'firm_name':
                 const firmName = task.firm?.firm_name || task.firm_name || '-';
                 return (
@@ -1384,16 +1449,27 @@ const TaskDisplay = () => {
                         {safeGetString(firmName)}
                     </div>
                 );
-            case 'service_name':
+            case 'service_name': {
                 const serviceName = task.service?.name || task.service_name || '-';
+                const isCompliance =
+                    String(task.task_type || '').toLowerCase() === 'compliance';
                 return (
                     <button
                         onClick={() => navigate(`/task/${task.task_id}`)}
-                        className="font-semibold text-gray-800 text-sm hover:text-indigo-600 transition-colors text-left"
+                        className="inline-flex items-center gap-1.5 font-semibold text-gray-800 text-sm hover:text-indigo-600 transition-colors text-left"
                     >
                         {safeGetString(serviceName)}
+                        {isCompliance ? (
+                            <span
+                                className="inline-flex h-4 w-4 shrink-0 items-center justify-center rounded bg-red-100 text-[10px] font-bold text-red-700"
+                                title="Compliance task"
+                            >
+                                C
+                            </span>
+                        ) : null}
                     </button>
                 );
+            }
             case 'fees':
                 const feesAmount = task.charges?.fees || task.fees || 0;
                 return (
@@ -1844,6 +1920,8 @@ const TaskDisplay = () => {
                                     getStatusStyle={getStatusStyle}
                                     getStatusText={getStatusText}
                                     onRowContextMenu={handleRowContextMenu}
+                                    animateRows={!canRestoreList}
+                                    initialScrollTop={restoredScrollTop}
                                 />
                             ) : (
                                 <TaskCards

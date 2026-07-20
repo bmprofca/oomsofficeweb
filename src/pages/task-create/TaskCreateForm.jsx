@@ -217,21 +217,8 @@ const TaskCreateForm = forwardRef(function TaskCreateForm(
             firm_name: pf.firmNames?.[id] || String(id),
           }),
         );
-      } else if (pf.client) {
-        const headers = getHeaders();
-        if (headers) {
-          try {
-            const res = await axios.get(
-              `${API_BASE_URL}/client/details/firms/list?username=${encodeURIComponent(pf.client)}`,
-              { headers },
-            );
-            const firmsData = res.data?.data?.firms || [];
-            firmOpts = firmsData.map(firmToOption).filter(Boolean);
-          } catch (e) {
-            console.error("Failed to load client firms for task prefill:", e);
-          }
-        }
       }
+      // pf.client alone: do not pre-select firms — firm list is scoped via search API
 
       let groupOpts = [];
       if (Array.isArray(pf.groups) && pf.groups.length) {
@@ -254,15 +241,17 @@ const TaskCreateForm = forwardRef(function TaskCreateForm(
       const agentUsername = pf.agent;
 
       const locks = buildLockedFields(pf);
+      // Prefer group mode only when groups are actually prefilled/selected.
+      // Client-scoped create locks groups to *disable* them while staying on firms.
       const preferGroup =
-        (groupOpts.length > 0 && firmOpts.length === 0) ||
-        (locks.groups && !locks.firms);
+        groupOpts.length > 0 &&
+        (firmOpts.length === 0 || (locks.groups && !locks.firms));
       if (preferGroup) {
         setSelectionMode("group");
         if (!locks.firms) firmOpts = [];
       } else {
         setSelectionMode("firm");
-        if (!locks.groups) groupOpts = [];
+        if (!locks.groups || pf.client) groupOpts = [];
       }
 
       setSelectedFirmOptions(firmOpts);
@@ -309,6 +298,11 @@ const TaskCreateForm = forwardRef(function TaskCreateForm(
     setSelectedEmployees([]);
   }, [staff]);
 
+  const scopedClientUsername = useMemo(() => {
+    const c = prefill?.client;
+    return c != null && String(c).trim() !== "" ? String(c).trim() : "";
+  }, [prefill]);
+
   const fetchFirmList = useCallback(
     async ({ pageNo = 1, search = "", append = false } = {}) => {
       const headers = getHeaders();
@@ -336,6 +330,9 @@ const TaskCreateForm = forwardRef(function TaskCreateForm(
             page_no: pageNo,
             limit: FIRM_LIST_LIMIT,
             search: String(search ?? ""),
+            ...(scopedClientUsername
+              ? { username: scopedClientUsername }
+              : {}),
           },
         });
 
@@ -379,7 +376,7 @@ const TaskCreateForm = forwardRef(function TaskCreateForm(
         }
       }
     },
-    [],
+    [scopedClientUsername],
   );
 
   useEffect(() => {
@@ -520,8 +517,24 @@ const TaskCreateForm = forwardRef(function TaskCreateForm(
   const handleSelectionModeChange = (mode) => {
     if (mode !== "firm" && mode !== "group") return;
     if (mode === selectionMode) return;
-    if (mode === "firm" && lockedFields.groups && !lockedFields.firms) return;
-    if (mode === "group" && lockedFields.firms && !lockedFields.groups) return;
+
+    // Groups locked with selections → stay on group mode
+    if (
+      lockedFields.groups &&
+      !lockedFields.firms &&
+      selectedGroupOptions.length > 0 &&
+      mode !== "group"
+    ) {
+      return;
+    }
+    // Groups locked without selections (e.g. client profile) → firm only
+    if (lockedFields.groups && selectedGroupOptions.length === 0 && mode === "group") {
+      return;
+    }
+    // Firms locked → stay on firm mode
+    if (lockedFields.firms && !lockedFields.groups && mode !== "firm") {
+      return;
+    }
     if (lockedFields.firms && lockedFields.groups) return;
 
     setSelectionMode(mode);

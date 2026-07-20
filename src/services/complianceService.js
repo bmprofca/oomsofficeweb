@@ -40,10 +40,9 @@ export const PERIODS_BY_FREQUENCY = {
   annual: ['Annual'],
 };
 
-export const getCurrentComplianceYear = () => {
-  const now = new Date();
-  const year = now.getFullYear();
-  const month = now.getMonth();
+export const getCurrentComplianceYear = (date = new Date()) => {
+  const year = date.getFullYear();
+  const month = date.getMonth();
   if (month >= 3) return `${year}-${year + 1}`;
   return `${year - 1}-${year}`;
 };
@@ -128,6 +127,43 @@ export const getCurrentCompliancePeriod = (frequency, date = new Date()) => {
     return fields.period || '';
   }
   return fields.month || '';
+};
+
+/**
+ * Period immediately before the current date's period.
+ * When wrapping (e.g. April → March, Q1 → Q4), returns the previous FY as `year`.
+ * Yearly services: period is empty (not applicable).
+ */
+export const getPreviousCompliancePeriod = (frequency, date = new Date()) => {
+  const normalized = normalizeFrequency(frequency);
+  const year = getCurrentComplianceYear(date);
+
+  if (normalized === 'yearly') {
+    return { period: '', year };
+  }
+
+  const periods =
+    PERIODS_BY_FREQUENCY[normalized] ||
+    PERIODS_BY_FREQUENCY[String(frequency || '').toLowerCase()] ||
+    COMPLIANCE_MONTHS;
+  const currentPeriod = getCurrentCompliancePeriod(frequency, date);
+  const idx = periods.findIndex(
+    (item) => String(item).toLowerCase() === String(currentPeriod).toLowerCase(),
+  );
+
+  if (idx < 0) {
+    return { period: currentPeriod || '', year };
+  }
+
+  const prevIdx = (idx - 1 + periods.length) % periods.length;
+  const period = periods[prevIdx];
+
+  if (idx === 0) {
+    const start = Number(String(year).split('-')[0]) - 1;
+    return { period, year: `${start}-${start + 1}` };
+  }
+
+  return { period, year };
 };
 
 export const buildEffectiveFrom = (frequency, fields = {}) => {

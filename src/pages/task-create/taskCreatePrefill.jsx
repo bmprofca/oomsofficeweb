@@ -3,9 +3,10 @@
  * Any prefilled entity is locked by default unless `prefill.unlock` lists field keys.
  *
  * Supported prefill keys:
- * - firms / firm_ids — firm picker
- * - groups / group_ids — group picker
- * - client — username; fetches & locks firms when used with async loader
+ * - firms / firm_ids — firm picker (locks firm selection)
+ * - groups / group_ids — group picker (locks group selection)
+ * - client — username; scopes firm search to that client and disables group selection
+ *   (firms stay selectable among that client's firms)
  * - service / service_id
  * - ca (+ optional caName)
  * - agent (+ optional agentName)
@@ -18,8 +19,9 @@ export function buildLockedFields(prefill = {}) {
         if (condition && !unlock.has(key)) locked[key] = true;
     };
 
-    lock('firms', Boolean(prefill.firms?.length || prefill.firm_ids?.length || prefill.client));
-    lock('groups', Boolean(prefill.groups?.length || prefill.group_ids?.length));
+    lock('firms', Boolean(prefill.firms?.length || prefill.firm_ids?.length));
+    // Client profile: disable groups; explicit groups prefill also locks group picker
+    lock('groups', Boolean(prefill.groups?.length || prefill.group_ids?.length || prefill.client));
     lock('service', Boolean(prefill.service || prefill.service_id));
     lock('ca', Boolean(prefill.ca));
     lock('agent', Boolean(prefill.agent));

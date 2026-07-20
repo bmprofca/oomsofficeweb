@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Navigate, useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import { Navigate, useNavigate, useNavigationType, useParams, useSearchParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
   FiAlertCircle,
@@ -14,7 +14,6 @@ import {
   FiEye,
   FiLoader,
   FiLock,
-  FiMail,
   FiPhone,
   FiRefreshCw,
   FiSearch,
@@ -39,6 +38,13 @@ import API_BASE_URL from '../utils/api-controller';
 import { useUserPermissions } from '../utils/permission-helper';
 import { taskGetIn, taskGetOut } from '../services/taskService';
 import { optionByValue } from '../utils/customSelectHelpers';
+import {
+  loadListViewCache,
+  saveListViewCache,
+  isBrowserBackNav,
+  getScrollTopById,
+  enableManualScrollRestoration,
+} from '../utils/listViewCache';
 
 const getLoggedInUsername = () =>
   localStorage.getItem('user_username') || localStorage.getItem('username') || '';
@@ -154,6 +160,47 @@ const STATUS_OPTIONS = [
   { value: 'cancel', name: 'Cancel', label: 'Cancel' },
 ];
 
+/** Status filter dropdown — excludes terminal statuses. */
+const STATUS_FILTER_OPTIONS = STATUS_OPTIONS.filter(
+  (opt) => opt.value !== 'complete' && opt.value !== 'cancel',
+);
+
+const IN_PROCESS_STATUS_OPTION =
+  STATUS_FILTER_OPTIONS.find((opt) => opt.value === 'in process') || null;
+
+const TASK_DETAILED_CACHE_PREFIX = 'taskDetailedViewState:';
+const TASK_DETAILED_SCROLL_ID = 'task-table-scroll';
+
+const buildDetailedFingerprint = ({
+  category,
+  serviceId = '',
+  staffUsername = '',
+  search = '',
+  statusValue = '',
+  page_no = 1,
+  limit = 20,
+}) =>
+  JSON.stringify({
+    category,
+    serviceId: serviceId || '',
+    staffUsername: staffUsername || '',
+    search: search || '',
+    statusValue: statusValue || '',
+    page_no: Number(page_no) || 1,
+    limit: Number(limit) || 20,
+  });
+
+const resolveStatusFilterOption = (saved) => {
+  if (!saved) return null;
+  if (typeof saved === 'string') {
+    return STATUS_FILTER_OPTIONS.find((opt) => opt.value === saved) || null;
+  }
+  if (saved?.value) {
+    return STATUS_FILTER_OPTIONS.find((opt) => opt.value === saved.value) || null;
+  }
+  return null;
+};
+
 const COLUMN_CONFIG = [
   {
     id: '2',
@@ -171,7 +218,7 @@ const COLUMN_CONFIG = [
     items: [
       { id: 'client_name', label: 'Client Name' },
       { id: 'client_mobile', label: 'Mobile' },
-      { id: 'client_email', label: 'Email' },
+      { id: 'client_email', label: 'PAN / File' },
     ],
     fixed: false,
   },
@@ -307,6 +354,7 @@ const mapReportTaskToDisplayTask = (row) => {
 
   return {
     task_id: row.task_id,
+    task_type: row.task_type || details.task_type || null,
     status: details.status || null,
     billing_status: financials.billing_status || null,
     has_ca: Boolean(assignment.ca),
@@ -331,6 +379,8 @@ const mapReportTaskToDisplayTask = (row) => {
     firm: {
       firm_id: row.firm?.firm_id,
       firm_name: row.firm?.firm_name,
+      pan_no: row.firm?.pan_no || null,
+      file_no: row.firm?.file_no || null,
     },
     charges: {
       fees: financials.fees,
@@ -383,6 +433,7 @@ export const TaskDetailedLegacyRedirect = () => {
 
 const TaskDetailedPage = ({ category: categoryProp } = {}) => {
   const navigate = useNavigate();
+  const navigationType = useNavigationType();
   const params = useParams();
   const [searchParams, setSearchParams] = useSearchParams();
   const { check } = useUserPermissions();
@@ -390,6 +441,51 @@ const TaskDetailedPage = ({ category: categoryProp } = {}) => {
   const category = normalizeCategory(categoryProp || params.category);
   const serviceId = searchParams.get('service_id') || '';
   const staffUsername = searchParams.get('staff_username') || '';
+  const cacheKey = `${TASK_DETAILED_CACHE_PREFIX}${category}`;
+  const savedViewRef = useRef(loadListViewCache(cacheKey));
+
+  const defaultStatusFilter =
+    category === 'OD' ? IN_PROCESS_STATUS_OPTION : null;
+  const restoredStatusFilter = resolveStatusFilterOption(
+    savedViewRef.current?.statusFilter,
+  );
+  const initialSearch =
+    typeof savedViewRef.current?.search === 'string'
+      ? savedViewRef.current.search
+      : '';
+  const initialPagination = {
+    page_no: Math.max(1, Number(savedViewRef.current?.pagination?.page_no) || 1),
+    limit: Math.max(1, Number(savedViewRef.current?.pagination?.limit) || 20),
+    total: Math.max(0, Number(savedViewRef.current?.pagination?.total) || 0),
+    total_pages: Math.max(
+      1,
+      Number(savedViewRef.current?.pagination?.total_pages) || 1,
+    ),
+    is_last_page: Boolean(
+      savedViewRef.current?.pagination?.is_last_page ?? true,
+    ),
+  };
+  const statusForInit = Object.prototype.hasOwnProperty.call(
+    savedViewRef.current || {},
+    'statusFilter',
+  )
+    ? restoredStatusFilter
+    : defaultStatusFilter;
+  const initialFingerprint = buildDetailedFingerprint({
+    category,
+    serviceId,
+    staffUsername,
+    search: initialSearch,
+    statusValue: statusForInit?.value || '',
+    page_no: initialPagination.page_no,
+    limit: initialPagination.limit,
+  });
+  const canRestoreList =
+    isBrowserBackNav(navigationType) &&
+    Array.isArray(savedViewRef.current?.tasks) &&
+    savedViewRef.current?.fingerprint === initialFingerprint &&
+    (savedViewRef.current?.serviceId || '') === (serviceId || '') &&
+    (savedViewRef.current?.staffUsername || '') === (staffUsername || '');
 
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [isMinimized, setIsMinimized] = useState(() => {
@@ -397,22 +493,30 @@ const TaskDetailedPage = ({ category: categoryProp } = {}) => {
     return saved ? JSON.parse(saved) : false;
   });
 
-  const [tasks, setTasks] = useState([]);
-  const [loading, setLoading] = useState(false);
+  const [tasks, setTasks] = useState(() =>
+    canRestoreList ? savedViewRef.current.tasks : [],
+  );
+  const [loading, setLoading] = useState(!canRestoreList);
   const [serviceOptions, setServiceOptions] = useState([ALL_SERVICE_OPTION]);
   const [servicesLoading, setServicesLoading] = useState(false);
   const [staffOptions, setStaffOptions] = useState([ALL_STAFF_OPTION]);
   const [staffLoading, setStaffLoading] = useState(false);
-  const [pagination, setPagination] = useState({
-    page_no: 1,
-    limit: 20,
-    total: 0,
-    total_pages: 1,
-    is_last_page: true,
-  });
-  const [search, setSearch] = useState('');
+  const [pagination, setPagination] = useState(() =>
+    canRestoreList ? initialPagination : {
+      page_no: 1,
+      limit: 20,
+      total: 0,
+      total_pages: 1,
+      is_last_page: true,
+    },
+  );
+  const [search, setSearch] = useState(() =>
+    canRestoreList ? initialSearch : '',
+  );
   const debouncedSearch = useDebounce(search, 400);
-  const [statusFilter, setStatusFilter] = useState(null);
+  const [statusFilter, setStatusFilter] = useState(() =>
+    canRestoreList ? statusForInit : defaultStatusFilter,
+  );
   const [selectedTasks, setSelectedTasks] = useState(new Set());
   const [activeRowDropdown, setActiveRowDropdown] = useState(null);
   const [rowDropdownPosition, setRowDropdownPosition] = useState({ top: 8, left: 8 });
@@ -430,10 +534,75 @@ const TaskDetailedPage = ({ category: categoryProp } = {}) => {
   const rowMenuButtonRefs = useRef({});
   const rowDropdownRef = useRef(null);
   const rowContextPositionRef = useRef(null);
+  const skipNextFetchRef = useRef(canRestoreList);
+  const skipCategoryStatusResetRef = useRef(canRestoreList);
+  const filtersMountedRef = useRef(false);
+  const restoredScrollTop = canRestoreList
+    ? Number(savedViewRef.current?.scrollTop) || 0
+    : null;
 
   useEffect(() => {
     localStorage.setItem('sidebarMinimized', JSON.stringify(isMinimized));
   }, [isMinimized]);
+
+  useEffect(() => {
+    if (skipCategoryStatusResetRef.current) {
+      skipCategoryStatusResetRef.current = false;
+      return;
+    }
+    setStatusFilter(category === 'OD' ? IN_PROCESS_STATUS_OPTION : null);
+  }, [category]);
+
+  useEffect(() => {
+    saveListViewCache(cacheKey, {
+      serviceId,
+      staffUsername,
+      search: debouncedSearch,
+      statusFilter: statusFilter
+        ? { value: statusFilter.value, label: statusFilter.label || statusFilter.name }
+        : null,
+      pagination: {
+        page_no: pagination.page_no,
+        limit: pagination.limit,
+        total: pagination.total,
+        total_pages: pagination.total_pages,
+        is_last_page: pagination.is_last_page,
+      },
+      fingerprint: buildDetailedFingerprint({
+        category,
+        serviceId,
+        staffUsername,
+        search: debouncedSearch,
+        statusValue: statusFilter?.value || '',
+        page_no: pagination.page_no,
+        limit: pagination.limit,
+      }),
+      ...(loading ? {} : { tasks }),
+      scrollTop: getScrollTopById(TASK_DETAILED_SCROLL_ID),
+    });
+  }, [
+    cacheKey,
+    category,
+    serviceId,
+    staffUsername,
+    debouncedSearch,
+    statusFilter,
+    pagination.page_no,
+    pagination.limit,
+    pagination.total,
+    pagination.total_pages,
+    pagination.is_last_page,
+    tasks,
+    loading,
+  ]);
+
+  useEffect(() => {
+    return () => {
+      saveListViewCache(cacheKey, {
+        scrollTop: getScrollTopById(TASK_DETAILED_SCROLL_ID),
+      });
+    };
+  }, [cacheKey]);
 
   useEffect(() => {
     document.body.style.overflow = mobileMenuOpen ? 'hidden' : 'auto';
@@ -729,10 +898,21 @@ const TaskDetailedPage = ({ category: categoryProp } = {}) => {
   }, [category, serviceId, staffUsername, pagination.page_no, pagination.limit, debouncedSearch, statusFilter]);
 
   useEffect(() => {
+    if (skipNextFetchRef.current) {
+      skipNextFetchRef.current = false;
+      setLoading(false);
+      return;
+    }
     fetchDetailedTasks();
   }, [fetchDetailedTasks]);
 
+  useLayoutEffect(() => enableManualScrollRestoration(), []);
+
   useEffect(() => {
+    if (!filtersMountedRef.current) {
+      filtersMountedRef.current = true;
+      return;
+    }
     setPagination((prev) => (prev.page_no === 1 ? prev : { ...prev, page_no: 1 }));
   }, [category, serviceId, staffUsername, debouncedSearch, statusFilter]);
 
@@ -952,12 +1132,18 @@ const TaskDetailedPage = ({ category: categoryProp } = {}) => {
           </div>
         );
       case 'client_email': {
-        const email = safeGetString(task.client?.profile?.email);
-        const truncated = email.length > 18 ? `${email.slice(0, 18)}...` : email;
+        const pan = safeGetString(task.firm?.pan_no, '—');
+        const fileNo = safeGetString(task.firm?.file_no, '—');
+        const label = `PAN: ${pan} • File: ${fileNo}`;
         return (
-          <div className="flex items-center gap-2 text-gray-700 font-medium text-sm" title={email}>
-            <FiMail className="w-3 h-3 text-gray-400" />
-            <span>{truncated}</span>
+          <div className="text-sm font-medium tabular-nums" title={label}>
+            <span className="whitespace-nowrap text-indigo-700">
+              PAN: {pan}
+            </span>
+            <span className="mx-1 text-gray-300">•</span>
+            <span className="whitespace-nowrap text-teal-700">
+              File: {fileNo}
+            </span>
           </div>
         );
       }
@@ -967,16 +1153,27 @@ const TaskDetailedPage = ({ category: categoryProp } = {}) => {
             {safeGetString(task.firm?.firm_name)}
           </div>
         );
-      case 'service_name':
+      case 'service_name': {
+        const isCompliance =
+          String(task.task_type || '').toLowerCase() === 'compliance';
         return (
           <button
             type="button"
             onClick={() => task.task_id && nav(`/task/${task.task_id}`)}
-            className="font-semibold text-gray-800 text-sm hover:text-indigo-600 text-left"
+            className="inline-flex items-center gap-1.5 font-semibold text-gray-800 text-sm hover:text-indigo-600 text-left"
           >
             {safeGetString(task.service?.name)}
+            {isCompliance ? (
+              <span
+                className="inline-flex h-4 w-4 shrink-0 items-center justify-center rounded bg-red-100 text-[10px] font-bold text-red-700"
+                title="Compliance task"
+              >
+                C
+              </span>
+            ) : null}
           </button>
         );
+      }
       case 'fees': {
         const feesAmount = task.charges?.fees || 0;
         return (
@@ -1242,7 +1439,7 @@ const TaskDetailedPage = ({ category: categoryProp } = {}) => {
                   Status
                 </label>
                 <CustomSelect
-                  options={STATUS_OPTIONS}
+                  options={STATUS_FILTER_OPTIONS}
                   value={statusFilter}
                   onChange={(option) => setStatusFilter(option || null)}
                   placeholder="All statuses"
@@ -1298,6 +1495,8 @@ const TaskDetailedPage = ({ category: categoryProp } = {}) => {
                 getStatusStyle={getStatusStyle}
                 getStatusText={getStatusText}
                 onRowContextMenu={handleRowContextMenu}
+                animateRows={!canRestoreList}
+                initialScrollTop={restoredScrollTop}
               />
             </div>
 
