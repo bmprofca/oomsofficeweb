@@ -1116,7 +1116,7 @@ export const Sidebar = ({ mobileMenuOpen, setMobileMenuOpen, isMinimized, setIsM
       },
       {
         key: 'recurring-tasks', title: 'Compliance', icon: <FiRepeat size={18} />,
-        path: '/staff/recurring-tasks',
+        path: '/staff/office-assistance/compliance',
         permission: 'recurring_task_'
       },
       {

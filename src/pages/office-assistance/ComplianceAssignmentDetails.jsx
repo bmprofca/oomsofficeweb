@@ -541,7 +541,7 @@ const ComplianceAssignmentDetails = () => {
                         <div className="flex items-center gap-1.5 text-xs text-slate-500 font-medium">
                             <span className="cursor-pointer hover:text-indigo-650 transition-colors" onClick={() => navigate('/')}>Dashboard</span>
                             <FiChevronRight className="w-3 h-3 text-slate-350" />
-                            <span className="cursor-pointer hover:text-indigo-650 transition-colors" onClick={() => navigate('/staff/recurring-tasks')}>Compliance</span>
+                            <span className="cursor-pointer hover:text-indigo-650 transition-colors" onClick={() => navigate('/staff/office-assistance/compliance')}>Compliance</span>
                             <FiChevronRight className="w-3 h-3 text-slate-350" />
                             <span className="text-slate-700 font-semibold">Assignment Details</span>
                         </div>

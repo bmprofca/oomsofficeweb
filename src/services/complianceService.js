@@ -16,6 +16,20 @@ export const COMPLIANCE_TASK_STATUSES = [
   'cancel',
 ];
 
+/** Filter values for compliance task-list (includes synthetic yet-not-started). */
+export const COMPLIANCE_LIST_STATUS_OPTIONS = [
+  { value: 'yet not started', name: 'Yet Not Started' },
+  { value: 'in process', name: 'In Process' },
+  { value: 'pending from department', name: 'Pending From Department' },
+  { value: 'pending from client', name: 'Pending From Client' },
+  { value: 'complete', name: 'Complete' },
+  { value: 'cancel', name: 'Cancelled' },
+];
+
+export const DEFAULT_COMPLIANCE_LIST_STATUSES = COMPLIANCE_LIST_STATUS_OPTIONS
+  .map((option) => option.value)
+  .filter((value) => value !== 'complete' && value !== 'cancel');
+
 export const COMPLIANCE_MONTHS = [
   'April',
   'May',
@@ -395,16 +409,27 @@ export const fetchComplianceTaskList = async ({
   compliance_period = '',
   firm_id = '',
   username = '',
+  status = [],
+  search = '',
 } = {}) => {
   const headers = withHeaders();
-  const params = { page_no, limit };
-  if (service_id) params.service_id = service_id;
-  if (compliance_year) params.compliance_year = compliance_year;
-  if (compliance_period) params.compliance_period = compliance_period;
-  if (firm_id) params.firm_id = firm_id;
-  if (username) params.username = username;
+  const params = new URLSearchParams();
+  params.set('page_no', String(page_no));
+  params.set('limit', String(limit));
+  if (service_id) params.set('service_id', service_id);
+  if (compliance_year) params.set('compliance_year', compliance_year);
+  if (compliance_period) params.set('compliance_period', compliance_period);
+  if (firm_id) params.set('firm_id', firm_id);
+  if (username) params.set('username', username);
+  if (search?.trim()) params.set('search', search.trim());
+  (Array.isArray(status) ? status : [status])
+    .map((value) => String(value || '').trim())
+    .filter(Boolean)
+    .forEach((value) => params.append('status', value));
 
-  const response = await axios.get(`${API_BASE_URL}/compliance/task-list`, { headers, params });
+  const response = await axios.get(`${API_BASE_URL}/compliance/task-list?${params.toString()}`, {
+    headers,
+  });
   return {
     ...response.data,
     data: Array.isArray(response.data?.data) ? response.data.data : [],

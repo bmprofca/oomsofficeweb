@@ -19,6 +19,7 @@ import {
   FiMail,
   FiPhone,
   FiRefreshCw,
+  FiSearch,
   FiSettings,
   FiUserCheck,
 } from "react-icons/fi";
@@ -30,7 +31,9 @@ import { taskGetIn, taskGetOut } from "../../services/taskService";
 import {
   addComplianceFirm,
   changeComplianceTaskStatus,
+  COMPLIANCE_LIST_STATUS_OPTIONS,
   COMPLIANCE_TASK_STATUSES,
+  DEFAULT_COMPLIANCE_LIST_STATUSES,
   editComplianceFirm,
   extractApiError,
   fetchComplianceFirmDetails,
@@ -46,6 +49,7 @@ import { formatMoney, FirmFormModal } from "./complianceShared";
 import AssignedStaffList from "../../components/Modals/AssignedStaffList";
 import TaskStatusChange from "../../components/Modals/TaskStatusChange";
 import StartWorkingModal from "../../components/Modals/StartWorkingModal";
+import MultiSelectInput from "../../components/MultiSelectInput";
 
 /** Task-table typography baseline — see context/typography.md & TaskTable.js */
 const TABLE_HEAD_ROW =
@@ -84,18 +88,42 @@ const getStatusColorClass = (status) => {
   }
 };
 
-const TABLE_TD = "p-3 min-w-0 text-left align-middle border-l border-gray-100";
-const TABLE_TD_FIRST = "p-3 min-w-0 text-left align-middle";
-const TABLE_MIN_WIDTH = "min-w-[1100px]";
+const TABLE_TD = "p-3 min-w-0 text-left align-top border-l border-gray-100";
+const TABLE_TD_FIRST = "p-3 min-w-0 text-left align-top";
 const COLUMN_STACK =
   "flex flex-col items-start justify-start gap-2 w-full min-w-0";
-const SUB_CELL = "w-full";
+const SUB_CELL = "w-full min-w-0";
 const SUB_CELL_DIVIDER = "border-b border-gray-100 my-1";
-const CELL_BODY = "text-sm font-medium text-gray-700";
-const CELL_TITLE = "text-sm font-semibold text-gray-800";
+const CELL_BODY = "text-sm font-medium text-gray-700 break-words whitespace-normal";
+const CELL_TITLE =
+  "text-sm font-semibold text-gray-800 break-words whitespace-normal";
 const CELL_INDEX = "text-[11px] font-bold text-gray-800";
+const CELL_WRAP = "break-words whitespace-normal min-w-0 max-w-full";
 const FEES_CHIP =
-  "inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-semibold bg-indigo-50 text-indigo-700 border border-indigo-200";
+  "inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-semibold bg-indigo-50 text-indigo-700 border border-indigo-200 max-w-full break-words whitespace-normal";
+
+/** Fixed % widths — with client column (8 cols). */
+const COL_WIDTHS_WITH_CLIENT = {
+  index: "4%",
+  service: "20%",
+  due: "12%",
+  client: "18%",
+  firm: "18%",
+  staff: "12%",
+  status: "12%",
+  action: "4%",
+};
+
+/** Fixed % widths — client-scoped (7 cols, no client). */
+const COL_WIDTHS_NO_CLIENT = {
+  index: "4%",
+  service: "24%",
+  due: "14%",
+  firm: "22%",
+  staff: "14%",
+  status: "14%",
+  action: "4%",
+};
 const CellDash = () => <span className="text-sm text-gray-400">—</span>;
 const TOOLBAR_ROW =
   "flex items-center gap-3 px-3 md:px-4 py-3 border-b border-gray-200 bg-gray-50";
@@ -224,6 +252,8 @@ const getRowDropdownPosition = (button, dropdownHeight = 220) => {
 
 const getStatusDisplayText = (status) => {
   switch (status) {
+    case "yet not started":
+      return "Yet Not Started";
     case "in process":
       return "In Process";
     case "pending from client":
@@ -233,7 +263,7 @@ const getStatusDisplayText = (status) => {
     case "complete":
       return "Complete";
     case "cancel":
-      return "Cancel";
+      return "Cancelled";
     default:
       return status || "—";
   }
@@ -241,10 +271,14 @@ const getStatusDisplayText = (status) => {
 
 const getStatusHoverTitle = (status) => {
   switch (status) {
+    case "yet not started":
+      return "Yet Not Started";
     case "pending from client":
       return "Pending from Client";
     case "pending from department":
       return "Pending from Department";
+    case "cancel":
+      return "Cancelled";
     default:
       return undefined;
   }
@@ -252,15 +286,15 @@ const getStatusHoverTitle = (status) => {
 
 const COMPLIANCE_STATUS_OPTIONS = COMPLIANCE_TASK_STATUSES.map((status) => ({
   value: status,
-  name:
-    status === "in process"
-      ? "In Process"
-      : status === "pending from client"
-        ? "Pending from Client"
-        : status === "pending from department"
-          ? "Pending from Department"
-          : status.charAt(0).toUpperCase() + status.slice(1),
+  name: getStatusDisplayText(status),
 }));
+
+const COMPLIANCE_FILTER_STATUS_OPTIONS = COMPLIANCE_LIST_STATUS_OPTIONS.map(
+  (status) => ({
+    ...status,
+    label: status.name,
+  }),
+);
 
 const getDaysLeft = (dueDate) => {
   if (!dueDate) return null;
@@ -520,7 +554,7 @@ const StaffRolesCell = ({ row }) => {
     <div className="flex flex-col items-start gap-1 w-full min-w-0">
       {caName ? (
         <span
-          className="text-[10px] font-semibold text-violet-700 bg-violet-50 px-1.5 py-0.5 rounded truncate max-w-full"
+          className="text-[10px] font-semibold text-violet-700 bg-violet-50 px-1.5 py-0.5 rounded max-w-full break-words whitespace-normal"
           title={`CA: ${caName}`}
         >
           CA: {caName}
@@ -528,7 +562,7 @@ const StaffRolesCell = ({ row }) => {
       ) : null}
       {agentName ? (
         <span
-          className="text-[10px] font-semibold text-sky-700 bg-sky-50 px-1.5 py-0.5 rounded truncate max-w-full"
+          className="text-[10px] font-semibold text-sky-700 bg-sky-50 px-1.5 py-0.5 rounded max-w-full break-words whitespace-normal"
           title={`Agent: ${agentName}`}
         >
           Agent: {agentName}
@@ -567,6 +601,11 @@ export const ComplianceTaskBoard = ({
   const [periodOptions, setPeriodOptions] = useState(null);
   const [selectedFirmId, setSelectedFirmId] = useState(firmIdProp || "");
   const [firmOptions, setFirmOptions] = useState([]);
+  const [statusFilterValues, setStatusFilterValues] = useState(
+    DEFAULT_COMPLIANCE_LIST_STATUSES,
+  );
+  const [searchTerm, setSearchTerm] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
 
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -675,6 +714,17 @@ export const ComplianceTaskBoard = ({
     };
   }, [isClientScoped, username]);
 
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(searchTerm.trim());
+    }, 400);
+    return () => clearTimeout(timer);
+  }, [searchTerm]);
+
+  useEffect(() => {
+    setPagination((prev) => (prev.page !== 1 ? { ...prev, page: 1 } : prev));
+  }, [debouncedSearch, statusFilterValues, serviceId, complianceYear, compliancePeriod, selectedFirmId]);
+
   const loadServices = useCallback(async () => {
     try {
       const res = await fetchComplianceServices({ page_no: 1, limit: 100 });
@@ -700,6 +750,8 @@ export const ComplianceTaskBoard = ({
         limit: pagination.limit,
         username,
         firm_id: selectedFirmId || "",
+        status: statusFilterValues,
+        search: debouncedSearch,
       });
       setRows(res.data);
       setPeriodOptions(res.query_payload?.period_options ?? null);
@@ -719,6 +771,8 @@ export const ComplianceTaskBoard = ({
     pagination.limit,
     username,
     selectedFirmId,
+    statusFilterValues,
+    debouncedSearch,
   ]);
 
   useEffect(() => {
@@ -1045,9 +1099,12 @@ export const ComplianceTaskBoard = ({
 
   const hideClientColumn = isClientScoped;
   const tableColSpan = hideClientColumn ? 7 : 8;
+  const colWidths = hideClientColumn
+    ? COL_WIDTHS_NO_CLIENT
+    : COL_WIDTHS_WITH_CLIENT;
   const cardShellClass = embedded
-    ? "bg-white rounded-lg overflow-hidden shadow-sm border border-gray-200 flex flex-col w-full"
-    : "bg-white rounded-lg overflow-hidden shadow-sm border border-gray-200 flex flex-col mx-2 sm:mx-4 md:mx-8 my-3 md:my-4";
+    ? "bg-white rounded-lg overflow-hidden shadow-sm border border-gray-200 flex flex-col w-full min-w-0"
+    : "bg-white rounded-lg overflow-hidden shadow-sm border border-gray-200 flex flex-col mx-2 sm:mx-4 md:mx-8 my-3 md:my-4 min-w-0";
 
   const boardContent = (
     <>
@@ -1066,8 +1123,24 @@ export const ComplianceTaskBoard = ({
         </div>
 
         <div className={`${TOOLBAR_ROW} flex-wrap`}>
+          <div className="w-full min-w-0">
+            <label className="block text-xs font-medium text-gray-500 mb-1">
+              Search
+            </label>
+            <div className="relative">
+              <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+              <input
+                type="text"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                placeholder="Search firm, service, client, mobile, email, PAN, GST..."
+                className={`${TOOLBAR_INPUT} pl-9`}
+              />
+            </div>
+          </div>
+
           <div
-            className={`grid grid-cols-1 sm:grid-cols-2 ${isClientScoped ? "xl:grid-cols-5" : "xl:grid-cols-4"} gap-3 flex-1 min-w-0 w-full`}
+            className={`grid grid-cols-1 sm:grid-cols-2 ${isClientScoped ? "xl:grid-cols-6" : "xl:grid-cols-5"} gap-3 flex-1 min-w-0 w-full`}
           >
             <div>
               <label className="block text-xs font-medium text-gray-500 mb-1">
@@ -1163,6 +1236,29 @@ export const ComplianceTaskBoard = ({
               </div>
             ) : null}
 
+            <div className="min-w-0">
+              <label className="block text-xs font-medium text-gray-500 mb-1">
+                Status
+              </label>
+              <MultiSelectInput
+                options={COMPLIANCE_FILTER_STATUS_OPTIONS}
+                value={statusFilterValues}
+                onChange={(values) => {
+                  setStatusFilterValues(values);
+                  setPagination((prev) => ({ ...prev, page: 1 }));
+                }}
+                placeholder="Select Status"
+                allSelectedLabel="All"
+                treatEmptyAsAll={true}
+                searchPlaceholder="Search status..."
+                showSearch={true}
+                showSelectActions={true}
+                valueKey="value"
+                labelKey="label"
+                className="w-full"
+              />
+            </div>
+
             <div className="flex items-end">
               <button
                 type="button"
@@ -1191,9 +1287,21 @@ export const ComplianceTaskBoard = ({
           ) : null}
         </div>
 
-        <div className="flex-1 flex flex-col overflow-hidden">
-          <div className="flex-1 overflow-x-auto overflow-y-hidden">
-            <table className={`w-full table-auto ${TABLE_MIN_WIDTH}`}>
+        <div className="flex-1 flex flex-col overflow-hidden min-w-0">
+          <div className="flex-1 overflow-x-hidden overflow-y-auto min-w-0">
+            <table className="w-full table-fixed">
+              <colgroup>
+                <col style={{ width: colWidths.index }} />
+                <col style={{ width: colWidths.service }} />
+                <col style={{ width: colWidths.due }} />
+                {!hideClientColumn ? (
+                  <col style={{ width: colWidths.client }} />
+                ) : null}
+                <col style={{ width: colWidths.firm }} />
+                <col style={{ width: colWidths.staff }} />
+                <col style={{ width: colWidths.status }} />
+                <col style={{ width: colWidths.action }} />
+              </colgroup>
               <thead>
                 <tr className={TABLE_HEAD_ROW}>
                   <th className={TABLE_TH_FIRST}>#</th>
@@ -1342,19 +1450,17 @@ export const ComplianceTaskBoard = ({
                                   onClick={() =>
                                     navigate(`/task/${row.task_id}`)
                                   }
-                                  className={`${CELL_TITLE} truncate max-w-full block text-left hover:text-indigo-600 transition-colors`}
+                                  className={`${CELL_TITLE} ${CELL_WRAP} block text-left hover:text-indigo-600 transition-colors`}
                                 >
                                   {serviceName}
                                 </button>
                               ) : (
-                                <span
-                                  className={`${CELL_TITLE} truncate max-w-full block`}
-                                >
+                                <span className={`${CELL_TITLE} ${CELL_WRAP} block`}>
                                   {serviceName}
                                 </span>
                               ),
                               periodLabel ? (
-                                <span className={`${CELL_BODY} block`}>
+                                <span className={`${CELL_BODY} ${CELL_WRAP} block`}>
                                   {periodLabel}
                                 </span>
                               ) : (
@@ -1372,7 +1478,7 @@ export const ComplianceTaskBoard = ({
                           <StackedColumnCell
                             items={[
                               <div
-                                className={`flex items-center gap-1.5 font-medium text-sm ${getDueDateColorClass(dates.due_date)}`}
+                                className={`flex items-start gap-1.5 font-medium text-sm min-w-0 ${getDueDateColorClass(dates.due_date)}`}
                                 title={
                                   dates.due_date
                                     ? `Due Date: ${formatDueDate(dates.due_date)}`
@@ -1380,13 +1486,15 @@ export const ComplianceTaskBoard = ({
                                 }
                               >
                                 <FiCalendar
-                                  className={`w-3.5 h-3.5 flex-shrink-0 ${overdue ? "text-red-500" : "text-gray-400"}`}
+                                  className={`w-3.5 h-3.5 flex-shrink-0 mt-0.5 ${overdue ? "text-red-500" : "text-gray-400"}`}
                                 />
-                                <span>{formatDueDate(dates.due_date)}</span>
+                                <span className={CELL_WRAP}>
+                                  {formatDueDate(dates.due_date)}
+                                </span>
                               </div>,
                               dueDaysLabel ? (
                                 <span
-                                  className={`text-sm ${getDueDaysColorClass(dates.due_date)}`}
+                                  className={`text-sm ${CELL_WRAP} ${getDueDaysColorClass(dates.due_date)}`}
                                 >
                                   {dueDaysLabel}
                                 </span>
@@ -1408,27 +1516,27 @@ export const ComplianceTaskBoard = ({
                                         `/client/profile/${client.username}`,
                                       )
                                     }
-                                    className={`${CELL_TITLE} truncate max-w-full block text-left hover:text-indigo-600 transition-colors`}
+                                    className={`${CELL_TITLE} ${CELL_WRAP} block text-left hover:text-indigo-600 transition-colors`}
                                   >
                                     {client.name || "—"}
                                   </button>
                                 ) : (
                                   <span
-                                    className={`${CELL_TITLE} truncate max-w-full block`}
+                                    className={`${CELL_TITLE} ${CELL_WRAP} block`}
                                   >
                                     {client.name || "—"}
                                   </span>
                                 ),
-                                <div className="flex items-center gap-2 text-gray-700 font-medium text-sm min-w-0">
-                                  <FiPhone className="w-3 h-3 text-gray-400 flex-shrink-0" />
-                                  <span className="truncate">
+                                <div className="flex items-start gap-2 text-gray-700 font-medium text-sm min-w-0">
+                                  <FiPhone className="w-3 h-3 text-gray-400 flex-shrink-0 mt-0.5" />
+                                  <span className={CELL_WRAP}>
                                     {client.mobile || "—"}
                                   </span>
                                 </div>,
-                                <div className="flex items-center gap-2 text-gray-700 font-medium text-sm min-w-0">
-                                  <FiMail className="w-3 h-3 text-gray-400 flex-shrink-0" />
+                                <div className="flex items-start gap-2 text-gray-700 font-medium text-sm min-w-0">
+                                  <FiMail className="w-3 h-3 text-gray-400 flex-shrink-0 mt-0.5" />
                                   <span
-                                    className="truncate"
+                                    className={CELL_WRAP}
                                     title={client.email || ""}
                                   >
                                     {client.email || "—"}
@@ -1442,20 +1550,20 @@ export const ComplianceTaskBoard = ({
                           <StackedColumnCell
                             items={[
                               <span
-                                className={`${CELL_BODY} truncate max-w-full block`}
+                                className={`${CELL_BODY} ${CELL_WRAP} block`}
                               >
                                 {firm.firm_name || firm.firm_id || "—"}
                               </span>,
                               firmType ? (
                                 <span
-                                  className={`${CELL_BODY} block capitalize`}
+                                  className={`${CELL_BODY} ${CELL_WRAP} block capitalize`}
                                 >
                                   {firmType}
                                 </span>
                               ) : (
                                 <CellDash />
                               ),
-                              <span className={`${CELL_BODY} block`}>
+                              <span className={`${CELL_BODY} ${CELL_WRAP} block`}>
                                 {fileNo || "—"}
                               </span>,
                             ]}
@@ -1505,20 +1613,22 @@ export const ComplianceTaskBoard = ({
           </div>
         </div>
 
-        {!loading && pagination.total_pages > 1 ? (
-          <TablePagination
-            page={pagination.page}
-            limit={pagination.limit}
-            total={pagination.total}
-            totalPages={pagination.total_pages}
-            onPageChange={(page) =>
-              setPagination((prev) => ({ ...prev, page }))
-            }
-            onLimitChange={(limit) =>
-              setPagination((prev) => ({ ...prev, limit, page: 1 }))
-            }
-          />
-        ) : null}
+        <TablePagination
+          page={pagination.page}
+          limit={pagination.limit}
+          total={pagination.total}
+          totalPages={pagination.total_pages}
+          rowOptions={[5, 10, 20, 50, 100]}
+          defaultRows={20}
+          showJump
+          showFirstLast
+          onPageChange={(page) =>
+            setPagination((prev) => ({ ...prev, page }))
+          }
+          onLimitChange={(limit) =>
+            setPagination((prev) => ({ ...prev, limit, page: 1 }))
+          }
+        />
       </div>
 
       <StartWorkingModal
