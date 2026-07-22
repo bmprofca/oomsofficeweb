@@ -14,6 +14,7 @@ This folder contains modular context notes for agents. **Tag the relevant file(s
 | [`settings-branch.md`](./settings-branch.md) | Branch Settings tabs (Details, Logo, Sign, Invoice, **GST Config**) |
 | [`account-profile.md`](./account-profile.md) | My Profile page, `/account` APIs, contact OTP, `getAccountHeaders` |
 | [`auth-and-api.md`](./auth-and-api.md) | `getHeaders` vs `getAccountHeaders`, base URL |
+| [`search-input-icon.md`](./search-input-icon.md) | Search input placeholder/text overlapping leading `FiSearch` icon |
 
 ## Other files
 
@@ -24,6 +25,7 @@ This folder contains modular context notes for agents. **Tag the relevant file(s
 - `finance-registers.md` - Received, discount, bank, capital register pages
 - `tabs.md` - Tab behavior and segmented-control patterns
 - `ui-patterns.md` - Reusable UX patterns (dialogs, dropdowns, skeletons)
+- `search-input-icon.md` - Search inputs with a leading icon; fix placeholder/text overlap (`pl-9` vs `px-3`)
 - `billing-view.md` - Billing page behavior and API contracts
 - `state-district-select.md` - State/district picker via CustomSelect
 - `task-components.md` - Notes/SubTask/Staff/Details tab reference

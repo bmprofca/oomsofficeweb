@@ -24,6 +24,11 @@ Reference implementations: `received-display.js`, `discount.js`, `bank-account.j
 - Prefer **layout-matching** page skeletons (header + tabs + content bones) over spinners for full pages — see `client-profile.jsx` → `ClientProfilePageSkeleton`
 - Avoid blocking overlays unless truly necessary
 
+## Search input with leading icon
+
+When placeholder or typed text overlaps a left-side search icon, see [`search-input-icon.md`](./search-input-icon.md).  
+Common mistake: `${TOOLBAR_INPUT} pl-9` where `TOOLBAR_INPUT` includes `px-3` — use explicit `pl-9 pr-3` instead.
+
 ## Sidebar layout consistency
 
 - Respect minimized vs expanded offsets

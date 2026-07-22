@@ -1,563 +1,770 @@
-// components/dashboard/SalesOverviewWidget.jsx
-import React, { useState, useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import React, { useCallback, useEffect, useMemo, useState } from "react";
+import { motion } from "framer-motion";
 import {
-    FiTrendingUp,
-    FiTrendingDown,
-    FiBarChart2,
-    FiDownload,
-    FiAward,
-    FiAlertCircle,
-    FiSettings,
-    FiChevronDown,
-    FiX
-} from 'react-icons/fi';
-import getHeaders from '../utils/get-headers';
-import API_BASE_URL from '../utils/api-controller';
-import { useUserPermissions } from '../utils/permission-helper';
+  FiAlertCircle,
+  FiCheckCircle,
+  FiCreditCard,
+  FiFileText,
+  FiLayers,
+  FiPercent,
+  FiRefreshCw,
+  FiShoppingBag,
+  FiTrendingUp,
+  FiUser,
+} from "react-icons/fi";
+import CustomSelect from "../components/CustomSelect";
+import getHeaders from "../utils/get-headers";
+import API_BASE_URL from "../utils/api-controller";
+import { useUserPermissions } from "../utils/permission-helper";
+import { getCurrentComplianceYear } from "../services/complianceService";
 
-// Theme Templates
-const THEMES = {
-    // Theme 1: Indigo Purple (Default)
-    indigoPurple: {
-        id: 'indigoPurple',
-        name: 'Indigo Purple',
-        gradient: 'from-indigo-500 to-purple-600',
-        badgeGradient: 'from-indigo-100 to-purple-100',
-        buttonGradient: 'from-indigo-600 to-purple-600',
-        circleGradient: { start: '#6366f1', end: '#8b5cf6' },
-        bgGradient: 'from-indigo-50 via-white to-purple-50',
-        accentColor: 'indigo',
-        statsColors: ['text-indigo-600', 'text-purple-600', 'text-blue-600']
-    },
-    // Theme 2: Emerald Teal
-    emeraldTeal: {
-        id: 'emeraldTeal',
-        name: 'Emerald Teal',
-        gradient: 'from-emerald-500 to-teal-600',
-        badgeGradient: 'from-emerald-100 to-teal-100',
-        buttonGradient: 'from-emerald-600 to-teal-600',
-        circleGradient: { start: '#10b981', end: '#14b8a6' },
-        bgGradient: 'from-emerald-50 via-white to-teal-50',
-        accentColor: 'emerald',
-        statsColors: ['text-emerald-600', 'text-teal-600', 'text-cyan-600']
-    },
-    // Theme 3: Rose Red
-    roseRed: {
-        id: 'roseRed',
-        name: 'Rose Red',
-        gradient: 'from-rose-500 to-red-600',
-        badgeGradient: 'from-rose-100 to-red-100',
-        buttonGradient: 'from-rose-600 to-red-600',
-        circleGradient: { start: '#f43f5e', end: '#dc2626' },
-        bgGradient: 'from-rose-50 via-white to-red-50',
-        accentColor: 'rose',
-        statsColors: ['text-rose-600', 'text-red-600', 'text-pink-600']
-    },
-    // Theme 4: Amber Orange
-    amberOrange: {
-        id: 'amberOrange',
-        name: 'Amber Orange',
-        gradient: 'from-amber-500 to-orange-600',
-        badgeGradient: 'from-amber-100 to-orange-100',
-        buttonGradient: 'from-amber-600 to-orange-600',
-        circleGradient: { start: '#f59e0b', end: '#ea580c' },
-        bgGradient: 'from-amber-50 via-white to-orange-50',
-        accentColor: 'amber',
-        statsColors: ['text-amber-600', 'text-orange-600', 'text-yellow-600']
-    },
-    // Theme 5: Blue Cyan
-    blueCyan: {
-        id: 'blueCyan',
-        name: 'Blue Cyan',
-        gradient: 'from-blue-500 to-cyan-600',
-        badgeGradient: 'from-blue-100 to-cyan-100',
-        buttonGradient: 'from-blue-600 to-cyan-600',
-        circleGradient: { start: '#3b82f6', end: '#06b6d4' },
-        bgGradient: 'from-blue-50 via-white to-cyan-50',
-        accentColor: 'blue',
-        statsColors: ['text-blue-600', 'text-cyan-600', 'text-sky-600']
-    },
-    // Theme 6: Violet Pink
-    violetPink: {
-        id: 'violetPink',
-        name: 'Violet Pink',
-        gradient: 'from-violet-500 to-pink-600',
-        badgeGradient: 'from-violet-100 to-pink-100',
-        buttonGradient: 'from-violet-600 to-pink-600',
-        circleGradient: { start: '#8b5cf6', end: '#db2777' },
-        bgGradient: 'from-violet-50 via-white to-pink-50',
-        accentColor: 'violet',
-        statsColors: ['text-violet-600', 'text-pink-600', 'text-fuchsia-600']
-    },
-    // Theme 7: Lime Green
-    limeGreen: {
-        id: 'limeGreen',
-        name: 'Lime Green',
-        gradient: 'from-lime-500 to-green-600',
-        badgeGradient: 'from-lime-100 to-green-100',
-        buttonGradient: 'from-lime-600 to-green-600',
-        circleGradient: { start: '#84cc16', end: '#16a34a' },
-        bgGradient: 'from-lime-50 via-white to-green-50',
-        accentColor: 'lime',
-        statsColors: ['text-lime-600', 'text-green-600', 'text-emerald-600']
-    },
-    // Theme 8: Purple Indigo
-    purpleIndigo: {
-        id: 'purpleIndigo',
-        name: 'Purple Indigo',
-        gradient: 'from-purple-500 to-indigo-600',
-        badgeGradient: 'from-purple-100 to-indigo-100',
-        buttonGradient: 'from-purple-600 to-indigo-600',
-        circleGradient: { start: '#a855f7', end: '#4f46e5' },
-        bgGradient: 'from-purple-50 via-white to-indigo-50',
-        accentColor: 'purple',
-        statsColors: ['text-purple-600', 'text-indigo-600', 'text-violet-600']
-    },
-    // Theme 9: Gray Slate (Minimal)
-    graySlate: {
-        id: 'graySlate',
-        name: 'Gray Slate',
-        gradient: 'from-gray-500 to-slate-600',
-        badgeGradient: 'from-gray-100 to-slate-100',
-        buttonGradient: 'from-gray-600 to-slate-600',
-        circleGradient: { start: '#6b7280', end: '#475569' },
-        bgGradient: 'from-gray-50 via-white to-slate-50',
-        accentColor: 'gray',
-        statsColors: ['text-gray-600', 'text-slate-600', 'text-zinc-600']
-    },
-    // Theme 10: Neon Bright
-    neonBright: {
-        id: 'neonBright',
-        name: 'Neon Bright',
-        gradient: 'from-pink-500 to-yellow-500',
-        badgeGradient: 'from-pink-100 to-yellow-100',
-        buttonGradient: 'from-pink-600 to-yellow-600',
-        circleGradient: { start: '#ec4899', end: '#eab308' },
-        bgGradient: 'from-pink-50 via-white to-yellow-50',
-        accentColor: 'pink',
-        statsColors: ['text-pink-600', 'text-yellow-600', 'text-orange-600']
-    }
+const buildFinancialYearOptions = () => {
+  const currentStart = Number(getCurrentComplianceYear().split("-")[0]);
+  return Array.from({ length: 3 }, (_, index) => {
+    const start = currentStart - index;
+    const end = start + 1;
+    const value = `${start}-${end}`;
+    return {
+      value,
+      label: `FY ${start}-${String(end).slice(-2)}`,
+    };
+  });
 };
 
-// Widget Wrapper Component
-const WidgetWrapper = ({ widgetId, title, children, theme, className = "" }) => {
-    return (
-        <div className={`bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden ${className}`}>
-            <div className="px-6 py-4 border-b border-gray-200 bg-gradient-to-r from-gray-50 to-white">
-                <div className="flex items-center justify-between">
-                    <h3 className="text-lg font-semibold text-gray-800">{title}</h3>
-                    <div className="text-xs text-gray-500">ID: {widgetId}</div>
-                </div>
-            </div>
-            <div className="relative">
-                {children}
-            </div>
+const DEFAULT_BREAKDOWN = {
+  task: { count: 0, amount: 0 },
+  client: { count: 0, amount: 0 },
+  bank: { count: 0, amount: 0 },
+  other: { count: 0, amount: 0 },
+};
+
+const DEFAULT_STATS = {
+  invoice_count: 0,
+  sale_amount: 0,
+  gst_amount: 0,
+  task_sale_count: 0,
+  sale_breakdown: DEFAULT_BREAKDOWN,
+  previous_financial_year: null,
+  previous_fy_sale_amount: 0,
+  sale_amount_growth_percent: null,
+  previous_fy_label: null,
+};
+
+const METRIC_CONFIG = [
+  {
+    key: "invoice_count",
+    label: "Sale invoices",
+    icon: FiFileText,
+    gradient: "linear-gradient(135deg, #0ea5e9 0%, #2563eb 100%)",
+    captionKey: "invoice",
+  },
+  {
+    key: "sale_amount",
+    label: "Sale amount",
+    icon: FiShoppingBag,
+    gradient: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
+    type: "currency",
+    captionKey: "sale_amount",
+  },
+  {
+    key: "gst_amount",
+    label: "GST amount",
+    icon: FiPercent,
+    gradient: "linear-gradient(135deg, #10b981 0%, #059669 100%)",
+    type: "currency",
+    captionKey: "gst",
+  },
+];
+
+const SALE_SOURCE_CONFIG = [
+  {
+    key: "task",
+    label: "Task",
+    icon: FiCheckCircle,
+    gradient: "from-fuchsia-500 to-pink-600",
+    dot: "bg-fuchsia-500",
+  },
+  {
+    key: "client",
+    label: "Client",
+    icon: FiUser,
+    gradient: "from-indigo-500 to-violet-600",
+    dot: "bg-indigo-500",
+  },
+  {
+    key: "bank",
+    label: "Bank",
+    icon: FiCreditCard,
+    gradient: "from-cyan-500 to-blue-600",
+    dot: "bg-cyan-500",
+  },
+  {
+    key: "other",
+    label: "Others",
+    icon: FiLayers,
+    gradient: "from-slate-500 to-slate-700",
+    dot: "bg-slate-500",
+    caption: "CA, agent, staff & more",
+  },
+];
+
+const containerVariants = {
+  hidden: { opacity: 0 },
+  show: {
+    opacity: 1,
+    transition: { staggerChildren: 0.05, delayChildren: 0.06 },
+  },
+};
+
+const itemVariants = {
+  hidden: { opacity: 0, y: 10 },
+  show: {
+    opacity: 1,
+    y: 0,
+    transition: { type: "spring", stiffness: 320, damping: 28 },
+  },
+};
+
+const formatCount = (value) =>
+  new Intl.NumberFormat("en-IN").format(Number(value) || 0);
+
+const formatCurrency = (value) =>
+  new Intl.NumberFormat("en-IN", {
+    style: "currency",
+    currency: "INR",
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0,
+  }).format(Number(value) || 0);
+
+const formatMetricValue = (metric, value, canViewAmounts, maskedAmount) => {
+  if (metric.type === "currency" && !canViewAmounts) return maskedAmount;
+  if (metric.type === "currency") return formatCurrency(value);
+  return formatCount(value);
+};
+
+const getMetricCaption = (
+  metric,
+  stats,
+  canViewAmounts,
+  gstShare,
+  taskShare,
+) => {
+  switch (metric.captionKey) {
+    case "invoice":
+      if (!stats.invoice_count) return "No invoices this FY";
+      return `${formatCount(stats.task_sale_count)} task-linked (${taskShare}%)`;
+    case "sale_amount":
+      if (!canViewAmounts) return "Amount hidden";
+      if (!stats.invoice_count) return "No invoices to average";
+      return `Avg ${formatCurrency(stats.sale_amount / stats.invoice_count)} / invoice`;
+    case "gst":
+      if (!canViewAmounts) return "Amount hidden";
+      if (!stats.sale_amount) return "No GST collected yet";
+      return `${gstShare}% of total sales`;
+    default:
+      return "";
+  }
+};
+
+const SalesOverviewHeader = ({
+  financialYearOptions,
+  selectedYearOption,
+  onYearChange,
+  onRefresh,
+  refreshing,
+}) => (
+  <div className="border-b border-gray-100 px-4 py-4 md:px-6 md:py-5">
+    <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex items-center gap-3 min-w-0">
+        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-indigo-50 text-indigo-600">
+          <FiTrendingUp className="h-5 w-5" />
         </div>
-    );
+        <div className="min-w-0">
+          <h3 className="text-lg font-bold text-gray-900 tracking-tight">
+            Sales Overview
+          </h3>
+          <p className="text-xs text-gray-500 mt-0.5">
+            Financial year performance at a glance
+          </p>
+        </div>
+      </div>
+
+      <div className="flex items-center gap-2 shrink-0">
+        <div className="w-full sm:w-44">
+          <CustomSelect
+            options={financialYearOptions}
+            value={selectedYearOption}
+            onChange={onYearChange}
+            placeholder="Financial year"
+            isSearchable={false}
+            isClearable={false}
+          />
+        </div>
+        <button
+          type="button"
+          onClick={onRefresh}
+          disabled={refreshing}
+          className="inline-flex h-10 w-10 items-center justify-center rounded-lg border border-gray-200 bg-white text-indigo-600 shadow-sm hover:bg-indigo-50 disabled:opacity-60 transition-colors"
+          title="Refresh"
+          aria-label="Refresh sales overview"
+        >
+          <FiRefreshCw className={`h-4 w-4 ${refreshing ? "animate-spin" : ""}`} />
+        </button>
+      </div>
+    </div>
+  </div>
+);
+
+const InsightPill = ({ dotColor, children }) => (
+  <span className="inline-flex items-center gap-1.5 rounded-full bg-white/70 px-2.5 py-1 text-[10px] font-medium text-gray-600">
+    <span className={`h-1.5 w-1.5 rounded-full ${dotColor}`} />
+    {children}
+  </span>
+);
+
+const QuickStatCard = ({
+  metric,
+  value,
+  caption,
+  canViewAmounts,
+  maskedAmount,
+}) => {
+  const Icon = metric.icon;
+
+  return (
+    <motion.div
+      variants={itemVariants}
+      whileHover={{ scale: 1.005 }}
+      transition={{ duration: 0.2 }}
+      className="relative overflow-hidden rounded-xl shadow-md hover:shadow-lg transition-all duration-300 h-full"
+      style={{ background: metric.gradient }}
+    >
+      <div className="p-3">
+        <div className="flex items-start justify-between mb-2">
+          <div className="flex-1 min-w-0">
+            <div className="text-white/80 text-xs font-medium mb-1">
+              {metric.label}
+            </div>
+            <motion.div
+              key={`${metric.key}-${value}`}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ duration: 0.3 }}
+            >
+              <div className="text-lg font-bold text-white leading-tight truncate">
+                {formatMetricValue(metric, value, canViewAmounts, maskedAmount)}
+              </div>
+              <div className="text-white/50 text-[10px] leading-tight mt-1">
+                {caption}
+              </div>
+            </motion.div>
+          </div>
+          <div className="p-1.5 bg-white/20 backdrop-blur-sm rounded-lg flex-shrink-0 ml-2">
+            <Icon className="w-4 h-4 text-white" />
+          </div>
+        </div>
+      </div>
+      <div className="absolute inset-0 -translate-x-full bg-gradient-to-r from-white/0 via-white/20 to-white/0 hover:translate-x-full transition-transform duration-700 pointer-events-none" />
+    </motion.div>
+  );
 };
 
-// Theme Selector Component
-const ThemeSelector = ({ currentTheme, onThemeChange, onClose }) => {
-    return (
-        <motion.div
-            initial={{ opacity: 0, scale: 0.95 }}
-            animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0, scale: 0.95 }}
-            className="absolute top-16 right-8 z-50 w-80 bg-white rounded-2xl shadow-2xl border border-gray-200 overflow-hidden"
-        >
-            <div className="px-4 py-3 bg-gradient-to-r from-gray-50 to-white border-b border-gray-200 flex items-center justify-between">
-                <h4 className="font-semibold text-gray-800">Select Theme</h4>
-                <button
-                    onClick={onClose}
-                    className="p-1 hover:bg-gray-100 rounded-lg transition-colors"
-                >
-                    <FiX className="w-4 h-4 text-gray-500" />
-                </button>
-            </div>
-            <div className="p-3 max-h-96 overflow-y-auto">
-                <div className="grid grid-cols-2 gap-2">
-                    {Object.values(THEMES).map((theme) => (
-                        <motion.button
-                            key={theme.id}
-                            whileHover={{ scale: 1.02 }}
-                            whileTap={{ scale: 0.98 }}
-                            onClick={() => onThemeChange(theme.id)}
-                            className={`p-3 rounded-xl border-2 transition-all ${currentTheme === theme.id
-                                    ? `border-${theme.accentColor}-500 shadow-md`
-                                    : 'border-gray-200 hover:border-gray-300'
-                                }`}
-                        >
-                            <div className={`w-full h-12 rounded-lg bg-gradient-to-r ${theme.gradient} mb-2`} />
-                            <p className={`text-sm font-medium ${currentTheme === theme.id ? `text-${theme.accentColor}-600` : 'text-gray-700'}`}>
-                                {theme.name}
-                            </p>
-                        </motion.button>
-                    ))}
-                </div>
-            </div>
-        </motion.div>
-    );
+const SaleSourceRow = ({ source, data, canViewAmounts, maskedAmount, totalCount }) => {
+  const Icon = source.icon;
+  const count = data?.count || 0;
+  const amount = data?.amount || 0;
+  const share = totalCount > 0 ? Math.round((count / totalCount) * 100) : 0;
+
+  return (
+    <div className="flex items-center gap-3 rounded-lg bg-white/80 px-3 py-2.5 border border-white/60">
+      <div
+        className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br ${source.gradient} text-white shadow-sm`}
+      >
+        <Icon className="h-3.5 w-3.5" />
+      </div>
+      <div className="min-w-0 flex-1">
+        <div className="flex items-center justify-between gap-2">
+          <p className="text-xs font-semibold text-gray-700">{source.label}</p>
+          <p className="text-xs font-bold text-gray-900">{formatCount(count)}</p>
+        </div>
+        <div className="mt-1 flex items-center justify-between gap-2 text-[10px] text-gray-400">
+          <span>
+            {source.key === "other" && source.caption
+              ? `${share}% · ${source.caption}`
+              : `${share}% of sales`}
+          </span>
+          <span className="font-medium text-gray-500">
+            {canViewAmounts ? formatCurrency(amount) : maskedAmount}
+          </span>
+        </div>
+        <div className="mt-1.5 h-1 overflow-hidden rounded-full bg-gray-100">
+          <div
+            className={`h-full rounded-full bg-gradient-to-r ${source.gradient}`}
+            style={{ width: `${Math.max(share, count > 0 ? 4 : 0)}%` }}
+          />
+        </div>
+      </div>
+    </div>
+  );
 };
+
+const AmountBreakdown = ({
+  gstShare,
+  gstAmount,
+  preTaxAmount,
+  canViewAmounts,
+  formatCurrencyFn,
+}) => {
+  if (!canViewAmounts) return null;
+
+  return (
+    <div className="mt-4 rounded-xl border border-indigo-100 bg-white/80 p-3 backdrop-blur-sm">
+      <div className="flex items-center justify-between text-[10px] font-semibold uppercase tracking-wide text-gray-500 mb-2">
+        <span>Amount breakdown</span>
+        <span className="normal-case tracking-normal font-normal text-gray-400">
+          GST vs pre-tax
+        </span>
+      </div>
+      <div className="flex h-2 overflow-hidden rounded-full bg-gray-100">
+        <motion.div
+          initial={{ width: 0 }}
+          animate={{ width: `${Math.max(gstShare, 0)}%` }}
+          transition={{ duration: 0.7, ease: "easeOut" }}
+          className="bg-emerald-500"
+          title={`GST ${gstShare}%`}
+        />
+        <motion.div
+          initial={{ width: 0 }}
+          animate={{ width: `${Math.max(100 - gstShare, 0)}%` }}
+          transition={{ duration: 0.7, delay: 0.08, ease: "easeOut" }}
+          className="bg-indigo-500"
+          title="Pre-tax portion"
+        />
+      </div>
+      <div className="mt-2 flex flex-wrap gap-3 text-[10px] text-gray-500">
+        <span className="inline-flex items-center gap-1.5">
+          <span className="h-2 w-2 rounded-full bg-emerald-500" />
+          GST {formatCurrencyFn(gstAmount)}
+        </span>
+        <span className="inline-flex items-center gap-1.5">
+          <span className="h-2 w-2 rounded-full bg-indigo-500" />
+          Pre-tax {formatCurrencyFn(preTaxAmount)}
+        </span>
+      </div>
+    </div>
+  );
+};
+
+const SalesOverviewBodySkeleton = () => (
+  <div className="p-4 bg-gray-50/50 animate-pulse">
+    <div className="grid grid-cols-1 lg:grid-cols-12 gap-2 lg:gap-3">
+      <div className="lg:col-span-4">
+        <div className="h-full rounded-xl bg-gradient-to-br from-indigo-500 via-indigo-600 to-violet-700 p-4 shadow-md">
+          <div className="h-3 w-28 rounded bg-white/30" />
+          <div className="mt-2 h-10 w-48 rounded bg-white/40" />
+          <div className="mt-2 h-4 w-36 rounded bg-white/25" />
+          <div className="mt-1 h-3 w-24 rounded bg-white/20" />
+          <div className="mt-3 flex flex-wrap gap-2">
+            <div className="h-6 w-28 rounded-full bg-white/25" />
+            <div className="h-6 w-32 rounded-full bg-white/25" />
+          </div>
+          <div className="mt-4 rounded-xl border border-white/20 bg-white/15 p-3 space-y-2">
+            <div className="flex justify-between">
+              <div className="h-3 w-24 rounded bg-white/25" />
+              <div className="h-3 w-20 rounded bg-white/20" />
+            </div>
+            <div className="h-2 rounded-full bg-white/20" />
+            <div className="flex gap-3">
+              <div className="h-3 w-16 rounded bg-white/20" />
+              <div className="h-3 w-20 rounded bg-white/20" />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="lg:col-span-8 space-y-2">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+          {Array.from({ length: 3 }).map((_, index) => (
+            <div
+              key={index}
+              className="rounded-xl bg-gray-200 p-3 min-h-[88px] shadow-md"
+            />
+          ))}
+        </div>
+        <div className="rounded-xl border border-gray-100 bg-gradient-to-br from-fuchsia-50 via-white to-indigo-50 p-3 shadow-sm">
+          <div className="h-4 w-28 rounded bg-gray-200 mb-2.5" />
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            {Array.from({ length: 4 }).map((_, index) => (
+              <div
+                key={index}
+                className="flex items-center gap-3 rounded-lg bg-white/80 px-3 py-2.5 border border-white/60"
+              >
+                <div className="h-8 w-8 rounded-lg bg-gray-200 shrink-0" />
+                <div className="flex-1 space-y-2">
+                  <div className="flex justify-between">
+                    <div className="h-3 w-12 rounded bg-gray-200" />
+                    <div className="h-3 w-8 rounded bg-gray-200" />
+                  </div>
+                  <div className="flex justify-between">
+                    <div className="h-2.5 w-16 rounded bg-gray-100" />
+                    <div className="h-2.5 w-14 rounded bg-gray-100" />
+                  </div>
+                  <div className="h-1 rounded-full bg-gray-100" />
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+);
+
+const formatPreviousFyLabel = (fyLabel) => {
+  if (!fyLabel) return "";
+  const [start, end] = String(fyLabel).split("-");
+  if (!start || !end) return fyLabel;
+  return `FY ${start}-${String(end).slice(-2)}`;
+};
+
+const GrowthIndicator = ({ stats }) => {
+  if (!stats.previous_financial_year) return null;
+
+  const previousLabel =
+    stats.previous_fy_label ||
+    formatPreviousFyLabel(stats.previous_financial_year);
+
+  if (stats.sale_amount_growth_percent == null) {
+    if (stats.sale_amount > 0 && stats.previous_fy_sale_amount === 0) {
+      return (
+        <p className="mt-2 text-sm font-semibold text-emerald-200">
+          New vs {previousLabel}
+        </p>
+      );
+    }
+    return null;
+  }
+
+  const growth = stats.sale_amount_growth_percent;
+  const isPositive = growth > 0;
+  const isNeutral = growth === 0;
+
+  return (
+    <p
+      className={`mt-2 text-sm font-semibold ${
+        isNeutral
+          ? "text-indigo-100"
+          : isPositive
+            ? "text-emerald-200"
+            : "text-rose-200"
+      }`}
+    >
+      {isNeutral ? "—" : isPositive ? "↑" : "↓"}{" "}
+      {isNeutral ? "No change" : `${Math.abs(growth)}%`} vs {previousLabel}
+    </p>
+  );
+};
+
+const SalesOverviewBody = ({
+  stats,
+  canViewAmounts,
+  maskedAmount,
+  gstShare,
+  taskShare,
+  avgInvoiceValue,
+  preTaxAmount,
+  totalSourceCount,
+  selectedYearOption,
+  selectedFinancialYear,
+  formatCurrency,
+}) => (
+  <div className="p-4 bg-gray-50/50">
+    <div className="grid grid-cols-1 lg:grid-cols-12 gap-2 lg:gap-3">
+      <motion.div
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.35 }}
+        className="lg:col-span-4"
+      >
+        <div className="h-full rounded-xl bg-gradient-to-br from-indigo-500 via-indigo-600 to-violet-700 p-4 shadow-md">
+          <p className="text-[11px] font-semibold uppercase tracking-wide text-indigo-100">
+            Total sale amount
+          </p>
+          <motion.p
+            key={stats.sale_amount}
+            initial={{ opacity: 0, y: 6 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.35 }}
+            className="mt-2 text-3xl md:text-4xl font-bold tracking-tight text-white"
+          >
+            {canViewAmounts ? formatCurrency(stats.sale_amount) : maskedAmount}
+          </motion.p>
+          <GrowthIndicator stats={stats} />
+          <p className="mt-1 text-xs text-indigo-100/80">
+            {selectedYearOption?.label || selectedFinancialYear}
+          </p>
+
+          <div className="mt-3 flex flex-wrap gap-2">
+            {stats.invoice_count > 0 ? (
+              <InsightPill dotColor="bg-fuchsia-400">
+                {taskShare}% task-linked
+              </InsightPill>
+            ) : null}
+            {canViewAmounts && stats.invoice_count > 0 ? (
+              <InsightPill dotColor="bg-indigo-300">
+                Avg {formatCurrency(avgInvoiceValue)} / invoice
+              </InsightPill>
+            ) : null}
+          </div>
+
+          {canViewAmounts && stats.sale_amount > 0 ? (
+            <AmountBreakdown
+              gstShare={gstShare}
+              gstAmount={stats.gst_amount}
+              preTaxAmount={preTaxAmount}
+              canViewAmounts={canViewAmounts}
+              formatCurrencyFn={formatCurrency}
+            />
+          ) : null}
+        </div>
+      </motion.div>
+
+      <div className="lg:col-span-8 space-y-2">
+        <motion.div
+          variants={containerVariants}
+          initial="hidden"
+          animate="show"
+          className="grid grid-cols-1 sm:grid-cols-3 gap-2 auto-rows-fr"
+        >
+          {METRIC_CONFIG.map((metric) => (
+            <QuickStatCard
+              key={metric.key}
+              metric={metric}
+              value={stats[metric.key]}
+              caption={getMetricCaption(
+                metric,
+                stats,
+                canViewAmounts,
+                gstShare,
+                taskShare,
+              )}
+              canViewAmounts={canViewAmounts}
+              maskedAmount={maskedAmount}
+            />
+          ))}
+        </motion.div>
+
+        <motion.div
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.15, duration: 0.35 }}
+          className="rounded-xl border border-gray-100 bg-gradient-to-br from-fuchsia-50 via-white to-indigo-50 p-3 shadow-sm"
+        >
+          <p className="text-xs font-bold text-gray-800 mb-2.5">
+            Sales by source
+          </p>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            {SALE_SOURCE_CONFIG.map((source) => (
+              <SaleSourceRow
+                key={source.key}
+                source={source}
+                data={stats.sale_breakdown?.[source.key]}
+                canViewAmounts={canViewAmounts}
+                maskedAmount={maskedAmount}
+                totalCount={totalSourceCount}
+              />
+            ))}
+          </div>
+        </motion.div>
+      </div>
+    </div>
+  </div>
+);
 
 const SalesOverviewWidget = () => {
-    const { check } = useUserPermissions();
-    const [stats, setStats] = useState({
-        total_sale: 0,
-        growth_rate: 0,
-        net_profit: 0,
-        active_client: 0,
-        task_complete_today: 0,
-        task_completion_rate: 0,
-        total_tasks: 0,
-        financial_year: '2026-2027'
-    });
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState(null);
-    const [currentTheme, setCurrentTheme] = useState('indigoPurple');
-    const [showThemeSelector, setShowThemeSelector] = useState(false);
+  const { check } = useUserPermissions();
+  const canViewAmounts = check("finance_balance_view");
 
-    // Fetch dashboard summary data
-    const fetchDashboardSummary = async () => {
-        setLoading(true);
-        setError(null);
-        try {
-            const headers = await getHeaders();
-            const response = await fetch(`${API_BASE_URL}/report/dashboard-summary-core`, {
-                method: 'GET',
-                headers: headers
-            });
+  const financialYearOptions = useMemo(() => buildFinancialYearOptions(), []);
+  const defaultFinancialYear =
+    financialYearOptions[0]?.value || getCurrentComplianceYear();
 
-            if (!response.ok) {
-                throw new Error('Failed to fetch dashboard summary');
-            }
+  const [selectedFinancialYear, setSelectedFinancialYear] =
+    useState(defaultFinancialYear);
+  const [stats, setStats] = useState(DEFAULT_STATS);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [error, setError] = useState(null);
 
-            const responseData = await response.json();
-            console.log('Dashboard Summary Response:', responseData);
+  const selectedYearOption = useMemo(
+    () =>
+      financialYearOptions.find(
+        (option) => option.value === selectedFinancialYear,
+      ) ||
+      financialYearOptions[0] ||
+      null,
+    [financialYearOptions, selectedFinancialYear],
+  );
 
-            if (responseData.success && responseData.data) {
-                const data = responseData.data;
-                setStats({
-                    total_sale: data.current_fy_total_sales?.value || 0,
-                    growth_rate: data.growth_rate?.value || 0,
-                    net_profit: data.net_profit?.value || 0,
-                    active_client: data.active_clients?.value || 0,
-                    task_complete_today: parseInt(data.task_completion?.completed) || 0,
-                    task_completion_rate: data.task_completion?.rate || 0,
-                    total_tasks: parseInt(data.task_completion?.total) || 0,
-                    financial_year: data.financial_year || '2026-2027'
-                });
-            } else {
-                throw new Error(responseData.message || 'Invalid response structure');
-            }
-        } catch (err) {
-            console.error('Error fetching dashboard summary:', err);
-            setError(err.message);
-            // Set fallback values
-            setStats({
-                total_sale: 0,
-                growth_rate: 0,
-                net_profit: 0,
-                active_client: 0,
-                task_complete_today: 0,
-                task_completion_rate: 0,
-                total_tasks: 0,
-                financial_year: '2026-2027'
-            });
-        } finally {
-            setLoading(false);
-        }
-    };
+  const fetchSalesOverview = useCallback(async (financialYear, isRefresh = false) => {
+    if (isRefresh) setRefreshing(true);
+    else setLoading(true);
+    setError(null);
 
-    useEffect(() => {
-        fetchDashboardSummary();
-    }, []);
+    try {
+      const headers = getHeaders();
+      const params = new URLSearchParams({ financial_year: financialYear });
+      const response = await fetch(
+        `${API_BASE_URL}/report/dashboard-summary-core?${params.toString()}`,
+        { method: "GET", headers },
+      );
 
-    // Save theme preference to localStorage
-    useEffect(() => {
-        const savedTheme = localStorage.getItem('salesWidgetTheme');
-        if (savedTheme && THEMES[savedTheme]) {
-            setCurrentTheme(savedTheme);
-        }
-    }, []);
+      const responseData = await response.json();
 
-    const handleThemeChange = (themeId) => {
-        setCurrentTheme(themeId);
-        localStorage.setItem('salesWidgetTheme', themeId);
-        setShowThemeSelector(false);
-    };
+      if (!response.ok || !responseData.success) {
+        throw new Error(responseData.message || "Failed to fetch sales overview");
+      }
 
-    const theme = THEMES[currentTheme];
-
-    // Format currency
-    const formatCurrency = (value) => {
-        if (value === undefined || value === null) return '₹0';
-        return new Intl.NumberFormat('en-IN', {
-            style: 'currency',
-            currency: 'INR',
-            minimumFractionDigits: 0,
-            maximumFractionDigits: 0
-        }).format(value);
-    };
-
-    // Format percentage
-    const formatPercentage = (value) => {
-        if (value === undefined || value === null) return '0%';
-        return `${value.toFixed(1)}%`;
-    };
-
-    // Get trend color
-    const getTrendColor = (growthRate) => {
-        if (growthRate > 0) return 'text-green-600';
-        if (growthRate < 0) return 'text-red-600';
-        return 'text-gray-600';
-    };
-
-    // Get trend icon
-    const getTrendIcon = (growthRate) => {
-        if (growthRate > 0) return <FiTrendingUp className="w-4 h-4" />;
-        if (growthRate < 0) return <FiTrendingDown className="w-4 h-4" />;
-        return <FiTrendingUp className="w-4 h-4" />;
-    };
-
-    // Get achievement percentage
-    const achievementPercentage = Math.min(100, Math.round((stats.total_sale / (stats.total_sale * 1.0869)) * 100)) || 92;
-
-    // Skeleton loader
-    if (loading) {
-        return (
-            <WidgetWrapper widgetId="sales-overview" title="Sales Overview" className="col-span-full" theme={theme}>
-                <div className="p-4 md:p-6">
-                    <div className="animate-pulse">
-                        <div className="flex items-center gap-3 mb-4">
-                            <div className="w-10 h-10 bg-gray-200 rounded-lg"></div>
-                            <div className="flex-1">
-                                <div className="h-6 bg-gray-200 rounded w-48 mb-2"></div>
-                                <div className="h-4 bg-gray-200 rounded w-64"></div>
-                            </div>
-                        </div>
-                        <div className="mb-4">
-                            <div className="h-4 bg-gray-200 rounded w-32 mb-2"></div>
-                            <div className="h-8 bg-gray-200 rounded w-56 mb-2"></div>
-                            <div className="h-4 bg-gray-200 rounded w-40"></div>
-                        </div>
-                        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
-                            {[1, 2, 3, 4].map(i => (
-                                <div key={i} className="h-16 bg-gray-100 rounded-lg"></div>
-                            ))}
-                        </div>
-                        <div className="flex gap-3">
-                            <div className="h-12 w-36 bg-gray-200 rounded-xl"></div>
-                            <div className="h-12 w-36 bg-gray-200 rounded-xl"></div>
-                        </div>
-                    </div>
-                </div>
-            </WidgetWrapper>
-        );
+      const data = responseData.data || {};
+      const breakdown = data.sale_breakdown || {};
+      const formatted = data.formatted || {};
+      setStats({
+        invoice_count: data.invoice_count || 0,
+        sale_amount: data.sale_amount || 0,
+        gst_amount: data.gst_amount || 0,
+        task_sale_count: data.task_sale_count || 0,
+        sale_breakdown: {
+          task: breakdown.task || DEFAULT_BREAKDOWN.task,
+          client: breakdown.client || DEFAULT_BREAKDOWN.client,
+          bank: breakdown.bank || DEFAULT_BREAKDOWN.bank,
+          other: breakdown.other || DEFAULT_BREAKDOWN.other,
+        },
+        previous_financial_year: data.previous_financial_year || null,
+        previous_fy_sale_amount: data.previous_fy_sale_amount || 0,
+        sale_amount_growth_percent:
+          data.sale_amount_growth_percent ?? null,
+        previous_fy_label: formatted.previous_fy_label || null,
+      });
+    } catch (err) {
+      console.error("Error fetching sales overview:", err);
+      setError(err.message || "Failed to fetch sales overview");
+      setStats(DEFAULT_STATS);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
     }
+  }, []);
 
-    // Error state
-    if (error) {
-        return (
-            <WidgetWrapper widgetId="sales-overview" title="Sales Overview" className="col-span-full" theme={theme}>
-                <div className="p-4 md:p-6 text-center">
-                    <div className="inline-flex items-center justify-center w-16 h-16 bg-red-100 rounded-full mb-4">
-                        <FiAlertCircle className="w-8 h-8 text-red-500" />
-                    </div>
-                    <h3 className="text-lg font-semibold text-gray-800 mb-2">Unable to Load Data</h3>
-                    <p className="text-gray-600 mb-4">{error}</p>
-                    <button
-                        onClick={fetchDashboardSummary}
-                        className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
-                    >
-                        Retry
-                    </button>
-                </div>
-            </WidgetWrapper>
-        );
-    }
+  useEffect(() => {
+    fetchSalesOverview(selectedFinancialYear);
+  }, [fetchSalesOverview, selectedFinancialYear]);
 
+  const maskedAmount = "₹ •••••";
+
+  const gstShare = useMemo(() => {
+    if (!canViewAmounts || !stats.sale_amount) return 0;
+    return Math.min(100, Math.round((stats.gst_amount / stats.sale_amount) * 100));
+  }, [canViewAmounts, stats.gst_amount, stats.sale_amount]);
+
+  const taskShare = useMemo(() => {
+    if (!stats.invoice_count) return 0;
+    return Math.min(100, Math.round((stats.task_sale_count / stats.invoice_count) * 100));
+  }, [stats.invoice_count, stats.task_sale_count]);
+
+  const avgInvoiceValue = useMemo(() => {
+    if (!stats.invoice_count) return 0;
+    return stats.sale_amount / stats.invoice_count;
+  }, [stats.invoice_count, stats.sale_amount]);
+
+  const preTaxAmount = useMemo(
+    () => Math.max(0, stats.sale_amount - stats.gst_amount),
+    [stats.sale_amount, stats.gst_amount],
+  );
+
+  const totalSourceCount = useMemo(
+    () =>
+      Object.values(stats.sale_breakdown || {}).reduce(
+        (sum, item) => sum + (item?.count || 0),
+        0,
+      ),
+    [stats.sale_breakdown],
+  );
+
+  const handleYearChange = useCallback((option) => {
+    if (option?.value) setSelectedFinancialYear(option.value);
+  }, []);
+
+  const handleRefresh = useCallback(() => {
+    fetchSalesOverview(selectedFinancialYear, true);
+  }, [fetchSalesOverview, selectedFinancialYear]);
+
+  const showBodySkeleton = loading || refreshing;
+
+  if (error && !showBodySkeleton) {
     return (
-        <div className="relative col-span-full">
-            {/* Theme Settings Button */}
-            <div className="absolute top-4 right-4 z-10">
-                <motion.button
-                    whileHover={{ scale: 1.1, rotate: 90 }}
-                    whileTap={{ scale: 0.9 }}
-                    onClick={() => setShowThemeSelector(!showThemeSelector)}
-                    className="p-2 bg-white rounded-full shadow-md hover:shadow-lg transition-all border border-gray-200"
-                >
-                    <FiSettings className="w-5 h-5 text-gray-600" />
-                </motion.button>
-            </div>
-
-            {/* Theme Selector Dropdown */}
-            <AnimatePresence>
-                {showThemeSelector && (
-                    <ThemeSelector
-                        currentTheme={currentTheme}
-                        onThemeChange={handleThemeChange}
-                        onClose={() => setShowThemeSelector(false)}
-                    />
-                )}
-            </AnimatePresence>
-
-            <WidgetWrapper widgetId="sales-overview" title="Sales Overview" className="col-span-full" theme={theme}>
-                <div className="relative overflow-hidden">
-                    <div className={`absolute inset-0 bg-gradient-to-br ${theme.bgGradient}`} />
-                    <div className={`absolute top-0 right-0 w-48 h-48 bg-gradient-to-br ${theme.gradient} opacity-10 rounded-full -translate-y-24 translate-x-24`} />
-                    <div className={`absolute bottom-0 left-0 w-72 h-72 bg-gradient-to-tr ${theme.gradient} opacity-5 rounded-full -translate-x-36 translate-y-36`} />
-
-                    <div className="relative p-4 md:p-6">
-                        <div className="flex flex-col lg:flex-row items-center justify-between gap-4">
-                            <div className="flex-1">
-                                <div className="flex items-center gap-3 mb-3">
-                                    <div className="relative">
-                                        <div className={`p-2 bg-gradient-to-br ${theme.gradient} rounded-lg shadow-md`}>
-                                            <FiTrendingUp className="w-6 h-6 text-white" />
-                                        </div>
-                                        <div className="absolute -top-2 -right-2">
-                                            <span className="animate-ping absolute inline-flex h-4 w-4 rounded-full bg-green-400 opacity-75"></span>
-                                            <span className="relative inline-flex h-4 w-4 rounded-full bg-green-500"></span>
-                                        </div>
-                                    </div>
-                                    <div>
-                                        <div className="flex items-center gap-2">
-                                            <h3 className="text-xl md:text-2xl font-bold text-gray-800">
-                                                Congratulations!
-                                            </h3>
-                                        </div>
-                                        <p className="text-gray-600 mt-1 text-sm">Outstanding performance this fiscal year!</p>
-                                    </div>
-                                </div>
-
-                                <div className="mb-4">
-                                    <p className="text-gray-500 mb-1 text-sm">FY {stats.financial_year} Total Sales</p>
-                                    {check('finance_balance_view') ? (
-                                        <div className="flex items-end gap-3 flex-wrap">
-                                            <div className={`text-2xl md:text-3xl font-bold bg-gradient-to-r ${theme.gradient} bg-clip-text text-transparent`}>
-                                                {formatCurrency(stats.total_sale)}
-                                            </div>
-                                            <div className={`flex items-center gap-2 px-3 py-1 bg-gradient-to-r ${theme.badgeGradient} rounded-full ${getTrendColor(stats.growth_rate)}`}>
-                                                {getTrendIcon(stats.growth_rate)}
-                                                <span className="text-sm font-semibold">
-                                                    {stats.growth_rate > 0 ? '+' : ''}{stats.growth_rate.toFixed(1)}%
-                                                </span>
-                                            </div>
-                                        </div>
-                                    ) : (
-                                        <div className="text-xl font-semibold text-gray-400 italic">
-                                            ₹ ••••• (No Permission)
-                                        </div>
-                                    )}
-                                    {check('finance_balance_view') && (
-                                        <p className="text-gray-500 mt-2 text-sm">Achieved {achievementPercentage}% of annual target</p>
-                                    )}
-                                </div>
-
-                                <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
-                                    <div className="bg-white/50 backdrop-blur-sm p-3 rounded-lg border border-gray-100 hover:shadow-sm transition-shadow">
-                                        <div className="text-xs text-gray-600">Growth Rate</div>
-                                        <div className={`text-lg font-bold ${getTrendColor(stats.growth_rate)}`}>
-                                            {stats.growth_rate > 0 ? '+' : ''}{stats.growth_rate.toFixed(1)}%
-                                        </div>
-                                    </div>
-                                    {check('finance_balance_view') && (
-                                        <div className="bg-white/50 backdrop-blur-sm p-3 rounded-lg border border-gray-100 hover:shadow-sm transition-shadow">
-                                            <div className="text-xs text-gray-600">Net Profit</div>
-                                            <div className={`text-lg font-bold ${theme.statsColors[0]}`}>{formatCurrency(stats.net_profit)}</div>
-                                        </div>
-                                    )}
-                                    <div className="bg-white/50 backdrop-blur-sm p-3 rounded-lg border border-gray-100 hover:shadow-sm transition-shadow">
-                                        <div className="text-xs text-gray-600">Active Clients</div>
-                                        <div className={`text-lg font-bold ${theme.statsColors[1]}`}>{stats.active_client}</div>
-                                    </div>
-                                    <div className="bg-white/50 backdrop-blur-sm p-3 rounded-lg border border-gray-100 hover:shadow-sm transition-shadow">
-                                        <div className="text-xs text-gray-600">Task Completion</div>
-                                        <div className={`text-lg font-bold ${theme.statsColors[2]}`}>
-                                            {stats.task_complete_today}/{stats.total_tasks}
-                                        </div>
-                                        <div className="text-xs text-gray-500">{formatPercentage(stats.task_completion_rate)}</div>
-                                    </div>
-                                </div>
-
-                                <div className="flex flex-wrap gap-2">
-                                    {check('finance_balance_view') && (
-                                        <motion.button
-                                            className={`px-4 py-2 bg-gradient-to-r ${theme.buttonGradient} text-white rounded-lg hover:shadow-md transition-all duration-200 text-sm`}
-                                            whileHover={{ scale: 1.05 }}
-                                            whileTap={{ scale: 0.95 }}
-                                            onClick={() => window.location.href = '/reports/sales'}
-                                        >
-                                            <div className="flex items-center gap-2">
-                                                <FiBarChart2 className="w-4 h-4" />
-                                                View Sales Report
-                                            </div>
-                                        </motion.button>
-                                    )}
-                                    {check('finance_balance_view') && (
-                                        <motion.button
-                                            className="px-4 py-2 bg-white text-gray-700 rounded-lg border border-gray-200 hover:bg-gray-50 transition-all duration-200 text-sm"
-                                            whileHover={{ scale: 1.05 }}
-                                            whileTap={{ scale: 0.95 }}
-                                            onClick={() => {
-                                                console.log('Export data');
-                                            }}
-                                        >
-                                            <div className="flex items-center gap-2">
-                                                <FiDownload className="w-4 h-4" />
-                                                Export Data
-                                            </div>
-                                        </motion.button>
-                                    )}
-                                </div>
-                            </div>
-
-                            {check('finance_balance_view') && (
-                                <div className="lg:w-1/3">
-                                    <div className="relative">
-                                        <div className="w-48 h-48 mx-auto relative">
-                                            <svg className="w-full h-full" viewBox="0 0 100 100">
-                                                <circle cx="50" cy="50" r="45" fill="none" stroke="#e5e7eb" strokeWidth="4" />
-                                                <motion.circle
-                                                    cx="50" cy="50" r="45" fill="none"
-                                                    stroke={`url(#gradient-${theme.id})`} strokeWidth="6" strokeLinecap="round"
-                                                    initial={{ strokeDasharray: '0, 283' }}
-                                                    animate={{ strokeDasharray: `${(achievementPercentage / 100) * 283}, 283` }}
-                                                    transition={{ duration: 1.5, ease: "easeOut" }}
-                                                    transform="rotate(-90 50 50)"
-                                                />
-                                                <defs>
-                                                    <linearGradient id={`gradient-${theme.id}`} x1="0%" y1="0%" x2="100%" y2="100%">
-                                                        <stop offset="0%" stopColor={theme.circleGradient.start} />
-                                                        <stop offset="100%" stopColor={theme.circleGradient.end} />
-                                                    </linearGradient>
-                                                </defs>
-                                            </svg>
-
-                                            <div className="absolute inset-0 flex items-center justify-center">
-                                                <div className="text-center">
-                                                    <div className={`text-3xl font-bold ${theme.statsColors[0]}`}>{achievementPercentage}%</div>
-                                                    <div className="text-gray-600 text-xs">Target Achieved</div>
-                                                </div>
-                                            </div>
-                                        </div>
-
-                                        <div className={`absolute -top-3 -right-3 w-12 h-12 bg-gradient-to-br ${theme.gradient} rounded-full flex items-center justify-center shadow-md`}>
-                                            <FiAward className="w-6 h-6 text-white" />
-                                        </div>
-                                        <div className={`absolute -bottom-3 -left-3 w-10 h-10 bg-gradient-to-br ${theme.gradient} rounded-full flex items-center justify-center shadow-md`}>
-                                            <FiTrendingUp className="w-6 h-6 text-white" />
-                                        </div>
-                                    </div>
-                                </div>
-                            )}
-                        </div>
-                    </div>
-                </div>
-            </WidgetWrapper>
+      <div className="bg-white">
+        <SalesOverviewHeader
+          financialYearOptions={financialYearOptions}
+          selectedYearOption={selectedYearOption}
+          onYearChange={handleYearChange}
+          onRefresh={() => fetchSalesOverview(selectedFinancialYear)}
+          refreshing={false}
+        />
+        <div className="px-4 py-10 md:px-6 text-center bg-gray-50/50">
+          <motion.div
+            initial={{ scale: 0.9, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            className="inline-flex items-center justify-center w-14 h-14 bg-red-50 rounded-full mb-4"
+          >
+            <FiAlertCircle className="w-7 h-7 text-red-500" />
+          </motion.div>
+          <h3 className="text-base font-semibold text-gray-800 mb-1.5">
+            Unable to load sales overview
+          </h3>
+          <p className="text-sm text-gray-500 mb-4 max-w-md mx-auto">{error}</p>
+          <button
+            type="button"
+            onClick={() => fetchSalesOverview(selectedFinancialYear)}
+            className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg shadow-sm text-sm hover:bg-indigo-700 transition-colors"
+          >
+            <FiRefreshCw className="w-4 h-4" />
+            Retry
+          </button>
         </div>
+      </div>
     );
+  }
+
+  return (
+    <div className="bg-white">
+      <SalesOverviewHeader
+        financialYearOptions={financialYearOptions}
+        selectedYearOption={selectedYearOption}
+        onYearChange={handleYearChange}
+        onRefresh={handleRefresh}
+        refreshing={refreshing}
+      />
+
+      {showBodySkeleton ? (
+        <SalesOverviewBodySkeleton />
+      ) : (
+        <SalesOverviewBody
+          stats={stats}
+          canViewAmounts={canViewAmounts}
+          maskedAmount={maskedAmount}
+          gstShare={gstShare}
+          taskShare={taskShare}
+          avgInvoiceValue={avgInvoiceValue}
+          preTaxAmount={preTaxAmount}
+          totalSourceCount={totalSourceCount}
+          selectedYearOption={selectedYearOption}
+          selectedFinancialYear={selectedFinancialYear}
+          formatCurrency={formatCurrency}
+        />
+      )}
+    </div>
+  );
 };
 
 export default SalesOverviewWidget;

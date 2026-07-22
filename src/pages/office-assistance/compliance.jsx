@@ -11,6 +11,7 @@ import { useNavigate } from "react-router-dom";
 import {
   FiArrowLeft,
   FiArrowRight,
+  FiBriefcase,
   FiCalendar,
   FiClock,
   FiEdit2,
@@ -94,7 +95,8 @@ const COLUMN_STACK =
   "flex flex-col items-start justify-start gap-2 w-full min-w-0";
 const SUB_CELL = "w-full min-w-0";
 const SUB_CELL_DIVIDER = "border-b border-gray-100 my-1";
-const CELL_BODY = "text-sm font-medium text-gray-700 break-words whitespace-normal";
+const CELL_BODY =
+  "text-sm font-medium text-gray-700 break-words whitespace-normal";
 const CELL_TITLE =
   "text-sm font-semibold text-gray-800 break-words whitespace-normal";
 const CELL_INDEX = "text-[11px] font-bold text-gray-800";
@@ -445,7 +447,17 @@ const isTaskNotStarted = (row) => !row?.task_id || !row?.status;
 const taskRowKey = (row) => {
   const dates = rowDates(row);
   const firm = rowFirm(row);
-  return `${firm.firm_id || ""}:${dates.compliance_year || ""}:${dates.compliance_period ?? ""}`;
+  const service = rowService(row);
+  const serviceId = service.service_id || row?.service_id || "";
+  const firmId = firm.firm_id || row?.firm_id || "";
+  const year = dates.compliance_year || "";
+  const period = dates.compliance_period ?? "";
+  // Include service_id so "All services" rows for the same firm/period stay unique.
+  // Prefer task_id when present so started vs not-started never collide.
+  if (row?.task_id) {
+    return `task:${row.task_id}`;
+  }
+  return `ns:${serviceId}:${firmId}:${year}:${period}`;
 };
 
 const toStaffUser = (entry) => {
@@ -636,6 +648,7 @@ export const ComplianceTaskBoard = ({
   const rowMenuButtonRefs = useRef({});
   const rowContextPositionRef = useRef(null);
   const rowDropdownRef = useRef(null);
+  const loadTasksRequestIdRef = useRef(0);
   const [rowDropdownPosition, setRowDropdownPosition] = useState({
     top: 8,
     left: 8,
@@ -721,9 +734,30 @@ export const ComplianceTaskBoard = ({
     return () => clearTimeout(timer);
   }, [searchTerm]);
 
+  const statusFilterKey = useMemo(
+    () =>
+      [...statusFilterValues]
+        .map((value) =>
+          String(value || "")
+            .trim()
+            .toLowerCase(),
+        )
+        .filter(Boolean)
+        .sort()
+        .join("|"),
+    [statusFilterValues],
+  );
+
   useEffect(() => {
     setPagination((prev) => (prev.page !== 1 ? { ...prev, page: 1 } : prev));
-  }, [debouncedSearch, statusFilterValues, serviceId, complianceYear, compliancePeriod, selectedFirmId]);
+  }, [
+    debouncedSearch,
+    statusFilterKey,
+    serviceId,
+    complianceYear,
+    compliancePeriod,
+    selectedFirmId,
+  ]);
 
   const loadServices = useCallback(async () => {
     try {
@@ -737,7 +771,9 @@ export const ComplianceTaskBoard = ({
   }, []);
 
   const loadTasks = useCallback(async () => {
+    const requestId = ++loadTasksRequestIdRef.current;
     setLoading(true);
+    setRows([]);
     try {
       const res = await fetchComplianceTaskList({
         service_id: serviceId,
@@ -753,15 +789,20 @@ export const ComplianceTaskBoard = ({
         status: statusFilterValues,
         search: debouncedSearch,
       });
-      setRows(res.data);
+      // Ignore stale responses from earlier overlapping fetches.
+      if (requestId !== loadTasksRequestIdRef.current) return;
+      setRows(Array.isArray(res.data) ? res.data : []);
       setPeriodOptions(res.query_payload?.period_options ?? null);
       setPagination((prev) => ({ ...prev, ...res.pagination }));
     } catch (error) {
+      if (requestId !== loadTasksRequestIdRef.current) return;
       toast.error(extractApiError(error, "Failed to load compliance tasks"));
       setRows([]);
       setPeriodOptions(null);
     } finally {
-      setLoading(false);
+      if (requestId === loadTasksRequestIdRef.current) {
+        setLoading(false);
+      }
     }
   }, [
     serviceId,
@@ -771,7 +812,7 @@ export const ComplianceTaskBoard = ({
     pagination.limit,
     username,
     selectedFirmId,
-    statusFilterValues,
+    statusFilterKey,
     debouncedSearch,
   ]);
 
@@ -1110,15 +1151,22 @@ export const ComplianceTaskBoard = ({
     <>
       <div className={cardShellClass}>
         <div className="border-b border-gray-200 px-3 md:px-4 py-3 bg-gradient-to-r from-gray-50 to-white">
-          <div>
+          <div className="flex items-center justify-between gap-3">
             <h1 className="text-base md:text-lg font-bold text-gray-800 leading-tight">
               Compliance Tasks
             </h1>
-            <p className="text-xs text-gray-500 mt-0.5">
-              {isClientScoped
-                ? "Compliance schedule and work status for this client"
-                : "Track compliance work by firm and period"}
-            </p>
+            {!isClientScoped ? (
+              <button
+                type="button"
+                onClick={() =>
+                  navigate("/staff/office-assistance/compliance/firm-assignment")
+                }
+                className="inline-flex items-center gap-1.5 shrink-0 px-3 py-2 text-sm font-medium text-teal-700 bg-teal-50 border border-teal-200 hover:bg-teal-100 rounded-lg transition-colors"
+              >
+                <FiBriefcase className="w-3.5 h-3.5" />
+                Firm Assignment
+              </button>
+            ) : null}
           </div>
         </div>
 
@@ -1134,7 +1182,7 @@ export const ComplianceTaskBoard = ({
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 placeholder="Search firm, service, client, mobile, email, PAN, GST..."
-                className={`${TOOLBAR_INPUT} pl-9`}
+                className="w-full pl-9 pr-3 py-2 text-sm text-gray-700 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none"
               />
             </div>
           </div>
@@ -1321,7 +1369,10 @@ export const ComplianceTaskBoard = ({
               <tbody className="bg-white">
                 {loading ? (
                   Array.from({ length: 5 }).map((_, index) => (
-                    <tr key={index} className="animate-pulse">
+                    <tr
+                      key={`compliance-skeleton-${index}`}
+                      className="animate-pulse"
+                    >
                       <td className={TABLE_TD_FIRST}>
                         <div
                           className={`${CELL_INDEX} h-3.5 bg-gray-200 rounded w-6`}
@@ -1455,12 +1506,16 @@ export const ComplianceTaskBoard = ({
                                   {serviceName}
                                 </button>
                               ) : (
-                                <span className={`${CELL_TITLE} ${CELL_WRAP} block`}>
+                                <span
+                                  className={`${CELL_TITLE} ${CELL_WRAP} block`}
+                                >
                                   {serviceName}
                                 </span>
                               ),
                               periodLabel ? (
-                                <span className={`${CELL_BODY} ${CELL_WRAP} block`}>
+                                <span
+                                  className={`${CELL_BODY} ${CELL_WRAP} block`}
+                                >
                                   {periodLabel}
                                 </span>
                               ) : (
@@ -1563,7 +1618,9 @@ export const ComplianceTaskBoard = ({
                               ) : (
                                 <CellDash />
                               ),
-                              <span className={`${CELL_BODY} ${CELL_WRAP} block`}>
+                              <span
+                                className={`${CELL_BODY} ${CELL_WRAP} block`}
+                              >
                                 {fileNo || "—"}
                               </span>,
                             ]}
@@ -1622,9 +1679,7 @@ export const ComplianceTaskBoard = ({
           defaultRows={20}
           showJump
           showFirstLast
-          onPageChange={(page) =>
-            setPagination((prev) => ({ ...prev, page }))
-          }
+          onPageChange={(page) => setPagination((prev) => ({ ...prev, page }))}
           onLimitChange={(limit) =>
             setPagination((prev) => ({ ...prev, limit, page: 1 }))
           }
