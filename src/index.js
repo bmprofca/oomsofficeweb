@@ -120,6 +120,7 @@ import {
   QuickStatsDetailsPage,
   ServiceWiseSales,
   StaffSalesDetails,
+  StaffWiseSalesPage,
   TopClientsViewAll,
   BulkImportPage,
 } from './app/lazyRoutes';
@@ -924,6 +925,12 @@ root.render(
             <Route path="/staff-sales-details" element={
               <ProtectedRoute>
                 <StaffSalesDetails />
+              </ProtectedRoute>
+            } />
+
+            <Route path="/sales/staff-wise" element={
+              <ProtectedRoute>
+                <StaffWiseSalesPage />
               </ProtectedRoute>
             } />
 

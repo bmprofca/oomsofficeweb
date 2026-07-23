@@ -44,7 +44,7 @@ const WIDGET_META = {
   },
   "staff-wise-sales": {
     description:
-      "Staff contribution to sales — compare performance across team members.",
+      "Horizontal bar chart of staff sales split by task, direct, and total for the selected period.",
     iconBg: "from-teal-500 to-emerald-600",
     ring: "ring-teal-100",
     badge: "bg-teal-100 text-teal-700",

@@ -111,5 +111,6 @@ export const TaskDashboardDetailPage = lazy(() => import('../DashboardComponents
 export const QuickStatsDetailsPage = lazy(() => import('../DashboardComponents/quick-stats-details'));
 export const ServiceWiseSales = lazy(() => import('../DashboardComponents/ServiceSalesDetails'));
 export const StaffSalesDetails = lazy(() => import('../DashboardComponents/StaffSalesDetails'));
+export const StaffWiseSalesPage = lazy(() => import('../DashboardComponents/StaffWiseSalesPage'));
 export const TopClientsViewAll = lazy(() => import('../DashboardComponents/TopClientsViewAll'));
 export const BulkImportPage = lazy(() => import('../pages/broadcast/email/BulkEmailImport'));
