@@ -38,6 +38,7 @@ import {
   FiChevronDown,
   FiHome,
   FiLock,
+  FiBriefcase,
 } from "react-icons/fi";
 import { motion } from "framer-motion";
 import TaskSummary from "../DashboardComponents/task-summary";
@@ -55,8 +56,8 @@ import SalesOverviewWidget from "../DashboardComponents/SalesOverviewWidget";
 import DashboardCustomizeDrawer from "../DashboardComponents/DashboardCustomizeDrawer";
 // Version constants for localStorage migration
 const DASHBOARD_VERSION = "7";
-const QUICK_STATS_VERSION = "2";
-const ADDITIONAL_STATS_VERSION = "2";
+const QUICK_STATS_VERSION = "3";
+const ADDITIONAL_STATS_VERSION = "3";
 
 const hasValidBranchInStorage = () => {
   const branchId = localStorage.getItem("branch_id");
@@ -156,12 +157,14 @@ const getDefaultQuickStatsCards = () => [
   {
     id: "pending-billing",
     title: "Pending Billing",
-    value: "pending_for_billing",
+    value: "pending_billing",
     icon: FiShoppingBag,
     color: "bg-gradient-to-br from-indigo-500 to-purple-600 text-white",
     gradient: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
     link: "/billing",
-    isCurrency: false,
+    showCount: true,
+    showAmount: true,
+    isCurrency: true,
   },
   {
     id: "creditors",
@@ -171,6 +174,8 @@ const getDefaultQuickStatsCards = () => [
     color: "bg-gradient-to-br from-cyan-500 to-blue-600 text-white",
     gradient: "linear-gradient(135deg, #06b6d4 0%, #3b82f6 100%)",
     link: "/quick-stats/creditors",
+    showCount: true,
+    showAmount: true,
     isCurrency: true,
   },
   {
@@ -181,6 +186,8 @@ const getDefaultQuickStatsCards = () => [
     color: "bg-gradient-to-br from-red-500 to-pink-600 text-white",
     gradient: "linear-gradient(135deg, #ef4444 0%, #ec4899 100%)",
     link: "/quick-stats/debtors",
+    showCount: true,
+    showAmount: true,
     isCurrency: true,
   },
   {
@@ -191,6 +198,8 @@ const getDefaultQuickStatsCards = () => [
     color: "bg-gradient-to-br from-green-500 to-emerald-600 text-white",
     gradient: "linear-gradient(135deg, #10b981 0%, #059669 100%)",
     link: "/quick-stats/today-received",
+    showCount: true,
+    showAmount: true,
     isCurrency: true,
   },
   {
@@ -201,6 +210,8 @@ const getDefaultQuickStatsCards = () => [
     color: "bg-gradient-to-br from-orange-500 to-amber-600 text-white",
     gradient: "linear-gradient(135deg, #f97316 0%, #f59e0b 100%)",
     link: "/quick-stats/today-payment",
+    showCount: true,
+    showAmount: true,
     isCurrency: true,
   },
   {
@@ -211,6 +222,8 @@ const getDefaultQuickStatsCards = () => [
     color: "bg-gradient-to-br from-purple-500 to-violet-600 text-white",
     gradient: "linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%)",
     link: "/quick-stats/today-birthday",
+    showCount: true,
+    showAmount: false,
     isCurrency: false,
   },
 ];
@@ -218,7 +231,7 @@ const getDefaultQuickStatsCards = () => [
 const getDefaultAdditionalStatsCards = () => [
   {
     id: "total-client",
-    title: "Total Client",
+    title: "Total Clients",
     value: "total_client",
     icon: FiUsers,
     color: "bg-gradient-to-br from-gray-600 to-gray-700 text-white",
@@ -228,7 +241,7 @@ const getDefaultAdditionalStatsCards = () => [
   },
   {
     id: "new-client",
-    title: "New Client",
+    title: "New Clients",
     value: "new_client",
     icon: FiUserPlus,
     color: "bg-gradient-to-br from-indigo-500 to-purple-600 text-white",
@@ -238,7 +251,7 @@ const getDefaultAdditionalStatsCards = () => [
   },
   {
     id: "active-client",
-    title: "Active Client",
+    title: "Active Clients",
     value: "active_client",
     icon: FiCheckCircle,
     color: "bg-gradient-to-br from-green-500 to-emerald-600 text-white",
@@ -252,7 +265,7 @@ const getDefaultAdditionalStatsCards = () => [
     value: "net_profit",
     icon: FiTrendingUp,
     color: "bg-gradient-to-br from-emerald-500 to-green-600 text-white",
-    gradient: "linear-gradient(135deg, #10b981 0%, #059669 100%)",
+    gradient: "linear-gradient(135deg, #f59e0b 0%, #ea580c 100%)",
     link: "/finance/report",
     isCurrency: true,
   },
@@ -278,25 +291,96 @@ const getDefaultAdditionalStatsCards = () => [
   },
   {
     id: "task-create-today",
-    title: "Task Create Today",
+    title: "Tasks Created",
     value: "task_created_today",
     icon: FiPlus,
     color: "bg-gradient-to-br from-indigo-500 to-blue-600 text-white",
-    gradient: "linear-gradient(135deg, #667eea 0%, #3b82f6 100%)",
+    gradient: "linear-gradient(135deg, #8b5cf6 0%, #6d28d9 100%)",
     link: "/dashboard/tasks/task_created_today",
     isCurrency: false,
   },
   {
     id: "task-complete-today",
-    title: "Task Complete Today",
+    title: "Tasks Completed",
     value: "task_completed_today",
     icon: FiCheckCircle,
     color: "bg-gradient-to-br from-green-500 to-teal-600 text-white",
-    gradient: "linear-gradient(135deg, #10b981 0%, #0d9488 100%)",
+    gradient: "linear-gradient(135deg, #14b8a6 0%, #0f766e 100%)",
     link: "/dashboard/tasks/task_completed_today",
     isCurrency: false,
   },
+  {
+    id: "total-ca",
+    title: "Total CA",
+    value: "total_ca",
+    icon: FiBriefcase,
+    color: "bg-gradient-to-br from-indigo-500 to-indigo-700 text-white",
+    gradient: "linear-gradient(135deg, #6366f1 0%, #4f46e5 100%)",
+    link: "/staff/office-assistance/ca-list",
+    isCurrency: false,
+  },
+  {
+    id: "total-agent",
+    title: "Total Agent",
+    value: "total_agent",
+    icon: FiUserPlus,
+    color: "bg-gradient-to-br from-sky-500 to-blue-600 text-white",
+    gradient: "linear-gradient(135deg, #0ea5e9 0%, #0284c7 100%)",
+    link: "/settings/agent-list",
+    isCurrency: false,
+  },
+  {
+    id: "total-firms",
+    title: "Total Firms",
+    value: "total_firms",
+    icon: FiHome,
+    color: "bg-gradient-to-br from-orange-500 to-amber-600 text-white",
+    gradient: "linear-gradient(135deg, #f97316 0%, #ea580c 100%)",
+    link: "/staff/office-assistance/group-firms",
+    isCurrency: false,
+  },
+  {
+    id: "total-services",
+    title: "Total Services",
+    value: "total_services",
+    icon: FiLayers,
+    color: "bg-gradient-to-br from-purple-500 to-violet-600 text-white",
+    gradient: "linear-gradient(135deg, #a855f7 0%, #7c3aed 100%)",
+    link: "/staff/office-assistance/services",
+    isCurrency: false,
+  },
 ];
+
+const formatCurrency = (amount) =>
+  new Intl.NumberFormat("en-IN", {
+    style: "currency",
+    currency: "INR",
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0,
+  }).format(amount);
+
+const formatNumber = (number) =>
+  new Intl.NumberFormat("en-IN").format(number);
+
+/** Stable shell — must live outside Dashboard so sidebar/drawer state does not remount widgets. */
+const WidgetWrapper = React.memo(
+  ({ visible, children, className = "", variant = "default" }) => {
+    if (!visible) return null;
+
+    const shellClassName =
+      variant === "flush"
+        ? "rounded-xl shadow-sm overflow-hidden"
+        : "bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden";
+
+    return (
+      <div className={`relative ${className}`}>
+        <div className={shellClassName}>{children}</div>
+      </div>
+    );
+  },
+);
+
+WidgetWrapper.displayName = "WidgetWrapper";
 
 const Dashboard = () => {
   const navigate = useNavigate();
@@ -307,18 +391,9 @@ const Dashboard = () => {
     const saved = localStorage.getItem("sidebarMinimized");
     return saved ? JSON.parse(saved) : false;
   });
-  const [loading, setLoading] = useState(false);
-  const [blurEnabled, setBlurEnabled] = useState(false);
+  const [blurEnabled] = useState(false);
   const [stats, setStats] = useState({});
-  const [taskStats, setTaskStats] = useState([]);
-  const [topClients, setTopClients] = useState([]);
-  const [refreshKey, setRefreshKey] = useState(0);
-
-  // Branch validation state — read localStorage synchronously to avoid welcome overlay flicker
-  const [hasBranch, setHasBranch] = useState(hasValidBranchInStorage);
-  const [branchValidated, setBranchValidated] = useState(
-    hasValidBranchInStorage,
-  );
+  const [branchValidated] = useState(hasValidBranchInStorage);
 
   // Customization state
   const [isCustomizing, setIsCustomizing] = useState(false);
@@ -515,21 +590,14 @@ const Dashboard = () => {
     };
   }, [mobileMenuOpen]);
 
-  // Load initial data - Modified to check for branch
-  useEffect(() => {
-    if (branchValidated) {
-      fetchDashboardData();
-    }
-  }, [branchValidated]);
-
-  const fetchDashboardData = async () => {
+  // Load initial shared dashboard stats once (branch validated)
+  const fetchDashboardData = useCallback(async () => {
     const branchId = localStorage.getItem("branch_id");
     if (!branchId) {
       console.log("No branch found, skipping data fetch");
       return;
     }
 
-    setLoading(true);
     try {
       const headers = getHeaders();
       const response = await fetch(
@@ -551,52 +619,19 @@ const Dashboard = () => {
 
       if (result.success && result.data) {
         setStats(result.data);
-
-        if (result.data.additional_metrics?.task_status_breakdown) {
-          const taskBreakdown =
-            result.data.additional_metrics.task_status_breakdown;
-          const transformedTaskStats = [
-            {
-              name: "Task Status",
-              OD: taskBreakdown["overdue"] || 0,
-              DT: taskBreakdown["due_today"] || 0,
-              D7: taskBreakdown["due_in_7_days"] || 0,
-              FT: taskBreakdown["future_tasks"] || 0,
-              WIP: taskBreakdown["in process"] || 0,
-              PFC: taskBreakdown["pending_from_client"] || 0,
-              PFD: taskBreakdown["pending from department"] || 0,
-              CPL: taskBreakdown["complete"] || 0,
-              CNL: taskBreakdown["cancelled"] || 0,
-            },
-          ];
-          setTaskStats(transformedTaskStats);
-        }
-
-        if (result.data.top_clients) {
-          setTopClients(result.data.top_clients);
-        }
       } else {
         throw new Error(result.message || "Failed to fetch dashboard data");
       }
     } catch (err) {
       console.error("Dashboard API Error:", err);
-    } finally {
-      setLoading(false);
     }
-  };
+  }, []);
 
-  const formatCurrency = (amount) => {
-    return new Intl.NumberFormat("en-IN", {
-      style: "currency",
-      currency: "INR",
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0,
-    }).format(amount);
-  };
-
-  const formatNumber = (number) => {
-    return new Intl.NumberFormat("en-IN").format(number);
-  };
+  useEffect(() => {
+    if (branchValidated) {
+      fetchDashboardData();
+    }
+  }, [branchValidated, fetchDashboardData]);
 
   const commitVisibleWidgetOrder = useCallback((orderedVisible) => {
     setWidgets((prev) => {
@@ -639,112 +674,135 @@ const Dashboard = () => {
     document.documentElement.style.removeProperty("overflow");
   }, []);
 
-  // Widget Wrapper — static shell (no enter animation) to avoid flicker on parent re-renders
-  const WidgetWrapper = React.memo(
-    ({ widgetId, children, className = "", variant = "default" }) => {
-      const widget = widgets.find((w) => w.id === widgetId);
-      if (!widget || !widget.visible) return null;
+  const handleCreateTask = useCallback(() => {
+    openTaskCreate({ onNavigateToTaskList: () => navigate("/task/view") });
+  }, [navigate, openTaskCreate]);
 
-      const shellClassName =
-        variant === "flush"
-          ? "rounded-xl shadow-sm overflow-hidden"
-          : "bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden";
-
-      return (
-        <div className={`relative ${className}`}>
-          <div className={shellClassName}>{children}</div>
-        </div>
-      );
+  const handleQuickStatsNavigate = useCallback(
+    (path, options) => {
+      if (options?.state) {
+        navigate(path, { state: options.state });
+      } else {
+        navigate(path);
+      }
     },
+    [navigate],
   );
 
-  WidgetWrapper.displayName = "WidgetWrapper";
+  const widgetVisibility = useMemo(() => {
+    const map = {};
+    widgets.forEach((w) => {
+      map[w.id] = !!w.visible;
+    });
+    return map;
+  }, [widgets]);
 
-  // Quick Stats Widget
-  const QuickStatsWidget = React.memo(() => (
-    <WidgetWrapper widgetId="quick-stats">
-      <div className="p-4">
-        <QuickStats
-          stats={stats}
-          isCustomizing={false}
-          formatCurrency={formatCurrency}
-          formatNumber={formatNumber}
-          blurEnabled={blurEnabled}
-          onNavigate={(path, options) => {
-            if (options?.state) {
-              navigate(path, { state: options.state });
-            } else {
-              navigate(path);
-            }
-          }}
-          quickStatsCards={quickStatsCards}
-          setQuickStatsCards={setQuickStatsCards}
-          onRefresh={fetchDashboardData}
-        />
-      </div>
-    </WidgetWrapper>
-  ));
-
-  const TaskSummaryWidget = React.memo(() => (
-    <WidgetWrapper widgetId="task-summary" className="min-w-0">
-      <TaskSummary
-        taskStats={taskStats}
-        onRefresh={() => fetchDashboardData()}
-        onCreateTask={() =>
-          openTaskCreate({ onNavigateToTaskList: () => navigate("/task/view") })
-        }
-      />
-    </WidgetWrapper>
-  ));
-
-  const ServiceWiseSalesWidget = React.memo(() => (
-    <WidgetWrapper widgetId="service-wise-sales">
-      <ServiceWiseSales
-        onViewDetails={() => navigate("/sales/service-wise")}
-        refreshTrigger={refreshKey}
-      />
-    </WidgetWrapper>
-  ));
-
-  const StaffWiseSalesWidget = React.memo(() => (
-    <WidgetWrapper widgetId="staff-wise-sales">
-      <StaffWiseSales
-        onViewDetails={() => navigate("/sales/staff-wise")}
-        refreshTrigger={refreshKey}
-      />
-    </WidgetWrapper>
-  ));
-
-  const TopClientsWidget = React.memo(() => (
-    <WidgetWrapper widgetId="top-clients">
-      <TopClients
-        defaultDays={30}
-        onViewDetails={() => navigate("/clients/top")}
-        refreshTrigger={refreshKey}
-      />
-    </WidgetWrapper>
-  ));
-
-  const AdditionalStatsWidget = React.memo(() => (
-    <WidgetWrapper widgetId="additional-stats">
-      <AdditionalStatsComponent
-        stats={stats}
-        isCustomizing={false}
-        formatCurrency={formatCurrency}
-        formatNumber={formatNumber}
-        blurEnabled={blurEnabled}
-        onNavigate={(link) => navigate(link)}
-        additionalStatsCards={additionalStatsCards}
-        setAdditionalStatsCards={setAdditionalStatsCards}
-      />
-    </WidgetWrapper>
-  ));
-
-  const SalesOverviewWidgetComponent = React.memo(() => (
-    <WidgetWrapper widgetId="sales-overview" variant="flush">
-      <SalesOverviewWidget />
-    </WidgetWrapper>
-  ));
+  const renderWidget = useCallback(
+    (widget) => {
+      switch (widget.component) {
+        case "SalesOverview":
+          return (
+            <WidgetWrapper
+              key={widget.id}
+              visible={widgetVisibility["sales-overview"]}
+              variant="flush"
+            >
+              <SalesOverviewWidget />
+            </WidgetWrapper>
+          );
+        case "QuickStats":
+          return (
+            <WidgetWrapper
+              key={widget.id}
+              visible={widgetVisibility["quick-stats"]}
+            >
+              <div className="p-4">
+                <QuickStats
+                  stats={stats}
+                  isCustomizing={false}
+                  formatCurrency={formatCurrency}
+                  formatNumber={formatNumber}
+                  blurEnabled={blurEnabled}
+                  onNavigate={handleQuickStatsNavigate}
+                  quickStatsCards={quickStatsCards}
+                  setQuickStatsCards={setQuickStatsCards}
+                />
+              </div>
+            </WidgetWrapper>
+          );
+        case "TaskSummary":
+          return (
+            <WidgetWrapper
+              key={widget.id}
+              visible={widgetVisibility["task-summary"]}
+              className="min-w-0"
+            >
+              <TaskSummary onCreateTask={handleCreateTask} />
+            </WidgetWrapper>
+          );
+        case "ServiceWiseSales":
+          return (
+            <WidgetWrapper
+              key={widget.id}
+              visible={widgetVisibility["service-wise-sales"]}
+            >
+              <ServiceWiseSales
+                onViewDetails={() => navigate("/sales/service-wise")}
+              />
+            </WidgetWrapper>
+          );
+        case "StaffWiseSales":
+          return (
+            <WidgetWrapper
+              key={widget.id}
+              visible={widgetVisibility["staff-wise-sales"]}
+            >
+              <StaffWiseSales
+                onViewDetails={() => navigate("/sales/staff-wise")}
+              />
+            </WidgetWrapper>
+          );
+        case "TopClients":
+          return (
+            <WidgetWrapper
+              key={widget.id}
+              visible={widgetVisibility["top-clients"]}
+            >
+              <TopClients />
+            </WidgetWrapper>
+          );
+        case "AdditionalStats":
+          return (
+            <WidgetWrapper
+              key={widget.id}
+              visible={widgetVisibility["additional-stats"]}
+            >
+              <AdditionalStatsComponent
+                isCustomizing={false}
+                formatCurrency={formatCurrency}
+                formatNumber={formatNumber}
+                blurEnabled={blurEnabled}
+                onNavigate={(link) => navigate(link)}
+                additionalStatsCards={additionalStatsCards}
+                setAdditionalStatsCards={setAdditionalStatsCards}
+              />
+            </WidgetWrapper>
+          );
+        default:
+          return null;
+      }
+    },
+    [
+      additionalStatsCards,
+      blurEnabled,
+      handleCreateTask,
+      handleQuickStatsNavigate,
+      navigate,
+      quickStatsCards,
+      stats,
+      widgetVisibility,
+    ],
+  );
 
   if (!branchValidated) {
     return null;
@@ -771,7 +829,10 @@ const Dashboard = () => {
       >
         <div className="h-full flex flex-col mx-2 sm:mx-4 md:mx-8 my-3 md:my-4">
           {hasAnyDashboardPermission && (
-            <div className="flex justify-end mb-3">
+            <div className="flex items-center justify-between gap-3 mb-3">
+              <h1 className="text-base md:text-lg font-bold text-gray-800 leading-tight">
+                Dashboard
+              </h1>
               <motion.button
                 onClick={() =>
                   isCustomizing ? closeCustomization() : startCustomization()
@@ -820,26 +881,7 @@ const Dashboard = () => {
                 customize your dashboard layout.
               </div>
             ) : (
-              visibleWidgets.map((widget) => {
-                switch (widget.component) {
-                  case "SalesOverview":
-                    return <SalesOverviewWidgetComponent key={widget.id} />;
-                  case "QuickStats":
-                    return <QuickStatsWidget key={widget.id} />;
-                  case "TaskSummary":
-                    return <TaskSummaryWidget key={widget.id} />;
-                  case "ServiceWiseSales":
-                    return <ServiceWiseSalesWidget key={widget.id} />;
-                  case "StaffWiseSales":
-                    return <StaffWiseSalesWidget key={widget.id} />;
-                  case "TopClients":
-                    return <TopClientsWidget key={widget.id} />;
-                  case "AdditionalStats":
-                    return <AdditionalStatsWidget key={widget.id} />;
-                  default:
-                    return null;
-                }
-              })
+              visibleWidgets.map((widget) => renderWidget(widget))
             )}
           </div>
         </div>

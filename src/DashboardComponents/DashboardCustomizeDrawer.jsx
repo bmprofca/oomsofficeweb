@@ -58,7 +58,7 @@ const WIDGET_META = {
   },
   "additional-stats": {
     description:
-      "Extended metrics — client counts, task stats, and other operational KPIs.",
+      "Client, staff, CA, agent, firm, service, and task KPIs in a compact card grid.",
     iconBg: "from-cyan-500 to-blue-600",
     ring: "ring-cyan-100",
     badge: "bg-cyan-100 text-cyan-700",
